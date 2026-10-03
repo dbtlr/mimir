@@ -160,19 +160,25 @@ test("a writer waits out another process's lock without stalling the event loop"
   try {
     const store = createSqliteStore(handle.db);
     other.run('begin immediate');
-    let ticks = 0;
+    // The longest the event loop went without running a timer while the write
+    // waited. A synchronous wait would hold it for the whole busy timeout —
+    // and, here, past the release, which only the event loop can run.
+    let last = performance.now();
+    let longest = 0;
     const timer = setInterval(() => {
-      ticks += 1;
+      const now = performance.now();
+      longest = Math.max(longest, now - last);
+      last = now;
     }, 5);
     const write = store.transact((writer) =>
       writer.insertProject({ description: null, key: 'MMR', name: 'Mimir', tags: [] }),
     );
-    await Bun.sleep(250);
+    const held = 600;
+    await Bun.sleep(held);
     other.run('commit');
     await write;
     clearInterval(timer);
-    // A synchronous wait would have frozen the timer for the whole 250ms.
-    expect(ticks).toBeGreaterThan(20);
+    expect(longest).toBeLessThan(held / 2);
     expect((await store.loadProjects()).map((project) => project.key)).toEqual(['MMR']);
   } finally {
     other.close();
