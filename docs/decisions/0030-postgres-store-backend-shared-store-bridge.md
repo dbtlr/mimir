@@ -88,7 +88,7 @@ section for the backend fence to return to.
 5. **Schema authority is explicit on the shared backend.** The Postgres backend
    carries a schema version. A binary refuses to run against a newer schema and
    upgrades an older one only through an explicit command. Norn's auto-converge
-   is unchanged (MMR-362 stays open for that backend).
+   is unchanged and accepted for that backend (refinement 2026-10-03 below).
 6. **Machinery is backend-provided.** Doctor, converge, and snapshot belong to
    the backend that owns the store. The composition root exposes a
    backend-provided doctor facet instead of Norn-typed plan members.
@@ -153,6 +153,31 @@ Node fields must apply to their node type, and body facets must use their
 authoritative location. Import rejects parent and dependency cycles using the
 existing graph validator. Historical transition values remain unchanged.
 
+## Refinement (2026-10-03, MMR-413): Norn upgrades its vault schema without consent
+
+Decision 5 left one question open: should the Norn backend also require an
+explicit command before it advances a vault's schema? It does not. Every vault
+open still converges an older vault forward, including on read-only commands.
+
+- **The upgrade is non-destructive.** The data migration runs first and is
+  idempotent, so a crash leaves the old schema marker and the next open
+  finishes the work. The marker and generated rules then advance together.
+  When git is available, the upgrade is committed to the vault's own git
+  history, so it leaves an inspectable record.
+- **A newer vault refuses an older binary.** The downgrade guard stops an older
+  binary with a `self-update` hint instead of misreading the vault.
+- **The forcing case is mostly closed elsewhere.** The case was a development
+  checkout advancing the operator's live vault. ADR 0031 gives a development
+  build isolated default paths, so it reaches the live vault only when
+  `MIMIR_VAULT` names it explicitly. A store that several machines share runs
+  on Postgres, whose schema moves only through `mimir store upgrade`.
+
+A consent gate on Norn would add a ceremony step to the zero-ceremony local
+backend. The remaining exposure, an explicit `MIMIR_VAULT` pointing a newer
+build at a vault that older binaries also open, is an operator choice that the
+downgrade guard reports and `self-update` resolves.
+
 ## Changelog
 
 - 2026-09-17: Clarified shared import validation and its compatibility boundaries.
+- 2026-10-03: Accepted Norn's automatic vault schema upgrade.
