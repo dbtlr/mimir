@@ -38,9 +38,9 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0013](0013-ui-embedded-spa.md)                                   | The UI is an embedded SPA — board-first console, PWA               |
 | [0014](0014-work-artifacts-authored-into-mimir.md)                | Work artifacts are authored into Mimir, not the vault              |
 | [0015](0015-project-archive-frozen-and-hidden.md)                 | Project archive — a frozen, hidden, reversible project state       |
-| [0016](0016-norn-vault-system-of-record.md)                       | A Norn-managed markdown vault is the system of record              |
+| [0016](0016-norn-vault-system-of-record.md)                       | A Norn-managed markdown vault is the system of record (superseded by 0032) |
 | [0017](0017-runtime-data-tolerance.md)                            | Runtime data-tolerance; doctor is a non-gating diagnostic          |
-| [0018](0018-vault-access-is-norn-only.md)                         | Vault access is Norn-only; fs-need signals a Norn ask              |
+| [0018](0018-vault-access-is-norn-only.md)                         | Vault access is Norn-only (superseded by 0032)                     |
 | [0019](0019-meridian-console-design-system.md)                    | Meridian — the console design system; attention model              |
 | [0020](0020-seeds-grooming-queue-entity.md)                       | Seeds — the grooming-queue entity                                  |
 | [0021](0021-seed-lede-derived-and-capture-grammar.md)             | Seed lede is derived at read; capture is one blob                  |
@@ -54,6 +54,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0029](0029-caller-zoned-date-semantics.md)                       | Date queries use caller timezone context                           |
 | [0030](0030-postgres-store-backend-shared-store-bridge.md)        | A Postgres store backend, per install, bridges to multi-machine work |
 | [0031](0031-installation-authority-and-disposable-development.md) | Installation authority and scripted disposable development |
+| [0032](0032-sqlite-local-tier-shared-sql-store.md)                | SQLite is the local tier, beside Postgres, on one shared SQL store |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model

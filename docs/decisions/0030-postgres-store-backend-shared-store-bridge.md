@@ -178,7 +178,16 @@ backend. The remaining exposure, an explicit `MIMIR_VAULT` pointing a newer
 build at a vault that older binaries also open, is an operator choice that the
 downgrade guard reports and `self-update` resolves.
 
+## Refinement (2026-10-03, MMR-415): Postgres is the hosted tier beside SQLite
+
+[ADR 0032](0032-sqlite-local-tier-shared-sql-store.md) replaces the Norn backend
+with SQLite as the local, default tier and runs both tiers on one
+dialect-parameterized SQL store. Postgres keeps every property this ADR gives it,
+including the explicit schema gate. Norn's automatic vault upgrade, accepted
+above, retires with the Norn backend.
+
 ## Changelog
 
 - 2026-09-17: Clarified shared import validation and its compatibility boundaries.
 - 2026-10-03: Accepted Norn's automatic vault schema upgrade.
+- 2026-10-03: Named Postgres the hosted tier beside SQLite (ADR 0032).

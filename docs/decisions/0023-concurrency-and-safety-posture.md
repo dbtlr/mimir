@@ -149,3 +149,11 @@ Postgres backend declares cross-writer atomicity (serializable transactions,
 locked sequence allocation) instead of declining it. The 1.0 client/host
 topology still supersedes this ADR formally when the host becomes the only
 writer.
+
+## Refinement (2026-10-03, MMR-415): the local tier is transactional too
+
+[ADR 0032](0032-sqlite-local-tier-shared-sql-store.md) replaces the Norn backend
+with a SQLite local tier on the same SQL store as Postgres. SQLite serializes
+writers on its database lock, so the local tier now declares cross-writer
+atomicity as well. The posture this ADR declines applied to the Norn backend
+only and retires with it. The single-operator framing still holds.

@@ -1,10 +1,15 @@
 ---
 title: 'ADR 0018: Vault access is Norn-only'
-status: accepted
+status: superseded
+superseded_by: 'ADR 0032'
 date: 2026-07-06
 ---
 
 # ADR 0018: Vault access is Norn-only
+
+> **Superseded (2026-10-03, MMR-415) by [ADR 0032](0032-sqlite-local-tier-shared-sql-store.md).**
+> The Norn backend is removed, so no vault remains to access. This record is
+> kept for history.
 
 Elevates ADR 0016's founding invariant to a standalone decision with an
 escalation rule. ADR 0016 reduced Mimir to "a business-logic + derivation
