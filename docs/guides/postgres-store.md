@@ -146,7 +146,10 @@ half-merge into a live board.
 Export from the vault, then import into the Postgres database. Export reads the
 store seam, so the source backend does not matter.
 
-On the machine that holds the vault:
+On the machine that holds the vault, make sure its config selects the vault
+with `backend = "norn"` under `[store]`. An install that relied on the old
+default has no `backend` key and now opens the local SQLite store instead, so
+add the key first. Then export:
 
 ```sh
 mimir store export vault.json

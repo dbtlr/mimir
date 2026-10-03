@@ -934,8 +934,9 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
   setup: {
     examples: [
       'mimir setup                          # interactive first install / reconfigure',
-      'mimir setup --vault ~/.local/share/mimir/vault --install-service -y',
-      'mimir setup --install-snapshot --snapshot-interval 900 --upstream git@host:me/vault.git -y',
+      'mimir setup --install-service -y     # the default store: just the serve unit',
+      'mimir setup --vault ~/.local/share/mimir/vault --install-service -y   # norn backend',
+      'mimir setup --install-snapshot --snapshot-interval 900 --upstream git@host:me/vault.git -y   # norn backend',
     ],
     flags: [
       [
@@ -1009,7 +1010,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     examples: [
       'mimir service install                 # install the serve unit',
-      'mimir service install snapshot        # install the (opt-in) snapshot unit',
+      'mimir service install snapshot        # the opt-in snapshot unit (norn backend)',
       'mimir service status                  # report every installed unit',
       'mimir service restart                 # restart whatever is installed',
     ],
@@ -1023,9 +1024,9 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     args: [['[unit]', 'serve | snapshot | all (default: serve — snapshot is opt-in)']],
     examples: [
       'mimir service install                 # install the serve unit',
-      'mimir service install snapshot        # install the (opt-in) snapshot unit',
+      'mimir service install snapshot        # the opt-in snapshot unit (norn backend)',
       'mimir service install --port 4100     # install serve, persisting the port',
-      'mimir service install all             # install both units',
+      'mimir service install all             # both units (norn backend)',
     ],
     flags: [['--port <n>', 'serve port to persist (the installation config)']],
     summary:
