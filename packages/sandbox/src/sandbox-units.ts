@@ -10,12 +10,12 @@ import { join } from 'node:path';
 import { unitLabels } from '../../bin/src/service/units';
 import { attempt } from './process';
 
-/** Unload a sandbox's units: through its own binary first, then a direct backstop
+/** Unload a sandbox's unit: through its own binary first, then a direct backstop
  *  for a half-installed unit. Every call addresses only sandbox-scoped names. */
 export async function removeSandboxUnits(id: string, root: string): Promise<void> {
   const binary = join(root, 'bin', 'mimir');
   if (existsSync(binary)) {
-    await attempt([binary, 'service', 'uninstall', 'all'], root);
+    await attempt([binary, 'service', 'uninstall'], root);
   }
   for (const label of Object.values(unitLabels({ id, kind: 'sandbox' }))) {
     if (process.platform === 'darwin') {
@@ -26,10 +26,9 @@ export async function removeSandboxUnits(id: string, root: string): Promise<void
     } else if (process.platform === 'linux') {
       // Stop before disable: `disable --now` refuses a unit whose file is gone
       // without stopping it, and Restart=always would keep it running.
-      for (const unit of [`${label}.service`, `${label}.timer`]) {
-        await attempt(['systemctl', '--user', 'stop', unit], root);
-        await attempt(['systemctl', '--user', 'disable', unit], root);
-      }
+      const unit = `${label}.service`;
+      await attempt(['systemctl', '--user', 'stop', unit], root);
+      await attempt(['systemctl', '--user', 'disable', unit], root);
     }
   }
 }

@@ -15,10 +15,11 @@ it on first use, so there is no preflight beyond the binary. An install on the
 shared Postgres backend (`[store] backend = "postgres"` plus `url`) has one
 preflight: `mimir store upgrade` creates or upgrades the schema and must run
 before any other command (every other verb refuses on a mismatched schema).
-`[store] backend = "norn"` is a fatal config error; export the old vault with
-mimir v0.20 (`mimir store export <file>`), remove the line, then import the
-document with `mimir store import <file>` (a preview; add the `--apply` flag to
-write it).
+`[store] backend = "norn"` is a fatal config error, and a v0.20 config with no
+`backend` line (Norn was its default) opens an empty store. Export the old vault
+with mimir v0.20 (`mimir store export <file>`), remove any `backend = "norn"`
+line, then import the document with `mimir store import <file>` (a preview; add
+the `--apply` flag to write it).
 
 ## Case 1 — the project exists, this working copy isn't bound
 

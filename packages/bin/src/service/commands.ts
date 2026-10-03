@@ -17,7 +17,8 @@ import { usage } from '../cli/errors';
 import { MimirError } from '../core';
 import type { Format, Io } from '../presentation';
 import { arrow, ok, warn } from '../presentation';
-import { writeServePort } from './config';
+import { assertUsableStoreConfig } from '../store-backend';
+import { isUnparseableConfig, writeServePort } from './config';
 import type { GlobalConfig } from './config';
 import { appendEvent, recentEvents } from './events';
 import type { ServiceEventName } from './events';
@@ -212,6 +213,12 @@ export async function cmdService(
         }
       }
       const config = deps.readConfig(deps.configFile);
+      // The daemon builds its store from this config at boot; a `[store]` it
+      // would refuse makes a unit that crash-loops, so refuse it here instead.
+      // A file that is not TOML at all is the `--port` reset path below.
+      if (!isUnparseableConfig(deps.configFile)) {
+        assertUsableStoreConfig(config, deps.configFile);
+      }
       const effectivePort = port ?? deps.portOverride ?? config.serve.port ?? deps.defaultPort;
       const content = unit.render(effectivePort);
       // A reset means the prior file was unparseable and got rewritten fresh

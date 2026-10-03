@@ -135,6 +135,24 @@ export function readConfig(file = configPath()): GlobalConfig {
   };
 }
 
+/**
+ * Whether the config file exists but is not TOML at all — the one state
+ * {@link writeConfig} resets rather than merges. Distinct from a parsed file
+ * whose sections are merely wrong-shaped, which {@link readConfig} also reports
+ * as `malformed`.
+ */
+export function isUnparseableConfig(file = configPath()): boolean {
+  if (!existsSync(file)) {
+    return false;
+  }
+  try {
+    Bun.TOML.parse(readFileSync(file, 'utf8'));
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 /** Read only the installation or sandbox configuration selected by configPath. */
 export function readRuntimeConfig(file = configPath()): GlobalConfig {
   return readConfig(file);

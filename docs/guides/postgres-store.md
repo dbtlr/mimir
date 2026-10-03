@@ -143,20 +143,22 @@ half-merge into a live board.
 ## Moving from a Norn vault
 
 Releases through v0.20 could keep work state in a Norn-managed Markdown vault.
-This release removes that backend, and `[store] backend = "norn"` is a fatal
-config error. Move the vault in two steps: export it with mimir v0.20, then
-import the document with this release. The document is the same transfer format
+Norn was the v0.20 default, so a v0.20 config with no `backend` line under
+`[store]` is a Norn install too. This release removes that backend:
+`[store] backend = "norn"` is a fatal config error, and a config with no
+`backend` line opens an empty SQLite store and never reads the vault. Move the
+vault in two steps: export it with mimir v0.20, then import the document with
+this release. The document is the same transfer format
 that `store export` writes today, so the import reads it unchanged.
 
-On the machine that holds the vault, with mimir v0.20 installed and its config
-still selecting `backend = "norn"` under `[store]`, export:
+On the machine that holds the vault, with mimir v0.20 still installed, export:
 
 ```sh
 mimir store export vault.json
 ```
 
-Install this release. Remove the `backend = "norn"` line, and the `[vault]`
-section if the config has one. The install now opens the local SQLite store.
+Install this release. Remove the `backend = "norn"` line if the config has one,
+and the `[vault]` section. The install now opens the local SQLite store.
 To import into Postgres instead, point the install at the database:
 
 ```toml
@@ -200,3 +202,24 @@ mimir store import vault.json --apply --resume
 
 A record that is present but different stops the import and names it: resume
 finishes a partial run of one document, it does not merge two different ones.
+
+### Removing a leftover snapshot timer
+
+A v0.20 install that ran `mimir setup --install-snapshot` also has a snapshot
+timer unit, which this release no longer manages. It runs a command that no
+longer exists, so remove it by hand.
+
+On macOS:
+
+```sh
+launchctl bootout gui/$(id -u)/com.dbtlr.mimir.snapshot
+rm ~/Library/LaunchAgents/com.dbtlr.mimir.snapshot.plist
+```
+
+On Linux:
+
+```sh
+systemctl --user disable --now com.dbtlr.mimir.snapshot.timer
+rm ~/.config/systemd/user/com.dbtlr.mimir.snapshot.timer ~/.config/systemd/user/com.dbtlr.mimir.snapshot.service
+systemctl --user daemon-reload
+```

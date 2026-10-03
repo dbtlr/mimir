@@ -78,6 +78,22 @@ function deps(sup: FakeSupervisor, extra: Partial<ServiceDeps> = {}): ServiceDep
 }
 
 // 1. install serve writes the plist, delegates, logs, and --port writes config
+test('install refuses an unusable [store] before writing a unit that would crash-loop', async () => {
+  const sup = new FakeSupervisor();
+  const d = deps(sup);
+  writeFileSync(d.configFile, '[store]\nbackend = "norn"\n');
+  let message = '';
+  try {
+    await cmdService(['service', 'install'], {}, fakeIo(), d);
+  } catch (error) {
+    message =
+      error instanceof MimirError ? `${error.message} — ${error.hint ?? ''}` : String(error);
+  }
+  expect(message).toContain('[store] is unusable (removed-backend)');
+  expect(existsSync(d.units.serve.unitFile)).toBe(false);
+  expect(sup.calls).toEqual([]);
+});
+
 test('install serve writes the plist, delegates, logs, and --port writes config', async () => {
   const sup = new FakeSupervisor();
   const io = fakeIo();

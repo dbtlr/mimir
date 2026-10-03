@@ -13,6 +13,7 @@
  * The `json` (pretty array) / `jsonl` (one finding per line) formats emit
  * findings on stdout, same exit-0 contract.
  */
+import { usage } from '../cli/errors';
 import type { Format, Io } from '../presentation';
 import { ok, warn } from '../presentation';
 import type {
@@ -123,7 +124,10 @@ async function cmdDoctorRepair(
   dryRun: boolean,
 ): Promise<number> {
   if (doctor.repair === undefined) {
-    throw new Error('doctor repair is unavailable in this context');
+    throw usage(
+      'doctor --fix is unavailable: the store has no repair pass',
+      'run `mimir doctor` to report findings; each one names the row to fix by hand',
+    );
   }
   const report = await doctor.repair({ dryRun, scope });
   warnEmptyScope(io, report.scope);

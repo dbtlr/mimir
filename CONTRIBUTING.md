@@ -22,8 +22,8 @@ bun run test:sandbox   # build and native snapshot rehearsal
 ```
 
 `verify` is `bun run check` (oxfmt + oxlint + type-aware typecheck, zero-warning)
-plus binary and UI tests. SQLite-backed suites use temporary database files and
-need nothing installed. Postgres unit tests use PGlite. The two disposable-server commands need
+plus binary and UI tests. SQLite-backed suites use in-memory databases (a temporary file
+where the file itself is under test) and need nothing installed. Postgres unit tests use PGlite. The two disposable-server commands need
 Docker; CI runs all three gates. See the [sandbox guide](docs/guides/development-sandboxes.md)
 for fixtures, snapshots, and candidate migration tests.
 

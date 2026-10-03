@@ -101,7 +101,7 @@ One table absorbs the semi-regular hierarchy (a monorepo sub-project, a phaseles
 | `title`        | text    | all, required                 | free text                                                                                           |
 | `description`  | text    | all, optional                 | the node's prose; uncapped. Only the short `summary` lede has a length limit                         |
 | `summary`      | text    | all, optional                 | the short list lede; the write verbs reject over 256 chars                                          |
-| `lifecycle`    | text    | **task** (required)           | `todo` \| `in_progress` \| `under_review` \| `done` \| `abandoned`                                  |
+| `lifecycle`    | text    | **task**; set by the writer   | `todo` \| `in_progress` \| `under_review` \| `done` \| `abandoned`                                  |
 | `hold`         | text    | **task**, optional            | `none` \| `blocked` \| `parked`; null reads as `none`                                               |
 | `hold_reason`  | text    | **task**, optional            | context for the current hold (the transition reason itself rides `transition_log`)                  |
 | `priority`     | text    | **task**, optional            | `p0` \| `p1` \| `p2` \| `p3`; null = **untriaged**                                                  |
@@ -116,7 +116,7 @@ One table absorbs the semi-regular hierarchy (a monorepo sub-project, a phaseles
 | `completed_at` | text    | **task**, optional            | stamped only on `done`                                                                              |
 | `target`       | text    | **phase**, optional           | the milestone/testable result the phase aims at                                                     |
 | `open_ended`   | boolean | **container**, optional       | opts a phase/initiative out of done-rollup; null = not set                                          |
-| `next_present` | boolean | **container**, required       | whether the `## Next` narrative is set, default false                                               |
+| `next_present` | boolean | all, default false             | whether the `## Next` narrative is set; only containers carry one                                   |
 | `next_text`    | text    | **container**, optional       | the narrative prose                                                                                 |
 | `created_at`   | text    | all, required                 | ISO-8601 UTC                                                                                        |
 | `updated_at`   | text    | all, required                 | ISO-8601 UTC, every write                                                                           |
@@ -163,7 +163,7 @@ Indexes cover `(node_id, id)`, `(at, id)`, and `(project_key, id)`. Derived flip
 
 ## `annotation`
 
-Freeform in-flight notes on a node — the lightweight middle ground between a node's description and a heavy session-log artifact. Each row has an auto-incrementing `id` (append order), the owning `node_id` (foreign key), `content`, and `created_at`. There is no kind and no edge. Appended by `annotate`. Nodes only — projects carry no annotations. Transition reasons do **not** live here (they ride `transition_log.reason`).
+Freeform in-flight notes on a node — the lightweight middle ground between a node's description and a heavy session-log artifact. Each row has an auto-incrementing `id` (append order), the owning `node_id` (foreign key), `content`, and `created_at`. There is no kind and no edge. Appended by `annotate`. Nodes only — projects carry no annotations. Transition reasons do **not** live here (they ride `transition_log.reason`). Indexed on `node_id`.
 
 ## `## Next` — the direction narrative
 
@@ -191,7 +191,7 @@ A frozen markdown document — not diffed or edited in place, only ever added to
 | `created_at`     | text | required | ISO-8601 UTC                                                         |
 | `updated_at`     | text | required | ISO-8601 UTC; metadata mutations only                                |
 
-`artifact_link` holds `(artifact_id, node_id)`, both foreign keys, primary key over the pair. A link names a node in the artifact's own project; the write path enforces the **project-consistency rule** before any write.
+`artifact_link` holds `(artifact_id, node_id)`, both foreign keys, primary key over the pair, with an index on `node_id` for a node's artifacts. A link names a node in the artifact's own project; the write path enforces the **project-consistency rule** before any write.
 
 `summary` is the artifact's optional lede — the same field a node carries, with the same 256-character cap and the same core normalization (newlines collapse to spaces, a blank stores as null). With `title` it makes the artifact's two mutable fields; `content` stays frozen. `updated_at` tracks **metadata** mutations only (retitle, re-lede, tag/untag): it is the CAS drift guard those writes co-stamp, exactly like the node, project, and seed write paths. Like every entity, artifacts **carry no tag notes** (ADR 0005 Refinement).
 
@@ -218,6 +218,8 @@ The grooming-queue record ([ADR 0020](decisions/0020-seeds-grooming-queue-entity
 **Lifecycle machine:** `new → promoted | resolved | rejected` and `promoted → resolved | rejected`. `resolved`/`rejected` are terminal (a terminal seed is frozen — `patch`/`transition` refuse it); the terminal states are set only by explicit triager verbs, never derived from spawned work. `promote`/germinate moves `new → promoted` and appends the spawned node to `spawned` in one transaction.
 
 The task-side `upstream` column (see the node table) is the requester-side pointer at a seed — reference-only in v1, resolved by the read seam.
+
+`seed_history` is indexed on `(seed_id, id)`.
 
 ## `scratchpad`
 

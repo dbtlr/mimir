@@ -118,6 +118,16 @@ test('an unusable [store] section is refused before setup writes anything', asyn
   }
 });
 
+test('a valid file whose sections are all wrong-shaped is refused, not reset', async () => {
+  // Every section reads malformed here, as for a file that is not TOML at all —
+  // but this one parses, so it is the operator's config to fix, not to rewrite.
+  const d = deps(new FakeSupervisor());
+  writeFileSync(d.service.configFile, 'serve = 5\nstore = "postgres"\n');
+  const message = await refusal(() => cmdSetup({ yes: true }, fakeIo(false), d, 'records'));
+  expect(message).toContain('[store] is unusable (malformed)');
+  expect(readFileSync(d.service.configFile, 'utf8')).toBe('serve = 5\nstore = "postgres"\n');
+});
+
 test('a removed norn backend is refused with the migration path', async () => {
   const d = deps(new FakeSupervisor());
   writeFileSync(d.service.configFile, '[store]\nbackend = "norn"\n');

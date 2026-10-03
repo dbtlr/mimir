@@ -340,15 +340,6 @@ async function main(argv: string[]): Promise<number> {
           }
         },
         facet: async (scope) => (await cliDoctor()).facet(scope),
-        repair: async (request) => {
-          // Repair reports no findings, so the config warning prints up front.
-          warnConfigPermissions(request.scope, configPath(), line(process.stderr));
-          const backend = await cliDoctor();
-          if (backend.repair === undefined) {
-            throw new Error('doctor repair unavailable after store initialization');
-          }
-          return await backend.repair(request);
-        },
       },
       scope: findBinding(process.cwd()),
       service: realServiceDeps(),

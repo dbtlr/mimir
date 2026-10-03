@@ -23,7 +23,12 @@ import { arrow, ok, warn } from '../presentation';
 import type { Format, Io } from '../presentation';
 import { cmdService, hasSupervisor } from '../service';
 import type { ServiceDeps } from '../service';
-import { DEFAULT_STORE_BACKEND, readConfig, writeConfig } from '../service/config';
+import {
+  DEFAULT_STORE_BACKEND,
+  isUnparseableConfig,
+  readConfig,
+  writeConfig,
+} from '../service/config';
 import type { GlobalConfig, StoreBackend } from '../service/config';
 import { assertUsableStoreConfig } from '../store-backend';
 import { usage } from './errors';
@@ -105,11 +110,9 @@ function askInteractive(values: SetupValues, deps: SetupDeps, io: Io): SetupAnsw
  * command then refuses.
  */
 function configuredBackend(cfg: GlobalConfig, deps: SetupDeps): StoreBackend {
-  // A file that is not TOML at all reads as malformed in every section; setup
-  // rewrites that one fresh, with a warning (see applySetup), so only a parsed
-  // file's bad section is refused here.
-  const unparseable = [cfg.serve, cfg.store].every((section) => section.problem === 'malformed');
-  if (!unparseable) {
+  // A file that is not TOML at all is rewritten fresh, with a warning (see
+  // applySetup), so only a parsed file's bad section is refused here.
+  if (!isUnparseableConfig(deps.service.configFile)) {
     assertUsableStoreConfig(cfg, deps.service.configFile);
   }
   return cfg.store.backend ?? DEFAULT_STORE_BACKEND;

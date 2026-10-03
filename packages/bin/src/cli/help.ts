@@ -1088,23 +1088,18 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     examples: [
       'mimir doctor                         # check the bound scope; always exits 0 (findings are output)',
       'mimir doctor -s all --format json    # every project, machine-readable findings',
-      'mimir doctor --fix --dry-run         # preview supported repairs and explicit skips',
-      'mimir doctor --fix                   # atomically repair, then rediagnose the scope',
     ],
     flags: [
       [
         '-s, --scope <KEY>',
         'limit to a project (default: the .mimir.toml binding; "all" = every project)',
       ],
-      [
-        '--format <fmt>',
-        'without --fix: json (pretty findings array) | jsonl (one finding per line); --fix: json (composite report) | jsonl (one issue/detail per line plus summary)',
-      ],
-      ['--fix', 'apply deterministic structural repairs, then verify the post-image'],
-      ['--dry-run', 'preview and validate a repair plan without writing (requires --fix)'],
+      ['--format <fmt>', 'json (pretty findings array) | jsonl (one finding per line)'],
+      ['--fix', 'refused: neither backend has a repair pass'],
+      ['--dry-run', 'refused with --fix; usage without it'],
     ],
     summary:
-      'run read-only store diagnostics (one shared check over the SQLite and Postgres databases). --fix is refused: neither backend has a repair pass. Bare doctor stays non-gating and exits 0 after a successful read. Repair supports only deterministic structural recipes; every other finding is reported with a stable skip reason. Repair apply/refusal/verification failures are nonzero',
+      'run read-only store diagnostics (one shared check over the SQLite and Postgres databases) and report findings for a human to fix. Non-gating: exits 0 after a successful read. --fix is refused: neither backend has a repair pass',
     usage: 'mimir doctor [-s <KEY>] [--format <fmt>] [--fix [--dry-run]]',
   },
   // ── binding ──
