@@ -8,12 +8,11 @@ import type { SeedRecord, SeedStore } from '../seeds/store';
 import { assertLiveSeed, canTransitionSeed } from '../seeds/store';
 import { now } from '../time';
 import { insertBatched } from './batch';
-import type { DB, SeedRow } from './schema';
-import type { Executor } from './tx';
-import { serializable } from './tx';
+import type { StoreDialect } from './dialect';
+import type { DB, Executor, SeedRow } from './schema';
 
 /**
- * The Postgres `SeedStore` (MMR-244) — a seed is one row keyed by its `KEY-sN`
+ * The SQL store's `SeedStore` (MMR-244) — a seed is one row keyed by its `KEY-sN`
  * stem, its `## Seed Description` prose a column and its `## History` an
  * append-only child table.
  *
@@ -37,7 +36,7 @@ function normalizeDescription(description: string | null | undefined): string | 
   return trimmed === '' ? null : trimmed;
 }
 
-function toRecord(row: SeedRow): SeedRecord {
+function toRecord(row: SeedRow, dialect: StoreDialect): SeedRecord {
   return {
     created_at: row.created_at,
     key: row.project_key,
@@ -45,7 +44,7 @@ function toRecord(row: SeedRow): SeedRecord {
     lifecycle: row.lifecycle,
     requester: row.requester,
     seq: row.seq,
-    spawned: row.spawned,
+    spawned: dialect.codecs.list.decode(row.spawned),
     title: row.title,
     updated_at: row.updated_at,
   };
@@ -88,7 +87,7 @@ async function appendHistory(
 }
 
 /** Every seed with its description prose and its own history — the export's collection. */
-export async function exportSeeds(ex: Executor): Promise<ExportedSeed[]> {
+export async function exportSeeds(ex: Executor, dialect: StoreDialect): Promise<ExportedSeed[]> {
   const rows = await ex
     .selectFrom('seed')
     .selectAll()
@@ -98,7 +97,7 @@ export async function exportSeeds(ex: Executor): Promise<ExportedSeed[]> {
   const exported: ExportedSeed[] = [];
   for (const row of rows) {
     exported.push({
-      ...toRecord(row),
+      ...toRecord(row, dialect),
       description: row.description,
       history: await historyOf(ex, row.id),
     });
@@ -119,6 +118,7 @@ export async function exportSeeds(ex: Executor): Promise<ExportedSeed[]> {
  */
 export async function insertExportedSeeds(
   tx: Transaction<DB>,
+  dialect: StoreDialect,
   seeds: readonly ExportedSeed[],
 ): Promise<void> {
   const rows = seeds.map((seed) => ({
@@ -130,7 +130,7 @@ export async function insertExportedSeeds(
     project_key: seed.key,
     requester: seed.requester,
     seq: seed.seq,
-    spawned: seed.spawned,
+    spawned: dialect.codecs.list.encode(seed.spawned),
     title: seed.title,
     updated_at: seed.updated_at,
   }));
@@ -161,10 +161,11 @@ const mutableRow = async (tx: Transaction<DB>, key: string, seq: number): Promis
   return row;
 };
 
-export function createPostgresSeedStore(db: Kysely<DB>): SeedStore {
+export function createSqlSeedStore(db: Kysely<DB>, dialect: StoreDialect): SeedStore {
+  const { list } = dialect.codecs;
   return {
     async create(input) {
-      return serializable(db, async (tx) => {
+      return dialect.write(db, async (tx) => {
         const allocated = await tx
           .updateTable('project')
           .set((eb) => ({ last_seed_seq: eb('last_seed_seq', '+', 1) }))
@@ -188,7 +189,7 @@ export function createPostgresSeedStore(db: Kysely<DB>): SeedStore {
             project_key: input.key,
             requester: input.requester,
             seq,
-            spawned: [],
+            spawned: list.encode([]),
             title: input.title,
             updated_at: timestamp,
           })
@@ -211,10 +212,11 @@ export function createPostgresSeedStore(db: Kysely<DB>): SeedStore {
     },
 
     async germinate(key, seq, nodeStem) {
-      await serializable(db, async (tx) => {
+      await dialect.write(db, async (tx) => {
         const row = await mutableRow(tx, key, seq);
         assertLiveSeed(row.id, row.lifecycle, 'promote applies only to a new or promoted seed');
-        const alreadyLinked = row.spawned.includes(nodeStem);
+        const spawned = list.decode(row.spawned);
+        const alreadyLinked = spawned.includes(nodeStem);
         const needsPromote = row.lifecycle === 'new';
         // Idempotent: the stem is already linked AND the seed is already
         // promoted, so a retried promote cannot double-record.
@@ -225,7 +227,7 @@ export function createPostgresSeedStore(db: Kysely<DB>): SeedStore {
         await tx
           .updateTable('seed')
           .set({
-            ...(alreadyLinked ? {} : { spawned: [...row.spawned, nodeStem] }),
+            ...(alreadyLinked ? {} : { spawned: list.encode([...spawned, nodeStem]) }),
             ...(needsPromote ? { lifecycle: 'promoted' as const } : {}),
             updated_at: at,
           })
@@ -249,7 +251,7 @@ export function createPostgresSeedStore(db: Kysely<DB>): SeedStore {
         .orderBy('project_key')
         .orderBy('seq')
         .execute();
-      return rows.map(toRecord);
+      return rows.map((row) => toRecord(row, dialect));
     },
 
     async listForProject(key) {
@@ -259,7 +261,7 @@ export function createPostgresSeedStore(db: Kysely<DB>): SeedStore {
         .where('project_key', '=', key)
         .orderBy('seq')
         .execute();
-      return rows.map(toRecord);
+      return rows.map((row) => toRecord(row, dialect));
     },
 
     async load(key, seq, opts) {
@@ -268,8 +270,8 @@ export function createPostgresSeedStore(db: Kysely<DB>): SeedStore {
         return undefined;
       }
       return opts?.content === true
-        ? { ...toRecord(row), description: row.description }
-        : toRecord(row);
+        ? { ...toRecord(row, dialect), description: row.description }
+        : toRecord(row, dialect);
     },
 
     async loadDescriptions(refs) {
@@ -297,7 +299,7 @@ export function createPostgresSeedStore(db: Kysely<DB>): SeedStore {
     },
 
     async patch(key, seq, patch) {
-      await serializable(db, async (tx) => {
+      await dialect.write(db, async (tx) => {
         const row = await mutableRow(tx, key, seq);
         assertLiveSeed(
           row.id,
@@ -324,7 +326,7 @@ export function createPostgresSeedStore(db: Kysely<DB>): SeedStore {
     },
 
     async transition(key, seq, to, reason) {
-      await serializable(db, async (tx) => {
+      await dialect.write(db, async (tx) => {
         const row = await mutableRow(tx, key, seq);
         if (!canTransitionSeed(row.lifecycle, to)) {
           throw validation(

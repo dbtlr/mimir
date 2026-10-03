@@ -7,8 +7,13 @@ import { observe, seedWorkingSet, withoutStamp } from '../../testing/conformance
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import { updateNode } from '../mutations';
 import { openPostgres } from './client';
-import { assertSchemaCurrent, readSchemaVersion, SCHEMA_VERSION, upgradeSchema } from './migrator';
-import { createPostgresStore } from './store';
+import {
+  assertSchemaCurrent,
+  createPostgresStore,
+  readSchemaVersion,
+  SCHEMA_VERSION,
+  upgradeSchema,
+} from './index';
 import { createThrowawaySchema } from './testing';
 
 /**

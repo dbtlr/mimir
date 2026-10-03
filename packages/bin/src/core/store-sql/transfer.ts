@@ -1,7 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 
-import type { Insertable, Kysely, Transaction } from 'kysely';
-import { sql } from 'kysely';
+import type { Expression, Insertable, Kysely, Transaction } from 'kysely';
 
 import { validation } from '../errors';
 import type {
@@ -25,11 +24,13 @@ import { now } from '../time';
 import { parseTransferDocument } from '../transfer-validate';
 import { exportArtifacts, insertExportedArtifacts } from './artifacts';
 import { insertBatched, pairKey } from './batch';
-import { createPostgresBodySectionStore } from './body-sections';
+import { createSqlBodySectionStore } from './body-sections';
+import type { StoreDialect } from './dialect';
 import type {
   AnnotationTable,
   DB,
   DependencyTable,
+  Executor,
   NodeTable,
   ProjectTable,
   TagTable,
@@ -37,12 +38,10 @@ import type {
 } from './schema';
 import { exportScratchpads, insertScratchpads } from './scratchpads';
 import { exportSeeds, insertExportedSeeds } from './seeds';
-import type { Executor } from './tx';
-import { serializable, snapshotRead } from './tx';
 import { loadWorkingSet } from './working-set';
 
 /**
- * The Postgres backend's export and import (ADR 0030 Decision 4) — the whole
+ * The SQL store's export and import (ADR 0030 Decision 4) — the whole
  * store's stored facts out to one backend-neutral document, and such a document
  * back in with every id, sequence, and timestamp preserved.
  *
@@ -79,8 +78,8 @@ import { loadWorkingSet } from './working-set';
 /** Every body-section facet the export reads, in one batched pass. */
 const EXPORT_FACETS = { annotations: true, description: true, next: true } as const;
 
-export async function exportPostgresStore(ex: Executor): Promise<StoreExport> {
-  const workingSet = await loadWorkingSet(ex);
+export async function exportSqlStore(ex: Executor, dialect: StoreDialect): Promise<StoreExport> {
+  const workingSet = await loadWorkingSet(ex, dialect);
   const counters = await ex
     .selectFrom('project')
     .select(['key', 'last_seq', 'last_artifact_seq', 'last_seed_seq'])
@@ -88,7 +87,7 @@ export async function exportPostgresStore(ex: Executor): Promise<StoreExport> {
   const countersByKey = new Map(counters.map((row) => [row.key, row]));
   const projects = [...workingSet.projects];
   const nodes = [...workingSet.nodes];
-  const sections = await createPostgresBodySectionStore(ex).readSectionsMany(
+  const sections = await createSqlBodySectionStore(ex, dialect).readSectionsMany(
     [...projects.map((project) => project.key), ...nodes.map((node) => node.id)],
     EXPORT_FACETS,
   );
@@ -117,7 +116,7 @@ export async function exportPostgresStore(ex: Executor): Promise<StoreExport> {
     })),
   );
 
-  const transitions = await exportTransitions(ex);
+  const transitions = await exportTransitions(ex, dialect);
 
   const bodySections: ExportedBodySections[] = [
     // A project carries no description section — its description is a column on
@@ -159,8 +158,8 @@ export async function exportPostgresStore(ex: Executor): Promise<StoreExport> {
     nodes,
     projects: exportedProjects,
     schema_version: STORE_EXPORT_SCHEMA_VERSION,
-    scratchpads: await exportScratchpads(ex),
-    seeds: await exportSeeds(ex),
+    scratchpads: await exportScratchpads(ex, dialect),
+    seeds: await exportSeeds(ex, dialect),
     tags,
     transitions,
   };
@@ -183,7 +182,10 @@ export async function exportPostgresStore(ex: Executor): Promise<StoreExport> {
  * in canonical order rather than the source's insert order. Nothing is lost —
  * the global insert order was never a fact — and each entity's own order holds.
  */
-async function exportTransitions(ex: Executor): Promise<NewTransitionRecord[]> {
+async function exportTransitions(
+  ex: Executor,
+  dialect: StoreDialect,
+): Promise<NewTransitionRecord[]> {
   const rows = await ex.selectFrom('transition_log').selectAll().orderBy('id').execute();
   const records: NewTransitionRecord[] = [];
   for (const row of rows) {
@@ -196,7 +198,7 @@ async function exportTransitions(ex: Executor): Promise<NewTransitionRecord[]> {
       // Entity-keyed (ADR 0015): exactly one of the two is set, so the record
       // carries exactly the one key rather than a null under the other.
       ...(row.node_id === null ? { project_id: row.project_key } : { node_id: row.node_id }),
-      ...(row.handles === null ? {} : { handles: row.handles }),
+      ...(row.handles === null ? {} : { handles: dialect.codecs.json.decode(row.handles) }),
     });
   }
   return canonicalTransitionOrder(records);
@@ -358,8 +360,8 @@ function differs(identity: string): never {
 /**
  * Ends a preview's transaction without failing the import (MMR-380).
  *
- * Private and never thrown past this module. It carries no SQLSTATE, so
- * `withSerializableRetry` treats it as it treats any deterministic failure —
+ * Private and never thrown past this module. It is no driver error, so the
+ * dialect's write policy treats it as it treats any deterministic failure —
  * propagated, never replayed — and the catch below turns it back into the
  * report the rolled-back transaction computed.
  */
@@ -373,8 +375,9 @@ class PreviewRollbackError extends Error {
   }
 }
 
-export async function importPostgresStore(
+export async function importSqlStore(
   db: Kysely<DB>,
+  dialect: StoreDialect,
   input: unknown,
   opts: ImportOptions,
 ): Promise<ImportReport> {
@@ -382,11 +385,11 @@ export async function importPostgresStore(
   const incoming = bundlesOf(document);
 
   try {
-    return await serializable(db, async (tx) => {
-      const report = await applyImport(tx, document, opts, incoming);
+    return await dialect.write(db, async (tx) => {
+      const report = await applyImport(tx, dialect, document, opts, incoming);
       if (!report.applied) {
         // Force target-state constraints before the rollback that replaces COMMIT.
-        await sql`set constraints all immediate`.execute(tx);
+        await dialect.checkDeferredConstraints(tx);
         throw new PreviewRollbackError(report);
       }
       return report;
@@ -402,6 +405,7 @@ export async function importPostgresStore(
 /** The whole import inside one open transaction — the preview runs it too. */
 async function applyImport(
   tx: Transaction<DB>,
+  dialect: StoreDialect,
   document: StoreExport,
   opts: ImportOptions,
   incoming: Bundles,
@@ -425,7 +429,7 @@ async function applyImport(
   }
   const present =
     opts.mode === 'resume'
-      ? bundlesOf(await exportPostgresStore(tx))
+      ? bundlesOf(await exportSqlStore(tx, dialect))
       : bundlesOf({ ...document, ...EMPTY_COLLECTIONS });
 
   let created = 0;
@@ -447,9 +451,12 @@ async function applyImport(
   const ownedSectionsByStem = new Map(
     document.bodySections.map((sections) => [sections.stem, sections]),
   );
-  const nextOf = (stem: string): { next_present: boolean; next_text: string | null } => {
+  const nextOf = (stem: string): Pick<Insertable<NodeTable>, 'next_present' | 'next_text'> => {
     const facet = ownedSectionsByStem.get(stem)?.next;
-    return { next_present: facet?.present ?? false, next_text: facet?.text ?? null };
+    return {
+      next_present: dialect.codecs.bool.encode(facet?.present ?? false),
+      next_text: facet?.text ?? null,
+    };
   };
 
   const newNodes = new Set<string>();
@@ -498,7 +505,7 @@ async function applyImport(
     }
     newNodes.add(node.id);
     nodeRows.push({
-      ...nodeValues(node),
+      ...nodeValues(node, dialect),
       // `description` is a body section in the document and a column here, so
       // it rides the row rather than a follow-up UPDATE per node.
       description: ownedSectionsByStem.get(node.id)?.description ?? null,
@@ -536,7 +543,7 @@ async function applyImport(
     transitionRows.push({
       at: row.at,
       from_value: row.from_value,
-      handles: row.handles === undefined ? null : JSON.stringify(row.handles),
+      handles: row.handles === undefined ? null : dialect.codecs.json.encode(row.handles),
       kind: row.kind,
       node_id: row.node_id ?? null,
       project_key: row.project_id ?? null,
@@ -579,8 +586,8 @@ async function applyImport(
     tx.insertInto('transition_log').values(chunk).execute(),
   );
   await insertExportedArtifacts(tx, artifacts);
-  await insertExportedSeeds(tx, seeds);
-  await insertScratchpads(tx, pads);
+  await insertExportedSeeds(tx, dialect, seeds);
+  await insertScratchpads(tx, dialect, pads);
 
   return { applied: !opts.dryRun, created, mode: opts.mode, skipped };
 }
@@ -651,7 +658,11 @@ const EMPTY_COLLECTIONS = {
   transitions: [],
 } satisfies Omit<StoreExport, 'exported_at' | 'schema_version'>;
 
-/** Raise a present project's counters to cover the identities being imported. */
+/**
+ * Raise a present project's counters to cover the identities being imported.
+ * Each counter becomes the greater of itself and the floor, spelled as a
+ * `CASE` because `greatest` is not portable SQL.
+ */
 async function raiseCounters(
   tx: Transaction<DB>,
   key: string,
@@ -659,20 +670,24 @@ async function raiseCounters(
 ): Promise<void> {
   await tx
     .updateTable('project')
-    .set((eb) => ({
-      last_artifact_seq: eb.fn('greatest', [
-        eb.ref('last_artifact_seq'),
-        eb.val(counters.artifact),
-      ]),
-      last_seed_seq: eb.fn('greatest', [eb.ref('last_seed_seq'), eb.val(counters.seed)]),
-      last_seq: eb.fn('greatest', [eb.ref('last_seq'), eb.val(counters.node)]),
-    }))
+    .set((eb) => {
+      const atLeast = (
+        column: 'last_artifact_seq' | 'last_seed_seq' | 'last_seq',
+        floor: number,
+      ): Expression<number> =>
+        eb.case().when(column, '<', floor).then(floor).else(eb.ref(column)).end();
+      return {
+        last_artifact_seq: atLeast('last_artifact_seq', counters.artifact),
+        last_seed_seq: atLeast('last_seed_seq', counters.seed),
+        last_seq: atLeast('last_seq', counters.node),
+      };
+    })
     .where('key', '=', key)
     .execute();
 }
 
 /** One exported node as its row — `description` and `next` ride the sections. */
-function nodeValues(node: Node): Insertable<NodeTable> {
+function nodeValues(node: Node, dialect: StoreDialect): Insertable<NodeTable> {
   return {
     branch: node.branch,
     completed_at: node.completed_at,
@@ -685,7 +700,7 @@ function nodeValues(node: Node): Insertable<NodeTable> {
     host: node.host,
     id: node.id,
     lifecycle: node.lifecycle,
-    open_ended: node.open_ended,
+    open_ended: node.open_ended === null ? null : dialect.codecs.bool.encode(node.open_ended),
     parent_id: node.parent_id,
     priority: node.priority,
     project_key: node.project_id,
@@ -703,6 +718,6 @@ function nodeValues(node: Node): Insertable<NodeTable> {
 }
 
 /** The whole store's stored facts, read over one consistent snapshot. */
-export function exportPostgresStoreFrom(db: Kysely<DB>): Promise<StoreExport> {
-  return snapshotRead(db, (tx) => exportPostgresStore(tx));
+export function exportSqlStoreFrom(db: Kysely<DB>, dialect: StoreDialect): Promise<StoreExport> {
+  return dialect.snapshot(db, (tx) => exportSqlStore(tx, dialect));
 }

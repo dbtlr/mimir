@@ -9,12 +9,11 @@ import type { ExportedArtifact } from '../export';
 import { renderArtifactRef } from '../ids';
 import { now } from '../time';
 import { insertBatched, pairKey } from './batch';
-import type { ArtifactRow, DB } from './schema';
-import type { Executor } from './tx';
-import { serializable } from './tx';
+import type { StoreDialect } from './dialect';
+import type { ArtifactRow, DB, Executor } from './schema';
 
 /**
- * The Postgres `ArtifactStore` (MMR-143, ADR 0016 Phase 2a). An artifact is one
+ * The SQL store's `ArtifactStore` (MMR-143, ADR 0016 Phase 2a). An artifact is one
  * row keyed by its `KEY-aN` stem, its tags in the shared tag table and its
  * links in `artifact_link`; the frozen content is a column.
  *
@@ -208,10 +207,10 @@ async function writeRelations(
 const rowOf = async (ex: Executor, key: string, seq: number): Promise<ArtifactRow | undefined> =>
   ex.selectFrom('artifact').selectAll().where('id', '=', stemOf(key, seq)).executeTakeFirst();
 
-export function createPostgresArtifactStore(db: Kysely<DB>): ArtifactStore {
+export function createSqlArtifactStore(db: Kysely<DB>, dialect: StoreDialect): ArtifactStore {
   return {
     async applyTag(key, seq, tag) {
-      await serializable(db, async (tx) => {
+      await dialect.write(db, async (tx) => {
         const row = await rowOf(tx, key, seq);
         if (row === undefined) {
           return;
@@ -234,7 +233,7 @@ export function createPostgresArtifactStore(db: Kysely<DB>): ArtifactStore {
     },
 
     async create(input) {
-      return serializable(db, async (tx) => {
+      return dialect.write(db, async (tx) => {
         // The counter bump IS the allocation (ADR 0006): one atomic UPDATE …
         // RETURNING inside the write transaction, so two concurrent creates
         // cannot be handed the same sequence.
@@ -380,7 +379,7 @@ export function createPostgresArtifactStore(db: Kysely<DB>): ArtifactStore {
       if (tags.length === 0) {
         return 0;
       }
-      return serializable(db, async (tx) => {
+      return dialect.write(db, async (tx) => {
         const row = await rowOf(tx, key, seq);
         if (row === undefined) {
           return 0;
@@ -406,7 +405,7 @@ export function createPostgresArtifactStore(db: Kysely<DB>): ArtifactStore {
     },
 
     async updateMetadata(key, seq, patch) {
-      return serializable(db, async (tx) => {
+      return dialect.write(db, async (tx) => {
         const row = await rowOf(tx, key, seq);
         if (row === undefined) {
           return false;

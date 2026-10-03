@@ -26,7 +26,7 @@
 import { createTask } from '../create';
 import { now } from '../time';
 import { openPostgres } from './client';
-import { createPostgresStore } from './store';
+import { createPostgresStore } from './dialect';
 
 const USAGE = 'usage: testing-concurrency-worker <url> <create|patch> <stem> <label> <count>';
 

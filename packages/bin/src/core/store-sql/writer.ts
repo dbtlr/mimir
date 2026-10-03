@@ -5,12 +5,13 @@ import { renderId } from '../ids';
 import type { Artifact, Node, Project } from '../model';
 import type { NewNodeRecord, NewProjectRecord, NewTransitionRecord, StoreWriter } from '../store';
 import { now } from '../time';
+import type { StoreDialect } from './dialect';
 import type { DB, NodeUpdate, ProjectUpdate } from './schema';
 import { loadWorkingSet, toNode, toProject } from './working-set';
 
 /**
- * The Postgres `StoreWriter` (MMR-135) — the primitives a verb composes inside
- * one `transact`.
+ * The SQL store's `StoreWriter` (MMR-135) — the primitives a verb composes
+ * inside one `transact`.
  *
  * Every method runs on the transaction itself, so "sees the transaction's own
  * in-flight state" comes free: read-your-writes is what a transaction already
@@ -19,20 +20,16 @@ import { loadWorkingSet, toNode, toProject } from './working-set';
  * the intermediate state in.
  */
 
-/** PostgreSQL SQLSTATE `unique_violation`. */
-const UNIQUE_VIOLATION = '23505';
-
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    error.code === UNIQUE_VIOLATION
-  );
-}
-
 /** The columns a fresh node is born with — the defaults the seam implies. */
-function newNodeRow(row: NewNodeRecord, id: string, seq: number, timestamp: string) {
+function newNodeRow(
+  row: NewNodeRecord,
+  id: string,
+  seq: number,
+  timestamp: string,
+  dialect: StoreDialect,
+) {
+  const { bool } = dialect.codecs;
+  const openEnded = row.open_ended ?? null;
   return {
     branch: row.branch ?? null,
     completed_at: null,
@@ -46,9 +43,9 @@ function newNodeRow(row: NewNodeRecord, id: string, seq: number, timestamp: stri
     host: row.host ?? null,
     id,
     lifecycle: row.lifecycle ?? null,
-    next_present: false,
+    next_present: bool.encode(false),
     next_text: null,
-    open_ended: row.open_ended ?? null,
+    open_ended: openEnded === null ? null : bool.encode(openEnded),
     parent_id: row.parent_id,
     priority: row.priority ?? null,
     project_key: row.project_id,
@@ -65,7 +62,9 @@ function newNodeRow(row: NewNodeRecord, id: string, seq: number, timestamp: stri
   };
 }
 
-export function createPostgresWriter(tx: Transaction<DB>): StoreWriter {
+export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): StoreWriter {
+  const { bool, json } = dialect.codecs;
+
   const nodeExists = async (id: string): Promise<boolean> =>
     (await tx.selectFrom('node').select('id').where('id', '=', id).executeTakeFirst()) !==
     undefined;
@@ -95,7 +94,7 @@ export function createPostgresWriter(tx: Transaction<DB>): StoreWriter {
           at: row.at,
           from_value: row.from_value,
           // The resume-handle echo rides only the boundary rows that move them.
-          handles: row.handles === undefined ? null : JSON.stringify(row.handles),
+          handles: row.handles === undefined ? null : json.encode(row.handles),
           kind: row.kind,
           node_id: row.node_id ?? null,
           project_key: row.project_id ?? null,
@@ -163,7 +162,7 @@ export function createPostgresWriter(tx: Transaction<DB>): StoreWriter {
       }
       const seq = allocated.last_seq;
       const id = renderId({ key: row.project_id, seq });
-      const values = newNodeRow(row, id, seq, now());
+      const values = newNodeRow(row, id, seq, now(), dialect);
       await tx.insertInto('node').values(values).execute();
       const tags = [...new Set(row.tags)];
       if (tags.length > 0) {
@@ -175,7 +174,7 @@ export function createPostgresWriter(tx: Transaction<DB>): StoreWriter {
       }
       // The echo carries the description the caller passed, while the working
       // set reads it back as null — the prose is body-authoritative (MMR-162).
-      return { ...toNode(values), description: row.description };
+      return { ...toNode(values, dialect), description: row.description };
     },
 
     async insertProject(row: NewProjectRecord): Promise<Project> {
@@ -193,7 +192,7 @@ export function createPostgresWriter(tx: Transaction<DB>): StoreWriter {
       } catch (error) {
         // The verb fences duplicates first; a RAW writer call reaches the key,
         // and must fail the way the verb does rather than as a driver error.
-        if (isUniqueViolation(error)) {
+        if (dialect.isUniqueViolation(error)) {
           throw conflict(`project key already exists: ${row.key}`);
         }
         throw error;
@@ -272,7 +271,7 @@ export function createPostgresWriter(tx: Transaction<DB>): StoreWriter {
 
     async loadNode(id) {
       const row = await tx.selectFrom('node').selectAll().where('id', '=', id).executeTakeFirst();
-      return row === undefined ? undefined : toNode(row);
+      return row === undefined ? undefined : toNode(row, dialect);
     },
 
     async loadProject(key) {
@@ -284,7 +283,7 @@ export function createPostgresWriter(tx: Transaction<DB>): StoreWriter {
       return row === undefined ? undefined : toProject(row);
     },
 
-    loadWorkingSet: () => loadWorkingSet(tx),
+    loadWorkingSet: () => loadWorkingSet(tx, dialect),
 
     async readNextSection(entityType, entityId) {
       // The two `next_*` columns on the transaction itself: read-your-writes is
@@ -307,7 +306,7 @@ export function createPostgresWriter(tx: Transaction<DB>): StoreWriter {
       return {
         ambiguous: false,
         insertAnchors: 1,
-        present: row?.next_present ?? false,
+        present: row === undefined ? false : bool.decode(row.next_present),
         text: text === '' ? null : text,
       };
     },
@@ -317,7 +316,7 @@ export function createPostgresWriter(tx: Transaction<DB>): StoreWriter {
       // {@link NextSectionWrite}): a markdown backend derives it from the
       // document it started the transact against, while here the heading IS the
       // column pair — so a null text is simply absence, and any text is presence.
-      const values = { next_present: write.text !== null, next_text: write.text };
+      const values = { next_present: bool.encode(write.text !== null), next_text: write.text };
       const present =
         entityType === 'node' ? await nodeExists(entityId) : await projectExists(entityId);
       if (!present) {
@@ -332,7 +331,13 @@ export function createPostgresWriter(tx: Transaction<DB>): StoreWriter {
       if (!(await nodeExists(id))) {
         throw invariant('the record vanished mid-transaction');
       }
-      const columns: NodeUpdate = { ...patch };
+      const { open_ended: openEnded, ...rest } = patch;
+      const columns: NodeUpdate = {
+        ...rest,
+        ...(openEnded === undefined
+          ? {}
+          : { open_ended: openEnded === null ? null : bool.encode(openEnded) }),
+      };
       if (Object.keys(columns).length === 0) {
         return;
       }

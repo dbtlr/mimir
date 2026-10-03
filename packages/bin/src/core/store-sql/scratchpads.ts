@@ -5,12 +5,11 @@ import { conflict, validation } from '../errors';
 import { lintScratchpadValue } from '../scratchpads/codec';
 import type { ScratchpadStore } from '../scratchpads/store';
 import { insertBatched } from './batch';
-import type { DB, ScratchpadRow, ScratchpadTable } from './schema';
-import type { Executor } from './tx';
-import { serializable } from './tx';
+import type { StoreDialect } from './dialect';
+import type { DB, Executor, ScratchpadRow, ScratchpadTable } from './schema';
 
 /**
- * The Postgres `ScratchpadStore` — UUID-addressed, project-owned temporary
+ * The SQL store's `ScratchpadStore` — UUID-addressed, project-owned temporary
  * episode documents.
  *
  * The store stamps NOTHING here. A pad's `updatedAt` is both its value and its
@@ -22,14 +21,15 @@ import { serializable } from './tx';
 const LIST_ORDER = (a: Scratchpad, b: Scratchpad): number =>
   b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id);
 
-function toScratchpad(row: ScratchpadRow): Scratchpad {
+function toScratchpad(row: ScratchpadRow, dialect: StoreDialect): Scratchpad {
+  const { json, list } = dialect.codecs;
   return {
-    agenda: row.agenda,
-    anchors: row.anchors,
+    agenda: json.decode(row.agenda),
+    anchors: list.decode(row.anchors),
     createdAt: row.created_at,
     freezingAt: row.freezing_at,
     id: row.id,
-    journal: row.journal,
+    journal: json.decode(row.journal),
     project: row.project_key,
     title: row.title,
     updatedAt: row.updated_at,
@@ -37,16 +37,16 @@ function toScratchpad(row: ScratchpadRow): Scratchpad {
 }
 
 /** The whole row one pad becomes — the single write shape create/replace share.
- * The two owned body sections ride `jsonb`, handed over as JSON text so the
- * driver never has to guess the parameter's type. */
-function toRow(pad: Scratchpad): Insertable<ScratchpadTable> {
+ * The two owned body sections ride JSON document columns. */
+function toRow(pad: Scratchpad, dialect: StoreDialect): Insertable<ScratchpadTable> {
+  const { json, list } = dialect.codecs;
   return {
-    agenda: JSON.stringify(pad.agenda),
-    anchors: pad.anchors,
+    agenda: json.encode(pad.agenda),
+    anchors: list.encode(pad.anchors),
     created_at: pad.createdAt,
     freezing_at: pad.freezingAt,
     id: pad.id,
-    journal: JSON.stringify(pad.journal),
+    journal: json.encode(pad.journal),
     project_key: pad.project,
     title: pad.title,
     updated_at: pad.updatedAt,
@@ -54,9 +54,12 @@ function toRow(pad: Scratchpad): Insertable<ScratchpadTable> {
 }
 
 /** Every scratchpad, whole — the store export's collection. */
-export async function exportScratchpads(ex: Executor): Promise<Scratchpad[]> {
+export async function exportScratchpads(
+  ex: Executor,
+  dialect: StoreDialect,
+): Promise<Scratchpad[]> {
   const rows = await ex.selectFrom('scratchpad').selectAll().execute();
-  return rows.map(toScratchpad).toSorted(LIST_ORDER);
+  return rows.map((row) => toScratchpad(row, dialect)).toSorted(LIST_ORDER);
 }
 
 /**
@@ -65,10 +68,12 @@ export async function exportScratchpads(ex: Executor): Promise<Scratchpad[]> {
  */
 export async function insertScratchpads(
   tx: Transaction<DB>,
+  dialect: StoreDialect,
   pads: readonly Scratchpad[],
 ): Promise<void> {
-  await insertBatched(pads.map(toRow), (chunk) =>
-    tx.insertInto('scratchpad').values(chunk).execute(),
+  await insertBatched(
+    pads.map((pad) => toRow(pad, dialect)),
+    (chunk) => tx.insertInto('scratchpad').values(chunk).execute(),
   );
 }
 
@@ -77,13 +82,13 @@ async function rowOf(ex: Executor, id: string): Promise<ScratchpadRow | undefine
   return ex.selectFrom('scratchpad').selectAll().where('id', '=', id).executeTakeFirst();
 }
 
-export function createPostgresScratchpadStore(db: Kysely<DB>): ScratchpadStore {
+export function createSqlScratchpadStore(db: Kysely<DB>, dialect: StoreDialect): ScratchpadStore {
   return {
     async create(pad) {
       if (lintScratchpadValue(pad).length > 0) {
         throw validation('the scratchpad Agenda state is not valid for persistence');
       }
-      await serializable(db, async (tx) => {
+      await dialect.write(db, async (tx) => {
         if ((await rowOf(tx, pad.id)) !== undefined) {
           throw conflict(`scratchpad ${pad.id} already exists`);
         }
@@ -95,12 +100,12 @@ export function createPostgresScratchpadStore(db: Kysely<DB>): ScratchpadStore {
         if (project === undefined) {
           throw validation('the scratchpad is not valid for persistence');
         }
-        await insertScratchpads(tx, [pad]);
+        await insertScratchpads(tx, dialect, [pad]);
       });
     },
 
     async delete(id, expectedUpdatedAt) {
-      await serializable(db, async (tx) => {
+      await dialect.write(db, async (tx) => {
         const row = await rowOf(tx, id);
         // An absent pad is already deleted — silence, not a refusal.
         if (row === undefined) {
@@ -122,16 +127,16 @@ export function createPostgresScratchpadStore(db: Kysely<DB>): ScratchpadStore {
         .selectAll()
         .$if(project !== undefined, (qb) => qb.where('project_key', '=', project ?? ''))
         .execute();
-      return rows.map(toScratchpad).toSorted(LIST_ORDER);
+      return rows.map((row) => toScratchpad(row, dialect)).toSorted(LIST_ORDER);
     },
 
     async load(id) {
       const row = await rowOf(db, id);
-      return row === undefined ? undefined : toScratchpad(row);
+      return row === undefined ? undefined : toScratchpad(row, dialect);
     },
 
     async replace(pad, expectedUpdatedAt) {
-      await serializable(db, async (tx) => {
+      await dialect.write(db, async (tx) => {
         const row = await rowOf(tx, pad.id);
         if (row === undefined) {
           throw validation(`${pad.id} does not name a readable scratchpad`);
@@ -151,7 +156,7 @@ export function createPostgresScratchpadStore(db: Kysely<DB>): ScratchpadStore {
         if (pad.project !== row.project_key || pad.createdAt !== row.created_at) {
           throw validation('scratchpad project and createdAt are immutable');
         }
-        const next = toRow(pad);
+        const next = toRow(pad, dialect);
         await tx
           .updateTable('scratchpad')
           .set({
