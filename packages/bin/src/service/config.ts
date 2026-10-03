@@ -48,16 +48,17 @@ export type VaultConfig = {
 /** The snapshot cadence when `[vault.snapshot] interval` is unset — the atlas precedent, 15 minutes. */
 export const DEFAULT_SNAPSHOT_INTERVAL_SECONDS = 900;
 
-/** Every store backend a mimir install can run on (ADR 0030 Decision 1). */
-export type StoreBackend = 'norn' | 'postgres';
+/** Every store backend a mimir install can run on (ADR 0030, ADR 0032). */
+export type StoreBackend = 'sqlite' | 'postgres' | 'norn';
 
-/** The backend an install runs on when `[store] backend` is absent. */
-export const DEFAULT_STORE_BACKEND: StoreBackend = 'norn';
+/** The backend an install runs on when `[store] backend` is absent: the local tier (ADR 0032). */
+export const DEFAULT_STORE_BACKEND: StoreBackend = 'sqlite';
 
 /**
  * The `[store]` section — the per-install backend fence, restored at MMR-378
- * (ADR 0030 Decision 1) after its MMR-234 retirement. `backend` selects `norn`
- * (the markdown vault, and the default when the key is absent) or `postgres`.
+ * (ADR 0030 Decision 1) after its MMR-234 retirement. `backend` selects `sqlite`
+ * (the local database file, and the default when the key is absent, ADR 0032),
+ * `postgres`, or `norn` (the markdown vault).
  * The fence is per install, NEVER per project: the working-set load is
  * deliberately whole-store because dependency edges cross project boundaries,
  * so one install is wholly on one backend. An unrecognized backend word is
@@ -67,7 +68,7 @@ export const DEFAULT_STORE_BACKEND: StoreBackend = 'norn';
 export type StoreConfig = {
   backend?: StoreBackend;
   /** The Postgres connection URL (`postgres://user:pass@host/db`) — required by
-   * the `postgres` backend, ignored by `norn`. The secret lives in this file on
+   * the `postgres` backend, ignored by the others. The secret lives in this file on
    * purpose (ADR 0030): one install, one database, no env indirection. */
   url?: string;
   /** Set when a config file exists but contributed nothing — callers may warn. */
@@ -126,7 +127,7 @@ function vaultSection(raw: unknown): VaultConfig {
 }
 
 function isStoreBackend(value: unknown): value is StoreBackend {
-  return value === 'norn' || value === 'postgres';
+  return value === 'sqlite' || value === 'postgres' || value === 'norn';
 }
 
 function storeSection(raw: unknown): StoreConfig {

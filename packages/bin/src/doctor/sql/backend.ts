@@ -1,13 +1,14 @@
 /**
- * The Postgres backend's implementation of the neutral doctor contract (ADR
- * 0030 Decision 6). Where the Norn doctor reads documents, this one reads rows:
+ * The SQL backends' implementation of the neutral doctor contract (ADR 0030
+ * Decision 6, ADR 0032) — one doctor over the shared SQL store, for Postgres
+ * and SQLite alike. Where the Norn doctor reads documents, this one reads rows:
  * every check is one query whose result set IS the finding list.
  *
  * There is no `repair`. On this backend the constraints are the validator: a
  * foreign key, a primary key, and a `CHECK` over each closed vocabulary make
  * nearly every state the Norn checks look for unrepresentable. What remains is
  * the short list below — the referential checks catch a dropped or disabled
- * constraint, i.e. a hand edit at the `psql` prompt, not a failed import (a
+ * constraint, i.e. a hand edit at the database prompt, not a failed import (a
  * deferred foreign key still fails at commit, and the whole import runs in one
  * transaction) — and a state a human produced by hand is a state a human
  * resolves by hand.
@@ -20,8 +21,10 @@ import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 
 import { parseIdentity } from '../../core/ids';
-import type { DB } from '../../core/store-postgres/index';
-import { readSchemaVersion, SCHEMA_VERSION } from '../../core/store-postgres/index';
+import { inLists } from '../../core/store-sql/batch';
+import type { StoreDialect } from '../../core/store-sql/dialect';
+import { readSchemaVersion, SCHEMA_VERSION } from '../../core/store-sql/migrator';
+import type { DB } from '../../core/store-sql/schema';
 import { now } from '../../core/time';
 import type { DoctorBackend, DoctorDiagnosis, DoctorFinding, DoctorScopeMatch } from '../contract';
 import type { DoctorFacet, DoctorGroup, DoctorRecord } from '../facet';
@@ -34,7 +37,7 @@ import type { DoctorFacet, DoctorGroup, DoctorRecord } from '../facet';
 const STORE_SCOPE = 'store';
 
 /** The closed code vocabulary this backend reports. */
-type PostgresCheck =
+type SqlCheck =
   | 'counter-behind'
   | 'dangling-edge'
   | 'dangling-parent'
@@ -49,7 +52,7 @@ type PostgresCheck =
  * one thing.
  */
 function finding(input: {
-  check: PostgresCheck;
+  check: SqlCheck;
   evidence: Readonly<Record<string, unknown>>;
   locator: string;
   message: string;
@@ -75,28 +78,41 @@ function finding(input: {
 /**
  * The stored schema version against the one this binary reads.
  *
- * Unreachable through the composition root — `assertSchemaCurrent` refuses the
- * connection before a store exists — but reported all the same, because a
+ * Unreachable through the composition root — the Postgres arm's
+ * `assertSchemaCurrent` refuses the connection before a store exists, and the
+ * SQLite arm migrates on open — but reported all the same, because a
  * caller that holds a handle directly (the upgrade command's, a test's) is
  * owed the answer rather than an empty diagnosis.
  */
-async function checkSchemaVersion(db: Kysely<DB>): Promise<DoctorFinding[]> {
-  const version = await readSchemaVersion(db);
+async function checkSchemaVersion(db: Kysely<DB>, dialect: StoreDialect): Promise<DoctorFinding[]> {
+  const version = await readSchemaVersion(db, dialect);
   if (version === SCHEMA_VERSION) {
     return [];
   }
   const stored = version === null ? 'absent' : String(version);
+  const remedy = schemaRemedy(version, dialect);
   return [
     finding({
       check: 'schema-version',
       evidence: { binary: SCHEMA_VERSION, stored: version },
       locator: 'schema_version',
-      message: `the store schema is ${stored === 'absent' ? 'absent' : `version ${stored}`}; this binary reads version ${String(SCHEMA_VERSION)} — run 'mimir store upgrade'`,
+      message: `the store schema is ${stored === 'absent' ? 'absent' : `version ${stored}`}; this binary reads version ${String(SCHEMA_VERSION)} — ${remedy}`,
       scopeKey: STORE_SCOPE,
       stem: STORE_SCOPE,
       where: 'schema_version · version',
     }),
   ];
+}
+
+/** What the operator does about a stored schema other than this binary's. */
+function schemaRemedy(version: number | null, dialect: StoreDialect): string {
+  if (version === null) {
+    return dialect.schemaRemedy.missing;
+  }
+  if (version < SCHEMA_VERSION) {
+    return dialect.schemaRemedy.behind;
+  }
+  return 'upgrade the binary; a newer schema is never downgraded';
 }
 
 /**
@@ -222,7 +238,7 @@ async function checkCounterBehind(db: Kysely<DB>): Promise<DoctorFinding[]> {
  * are foreign-keyed, so only the scratchpad anchors — a plain `text[]` a
  * constraint cannot cover — are reachable short of a hand edit.
  */
-async function checkOrphanLink(db: Kysely<DB>): Promise<DoctorFinding[]> {
+async function checkOrphanLink(db: Kysely<DB>, dialect: StoreDialect): Promise<DoctorFinding[]> {
   const links = await db
     .selectFrom('artifact_link as l')
     .leftJoin('artifact as a', 'a.id', 'l.artifact_id')
@@ -248,15 +264,7 @@ async function checkOrphanLink(db: Kysely<DB>): Promise<DoctorFinding[]> {
     });
   });
 
-  const anchors = await sql<{ id: string; project_key: string; anchor: string }>`
-    select s.id, s.project_key, a.anchor
-      from scratchpad s
-      cross join lateral unnest(s.anchors) as a(anchor)
-      left join node n on n.id = a.anchor
-     where n.id is null
-     order by s.id, a.anchor
-  `.execute(db);
-  for (const row of anchors.rows) {
+  for (const row of await orphanAnchors(db, dialect)) {
     findings.push(
       finding({
         check: 'orphan-link',
@@ -270,6 +278,37 @@ async function checkOrphanLink(db: Kysely<DB>): Promise<DoctorFinding[]> {
     );
   }
   return findings;
+}
+
+/**
+ * Every scratchpad anchor that names no node, `(id, anchor)` ordered. The
+ * anchors are a list column each dialect encodes its own way, so they are
+ * decoded here rather than unnested in SQL; a store holds few scratchpads.
+ */
+async function orphanAnchors(
+  db: Kysely<DB>,
+  dialect: StoreDialect,
+): Promise<{ id: string; project_key: string; anchor: string }[]> {
+  const pads = await db
+    .selectFrom('scratchpad')
+    .select(['id', 'project_key', 'anchors'])
+    .orderBy('id')
+    .execute();
+  const anchored = pads.flatMap((pad) =>
+    dialect.codecs.list
+      .decode(pad.anchors)
+      .toSorted()
+      .map((anchor) => ({ anchor, id: pad.id, project_key: pad.project_key })),
+  );
+  const named = [...new Set(anchored.map((row) => row.anchor))];
+  const present = new Set<string>();
+  for (const chunk of inLists(named, dialect.maxParameters)) {
+    const rows = await db.selectFrom('node').select('id').where('id', 'in', chunk).execute();
+    for (const row of rows) {
+      present.add(row.id);
+    }
+  }
+  return anchored.filter((row) => !present.has(row.anchor));
 }
 
 /**
@@ -293,11 +332,15 @@ async function countRecords(db: Kysely<DB>): Promise<Map<string, number>> {
 }
 
 /** Findings for `scope`, or all of them when the run is unscoped. */
-async function diagnose(db: Kysely<DB>, scope: string | undefined): Promise<DoctorFinding[]> {
+async function diagnose(
+  db: Kysely<DB>,
+  dialect: StoreDialect,
+  scope: string | undefined,
+): Promise<DoctorFinding[]> {
   // The schema check runs alone, first: the table queries below assume the
   // current schema's shape and can throw against an absent or older one, so a
   // mismatch here is the whole diagnosis rather than one finding among many.
-  const schemaFindings = await checkSchemaVersion(db);
+  const schemaFindings = await checkSchemaVersion(db, dialect);
   if (schemaFindings.length > 0) {
     return schemaFindings;
   }
@@ -306,7 +349,7 @@ async function diagnose(db: Kysely<DB>, scope: string | undefined): Promise<Doct
       checkDanglingParent(db),
       checkDanglingEdge(db),
       checkCounterBehind(db),
-      checkOrphanLink(db),
+      checkOrphanLink(db, dialect),
     ])
   ).flat();
   if (scope === undefined || scope === '') {
@@ -326,7 +369,7 @@ const CAUSES: Readonly<Record<string, string>> = {
   'dangling-parent': 'dangling parent',
   'orphan-link': 'orphan link',
   'schema-version': 'schema version mismatch',
-} satisfies Record<PostgresCheck, string>;
+} satisfies Record<SqlCheck, string>;
 
 /** The column a finding's `where` names, e.g. `node · parent_id` → `parent_id`. */
 function fieldOf(where: string): string | null {
@@ -385,8 +428,8 @@ function toGroups(
     .toSorted((a, b) => a.project.localeCompare(b.project));
 }
 
-/** Build the Postgres doctor facet over one open handle. */
-export function createPostgresDoctorBackend(db: Kysely<DB>): DoctorBackend {
+/** Build the doctor facet over one open handle and the dialect it speaks. */
+export function createSqlDoctorBackend(db: Kysely<DB>, dialect: StoreDialect): DoctorBackend {
   const scopeMatch = async (scope: string | undefined): Promise<DoctorScopeMatch> =>
     scope === undefined || scope === ''
       ? null
@@ -394,11 +437,11 @@ export function createPostgresDoctorBackend(db: Kysely<DB>): DoctorBackend {
 
   return {
     diagnose: async (scope): Promise<DoctorDiagnosis> => ({
-      findings: await diagnose(db, scope),
+      findings: await diagnose(db, dialect, scope),
       scope: await scopeMatch(scope),
     }),
     facet: async (scope): Promise<DoctorFacet> => {
-      const findings = await diagnose(db, scope);
+      const findings = await diagnose(db, dialect, scope);
       const records = await countRecords(db);
       return {
         dropped_total: findings.length,

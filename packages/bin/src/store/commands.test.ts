@@ -6,6 +6,8 @@ import { Kysely, sql } from 'kysely';
 import { fakeIo } from '../cli/testing';
 import type { DB, PostgresHandle, UpgradeReport } from '../core/store-postgres/index';
 import { createPgliteDialect } from '../core/store-postgres/pglite';
+import { SCHEMA_VERSION } from '../core/store-sql/migrator';
+import { openSqlite } from '../core/store-sqlite/index';
 import type { GlobalConfig } from '../service/config';
 import type { StoreDeps } from './commands';
 import { cmdStore } from './commands';
@@ -32,6 +34,10 @@ function injected(): Injected {
     db,
     deps: (global) => ({
       openPostgres: open,
+      openSqlite: () => {
+        opened.push('sqlite');
+        return openSqlite(':memory:');
+      },
       readConfig: () => global,
       readStdin: () => Promise.reject(new Error('store upgrade must not read stdin')),
     }),
@@ -51,15 +57,33 @@ const noStore = (): never => {
 
 const POSTGRES = config({ backend: 'postgres', url: 'postgres://localhost/mimir' });
 
+test('store upgrade on the default sqlite install opens the database and reports the migration', async () => {
+  const io = fakeIo();
+  const pg = injected();
+  try {
+    // The absent fence is the sqlite default; opening the file migrates it.
+    expect(await cmdStore(['store', 'upgrade'], {}, io, pg.deps(config({})), 'json', noStore)).toBe(
+      0,
+    );
+    expect(JSON.parse(io.out.join(''))).toEqual({
+      applied: ['0001_init'],
+      from: 0,
+      to: SCHEMA_VERSION,
+    });
+    expect(pg.opened).toEqual(['sqlite']);
+  } finally {
+    await pg.db.destroy();
+  }
+});
+
 test('store upgrade on a norn install reports that the vault converges on its own', async () => {
   const io = fakeIo();
   const pg = injected();
-  // The absent fence is the norn default — the common case for this message.
   const code = await cmdStore(
     ['store', 'upgrade'],
     {},
     io,
-    pg.deps(config({})),
+    pg.deps(config({ backend: 'norn' })),
     'records',
     noStore,
   );

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -52,11 +52,20 @@ class FakeSupervisor implements Supervisor {
   }
 }
 
+/**
+ * The setup deps over `dir`. Most cases drive the Norn arm — the one that owns
+ * a vault and its snapshot timer — so the config starts fenced to it; a case
+ * for the default local tier passes `backend: null` for an absent `[store]`.
+ */
 function deps(
   serve: FakeSupervisor,
   snap: FakeSupervisor,
   platform: NodeJS.Platform = 'darwin',
+  backend: 'norn' | null = 'norn',
 ): SetupDeps {
+  if (backend !== null) {
+    writeFileSync(join(dir, 'config.toml'), `[store]\nbackend = "${backend}"\n`);
+  }
   const service: ServiceDeps = {
     binPath: join(dir, 'mimir'),
     configFile: join(dir, 'config.toml'),
@@ -93,7 +102,12 @@ function deps(
     snapshotConfig: () => ({}),
     stamp: () => '2026-07-03T00:00:00.000Z',
   };
-  return { defaultVaultPath: join(dir, 'vault'), service, vault };
+  return {
+    defaultVaultPath: join(dir, 'vault'),
+    service,
+    sqlitePath: join(dir, 'mimir.db'),
+    vault,
+  };
 }
 
 test('non-TTY without -y refuses (a piped setup never acts silently)', async () => {
@@ -118,12 +132,69 @@ test('-y converges a fresh vault and writes [vault] path — no units by default
   expect(existsSync(join(dir, 'vault', MARKER_FILE))).toBe(true);
   expect(readConfig(d.service.configFile)).toEqual({
     serve: {},
-    store: {},
+    store: { backend: 'norn' },
     vault: { path: join(dir, 'vault') },
   });
   expect(serve.calls).toEqual([]);
   expect(snap.calls).toEqual([]);
   expect(io.out.join('\n')).toContain('setup complete');
+});
+
+test('-y on the default local tier converges no vault and writes no [vault]', async () => {
+  const serve = new FakeSupervisor();
+  const d = deps(serve, new FakeSupervisor(), 'darwin', null);
+  const io = fakeIo(false);
+  const code = await cmdSetup({ yes: true }, io, d, 'json');
+  expect(code).toBe(0);
+  expect(existsSync(join(dir, 'vault'))).toBe(false);
+  expect(readConfig(d.service.configFile)).toEqual({ serve: {}, store: {}, vault: {} });
+  expect(JSON.parse(io.out.join(''))).toMatchObject({
+    store: { backend: 'sqlite', path: join(dir, 'mimir.db') },
+  });
+  expect(serve.calls).toEqual([]);
+});
+
+test('an unusable [store] section is refused before setup writes anything', async () => {
+  for (const isTTY of [false, true]) {
+    const d = deps(new FakeSupervisor(), new FakeSupervisor(), 'darwin', null);
+    writeFileSync(d.service.configFile, '[store]\nbackend = "mysql"\n');
+    let message = '';
+    try {
+      await cmdSetup({ yes: true }, fakeIo(isTTY), d, 'records');
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    expect(message).toContain('[store] is unusable (invalid-backend)');
+    // The bad section is the operator's to fix; setup leaves the file alone.
+    expect(readFileSync(d.service.configFile, 'utf8')).toBe('[store]\nbackend = "mysql"\n');
+  }
+});
+
+test('--install-service on the local tier installs the serve unit without a vault', async () => {
+  const serve = new FakeSupervisor();
+  const d = deps(serve, new FakeSupervisor(), 'darwin', null);
+  const code = await cmdSetup({ installService: true, yes: true }, fakeIo(false), d, 'records');
+  expect(code).toBe(0);
+  expect(serve.calls).toContain('install');
+  expect(existsSync(join(dir, 'vault'))).toBe(false);
+});
+
+test('vault and snapshot flags are refused on a backend without a vault', async () => {
+  for (const values of [
+    { vault: join(dir, 'vault') },
+    { installSnapshot: true },
+    { installSnapshot: true, snapshotInterval: '60' },
+  ]) {
+    const d = deps(new FakeSupervisor(), new FakeSupervisor(), 'darwin', null);
+    let message = '';
+    try {
+      await cmdSetup({ ...values, yes: true }, fakeIo(false), d, 'records');
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    expect(message).toContain('only to the norn backend');
+  }
+  expect(existsSync(join(dir, 'vault'))).toBe(false);
 });
 
 test('--install-service --port installs the serve unit and persists the port', async () => {
@@ -142,7 +213,7 @@ test('--install-service --port installs the serve unit and persists the port', a
   expect(snap.calls).toEqual([]);
   expect(readConfig(d.service.configFile)).toEqual({
     serve: { port: 50130 },
-    store: {},
+    store: { backend: 'norn' },
     vault: { path: join(dir, 'vault') },
   });
 });
@@ -362,7 +433,7 @@ test('a reconfigure preserves operator-set push/pull the wizard never asks about
   // Operator deliberately set local-only snapshots (push = false) by hand.
   writeFileSync(
     d.service.configFile,
-    '[vault]\npath = "/v"\n[vault.snapshot]\ninterval = 900\npush = false\n',
+    '[store]\nbackend = "norn"\n[vault]\npath = "/v"\n[vault.snapshot]\ninterval = 900\npush = false\n',
   );
   await cmdSetup(
     { installSnapshot: true, snapshotInterval: '600', vault: join(dir, 'vault'), yes: true },
@@ -378,17 +449,21 @@ test('a malformed config is rewritten with a warning (reset is never silent)', a
   const d = deps(new FakeSupervisor(), new FakeSupervisor());
   writeFileSync(d.service.configFile, 'this is [not valid toml');
   const io = fakeIo(false);
-  const code = await cmdSetup({ vault: join(dir, 'vault'), yes: true }, io, d, 'records');
+  // The unreadable file fences no backend, so setup runs the default local tier.
+  const code = await cmdSetup({ port: '7777', yes: true }, io, d, 'records');
   expect(code).toBe(0);
   expect(io.err.join('\n')).toMatch(/was not valid TOML — rewrote it fresh/);
-  expect(readConfig(d.service.configFile).vault.path).toBe(join(dir, 'vault'));
+  expect(readConfig(d.service.configFile)).toEqual({ serve: { port: 7777 }, store: {}, vault: {} });
 });
 
 test('a valid but wrong-typed config does NOT trigger the false "not valid TOML" warning', async () => {
   const d = deps(new FakeSupervisor(), new FakeSupervisor());
   // Valid TOML whose serve section is wrong-typed — readConfig flags it, but the
   // file parses fine, so writeConfig merges (no reset) and no warning fires.
-  writeFileSync(d.service.configFile, 'serve = 5\n[vault]\npath = "/keep"\n');
+  writeFileSync(
+    d.service.configFile,
+    'serve = 5\n[store]\nbackend = "norn"\n[vault]\npath = "/keep"\n',
+  );
   const io = fakeIo(false);
   const code = await cmdSetup({ vault: join(dir, 'vault'), yes: true }, io, d, 'records');
   expect(code).toBe(0);

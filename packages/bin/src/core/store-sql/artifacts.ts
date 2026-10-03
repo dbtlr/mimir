@@ -8,7 +8,7 @@ import { canonicalSetOrder } from '../export';
 import type { ExportedArtifact } from '../export';
 import { renderArtifactRef } from '../ids';
 import { now } from '../time';
-import { insertBatched, pairKey } from './batch';
+import { inLists, insertBatched, pairKey } from './batch';
 import type { StoreDialect } from './dialect';
 import type { ArtifactRow, DB, Executor } from './schema';
 
@@ -49,36 +49,42 @@ function toRecord(row: ArtifactRow, tags: string[], links: string[]): ArtifactRe
  * differently from a vault, and the set order is one rule the whole seam shares
  * (MMR-380).
  */
-async function tagsFor(ex: Executor, ids: readonly string[]): Promise<Map<string, string[]>> {
+async function tagsFor(
+  ex: Executor,
+  dialect: StoreDialect,
+  ids: readonly string[],
+): Promise<Map<string, string[]>> {
   const out = new Map<string, string[]>();
-  if (ids.length === 0) {
-    return out;
-  }
-  const rows = await ex
-    .selectFrom('tag')
-    .select(['entity_id', 'tag'])
-    .where('entity_type', '=', 'artifact')
-    .where('entity_id', 'in', [...ids])
-    .execute();
-  for (const row of rows) {
-    out.set(row.entity_id, [...(out.get(row.entity_id) ?? []), row.tag]);
+  for (const chunk of inLists(ids, dialect.maxParameters)) {
+    const rows = await ex
+      .selectFrom('tag')
+      .select(['entity_id', 'tag'])
+      .where('entity_type', '=', 'artifact')
+      .where('entity_id', 'in', chunk)
+      .execute();
+    for (const row of rows) {
+      out.set(row.entity_id, [...(out.get(row.entity_id) ?? []), row.tag]);
+    }
   }
   return sortSets(out);
 }
 
 /** Link sets for many artifacts at once, keyed by stem, ordered like the tags. */
-async function linksFor(ex: Executor, ids: readonly string[]): Promise<Map<string, string[]>> {
+async function linksFor(
+  ex: Executor,
+  dialect: StoreDialect,
+  ids: readonly string[],
+): Promise<Map<string, string[]>> {
   const out = new Map<string, string[]>();
-  if (ids.length === 0) {
-    return out;
-  }
-  const rows = await ex
-    .selectFrom('artifact_link')
-    .select(['artifact_id', 'node_id'])
-    .where('artifact_id', 'in', [...ids])
-    .execute();
-  for (const row of rows) {
-    out.set(row.artifact_id, [...(out.get(row.artifact_id) ?? []), row.node_id]);
+  for (const chunk of inLists(ids, dialect.maxParameters)) {
+    const rows = await ex
+      .selectFrom('artifact_link')
+      .select(['artifact_id', 'node_id'])
+      .where('artifact_id', 'in', chunk)
+      .execute();
+    for (const row of rows) {
+      out.set(row.artifact_id, [...(out.get(row.artifact_id) ?? []), row.node_id]);
+    }
   }
   return sortSets(out);
 }
@@ -92,10 +98,14 @@ function sortSets(sets: Map<string, string[]>): Map<string, string[]> {
 }
 
 /** Decorate artifact rows with their tags and links in one pair of queries. */
-async function decorate(ex: Executor, rows: readonly ArtifactRow[]): Promise<ArtifactRecord[]> {
+async function decorate(
+  ex: Executor,
+  dialect: StoreDialect,
+  rows: readonly ArtifactRow[],
+): Promise<ArtifactRecord[]> {
   const ids = rows.map((row) => row.id);
-  const tags = await tagsFor(ex, ids);
-  const links = await linksFor(ex, ids);
+  const tags = await tagsFor(ex, dialect, ids);
+  const links = await linksFor(ex, dialect, ids);
   return rows.map((row) => toRecord(row, tags.get(row.id) ?? [], links.get(row.id) ?? []));
 }
 
@@ -103,14 +113,17 @@ async function decorate(ex: Executor, rows: readonly ArtifactRow[]): Promise<Art
  * Every artifact with its frozen content and `source_scratch` — the store
  * export's artifact collection, `(key, seq)` ordered.
  */
-export async function exportArtifacts(ex: Executor): Promise<ExportedArtifact[]> {
+export async function exportArtifacts(
+  ex: Executor,
+  dialect: StoreDialect,
+): Promise<ExportedArtifact[]> {
   const rows = await ex
     .selectFrom('artifact')
     .selectAll()
     .orderBy('project_key')
     .orderBy('seq')
     .execute();
-  const records = await decorate(ex, rows);
+  const records = await decorate(ex, dialect, rows);
   const exported: ExportedArtifact[] = [];
   for (const [index, record] of records.entries()) {
     const row = rows[index];
@@ -132,6 +145,7 @@ export async function exportArtifacts(ex: Executor): Promise<ExportedArtifact[]>
  */
 export async function insertExportedArtifacts(
   tx: Transaction<DB>,
+  dialect: StoreDialect,
   artifacts: readonly ExportedArtifact[],
 ): Promise<void> {
   const rows = artifacts.map((artifact) => ({
@@ -145,9 +159,12 @@ export async function insertExportedArtifacts(
     title: artifact.title,
     updated_at: artifact.updated_at,
   }));
-  await insertBatched(rows, (chunk) => tx.insertInto('artifact').values(chunk).execute());
+  await insertBatched(rows, dialect.maxParameters, (chunk) =>
+    tx.insertInto('artifact').values(chunk).execute(),
+  );
   await writeRelations(
     tx,
+    dialect,
     artifacts.map((artifact) => ({
       id: stemOf(artifact.key, artifact.seq),
       links: artifact.links,
@@ -171,6 +188,7 @@ type ArtifactRelations = {
  */
 async function writeRelations(
   tx: Transaction<DB>,
+  dialect: StoreDialect,
   artifacts: readonly ArtifactRelations[],
 ): Promise<void> {
   const tags = new Map<string, { entity_id: string; entity_type: 'artifact'; tag: string }>();
@@ -187,14 +205,14 @@ async function writeRelations(
       links.set(pairKey(artifact.id, node_id), { artifact_id: artifact.id, node_id });
     }
   }
-  await insertBatched([...tags.values()], (chunk) =>
+  await insertBatched([...tags.values()], dialect.maxParameters, (chunk) =>
     tx
       .insertInto('tag')
       .values(chunk)
       .onConflict((oc) => oc.doNothing())
       .execute(),
   );
-  await insertBatched([...links.values()], (chunk) =>
+  await insertBatched([...links.values()], dialect.maxParameters, (chunk) =>
     tx
       .insertInto('artifact_link')
       .values(chunk)
@@ -265,7 +283,7 @@ export function createSqlArtifactStore(db: Kysely<DB>, dialect: StoreDialect): A
             updated_at: timestamp,
           })
           .execute();
-        await writeRelations(tx, [{ id, links: input.links, tags: input.tags }]);
+        await writeRelations(tx, dialect, [{ id, links: input.links, tags: input.tags }]);
         // Echoed IN FULL from what was just written (MMR-283): every field is
         // either the create input or derived here, so a caller building a
         // create response never needs a follow-up `load`. Tags and links carry
@@ -298,7 +316,7 @@ export function createSqlArtifactStore(db: Kysely<DB>, dialect: StoreDialect): A
       if (row === undefined) {
         return undefined;
       }
-      const [record] = await decorate(db, [row]);
+      const [record] = await decorate(db, dialect, [row]);
       return record === undefined ? undefined : { ...record, content: row.content };
     },
 
@@ -339,7 +357,7 @@ export function createSqlArtifactStore(db: Kysely<DB>, dialect: StoreDialect): A
       const total = rows.length;
       const offset = query.offset ?? 0;
       const page = rows.slice(offset, offset + (query.limit ?? 100));
-      return { items: await decorate(db, page), total };
+      return { items: await decorate(db, dialect, page), total };
     },
 
     async listForNode(nodeStem) {
@@ -350,7 +368,7 @@ export function createSqlArtifactStore(db: Kysely<DB>, dialect: StoreDialect): A
         .selectAll('artifact')
         .orderBy('artifact.seq')
         .execute();
-      return decorate(db, rows);
+      return decorate(db, dialect, rows);
     },
 
     async listForProject(key) {
@@ -360,7 +378,7 @@ export function createSqlArtifactStore(db: Kysely<DB>, dialect: StoreDialect): A
         .where('project_key', '=', key)
         .orderBy('seq')
         .execute();
-      return decorate(db, rows);
+      return decorate(db, dialect, rows);
     },
 
     async load(key, seq, opts) {
@@ -368,7 +386,7 @@ export function createSqlArtifactStore(db: Kysely<DB>, dialect: StoreDialect): A
       if (row === undefined) {
         return undefined;
       }
-      const [record] = await decorate(db, [row]);
+      const [record] = await decorate(db, dialect, [row]);
       if (record === undefined) {
         return undefined;
       }

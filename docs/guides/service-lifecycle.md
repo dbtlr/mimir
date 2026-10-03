@@ -107,10 +107,10 @@ reach the manager. A login shell sets it. In a non-login context such as `sudo
 
 A host that runs `mimir serve` directly, outside any supervisor:
 
-1. Check that `command -v norn` prints a path. `service install` requires
-   `norn` on `PATH`, on a PostgreSQL-store installation too, and stops before
-   it writes a unit if `norn` is missing. Check first so the daemon is not left
-   down.
+1. On a Norn-backend installation, check that `command -v norn` prints a path.
+   `service install` requires `norn` on `PATH` and a vault there, and stops
+   before it writes a unit if either is missing. Check first so the daemon is
+   not left down. The SQLite and PostgreSQL backends need neither.
 2. Stop the bare process.
 3. Run `mimir service install` (add `--port <n>` to persist a port).
 4. Run `mimir service status` and check that `serve` is running and

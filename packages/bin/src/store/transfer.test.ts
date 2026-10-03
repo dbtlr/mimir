@@ -32,6 +32,9 @@ const DEPS: StoreDeps = {
   openPostgres: () => {
     throw new Error('a transfer verb must not open the store machinery connection');
   },
+  openSqlite: () => {
+    throw new Error('a transfer verb must not open the store machinery connection');
+  },
   readConfig: (): GlobalConfig => ({ serve: {}, store: {}, vault: {} }),
   readStdin: () => Promise.reject(new Error('this case must not read stdin')),
 };

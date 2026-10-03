@@ -67,7 +67,7 @@ bun run sandbox service-destroy <sandbox-id>
 
 `service-verify` proves `mimir service` against the real supervisor. It installs
 the candidate (built from the checkout, or `--binary <path>`) and then runs
-`install all`, `status`, `restart`, a `SIGKILL` that the supervisor must recover
+`install serve`, `status`, `restart`, a `SIGKILL` that the supervisor must recover
 from, `stop`, `start`, and `uninstall`. After each transition it waits for the
 supervisor's state and `/api/health` to agree. It records the live units' state
 before and after the run and fails if that state changed. The state covers the
@@ -91,7 +91,9 @@ live unit file.
   Postgres. The container runs privileged, which systemd needs for its cgroup
   tree.
 
-Both targets need `norn` on `PATH`, because `service install` checks for it.
+Neither target needs `norn` on `PATH`. The sandbox configuration names no store
+backend, so it runs on SQLite, and `service install` checks for `norn` only on
+the Norn backend.
 The report is written to `.dev/sandbox-results/service-<sandbox-id>.json`.
 Teardown always unloads the units or removes the container. A failed run keeps
 its directory, including the daemon logs, and prints the `service-destroy`

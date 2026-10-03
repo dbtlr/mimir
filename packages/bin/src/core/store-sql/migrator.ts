@@ -52,10 +52,7 @@ export async function readSchemaVersion(
 export async function assertSchemaCurrent(db: Kysely<DB>, dialect: StoreDialect): Promise<void> {
   const version = await readSchemaVersion(db, dialect);
   if (version === null) {
-    throw invariant(
-      `the ${dialect.label} store has no schema`,
-      "run 'mimir store upgrade' to create it",
-    );
+    throw invariant(`the ${dialect.label} store has no schema`, dialect.schemaRemedy.missing);
   }
   if (version > SCHEMA_VERSION) {
     throw invariant(
@@ -66,7 +63,7 @@ export async function assertSchemaCurrent(db: Kysely<DB>, dialect: StoreDialect)
   if (version < SCHEMA_VERSION) {
     throw invariant(
       `the ${dialect.label} store schema is version ${String(version)}; this binary needs version ${String(SCHEMA_VERSION)}`,
-      `run 'mimir store upgrade' on one machine; every binary must be at least version ${String(SCHEMA_VERSION)}`,
+      dialect.schemaRemedy.behind,
     );
   }
 }

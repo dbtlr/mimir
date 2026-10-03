@@ -151,7 +151,7 @@ export async function exportSqlStore(ex: Executor, dialect: StoreDialect): Promi
 
   return {
     annotations,
-    artifacts: await exportArtifacts(ex),
+    artifacts: await exportArtifacts(ex, dialect),
     bodySections,
     edges: [...workingSet.edges],
     exported_at: now(),
@@ -560,32 +560,36 @@ async function applyImport(
 
   // Written in foreign-key order: a project owns its nodes, artifacts, seeds,
   // and pads, and a node owns its edges, annotations, and transitions.
-  await insertBatched(projectRows, (chunk) => tx.insertInto('project').values(chunk).execute());
+  await insertBatched(projectRows, dialect.maxParameters, (chunk) =>
+    tx.insertInto('project').values(chunk).execute(),
+  );
   for (const project of stale) {
     await raiseCounters(tx, project.key, project.counters);
   }
-  await insertBatched(nodeRows, (chunk) => tx.insertInto('node').values(chunk).execute());
-  await insertBatched(tagRows, (chunk) =>
+  await insertBatched(nodeRows, dialect.maxParameters, (chunk) =>
+    tx.insertInto('node').values(chunk).execute(),
+  );
+  await insertBatched(tagRows, dialect.maxParameters, (chunk) =>
     tx
       .insertInto('tag')
       .values(chunk)
       .onConflict((oc) => oc.doNothing())
       .execute(),
   );
-  await insertBatched([...edgeRows.values()], (chunk) =>
+  await insertBatched([...edgeRows.values()], dialect.maxParameters, (chunk) =>
     tx
       .insertInto('dependency')
       .values(chunk)
       .onConflict((oc) => oc.doNothing())
       .execute(),
   );
-  await insertBatched(annotationRows, (chunk) =>
+  await insertBatched(annotationRows, dialect.maxParameters, (chunk) =>
     tx.insertInto('annotation').values(chunk).execute(),
   );
-  await insertBatched(transitionRows, (chunk) =>
+  await insertBatched(transitionRows, dialect.maxParameters, (chunk) =>
     tx.insertInto('transition_log').values(chunk).execute(),
   );
-  await insertExportedArtifacts(tx, artifacts);
+  await insertExportedArtifacts(tx, dialect, artifacts);
   await insertExportedSeeds(tx, dialect, seeds);
   await insertScratchpads(tx, dialect, pads);
 

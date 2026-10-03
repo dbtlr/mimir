@@ -1,20 +1,23 @@
 /**
- * The `store` command family (ADR 0030) — the machinery noun for the store
- * itself. Three verbs: `upgrade` moves a Postgres schema, `export` and `import`
- * carry the store's stored facts across a backend or a machine (MMR-380).
+ * The `store` command family (ADR 0030, ADR 0032) — the machinery noun for the
+ * store itself. Three verbs: `upgrade` moves a database schema, `export` and
+ * `import` carry the store's stored facts across a backend or a machine
+ * (MMR-380).
  *
  * `upgrade` exists because a shared store is read by several binaries at once.
- * No binary migrates implicitly (`assertSchemaCurrent` refuses a schema it does
- * not exactly match), so the move has to be a command an operator runs once,
- * on one machine, after every binary is new enough to live with the result.
+ * No binary migrates a Postgres store implicitly (`assertSchemaCurrent` refuses
+ * a schema it does not exactly match), so the move has to be a command an
+ * operator runs once, on one machine, after every binary is new enough to live
+ * with the result. A local SQLite store migrates whenever it is opened, so
+ * there `upgrade` opens it and reports what that did.
  *
  * `export`/`import` are the operator face of the seam's transfer document
  * (ADR 0030 Decision 4). They are backend-neutral by construction: they hold a
- * `Store`, not a connection, so the same pair backs up a vault, backs up a
- * Postgres database, and moves either onto the other.
+ * `Store`, not a connection, so the same pair backs up any backend and moves
+ * one onto another.
  *
- * Effects flow through {@link StoreDeps} so tests drive the layer against an
- * in-process Postgres; main wires the real config and the real pool. The data
+ * Effects flow through {@link StoreDeps} so tests drive the layer against
+ * in-process databases; main wires the real config, pool, and file. The data
  * verbs take the same lazy `getStore` every data verb takes, so a usage error
  * is refused before any store opens.
  */
@@ -26,6 +29,7 @@ import { canonicalJson } from '../core/export';
 import type { Store } from '../core/store';
 import type { PostgresHandle, UpgradeReport } from '../core/store-postgres/index';
 import { upgradeSchema } from '../core/store-postgres/index';
+import type { SqliteHandle } from '../core/store-sqlite/index';
 import { ok } from '../presentation';
 import type { Format, Io } from '../presentation';
 import type { GlobalConfig } from '../service/config';
@@ -38,6 +42,8 @@ export type StoreDeps = {
   readConfig: () => GlobalConfig;
   /** Open the Postgres connection named by `[store] url`. */
   openPostgres: (url: string) => PostgresHandle;
+  /** Open — and so migrate — the installation's SQLite store. */
+  openSqlite: () => Promise<SqliteHandle>;
   /** The whole standard input, for `store import -`. An effect like the other
    * two, so a test can hand the layer a document without a real pipe. */
   readStdin: () => Promise<string>;
@@ -154,13 +160,24 @@ async function cmdStoreUpgrade(io: Io, deps: StoreDeps, format: Format): Promise
   assertUsableStoreConfig(config);
   const machine = format === 'json' || format === 'jsonl';
 
-  if ((config.store.backend ?? DEFAULT_STORE_BACKEND) !== 'postgres') {
+  const backend = config.store.backend ?? DEFAULT_STORE_BACKEND;
+  if (backend === 'norn') {
     if (machine) {
       io.write(JSON.stringify({ backend: 'norn', note: NORN_NOTE }));
     } else {
       ok(io, NORN_NOTE);
     }
     return 0;
+  }
+  if (backend === 'sqlite') {
+    // Opening is the upgrade, refusal of a newer schema included.
+    const handle = await deps.openSqlite();
+    try {
+      writeUpgrade(io, machine, handle.upgrade);
+      return 0;
+    } finally {
+      await handle.close();
+    }
   }
 
   const url = config.store.url;
@@ -173,15 +190,18 @@ async function cmdStoreUpgrade(io: Io, deps: StoreDeps, format: Format): Promise
     // MimirError that renders through the normal error path. Nothing here
     // catches it: an upgrade command that swallowed it would be the one caller
     // able to pretend a downgrade happened.
-    const report = await upgradeSchema(handle.db);
-    if (machine) {
-      io.write(JSON.stringify(report));
-    } else {
-      ok(io, describe(report));
-    }
+    writeUpgrade(io, machine, await upgradeSchema(handle.db));
     return 0;
   } finally {
     await handle.close();
+  }
+}
+
+function writeUpgrade(io: Io, machine: boolean, upgrade: UpgradeReport): void {
+  if (machine) {
+    io.write(JSON.stringify(upgrade));
+  } else {
+    ok(io, describe(upgrade));
   }
 }
 

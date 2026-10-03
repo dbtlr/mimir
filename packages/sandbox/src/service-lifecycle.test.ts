@@ -30,17 +30,24 @@ class FakeSupervisorHost implements ServiceHost {
     const snapshotFile = `${this.unitDirectory}snapshot.plist`;
     switch (sub) {
       case 'install': {
-        this.files.add(serveFile).add(snapshotFile);
+        // `all` also installs the snapshot timer, which only a Norn install has.
+        const all = args[2] === 'all';
+        this.files.add(serveFile);
         this.serve = { loaded: true, pid: this.spawn() };
-        this.snapshot = { loaded: true };
-        return Promise.resolve(
-          JSON.stringify({
-            actions: [
-              { action: 'install', ok: true, paths: { plist: serveFile }, unit: 'serve' },
-              { action: 'install', ok: true, paths: { plist: snapshotFile }, unit: 'snapshot' },
-            ],
-          }),
-        );
+        const actions = [
+          { action: 'install', ok: true, paths: { plist: serveFile }, unit: 'serve' },
+        ];
+        if (all) {
+          this.files.add(snapshotFile);
+          this.snapshot = { loaded: true };
+          actions.push({
+            action: 'install',
+            ok: true,
+            paths: { plist: snapshotFile },
+            unit: 'snapshot',
+          });
+        }
+        return Promise.resolve(JSON.stringify({ actions }));
       }
       case 'restart': {
         this.serve.pid = this.spawn();
@@ -136,7 +143,7 @@ test('the lifecycle drives install through uninstall and proves each transition'
     'live-untouched',
   ]);
   expect(host.calls).toEqual([
-    'service install all',
+    'service install serve',
     'service status',
     'service restart serve',
     'service status',

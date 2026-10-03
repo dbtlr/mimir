@@ -1,4 +1,7 @@
 import { afterEach, expect, test } from 'bun:test';
+import { randomUUID } from 'node:crypto';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { Scratchpad } from '@mimir/contract';
@@ -32,10 +35,45 @@ const unopenedStore = (): never => {
 const jsonOutput = (io: ReturnType<typeof fakeIo>): Record<string, unknown> =>
   JSON.parse(io.out.at(-1) ?? '{}') as Record<string, unknown>;
 
+/**
+ * A throwaway sandbox authority fencing a fresh process to the Norn vault at
+ * `vaultRoot`. Without one, a from-source run would open the default local
+ * store under the checkout's shared `.dev` directory.
+ */
+function nornAuthority(vaultRoot: string): string {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'mimir-scratch-cli-')));
+  const paths = {
+    cache: join(root, 'cache', 'mimir'),
+    config: join(root, 'config', 'mimir'),
+    data: join(root, 'data', 'mimir'),
+  };
+  for (const path of Object.values(paths)) {
+    mkdirSync(path, { recursive: true });
+  }
+  writeFileSync(
+    join(paths.config, 'config.toml'),
+    `[store]\nbackend = "norn"\n[vault]\npath = "${vaultRoot}"\n`,
+  );
+  const authority = join(root, 'authority.json');
+  writeFileSync(
+    authority,
+    JSON.stringify({ id: randomUUID(), kind: 'vault', paths, root, version: 1 }),
+  );
+  authorityRoots.push(root);
+  return authority;
+}
+
+const authorityRoots: string[] = [];
+afterEach(() => {
+  for (const root of authorityRoots.splice(0)) {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
 function freshCli(vaultRoot: string, args: string[]): { code: number; err: string; out: string } {
   const result = Bun.spawnSync({
     cmd: [process.execPath, join(import.meta.dir, '..', 'main.ts'), ...args],
-    env: { ...process.env, MIMIR_VAULT: vaultRoot },
+    env: { ...process.env, MIMIR_SANDBOX_AUTHORITY: nornAuthority(vaultRoot) },
     stderr: 'pipe',
     stdout: 'pipe',
   });

@@ -1,6 +1,7 @@
 /** Service supervision + self-update (MMR-47, MMR-54). main wires realServiceDeps. */
 export {
   DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
+  DEFAULT_STORE_BACKEND,
   type ConfigPatch,
   configPath,
   readConfig,
@@ -21,7 +22,7 @@ export { type Health, healthSchema, parseHealth } from './health';
 export { EVENTS_FILE, SERVE_LOG_FILE, SNAPSHOT_LOG_FILE } from './events';
 export { LaunchdSupervisor, bunExec } from './launchd';
 export { plistFor, plistForSnapshot, plistPathFor, readServePlistPort } from './plist';
-export { serveInstallEnv, type ServeInstallInputs } from './serve-env';
+export { assertSnapshotBackend, serveInstallEnv, type ServeInstallInputs } from './serve-env';
 export { manualFetch } from './self-update';
 export { SystemdSupervisor } from './systemd';
 export {

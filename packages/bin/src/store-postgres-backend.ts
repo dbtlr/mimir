@@ -1,6 +1,6 @@
 /**
  * The Postgres backend arm of the store composition root (ADR 0016, ADR 0030).
- * The one place outside `core/store-postgres` and `doctor/postgres` that opens
+ * The one place outside `core/store-postgres` that opens
  * a connection: it reads `[store] url`, opens the pool, passes the schema gate,
  * and pairs the write store with the backend's own doctor facet. `close`
  * releases the pool.
@@ -14,8 +14,9 @@ import {
   assertSchemaCurrent,
   createPostgresStore,
   openPostgres,
+  postgresDialect,
 } from './core/store-postgres/index';
-import { createPostgresDoctorBackend } from './doctor/postgres/backend';
+import { createSqlDoctorBackend } from './doctor/sql/backend';
 import type { GlobalConfig } from './service/config';
 import { configPath } from './service/config';
 import type { BuildStoreOptions, BuiltStore } from './store-backend';
@@ -57,7 +58,7 @@ export async function buildPostgresStore(
   }
   return {
     close: () => handle.close(),
-    doctor: createPostgresDoctorBackend(handle.db),
+    doctor: createSqlDoctorBackend(handle.db, postgresDialect),
     store: createPostgresStore(handle.db),
   };
 }

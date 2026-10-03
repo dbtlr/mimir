@@ -7,6 +7,7 @@ import type { UpgradeReport } from '../store-sql/migrator';
 import {
   assertSchemaCurrent as assertSqlSchemaCurrent,
   readSchemaVersion as readSqlSchemaVersion,
+  SCHEMA_VERSION,
   upgradeSchema as upgradeSqlSchema,
 } from '../store-sql/migrator';
 import type { DB, Executor } from '../store-sql/schema';
@@ -82,7 +83,14 @@ export const postgresDialect: StoreDialect = {
   hasSchemaVersionTable,
   isUniqueViolation,
   label: 'Postgres',
+  maxParameters: 65_535,
   migrations: { '0001_init': init },
+  // A shared store upgrades by one explicit act, never as a side effect of a
+  // binary opening it (ADR 0030).
+  schemaRemedy: {
+    behind: `run 'mimir store upgrade' on one machine; every binary must be at least version ${String(SCHEMA_VERSION)}`,
+    missing: "run 'mimir store upgrade' to create it",
+  },
   snapshot: snapshotRead,
   upgrade: (db, fn) =>
     db.transaction().execute(async (tx) => {

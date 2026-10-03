@@ -3,19 +3,24 @@
 This guide takes Mimir from a fresh install to a repository an agent can resume
 without reconstructing work state from chat history.
 
-## Install and set up the vault
+## Install and set up
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
 mimir setup
 ```
 
-The standalone binary does not require Bun. Mimir does require `norn` on
-`PATH`; Norn owns all reads and writes to the Markdown vault.
+The standalone binary does not require Bun or any other program. By default
+Mimir keeps work state in one SQLite file, `store.sqlite`, in its data
+directory. Mimir creates the file on first use.
 
-Setup is safe to run again. It can change the vault path, configure the console
-port, install the local service, and enable scheduled Git snapshots. See the
-[operations guides](../guides/README.md) for service details.
+On the default store, setup asks only whether to install the local service.
+Setup is safe to run again. See the [operations guides](../guides/README.md)
+for service details.
+
+An installation can instead set `[store] backend = "norn"` in its config. That
+backend requires `norn` on `PATH` and keeps work state in a Markdown vault. Its
+setup also asks for the vault path and scheduled Git snapshots.
 
 ## Create a project
 
