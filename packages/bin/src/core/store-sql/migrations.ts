@@ -1,9 +1,3 @@
-import type { Kysely } from 'kysely';
-import { sql } from 'kysely';
-
-import { statements as init } from '../store-postgres/migrations/0001-init';
-import type { DB } from './schema';
-
 /**
  * The forward-only migration list (ADR 0030). Static and ordered: a binary
  * carries its migrations in its own code, so there is no filesystem scan, no
@@ -13,22 +7,14 @@ import type { DB } from './schema';
  * `version` is the schema version a migration LANDS the store on, so the last
  * entry's version is `SCHEMA_VERSION`. Append, never edit — a migration that
  * has run on any store is a historical fact.
+ *
+ * The list is shared; the DDL is not. Each dialect supplies every migration's
+ * literal statements by name ({@link MigrationStatements}), so appending a
+ * migration here without writing it for every dialect does not compile.
  */
-export type Migration = {
-  version: number;
-  name: string;
-  up: (db: Kysely<DB>) => Promise<void>;
-};
+export const MIGRATIONS = [{ name: '0001_init', version: 1 }] as const;
 
-/** Run a migration's literal DDL, one statement at a time. */
-function runStatements(statements: readonly string[]): (db: Kysely<DB>) => Promise<void> {
-  return async (db) => {
-    for (const statement of statements) {
-      await sql.raw(statement).execute(db);
-    }
-  };
-}
+export type Migration = (typeof MIGRATIONS)[number];
 
-export const MIGRATIONS: readonly Migration[] = [
-  { name: '0001_init', up: runStatements(init), version: 1 },
-];
+/** Every migration's literal DDL in one dialect, keyed by migration name. */
+export type MigrationStatements = Readonly<Record<Migration['name'], readonly string[]>>;

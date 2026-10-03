@@ -1,7 +1,7 @@
 import type { Dependency, Node, Project } from '../model';
 import type { NodeTag, WorkingSet } from '../store';
-import type { Executor } from '../store-postgres/tx';
-import type { NodeRow, ProjectRow } from './schema';
+import type { StoreDialect } from './dialect';
+import type { Executor, NodeRow, ProjectRow } from './schema';
 
 /**
  * The bulk read path (ADR 0016 Phase 0) — the projections every derivation view
@@ -15,7 +15,7 @@ import type { NodeRow, ProjectRow } from './schema';
  */
 
 /** The node columns the working set projects; `description` rides bodySections. */
-export function toNode(row: NodeRow): Node {
+export function toNode(row: NodeRow, dialect: StoreDialect): Node {
   return {
     branch: row.branch,
     completed_at: row.completed_at,
@@ -30,7 +30,7 @@ export function toNode(row: NodeRow): Node {
     host: row.host,
     id: row.id,
     lifecycle: row.lifecycle,
-    open_ended: row.open_ended,
+    open_ended: row.open_ended === null ? null : dialect.codecs.bool.decode(row.open_ended),
     parent_id: row.parent_id,
     priority: row.priority,
     project_id: row.project_key,
@@ -71,6 +71,7 @@ export async function loadProjects(ex: Executor): Promise<Project[]> {
  */
 export async function loadNodesForProjects(
   ex: Executor,
+  dialect: StoreDialect,
   projectKeys: readonly string[],
   validProjectKeys: ReadonlySet<string>,
 ): Promise<Node[]> {
@@ -85,7 +86,7 @@ export async function loadNodesForProjects(
     .orderBy('project_key')
     .orderBy('seq')
     .execute();
-  return rows.map(toNode);
+  return rows.map((row) => toNode(row, dialect));
 }
 
 /**
@@ -124,7 +125,7 @@ async function tagsByEntity(
 }
 
 /** The whole store's derivation inputs in one consistent projection. */
-export async function loadWorkingSet(ex: Executor): Promise<WorkingSet> {
+export async function loadWorkingSet(ex: Executor, dialect: StoreDialect): Promise<WorkingSet> {
   const projects = await loadProjects(ex);
   const nodeRows = await ex
     .selectFrom('node')
@@ -154,7 +155,7 @@ export async function loadWorkingSet(ex: Executor): Promise<WorkingSet> {
       node_id: edge.node_id,
     })),
     nodeTags,
-    nodes: nodeRows.map(toNode),
+    nodes: nodeRows.map((row) => toNode(row, dialect)),
     projectTags,
     projects,
   };

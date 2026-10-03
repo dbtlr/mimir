@@ -1,10 +1,11 @@
 import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 
 import type { BodySections, BodySectionStore, NextFacet } from '../body-sections/store';
-import type { Executor } from '../store-postgres/tx';
+import type { StoreDialect } from './dialect';
+import type { Executor, Stored } from './schema';
 
 /**
- * The Postgres body-section slice (ADR 0016 Phase 3). What Norn keeps as prose
+ * The SQL store's body-section slice (ADR 0016 Phase 3). What Norn keeps as prose
  * sections of a markdown document — `## Task Description`, `## Next`,
  * `## Annotations`, `## History` — is columns and rows here, so this module is
  * the projection back onto the seam's facet shapes.
@@ -22,21 +23,22 @@ function prose(value: string | null): string | null {
   return text === '' ? null : text;
 }
 
+/** The prose columns a node and a project share. */
+type OwnerRow = {
+  description: string | null;
+  next_present: Stored<boolean>;
+  next_text: string | null;
+};
+
 /** The `## Next` facet from its two columns — presence is its own stored fact. */
-function nextFacet(row: { next_present: boolean; next_text: string | null }): NextFacet {
-  return { present: row.next_present, text: prose(row.next_text) };
+function nextFacet(row: OwnerRow, dialect: StoreDialect): NextFacet {
+  return { present: dialect.codecs.bool.decode(row.next_present), text: prose(row.next_text) };
 }
 
 /** Which of the requested stems name a node, and which a project. */
 type Owners = {
-  nodes: Map<
-    string,
-    { description: string | null; next_present: boolean; next_text: string | null }
-  >;
-  projects: Map<
-    string,
-    { description: string | null; next_present: boolean; next_text: string | null }
-  >;
+  nodes: Map<string, OwnerRow>;
+  projects: Map<string, OwnerRow>;
 };
 
 async function resolveOwners(ex: Executor, stems: readonly string[]): Promise<Owners> {
@@ -89,6 +91,7 @@ async function annotationsByStem(
 /** The `## History` rows of many nodes and projects, keyed by stem, in log order. */
 async function historyByStem(
   ex: Executor,
+  dialect: StoreDialect,
   stems: readonly string[],
 ): Promise<Map<string, HistoryEntry[]>> {
   const out = new Map<string, HistoryEntry[]>();
@@ -116,14 +119,14 @@ async function historyByStem(
     // The resume-handle echo (ADR 0026 Decision 3) rides only the boundary rows
     // that moved handles, so a non-boundary row carries no key at all.
     if (row.handles !== null) {
-      entry.handles = row.handles;
+      entry.handles = dialect.codecs.json.decode(row.handles);
     }
     out.set(stem, [...(out.get(stem) ?? []), entry]);
   }
   return out;
 }
 
-export function createPostgresBodySectionStore(ex: Executor): BodySectionStore {
+export function createSqlBodySectionStore(ex: Executor, dialect: StoreDialect): BodySectionStore {
   const readSectionsMany: BodySectionStore['readSectionsMany'] = async (stems, want) => {
     const out = new Map<string, BodySections>();
     const unique = [...new Set(stems)];
@@ -140,7 +143,9 @@ export function createPostgresBodySectionStore(ex: Executor): BodySectionStore {
           )
         : new Map<string, AnnotationView[]>();
     const history =
-      want.history === true ? await historyByStem(ex, present) : new Map<string, HistoryEntry[]>();
+      want.history === true
+        ? await historyByStem(ex, dialect, present)
+        : new Map<string, HistoryEntry[]>();
     for (const stem of present) {
       const row = owners.nodes.get(stem) ?? owners.projects.get(stem);
       if (row === undefined) {
@@ -151,7 +156,7 @@ export function createPostgresBodySectionStore(ex: Executor): BodySectionStore {
         sections.description = prose(row.description);
       }
       if (want.next === true) {
-        sections.next = nextFacet(row);
+        sections.next = nextFacet(row, dialect);
       }
       if (want.annotations === true) {
         sections.annotations = annotations.get(stem) ?? [];

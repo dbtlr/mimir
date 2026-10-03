@@ -1,13 +1,12 @@
 import type { TransitionView } from '@mimir/contract';
-import { sql } from 'kysely';
 
 import { validation } from '../errors';
-import type { Executor } from '../store-postgres/tx';
 import type { TransitionsFeed } from '../transitions/store';
+import type { Executor } from './schema';
 import { toRowId } from './schema';
 
 /**
- * The Postgres transition feed (ADR 0016 Phase 3). Unlike the Norn feed — which
+ * The SQL store's transition feed (ADR 0016 Phase 3). Unlike the Norn feed — which
  * fans every document's `## History` out of the vault and merges them on a
  * best-effort `at` order (MMR-168) — this reads ONE append-only table with a
  * real insertion sequence, so the order is true and the cursor is monotonic.
@@ -41,7 +40,7 @@ function decodeCursor(since: string): Cursor {
   return { at, id };
 }
 
-export function createPostgresTransitionsFeed(ex: Executor): TransitionsFeed {
+export function createSqlTransitionsFeed(ex: Executor): TransitionsFeed {
   return {
     list: async (opts = {}) => {
       if (opts.limit !== undefined && (!Number.isInteger(opts.limit) || opts.limit < 1)) {
@@ -59,7 +58,7 @@ export function createPostgresTransitionsFeed(ex: Executor): TransitionsFeed {
         // Strictly after the cursor's row on the composite (at, id) order — a
         // SQL row-value comparison, which is exactly the tuple order the ORDER
         // BY imposes rather than a hand-expanded re-statement of it.
-        query = query.where(sql<boolean>`(at, id) > (${after.at}, ${after.id}::bigint)`);
+        query = query.where((eb) => eb(eb.refTuple('at', 'id'), '>', eb.tuple(after.at, after.id)));
       }
       if (opts.limit !== undefined) {
         query = query.limit(opts.limit);

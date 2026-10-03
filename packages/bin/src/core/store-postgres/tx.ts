@@ -4,8 +4,9 @@ import type { DB } from '../store-sql/schema';
 import { withSerializableRetry } from './retry';
 
 /**
- * The two transaction shapes the backend runs in, in one place so every slice
- * opens its scope the same way.
+ * The Postgres dialect's two transaction shapes (`StoreDialect.write` and
+ * `StoreDialect.snapshot`), in one place so every slice opens its scope the
+ * same way.
  *
  * A WRITE is SERIALIZABLE and replayed on a serialization failure: the seam
  * promises that a `transact` closure either lands whole or not at all, and
@@ -16,9 +17,6 @@ import { withSerializableRetry } from './retry';
  * self-consistent across its several queries, and it writes nothing that could
  * form the dangerous dependency SERIALIZABLE exists to catch.
  */
-
-/** Either a pooled handle or an open transaction — every read takes both. */
-export type Executor = Kysely<DB> | Transaction<DB>;
 
 /** Run `fn` in one SERIALIZABLE transaction, replaying it on a 40001/40P01. */
 export function serializable<T>(

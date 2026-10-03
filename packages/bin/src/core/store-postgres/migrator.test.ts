@@ -4,9 +4,9 @@ import { PGlite } from '@electric-sql/pglite';
 import { Kysely, sql } from 'kysely';
 
 import { MimirError } from '../errors';
-import { createPgliteDialect } from '../store-postgres/pglite';
-import { assertSchemaCurrent, readSchemaVersion, SCHEMA_VERSION, upgradeSchema } from './migrator';
-import type { DB } from './schema';
+import { assertSchemaCurrent, readSchemaVersion, SCHEMA_VERSION, upgradeSchema } from './index';
+import type { DB } from './index';
+import { createPgliteDialect } from './pglite';
 
 function freshDb(): Kysely<DB> {
   return new Kysely<DB>({ dialect: createPgliteDialect(new PGlite()) });

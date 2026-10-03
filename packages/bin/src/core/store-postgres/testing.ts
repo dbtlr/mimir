@@ -2,10 +2,9 @@ import { PGlite } from '@electric-sql/pglite';
 import { Kysely, sql } from 'kysely';
 
 import type { Store } from '../store';
-import { upgradeSchema } from '../store-sql/migrator';
 import type { DB } from '../store-sql/schema';
-import { createPostgresStore } from '../store-sql/store';
 import { openPostgres } from './client';
+import { createPostgresStore, upgradeSchema } from './dialect';
 import { createPgliteDialect } from './pglite';
 
 /**

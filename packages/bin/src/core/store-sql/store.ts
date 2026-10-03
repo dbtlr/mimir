@@ -1,22 +1,23 @@
 import type { Kysely } from 'kysely';
 
 import type { Store } from '../store';
-import { serializable, snapshotRead } from '../store-postgres/tx';
-import { createPostgresArtifactStore } from './artifacts';
-import { createPostgresBodySectionStore } from './body-sections';
+import { createSqlArtifactStore } from './artifacts';
+import { createSqlBodySectionStore } from './body-sections';
+import type { StoreDialect } from './dialect';
 import type { DB } from './schema';
-import { createPostgresScratchpadStore } from './scratchpads';
-import { createPostgresSeedStore } from './seeds';
-import { exportPostgresStoreFrom, importPostgresStore } from './transfer';
-import { createPostgresTransitionsFeed } from './transitions';
+import { createSqlScratchpadStore } from './scratchpads';
+import { createSqlSeedStore } from './seeds';
+import { exportSqlStoreFrom, importSqlStore } from './transfer';
+import { createSqlTransitionsFeed } from './transitions';
 import { loadNodesForProjects, loadProjects, loadWorkingSet } from './working-set';
-import { createPostgresWriter } from './writer';
+import { createSqlWriter } from './writer';
 
 /**
- * The Postgres `Store` (ADR 0030) — the seam assembled over one Kysely handle.
+ * The shared SQL `Store` (ADR 0030, ADR 0032) — the seam assembled over one
+ * Kysely handle and the dialect that handle speaks.
  *
- * The bulk read runs in its own REPEATABLE READ transaction: `loadWorkingSet`
- * is several queries and the core derives over them as one projection, so a
+ * The bulk read runs in its own snapshot transaction: `loadWorkingSet` is
+ * several queries and the core derives over them as one projection, so a
  * concurrent write landing between them would hand the derivation a working set
  * no moment ever held.
  *
@@ -33,18 +34,18 @@ import { createPostgresWriter } from './writer';
  * once-per-process question, and a store that re-asked it per call would pay
  * for it on every read.
  */
-export function createPostgresStore(db: Kysely<DB>): Store {
+export function createSqlStore(db: Kysely<DB>, dialect: StoreDialect): Store {
   return {
-    artifacts: createPostgresArtifactStore(db),
-    bodySections: createPostgresBodySectionStore(db),
-    export: () => exportPostgresStoreFrom(db),
-    import: (document, opts) => importPostgresStore(db, document, opts),
-    loadNodesForProjects: (keys, valid) => loadNodesForProjects(db, keys, valid),
+    artifacts: createSqlArtifactStore(db, dialect),
+    bodySections: createSqlBodySectionStore(db, dialect),
+    export: () => exportSqlStoreFrom(db, dialect),
+    import: (document, opts) => importSqlStore(db, dialect, document, opts),
+    loadNodesForProjects: (keys, valid) => loadNodesForProjects(db, dialect, keys, valid),
     loadProjects: () => loadProjects(db),
-    loadWorkingSet: () => snapshotRead(db, (tx) => loadWorkingSet(tx)),
-    scratchpads: createPostgresScratchpadStore(db),
-    seeds: createPostgresSeedStore(db),
-    transact: (fn) => serializable(db, (tx) => fn(createPostgresWriter(tx))),
-    transitions: createPostgresTransitionsFeed(db),
+    loadWorkingSet: () => dialect.snapshot(db, (tx) => loadWorkingSet(tx, dialect)),
+    scratchpads: createSqlScratchpadStore(db, dialect),
+    seeds: createSqlSeedStore(db, dialect),
+    transact: (fn) => dialect.write(db, (tx) => fn(createSqlWriter(tx, dialect))),
+    transitions: createSqlTransitionsFeed(db),
   };
 }

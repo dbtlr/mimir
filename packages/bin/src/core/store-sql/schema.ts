@@ -12,13 +12,21 @@ import type {
   TagEntityType,
   TransitionKind,
 } from '@mimir/contract';
-import type { ColumnType, Generated, Insertable, Selectable, Updateable } from 'kysely';
+import type {
+  ColumnType,
+  Generated,
+  Insertable,
+  Kysely,
+  Selectable,
+  Transaction,
+  Updateable,
+} from 'kysely';
 
 /**
- * The relational shape of the Postgres store (ADR 0030) — the Kysely table
- * types the whole backend is written against.
+ * The relational shape of the shared SQL store (ADR 0030, ADR 0032) — the
+ * Kysely table types every dialect's backend is written against.
  *
- * Two representational commitments, both deliberate:
+ * Three representational commitments, all deliberate:
  *
  * - **The external stem is the primary key.** `KEY`, `KEY-seq`, `KEY-aN`,
  *   `KEY-sN`, and a scratchpad's UUID are the identities the `Store` seam
@@ -31,17 +39,49 @@ import type { ColumnType, Generated, Insertable, Selectable, Updateable } from '
  *   is chronological by that invariant. A `timestamptz` round trip would
  *   reformat the value and make a Norn export and a Postgres export of the same
  *   store differ.
+ * - **A column whose JS shape differs by driver is {@link Stored}.** A boolean,
+ *   a list of text, and a JSON document each come back from one driver as the
+ *   value and from another as an encoding of it, so their row types are opaque
+ *   and only the dialect's codec reads or writes them (see `./dialect`).
  */
+
+/** Either a pooled handle or an open transaction — every read takes both. */
+export type Executor = Kysely<DB> | Transaction<DB>;
+
+declare const stored: unique symbol;
 
 /**
- * A `bigserial` surrogate key — the one place this schema uses a machine id,
- * for the append-only logs whose ORDER is the fact. Read back as `string` from
- * node-postgres and `number` from PGlite, so the read path normalizes.
+ * A `T` in the form one dialect's driver stores it — opaque on purpose. The
+ * only way in or out is that dialect's codec, so a query that forgets to encode
+ * a write or decode a read does not compile.
+ */
+export type Stored<T> = { readonly [stored]: T };
+
+/**
+ * Brand a driver value as the stored form of a `T`. A codec's encode half —
+ * nothing else — calls this, and the claim it makes is the codec's to keep.
+ */
+export function toStored<T>(driverValue: unknown): Stored<T> {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand exists only at compile time; the codec calling this owns the claim.
+  return driverValue as Stored<T>;
+}
+
+/**
+ * Read a stored value as the `T` the driver already yields — the decode half of
+ * a codec whose driver speaks the store's shape natively.
+ */
+export function fromStored<T>(value: Stored<T>): T {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the brand exists only at compile time; the codec calling this owns the claim.
+  return value as unknown as T;
+}
+
+/**
+ * An auto-incrementing surrogate key (`bigserial` on Postgres) — the one place
+ * this schema uses a machine id, for the append-only logs whose ORDER is the
+ * fact. Drivers disagree on its shape (`string` from node-postgres, `number`
+ * from PGlite), so the read path normalizes with {@link toRowId}.
  */
 type RowId = ColumnType<string | number, undefined, never>;
-
-/** A `jsonb` column: parsed on read, handed back as JSON text on write. */
-type Json<T> = ColumnType<T, string, string>;
 
 export type ProjectTable = {
   key: string;
@@ -51,7 +91,7 @@ export type ProjectTable = {
   last_seq: Generated<number>;
   last_artifact_seq: Generated<number>;
   last_seed_seq: Generated<number>;
-  next_present: Generated<boolean>;
+  next_present: Generated<Stored<boolean>>;
   next_text: string | null;
   created_at: string;
   updated_at: string;
@@ -81,8 +121,8 @@ export type NodeTable = {
   branch: string | null;
   completed_at: string | null;
   target: string | null;
-  open_ended: boolean | null;
-  next_present: Generated<boolean>;
+  open_ended: Stored<boolean> | null;
+  next_present: Generated<Stored<boolean>>;
   next_text: string | null;
   created_at: string;
   updated_at: string;
@@ -139,7 +179,7 @@ export type TransitionLogTable = {
   from_value: string | null;
   to_value: string | null;
   reason: string | null;
-  handles: ColumnType<ExecutionHandles | null, string | null, string | null>;
+  handles: Stored<ExecutionHandles> | null;
   at: string;
 };
 
@@ -153,7 +193,7 @@ export type SeedTable = {
   lifecycle: SeedLifecycle;
   requester: string | null;
   description: string | null;
-  spawned: Generated<string[]>;
+  spawned: Generated<Stored<string[]>>;
   created_at: string;
   updated_at: string;
 };
@@ -173,9 +213,9 @@ export type ScratchpadTable = {
   id: string;
   project_key: string;
   title: string;
-  anchors: Generated<string[]>;
-  journal: Json<ScratchpadJournalEntry[]>;
-  agenda: Json<ScratchpadAgendaItem[]>;
+  anchors: Generated<Stored<string[]>>;
+  journal: Stored<ScratchpadJournalEntry[]>;
+  agenda: Stored<ScratchpadAgendaItem[]>;
   freezing_at: string | null;
   created_at: string;
   updated_at: string;
