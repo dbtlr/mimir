@@ -144,7 +144,7 @@ const application = new Application('sandbox', {
   .command(
     new Command('skill-eval', {
       description:
-        'Run the agent skill through behavior scenarios with real Claude and Codex agents, each in its own vault sandbox, and report pass rates. Agents vary run to run: compare skill revisions on the same scenarios, models, and --repeat.',
+        'Run the agent skill through behavior scenarios with real Claude and Codex agents, each in its own local sandbox, and report pass rates. Agents vary run to run: compare skill revisions on the same scenarios, models, and --repeat.',
     })
       .option('skill', {
         description: 'Skill directory under test (default skills/mimir).',

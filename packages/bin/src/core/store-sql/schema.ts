@@ -37,7 +37,7 @@ import type {
  *   writes is a canonical ISO-8601 UTC string (`core/time.ts`), the transfer
  *   document carries it verbatim, and lexical comparison of two stored values
  *   is chronological by that invariant. A `timestamptz` round trip would
- *   reformat the value and make a Norn export and a Postgres export of the same
+ *   reformat the value and make a SQLite export and a Postgres export of the same
  *   store differ.
  * - **A column whose JS shape differs by driver is {@link Stored}.** A boolean,
  *   a list of text, and a JSON document each come back from one driver as the
@@ -161,7 +161,7 @@ export type ArtifactLinkTable = {
 
 /**
  * One tag application. There is no `created_at`: the seam synthesizes a tag's
- * timestamp from the owning entity's own `created_at` (ADR 0005, Norn parity),
+ * timestamp from the owning entity's own `created_at` (ADR 0005),
  * and storing a second copy would be two sources for one fact.
  */
 export type TagTable = {

@@ -69,7 +69,7 @@ export function OverviewPage() {
         {projects.data !== undefined &&
           (() => {
             if (projects.data.items.length === 0) {
-              // A fresh vault's one useful action is creating a project —
+              // A fresh store's one useful action is creating a project —
               // offer the trigger right here, not a pointer at the CLI.
               return (
                 <div className="flex flex-col items-start gap-3">

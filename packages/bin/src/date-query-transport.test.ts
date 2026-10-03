@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 
 import type { DateOp } from '@mimir/contract';
 import type { Server } from 'bun';
@@ -41,8 +41,6 @@ import { createTestStore, nodeIdOf, projectIdOf } from './testing/store';
  * system zone).
  */
 
-const NORN = Bun.which('norn') !== null;
-
 /** The three date fields the grammar reaches; `created_at` is the shared one. */
 const FIELD = 'created_at';
 
@@ -57,9 +55,6 @@ let artifact: { id: string; createdAt: string };
 let seed: { id: string; createdAt: string };
 
 beforeAll(async () => {
-  if (!NORN) {
-    return;
-  }
   ({ close: closeStore, store } = await createTestStore());
   await createProject(store, { key: 'MMR', name: 'Mimir' });
   const projectId = await projectIdOf(store, 'MMR');
@@ -365,22 +360,20 @@ const MATCH_CASES: readonly MatchCase[] = [
   },
 ];
 
-for (const resource of RESOURCES) {
-  for (const matchCase of MATCH_CASES) {
-    test.skipIf(!NORN)(`${resource.name}: ${matchCase.name}`, async () => {
-      const row = resource.row();
-      const value = matchCase.value(row.createdAt);
-      const matched = withinWindow(
-        dateFilterWindow(matchCase.op, value, matchCase.zone),
-        row.createdAt,
-      );
-      const filters = [[matchCase.op, value]] as const;
-      expect(await resource.cli(filters, matchCase.zone)).toEqual({ matched });
-      expect(await resource.mcp(filters, matchCase.zone)).toEqual({ matched });
-      expect(await resource.http(filters, matchCase.zone)).toEqual({ matched });
-    });
-  }
-}
+describe.each([...RESOURCES])('$name', (resource) => {
+  test.each([...MATCH_CASES])('$name', async (matchCase) => {
+    const row = resource.row();
+    const value = matchCase.value(row.createdAt);
+    const matched = withinWindow(
+      dateFilterWindow(matchCase.op, value, matchCase.zone),
+      row.createdAt,
+    );
+    const filters = [[matchCase.op, value]] as const;
+    expect(await resource.cli(filters, matchCase.zone)).toEqual({ matched });
+    expect(await resource.mcp(filters, matchCase.zone)).toEqual({ matched });
+    expect(await resource.http(filters, matchCase.zone)).toEqual({ matched });
+  });
+});
 
 /** A value every transport must refuse, and the phrase the refusal must carry. */
 const REFUSAL_CASES: readonly { name: string; op: DateOp; value: string; says: string }[] = [
@@ -396,23 +389,21 @@ const REFUSAL_CASES: readonly { name: string; op: DateOp; value: string; says: s
   { name: 'a word', op: 'after', says: 'invalid date', value: 'yesterday' },
 ];
 
-for (const resource of RESOURCES) {
-  for (const refusal of REFUSAL_CASES) {
-    test.skipIf(!NORN)(`${resource.name} refuses ${refusal.name}`, async () => {
-      const filters = [[refusal.op, refusal.value]] as const;
-      for (const outcome of [
-        await resource.cli(filters, 'UTC'),
-        await resource.mcp(filters, 'UTC'),
-        await resource.http(filters, 'UTC'),
-      ]) {
-        expect(outcome).toMatchObject({ refused: expect.stringContaining(refusal.says) });
-      }
-    });
-  }
+describe.each([...RESOURCES])('$name', (resource) => {
+  test.each([...REFUSAL_CASES])('refuses $name', async (refusal) => {
+    const filters = [[refusal.op, refusal.value]] as const;
+    for (const outcome of [
+      await resource.cli(filters, 'UTC'),
+      await resource.mcp(filters, 'UTC'),
+      await resource.http(filters, 'UTC'),
+    ]) {
+      expect(outcome).toMatchObject({ refused: expect.stringContaining(refusal.says) });
+    }
+  });
 
   // Only the remote transports can be zone-less: the CLI defaults to the
   // invoking system's zone, so a bare date there always has a calendar.
-  test.skipIf(!NORN)(`${resource.name} refuses a bare date with no tz off-CLI`, async () => {
+  test('refuses a bare date with no tz off-CLI', async () => {
     const filters = [['on', localDate(resource.row().createdAt, 'UTC')]] as const;
     expect(await resource.mcp(filters)).toMatchObject({
       refused: expect.stringContaining('no caller timezone'),
@@ -423,7 +414,7 @@ for (const resource of RESOURCES) {
     expect(await resource.cli(filters)).toEqual({ matched: expect.any(Boolean) });
   });
 
-  test.skipIf(!NORN)(`${resource.name} refuses an unknown timezone`, async () => {
+  test('refuses an unknown timezone', async () => {
     const filters = [['on', '2026-07-31']] as const;
     for (const outcome of [
       await resource.cli(filters, 'Mars/Olympus'),
@@ -435,7 +426,7 @@ for (const resource of RESOURCES) {
   });
 
   // `on` names a calendar day; an instant is not one, on any transport.
-  test.skipIf(!NORN)(`${resource.name} refuses on with a timestamp`, async () => {
+  test('refuses on with a timestamp', async () => {
     const filters = [['on', '2026-07-31T10:15:00Z']] as const;
     for (const outcome of [
       await resource.cli(filters, 'UTC'),
@@ -445,7 +436,7 @@ for (const resource of RESOURCES) {
       expect(outcome).toMatchObject({ refused: expect.stringContaining('not a calendar date') });
     }
   });
-}
+});
 
 /**
  * Windows whose edges are pinned to instants computed OUTSIDE this codebase — a
@@ -479,34 +470,29 @@ const ANCHORS: readonly { zone: string; day: string; from: string; until: string
   },
 ];
 
-for (const resource of RESOURCES) {
-  for (const anchor of ANCHORS) {
-    test.skipIf(!NORN)(
-      `${resource.name}: ${anchor.zone} ${anchor.day} lands on its true edges`,
-      async () => {
-        const created = Date.parse(resource.row().createdAt);
-        const [from, until] = [Date.parse(anchor.from), Date.parse(anchor.until)];
-        // The expectations come from the anchored instants alone — no module call.
-        const expected: Record<DateOp, boolean> = {
-          after: created >= until,
-          'at-or-after': created >= from,
-          'at-or-before': created < until,
-          before: created < from,
-          on: created >= from && created < until,
-        };
-        for (const op of Object.keys(expected)) {
-          const filters = [[op, anchor.day]] as Filters;
-          const matched = expected[op as DateOp];
-          expect(await resource.cli(filters, anchor.zone)).toEqual({ matched });
-          expect(await resource.mcp(filters, anchor.zone)).toEqual({ matched });
-          expect(await resource.http(filters, anchor.zone)).toEqual({ matched });
-        }
-      },
-    );
-  }
+describe.each([...RESOURCES])('$name', (resource) => {
+  test.each([...ANCHORS])('$zone $day lands on its true edges', async (anchor) => {
+    const created = Date.parse(resource.row().createdAt);
+    const [from, until] = [Date.parse(anchor.from), Date.parse(anchor.until)];
+    // The expectations come from the anchored instants alone — no module call.
+    const expected: Record<DateOp, boolean> = {
+      after: created >= until,
+      'at-or-after': created >= from,
+      'at-or-before': created < until,
+      before: created < from,
+      on: created >= from && created < until,
+    };
+    for (const op of Object.keys(expected)) {
+      const filters = [[op, anchor.day]] as Filters;
+      const matched = expected[op as DateOp];
+      expect(await resource.cli(filters, anchor.zone)).toEqual({ matched });
+      expect(await resource.mcp(filters, anchor.zone)).toEqual({ matched });
+      expect(await resource.http(filters, anchor.zone)).toEqual({ matched });
+    }
+  });
 
   // Two ops compose to the intersection of their windows — on every transport.
-  test.skipIf(!NORN)(`${resource.name}: composed bounds intersect`, async () => {
+  test('composed bounds intersect', async () => {
     const created = resource.row().createdAt;
     const hour = 60 * 60 * 1000;
     const before = new Date(Date.parse(created) + hour).toISOString();
@@ -529,4 +515,4 @@ for (const resource of RESOURCES) {
       expect(await resource.http(filters, 'UTC')).toEqual({ matched });
     }
   });
-}
+});

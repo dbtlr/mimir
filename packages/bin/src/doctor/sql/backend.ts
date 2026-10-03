@@ -1,12 +1,12 @@
 /**
  * The SQL backends' implementation of the neutral doctor contract (ADR 0030
  * Decision 6, ADR 0032) — one doctor over the shared SQL store, for Postgres
- * and SQLite alike. Where the Norn doctor reads documents, this one reads rows:
- * every check is one query whose result set IS the finding list.
+ * and SQLite alike. Every check reads rows:
+ * one query whose result set IS the finding list.
  *
  * There is no `repair`. On this backend the constraints are the validator: a
  * foreign key, a primary key, and a `CHECK` over each closed vocabulary make
- * nearly every state the Norn checks look for unrepresentable. What remains is
+ * nearly every corrupt state unrepresentable. What remains is
  * the short list below — the referential checks catch a dropped or disabled
  * constraint, i.e. a hand edit at the database prompt, not a failed import (a
  * deferred foreign key still fails at commit, and the whole import runs in one

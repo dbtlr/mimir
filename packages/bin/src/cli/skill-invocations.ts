@@ -219,7 +219,6 @@ const SELECTION_FLAGS = [
 const STATIC_ONLY_VERBS = new Set([
   'setup',
   'service',
-  'vault',
   'store',
   'doctor',
   'self-update',

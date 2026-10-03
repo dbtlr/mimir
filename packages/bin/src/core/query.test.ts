@@ -46,8 +46,8 @@ describe('parseFilterToken (structural validation)', () => {
     const { test: run } = compileFilters([{ field: 'summary', op: 'eq', value: 'the lede' }]);
     expect(run(row({ summary: 'the lede' }))).toBe(true);
     expect(run(row({ summary: 'something else' }))).toBe(false);
-    // `description` left the query surface — it is body prose (null on the Norn
-    // working set), so filtering it would silently diverge across backends.
+    // `description` left the query surface — it is body prose, absent from the
+    // working set, so filtering it would silently match nothing.
     await expectMimirError('validation', async () => parseFilterToken('eq', 'description:prose'));
   });
 

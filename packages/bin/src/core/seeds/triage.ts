@@ -16,7 +16,7 @@ import { isTerminalSeed } from './store';
 
 /**
  * The triage pass (MMR-246) — `mimir triage [KEY]`, an explicit-run
- * reconciliation over ONE board, self-contained (no vault-wide scans, no
+ * reconciliation over ONE board, self-contained (no store-wide scans, no
  * cross-board mutation). Three checks:
  *
  * - (a) the board's new/untriaged seeds — surfaced from the lane classifier.

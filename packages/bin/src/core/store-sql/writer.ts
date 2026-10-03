@@ -15,9 +15,7 @@ import { loadWorkingSet, toNode, toProject } from './working-set';
  *
  * Every method runs on the transaction itself, so "sees the transaction's own
  * in-flight state" comes free: read-your-writes is what a transaction already
- * gives. There is no accumulator, no overlay, and no drift replay — the Norn
- * writer needs all three because a markdown vault has no transaction to hold
- * the intermediate state in.
+ * gives. There is no accumulator, no overlay, and no drift replay.
  */
 
 /** The columns a fresh node is born with — the defaults the seam implies. */
@@ -126,8 +124,8 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
       return Number(deleted.numDeletedRows ?? 0n);
     },
 
-    // The primary key forbids two rows claiming one identity, so the collision a
-    // markdown vault can hold is not a state this store can reach.
+    // The primary key forbids two rows claiming one identity, so a collision
+    // is not a state this store can reach.
     hasIdentityCollision: () => Promise.resolve(false),
 
     async insertAnnotation(row) {

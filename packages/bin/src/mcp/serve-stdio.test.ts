@@ -10,8 +10,8 @@ import { serveStdio } from './server';
 /**
  * `serveStdio` owns the MCP session's lifetime: it settles only when the
  * transport closes, because its caller releases the store the moment it
- * returns. A backend that reconnects lazily (the Norn client) hid an early
- * return; a pooled backend surfaces it as "driver has already been destroyed"
+ * returns. A backend that reconnects lazily would hide an early return; a
+ * pooled backend surfaces it as "driver has already been destroyed"
  * on the first tool call.
  */
 let store: PostgresTestStore;

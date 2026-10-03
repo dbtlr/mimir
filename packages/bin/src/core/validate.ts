@@ -28,10 +28,108 @@ import {
   SEED_LIFECYCLE_VALUES,
   SIZE_VALUES,
 } from '@mimir/contract';
+import type { NodeType } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
 import { parseId, parseSeedRef } from './ids';
-import type { NodeRefs, VaultGraph } from './store-norn';
+
+/** One node's raw relational refs — its stem, project `key`, and unresolved
+ * parent + prerequisite stems. `key` is the parsed KEY-seq key, carried so no
+ * consumer re-parses the stem (mirrors the loader's `rawNodes`).
+ *
+ * `type` and `raw` are the OPTIONAL field-validity inputs (MMR-177): the node's
+ * type (field checks are task-only) and its raw enum frontmatter. Both are
+ * omitted by referential-only callers (e.g. validate.test's `graphOf`), and
+ * {@link validate} skips its field pass when `raw` is absent — so a caller that
+ * cares only about referential rules is unaffected. */
+export type NodeRefs = {
+  stem: string;
+  /** A physical location for diagnostics, when the source has one. */
+  path?: string;
+  key: string;
+  parent: string | null;
+  dependsOn: string[];
+  /** A task's `upstream` seed pointer, collapsed (MMR-244) — null when absent.
+   * Optional so referential-only fixtures needn't set it; validated only when the
+   * graph carries {@link RecordGraph.seeds}. */
+  upstream?: string | null;
+  type?: NodeType;
+  raw?: {
+    lifecycle: unknown;
+    hold: unknown;
+    priority: unknown;
+    size: unknown;
+    /** Container-only (MMR-204); optional so referential-only fixtures needn't set it. */
+    open_ended?: unknown;
+  };
+};
+
+/** One work-state doc's declared project membership: its logical identity paired
+ * with the collapsed `project` frontmatter (`[[KEY]]` → `KEY`, aliased forms too —
+ * MMR-190), or null when the field is absent/malformed. Projects use their `key`
+ * frontmatter even when physically relocated; nodes and seeds use their parsed
+ * stems. The exact path lets doctor repair that logical owner without guessing.
+ * The referential passes ignore it. */
+export type ProjectDeclaration = {
+  stem: string;
+  project: string | null;
+  /** Exact physical source for unambiguous diagnostics and repair. */
+  path?: string;
+  /** The typed identity source; optional for referential-only fixtures. */
+  kind?: RecordGraphSource['kind'];
+};
+
+/** One seed's raw referential inputs (MMR-244): its `KEY-sN` stem + project key,
+ * the raw `kind`/`lifecycle` frontmatter ({@link validate} owns legality), the
+ * collapsed `requester` project key (null when absent), and the collapsed
+ * `spawned` work-node stems. The validator vets these for `mimir doctor`. */
+export type SeedRefs = {
+  stem: string;
+  key: string;
+  kind: unknown;
+  lifecycle: unknown;
+  requester: string | null;
+  spawned: string[];
+};
+
+/**
+ * The store's relational graph, read raw and unresolved: the nodes' refs plus
+ * the set of project `key`s present — what {@link validate} resolves over.
+ */
+export type RecordGraphSource = {
+  // `artifact` is used only by the doctor identity index (MMR-317) so the
+  // artifact `stamp-updated-at` repair can prove single physical ownership; the
+  // relational `validate` passes never see artifact sources and read only
+  // `stem`/`path` here, never `kind`.
+  kind: 'node' | 'project' | 'seed' | 'artifact';
+  stem: string;
+  path: string;
+};
+
+export type RecordGraph = {
+  nodes: NodeRefs[];
+  projectKeys: string[];
+  /** Work-state identities paired with their physical paths for collision checks. */
+  sources?: readonly RecordGraphSource[];
+  /** The subset of `projectKeys` whose project is ARCHIVED (`archived_at` set).
+   * Carried so the validator can give the seed `requester` check the reader's
+   * ACTIVE-only visibility (an archived requester is nulled on read, MMR-245/B1d),
+   * distinct from a truly unknown one — WITHOUT the node missing-project pass ever
+   * dropping an archived project's nodes (they exist, just hidden). Optional: only
+   * {@link readRecordGraph}/{@link vaultGraphFromDocs} populate it; referential-only
+   * callers (test fixtures) omit it and every project reads as active. */
+  archivedProjectKeys?: readonly string[];
+  /** Every parsed doc's declared project membership (MMR-231). Optional because
+   * the referential-only producers (the resolving loader's `validate` input, test
+   * fixtures) don't need it; {@link readRecordGraph}/{@link vaultGraphFromDocs}
+   * always populate it, off the same read the referential passes use. */
+  declarations?: readonly ProjectDeclaration[];
+  /** The vault's seeds (MMR-244), when the caller loaded them. Present (possibly
+   * empty) enables the seed passes in {@link validate} — seed kind/lifecycle,
+   * `requester`, `spawned`, and task `upstream` — and its absence skips them
+   * entirely (the node-only resolving loader and the transitions feed pass none). */
+  seeds?: readonly SeedRefs[];
+};
 
 /**
  * One dropped element, with the reason it was dropped — doctor's source of
@@ -136,7 +234,7 @@ export type ValidatedGraph = {
  *    drops append AFTER the pass-1/pass-2 drops, so a cycle-free vault is
  *    unaffected.
  */
-export function validate(graph: VaultGraph): ValidatedGraph {
+export function validate(graph: RecordGraph): ValidatedGraph {
   const sourcesByStem = new Map<string, string[]>();
   for (const source of graph.sources ?? []) {
     const paths = sourcesByStem.get(source.stem);
@@ -469,7 +567,7 @@ function breakCycles(nodes: NodeRefs[], relation: 'parent' | 'depends-on', dropp
   // the chosen back edge — and thus the surviving subgraph — is deterministic
   // regardless of the raw document order the graph arrived in.
   // `toSorted` returns a fresh array (no in-place mutation of `nodes`). Stems are
-  // guaranteed `KEY-seq` here (the loader/readVaultGraph only admit parseable
+  // guaranteed `KEY-seq` here (the loader/readRecordGraph only admit parseable
   // stems), so the seq parse always succeeds — the `?? 0` is a type guard, not a
   // reachable fallback.
   const order = nodes.toSorted((a, b) => {

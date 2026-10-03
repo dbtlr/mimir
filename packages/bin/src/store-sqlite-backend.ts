@@ -3,7 +3,7 @@
  * tier, and the default. It opens the installation's one database file, which
  * migrates it forward, and pairs the store with the shared SQL doctor facet.
  * `close` releases the database. Nothing outside the binary is needed: no
- * vault, no `norn`, no server.
+ * external tool, no server.
  */
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';

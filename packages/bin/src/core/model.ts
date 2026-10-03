@@ -3,8 +3,8 @@ import type { Hold, Lifecycle, NodeType, Priority, Size } from '@mimir/contract'
 /**
  * The backend-neutral domain model (ADR 0016 Phase 0) — the record shapes the
  * core reads and derives over, owned by the core rather than the storage layer.
- * The Norn store (`store-norn/store.ts`) projects the vault's frontmatter into these
- * shapes; the model owns the contract, not the store.
+ * The SQL store projects its rows into these shapes; the model owns the
+ * contract, not the store.
  *
  * Field names are the store's snake_case vocabulary — they are the wire
  * projection's bare-field names too (output-contract reference).
@@ -41,7 +41,7 @@ export type Node = {
   external_ref: string | null;
   /** The requester-side pointer at a seed (`KEY-sN`), nullable (MMR-244). Reference
    * only in v1 (explicit block/unblock on the requester task); a gating cross-project
-   * dependency is deferred. Round-trips through the vault like `external_ref`. */
+   * dependency is deferred. Round-trips through the store like `external_ref`. */
   upstream: string | null;
   /**
    * The in-flight execution metadata — the four **resume handles** (ADR 0026

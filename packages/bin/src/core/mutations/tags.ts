@@ -14,8 +14,8 @@ import { assertProjectActive, stamp } from './common';
 /**
  * A tag target. Node/project targets carry their canonical stem/key and use the tag
  * table directly; an **artifact** target carries its external identity
- * (`key`, `seq`) and routes through the artifact seam (MMR-143), so a
- * vault-backed artifact — which has no tag-table row — can still be tagged.
+ * (`key`, `seq`) and routes through the artifact seam (MMR-143), so an
+ * artifact — which has no tag-table row — can still be tagged.
  */
 export type EntityRef =
   | { entityType: 'project' | 'node'; entityId: string }
@@ -35,7 +35,7 @@ async function projectOfTarget(w: StoreWriter, ref: EntityRef): Promise<string |
 /**
  * Apply every tag to every target, idempotently: an existing (entity, tag)
  * row is kept (re-tagging never errors). A tag application carries no note on
- * any entity (ADR 0005 Refinement) — vault `tags` frontmatter is a plain string
+ * any entity (ADR 0005 Refinement) — a tag set is a plain string
  * set, so note-intent routes to `annotate` or a tagged artifact instead.
  *
  * Node/project tags write the tag table under one transaction; an

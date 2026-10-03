@@ -49,15 +49,13 @@ import {
 import type { Store } from '../core';
 import { cmdDoctor } from '../doctor/commands';
 import type { DoctorBackend } from '../doctor/contract';
-import { defaultVaultPath, sqliteStorePath } from '../env';
+import { sqliteStorePath } from '../env';
 import { arrow, FORMATS, ok, warn } from '../presentation';
 import type { Format, Io } from '../presentation';
 import { cmdSelfUpdate, cmdService } from '../service';
 import type { ServiceDeps } from '../service';
 import { cmdStore } from '../store/commands';
 import type { StoreDeps } from '../store/commands';
-import { cmdVault } from '../vault/commands';
-import type { VaultDeps } from '../vault/commands';
 import { BINDING_FILE, writeBinding } from './binding';
 import {
   CREATE_DASH_TITLE_HINT,
@@ -182,10 +180,7 @@ const OPTIONS = {
   port: { type: 'string' },
   'no-hunt': { type: 'boolean' },
   // setup wizard (MMR-145)
-  vault: { type: 'string' },
   'install-service': { type: 'boolean' },
-  'install-snapshot': { type: 'boolean' },
-  'snapshot-interval': { type: 'string' },
   upstream: { type: 'string' },
   // the resume handles (ADR 0026 Decision 3, MMR-320) — set at `start`,
   // overwritten by `update` on resume or takeover
@@ -224,7 +219,7 @@ const OPTIONS = {
  * `create <type>` subcommand descriptors. `serve`/`mcp`/`version` are
  * intercepted upstream in `main` for a bare invocation; a `-h`/`--help` on
  * any of them falls through here instead, rendering that verb's
- * `COMMAND_HELP` descriptor without ever touching the vault (MMR-294). The
+ * `COMMAND_HELP` descriptor without ever touching the store (MMR-294). The
  * switch in `runCli` keeps a defensive `default:` for any drift.
  */
 const COMMANDS: ReadonlySet<string> = new Set(
@@ -263,8 +258,7 @@ const COMMANDS: ReadonlySet<string> = new Set(
  *   spelling doubles as a `QUERY_FIELDS` name (`query.ts`): `--title`
  *   (update/attach/promote/scratch), `--summary` (create/update/attach/
  *   scratch), `--target` (create/update, phases only), `--ref`
- *   (create/update, the `external_ref` field), `--upstream` (create/update,
- *   plus `setup`'s unrelated snapshot-remote reuse of the same spelling),
+ *   (create/update, the `external_ref` field), `--upstream` (create/update),
  *   and the four resume handles `--host`/`--harness`/`--session`/`--branch`
  *   (create/update/start).
  *   `mimir list --host my-branch` used to exit 0 with the FULL board for the
@@ -474,8 +468,8 @@ const VERB_OWNED_FLAGS: readonly {
   {
     flag: '--upstream',
     given: (values) => values.upstream !== undefined,
-    hint: `'--upstream' sets the requester-side seed pointer at create/update (or the snapshot git remote at setup); list/next filter the task field with '--eq upstream:KEY'`,
-    owner: ['create', 'update', 'setup'],
+    hint: `'--upstream' sets the requester-side seed pointer at create/update; list/next filter the task field with '--eq upstream:KEY'`,
+    owner: ['create', 'update'],
   },
   {
     flag: '--host',
@@ -548,8 +542,6 @@ export type Defaults = {
   cwd?: string;
   /** Real service/self-update edges; absent where supervision is unavailable (tests). */
   service?: ServiceDeps;
-  /** Real vault edges (git snapshot); absent where the vault is unavailable (tests). */
-  vault?: VaultDeps;
   /** Real store-machinery edges (the config + the Postgres pool); absent where
    * the store is unavailable (tests). */
   store?: StoreDeps;
@@ -575,7 +567,7 @@ function effectiveScope(
 
 /**
  * Run the CLI for one invocation. `argv` is the args after `mimir`; `getStore`
- * lazily supplies the Store over the converged Norn vault — it must be
+ * lazily supplies the Store over the configured backend — it must be
  * idempotent (the caller owns the client's lifecycle) and is called only
  * by verbs that touch data, so help/usage/`skill` paths never open a store
  * (MMR-39); `io` is the injected sink + presentation context. Returns the
@@ -643,10 +635,7 @@ export async function runCli(
     agent?: string;
     port?: string;
     'no-hunt'?: boolean;
-    vault?: string;
     'install-service'?: boolean;
-    'install-snapshot'?: boolean;
-    'snapshot-interval'?: string;
     upstream?: string;
     kind?: string;
     requester?: string;
@@ -766,7 +755,7 @@ export async function runCli(
             : "No ready tasks — mimir list --status awaiting shows what's queued";
         // Parsed BEFORE the store is opened (MMR-39): every one of these throws
         // `usage` on a structural fault, and a wrong invocation must not open the
-        // vault. Inside the call's argument list they were evaluated after
+        // store. Inside the call's argument list they were evaluated after
         // `getStore()` had already resolved.
         const nextQuery = {
           facets: parseFacets(values.col),
@@ -943,7 +932,7 @@ export async function runCli(
         const artifactZone = callerTimeZone(values.tz);
         // Every structural fault (bad date, bad offset, bad format) is decided
         // BEFORE the store is acquired — a wrong invocation must never open the
-        // vault, matching the help/usage paths (MMR-39).
+        // store, matching the help/usage paths (MMR-39).
         const artifactQuery = {
           dates: parseDateFilters(values, ARTIFACT_DATE_FIELD, artifactZone),
           limit: parseLimit(values.limit),
@@ -1084,27 +1073,14 @@ export async function runCli(
         return 0;
       }
       case 'setup': {
-        if (defaults.service === undefined || defaults.vault === undefined) {
+        if (defaults.service === undefined) {
           throw usage('setup is unavailable in this context');
         }
         const format = pickFormat(values.format, 'report', ctx);
         return await cmdSetup(
-          {
-            installService: values['install-service'],
-            installSnapshot: values['install-snapshot'],
-            port: values.port,
-            snapshotInterval: values['snapshot-interval'],
-            upstream: values.upstream,
-            vault: values.vault,
-            yes: values.yes,
-          },
+          { installService: values['install-service'], port: values.port, yes: values.yes },
           ctx,
-          {
-            defaultVaultPath: defaultVaultPath(),
-            service: defaults.service,
-            sqlitePath: sqliteStorePath(),
-            vault: defaults.vault,
-          },
+          { service: defaults.service, sqlitePath: sqliteStorePath() },
           format,
         );
       }
@@ -1114,13 +1090,6 @@ export async function runCli(
         }
         const format = pickFormat(values.format, 'report', ctx);
         return await cmdService(positionals, { port: values.port }, ctx, defaults.service, format);
-      }
-      case 'vault': {
-        if (defaults.vault === undefined) {
-          throw usage('vault is unavailable in this context');
-        }
-        const format = pickFormat(values.format, 'report', ctx);
-        return await cmdVault(positionals, ctx, defaults.vault, format);
       }
       case 'store': {
         if (defaults.store === undefined) {
@@ -1660,7 +1629,7 @@ function parseFilters(values: Record<string, unknown>, zone: string): FieldFilte
     }
   }
   // Refuse an unreadable date here rather than inside the query, so a wrong
-  // invocation never opens the vault (MMR-39).
+  // invocation never opens the store (MMR-39).
   try {
     assertDateFilters(filters, zone);
   } catch (error) {

@@ -7,13 +7,12 @@
  *   - install enables by absolute file path, which links a unit file kept
  *     outside the manager's search path (a sandbox's own data directory) and is
  *     a plain enable for one already inside it (a live `~/.config/systemd/user`).
- *     Companion files (the snapshot timer's oneshot service) are linked first.
  *   - stop/start keep the unit enabled, like launchd's bootout/bootstrap keep the
  *     plist on disk: the unit comes back at the next manager start.
  *   - uninstall stops a running unit explicitly before `disable`: `disable
  *     --now` refuses a unit whose file is gone before it stops anything. It then
- *     removes the unit files itself, between `disable` (which needs them) and
- *     `daemon-reload` (which must not find them).
+ *     removes the unit file itself, between `disable` (which needs it) and
+ *     `daemon-reload` (which must not find it).
  *   - `show` exits 0 even for unknown units, so `loaded` is read from the
  *     active state, never the exit code alone. The load state is ignored: a
  *     unit whose file vanished keeps running as `not-found` after a reload.
@@ -36,15 +35,12 @@ export class SystemdSupervisor implements Supervisor {
   private readonly exec: Exec;
   private readonly unitFile: string;
   private readonly unit: string;
-  private readonly companions: readonly string[];
-  /** `unitFile` is the unit this supervisor drives (`<label>.service` or
-   *  `<label>.timer`; its name is the file's basename); `companions` are unit
-   *  files the unit needs linked and removed with it. */
-  constructor(exec: Exec, unitFile: string, companions: readonly string[] = []) {
+  /** `unitFile` is the unit this supervisor drives (`<label>.service`; its name
+   *  is the file's basename). */
+  constructor(exec: Exec, unitFile: string) {
     this.exec = exec;
     this.unitFile = unitFile;
     this.unit = basename(unitFile);
-    this.companions = companions;
   }
 
   /** A Linux host without systemd (a container, OpenRC, WSL) has no systemctl;
@@ -66,9 +62,6 @@ export class SystemdSupervisor implements Supervisor {
   }
 
   async install(): Promise<void> {
-    for (const companion of this.companions) {
-      await this.run(['link', companion], 'could not link the unit file');
-    }
     await this.run(['enable', this.unitFile], 'could not enable the service');
     // Re-read changed unit files, then restart: an idempotent refresh that
     // starts a stopped unit and re-execs a running one on its new definition.
@@ -77,9 +70,9 @@ export class SystemdSupervisor implements Supervisor {
   }
 
   /** The unit's `show` properties; empty when the manager is unreachable. */
-  private async show(unit: string): Promise<Map<string, string>> {
+  private async show(): Promise<Map<string, string>> {
     const props = new Map<string, string>();
-    const result = await this.systemctl(['show', unit, '--property=ActiveState,MainPID']);
+    const result = await this.systemctl(['show', this.unit, '--property=ActiveState,MainPID']);
     if (result.code !== 0) {
       return props;
     }
@@ -92,28 +85,17 @@ export class SystemdSupervisor implements Supervisor {
     return props;
   }
 
-  private async isUp(unit: string): Promise<boolean> {
-    return LOADED_STATES.has((await this.show(unit)).get('ActiveState') ?? '');
-  }
-
-  /** Stop what runs, disable, remove the unit files, then reload so the manager
-   *  forgets the units instead of keeping definitions whose files are gone. A
-   *  running unit that will not stop fails loudly, before any file is removed.
+  /** Stop what runs, disable, remove the unit file, then reload so the manager
+   *  forgets the unit instead of keeping a definition whose file is gone. A
+   *  running unit that will not stop fails loudly, before the file is removed.
    *  Disabling an absent unit is the expected no-op, so `disable` and the
    *  reload tolerate failure. */
   async uninstall(): Promise<void> {
-    const units = [this.unitFile, ...this.companions].map((file) => basename(file));
-    for (const unit of units) {
-      if (await this.isUp(unit)) {
-        await this.run(['stop', unit], 'could not stop the service');
-      }
+    if ((await this.info()).loaded) {
+      await this.run(['stop', this.unit], 'could not stop the service');
     }
-    for (const unit of units) {
-      await this.systemctl(['disable', unit]);
-    }
-    for (const file of [this.unitFile, ...this.companions]) {
-      rmSync(file, { force: true });
-    }
+    await this.systemctl(['disable', this.unit]);
+    rmSync(this.unitFile, { force: true });
     await this.systemctl(['daemon-reload']);
   }
 
@@ -130,7 +112,7 @@ export class SystemdSupervisor implements Supervisor {
   }
 
   async info(): Promise<ServiceInfo> {
-    const props = await this.show(this.unit);
+    const props = await this.show();
     const loaded = LOADED_STATES.has(props.get('ActiveState') ?? '');
     const pid = Number(props.get('MainPID') ?? '0');
     const running = loaded && Number.isInteger(pid) && pid > 0;

@@ -6,8 +6,6 @@ import { RANK_STEP, reindexRanks, reorderTask } from './rank';
 import type { RankPosition } from './rank';
 import type { Store } from './store';
 
-const NORN = Bun.which('norn') !== null;
-
 const KEY = 'MMR';
 
 let store: Store;
@@ -52,14 +50,14 @@ async function setRank(taskSeq: number, rank: number): Promise<void> {
   await store.transact((w) => w.updateNode(id, { rank }));
 }
 
-test.skipIf(!NORN)('create appends in order at clean steps', async () => {
+test('create appends in order at clean steps', async () => {
   const a = await task('a');
   const b = await task('b');
   const c = await task('c');
   expect(await rankedSeqs()).toEqual([a, b, c]);
 });
 
-test.skipIf(!NORN)('top and bottom move to the extremes', async () => {
+test('top and bottom move to the extremes', async () => {
   const a = await task('a');
   const b = await task('b');
   const c = await task('c');
@@ -71,7 +69,7 @@ test.skipIf(!NORN)('top and bottom move to the extremes', async () => {
   expect(await rankedSeqs()).toEqual([a, b, c]);
 });
 
-test.skipIf(!NORN)('before and after place relative to a reference', async () => {
+test('before and after place relative to a reference', async () => {
   const a = await task('a');
   const b = await task('b');
   const c = await task('c');
@@ -86,43 +84,37 @@ test.skipIf(!NORN)('before and after place relative to a reference', async () =>
   expect(await rankedSeqs()).toEqual([b, a, c]);
 });
 
-test.skipIf(!NORN)(
-  'reindex re-spreads to clean multiples, order-preserving and idempotent',
-  async () => {
-    const a = await task('a');
-    const b = await task('b');
-    const c = await task('c');
-    // scramble ranks into a tight, ugly range, preserving order a<b<c
-    await setRank(a, 3);
-    await setRank(b, 7);
-    await setRank(c, 8);
+test('reindex re-spreads to clean multiples, order-preserving and idempotent', async () => {
+  const a = await task('a');
+  const b = await task('b');
+  const c = await task('c');
+  // scramble ranks into a tight, ugly range, preserving order a<b<c
+  await setRank(a, 3);
+  await setRank(b, 7);
+  await setRank(c, 8);
 
-    const projectId = await projectIdOf(store, KEY);
-    await store.transact((w) => reindexRanks(w, projectId));
-    let ranked = await store.transact((w) => w.listRankedTasks(projectId));
-    expect(ranked.map((r) => r.seq)).toEqual([a, b, c]);
-    expect(ranked.map((r) => r.rank)).toEqual([RANK_STEP, RANK_STEP * 2, RANK_STEP * 3]);
+  const projectId = await projectIdOf(store, KEY);
+  await store.transact((w) => reindexRanks(w, projectId));
+  let ranked = await store.transact((w) => w.listRankedTasks(projectId));
+  expect(ranked.map((r) => r.seq)).toEqual([a, b, c]);
+  expect(ranked.map((r) => r.rank)).toEqual([RANK_STEP, RANK_STEP * 2, RANK_STEP * 3]);
 
-    // running again changes nothing
-    await store.transact((w) => reindexRanks(w, projectId));
-    ranked = await store.transact((w) => w.listRankedTasks(projectId));
-    expect(ranked.map((r) => r.rank)).toEqual([RANK_STEP, RANK_STEP * 2, RANK_STEP * 3]);
-  },
-);
+  // running again changes nothing
+  await store.transact((w) => reindexRanks(w, projectId));
+  ranked = await store.transact((w) => w.listRankedTasks(projectId));
+  expect(ranked.map((r) => r.rank)).toEqual([RANK_STEP, RANK_STEP * 2, RANK_STEP * 3]);
+});
 
-test.skipIf(!NORN)(
-  'an exhausted midpoint triggers an on-the-spot reindex and still inserts',
-  async () => {
-    const a = await task('a');
-    const b = await task('b');
-    const c = await task('c');
-    // make a and b adjacent so there is no integer midpoint between them
-    await setRank(a, 1);
-    await setRank(b, 2);
-    await setRank(c, 100);
+test('an exhausted midpoint triggers an on-the-spot reindex and still inserts', async () => {
+  const a = await task('a');
+  const b = await task('b');
+  const c = await task('c');
+  // make a and b adjacent so there is no integer midpoint between them
+  await setRank(a, 1);
+  await setRank(b, 2);
+  await setRank(c, 100);
 
-    // place c before b: neighbour below b is a (1,2 adjacent) → reindex, then midpoint
-    await reorder(c, 'before', b);
-    expect(await rankedSeqs()).toEqual([a, c, b]);
-  },
-);
+  // place c before b: neighbour below b is a (1,2 adjacent) → reindex, then midpoint
+  await reorder(c, 'before', b);
+  expect(await rankedSeqs()).toEqual([a, c, b]);
+});

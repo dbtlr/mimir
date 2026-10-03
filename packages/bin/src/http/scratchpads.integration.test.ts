@@ -14,13 +14,11 @@ import type { Store } from '../core';
 import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
 import { createServer } from './server';
 
-const NORN = Bun.which('norn') !== null;
-
 type Rec = Record<string, unknown>;
 
 const parse = async (response: Response): Promise<Rec> => parseJson<Rec>(await response.text());
 
-describe.skipIf(!NORN)('/api/scratchpads', () => {
+describe('/api/scratchpads', () => {
   let store: Store;
   let closeStore: () => Promise<void>;
   let server: Server<undefined>;
@@ -161,7 +159,8 @@ describe.skipIf(!NORN)('/api/scratchpads', () => {
       id: 'MMR-a1',
       linked_work: [linkedWork],
       summary: 'durable outcome',
-      tags: ['scratchpad', 'http'],
+      // Tags are a set (ADR 0005): the store reads them back in canonical order.
+      tags: ['http', 'scratchpad'],
       title: 'Renamed',
     });
     expect((await fetch(`${base}/api/scratchpads/${id}`)).status).toBe(404);

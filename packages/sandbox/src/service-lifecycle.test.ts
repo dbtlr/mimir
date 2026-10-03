@@ -17,7 +17,6 @@ class FakeSupervisorHost implements ServiceHost {
   calls: string[] = [];
   files = new Set<string>();
   serve = { loaded: false, pid: 0 };
-  snapshot = { loaded: false };
   nextPid = 100;
   unitDirectory = `/sandbox/data/LaunchAgents/${MARKER}`;
   respawnAfterKill = true;
@@ -27,26 +26,13 @@ class FakeSupervisorHost implements ServiceHost {
     this.calls.push((flags === -1 ? args : args.slice(0, flags)).join(' '));
     const [, sub] = args;
     const serveFile = `${this.unitDirectory}serve.plist`;
-    const snapshotFile = `${this.unitDirectory}snapshot.plist`;
     switch (sub) {
       case 'install': {
-        // `all` also installs the snapshot timer, which only a Norn install has.
-        const all = args[2] === 'all';
         this.files.add(serveFile);
         this.serve = { loaded: true, pid: this.spawn() };
         const actions = [
           { action: 'install', ok: true, paths: { plist: serveFile }, unit: 'serve' },
         ];
-        if (all) {
-          this.files.add(snapshotFile);
-          this.snapshot = { loaded: true };
-          actions.push({
-            action: 'install',
-            ok: true,
-            paths: { plist: snapshotFile },
-            unit: 'snapshot',
-          });
-        }
         return Promise.resolve(JSON.stringify({ actions }));
       }
       case 'restart': {
@@ -64,7 +50,6 @@ class FakeSupervisorHost implements ServiceHost {
       case 'uninstall': {
         this.files.clear();
         this.serve = { loaded: false, pid: 0 };
-        this.snapshot = { loaded: false };
         return Promise.resolve('{"actions":[]}');
       }
       case 'status': {
@@ -78,7 +63,6 @@ class FakeSupervisorHost implements ServiceHost {
                 running: this.serve.pid > 0,
                 unit: 'serve',
               },
-              { loaded: this.snapshot.loaded, pid: null, running: false, unit: 'snapshot' },
             ],
           }),
         );

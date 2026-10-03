@@ -2,7 +2,7 @@
   "name": "mimir-workspace",
   "version": "0.5.0",
   "private": true,
-  "description": "Source of truth for work state — tasks, the work hierarchy, and frozen artifacts. Local-first, agent-driven; the Norn markdown vault is the substrate.",
+  "description": "Source of truth for work state — tasks, the work hierarchy, and frozen artifacts. Local-first, agent-driven; a SQLite file locally or a shared Postgres database.",
   "workspaces": [
     "packages/*"
   ],
@@ -10,7 +10,6 @@
   "scripts": {
     "mimir": "bun run packages/bin/src/main.ts",
     "assets": "bun packages/bin/scripts/generate-ui-assets.ts",
-    "fixtures:vault": "bun packages/bin/scripts/generate-fixture-vault.ts",
     "changelog:compile": "bun packages/bin/scripts/compile-changelog.ts",
     "build:ui": "bun run --cwd packages/ui build",
     "dev:ui": "bun run --cwd packages/ui dev",

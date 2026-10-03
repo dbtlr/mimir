@@ -1,7 +1,4 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 
 import { parseJson } from '@mimir/helpers';
 
@@ -15,22 +12,16 @@ import {
   resolveProjectKeyInSet,
 } from '../core';
 import type { Store } from '../core';
-import { NornClient } from '../core/store-norn/client';
-import { createNornWriteStore } from '../core/store-norn/writer';
-import { bunExec } from '../exec';
-import { converge } from '../vault/converge';
+import { createTestStore } from '../testing/store';
 import { runCli } from './run';
 import { fakeIo } from './testing';
 
 /**
- * The seed CLI verbs (MMR-245) end-to-end over a real Norn store — dispatch,
- * parsing, the resolving read, and the JSON echo contract. Needs `norn`.
+ * The seed CLI verbs (MMR-245) end-to-end over a real store — dispatch, parsing,
+ * the resolving read, and the JSON echo contract.
  */
-const NORN = Bun.which('norn') !== null;
-
-let root: string;
-let client: NornClient;
 let store: Store;
+let closeStore: () => Promise<void>;
 let phaseRef: string;
 
 /** Run a CLI invocation bound to MMR; returns the exit code + captured io. */
@@ -44,11 +35,7 @@ async function cli(
 }
 
 beforeEach(async () => {
-  root = mkdtempSync(join(tmpdir(), 'mimir-cliseed-'));
-  const vault = join(root, 'vault');
-  await converge(vault, { allowCreate: true, exec: bunExec });
-  client = new NornClient({ vaultPath: vault });
-  store = createNornWriteStore(client, vault);
+  ({ close: closeStore, store } = await createTestStore());
   await createProject(store, { key: 'MMR', name: 'Mimir' });
   const pid = resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), 'MMR');
   const init = await createInitiative(store, { projectId: pid, title: 'init' });
@@ -67,11 +54,10 @@ async function idOf(ref: string): Promise<string> {
 }
 
 afterEach(async () => {
-  await client.close();
-  rmSync(root, { force: true, recursive: true });
+  await closeStore();
 });
 
-describe.skipIf(!NORN)('seed CLI verbs', () => {
+describe('seed CLI verbs', () => {
   test('seed files against the bound board, echoing the record (-f json)', async () => {
     const { code, io } = await cli(['seed', 'flaky login', '-k', 'bug', '-f', 'json']);
     expect(code).toBe(0);

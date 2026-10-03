@@ -2,7 +2,7 @@
  * `service-verify` (MMR-54): prove the real supervisor lifecycle without
  * touching the live daemon.
  *
- *   - **host** — a vault sandbox installation (owned directories, no database)
+ *   - **host** — a local sandbox installation (owned directories, no database)
  *     drives the host supervisor under its own sandbox-scoped unit names: launchd
  *     on macOS, systemd user units on Linux. The supervisor fence lets it address
  *     nothing else.
@@ -27,7 +27,7 @@ import { z } from 'zod';
 
 import { installBinary } from '../../bin/src/installation/index';
 import { readSandboxAuthority } from '../../bin/src/sandbox-authority';
-import { SERVE_LABEL, SNAPSHOT_LABEL, unitLabels } from '../../bin/src/service/units';
+import { SERVE_LABEL, unitLabels } from '../../bin/src/service/units';
 import { attempt, command, hashFile, isolatedEnvironment, privateJson } from './process';
 import { removeSandboxUnits } from './sandbox-units';
 import { verifyServiceLifecycle } from './service-lifecycle';
@@ -89,7 +89,7 @@ async function liveUnitState(cwd: string): Promise<string> {
   if (process.platform === 'darwin') {
     const uid = String(process.getuid?.() ?? 501);
     const states = await Promise.all(
-      [SERVE_LABEL, SNAPSHOT_LABEL].map(async (label) => {
+      [SERVE_LABEL].map(async (label) => {
         const plist = await fileDigest(
           join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`),
         );
@@ -105,11 +105,7 @@ async function liveUnitState(cwd: string): Promise<string> {
     return states.join('; ');
   }
   if (process.platform === 'linux') {
-    const units = [
-      `${SERVE_LABEL}.service`,
-      `${SNAPSHOT_LABEL}.timer`,
-      `${SNAPSHOT_LABEL}.service`,
-    ];
+    const units = [`${SERVE_LABEL}.service`];
     const states = await Promise.all(
       units.map(async (unit) => {
         const shown = await attempt(
@@ -296,7 +292,7 @@ export class ServiceVerifier {
       await mkdir(path, { mode: 0o700, recursive: true });
     }
     const authorityFile = join(root, 'authority.json');
-    await privateJson(authorityFile, { id, kind: 'vault', paths, root, version: 1 });
+    await privateJson(authorityFile, { id, kind: 'local', paths, root, version: 1 });
     readSandboxAuthority(authorityFile);
 
     const source = binary === undefined ? await this.build() : resolve(this.repository, binary);

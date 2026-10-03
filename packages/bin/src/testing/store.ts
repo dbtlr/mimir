@@ -1,109 +1,40 @@
-import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import type { Store } from '../core';
 import { deriveSet, findNodeInSet, resolveProjectKeyInSet } from '../core';
 import type { ArtifactStore } from '../core/artifacts/store';
 import type { SeedStore } from '../core/seeds/store';
 import type { NodePatch } from '../core/store';
-import { createNornArtifactStore } from '../core/store-norn/artifacts';
-import { NornClient } from '../core/store-norn/client';
-import { createNornSeedStore } from '../core/store-norn/seeds';
-import { seedRawDoc } from '../core/store-norn/testing';
-import { createNornWriteStore } from '../core/store-norn/writer';
+import { sqliteDialect } from '../core/store-sqlite/index';
+import { createSqliteTestStore } from '../core/store-sqlite/testing';
 import { now } from '../core/time';
 import type { DoctorBackend } from '../doctor/contract';
-import type { NornDoctorDeps } from '../doctor/norn/backend';
-import { createNornDoctorBackend, nornDoctorDeps } from '../doctor/norn/backend';
-import { bunExec } from '../exec';
-import { converge } from '../vault/converge';
+import { createSqlDoctorBackend } from '../doctor/sql/backend';
 
 /**
- * The test substrate (MMR-234): a fresh Norn-backed {@link Store} over an
- * isolated temp vault. Mirrors `BuiltStore` — `close()` shuts the `norn mcp`
- * subprocess down and removes the temp vault.
- *
- * The `norn` subprocess is lazy (it spawns on the first store call, not here),
- * so construction is binary-free; a store *call* needs `norn` on PATH. Callers
- * gate their tests on `Bun.which('norn')` (skip when absent, as the norn-backed
- * suites already do) — a skipped test never runs its `beforeEach`, so the
- * temp-vault fixture stays cheap and CI (no norn) stays green.
+ * The test substrate: a fresh, migrated SQLite {@link Store} in memory (ADR
+ * 0032), with the seed and artifact facets and the doctor over the same handle.
+ * Mirrors `BuiltStore` — `close()` releases the database. In-process and
+ * binary-free, so no suite skips for want of a store.
  */
 export type TestStore = {
   store: Store;
-  /** Isolated vault path for subprocess-level persistence proofs. */
-  vaultRoot: string;
-  /** The seed store over the same isolated Norn client — seed-mutation fixtures
-   * (the MMR-313 co-write guard cycle) drive it directly, as the write `store`
-   * has no seed surface. */
+  /** The store's seed facet — seed-mutation fixtures drive it directly. */
   seeds: SeedStore;
-  /** The artifact store over the same isolated Norn client — artifact-mutation
-   * fixtures (the MMR-317 co-write guard cycle) drive it directly. */
+  /** The store's artifact facet — artifact-mutation fixtures drive it directly. */
   artifacts: ArtifactStore;
-  close: () => Promise<void>;
-  /** The Norn doctor facet over this isolated vault, repair capability wired
-   * (the CLI composition root's shape). */
+  /** The SQL doctor over this store. */
   doctor: DoctorBackend;
-  /** The raw Norn doctor handles behind {@link doctor} — for a fixture that
-   * wraps one handle (an injected apply failure) and rebuilds the backend. */
-  doctorDeps: NornDoctorDeps;
-  /** Deliberate hand-edit seam for corruption tests; path stays vault-relative. */
-  corruptDocument: (path: string, mutate: (raw: string) => string) => void;
-  /** Byte-exact observation seam for no-write/scope assertions. */
-  readDocument: (path: string) => string;
-  /** Deliberate missing-container corruption for recovery tests. */
-  removeDocument: (path: string) => void;
-  /** Write a whole document at a fixed vault path, bypassing every store — the
-   * seam for physical siblings, colliders, and orphans no typed API can
-   * produce. */
-  seedDocument: (
-    path: string,
-    frontmatter: Record<string, unknown>,
-    body?: string,
-  ) => Promise<void>;
+  close: () => Promise<void>;
 };
 
-function safeVaultPath(root: string, path: string): string {
-  if (path.startsWith('/') || path.split('/').includes('..')) {
-    throw new Error(`test document path must stay vault-relative: ${path}`);
-  }
-  return join(root, path);
-}
-
 export async function createTestStore(): Promise<TestStore> {
-  const root = mkdtempSync(join(tmpdir(), 'mimir-test-'));
-  try {
-    await converge(root, { allowCreate: true, exec: bunExec });
-    const client = new NornClient({ vaultPath: root });
-    const doctorDeps = nornDoctorDeps(client, root, { repair: true });
-    return {
-      artifacts: createNornArtifactStore(client, root),
-      close: async () => {
-        try {
-          await client.close();
-        } finally {
-          rmSync(root, { force: true, recursive: true });
-        }
-      },
-      corruptDocument: (path, mutate) => {
-        const absolute = safeVaultPath(root, path);
-        writeFileSync(absolute, mutate(readFileSync(absolute, 'utf8')));
-      },
-      doctor: createNornDoctorBackend(doctorDeps),
-      doctorDeps,
-      readDocument: (path) => readFileSync(safeVaultPath(root, path), 'utf8'),
-      removeDocument: (path) => unlinkSync(safeVaultPath(root, path)),
-      seedDocument: (path, frontmatter, body) => seedRawDoc(client, root, path, frontmatter, body),
-      seeds: createNornSeedStore(client, root),
-      store: createNornWriteStore(client, root),
-      vaultRoot: root,
-    };
-  } catch (error) {
-    // A failed converge (or client construction) must not strand the temp dir.
-    rmSync(root, { force: true, recursive: true });
-    throw error;
-  }
+  const test_ = await createSqliteTestStore();
+  return {
+    artifacts: test_.store.artifacts,
+    close: test_.close,
+    doctor: createSqlDoctorBackend(test_.db, sqliteDialect),
+    seeds: test_.store.seeds,
+    store: test_.store,
+  };
 }
 
 /**
@@ -150,8 +81,8 @@ export async function rawDep(store: Store, nodeId: string, dependsOnId: string):
 /**
  * A {@link Store} that must never be called (MMR-271): every property read
  * throws. For a suite whose routes never touch storage (asset serving, the
- * port hunt's non-request paths) — a real store needs `norn` on PATH just to
- * construct the fixture; this needs nothing, so those tests run everywhere.
+ * port hunt's non-request paths) — a real store must open a database just to
+ * construct the fixture; this needs nothing, so those tests run cheaply.
  * A read that *does* reach it fails loudly rather than silently misbehaving,
  * so an accidental new store call surfaces as a clear assertion failure
  * instead of a green test over the wrong data.

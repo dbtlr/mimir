@@ -118,7 +118,7 @@ controller.
   `KEY-s3`. A Scratchpad is a UUID that only the `scratch` subcommands take.
 - Work-state verbs are flat (`mimir done MMR-16`, `mimir resolve MMR-s3`).
   Scratchpad operations group under `mimir scratch`, and installation commands
-  (`service`, `store`, `skill`, `vault`) group under their noun.
+  (`service`, `store`, `skill`) group under their noun.
 - Every create and mutation echoes the affected id. Capture it and compose with
   it: `ID=$(mimir create task "…" --parent MMR-2 -f ids)`. Sequence numbers are
   never reused, so a guessed id writes to the wrong row.

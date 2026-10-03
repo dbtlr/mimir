@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 import { OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
 import type { TaskStatusWord, UniformVerb } from '@mimir/contract';
@@ -36,8 +36,6 @@ import { createTestStore, nodeIdOf, projectIdOf } from './testing/store';
  * A registry entry whose transport dispatch doesn't reach the core turns it red.
  */
 
-const NORN = Bun.which('norn') !== null;
-
 let store: Store;
 let closeStore: (() => Promise<void>) | undefined;
 let server: Server<undefined>;
@@ -46,9 +44,6 @@ let projectId: string;
 let phaseId: string;
 
 beforeEach(async () => {
-  if (!NORN) {
-    return;
-  }
   ({ close: closeStore, store } = await createTestStore());
   await createProject(store, { key: 'MMR', name: 'Mimir' });
   projectId = await projectIdOf(store, 'MMR');
@@ -155,7 +150,7 @@ const httpDrive: Driver = async (verb, ref) => {
   expect(res.status).toBe(200);
 };
 
-test.skipIf(!NORN)('http unarchive rejects an unexpected body key', async () => {
+test('http unarchive rejects an unexpected body key', async () => {
   // The one disclosed behavior change of the registry cutover: unarchive now
   // enforces the empty body allow-list every other reason-less route already
   // had. An unexpected key refuses as validation and the write never lands.
@@ -210,35 +205,33 @@ async function refInPreState(verb: UniformVerb): Promise<string> {
     : await taskInPreState(verb);
 }
 
-for (const verb of UNIFORM_VERBS) {
-  test.skipIf(!NORN)(`cli echo golden: ${verb}`, async () => {
+test.each([...UNIFORM_VERBS])('cli echo golden: %s', async (verb) => {
+  const ref = await refInPreState(verb);
+  const io = fakeIo(false);
+  expect(await runCli([verb, ref, '-f', 'records'], () => store, io)).toBe(0);
+  expect(io.out.join('\n')).toContain(ECHO_SIGNPOST[verb](ref));
+});
+
+test.each(UNIFORM_VERBS.filter((verb) => OP_FACTS[verb].reason === 'optional'))(
+  'cli echo golden: %s with reason',
+  async (verb) => {
     const ref = await refInPreState(verb);
     const io = fakeIo(false);
-    expect(await runCli([verb, ref, '-f', 'records'], () => store, io)).toBe(0);
-    expect(io.out.join('\n')).toContain(ECHO_SIGNPOST[verb](ref));
-  });
-  if (OP_FACTS[verb].reason === 'optional') {
-    test.skipIf(!NORN)(`cli echo golden: ${verb} with reason`, async () => {
-      const ref = await refInPreState(verb);
-      const io = fakeIo(false);
-      expect(await runCli([verb, ref, 'smoke reason', '-f', 'records'], () => store, io)).toBe(0);
-      expect(io.out.join('\n')).toContain(`${ECHO_SIGNPOST[verb](ref)} · smoke reason`);
-    });
-  }
-}
+    expect(await runCli([verb, ref, 'smoke reason', '-f', 'records'], () => store, io)).toBe(0);
+    expect(io.out.join('\n')).toContain(`${ECHO_SIGNPOST[verb](ref)} · smoke reason`);
+  },
+);
 
-for (const verb of UNIFORM_VERBS) {
-  for (const [name, drive] of DRIVERS) {
-    test.skipIf(!NORN)(`${name} drives ${verb} end-to-end`, async () => {
-      if (OP_FACTS[verb].subject === 'project') {
-        const key = await projectInPreState(verb);
-        await drive(verb, key);
-        expect(await projectArchived(key)).toBe(verb === 'archive');
-        return;
-      }
-      const ref = await taskInPreState(verb);
-      await drive(verb, ref);
-      expect(await nodeStatus(ref)).toBe(NODE_POST[verb] as TaskStatusWord);
-    });
-  }
-}
+describe.each([...UNIFORM_VERBS])('%s', (verb) => {
+  test.each(DRIVERS)(`%s drives ${verb} end-to-end`, async (_name, drive) => {
+    if (OP_FACTS[verb].subject === 'project') {
+      const key = await projectInPreState(verb);
+      await drive(verb, key);
+      expect(await projectArchived(key)).toBe(verb === 'archive');
+      return;
+    }
+    const ref = await taskInPreState(verb);
+    await drive(verb, ref);
+    expect(await nodeStatus(ref)).toBe(NODE_POST[verb] as TaskStatusWord);
+  });
+});

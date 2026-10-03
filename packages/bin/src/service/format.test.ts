@@ -21,17 +21,6 @@ const serveUnit = (over: Partial<UnitStatus> = {}): UnitStatus => ({
   ...over,
 });
 
-const snapshotUnit = (over: Partial<UnitStatus> = {}): UnitStatus => ({
-  intervalSeconds: 900,
-  loaded: false,
-  log: '/p/snapshot.log',
-  pid: null,
-  plist: '/p/snapshot.plist',
-  running: false,
-  unit: 'snapshot',
-  ...over,
-});
-
 const report = (over: Partial<ServiceStatusReport> = {}): ServiceStatusReport => ({
   config: '/p/config',
   recentEvents: [
@@ -44,17 +33,17 @@ const report = (over: Partial<ServiceStatusReport> = {}): ServiceStatusReport =>
       version: '0.6.0',
     },
   ],
-  units: [serveUnit(), snapshotUnit()],
+  units: [serveUnit()],
   ...over,
 });
 
 describe('formatServiceStatusJson', () => {
-  test('a two-unit report maps to the snake_case envelope', () => {
+  test('a serve report maps to the snake_case envelope', () => {
     const parsed = JSON.parse(formatServiceStatusJson(report(), true));
     expect(parsed.config).toBe('/p/config');
     expect(parsed.recent_events).toHaveLength(1);
-    const serve = parsed.units.find((u: { unit: string }) => u.unit === 'serve');
-    expect(serve).toEqual({
+    expect(parsed.units).toHaveLength(1);
+    expect(parsed.units[0]).toEqual({
       config_problem: null,
       health: { on_disk_version: '0.6.0', restart_pending: true, running_version: '0.5.0' },
       loaded: true,
@@ -65,19 +54,6 @@ describe('formatServiceStatusJson', () => {
       running: true,
       unit: 'serve',
     });
-    const snap = parsed.units.find((u: { unit: string }) => u.unit === 'snapshot');
-    expect(snap).toEqual({
-      interval_seconds: 900,
-      loaded: false,
-      log: '/p/snapshot.log',
-      pid: null,
-      plist: '/p/snapshot.plist',
-      running: false,
-      unit: 'snapshot',
-    });
-    // The serve-only and snapshot-only keys never cross over.
-    expect(snap.port).toBeUndefined();
-    expect(serve.interval_seconds).toBeUndefined();
   });
 
   test('not loaded → pid null, health null, config_problem carried', () => {
@@ -100,7 +76,7 @@ describe('formatServiceStatusJson', () => {
   test('jsonl variant is single-line', () => {
     const line = formatServiceStatusJson(report(), false);
     expect(line).not.toContain('\n');
-    expect(JSON.parse(line).units).toHaveLength(2);
+    expect(JSON.parse(line).units).toHaveLength(1);
   });
 });
 
@@ -128,13 +104,13 @@ describe('formatServiceActionsJson', () => {
 
   test('jsonl emits one object per line, lighter verbs are action + ok + unit', () => {
     const results: ServiceActionResult[] = [
+      { action: 'stop', ok: true, unit: 'serve' },
       { action: 'start', ok: true, unit: 'serve' },
-      { action: 'start', ok: true, unit: 'snapshot' },
     ];
     const lines = formatServiceActionsJson(results, 'jsonl').split('\n');
     expect(lines).toHaveLength(2);
-    expect(JSON.parse(lines[0] ?? '')).toEqual({ action: 'start', ok: true, unit: 'serve' });
-    expect(JSON.parse(lines[1] ?? '')).toEqual({ action: 'start', ok: true, unit: 'snapshot' });
+    expect(JSON.parse(lines[0] ?? '')).toEqual({ action: 'stop', ok: true, unit: 'serve' });
+    expect(JSON.parse(lines[1] ?? '')).toEqual({ action: 'start', ok: true, unit: 'serve' });
   });
 });
 

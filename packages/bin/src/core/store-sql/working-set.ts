@@ -7,10 +7,9 @@ import type { Executor, NodeRow, ProjectRow } from './schema';
  * The bulk read path (ADR 0016 Phase 0) — the projections every derivation view
  * starts from, as SQL.
  *
- * There is no tolerant-reader pass here and nothing to drop. The Norn reader
- * exists partly to survive corruption a markdown vault can hold (an orphan, a
- * dangling edge, a duplicate identity); the relational schema forbids each of
- * those with a key or a foreign key, so the read is the rows. That is also why
+ * There is no tolerant-reader pass here and nothing to drop. The relational
+ * schema forbids an orphan, a dangling edge, and a duplicate identity with a key
+ * or a foreign key, so the read is the rows. That is also why
  * {@link WorkingSet.issueCount} is absent: there is no drop tally to report.
  */
 
@@ -92,8 +91,7 @@ export async function loadNodesForProjects(
 /**
  * A tag set as the seam's tag records. A tag application carries no timestamp
  * of its own (ADR 0005): the seam synthesizes one from the OWNING entity's
- * `created_at`, which is the fact the Norn backend reads off the document and
- * the transfer document preserves.
+ * `created_at`, which is the fact the transfer document preserves.
  */
 function tagRecords(tags: readonly string[], createdAt: string): NodeTag[] {
   return tags.map((tag) => ({ created_at: createdAt, tag }));

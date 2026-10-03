@@ -101,9 +101,8 @@ test('canonicalJson sorts object keys at every depth and leaves arrays alone', (
 });
 
 test('canonicalJson makes two objects equal as values equal as bytes', () => {
-  // The fault this fixes: Norn builds a record by spreading a seam record and
-  // Postgres by writing a literal, so two equal documents serialized plainly
-  // differ on nearly every line.
+  // The fault this fixes: two backends that build a record in different key
+  // orders serialize equal documents differently on nearly every line.
   // Built key by key, because the repo's own lint sorts an authored literal.
   const grown: Record<string, unknown> = {};
   grown.title = 'Transfer spec';

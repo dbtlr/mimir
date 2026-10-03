@@ -222,8 +222,8 @@ function toQueryRow(
     completed_at: node.completed_at,
     created_at: node.created_at,
     // No `description`: it left the query surface (MMR-162) — it is body prose,
-    // and `node.description` is null on the Norn working set, so filtering it
-    // would silently diverge. `summary` (frontmatter) is the queryable field.
+    // and `node.description` is null on the working set, so filtering it
+    // would silently diverge. `summary` is the queryable field.
     external_ref: node.external_ref,
     harness: node.harness,
     hold: node.hold,
@@ -588,15 +588,13 @@ export type OverviewOptions = {
  *
  * **Read path.** The mechanical layer comes from `## History` over the working
  * set overview already holds — NOT from the {@link
- * import('../transitions/store').TransitionsFeed}. The feed is whole-vault by
- * construction (no scope or `since` push-down: it re-fans, validates, and parses
- * every node document in the vault on each call), so routing a one-project
- * orientation surface through it would read every other project's board to
- * answer a question about this one. The {@link SESSION_SCAN_CAP} most recently
+ * import('../transitions/store').TransitionsFeed}. The feed is whole-store by
+ * construction (no scope push-down), so routing a one-project orientation
+ * surface through it would read every other project's board to answer a
+ * question about this one. The {@link SESSION_SCAN_CAP} most recently
  * touched tasks in scope are read in ONE batched
  * {@link import('../body-sections/store').BodySectionStore.readSectionsMany}
- * call — the backend client serializes its calls, so a per-task fan-out would be
- * 20 sequential IPC hops on the session-boot path however it were wrapped.
+ * call, so a per-task fan-out never lands on the session-boot path.
  *
  * **What the section can and cannot see.** Two bounds shape the result, and
  * neither is recoverable without unbounded reads — which is why the section
@@ -739,7 +737,7 @@ async function attentionRows(
  * MMR-322 per ADR 0026): a flat, id-free, scope-honoring read composing the whole
  * board state into attention-ordered sections. Still ONE `loadWorkingSet` +
  * `deriveSet` over the existing pure predicates — never a `next`/`list`/`status`
- * entry point (each reloads the vault), never the doctor snapshot (the dropped
+ * entry point (each reloads the store), never the doctor snapshot (the dropped
  * count is the free `WorkingSet.issueCount` byproduct, MMR-184).
  *
  * The composed sections add reads the working set cannot serve, each **bounded by
@@ -927,7 +925,7 @@ export async function listArtifacts(
   opts: ArtifactQueryOptions = {},
 ): Promise<SetResult<ArtifactSummary>> {
   // Resolved BEFORE the read: an unreadable date is a refusal, and a refusal
-  // should never have cost a vault load (MMR-39's rule, at the intent seam).
+  // should never have cost a store load (MMR-39's rule, at the intent seam).
   const created =
     opts.dates === undefined || opts.dates.length === 0
       ? undefined

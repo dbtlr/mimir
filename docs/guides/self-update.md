@@ -61,7 +61,7 @@ unit is loaded and the installation owns it, it restarts the unit
 
 Without that authority, the restart is skipped with a warning.
 A restart failure also produces a warning. In both cases, the binary replacement
-already succeeded. The `snapshot` unit uses the new binary on its next invocation.
+already succeeded.
 
 Source invocations through a `bun`-prefixed executable refuse self-update.
 An unregistered standalone binary can replace itself, but the replacement does

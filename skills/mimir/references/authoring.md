@@ -126,9 +126,6 @@ mimir update KEY-4 --direction ""      # clear it
   The field is spelled `next` on MCP, HTTP, and `--col next`.
 - It is an `update` flag only — set the narrative after the container exists;
   `create --direction` is refused rather than silently dropped.
-- A refusal naming a duplicate `## Next` means the document was hand-edited into
-  two sections — `mimir doctor` points at the extra heading; delete it, then
-  re-author.
 
 ## Resume handles: how the work is picked back up
 

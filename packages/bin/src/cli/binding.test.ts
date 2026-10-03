@@ -10,8 +10,6 @@ import { BINDING_FILE, findBinding, parseBinding, writeBinding } from './binding
 import { runCli } from './run';
 import { fakeIo } from './testing';
 
-const NORN = Bun.which('norn') !== null;
-
 // ---------------------------------------------------------------------------
 // The binding file itself
 // ---------------------------------------------------------------------------
@@ -66,12 +64,6 @@ test('writeBinding round-trips through findBinding', () => {
 let store: Store;
 let closeStore: (() => Promise<void>) | undefined;
 beforeEach(async () => {
-  // Norn-only fixture: the binding-file tests above are pure fs/logic and must
-  // run everywhere, so without norn the store fixture stays un-built (every
-  // store-touching test below is skipIf(!NORN)-gated).
-  if (!NORN) {
-    return;
-  }
   ({ close: closeStore, store } = await createTestStore());
   for (const key of ['MMR', 'XX'] as const) {
     await createProject(store, { key, name: key.toLowerCase() });
@@ -88,7 +80,7 @@ afterEach(async () => {
   closeStore = undefined;
 });
 
-test.skipIf(!NORN)('bind writes .mimir.toml into the injected cwd and echoes the key', async () => {
+test('bind writes .mimir.toml into the injected cwd and echoes the key', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'mimir-bind-'));
   try {
     const io = fakeIo();
@@ -100,20 +92,17 @@ test.skipIf(!NORN)('bind writes .mimir.toml into the injected cwd and echoes the
   }
 });
 
-test.skipIf(!NORN)(
-  'bind validates the project exists (not_found, exit 1) and requires a key (exit 2)',
-  async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'mimir-bind-'));
-    try {
-      const io = fakeIo();
-      expect(await runCli(['bind', 'NOPE'], () => store, io, { cwd: dir })).toBe(1);
-      expect(findBinding(dir)).toBeUndefined();
-      expect(await runCli(['bind'], () => store, fakeIo(), { cwd: dir })).toBe(2);
-    } finally {
-      rmSync(dir, { force: true, recursive: true });
-    }
-  },
-);
+test('bind validates the project exists (not_found, exit 1) and requires a key (exit 2)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'mimir-bind-'));
+  try {
+    const io = fakeIo();
+    expect(await runCli(['bind', 'NOPE'], () => store, io, { cwd: dir })).toBe(1);
+    expect(findBinding(dir)).toBeUndefined();
+    expect(await runCli(['bind'], () => store, fakeIo(), { cwd: dir })).toBe(2);
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
 
 const bound = async (argv: string[]): Promise<string[]> => {
   const io = fakeIo();
@@ -121,38 +110,32 @@ const bound = async (argv: string[]): Promise<string[]> => {
   return io.out.join('\n').split('\n').filter(Boolean);
 };
 
-test.skipIf(!NORN)(
-  'the bound scope is the default for next/list; explicit -s wins; -s all escapes',
-  async () => {
-    const defaulted = await bound(['next', '-f', 'ids']);
-    expect(defaulted).toEqual(['MMR-3']);
+test('the bound scope is the default for next/list; explicit -s wins; -s all escapes', async () => {
+  const defaulted = await bound(['next', '-f', 'ids']);
+  expect(defaulted).toEqual(['MMR-3']);
 
-    const explicit = await bound(['next', '-s', 'XX', '-f', 'ids']);
-    expect(explicit).toEqual(['XX-3']);
+  const explicit = await bound(['next', '-s', 'XX', '-f', 'ids']);
+  expect(explicit).toEqual(['XX-3']);
 
-    const all = await bound(['next', '-s', 'all', '-f', 'ids']);
-    expect(all.toSorted()).toEqual(['MMR-3', 'XX-3']);
+  const all = await bound(['next', '-s', 'all', '-f', 'ids']);
+  expect(all.toSorted()).toEqual(['MMR-3', 'XX-3']);
 
-    const listAll = await bound(['list', '-s', 'all', '-f', 'ids']);
-    expect(listAll.toSorted()).toEqual(['MMR-3', 'XX-3']); // both projects' tasks
-  },
-);
+  const listAll = await bound(['list', '-s', 'all', '-f', 'ids']);
+  expect(listAll.toSorted()).toEqual(['MMR-3', 'XX-3']); // both projects' tasks
+});
 
 // ---------------------------------------------------------------------------
 // The create-project confirmation gate (-y/--yes)
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)(
-  'create project without --yes fails non-interactively (usage, exit 2)',
-  async () => {
-    const io = fakeIo(); // isTTY: false
-    expect(await runCli(['create', 'project', 'New', '--key', 'NEW'], () => store, io)).toBe(2);
-    expect(io.err.join('')).toContain('immutable');
-    expect(io.err.join('')).toContain('--yes');
-  },
-);
+test('create project without --yes fails non-interactively (usage, exit 2)', async () => {
+  const io = fakeIo(); // isTTY: false
+  expect(await runCli(['create', 'project', 'New', '--key', 'NEW'], () => store, io)).toBe(2);
+  expect(io.err.join('')).toContain('immutable');
+  expect(io.err.join('')).toContain('--yes');
+});
 
-test.skipIf(!NORN)('create project --yes succeeds non-interactively', async () => {
+test('create project --yes succeeds non-interactively', async () => {
   const io = fakeIo();
   expect(
     await runCli(['create', 'project', 'New', '--key', 'NEW', '-y', '-f', 'ids'], () => store, io),
@@ -160,7 +143,7 @@ test.skipIf(!NORN)('create project --yes succeeds non-interactively', async () =
   expect(io.out.join('')).toBe('NEW');
 });
 
-test.skipIf(!NORN)('create project at a TTY prompts; declining aborts with exit 1', async () => {
+test('create project at a TTY prompts; declining aborts with exit 1', async () => {
   const realConfirm = globalThis.confirm;
   try {
     globalThis.confirm = () => true;

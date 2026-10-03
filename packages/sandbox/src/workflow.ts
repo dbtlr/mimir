@@ -407,7 +407,6 @@ export class Sandbox {
         'setup',
         'service',
         'skill',
-        'vault',
       ]).has(verb)
     ) {
       throw new Error(

@@ -58,10 +58,6 @@ export function supervisorScope(): SupervisorScope {
   return { kind: 'none' };
 }
 
-export function defaultVaultPath(): string {
-  return join(runtimePaths().data, 'vault');
-}
-
 /** The local SQLite store's database file (ADR 0032): one per installation. */
 export function sqliteStorePath(): string {
   return join(runtimePaths().data, SQLITE_FILE);

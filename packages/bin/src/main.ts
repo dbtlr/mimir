@@ -1,7 +1,6 @@
 /**
  * Entry point + composition root. Unlike the transport layers, `main` may wire
- * the store and transports together. It builds the store (converging the Norn
- * vault, ADR 0016), then dispatches:
+ * the store and transports together. It builds the store, then dispatches:
  *
  *   <verb> [args]   read/write commands → CLI transport
  *   mcp             the agent envelope over stdio → MCP transport
@@ -13,7 +12,7 @@
  * gates every other verb (MMR-39). `-h`/`--help` on any of the three is the
  * one exception: it's recognized here and falls through to `runCli` instead,
  * which renders that verb's `COMMAND_HELP` descriptor without ever touching
- * the vault (MMR-294).
+ * the store (MMR-294).
  */
 import { parsePort } from '@mimir/helpers';
 
@@ -30,45 +29,28 @@ import { runInstallationCommand } from './installation/command';
 import { INSTALLATION_PROTOCOL_RESPONSE } from './installation/protocol';
 import { serveStdio } from './mcp';
 import {
-  DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
-  DEFAULT_STORE_BACKEND,
   EVENTS_FILE,
   LaunchdSupervisor,
   SERVE_LOG_FILE,
-  SNAPSHOT_LOG_FILE,
   SystemdSupervisor,
   bunExec,
   configPath,
   manualFetch,
   plistFor,
-  plistForSnapshot,
   plistPathFor,
   readRuntimeConfig,
   readServePlistPort,
   readServeUnitPort,
   parseHealth,
-  assertSnapshotBackend,
-  serveInstallEnv,
   serveUnitFor,
-  snapshotServiceUnitFor,
-  snapshotTimerUnitFor,
   systemdUnitPathFor,
   unitLabels,
 } from './service';
-import type {
-  Health,
-  ServeUnitOptions,
-  ServiceDeps,
-  SnapshotUnitOptions,
-  SupervisorScope,
-} from './service';
-import type { GlobalConfig } from './service/config';
+import type { Health, ServeUnitOptions, ServiceDeps, SupervisorScope } from './service';
 import { buildStore } from './store-backend';
 import type { BuiltStore } from './store-backend';
 import { openInstallationSqlite } from './store-sqlite-backend';
 import type { StoreDeps } from './store/commands';
-import { resolveVault } from './vault';
-import type { VaultDeps } from './vault/commands';
 import { VERSION } from './version';
 
 const line = (stream: NodeJS.WriteStream) => (text: string) => {
@@ -122,39 +104,17 @@ function servePort(args: string[]): number | null | undefined {
   return parsePort(raw);
 }
 
-/** The serve unit's baked environment. A Norn daemon shells out to norn and
- *  reads the vault (ADR 0018), so that backend preflights both at install time
- *  and bakes the absolute norn path; only a non-live installation bakes its port. */
-function serveOptions(config: GlobalConfig, port: number | undefined): ServeUnitOptions {
-  const backend = config.store.backend ?? DEFAULT_STORE_BACKEND;
-  const norn =
-    backend === 'norn'
-      ? {
-          nornPath: Bun.which('norn') ?? undefined,
-          vault: resolveVault({ configPath: config.vault.path, envPath: process.env.MIMIR_VAULT }),
-        }
-      : {};
-  return {
-    ...serveInstallEnv({ backend, ...norn }),
-    port: IS_PRODUCTION ? undefined : port,
-  };
-}
-
-/** Bake the interval from the SAME config file the command reports from, and
- *  the vault at install time (supervisors do no shell expansion). */
-function snapshotOptions(config: GlobalConfig): SnapshotUnitOptions {
-  assertSnapshotBackend(config.store.backend ?? DEFAULT_STORE_BACKEND);
-  return {
-    intervalSeconds: config.vault.snapshot?.interval ?? DEFAULT_SNAPSHOT_INTERVAL_SECONDS,
-    vaultPath: process.env.MIMIR_VAULT,
-  };
+/** The serve unit's baked environment: only a non-live installation bakes its
+ *  port; a live one reads it from its bound configuration at startup. */
+function serveOptions(port: number): ServeUnitOptions {
+  return { port: IS_PRODUCTION ? undefined : port };
 }
 
 /**
- * The serve and snapshot units for this platform's supervisor, under this
- * installation's own unit names (service/units): launchd plists on macOS,
- * systemd user units on Linux. The vault/norn preflight and the non-live port
- * bake are shared; only the file shape and supervisor differ.
+ * The serve unit for this platform's supervisor, under this installation's own
+ * unit name (service/units): a launchd plist on macOS, a systemd user unit on
+ * Linux. The non-live port bake is shared; only the file shape and supervisor
+ * differ.
  */
 function realServiceUnits(
   binPath: string,
@@ -163,31 +123,15 @@ function realServiceUnits(
   const labels = unitLabels(scope);
   if (process.platform === 'linux') {
     const serveFile = systemdUnitPathFor(`${labels.serve}.service`);
-    const timerFile = systemdUnitPathFor(`${labels.snapshot}.timer`);
-    const snapshotServiceFile = systemdUnitPathFor(`${labels.snapshot}.service`);
     return {
       readInstalledPort: () => readServeUnitPort(serveFile),
       units: {
         serve: {
           label: labels.serve,
           logFile: SERVE_LOG_FILE,
-          render: (_configFile, config, port) =>
-            serveUnitFor(labels.serve, binPath, serveOptions(config, port)),
+          render: (port) => serveUnitFor(labels.serve, binPath, serveOptions(port)),
           supervisor: new SystemdSupervisor(bunExec, serveFile),
           unitFile: serveFile,
-        },
-        snapshot: {
-          companion: {
-            file: snapshotServiceFile,
-            render: (_configFile, config) =>
-              snapshotServiceUnitFor(labels.snapshot, binPath, snapshotOptions(config)),
-          },
-          label: labels.snapshot,
-          logFile: SNAPSHOT_LOG_FILE,
-          render: (_configFile, config) =>
-            snapshotTimerUnitFor(labels.snapshot, snapshotOptions(config)),
-          supervisor: new SystemdSupervisor(bunExec, timerFile, [snapshotServiceFile]),
-          unitFile: timerFile,
         },
       },
     };
@@ -201,18 +145,9 @@ function realServiceUnits(
       serve: {
         label: labels.serve,
         logFile: SERVE_LOG_FILE,
-        render: (_configFile, config, port) =>
-          plistFor(labels.serve, binPath, serveOptions(config, port)),
+        render: (port) => plistFor(labels.serve, binPath, serveOptions(port)),
         supervisor: new LaunchdSupervisor(bunExec, uid, labels.serve),
         unitFile: servePlist,
-      },
-      snapshot: {
-        label: labels.snapshot,
-        logFile: SNAPSHOT_LOG_FILE,
-        render: (_configFile, config) =>
-          plistForSnapshot(labels.snapshot, binPath, snapshotOptions(config)),
-        supervisor: new LaunchdSupervisor(bunExec, uid, labels.snapshot),
-        unitFile: plistPathFor(labels.snapshot),
       },
     },
   };
@@ -248,19 +183,6 @@ function realServiceDeps(): ServiceDeps {
     scope,
     ...realServiceUnits(binPath, scope),
     version: VERSION,
-  };
-}
-
-function realVaultDeps(): VaultDeps {
-  return {
-    exec: bunExec,
-    resolveVault: () =>
-      resolveVault({
-        configPath: readRuntimeConfig().vault.path,
-        envPath: process.env.MIMIR_VAULT,
-      }),
-    snapshotConfig: () => readRuntimeConfig().vault.snapshot ?? {},
-    stamp: () => new Date().toISOString(),
   };
 }
 
@@ -356,7 +278,7 @@ async function main(argv: string[]): Promise<number> {
     }
     const stop = async (): Promise<void> => {
       // Release resources even if a teardown step throws — a stuck stop must
-      // still kill the Norn subprocess and exit for a supervisor to restart.
+      // still close the store and exit for a supervisor to restart.
       try {
         await server.stop();
       } finally {
@@ -378,16 +300,16 @@ async function main(argv: string[]): Promise<number> {
       await serveStdio(built.store, VERSION, findBinding(process.cwd()));
     } finally {
       // serveStdio resolves when the stdio transport closes; close releases the
-      // Norn subprocess (its open pipes would otherwise keep the process alive).
+      // store's connections so the process can exit.
       await built.close();
     }
     return 0;
   }
 
   // Read and write commands go through the CLI. The store is acquired lazily
-  // (MMR-39): a verb that touches data asks for it, converging the vault on
-  // first ask; help, usage errors, and `skill install` never ask, so a bare
-  // `mimir` / `mimir --help` never touches the vault. main holds no verb list.
+  // (MMR-39): a verb that touches data asks for it, opening the store on first
+  // ask; help, usage errors, and `skill install` never ask, so a bare
+  // `mimir` / `mimir --help` never touches the store. main holds no verb list.
   let built: BuiltStore | undefined;
   const getBuilt = async (): Promise<BuiltStore> => {
     built ??= await buildStore({ repair: true });
@@ -431,11 +353,9 @@ async function main(argv: string[]): Promise<number> {
       scope: findBinding(process.cwd()),
       service: realServiceDeps(),
       store: realStoreDeps(),
-      vault: realVaultDeps(),
     });
   } finally {
-    // close() releases the Norn subprocess (its open pipes would otherwise keep
-    // the process alive).
+    // close() releases the store's connections so the process can exit.
     await built?.close();
   }
 }

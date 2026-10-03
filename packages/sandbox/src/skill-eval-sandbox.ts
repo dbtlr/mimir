@@ -1,5 +1,5 @@
 /**
- * One skill-eval run's disposable world: a vault-sandbox installation of the
+ * One skill-eval run's disposable world: a local-sandbox installation of the
  * candidate binary (ADR 0031 — its receipt binds it to owned directories, so
  * it can never reach a live store), a git working copy for the agent, and an
  * agent environment whose PATH resolves `mimir` to that installation alone.
@@ -95,7 +95,7 @@ export async function createEvalSandbox(options: {
   const authorityFile = join(root, 'authority.json');
   await writeFile(
     authorityFile,
-    `${JSON.stringify({ id: randomUUID(), kind: 'vault', paths, root, version: 1 }, null, 2)}\n`,
+    `${JSON.stringify({ id: randomUUID(), kind: 'local', paths, root, version: 1 }, null, 2)}\n`,
     { mode: 0o600 },
   );
   readSandboxAuthority(authorityFile);

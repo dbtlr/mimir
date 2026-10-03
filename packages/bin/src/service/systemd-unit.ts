@@ -1,13 +1,9 @@
 /**
- * The systemd user units (MMR-54), at parity with the launchd plists (./plist):
- *
- *   - **serve** — `<label>.service`, `Restart=always` (KeepAlive). `RestartSec`
- *     matches launchd's ~10s throttle, so a squatter on the port is retried until
- *     it leaves, and `StartLimitIntervalSec=0` means the manager never gives up.
- *     `WantedBy=default.target` starts it with the user manager (RunAtLoad).
- *   - **snapshot** — a `<label>.timer` that fires every interval after activation
- *     and after each run, activating a `Type=oneshot` `<label>.service` that runs
- *     `vault snapshot` and exits. Only the timer is enabled.
+ * The systemd user serve unit (MMR-54), at parity with the launchd plist
+ * (./plist): `<label>.service`, `Restart=always` (KeepAlive). `RestartSec`
+ * matches launchd's ~10s throttle, so a squatter on the port is retried until it
+ * leaves, and `StartLimitIntervalSec=0` means the manager never gives up.
+ * `WantedBy=default.target` starts it with the user manager (RunAtLoad).
  *
  * Values are escaped for the unit-file grammar: specifiers (`%`) everywhere,
  * variables (`$`) in `ExecStart`, quotes and backslashes in quoted words. A line
@@ -20,8 +16,8 @@ import { join } from 'node:path';
 import { parsePort } from '@mimir/helpers';
 
 import { IS_PRODUCTION, runtimePaths } from '../env';
-import { SERVE_LOG_FILE, SNAPSHOT_LOG_FILE } from './events';
-import type { ServeUnitOptions, SnapshotUnitOptions } from './units';
+import { SERVE_LOG_FILE } from './events';
+import type { ServeUnitOptions } from './units';
 
 /** A live unit lives in the user manager's search path; every other installation
  *  keeps its unit files in its own data directory, which `systemctl --user
@@ -92,40 +88,9 @@ ExecStart=${execArg(binPath)} serve --no-hunt
 Restart=always
 RestartSec=10
 ${environment({
-  MIMIR_NORN: opts.nornPath,
   MIMIR_PORT: opts.port === undefined ? undefined : String(opts.port),
-  MIMIR_VAULT: opts.vaultPath,
 })}${logs(SERVE_LOG_FILE)}
 [Install]
 WantedBy=default.target
-`;
-}
-
-export function snapshotServiceUnitFor(
-  label: string,
-  binPath: string,
-  opts: SnapshotUnitOptions,
-): string {
-  return `[Unit]
-Description=Mimir vault snapshot (${specifiers(label)})
-
-[Service]
-Type=oneshot
-ExecStart=${execArg(binPath)} vault snapshot
-${environment({ MIMIR_VAULT: opts.vaultPath })}${logs(SNAPSHOT_LOG_FILE)}`;
-}
-
-export function snapshotTimerUnitFor(label: string, opts: SnapshotUnitOptions): string {
-  const interval = String(opts.intervalSeconds);
-  return `[Unit]
-Description=Mimir vault snapshot schedule (${specifiers(label)})
-
-[Timer]
-OnActiveSec=${interval}
-OnUnitActiveSec=${interval}
-Unit=${specifiers(label)}.service
-
-[Install]
-WantedBy=timers.target
 `;
 }

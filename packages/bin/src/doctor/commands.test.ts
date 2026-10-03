@@ -8,8 +8,8 @@ import type { DoctorBackend, DoctorFinding, DoctorRepairReport } from './contrac
  * `cmdDoctor` against the backend-neutral contract (ADR 0030 Decision 6). These
  * cases name no backend at all: they pin the transport contract — the repair
  * capability gate, the exit-code mapping, and the empty-scope warning — over a
- * hand-built {@link DoctorBackend}. The Norn backend's own behavior is pinned
- * beside its implementation, under `./norn`.
+ * hand-built {@link DoctorBackend}. The SQL doctor's own behavior is pinned
+ * beside its implementation, under `./sql`.
  */
 
 function finding(overrides: Partial<DoctorFinding> = {}): DoctorFinding {

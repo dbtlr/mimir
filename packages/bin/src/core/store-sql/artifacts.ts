@@ -46,7 +46,7 @@ function toRecord(row: ArtifactRow, tags: string[], links: string[]): ArtifactRe
  *
  * Ordered in JS by {@link canonicalSetOrder} rather than by a SQL `ORDER BY`:
  * the server's collation is the operator's choice and ranks `Draft` and `draft`
- * differently from a vault, and the set order is one rule the whole seam shares
+ * differently from the next, and the set order is one rule the whole seam shares
  * (MMR-380).
  */
 async function tagsFor(

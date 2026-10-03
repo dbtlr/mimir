@@ -21,8 +21,9 @@ import type { TransitionsFeed } from './transitions/store';
  * The coarse storage seam (ADR 0016 Phase 0). The core reads work state as
  * bulk projections — O(views) store queries, never O(nodes) — and derives
  * everything else in memory; writes run inside `transact`, composing the
- * `StoreWriter` primitives. The Norn markdown vault implements this interface
- * (`createNornWriteStore`, ADR 0016) — the sole backend since MMR-234.
+ * `StoreWriter` primitives. The shared SQL store (`core/store-sql`, ADR 0032)
+ * implements this interface over two dialects: SQLite (the default local file)
+ * and Postgres (hosted).
  */
 
 /**
@@ -61,7 +62,7 @@ export type WorkingSet = {
 // ---------------------------------------------------------------------------
 // Write records — the backend-neutral shapes the verbs hand the writer.
 // Patterned like `model.ts` (snake_case store vocabulary) — the store maps them
-// onto the vault's frontmatter.
+// onto its tables.
 // ---------------------------------------------------------------------------
 
 export type NewProjectRecord = {
@@ -207,7 +208,7 @@ export type RankedTask = {
 export type StoreWriter = {
   /** The in-scope bulk snapshot the mutation guards derive over. */
   loadWorkingSet: () => Promise<WorkingSet>;
-  /** Whether the durable snapshot contains more than one physical doc for this identity. */
+  /** Whether the durable snapshot contains more than one physical record for this identity. */
   hasIdentityCollision: (stem: string) => Promise<boolean>;
 
   // Point reads
@@ -270,7 +271,7 @@ export type Store = {
 
   /**
    * The lightweight all-projects read (MMR-251): every project (archived included),
-   * WITHOUT the whole-vault node load. The seed resolving seam's requester/board
+   * WITHOUT the whole-store node load. The seed resolving seam's requester/board
    * view — an unknown/archived requester nulls, an archived own-board freezes — needs
    * only project keys and their `archived_at`, so this is the projects-only slice of
    * {@link loadWorkingSet}.
@@ -279,24 +280,17 @@ export type Store = {
 
   /**
    * The project-scoped node read (MMR-251): the nodes of the named projects only,
-   * validated identically to {@link loadWorkingSet} (a bad or duplicate node is
-   * dropped). The seed resolving seam's spawned-target settledness closure —
-   * settledness is a task's own lifecycle or a container's descendant rollup, and
-   * every Mimir-written lineage is in-project (creates pin directory + frontmatter
-   * together; moves are within-project) — so for Mimir-written state, loading the
-   * targets' projects is the whole closure without a whole-vault load. Hand-edited
-   * cross-project topology (a parent or frontmatter `project` pointing outside the
-   * loaded slice) is NOT retrievable here: the validator drops the foreign edge,
-   * which can read differently than the whole-vault path until `mimir doctor`
-   * surfaces and the operator repairs it — the accepted corruption posture
-   * (ADR 0023: reads degrade fail-closed; doctor remediates, reads don't guess).
-   * Edges are not projected (settledness never consults them). An empty key list
-   * reads as no nodes (no query).
+   * shaped identically to {@link loadWorkingSet}. The seed resolving seam's
+   * spawned-target settledness closure — settledness is a task's own lifecycle
+   * or a container's descendant rollup, and every lineage is in-project (moves
+   * are within-project) — so loading the targets' projects is the whole closure
+   * without a whole-store load. Edges are not projected (settledness never
+   * consults them). An empty key list reads as no nodes (no query).
    *
    * `validProjectKeys` is the caller's already-validated project-key set (from
    * {@link loadProjects}): presence is derived from it, NOT trusted from the requested
-   * keys, so a target in a missing/duplicate-key project drops identically to the
-   * whole-vault path (MMR-251).
+   * keys, so a target in an unknown project drops identically to the
+   * whole-store path (MMR-251).
    */
   loadNodesForProjects: (
     projectKeys: readonly string[],
@@ -338,10 +332,8 @@ export type Store = {
    * per-record skip-or-refuse — with the same refusals and messages, and a
    * report whose counts describe the apply that did not happen
    * ({@link ImportReport.applied} is then false). How far past the decisions a
-   * preview reaches is the backend's: Postgres runs the real write inside its
-   * transaction, constraints included, and rolls it back; Norn stops short of
-   * the vault write, so a refusal the write itself would raise (an occupied
-   * path, a norn write refusal) appears only on apply. No FACT is left behind — a
+   * preview reaches is the backend's: The SQL store runs the real write inside its
+   * transaction, constraints included, and rolls it back. No FACT is left behind — a
    * preview is not free of every trace. A rolled-back Postgres preview still
    * consumes the row sequences it drew from (a sequence is not transactional)
    * and holds the apply's locks for as long as it runs, so it costs what the
@@ -367,15 +359,15 @@ export type Store = {
 
   /**
    * The body-section read slice (MMR-154, ADR 0016 Phase 3) — a node's
-   * `## History` and `## Annotations` facets, backed by the markdown body
-   * sections in the vault.
+   * `## History` and `## Annotations` facets, backed by the store's
+   * history and annotation tables.
    */
   readonly bodySections: BodySectionStore;
 
   /**
    * The cross-node transition feed slice (MMR-160, ADR 0016 Phase 3) — the
-   * whole-portfolio transition log, backed by the fanned-out `## History`
-   * sections in the vault.
+   * whole-portfolio transition log, backed by the store's one
+   * append-only transition table.
    */
   readonly transitions: TransitionsFeed;
 };

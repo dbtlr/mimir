@@ -40,7 +40,7 @@ const actionsSchema = z.object({
     z.object({
       ok: z.boolean(),
       paths: z.object({ plist: z.string() }).optional(),
-      unit: z.enum(['serve', 'snapshot']),
+      unit: z.literal('serve'),
     }),
   ),
 });
@@ -50,26 +50,24 @@ const unitSchema = z.object({
   loaded: z.boolean(),
   pid: z.number().nullable(),
   running: z.boolean(),
-  unit: z.enum(['serve', 'snapshot']),
+  unit: z.literal('serve'),
 });
 const statusSchema = z.object({ units: z.array(unitSchema) });
-type UnitState = z.infer<typeof unitSchema>;
-type Status = { serve: UnitState; snapshot: UnitState };
+type Status = { serve: z.infer<typeof unitSchema> };
 
 async function status(host: ServiceHost): Promise<Status> {
   const parsed = statusSchema.parse(
     JSON.parse(await host.mimir(['service', 'status', '--format', 'json'])),
   );
   const serve = parsed.units.find((u) => u.unit === 'serve');
-  const snapshot = parsed.units.find((u) => u.unit === 'snapshot');
-  if (serve === undefined || snapshot === undefined) {
-    throw new Error('service status did not report both units');
+  if (serve === undefined) {
+    throw new Error('service status did not report the serve unit');
   }
-  return { serve, snapshot };
+  return { serve };
 }
 
 const describe = (s: Status): string =>
-  `serve loaded=${String(s.serve.loaded)} running=${String(s.serve.running)} pid=${String(s.serve.pid)}; snapshot loaded=${String(s.snapshot.loaded)}`;
+  `serve loaded=${String(s.serve.loaded)} running=${String(s.serve.running)} pid=${String(s.serve.pid)}`;
 
 export async function verifyServiceLifecycle(
   host: ServiceHost,
@@ -115,13 +113,13 @@ export async function verifyServiceLifecycle(
       observe,
     );
   /** Wait until serve is down and its port is silent. */
-  const down = (step: string, snapshotLoaded: boolean) =>
+  const down = (step: string) =>
     settle(
       step,
       async () => {
         const s = await status(host);
         const quiet = !s.serve.loaded && (await host.health(options.port)) === undefined;
-        return quiet && s.snapshot.loaded === snapshotLoaded ? true : undefined;
+        return quiet ? true : undefined;
       },
       observe,
     );
@@ -168,12 +166,9 @@ export async function verifyServiceLifecycle(
     !first.serve.loaded ||
     !first.serve.running ||
     first.serve.pid === null ||
-    first.serve.health?.running_version !== options.version ||
-    first.snapshot.loaded
+    first.serve.health?.running_version !== options.version
   ) {
-    throw new Error(
-      `status: expected serve loaded and healthy, the snapshot timer not installed — ${describe(first)}`,
-    );
+    throw new Error(`status: expected serve loaded and healthy — ${describe(first)}`);
   }
   record('status', describe(first));
 
@@ -189,7 +184,7 @@ export async function verifyServiceLifecycle(
   );
 
   await host.mimir(['service', 'stop', 'serve', '--format', 'json']);
-  await down('stop', false);
+  await down('stop');
   record('stop', 'serve unloaded; port silent');
 
   await host.mimir(['service', 'start', 'serve', '--format', 'json']);
@@ -197,7 +192,7 @@ export async function verifyServiceLifecycle(
   record('start', `pid ${String(started)}`);
 
   await host.mimir(['service', 'uninstall', '--format', 'json']);
-  await down('uninstall', false);
+  await down('uninstall');
   for (const file of unitFiles) {
     if (await host.exists(file)) {
       throw new Error(`uninstall: ${file} is still on disk`);

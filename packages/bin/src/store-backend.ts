@@ -1,8 +1,7 @@
 /**
  * Composition root for the work-state store (ADR 0030, ADR 0032). `[store]
  * backend` fences which backend this install runs on — `sqlite` (the local
- * tier, and the default), `postgres` (the hosted tier), or `norn` (the
- * markdown vault, until its removal). The fence is per install, never per
+ * tier, and the default) or `postgres` (the hosted tier). The fence is per install, never per
  * project: the working-set load is deliberately whole-store because dependency
  * edges cross project boundaries.
  *
@@ -11,16 +10,16 @@
  * surface is the backend's own facet (ADR 0030 Decision 6).
  */
 import type { Store } from './core';
+import { invariant } from './core/errors';
 import type { DoctorBackend } from './doctor/contract';
 import type { GlobalConfig } from './service/config';
 import { configPath, DEFAULT_STORE_BACKEND, readRuntimeConfig } from './service/config';
-import { buildNornStore } from './store-norn-backend';
 import { buildPostgresStore } from './store-postgres-backend';
 import { buildSqliteStore } from './store-sqlite-backend';
 
 export type BuiltStore = {
   store: Store;
-  /** Release every backend resource: the database, the pool, or the Norn subprocess. */
+  /** Release every backend resource: the database file or the pool. */
   close: () => Promise<void>;
   /**
    * The backend's doctor facet. `repair` is present only where the caller asked
@@ -40,10 +39,9 @@ export type BuildStoreOptions = {
 };
 
 /**
- * Refuse a `[store]` section that parsed to nothing usable. FATAL on the same
- * terms as a failed converge: the fence selects which store gets WRITTEN, so a
- * typo in a Postgres install must never fall back to converging and writing a
- * local store. The remedy names the key that actually went wrong —
+ * Refuse a `[store]` section that parsed to nothing usable. FATAL: the fence
+ * selects which store gets WRITTEN, so a typo in a Postgres install must never
+ * fall back to creating and writing a local store. The remedy names the key that actually went wrong —
  * a bad URL is not fixed by re-reading the list of backends.
  *
  * Shared with `store upgrade` and `setup`, which read the same section for the
@@ -54,17 +52,21 @@ export function assertUsableStoreConfig(config: GlobalConfig, file: string = con
   if (problem === undefined) {
     return;
   }
-  const remedy =
-    problem === 'invalid-url'
-      ? 'set url to a Postgres connection URL (a non-empty string)'
-      : 'set backend to one of: sqlite, postgres, norn';
-  throw new Error(`[store] is unusable (${problem}) in ${file} — ${remedy}`);
+  throw invariant(`[store] is unusable (${problem}) in ${file}`, STORE_REMEDIES[problem]);
 }
+
+/** What fixes each unusable `[store]` — named per key, not one generic list. */
+const STORE_REMEDIES: Record<NonNullable<GlobalConfig['store']['problem']>, string> = {
+  'invalid-backend': 'set backend to one of: sqlite, postgres',
+  'invalid-url': 'set url to a Postgres connection URL (a non-empty string)',
+  malformed: 'set backend to one of: sqlite, postgres',
+  'removed-backend':
+    'the norn backend was removed (ADR 0032); export the vault with mimir v0.20 (`mimir store export <file>`), then remove the backend line and run `mimir store import <file> --apply`',
+};
 
 /**
  * Build the store for this process. An open failure (a newer schema, an
- * unreadable database file) or a Norn converge failure (absent configured vault,
- * foreign directory) propagates so `serve` fails fast and a supervisor retries.
+ * unreadable or foreign database file, an unreachable server) propagates so `serve` fails fast and a supervisor retries.
  * A `[store]` section that parsed to nothing usable is FATAL on the same terms
  * — see {@link assertUsableStoreConfig}.
  */
@@ -74,11 +76,7 @@ export async function buildStore(
 ): Promise<BuiltStore> {
   assertUsableStoreConfig(config);
   const backend = config.store.backend ?? DEFAULT_STORE_BACKEND;
-  if (backend === 'sqlite') {
-    return await buildSqliteStore(opts);
-  }
-  if (backend === 'postgres') {
-    return await buildPostgresStore(config, opts);
-  }
-  return await buildNornStore(config, opts);
+  return backend === 'postgres'
+    ? await buildPostgresStore(config, opts)
+    : await buildSqliteStore(opts);
 }

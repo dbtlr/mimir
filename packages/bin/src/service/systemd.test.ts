@@ -21,10 +21,7 @@ const ok = () => ({ code: 0, stdout: '' });
 const missingSystemctl: Exec = () =>
   Promise.reject(new Error('Executable not found in $PATH: "systemctl"'));
 const SERVE = 'com.dbtlr.mimir.serve.service';
-const TIMER = 'com.dbtlr.mimir.snapshot.timer';
 const SERVE_FILE = `/home/op/.config/systemd/user/${SERVE}`;
-const TIMER_FILE = `/sandbox/data/systemd/${TIMER}`;
-const ONESHOT_FILE = '/sandbox/data/systemd/com.dbtlr.mimir.snapshot.service';
 
 let dir: string;
 beforeEach(() => {
@@ -55,19 +52,6 @@ test('install enables the unit file, reloads the manager, then (re)starts the un
   ]);
 });
 
-test('install links companion unit files before enabling the primary unit', async () => {
-  // The snapshot timer activates a oneshot service of the same name; an
-  // out-of-search-path service file must be linked for the timer to find it.
-  const { exec, calls } = fakeExec(ok);
-  await new SystemdSupervisor(exec, TIMER_FILE, [ONESHOT_FILE]).install();
-  expect(calls).toEqual([
-    ['systemctl', '--user', 'link', ONESHOT_FILE],
-    ['systemctl', '--user', 'enable', TIMER_FILE],
-    ['systemctl', '--user', 'daemon-reload'],
-    ['systemctl', '--user', 'restart', TIMER],
-  ]);
-});
-
 test('install fails fast when enable fails, never restarting a unit it could not install', async () => {
   const { exec, calls } = fakeExec((argv) =>
     argv[2] === 'enable' ? { code: 1, stderr: 'Unit file is masked.', stdout: '' } : ok(),
@@ -90,29 +74,26 @@ function shown(active: string): string {
   return `MainPID=0\nLoadState=loaded\nActiveState=${active}\nSubState=x\n`;
 }
 
-test('uninstall stops running units, disables them, removes their files, then reloads', async () => {
-  const timer = join(dir, TIMER);
-  const oneshot = join(dir, 'com.dbtlr.mimir.snapshot.service');
-  writeFileSync(timer, '[Timer]\n');
-  writeFileSync(oneshot, '[Service]\n');
+test('uninstall stops a running unit, disables it, removes its file, then reloads', async () => {
+  const serve = join(dir, SERVE);
+  writeFileSync(serve, '[Service]\n');
   const { exec, calls } = fakeExec((argv) => {
-    // disable needs the files; the reload must not find them.
+    // disable needs the file; the reload must not find it.
     if (argv[2] === 'disable') {
-      expect(existsSync(timer)).toBe(true);
+      expect(existsSync(serve)).toBe(true);
     }
     if (argv[2] === 'daemon-reload') {
-      expect(existsSync(timer) || existsSync(oneshot)).toBe(false);
+      expect(existsSync(serve)).toBe(false);
     }
     if (argv[2] === 'show') {
-      return { code: 0, stdout: shown(argv[3] === TIMER ? 'active' : 'inactive') };
+      return { code: 0, stdout: shown('active') };
     }
     return ok();
   });
-  await new SystemdSupervisor(exec, timer, [oneshot]).uninstall();
+  await new SystemdSupervisor(exec, serve).uninstall();
   expect(calls.filter((c) => c[2] !== 'show')).toEqual([
-    ['systemctl', '--user', 'stop', TIMER],
-    ['systemctl', '--user', 'disable', TIMER],
-    ['systemctl', '--user', 'disable', 'com.dbtlr.mimir.snapshot.service'],
+    ['systemctl', '--user', 'stop', SERVE],
+    ['systemctl', '--user', 'disable', SERVE],
     ['systemctl', '--user', 'daemon-reload'],
   ]);
 });
@@ -246,17 +227,6 @@ test('info: a unit still running after its unit file vanished is loaded', async 
     loaded: true,
     pid: 4242,
     running: true,
-  });
-});
-
-test('info: an armed timer is loaded with no process of its own', async () => {
-  const { exec } = fakeExec(() => ({
-    code: 0,
-    stdout: 'LoadState=loaded\nActiveState=active\nSubState=waiting\n',
-  }));
-  expect(await new SystemdSupervisor(exec, TIMER_FILE).info()).toEqual({
-    loaded: true,
-    running: false,
   });
 });
 

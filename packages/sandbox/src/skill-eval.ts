@@ -1,6 +1,6 @@
 /**
  * Hold an agent skill to the behavior scenarios: run each scenario under each
- * harness in its own vault sandbox, grade the outcome, and report pass rates.
+ * harness in its own local sandbox, grade the outcome, and report pass rates.
  * The agents are real, so results vary run to run — compare skill revisions on
  * the same scenarios, models, and repeat count, never on a single run.
  */

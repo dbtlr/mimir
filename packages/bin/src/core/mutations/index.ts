@@ -13,7 +13,7 @@ export { blockTask, parkTask, unblockTask, unparkTask } from './hold';
 // The resume-handle machinery (MMR-320) is internal to the mutation verbs — only
 // its patch type crosses the boundary (`createNode`'s input, the op registry's
 // `run`). Keeping the functions off the index keeps the mutation surface exactly
-// the verbs (the CAS-guard coverage test in `store-norn/writer.test.ts`).
+// the verbs.
 export type { HandleFields } from './handles';
 export { depend, undepend } from './dependency';
 export { moveNode } from './structure';

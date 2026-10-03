@@ -102,7 +102,7 @@ test('a registered sandbox installation is scoped to its own sandbox id', async 
   const sandboxAuthority = join(sandboxRoot, 'authority.json');
   writeFileSync(
     sandboxAuthority,
-    JSON.stringify({ id, kind: 'vault', paths, root: sandboxRoot, version: 1 }),
+    JSON.stringify({ id, kind: 'local', paths, root: sandboxRoot, version: 1 }),
   );
   mkdirSync(join(sandboxRoot, 'bin'));
   const executable = join(sandboxRoot, 'bin', 'mimir');

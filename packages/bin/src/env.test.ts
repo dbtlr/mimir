@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 
-import { DEFAULT_PORT, DEV_PORT, IS_PRODUCTION, defaultVaultPath, envPort } from './env';
+import { DEFAULT_PORT, DEV_PORT, IS_PRODUCTION, envPort, sqliteStorePath } from './env';
 
 test('source runs do not gain live installation authority', () => {
   expect(IS_PRODUCTION).toBe(false);
@@ -11,9 +11,9 @@ test('the default port is the dev port, off the production port', () => {
   expect(DEFAULT_PORT).not.toBe(64647);
 });
 
-test('the dev vault is an isolated repo-local .dev vault, never the production path', () => {
-  const path = defaultVaultPath();
-  expect(path).toEndWith('/.dev/vault');
+test('the dev store is an isolated repo-local .dev file, never the production path', () => {
+  const path = sqliteStorePath();
+  expect(path).toEndWith('/.dev/store.sqlite');
   expect(path).not.toContain('/.local/share/mimir');
 });
 

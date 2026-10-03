@@ -22,34 +22,8 @@ export function configPath(configHome?: string): string {
     : join(configHome, 'mimir', 'config.toml');
 }
 
-/**
- * The `[vault.snapshot]` sub-table (MMR-146) — the vault's git commit cadence.
- * Every key is optional; the snapshot command supplies defaults (interval 900s,
- * push/pull on) for whatever the operator leaves unset.
- */
-export type SnapshotConfig = {
-  /** Seconds between scheduled snapshots — baked into the launchd StartInterval or systemd timer. */
-  interval?: number;
-  /** Remote URL to push to / reconcile against when no upstream is configured on the branch. */
-  upstream?: string;
-  /** Push after committing (default on). Off = purely local, durable snapshots. */
-  push?: boolean;
-  /** Reconcile (fetch + merge) when a push is rejected (default on). Off = a rejected push fails loud. */
-  pull?: boolean;
-};
-
-export type VaultConfig = {
-  path?: string;
-  snapshot?: SnapshotConfig;
-  /** Set when a config file exists but contributed nothing — callers may warn. */
-  problem?: 'malformed' | 'invalid-path' | 'invalid-snapshot';
-};
-
-/** The snapshot cadence when `[vault.snapshot] interval` is unset — the atlas precedent, 15 minutes. */
-export const DEFAULT_SNAPSHOT_INTERVAL_SECONDS = 900;
-
 /** Every store backend a mimir install can run on (ADR 0030, ADR 0032). */
-export type StoreBackend = 'sqlite' | 'postgres' | 'norn';
+export type StoreBackend = 'sqlite' | 'postgres';
 
 /** The backend an install runs on when `[store] backend` is absent: the local tier (ADR 0032). */
 export const DEFAULT_STORE_BACKEND: StoreBackend = 'sqlite';
@@ -57,8 +31,9 @@ export const DEFAULT_STORE_BACKEND: StoreBackend = 'sqlite';
 /**
  * The `[store]` section — the per-install backend fence, restored at MMR-378
  * (ADR 0030 Decision 1) after its MMR-234 retirement. `backend` selects `sqlite`
- * (the local database file, and the default when the key is absent, ADR 0032),
- * `postgres`, or `norn` (the markdown vault).
+ * (the local database file, and the default when the key is absent, ADR 0032)
+ * or `postgres`. `norn`, the markdown-vault backend ADR 0032 removed, is its own
+ * problem so the refusal can name the way off it.
  * The fence is per install, NEVER per project: the working-set load is
  * deliberately whole-store because dependency edges cross project boundaries,
  * so one install is wholly on one backend. An unrecognized backend word is
@@ -72,10 +47,10 @@ export type StoreConfig = {
    * purpose (ADR 0030): one install, one database, no env indirection. */
   url?: string;
   /** Set when a config file exists but contributed nothing — callers may warn. */
-  problem?: 'invalid-backend' | 'invalid-url' | 'malformed';
+  problem?: 'invalid-backend' | 'invalid-url' | 'malformed' | 'removed-backend';
 };
 
-export type GlobalConfig = { serve: ServeConfig; vault: VaultConfig; store: StoreConfig };
+export type GlobalConfig = { serve: ServeConfig; store: StoreConfig };
 
 function isTable(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -100,52 +75,29 @@ function serveSection(raw: unknown): ServeConfig {
   return { problem: 'invalid-port' };
 }
 
-function vaultSection(raw: unknown): VaultConfig {
-  if (raw === undefined) {
-    return {};
-  }
-  // `vault = "/path"` (a string, not a table) must surface, not silently
-  // fall through to the default vault — the silent-wrong-vault trap.
-  if (!isTable(raw)) {
-    return { problem: 'malformed' };
-  }
-  const path = raw.path;
-  // A wrong-typed path is the silent-wrong-vault trap — reject it outright,
-  // ahead of the snapshot sub-table (an operator can't act on the cadence of a
-  // vault that won't open).
-  if (path !== undefined && !(typeof path === 'string' && path !== '')) {
-    return { problem: 'invalid-path' };
-  }
-  const validPath = typeof path === 'string' ? { path } : {};
-  const snapshot = snapshotSection(raw.snapshot);
-  // A bad snapshot warns but never discards a good path: the vault still opens;
-  // only the cadence is ignored (invalid-snapshot).
-  if (snapshot === 'invalid') {
-    return { ...validPath, problem: 'invalid-snapshot' };
-  }
-  return { ...validPath, ...(snapshot === undefined ? {} : { snapshot }) };
-}
-
 function isStoreBackend(value: unknown): value is StoreBackend {
-  return value === 'sqlite' || value === 'postgres' || value === 'norn';
+  return value === 'sqlite' || value === 'postgres';
 }
 
 function storeSection(raw: unknown): StoreConfig {
   if (raw === undefined) {
     return {};
   }
-  // `store = "norn"` (a string, not a table) must surface, not silently fall
+  // `store = "sqlite"` (a string, not a table) must surface, not silently fall
   // through to the default backend — the silent-wrong-store trap.
   if (!isTable(raw)) {
     return { problem: 'malformed' };
   }
   const backend = raw.backend;
+  if (backend === 'norn') {
+    return { problem: 'removed-backend' };
+  }
   if (backend !== undefined && !isStoreBackend(backend)) {
     return { problem: 'invalid-backend' };
   }
   const url = raw.url;
   // A wrong-typed or empty url is the silent-wrong-store trap in another key:
-  // a Postgres install that cannot connect must not quietly open a vault.
+  // a Postgres install that cannot connect must not quietly open a local store.
   if (url !== undefined && !(typeof url === 'string' && url !== '')) {
     return { problem: 'invalid-url' };
   }
@@ -156,76 +108,30 @@ function storeSection(raw: unknown): StoreConfig {
   };
 }
 
-const isPositiveInt = (v: unknown): v is number =>
-  typeof v === 'number' && Number.isInteger(v) && v >= 1;
-
-/**
- * Validate `[vault.snapshot]`: the whole sub-table is rejected as `'invalid'`
- * the moment any declared key is wrong-typed or out of range — coarse on
- * purpose, matching the section-level tolerance contract. Absent → undefined;
- * a table of only-good declared keys → that config.
- */
-function snapshotSection(raw: unknown): SnapshotConfig | 'invalid' | undefined {
-  if (raw === undefined) {
-    return undefined;
-  }
-  if (!isTable(raw)) {
-    return 'invalid';
-  }
-  const out: SnapshotConfig = {};
-  if (raw.interval !== undefined) {
-    if (!isPositiveInt(raw.interval)) {
-      return 'invalid';
-    }
-    out.interval = raw.interval;
-  }
-  if (raw.upstream !== undefined) {
-    if (!(typeof raw.upstream === 'string' && raw.upstream !== '')) {
-      return 'invalid';
-    }
-    out.upstream = raw.upstream;
-  }
-  if (raw.push !== undefined) {
-    if (typeof raw.push !== 'boolean') {
-      return 'invalid';
-    }
-    out.push = raw.push;
-  }
-  if (raw.pull !== undefined) {
-    if (typeof raw.pull !== 'boolean') {
-      return 'invalid';
-    }
-    out.pull = raw.pull;
-  }
-  return out;
-}
-
 /**
  * Read the global config in one parse. Tolerant by design: a missing,
  * malformed, or wrong-typed file never throws — the loud-failure posture
- * belongs to the consumer (the port bind, the vault open), not the parse.
+ * belongs to the consumer (the port bind, the store open), not the parse.
  * When a section is present but contributed nothing, its `problem` is set so
  * the consumer can warn that the config was ignored rather than silently
  * falling through to a default.
  */
 export function readConfig(file = configPath()): GlobalConfig {
   if (!existsSync(file)) {
-    return { serve: {}, store: {}, vault: {} };
+    return { serve: {}, store: {} };
   }
-  let parsed: { serve?: unknown; store?: unknown; vault?: unknown };
+  let parsed: { serve?: unknown; store?: unknown };
   try {
     parsed = Bun.TOML.parse(readFileSync(file, 'utf8'));
   } catch {
     return {
       serve: { problem: 'malformed' },
       store: { problem: 'malformed' },
-      vault: { problem: 'malformed' },
     };
   }
   return {
     serve: serveSection(parsed.serve),
     store: storeSection(parsed.store),
-    vault: vaultSection(parsed.vault),
   };
 }
 
@@ -239,20 +145,9 @@ export function readServeConfig(file = configPath()): ServeConfig {
   return readConfig(file).serve;
 }
 
-/** The `[vault]` section (MMR-142) — see {@link readConfig} for the tolerance contract. */
-export function readVaultConfig(file = configPath()): VaultConfig {
-  return readConfig(file).vault;
-}
-
 /** A change to apply over the current config — only the named keys are touched. */
 export type ConfigPatch = {
   serve?: { port?: number };
-  /**
-   * `path` merges into `[vault]`; `snapshot`, when present, REPLACES the whole
-   * `[vault.snapshot]` table (an empty object clears it) — so a reconfiguration
-   * can drop a key like `upstream`, which a per-key merge could never express.
-   */
-  vault?: { path?: string; snapshot?: SnapshotConfig };
 };
 
 type Table = Record<string, unknown>;
@@ -373,15 +268,15 @@ export type WriteResult = {
 /**
  * Merge a patch into the config and rewrite it whole. Operates on the RAW parsed
  * TOML, not the tolerant {@link readConfig} projection, so a section the patch
- * doesn't name survives verbatim — including a reader-rejected value (an invalid
- * `[vault.snapshot]` key is not silently erased when an unrelated `[serve] port`
- * is written). Comments and blank-line grouping are not preserved (the config is
+ * doesn't name survives verbatim — including a reader-rejected value, or a
+ * table no reader knows (a `[vault]` left from the removed Norn backend).
+ * Comments and blank-line grouping are not preserved (the config is
  * tool-managed).
  *
  * A file that isn't valid TOML can't be merged into, so it is treated as absent
  * and overwritten (the prior whole-file writer clobbered unconditionally; this
- * is no worse, and it keeps setup — the repair path — from stranding a converged
- * vault behind a hard failure). That reset is LOSSY, so it is reported via
+ * is no worse, and it keeps setup — the repair path — from stranding an install
+ * behind a hard failure). That reset is LOSSY, so it is reported via
  * `reset: true`; every caller must surface it (it is not silent).
  */
 export function writeConfig(file: string, patch: ConfigPatch): WriteResult {
@@ -397,16 +292,6 @@ export function writeConfig(file: string, patch: ConfigPatch): WriteResult {
   if (patch.serve?.port !== undefined) {
     raw.serve = { ...asTable(raw.serve), port: patch.serve.port };
   }
-  if (patch.vault !== undefined) {
-    const vault = asTable(raw.vault);
-    if (patch.vault.path !== undefined) {
-      vault.path = patch.vault.path;
-    }
-    if (patch.vault.snapshot !== undefined) {
-      vault.snapshot = { ...patch.vault.snapshot };
-    }
-    raw.vault = vault;
-  }
   const out: string[] = [];
   emitTable('', raw, out);
   mkdirSync(dirname(file), { recursive: true });
@@ -421,9 +306,8 @@ export function writeConfig(file: string, patch: ConfigPatch): WriteResult {
 
 /**
  * Write the serve port (the `service install --port` discovery path), merging
- * so other sections survive — the second key the original whole-file writer
- * anticipated has arrived (setup writes `[vault] path`). Returns the same
- * {@link WriteResult} as {@link writeConfig} so the caller can warn on a reset.
+ * so other sections survive. Returns the same {@link WriteResult} as
+ * {@link writeConfig} so the caller can warn on a reset.
  */
 export function writeServePort(file: string, port: number): WriteResult {
   return writeConfig(file, { serve: { port } });

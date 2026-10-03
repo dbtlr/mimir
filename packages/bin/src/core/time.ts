@@ -6,9 +6,9 @@
  * `datetime` columns expect. The core stamps every mutation timestamp through
  * {@link now} — `updated_at`, `completed_at`, `archived_at`, a transition's `at`
  * and an annotation's `created_at` (MMR-173) — and the creation paths
- * (`store-norn/writer.ts`, `store-norn/artifacts.ts`, `store-norn/seeds.ts`)
- * stamp `created`/`updated_at` through it too rather than letting a storage-layer
- * default decide.
+ * (the SQL store's writer, artifact, and seed slices)
+ * stamp `created_at`/`updated_at` through it too rather than letting a
+ * storage-layer default decide.
  *
  * Since MMR-351 that form is also a PERSISTED invariant, not merely a write
  * convention: lexical string comparison of two stored timestamps must be
@@ -16,8 +16,8 @@
  * `completed_at` strings), which holds only while every stored value shares one
  * width, one precision, and one zone. {@link isCanonicalInstant} is that
  * invariant's predicate and {@link canonicalInstant} its one normalizer;
- * `doctor` and schema convergence repair what they can and refuse to guess at
- * what they cannot.
+ * the transfer-document validator and the scratchpad codec refuse a value
+ * that is not canonical rather than guess at it.
  *
  * The calendar/instant primitives live here too so the accepted timestamp
  * grammar has exactly ONE implementation: `core/dates.ts` (the query-side date
@@ -30,23 +30,6 @@
 export function now(): string {
   return new Date().toISOString();
 }
-
-/**
- * Every frontmatter field a vault document stores an instant in — the `datetime`
- * declarations `vault/schema.ts` renders, in ONE list so the doctor check that
- * reports a bad value and the migration that rewrites it cannot drift apart: a
- * field added to one but not the other would be silently unenforced, or
- * enforced with no way to repair it. Deliberately flat rather than keyed by
- * document type: the invariant belongs to the VALUE, so a field carried by a
- * type that never declares it is still a stored instant.
- */
-export const TIMESTAMP_FIELDS: readonly string[] = [
-  'created',
-  'updated_at',
-  'completed_at',
-  'archived_at',
-  'freezing_at',
-];
 
 /** The canonical persisted form — ISO-8601 UTC, millisecond precision, `Z`. */
 const UTC_MILLIS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
@@ -65,19 +48,19 @@ export const BARE_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
  * refusal messages teachable and the surface small.
  *
  * {@link STORED_INSTANT} is the STORED-VALUE grammar (MMR-351), and it is
- * deliberately a little wider: a value already sitting in a document was not
+ * deliberately a little wider: a value already stored was not
  * typed at a prompt, so the question is not "is this the spelling we teach?" but
  * "does this state an instant unambiguously?". Two forms do and are therefore
  * normalized rather than condemned:
- * - a SPACE separator (`2026-01-01 09:30:00Z`) — norn's `datetime` type accepts
- *   it, so it is a legitimately storable value;
+ * - a SPACE separator (`2026-01-01 09:30:00Z`) — the SQL spelling of a
+ *   timestamp, so it is a legitimately storable value;
  * - a colon-LESS offset (`+0530`) — the annotation heading grammar
  *   (`history-codec.ts`) accepts it and the reader sorts such records happily,
  *   so calling it uninterpretable would strand a record the reader already reads.
  * Widening ends there. A zone-LESS timestamp and a bare date state no instant in
  * either grammar, and `Date.parse`'s remaining leniency (a bare `±HH` offset,
  * month names, "GMT") is never admitted: normalizing those would mean inventing
- * an instant the document never stated.
+ * an instant the value never stated.
  *
  * Both spell the same capture groups in the same order, so one parser reads
  * either match.

@@ -1,6 +1,6 @@
 /**
  * Identity allocation (ADR 0006). `project.key` is the consumer-supplied scope
- * prefix; Norn allocates each immutable `node.seq` during document creation.
+ * prefix; the store allocates each immutable `node.seq` on create.
  * This module owns only project-key validation.
  */
 

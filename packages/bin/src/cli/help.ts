@@ -233,38 +233,29 @@ options:
                           clears one)
 
 machinery commands (the installation, host, or store — not the work itself):
-  service <sub> [unit]    supervise the launchd (macOS) or systemd user
-                          (Linux) units: install [--port <n>] · uninstall ·
-                          start · stop · restart · status. unit is serve |
-                          snapshot | all; install defaults to serve (snapshot
-                          is opt-in), uninstall + the lifecycle verbs sweep
-                          whatever is installed. --port writes the
-                          installation config. only a registered installation
-                          can mutate the real supervisor, and only its own
-                          units; status stays available
-  vault snapshot          commit the vault's working tree (commit-if-dirty),
-                          then push + reconcile when an upstream is configured;
-                          the cadence behind the scheduled snapshot unit
+  service <sub> [serve]   supervise the serve daemon as a launchd (macOS) or
+                          systemd user (Linux) unit: install [--port <n>] ·
+                          uninstall · start · stop · restart · status.
+                          --port writes the installation config. only a
+                          registered installation can mutate the real
+                          supervisor, and only its own unit; status stays
+                          available
   store upgrade | export <file> | import <file> [--apply] [--resume]
                           upgrade applies pending schema migrations (SQLite
                           migrates on open; Postgres is the one explicit
-                          schema move on a shared store; a norn install has
-                          nothing to upgrade). export writes the whole store
+                          schema move on a shared store). export writes the whole store
                           as a portable document (- for stdout) and is the
                           backup; import reads one back — a preview unless
                           --apply, --resume re-runs a partial import
   skill install [--global|--local] [--agent claude|codex]
                           install the agent skill (default: --global, claude;
                           claude → .claude/skills, codex → .agents/skills)
-  setup [--vault <path>] [--install-service] [--install-snapshot]
-        [--port <n>] [--snapshot-interval <s>] [--upstream <url>] [-y]
+  setup [--install-service] [--port <n>] [-y]
                           interactive first-install + reconfiguration wizard:
-                          write the config, install the supervisor units. On
-                          sqlite and postgres it asks only about the service;
-                          --vault and the snapshot flags apply to the norn
-                          backend, which also converges the vault. Prefills
-                          current values; re-runnable. Non-interactively takes
-                          flags + -y.
+                          write the config and install the background service.
+                          The store needs no setup (SQLite is created on first
+                          use). Prefills current values; re-runnable.
+                          Non-interactively takes flags + -y.
   serve [--port <n>] [--no-hunt]
                           HTTP API + console (loopback-only; port:
                           ${PORT_PRECEDENCE}; a
@@ -392,7 +383,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
   next: {
     examples: [
       'mimir next -s MMR              # what to work on next in project MMR',
-      'mimir next -q vault            # ready tasks whose titles contain vault',
+      'mimir next -q auth             # ready tasks whose titles contain auth',
       'mimir next -p p0               # highest-priority ready tasks',
       'mimir next --format json | jq  # structured output for scripts',
     ],
@@ -430,7 +421,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     examples: [
       'mimir artifacts                             # the bound project, newest first',
       'mimir artifacts -s all -t session_summary   # session retrospectives everywhere',
-      'mimir artifacts --at-or-after created_at:2026-07-01 -q vault  # windowed',
+      'mimir artifacts --at-or-after created_at:2026-07-01 -q auth  # windowed',
       'mimir artifacts -f ids | head -1            # the newest id, for a get',
     ],
     flags: [
@@ -590,7 +581,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
   list: {
     examples: [
       'mimir list --is stale                       # tasks that have gone quiet',
-      'mimir list -q vault                         # title substring',
+      'mimir list -q auth                          # title substring',
       'mimir list --status done --after completed_at:2026-06-01',
       'mimir list --on created_at:2026-06-10 --tz UTC   # a UTC calendar day',
       'mimir list --eq type:phase                  # filter to phases',
@@ -934,35 +925,17 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
   setup: {
     examples: [
       'mimir setup                          # interactive first install / reconfigure',
-      'mimir setup --install-service -y     # the default store: just the serve unit',
-      'mimir setup --vault ~/.local/share/mimir/vault --install-service -y   # norn backend',
-      'mimir setup --install-snapshot --snapshot-interval 900 --upstream git@host:me/vault.git -y   # norn backend',
+      'mimir setup --install-service -y     # install the serve unit non-interactively',
+      'mimir setup --install-service --port 4100 -y',
     ],
     flags: [
-      [
-        '--vault <path>',
-        'vault location (norn backend only; ~ expanded; default: current config, else the build default)',
-      ],
       ['--install-service', 'install/update the serve unit (launchd or systemd)'],
       ['--port <n>', 'serve port to persist (honored by serve even without the unit)'],
-      [
-        '--install-snapshot',
-        'install/update the auto-snapshot unit (launchd or systemd; norn backend only)',
-      ],
-      [
-        '--snapshot-interval <s>',
-        'snapshot cadence in seconds (norn backend only; requires --install-snapshot; default 900)',
-      ],
-      [
-        '--upstream <url>',
-        'snapshot upstream (norn backend only; requires --install-snapshot; omit to clear)',
-      ],
       ['-y, --yes', 'run non-interactively from flags (required when not a TTY)'],
     ],
     summary:
-      'first-install + reconfiguration wizard — write the global config and install/update the supervisor units you opt into (removal is `service uninstall`). On the sqlite (default) and postgres backends it asks only about the service, and --vault and the snapshot flags are refused; on the norn backend it also converges the vault. Prefills current values; safe to re-run',
-    usage:
-      'mimir setup [--vault <path>] [--install-service] [--install-snapshot] [--port <n>] [--snapshot-interval <s>] [--upstream <url>] [-y]',
+      'first-install + reconfiguration wizard — write the global config and install/update the background service if you opt in (removal is `service uninstall`). The store needs no setup: SQLite is created on first use, Postgres is configured by [store]. Prefills current values; safe to re-run',
+    usage: 'mimir setup [--install-service] [--port <n>] [-y]',
   },
   // ── machinery loners (MMR-294) ──
   // `serve`/`mcp`/`version` are intercepted in `main` before CLI dispatch
@@ -1003,90 +976,62 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
   service: {
     args: [
       ['<sub>', 'install | uninstall | start | stop | restart | status'],
-      [
-        '[unit]',
-        'serve | snapshot | all (default: whatever is installed; install defaults to serve)',
-      ],
+      ['[unit]', 'serve — the one unit (default: serve)'],
     ],
     examples: [
       'mimir service install                 # install the serve unit',
-      'mimir service install snapshot        # the opt-in snapshot unit (norn backend)',
-      'mimir service status                  # report every installed unit',
-      'mimir service restart                 # restart whatever is installed',
+      'mimir service status                  # report the unit and its health',
+      'mimir service restart                 # restart the serve daemon',
     ],
     flags: [['--port <n>', 'install: serve port to persist (the installation config)']],
     summary:
-      "supervise the launchd (macOS) or systemd user (Linux) units — install/uninstall/start/stop/restart/status; uninstall and the lifecycle verbs sweep whatever is installed. only a registered installation can mutate the real supervisor, and only its own units; status stays available. run `mimir service <sub> -h` for a sub's own flags",
+      "supervise the serve daemon as a launchd (macOS) or systemd user (Linux) unit — install/uninstall/start/stop/restart/status. only a registered installation can mutate the real supervisor, and only its own unit; status stays available. run `mimir service <sub> -h` for a sub's own flags",
     usage: 'mimir service <sub> [unit]',
   },
   // ── service subcommands (MMR-299) ──
   'service install': {
-    args: [['[unit]', 'serve | snapshot | all (default: serve — snapshot is opt-in)']],
+    args: [['[unit]', 'serve — the one unit (default: serve)']],
     examples: [
       'mimir service install                 # install the serve unit',
-      'mimir service install snapshot        # the opt-in snapshot unit (norn backend)',
       'mimir service install --port 4100     # install serve, persisting the port',
-      'mimir service install all             # both units (norn backend)',
     ],
     flags: [['--port <n>', 'serve port to persist (the installation config)']],
     summary:
-      'install a supervisor unit (launchd or systemd) — defaults to serve; snapshot is opt-in. --port persists to the installation config. requires a registered installation. on the norn backend it also requires the `norn` binary on PATH and an existing vault; sqlite and postgres need neither, and refuse the snapshot unit, which commits a vault',
+      'install the serve unit (launchd or systemd). --port persists to the installation config. requires a registered installation',
     usage: 'mimir service install [unit] [--port <n>]',
   },
   'service uninstall': {
-    args: [['[unit]', 'serve | snapshot | all (default: whatever is installed)']],
-    examples: [
-      'mimir service uninstall               # tear down whatever is installed',
-      'mimir service uninstall snapshot      # tear down just the snapshot unit',
-    ],
-    summary:
-      'tear down installed supervisor unit(s) — config and logs kept. a bare uninstall sweeps whatever is installed; requires a registered installation',
+    args: [['[unit]', 'serve — the one unit (default: serve)']],
+    examples: ['mimir service uninstall               # tear down the serve unit'],
+    summary: 'tear down the serve unit — config and logs kept. requires a registered installation',
     usage: 'mimir service uninstall [unit]',
   },
   'service start': {
-    args: [['[unit]', 'serve | snapshot | all (default: whatever is installed)']],
-    examples: [
-      'mimir service start                   # start whatever is installed',
-      'mimir service start serve             # start just the serve unit',
-    ],
+    args: [['[unit]', 'serve — the one unit (default: serve)']],
+    examples: ['mimir service start                   # start the serve unit'],
     summary:
-      'start an installed supervisor unit — acts only on units already installed; a bare invocation sweeps whatever is installed, naming a not-installed unit is a reported no-op. requires a registered installation',
+      'start the installed serve unit — a not-installed unit is a reported no-op. requires a registered installation',
     usage: 'mimir service start [unit]',
   },
   'service stop': {
-    args: [['[unit]', 'serve | snapshot | all (default: whatever is installed)']],
-    examples: [
-      'mimir service stop                    # stop whatever is installed',
-      'mimir service stop snapshot           # stop just the snapshot unit',
-    ],
+    args: [['[unit]', 'serve — the one unit (default: serve)']],
+    examples: ['mimir service stop                    # stop the serve unit'],
     summary:
-      'stop an installed supervisor unit — acts only on units already installed; a bare invocation sweeps whatever is installed, naming a not-installed unit is a reported no-op. requires a registered installation',
+      'stop the installed serve unit — a not-installed unit is a reported no-op. requires a registered installation',
     usage: 'mimir service stop [unit]',
   },
   'service restart': {
-    args: [['[unit]', 'serve | snapshot | all (default: whatever is installed)']],
-    examples: [
-      'mimir service restart                 # restart whatever is installed',
-      'mimir service restart all             # restart every installed unit',
-    ],
+    args: [['[unit]', 'serve — the one unit (default: serve)']],
+    examples: ['mimir service restart                 # restart the serve unit'],
     summary:
-      'restart an installed supervisor unit — acts only on units already installed; a bare invocation sweeps whatever is installed, naming a not-installed unit is a reported no-op. requires a registered installation',
+      'restart the installed serve unit — a not-installed unit is a reported no-op. requires a registered installation',
     usage: 'mimir service restart [unit]',
   },
   'service status': {
-    examples: ['mimir service status                  # report every installed unit'],
+    examples: ['mimir service status                  # report the unit and its health'],
     summary:
-      "report every supervisor unit's state (loaded/running, serve's port + health, snapshot's interval) plus recent events — a read; never mutates, no dev-build refusal",
+      "report the serve unit's state (loaded/running, port + health) plus recent events — a read; never mutates, no dev-build refusal",
     usage: 'mimir service status',
-  },
-  // ── vault cadence (MMR-146) ──
-  vault: {
-    examples: [
-      'mimir vault snapshot                 # commit the vault; push if an upstream is set',
-    ],
-    summary:
-      "snapshot the vault's git working tree (commit-if-dirty), then push and reconcile a diverged upstream (fetch + merge). Quiet on success; the scheduled unit calls it on an interval",
-    usage: 'mimir vault snapshot',
   },
   // ── shared-store schema (ADR 0030) ──
   store: {
@@ -1094,18 +1039,18 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     examples: [
       'mimir store upgrade                  # migrate the SQLite or Postgres schema',
       'mimir store upgrade --format json    # the upgrade report, machine-readable',
-      'mimir store export vault.json        # back the whole store up, identity intact',
+      'mimir store export board.json        # back the whole store up, identity intact',
       'mimir store export -                 # the document on stdout, nothing else',
-      'mimir store import vault.json        # preview: what an import would do',
-      'mimir store import vault.json --apply           # write it',
-      'mimir store import vault.json --apply --resume  # finish a partial import',
+      'mimir store import board.json        # preview: what an import would do',
+      'mimir store import board.json --apply           # write it',
+      'mimir store import board.json --apply --resume  # finish a partial import',
     ],
     flags: [
       ['--apply', 'write the import (the default is a preview)'],
       ['--resume', 'skip records already present and identical, instead of refusing'],
     ],
     summary:
-      'the store machinery. upgrade applies every pending schema migration, in order, and reports the version it moved from and to. On the SQLite store, opening the file migrates it, so upgrade just opens it and reports. On Postgres it is the one explicit schema move on a shared store, run under a lock, since no binary migrates implicitly — run it once on one machine after every binary is new enough. A norn install converges its vault on open, so upgrade prints a note and has nothing to do. export writes every stored fact as one backend-neutral document, ids, sequences, and timestamps preserved, and refuses to overwrite an existing file; it is the SQLite backup (do not copy the live database file) and the way off a norn vault, with import. import reads that document into this store, on either backend: a preview by default, written with --apply, and re-runnable with --resume after a partial one',
+      'the store machinery. upgrade applies every pending schema migration, in order, and reports the version it moved from and to. On the SQLite store, opening the file migrates it, so upgrade just opens it and reports. On Postgres it is the one explicit schema move on a shared store, run under a lock, since no binary migrates implicitly — run it once on one machine after every binary is new enough. export writes every stored fact as one backend-neutral document, ids, sequences, and timestamps preserved, and refuses to overwrite an existing file; it is the SQLite backup (do not copy the live database file). import reads that document into this store, on either backend: a preview by default, written with --apply, and re-runnable with --resume after a partial one',
     usage: 'mimir store upgrade | export <file> | import <file> [--apply] [--resume]',
   },
   // ── skill distribution (MMR-286) ──
@@ -1159,7 +1104,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--dry-run', 'preview and validate a repair plan without writing (requires --fix)'],
     ],
     summary:
-      'run read-only store diagnostics (one shared check over the SQLite and Postgres databases; the norn backend checks its vault), or use --fix for conservative CLI-only repair on the norn backend (sqlite and postgres have no repair pass). Bare doctor stays non-gating and exits 0 after a successful read. Repair supports only deterministic structural recipes; every other finding is reported with a stable skip reason. Repair apply/refusal/verification failures are nonzero',
+      'run read-only store diagnostics (one shared check over the SQLite and Postgres databases). --fix is refused: neither backend has a repair pass. Bare doctor stays non-gating and exits 0 after a successful read. Repair supports only deterministic structural recipes; every other finding is reported with a stable skip reason. Repair apply/refusal/verification failures are nonzero',
     usage: 'mimir doctor [-s <KEY>] [--format <fmt>] [--fix [--dry-run]]',
   },
   // ── binding ──

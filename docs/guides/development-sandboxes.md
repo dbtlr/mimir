@@ -74,16 +74,17 @@ before and after the run and fails if that state changed. The state covers the
 running process, whether the unit is loaded and enabled, and a hash of each
 live unit file.
 
-- **`--target host`** (the default) creates a vault sandbox under
+- **`--target host`** (the default) creates a sandbox under
   `.dev/service-sandboxes/<sandbox-id>`. The sandbox has its own directories,
-  a free loopback port, and no database. It is a registered sandbox
+  a free loopback port, and no database (the store is a SQLite file in its data
+  directory). It is a registered sandbox
   installation, so its units are `com.dbtlr.mimir.sandbox-<sandbox-id>.*` and the
   fence lets it address nothing else. The command uses launchd on macOS and
   systemd user units on Linux. On Linux, `systemctl --user` must reach your
   manager (see [Service lifecycle](service-lifecycle.md#run-without-a-login-session)).
 - **`--target container`** checks systemd from any host with Docker. It builds
   a Linux candidate for the engine's architecture and an image with systemd as
-  PID 1, a lingering non-root user, and the pinned `norn`
+  PID 1 and a lingering non-root user
   (`packages/sandbox/container/systemd.Dockerfile`). The repository's
   `install.sh` installs the candidate as that user. Only the download is
   substituted. The result is a live installation of the container alone, with
@@ -91,9 +92,9 @@ live unit file.
   Postgres. The container runs privileged, which systemd needs for its cgroup
   tree.
 
-Neither target needs `norn` on `PATH`. The sandbox configuration names no store
-backend, so it runs on SQLite, and `service install` checks for `norn` only on
-the Norn backend.
+Neither target needs any external binary. The sandbox configuration names no
+store backend, so it runs on SQLite.
+
 The report is written to `.dev/sandbox-results/service-<sandbox-id>.json`.
 Teardown always unloads the units or removes the container. A failed run keeps
 its directory, including the daemon logs, and prints the `service-destroy`
@@ -127,7 +128,7 @@ work. Every scenario also fails a run that guesses a verb the CLI does not have.
 `--skill` takes the skill directory under test, so a revision can be measured
 before it is embedded in a binary.
 
-Each run is a vault sandbox in a temporary directory outside the checkout, so
+Each run is a sandbox with no database in a temporary directory outside the checkout, so
 no `.mimir.toml` above it binds the unbound scenarios. It has its own
 registered installation of the candidate (built from the checkout, or
 `--binary <path>`), a git working copy seeded with the scenario's files, and

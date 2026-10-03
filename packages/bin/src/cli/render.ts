@@ -877,7 +877,7 @@ export function renderOverview(report: OverviewReport, io: Io): string {
 
   // hygiene — the counts, each nonzero one naming its follow-up command scoped to
   // the reported project so the pointer stays true under `-s KEY` (the dropped
-  // count is the whole-vault tally, MMR-184 — its `doctor` pointer stays unscoped
+  // count is the whole-store tally, MMR-184 — its `doctor` pointer stays unscoped
   // to match), then the capped listing beneath it: the lane word first, so the
   // row reads as a standing, then the task's own line.
   const { untriaged, blocked, stale, dropped, listings } = report.hygiene;

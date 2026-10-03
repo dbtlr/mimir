@@ -1,16 +1,14 @@
 import { expect, test } from 'bun:test';
 
 import { parseId } from './ids';
-import type { NodeRefs, VaultGraph } from './store-norn';
-import { collapse } from './store-norn/decode';
 import { validate } from './validate';
+import type { NodeRefs, RecordGraph } from './validate';
 
 /**
- * Build a {@link VaultGraph} from node refs, mirroring production
- * `readVaultGraph`: `projectKeys` defaults to every key present among the nodes'
+ * Build a {@link RecordGraph} from node refs: `projectKeys` defaults to every key present among the nodes'
  * stems, so a node is orphaned only when a test deliberately omits its key.
  */
-function graphOf(nodes: Omit<NodeRefs, 'key'>[], projectKeys?: string[]): VaultGraph {
+function graphOf(nodes: Omit<NodeRefs, 'key'>[], projectKeys?: string[]): RecordGraph {
   const withKey: NodeRefs[] = nodes.map((n) => ({ ...n, key: parseKey(n.stem) }));
   return { nodes: withKey, projectKeys: projectKeys ?? [...new Set(withKey.map((n) => n.key))] };
 }
@@ -24,7 +22,7 @@ function parseKey(stem: string): string {
 }
 
 /** The surviving subgraph as `stem → { parent, dependsOn }` for terse assertions. */
-function subgraph(g: VaultGraph): Record<string, { parent: string | null; dependsOn: string[] }> {
+function subgraph(g: RecordGraph): Record<string, { parent: string | null; dependsOn: string[] }> {
   const out: Record<string, { parent: string | null; dependsOn: string[] }> = {};
   for (const n of validate(g).nodes) {
     out[n.stem] = { dependsOn: n.dependsOn, parent: n.parent };
@@ -89,43 +87,6 @@ test('a dangling depends_on drops the edge; the prereq is pruned, node survives'
   const result = validate(g);
   expect(result.dropped).toEqual([
     { kind: 'edge', ref: 'MMR-1', rule: 'dangling-depends-on', stem: 'MMR-2' },
-    { kind: 'edge', ref: 'MMR-99', rule: 'dangling-depends-on', stem: 'MMR-2' },
-  ]);
-  expect(subgraph(g)['MMR-2']).toEqual({ dependsOn: [], parent: null });
-});
-
-// ── Aliased wikilink decode (MMR-190) ─────────────────────────────────────────
-// `collapse` de-aliases `[[STEM|display]]` to `STEM` before the graph reaches the
-// validator, so an aliased ref resolves through the SAME valid/dangling path as a
-// bare wikilink — a valid target resolves; a dangling one drops with the STEM ref,
-// never the `|`-laden literal (which used to slip the parseId gate and float to root).
-
-test('an aliased parent resolves cleanly to its real target (MMR-190)', () => {
-  const g = graphOf([
-    { dependsOn: [], parent: 'MMR', stem: 'MMR-1' },
-    { dependsOn: [], parent: collapse('[[MMR-1|Some Title]]'), stem: 'MMR-2' },
-  ]);
-  const result = validate(g);
-  expect(result.dropped).toEqual([]);
-  expect(subgraph(g)['MMR-2']).toEqual({ dependsOn: [], parent: 'MMR-1' });
-});
-
-test('a dangling aliased parent drops with the de-aliased ref, not the |-literal (MMR-190)', () => {
-  const g = graphOf([{ dependsOn: [], parent: collapse('[[MMR-99|Some Title]]'), stem: 'MMR-2' }]);
-  const result = validate(g);
-  expect(result.dropped).toEqual([
-    { kind: 'edge', ref: 'MMR-99', rule: 'dangling-parent', stem: 'MMR-2' },
-  ]);
-  expect(subgraph(g)).toEqual({ 'MMR-2': { dependsOn: [], parent: null } });
-});
-
-test('a dangling aliased depends_on drops with the de-aliased ref (MMR-190)', () => {
-  const g = graphOf(
-    [{ dependsOn: [collapse('[[MMR-99|Some Title]]') ?? ''], parent: null, stem: 'MMR-2' }],
-    ['MMR'],
-  );
-  const result = validate(g);
-  expect(result.dropped).toEqual([
     { kind: 'edge', ref: 'MMR-99', rule: 'dangling-depends-on', stem: 'MMR-2' },
   ]);
   expect(subgraph(g)['MMR-2']).toEqual({ dependsOn: [], parent: null });
@@ -683,8 +644,8 @@ test('an absent/null open_ended is a truthful unset — not foreign, no drop', (
 // The seed passes run ONLY when the graph carries `seeds` (present, possibly
 // empty). kind/lifecycle are load-bearing (drop the seed record); requester nulls
 // the field; a dangling spawned prunes the edge; a task upstream that is malformed
-// or dangling nulls the field. `SeedRefs` are built inline (production
-// `vaultGraphFromDocs` derives them the same way).
+// or dangling nulls the field. `SeedRefs` are built inline (as a store reads
+// them).
 
 const validSeed = {
   key: 'MMR',
@@ -696,7 +657,7 @@ const validSeed = {
 };
 
 test('a clean seed with a valid requester and resolving spawned drops nothing (MMR-244)', () => {
-  const g: VaultGraph = {
+  const g: RecordGraph = {
     nodes: [{ dependsOn: [], key: 'MMR', parent: null, stem: 'MMR-2' }],
     projectKeys: ['MMR', 'AB'],
     seeds: [{ ...validSeed, requester: 'AB', spawned: ['MMR-2'] }],
@@ -705,7 +666,7 @@ test('a clean seed with a valid requester and resolving spawned drops nothing (M
 });
 
 test('a foreign or missing seed kind drops the seed record (MMR-244)', () => {
-  const foreign: VaultGraph = {
+  const foreign: RecordGraph = {
     nodes: [],
     projectKeys: ['MMR'],
     seeds: [{ ...validSeed, kind: 'chore' }],
@@ -713,7 +674,7 @@ test('a foreign or missing seed kind drops the seed record (MMR-244)', () => {
   expect(validate(foreign).dropped).toEqual([
     { key: 'MMR', kind: 'node', rule: 'invalid-seed-kind', stem: 'MMR-s1', value: 'chore' },
   ]);
-  const missing: VaultGraph = {
+  const missing: RecordGraph = {
     nodes: [],
     projectKeys: ['MMR'],
     seeds: [{ ...validSeed, kind: undefined }],
@@ -724,7 +685,7 @@ test('a foreign or missing seed kind drops the seed record (MMR-244)', () => {
 });
 
 test('a foreign seed lifecycle drops the seed record (MMR-244)', () => {
-  const g: VaultGraph = {
+  const g: RecordGraph = {
     nodes: [],
     projectKeys: ['MMR'],
     seeds: [{ ...validSeed, lifecycle: 'disposed' }],
@@ -735,7 +696,7 @@ test('a foreign seed lifecycle drops the seed record (MMR-244)', () => {
 });
 
 test('an unknown requester nulls the field; the seed survives (MMR-244)', () => {
-  const g: VaultGraph = {
+  const g: RecordGraph = {
     nodes: [],
     projectKeys: ['MMR'],
     seeds: [{ ...validSeed, requester: 'GONE' }],
@@ -746,7 +707,7 @@ test('an unknown requester nulls the field; the seed survives (MMR-244)', () => 
 });
 
 test('a dangling spawned ref prunes the edge; the seed survives (MMR-244)', () => {
-  const g: VaultGraph = {
+  const g: RecordGraph = {
     nodes: [],
     projectKeys: ['MMR'],
     seeds: [{ ...validSeed, spawned: ['MMR-99'] }],
@@ -757,7 +718,7 @@ test('a dangling spawned ref prunes the edge; the seed survives (MMR-244)', () =
 });
 
 test('a malformed task upstream nulls the field (MMR-244)', () => {
-  const g: VaultGraph = {
+  const g: RecordGraph = {
     nodes: [
       {
         dependsOn: [],
@@ -777,7 +738,7 @@ test('a malformed task upstream nulls the field (MMR-244)', () => {
 });
 
 test('a dangling task upstream (no such seed) nulls the field; a resolving one is clean (MMR-244)', () => {
-  const dangling: VaultGraph = {
+  const dangling: RecordGraph = {
     nodes: [
       { dependsOn: [], key: 'MMR', parent: null, stem: 'MMR-2', type: 'task', upstream: 'MMR-s9' },
     ],
@@ -787,7 +748,7 @@ test('a dangling task upstream (no such seed) nulls the field; a resolving one i
   expect(validate(dangling).dropped).toEqual([
     { kind: 'field', rule: 'dangling-upstream', stem: 'MMR-2', value: 'MMR-s9' },
   ]);
-  const resolving: VaultGraph = {
+  const resolving: RecordGraph = {
     nodes: [
       { dependsOn: [], key: 'MMR', parent: null, stem: 'MMR-2', type: 'task', upstream: 'MMR-s1' },
     ],
@@ -801,7 +762,7 @@ test('upstream is task-only — a non-task node carrying one is never flagged (M
   // The reader reads `upstream` only for a task (like `external_ref`); the
   // validator's upstream pass mirrors that gate, so a phase with a garbage
   // upstream drops NOTHING — else doctor would report a drop the reader never made.
-  const g: VaultGraph = {
+  const g: RecordGraph = {
     nodes: [
       {
         dependsOn: [],
@@ -822,7 +783,7 @@ test('an orphaned seed (its own project absent) is dropped, not a survivor (MMR-
   // Mirrors pass 1's missing-container rule for nodes: a seed whose own project
   // has no document has no valid place to live — the validator drops it and
   // excludes it from the seed survivors (the resolving read seam acts on it, MMR-245).
-  const g: VaultGraph = {
+  const g: RecordGraph = {
     nodes: [],
     projectKeys: [], // the seed's own project MMR has no document
     seeds: [validSeed],
@@ -836,7 +797,7 @@ test('a task upstream at an orphaned seed dangles — the orphan is not a surviv
   // A cross-board task points at a seed whose OWN project (GON) is absent, so the
   // seed is orphaned. It must not enter the survivors, so the inbound upstream
   // correctly dangles rather than resolving to a hidden seed.
-  const g: VaultGraph = {
+  const g: RecordGraph = {
     nodes: [
       { dependsOn: [], key: 'MMR', parent: null, stem: 'MMR-2', type: 'task', upstream: 'GON-s1' },
     ],
@@ -854,7 +815,7 @@ test('a task upstream at an orphaned seed dangles — the orphan is not a surviv
 test('with no seeds loaded, the seed + upstream passes do not run (MMR-244)', () => {
   // graph.seeds undefined — a task with an upstream must NOT be flagged (the
   // node-only loader and transitions feed pass no seeds).
-  const g: VaultGraph = {
+  const g: RecordGraph = {
     nodes: [
       { dependsOn: [], key: 'MMR', parent: null, stem: 'MMR-2', type: 'task', upstream: 'MMR-s9' },
     ],

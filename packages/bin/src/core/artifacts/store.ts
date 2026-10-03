@@ -3,8 +3,8 @@
  * artifact slice, keeping the compute core agnostic of its storage implementor
  * (ADR 0016 Refinement, MMR-279). Artifacts are keyed by **canonical
  * identity** (`key` + `seq`, the `KEY-aN` stem): no separate ids cross this
- * boundary, because Norn — the sole implementor today — has none; the file
- * stem is the identity carried end to end.
+ * boundary, because the store has none to expose; the stem is the identity
+ * carried end to end.
  *
  * The seam is storage vocabulary only. Behavioral invariants — title
  * non-blank, project active, links stay in-project — remain in the verbs

@@ -34,10 +34,10 @@ export function postgresUrlMissing(): Error {
 }
 
 /**
- * Build the Postgres store for this process. `opts` carries the doctor repair
- * capability the Norn arm wires; this backend has no repair pass to wire (every
- * state its doctor reports is unreachable through the binary and points at a
- * hand edit), so the option is deliberately unused here.
+ * Build the Postgres store for this process. `opts` carries a doctor repair
+ * capability; this backend has no repair pass to wire (every state its doctor
+ * reports is unreachable through the binary and points at a hand edit), so the
+ * option is deliberately unused here.
  */
 export async function buildPostgresStore(
   config: GlobalConfig,

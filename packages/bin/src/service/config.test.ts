@@ -9,7 +9,6 @@ import {
   readConfig,
   readRuntimeConfig,
   readServeConfig,
-  readVaultConfig,
   writeConfig,
   writeServePort,
 } from './config';
@@ -88,85 +87,30 @@ test('writeServePort creates parents and round-trips', () => {
   expect(readServeConfig(file)).toEqual({ port: 50124 });
 });
 
-test('readVaultConfig: missing file and missing key are empty; a path round-trips', () => {
-  const file = join(dir, 'config.toml');
-  expect(readVaultConfig(file)).toEqual({});
-  writeFileSync(file, '[serve]\nport = 50124\n');
-  expect(readVaultConfig(file)).toEqual({});
-  writeFileSync(file, '[vault]\npath = "~/vaults/mimir"\n');
-  expect(readVaultConfig(file)).toEqual({ path: '~/vaults/mimir' });
-});
-
-test('readVaultConfig: malformed file and wrong-typed path surface as problems', () => {
-  const file = join(dir, 'config.toml');
-  writeFileSync(file, 'not toml [');
-  expect(readVaultConfig(file)).toEqual({ problem: 'malformed' });
-  writeFileSync(file, '[vault]\npath = 7\n');
-  expect(readVaultConfig(file)).toEqual({ problem: 'invalid-path' });
-  writeFileSync(file, '[vault]\npath = ""\n');
-  expect(readVaultConfig(file)).toEqual({ problem: 'invalid-path' });
-});
-
-test('readVaultConfig: a full [vault.snapshot] table round-trips alongside path', () => {
-  const file = join(dir, 'config.toml');
-  writeFileSync(
-    file,
-    '[vault]\npath = "/v"\n[vault.snapshot]\ninterval = 900\nupstream = "git@example.com:me/vault.git"\npush = true\npull = false\n',
-  );
-  expect(readVaultConfig(file)).toEqual({
-    path: '/v',
-    snapshot: { interval: 900, pull: false, push: true, upstream: 'git@example.com:me/vault.git' },
-  });
-});
-
-test('readVaultConfig: a partial [vault.snapshot] keeps only the declared keys', () => {
-  const file = join(dir, 'config.toml');
-  writeFileSync(file, '[vault.snapshot]\ninterval = 300\n');
-  expect(readVaultConfig(file)).toEqual({ snapshot: { interval: 300 } });
-});
-
-test('readVaultConfig: a bad snapshot value surfaces invalid-snapshot', () => {
-  const file = join(dir, 'config.toml');
-  // non-table snapshot
-  writeFileSync(file, '[vault]\nsnapshot = 5\n');
-  expect(readVaultConfig(file)).toEqual({ problem: 'invalid-snapshot' });
-  // non-positive / non-integer interval
-  for (const bad of [0, -60, 1.5, '"900"']) {
-    writeFileSync(file, `[vault.snapshot]\ninterval = ${String(bad)}\n`);
-    expect(readVaultConfig(file)).toEqual({ problem: 'invalid-snapshot' });
-  }
-  // empty / non-string upstream
-  writeFileSync(file, '[vault.snapshot]\nupstream = ""\n');
-  expect(readVaultConfig(file)).toEqual({ problem: 'invalid-snapshot' });
-  writeFileSync(file, '[vault.snapshot]\nupstream = 7\n');
-  expect(readVaultConfig(file)).toEqual({ problem: 'invalid-snapshot' });
-  // non-boolean toggles
-  writeFileSync(file, '[vault.snapshot]\npush = "yes"\n');
-  expect(readVaultConfig(file)).toEqual({ problem: 'invalid-snapshot' });
-});
-
-test('readVaultConfig: a valid path is kept even when snapshot is invalid (warn, do not discard)', () => {
-  const file = join(dir, 'config.toml');
-  writeFileSync(file, '[vault]\npath = "/v"\n[vault.snapshot]\ninterval = 0\n');
-  expect(readVaultConfig(file)).toEqual({ path: '/v', problem: 'invalid-snapshot' });
-});
-
 test('a present-but-wrong-shaped section is malformed, never silence', () => {
   const file = join(dir, 'config.toml');
-  writeFileSync(file, 'vault = "/some/path"\n'); // a string, not a [vault] table
-  expect(readVaultConfig(file)).toEqual({ problem: 'malformed' });
   writeFileSync(file, 'serve = 5\n');
   expect(readServeConfig(file)).toEqual({ problem: 'malformed' });
 });
 
 test('readConfig parses once and returns every section', () => {
   const file = join(dir, 'config.toml');
-  writeFileSync(file, '[serve]\nport = 50124\n[vault]\npath = "/v"\n');
+  writeFileSync(file, '[serve]\nport = 50124\n[store]\nbackend = "postgres"\n');
   expect(readConfig(file)).toEqual({
     serve: { port: 50124 },
-    store: {},
-    vault: { path: '/v' },
+    store: { backend: 'postgres' },
   });
+});
+
+// ADR 0032 removed the markdown-vault backend. A config written for it keeps
+// its `[vault]` table, which no reader knows: it is ignored, never a problem.
+test('readConfig ignores a leftover [vault] table', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(
+    file,
+    '[serve]\nport = 50124\n[vault]\npath = "/v"\n[vault.snapshot]\ninterval = 900\n',
+  );
+  expect(readConfig(file)).toEqual({ serve: { port: 50124 }, store: {} });
 });
 
 test('runtime reads an explicitly selected isolated configuration', () => {
@@ -176,8 +120,9 @@ test('runtime reads an explicitly selected isolated configuration', () => {
 });
 
 // The `[store] backend` fence is back per install (ADR 0030 Decision 1,
-// MMR-378): absent means `norn`, a named backend is carried through, and an
-// unrecognized word is flagged rather than silently opening another store.
+// MMR-378): absent means `sqlite` (ADR 0032), a named backend is carried
+// through, and an unrecognized word is flagged rather than silently opening
+// another store.
 test('readConfig defaults an absent [store] backend to sqlite at the consumer', () => {
   const file = join(dir, 'config.toml');
   writeFileSync(file, '[serve]\nport = 50124\n');
@@ -187,7 +132,7 @@ test('readConfig defaults an absent [store] backend to sqlite at the consumer', 
 
 test('readConfig carries each known [store] backend', () => {
   const file = join(dir, 'config.toml');
-  for (const backend of ['sqlite', 'postgres', 'norn'] as const) {
+  for (const backend of ['sqlite', 'postgres'] as const) {
     writeFileSync(file, `[store]\nbackend = "${backend}"\n`);
     expect(readConfig(file).store).toEqual({ backend });
   }
@@ -200,11 +145,19 @@ test('readConfig flags an unrecognized or wrong-shaped [store] backend', () => {
   writeFileSync(file, '[store]\nbackend = 7\n');
   expect(readConfig(file).store).toEqual({ problem: 'invalid-backend' });
   // a non-table `store` is malformed, not a silent default
-  writeFileSync(file, 'store = "norn"\n');
+  writeFileSync(file, 'store = "sqlite"\n');
   expect(readConfig(file).store).toEqual({ problem: 'malformed' });
   // an unparseable file marks every section, this one included
   writeFileSync(file, 'not = = toml\n');
   expect(readConfig(file).store).toEqual({ problem: 'malformed' });
+});
+
+// The removed backend is its own problem, distinct from a typo, so the refusal
+// can name the way off it (ADR 0032).
+test('readConfig flags the removed norn backend as removed-backend', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[store]\nbackend = "norn"\n');
+  expect(readConfig(file).store).toEqual({ problem: 'removed-backend' });
 });
 
 test('readConfig carries a [store] url alongside the backend', () => {
@@ -221,7 +174,7 @@ test('readConfig carries a [store] url alongside the backend', () => {
 
 test('readConfig flags a wrong-shaped [store] url rather than dropping it', () => {
   // A Postgres install whose url is unusable must not quietly open the default
-  // vault instead — the same silent-wrong-store trap the backend word guards.
+  // local store instead — the same silent-wrong-store trap the backend word guards.
   const file = join(dir, 'config.toml');
   writeFileSync(file, '[store]\nbackend = "postgres"\nurl = 7\n');
   expect(readConfig(file).store).toEqual({ problem: 'invalid-url' });
@@ -231,20 +184,14 @@ test('readConfig flags a wrong-shaped [store] url rather than dropping it', () =
 
 test('an unknown key inside [store] stays an unknown-key no-op', () => {
   const file = join(dir, 'config.toml');
-  writeFileSync(file, '[store]\nartifacts = "norn"\n');
+  writeFileSync(file, '[store]\nartifacts = "files"\n');
   expect(readConfig(file).store).toEqual({});
 });
 
-test('writeConfig creates parents and round-trips a vault path + snapshot', () => {
+test('writeConfig creates parents and round-trips a serve port', () => {
   const file = join(dir, 'deep', 'mimir', 'config.toml');
-  writeConfig(file, {
-    vault: { path: '/v', snapshot: { interval: 300, upstream: 'git@host:me/v.git' } },
-  });
-  expect(readConfig(file)).toEqual({
-    serve: {},
-    store: {},
-    vault: { path: '/v', snapshot: { interval: 300, upstream: 'git@host:me/v.git' } },
-  });
+  writeConfig(file, { serve: { port: 50132 } });
+  expect(readConfig(file)).toEqual({ serve: { port: 50132 }, store: {} });
 });
 
 test('writeConfig leaves the config readable only by its owner', () => {
@@ -254,62 +201,43 @@ test('writeConfig leaves the config readable only by its owner', () => {
   // A pre-existing loose file is TIGHTENED, not merely left alone: an operator
   // who upgrades into this version gets the fix without doing anything.
   writeFileSync(file, '', { mode: 0o644 });
-  writeConfig(file, { vault: { path: '/v' } });
+  writeConfig(file, { serve: { port: 50133 } });
   expect(statSync(file).mode & 0o777).toBe(0o600);
 
   const fresh = join(dir, 'fresh', 'config.toml');
-  writeConfig(fresh, { vault: { path: '/v' } });
+  writeConfig(fresh, { serve: { port: 50133 } });
   expect(statSync(fresh).mode & 0o777).toBe(0o600);
 });
 
-test('writeConfig merges: a serve-port write preserves an existing [vault] path', () => {
+test('writeConfig preserves a leftover [vault] table verbatim', () => {
+  // No reader knows `[vault]` since ADR 0032, but the writer works on the raw
+  // TOML, so a port write leaves the table (sub-tables included) as it was.
   const file = join(dir, 'config.toml');
-  writeConfig(file, { vault: { path: '/v', snapshot: { interval: 900 } } });
-  writeConfig(file, { serve: { port: 50125 } });
-  expect(readConfig(file)).toEqual({
+  writeFileSync(file, '[vault]\npath = "/v"\n[vault.snapshot]\ninterval = 900\npush = false\n');
+  writeServePort(file, 50125);
+  expect(Bun.TOML.parse(readFileSync(file, 'utf8'))).toEqual({
     serve: { port: 50125 },
-    store: {},
-    vault: { path: '/v', snapshot: { interval: 900 } },
+    vault: { path: '/v', snapshot: { interval: 900, push: false } },
   });
-});
-
-test('writeConfig replaces the snapshot table authoritatively (a key can be dropped)', () => {
-  const file = join(dir, 'config.toml');
-  writeConfig(file, {
-    vault: { path: '/v', snapshot: { interval: 900, upstream: 'git@host:me/v.git' } },
-  });
-  // A subsequent snapshot write with no upstream clears it — the table is
-  // replaced, not per-key merged (setup relies on this to drop an upstream).
-  writeConfig(file, { vault: { snapshot: { interval: 1200 } } });
-  expect(readVaultConfig(file)).toEqual({ path: '/v', snapshot: { interval: 1200 } });
-});
-
-test('writeConfig leaves the snapshot table untouched when the patch omits it', () => {
-  const file = join(dir, 'config.toml');
-  writeConfig(file, { vault: { path: '/v', snapshot: { interval: 900 } } });
-  writeConfig(file, { serve: { port: 50127 } });
-  expect(readVaultConfig(file)).toEqual({ path: '/v', snapshot: { interval: 900 } });
 });
 
 test('writeConfig preserves a reader-rejected value rather than erasing its section', () => {
   const file = join(dir, 'config.toml');
-  // A hand-edited config whose snapshot has one invalid value alongside good
-  // ones. readConfig would collapse the whole sub-table to a problem; the writer
-  // must NOT propagate that loss when an unrelated [serve] port is written.
-  writeFileSync(file, '[vault]\npath = "/v"\n[vault.snapshot]\ninterval = 900\npush = "no"\n');
+  // A hand-edited config whose [store] has one invalid value alongside a good
+  // one. readConfig collapses the whole section to a problem; the writer must
+  // NOT propagate that loss when an unrelated [serve] port is written.
+  writeFileSync(file, '[store]\nbackend = "postgres"\nurl = 7\n');
+  expect(readConfig(file).store).toEqual({ problem: 'invalid-url' });
   writeServePort(file, 50128);
-  const round = Bun.TOML.parse(readFileSync(file, 'utf8')) as {
-    serve: { port: number };
-    vault: { path: string; snapshot: { interval: number; push: string } };
-  };
-  expect(round.serve.port).toBe(50128);
-  expect(round.vault.path).toBe('/v');
-  expect(round.vault.snapshot).toEqual({ interval: 900, push: 'no' });
+  expect(Bun.TOML.parse(readFileSync(file, 'utf8'))).toEqual({
+    serve: { port: 50128 },
+    store: { backend: 'postgres', url: 7 },
+  });
 });
 
 test('writeConfig treats an unparseable file as absent, rewrites it, and reports reset', () => {
   const file = join(dir, 'config.toml');
-  writeFileSync(file, '[vault]\npath = "/keep"\n[serve\nport = ???'); // broken TOML
+  writeFileSync(file, '[store]\nbackend = "postgres"\n[serve\nport = ???'); // broken TOML
   // Cannot merge into garbage — the write proceeds and overwrites it (matching
   // the prior whole-file writer), rather than throwing and stranding callers.
   // The loss is reported (reset) so callers can warn — it is never silent.
@@ -319,10 +247,10 @@ test('writeConfig treats an unparseable file as absent, rewrites it, and reports
 
 test('writeConfig reports reset=false for a parseable (even wrong-typed) file', () => {
   const file = join(dir, 'config.toml');
-  writeFileSync(file, '[vault]\npath = "/keep"\nserve = 5\n'); // valid TOML, wrong-typed serve
+  writeFileSync(file, 'serve = 5\n[store]\nbackend = "postgres"\n'); // valid TOML, wrong-typed serve
   expect(writeConfig(file, { serve: { port: 50131 } })).toEqual({ reset: false });
-  // The parseable vault path survives (merge, not clobber).
-  expect(readVaultConfig(file)).toEqual({ path: '/keep' });
+  // The parseable store backend survives (merge, not clobber).
+  expect(readConfig(file).store).toEqual({ backend: 'postgres' });
 });
 
 test('writeConfig preserves an unmanaged section with arrays, floats, and inline tables', () => {
@@ -353,15 +281,4 @@ test('writeConfig emits quoted keys so a space-containing key stays valid TOML',
   expect(round.serve.port).toBe(50131);
   expect(round['a b']).toEqual({ x: 1 });
   expect(round.m).toEqual([{ dst: '/b', 'src path': '/a' }]);
-});
-
-test('writeServePort no longer clobbers: an existing [vault] path survives', () => {
-  const file = join(dir, 'config.toml');
-  writeFileSync(file, '[vault]\npath = "/keep"\n');
-  writeServePort(file, 50126);
-  expect(readConfig(file)).toEqual({
-    serve: { port: 50126 },
-    store: {},
-    vault: { path: '/keep' },
-  });
 });

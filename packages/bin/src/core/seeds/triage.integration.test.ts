@@ -1,10 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { appendFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 
-import { bunExec } from '../../exec';
-import { converge } from '../../vault/converge';
+import { createTestStore } from '../../testing/store';
 import { deriveSet, findNodeInSet } from '../derive';
 import {
   blockTask,
@@ -16,21 +12,16 @@ import {
 } from '../index';
 import { resolveProjectKeyInSet } from '../resolve-set';
 import type { Store } from '../store';
-import { NornClient } from '../store-norn/client';
-import { createNornWriteStore } from '../store-norn/writer';
 import { fileSeed, promoteSeed, transitionSeed } from './intent';
 import { triage } from './triage';
 
 /**
- * The triage pass (MMR-246) against a real converged vault — the three checks,
+ * The triage pass (MMR-246) against a real store — the three checks,
  * idempotency, --dry-run, cross-board upstream resolution, and the blocked-task
- * unblock suggestion. Needs a `norn` binary; skipped when off PATH.
+ * unblock suggestion.
  */
-const NORN = Bun.which('norn') !== null;
-
-let root: string;
-let client: NornClient;
 let store: Store;
+let closeStore: () => Promise<void>;
 
 /** A phase (KEY-seq) under a fresh initiative — a valid `--parent` for promote,
  * and a container for the requester-side tasks that carry `upstream`. */
@@ -62,19 +53,14 @@ async function annotationsOf(ref: string): Promise<string[]> {
 }
 
 beforeEach(async () => {
-  root = mkdtempSync(join(tmpdir(), 'mimir-triage-'));
-  const vault = join(root, 'vault');
-  await converge(vault, { allowCreate: true, exec: bunExec });
-  client = new NornClient({ vaultPath: vault });
-  store = createNornWriteStore(client, vault);
+  ({ close: closeStore, store } = await createTestStore());
 });
 
 afterEach(async () => {
-  await client.close();
-  rmSync(root, { force: true, recursive: true });
+  await closeStore();
 });
 
-describe.skipIf(!NORN)('triage pass', () => {
+describe('triage pass', () => {
   test('(a) surfaces new/untriaged seeds and (b) flags ready-to-resolve', async () => {
     const { phaseRef } = await seedbed();
     // Two untriaged (new) seeds.
@@ -267,61 +253,6 @@ describe.skipIf(!NORN)('triage pass', () => {
       message = error instanceof Error ? error.message : String(error);
     }
     expect(message).toMatch(/NOPE doesn't exist/);
-  });
-
-  test('a corrupt ## Annotations anchor is quarantined into failures[] — the pass never aborts', async () => {
-    const { phaseRef } = await seedbed();
-    await fileSeed(store, { kind: 'bug', project: 'MMR', requester: null, title: 'ask1' });
-    await fileSeed(store, { kind: 'bug', project: 'MMR', requester: null, title: 'ask2' });
-    const bad = await createTask(store, {
-      parentId: await idOf(phaseRef),
-      title: 'bad',
-      upstream: 'MMR-s1',
-    });
-    const good = await createTask(store, {
-      parentId: await idOf(phaseRef),
-      title: 'good',
-      upstream: 'MMR-s2',
-    });
-    const badRef = `MMR-${String(bad.seq)}`;
-    const goodRef = `MMR-${String(good.seq)}`;
-    await transitionSeed(store, 'MMR-s1', 'resolved', 'shipped');
-    await transitionSeed(store, 'MMR-s2', 'resolved', 'shipped too');
-    // Corrupt the bad task's anchor: a duplicate `## Annotations` heading → norn
-    // can't resolve it (ambiguous), so an append would refuse (the old abort).
-    const badPath = join(root, 'vault', 'MMR', `${badRef}.md`);
-    appendFileSync(badPath, '\n## Annotations\n');
-
-    const report = await triage(store, { board: 'MMR' });
-
-    // The corrupt task is quarantined (→ doctor), not annotated; nothing was written.
-    expect(report.failures.map((f) => f.task)).toContain(badRef);
-    expect(report.failures.find((f) => f.task === badRef)?.message).toMatch(/doctor/);
-    expect(readFileSync(badPath, 'utf8')).not.toContain('upstream MMR-s1 resolved');
-    // The healthy task alongside it is still reconciled — one bad task never aborts.
-    expect(report.upstreamResolutions.map((r) => r.task)).toEqual([goodRef]);
-    expect(await annotationsOf(goodRef)).toContain('upstream MMR-s2 resolved: shipped too');
-  });
-
-  test('a corrupt anchor on a task with a LIVE (non-terminal) upstream is NOT quarantined — nothing to reconcile', async () => {
-    const { phaseRef } = await seedbed();
-    await fileSeed(store, { kind: 'bug', project: 'MMR', requester: null, title: 'ask1' });
-    const task = await createTask(store, {
-      parentId: await idOf(phaseRef),
-      title: 'still waiting',
-      upstream: 'MMR-s1',
-    });
-    const taskRef = `MMR-${String(task.seq)}`;
-    // Corrupt the anchor, but the upstream seed never goes terminal — no annotation
-    // would ever be written for this task, so the corruption is irrelevant to triage.
-    const taskPath = join(root, 'vault', 'MMR', `${taskRef}.md`);
-    appendFileSync(taskPath, '\n## Annotations\n');
-
-    const report = await triage(store, { board: 'MMR' });
-
-    // Nothing to reconcile here — the corrupt anchor must NOT surface as a failure.
-    expect(report.failures).toHaveLength(0);
-    expect(report.upstreamResolutions).toHaveLength(0);
   });
 
   test('a task with a dangling upstream ref is skipped gracefully', async () => {

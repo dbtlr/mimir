@@ -1,4 +1,4 @@
-import { expect, setDefaultTimeout, test } from 'bun:test';
+import { describe, expect, setDefaultTimeout, test } from 'bun:test';
 
 import { backends, refusalOf, seedWorkingSet, withoutStamp } from '../testing/conformance';
 import { createProject } from './create';
@@ -348,96 +348,90 @@ const invalidCases: InvalidCase[] = [
 ];
 
 // Each backend receives the same faults in preview, apply, and resume.
-for (const backend of backends) {
-  test.skipIf(backend.skip)(
-    `${backend.name}: malformed transfer documents refuse without changing the target`,
-    async () => {
-      const source = await backend.make();
+describe.each(backends)('$name', (backend) => {
+  test('malformed transfer documents refuse without changing the target', async () => {
+    const source = await backend.make();
+    try {
+      const target = await backend.make();
       try {
-        const target = await backend.make();
-        try {
-          await seedWorkingSet(source.store);
-          const document = await source.store.export();
-          await createProject(target.store, { description: null, key: 'KEEP', name: 'Untouched' });
-          const before = withoutStamp(await target.store.export());
-          for (const scenario of invalidCases) {
-            const malformed = scenario.change(structuredClone(document));
-            const refusal = await refusalOf(
-              target.store.import(malformed, { dryRun: true, mode: 'fresh' }),
-            );
-            expect(refusal, scenario.name).toContain(scenario.field);
-            expect(refusal, scenario.name).toContain('invalid transfer document');
-            for (const mode of ['fresh', 'resume'] as const) {
-              for (const dryRun of [true, false]) {
-                expect(
-                  await refusalOf(target.store.import(malformed, { dryRun, mode })),
-                  scenario.name,
-                ).toBe(refusal);
-                expect(withoutStamp(await target.store.export()), scenario.name).toEqual(before);
-              }
+        await seedWorkingSet(source.store);
+        const document = await source.store.export();
+        await createProject(target.store, { description: null, key: 'KEEP', name: 'Untouched' });
+        const before = withoutStamp(await target.store.export());
+        for (const scenario of invalidCases) {
+          const malformed = scenario.change(structuredClone(document));
+          const refusal = await refusalOf(
+            target.store.import(malformed, { dryRun: true, mode: 'fresh' }),
+          );
+          expect(refusal, scenario.name).toContain(scenario.field);
+          expect(refusal, scenario.name).toContain('invalid transfer document');
+          for (const mode of ['fresh', 'resume'] as const) {
+            for (const dryRun of [true, false]) {
+              expect(
+                await refusalOf(target.store.import(malformed, { dryRun, mode })),
+                scenario.name,
+              ).toBe(refusal);
+              expect(withoutStamp(await target.store.export()), scenario.name).toEqual(before);
             }
           }
-        } finally {
-          await target.close();
         }
       } finally {
-        await source.close();
+        await target.close();
       }
-    },
-  );
-  test.skipIf(backend.skip)(
-    `${backend.name}: imports cross-project dependencies and preserves legacy facts`,
-    async () => {
-      const source = await backend.make();
+    } finally {
+      await source.close();
+    }
+  });
+  test('imports cross-project dependencies and preserves legacy facts', async () => {
+    const source = await backend.make();
+    try {
+      const target = await backend.make();
       try {
-        const target = await backend.make();
-        try {
-          await seedWorkingSet(source.store);
-          const document = await source.store.export();
-          const task = document.nodes.find((node) => node.type === 'task');
-          if (task === undefined) {
-            throw new Error('fixture needs a task');
-          }
-          const compatible: StoreExport = {
-            ...document,
-            artifacts: document.artifacts.map((artifact) => ({
-              ...artifact,
-              source_scratch: '123e4567-e89b-42d3-a456-426614174099',
-              updated_at: '',
-            })),
-            edges: [{ depends_on_node_id: 'OPS-1', node_id: 'MMR-3' }, ...document.edges],
-            nodes: [
-              ...document.nodes,
-              {
-                ...task,
-                id: 'OPS-1',
-                parent_id: null,
-                project_id: 'OPS',
-                seq: 1,
-                upstream: 'OLD-s1',
-              },
-            ],
-            projects: document.projects.map((project) =>
-              project.key === 'OPS'
-                ? { ...project, counters: { ...project.counters, node: 1 } }
-                : project,
-            ),
-            seeds: document.seeds.map((seed) => Object.assign(seed, { requester: 'OLD' })),
-          };
-          await target.store.import(compatible, { dryRun: false, mode: 'fresh' });
-          expect(withoutStamp(await target.store.export())).toEqual(withoutStamp(compatible));
-          expect(
-            (await target.store.import(compatible, { dryRun: false, mode: 'resume' })).created,
-          ).toBe(0);
-        } finally {
-          await target.close();
+        await seedWorkingSet(source.store);
+        const document = await source.store.export();
+        const task = document.nodes.find((node) => node.type === 'task');
+        if (task === undefined) {
+          throw new Error('fixture needs a task');
         }
+        const compatible: StoreExport = {
+          ...document,
+          artifacts: document.artifacts.map((artifact) => ({
+            ...artifact,
+            source_scratch: '123e4567-e89b-42d3-a456-426614174099',
+            updated_at: '',
+          })),
+          edges: [{ depends_on_node_id: 'OPS-1', node_id: 'MMR-3' }, ...document.edges],
+          nodes: [
+            ...document.nodes,
+            {
+              ...task,
+              id: 'OPS-1',
+              parent_id: null,
+              project_id: 'OPS',
+              seq: 1,
+              upstream: 'OLD-s1',
+            },
+          ],
+          projects: document.projects.map((project) =>
+            project.key === 'OPS'
+              ? { ...project, counters: { ...project.counters, node: 1 } }
+              : project,
+          ),
+          seeds: document.seeds.map((seed) => Object.assign(seed, { requester: 'OLD' })),
+        };
+        await target.store.import(compatible, { dryRun: false, mode: 'fresh' });
+        expect(withoutStamp(await target.store.export())).toEqual(withoutStamp(compatible));
+        expect(
+          (await target.store.import(compatible, { dryRun: false, mode: 'resume' })).created,
+        ).toBe(0);
       } finally {
-        await source.close();
+        await target.close();
       }
-    },
-  );
-}
+    } finally {
+      await source.close();
+    }
+  });
+});
 
 /** Corrupt a real exported record without claiming the result is a typed record. */
 function patchFirst(rows: readonly object[], patch: Record<string, unknown>): unknown[] {

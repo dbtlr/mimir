@@ -3,7 +3,8 @@
 ## `/api/health` is a liveness ping, not a store check
 
 `GET /api/health` returns `{ status: 'ok', version, schema }` unconditionally
-— it never touches the vault or the store. A `200` from `/api/health` tells
+— it never touches the store. `schema` is the SQL store schema version this
+binary expects. A `200` from `/api/health` tells
 you the HTTP server is up and which build/schema it is; it tells you nothing
 about whether the store behind it is usable. Don't use it as a "is mimir
 healthy" probe.
@@ -31,14 +32,15 @@ status:
 | `invariant`  | 409         |
 
 A `409` from the HTTP surface carries one of two codes, and only one of them
-means trouble. `invariant` is the broken-store signal: raised by the Norn
-layer (`packages/bin/src/core/store-norn/*`) when the vault's own
-consistency guarantees are violated (a referenced node vanished
-mid-transaction, a stem resolved unexpectedly, and so on); the message on the
-envelope is that Norn error, verbatim — read it, don't guess. `conflict`, by
+means trouble. `invariant` is the broken-store signal: raised by the SQL store
+(`packages/bin/src/core/store-sql/*`) when its own
+consistency guarantees are violated (the schema is missing or does not match
+this binary, a scratchpad produced more than one artifact, and so on); the
+message on the envelope says what failed, and its remedy line says what to do
+— read it, don't guess. `conflict`, by
 contrast, is an ordinary state clash — a duplicate key, an idempotent
 archive/unarchive replay, a write refused because the current state already
-moved — resolved by adjusting the request, not by repairing the vault. A
+moved — resolved by adjusting the request, not by repairing the store. A
 `400` (`validation`) is an ordinary tool-level refusal: a malformed request
 body, a missing required field, an unknown enum value. Reserve the "something
-is wrong with the vault" reading for `409` + `invariant`.
+is wrong with the store" reading for `409` + `invariant`.

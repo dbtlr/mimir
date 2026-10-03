@@ -13,17 +13,15 @@ import {
   findNodeInSet,
 } from '../core';
 import type { Store } from '../core';
+import { SCHEMA_VERSION } from '../core/store-sql/migrator';
 import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
-import { VAULT_SCHEMA } from '../vault';
 import { createServer } from './server';
 
 /**
  * The resource envelope end-to-end: a real server on an ephemeral loopback
- * port over a real Norn-backed vault — requests exercise routing, parsing, the
+ * port over a real in-memory store — requests exercise routing, parsing, the
  * envelope, status mapping, and CORS exactly as a UI would.
  */
-
-const NORN = Bun.which('norn') !== null;
 
 let store: Store;
 let closeStore: () => Promise<void>;
@@ -88,20 +86,17 @@ const errorCode = (body: Rec): string => (body.error as { code: string }).code;
 // Health
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)(
-  'GET /api/health reports ok, the serving version, and the vault schema',
-  async () => {
-    const res = await get('/api/health');
-    expect(res.status).toBe(200);
-    expect(await parse(res)).toEqual({ schema: VAULT_SCHEMA, status: 'ok', version: '0.0.0-test' });
-  },
-);
+test('GET /api/health reports ok, the serving version, and the store schema', async () => {
+  const res = await get('/api/health');
+  expect(res.status).toBe(200);
+  expect(await parse(res)).toEqual({ schema: SCHEMA_VERSION, status: 'ok', version: '0.0.0-test' });
+});
 
 // ---------------------------------------------------------------------------
 // Projects
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)('GET /api/projects lists every project with its rollup', async () => {
+test('GET /api/projects lists every project with its rollup', async () => {
   const res = await get('/api/projects');
   expect(res.status).toBe(200);
   const body = await parse(res);
@@ -111,136 +106,106 @@ test.skipIf(!NORN)('GET /api/projects lists every project with its rollup', asyn
   expect(items[0]?.distribution).toBeDefined();
 });
 
-test.skipIf(!NORN)(
-  'GET /api/projects carries the attention facet in snake_case (MMR-101)',
-  async () => {
-    const res = await get('/api/projects');
-    const items = (await parse(res)).items as Rec[];
-    // both seeded projects have only fresh (ready) leaf tasks → the live lane
-    const attention = items[0]?.attention as Rec;
-    expect(attention).toBeDefined();
-    expect(attention.lane).toBe('live');
-    expect(typeof attention.last_activity).toBe('string');
-    expect(attention.stale).toBe(false);
-  },
-);
+test('GET /api/projects carries the attention facet in snake_case (MMR-101)', async () => {
+  const res = await get('/api/projects');
+  const items = (await parse(res)).items as Rec[];
+  // both seeded projects have only fresh (ready) leaf tasks → the live lane
+  const attention = items[0]?.attention as Rec;
+  expect(attention).toBeDefined();
+  expect(attention.lane).toBe('live');
+  expect(typeof attention.last_activity).toBe('string');
+  expect(attention.stale).toBe(false);
+});
 
-test.skipIf(!NORN)(
-  'GET /api/projects carries the leaf_counts facet for the card vitals (MMR-105)',
-  async () => {
-    const res = await get('/api/projects');
-    const items = (await parse(res)).items as Rec[];
-    // MMR's two seeded leaf tasks are both fresh → ready: 2 (snake_case wire key)
-    expect(items[0]?.id).toBe('MMR');
-    expect(items[0]?.leaf_counts).toEqual({ ready: 2 });
-  },
-);
+test('GET /api/projects carries the leaf_counts facet for the card vitals (MMR-105)', async () => {
+  const res = await get('/api/projects');
+  const items = (await parse(res)).items as Rec[];
+  // MMR's two seeded leaf tasks are both fresh → ready: 2 (snake_case wire key)
+  expect(items[0]?.id).toBe('MMR');
+  expect(items[0]?.leaf_counts).toEqual({ ready: 2 });
+});
 
-test.skipIf(!NORN)(
-  'POST /api/projects creates and echoes the project record; duplicate keys conflict',
-  async () => {
-    const created = await send('POST', '/api/projects', { key: 'ZZZ', name: 'zed' });
-    expect(created.status).toBe(201);
-    expect((await parse(created)).id).toBe('ZZZ');
+test('POST /api/projects creates and echoes the project record; duplicate keys conflict', async () => {
+  const created = await send('POST', '/api/projects', { key: 'ZZZ', name: 'zed' });
+  expect(created.status).toBe(201);
+  expect((await parse(created)).id).toBe('ZZZ');
 
-    const dup = await send('POST', '/api/projects', { key: 'MMR', name: 'again' });
-    expect(dup.status).toBe(409);
-  },
-);
+  const dup = await send('POST', '/api/projects', { key: 'MMR', name: 'again' });
+  expect(dup.status).toBe(409);
+});
 
-test.skipIf(!NORN)(
-  'POST /api/projects with description stores and echoes it (MMR-88)',
-  async () => {
-    const res = await send('POST', '/api/projects', {
-      description: 'stores desc',
-      key: 'DSC',
-      name: 'Described',
-    });
-    expect(res.status).toBe(201);
-    const body = await parse(res);
-    expect(body.description).toBe('stores desc');
-  },
-);
+test('POST /api/projects with description stores and echoes it (MMR-88)', async () => {
+  const res = await send('POST', '/api/projects', {
+    description: 'stores desc',
+    key: 'DSC',
+    name: 'Described',
+  });
+  expect(res.status).toBe(201);
+  const body = await parse(res);
+  expect(body.description).toBe('stores desc');
+});
 
-test.skipIf(!NORN)(
-  'GET /api/projects/:key returns the project record; a node ref is rejected',
-  async () => {
-    const res = await get('/api/projects/MMR');
-    expect(res.status).toBe(200);
-    const body = await parse(res);
-    expect(body.type).toBe('project');
-    expect(body.children).toBeDefined();
+test('GET /api/projects/:key returns the project record; a node ref is rejected', async () => {
+  const res = await get('/api/projects/MMR');
+  expect(res.status).toBe(200);
+  const body = await parse(res);
+  expect(body.type).toBe('project');
+  expect(body.children).toBeDefined();
 
-    const wrong = await get(`/api/projects/${task1}`);
-    expect(wrong.status).toBe(400);
-  },
-);
+  const wrong = await get(`/api/projects/${task1}`);
+  expect(wrong.status).toBe(400);
+});
 
-test.skipIf(!NORN)(
-  'PATCH /api/projects/:key patches name and description, echoes updated record (MMR-88)',
-  async () => {
-    const res = await send('PATCH', '/api/projects/MMR', {
-      description: 'work tracker',
-      name: 'Mimir Renamed',
-    });
-    expect(res.status).toBe(200);
-    const body = await parse(res);
-    expect(body.type).toBe('project');
-    expect(body.id).toBe('MMR');
-    expect(body.title).toBe('Mimir Renamed');
-    expect(body.description).toBe('work tracker');
-  },
-);
+test('PATCH /api/projects/:key patches name and description, echoes updated record (MMR-88)', async () => {
+  const res = await send('PATCH', '/api/projects/MMR', {
+    description: 'work tracker',
+    name: 'Mimir Renamed',
+  });
+  expect(res.status).toBe(200);
+  const body = await parse(res);
+  expect(body.type).toBe('project');
+  expect(body.id).toBe('MMR');
+  expect(body.title).toBe('Mimir Renamed');
+  expect(body.description).toBe('work tracker');
+});
 
-test.skipIf(!NORN)(
-  'PATCH /api/projects/:key accepts title as alias for name (MMR-88)',
-  async () => {
-    const res = await send('PATCH', '/api/projects/MMR', { title: 'Via title' });
-    expect(res.status).toBe(200);
-    expect((await parse(res)).title).toBe('Via title');
-  },
-);
+test('PATCH /api/projects/:key accepts title as alias for name (MMR-88)', async () => {
+  const res = await send('PATCH', '/api/projects/MMR', { title: 'Via title' });
+  expect(res.status).toBe(200);
+  expect((await parse(res)).title).toBe('Via title');
+});
 
-test.skipIf(!NORN)(
-  'PATCH /api/projects/:key on a non-existent project returns 404 (MMR-88)',
-  async () => {
-    const res = await send('PATCH', '/api/projects/NOPE', { name: 'x' });
-    expect(res.status).toBe(404);
-    expect(errorCode(await parse(res))).toBe('not_found');
-  },
-);
+test('PATCH /api/projects/:key on a non-existent project returns 404 (MMR-88)', async () => {
+  const res = await send('PATCH', '/api/projects/NOPE', { name: 'x' });
+  expect(res.status).toBe(404);
+  expect(errorCode(await parse(res))).toBe('not_found');
+});
 
-test.skipIf(!NORN)(
-  'PATCH /api/projects/:key with a node ref key returns 400 (MMR-88)',
-  async () => {
-    const res = await send('PATCH', `/api/projects/${task1}`, { name: 'x' });
-    expect(res.status).toBe(400);
-  },
-);
+test('PATCH /api/projects/:key with a node ref key returns 400 (MMR-88)', async () => {
+  const res = await send('PATCH', `/api/projects/${task1}`, { name: 'x' });
+  expect(res.status).toBe(400);
+});
 
-test.skipIf(!NORN)(
-  'GET /api/projects/:key/tree nests the full hierarchy in board order',
-  async () => {
-    // Move task2 to the top of the rank order; the tree must reflect it positionally.
-    await send('POST', `/api/nodes/${task2}/reorder`, { position: 'top' });
+test('GET /api/projects/:key/tree nests the full hierarchy in board order', async () => {
+  // Move task2 to the top of the rank order; the tree must reflect it positionally.
+  await send('POST', `/api/nodes/${task2}/reorder`, { position: 'top' });
 
-    const res = await get('/api/projects/MMR/tree');
-    expect(res.status).toBe(200);
-    const root = await parse(res);
-    expect(root.id).toBe('MMR');
-    const initiatives = root.children as Rec[];
-    expect(initiatives.map((n) => n.id)).toEqual([initiativeRef]);
-    const phases = initiatives[0]?.children as Rec[];
-    expect(phases.map((n) => n.id)).toEqual([phaseRef]);
-    const tasks = phases[0]?.children as Rec[];
-    expect(tasks.map((n) => n.id)).toEqual([task2, task1]);
-    // Rank is array order, never a field; verdicts ride every record.
-    expect(tasks[0]).not.toContainKey('rank');
-    expect(tasks[0]?.verdicts).toEqual({ blocking: false, orphaned: false, stale: false });
-  },
-);
+  const res = await get('/api/projects/MMR/tree');
+  expect(res.status).toBe(200);
+  const root = await parse(res);
+  expect(root.id).toBe('MMR');
+  const initiatives = root.children as Rec[];
+  expect(initiatives.map((n) => n.id)).toEqual([initiativeRef]);
+  const phases = initiatives[0]?.children as Rec[];
+  expect(phases.map((n) => n.id)).toEqual([phaseRef]);
+  const tasks = phases[0]?.children as Rec[];
+  expect(tasks.map((n) => n.id)).toEqual([task2, task1]);
+  // Rank is array order, never a field; verdicts ride every record.
+  expect(tasks[0]).not.toContainKey('rank');
+  expect(tasks[0]?.verdicts).toEqual({ blocking: false, orphaned: false, stale: false });
+});
 
-test.skipIf(!NORN)('GET /api/projects/:key/tree 404s on an unknown project', async () => {
+test('GET /api/projects/:key/tree 404s on an unknown project', async () => {
   const res = await get('/api/projects/NOPE/tree');
   expect(res.status).toBe(404);
   expect(errorCode(await parse(res))).toBe('not_found');
@@ -248,7 +213,7 @@ test.skipIf(!NORN)('GET /api/projects/:key/tree 404s on an unknown project', asy
 
 // The composite orientation surface as a resource read (MMR-322) — the same
 // wire envelope the CLI `-f json` and the MCP `overview` tool emit.
-test.skipIf(!NORN)('GET /api/projects/:key/overview serves the composite envelope', async () => {
+test('GET /api/projects/:key/overview serves the composite envelope', async () => {
   const res = await get('/api/projects/MMR/overview');
   expect(res.status).toBe(200);
   const body = await parse(res);
@@ -260,20 +225,20 @@ test.skipIf(!NORN)('GET /api/projects/:key/overview serves the composite envelop
   expect((body.hygiene as Rec).listings).toEqual({ blocked: [], stale: [], untriaged: [] });
 });
 
-test.skipIf(!NORN)('GET /api/projects/:key/overview 404s on an unknown project', async () => {
+test('GET /api/projects/:key/overview 404s on an unknown project', async () => {
   const res = await get('/api/projects/NOPE/overview');
   expect(res.status).toBe(404);
   expect(errorCode(await parse(res))).toBe('not_found');
 });
 
-test.skipIf(!NORN)('GET /api/projects/:key/overview 404s on an archived project', async () => {
+test('GET /api/projects/:key/overview 404s on an archived project', async () => {
   expect((await send('POST', '/api/projects/MMR/archive')).status).toBe(200);
   const res = await get('/api/projects/MMR/overview');
   expect(res.status).toBe(404);
   expect(errorCode(await parse(res))).toBe('not_found');
 });
 
-test.skipIf(!NORN)('GET /api/projects/:key/overview rejects a node ref key', async () => {
+test('GET /api/projects/:key/overview rejects a node ref key', async () => {
   const res = await get(`/api/projects/${task1}/overview`);
   expect(res.status).toBe(400);
   expect(errorCode(await parse(res))).toBe('validation');
@@ -283,19 +248,16 @@ test.skipIf(!NORN)('GET /api/projects/:key/overview rejects a node ref key', asy
 // Nodes — collection
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)(
-  'GET /api/nodes is cross-project and includes containers by default',
-  async () => {
-    const body = await parse(await get('/api/nodes'));
-    const ids = (body.items as Rec[]).map((n) => n.id);
-    expect(ids).toContain(task1);
-    expect(ids).toContain(otherTask);
-    expect(ids).toContain(phaseRef);
-    expect(ids).toContain(initiativeRef);
-  },
-);
+test('GET /api/nodes is cross-project and includes containers by default', async () => {
+  const body = await parse(await get('/api/nodes'));
+  const ids = (body.items as Rec[]).map((n) => n.id);
+  expect(ids).toContain(task1);
+  expect(ids).toContain(otherTask);
+  expect(ids).toContain(phaseRef);
+  expect(ids).toContain(initiativeRef);
+});
 
-test.skipIf(!NORN)('GET /api/nodes?type= and ?project= narrow the selection', async () => {
+test('GET /api/nodes?type= and ?project= narrow the selection', async () => {
   const tasks = await parse(await get('/api/nodes?type=task'));
   const taskIds = (tasks.items as Rec[]).map((n) => n.id);
   expect(taskIds).toContain(task1);
@@ -307,37 +269,31 @@ test.skipIf(!NORN)('GET /api/nodes?type= and ?project= narrow the selection', as
   expect(scopedIds).not.toContain(task1);
 });
 
-test.skipIf(!NORN)(
-  'GET /api/nodes?q= filters by title substring, case-insensitive (MMR-78)',
-  async () => {
-    // "FIR" lowercases to a substring of "first" (task1) but not "elsewhere" (otherTask)
-    const hit = await parse(await get('/api/nodes?q=FIR'));
-    const ids = (hit.items as Rec[]).map((n) => n.id);
-    expect(ids).toContain(task1);
-    expect(ids).not.toContain(otherTask);
+test('GET /api/nodes?q= filters by title substring, case-insensitive (MMR-78)', async () => {
+  // "FIR" lowercases to a substring of "first" (task1) but not "elsewhere" (otherTask)
+  const hit = await parse(await get('/api/nodes?q=FIR'));
+  const ids = (hit.items as Rec[]).map((n) => n.id);
+  expect(ids).toContain(task1);
+  expect(ids).not.toContain(otherTask);
 
-    const miss = await parse(await get('/api/nodes?q=zzz'));
-    expect((miss.items as Rec[]).length).toBe(0);
-  },
-);
+  const miss = await parse(await get('/api/nodes?q=zzz'));
+  expect((miss.items as Rec[]).length).toBe(0);
+});
 
-test.skipIf(!NORN)(
-  'GET /api/nodes?status= selects the universe; terminal tasks appear under all',
-  async () => {
-    await send('POST', `/api/nodes/${task1}/done`);
+test('GET /api/nodes?status= selects the universe; terminal tasks appear under all', async () => {
+  await send('POST', `/api/nodes/${task1}/done`);
 
-    const live = await parse(await get('/api/nodes?type=task'));
-    expect((live.items as Rec[]).map((n) => n.id)).not.toContain(task1);
+  const live = await parse(await get('/api/nodes?type=task'));
+  expect((live.items as Rec[]).map((n) => n.id)).not.toContain(task1);
 
-    const all = await parse(await get('/api/nodes?type=task&status=all'));
-    expect((all.items as Rec[]).map((n) => n.id)).toContain(task1);
+  const all = await parse(await get('/api/nodes?type=task&status=all'));
+  expect((all.items as Rec[]).map((n) => n.id)).toContain(task1);
 
-    const done = await parse(await get('/api/nodes?type=task&status=done'));
-    expect((done.items as Rec[]).map((n) => n.id)).toEqual([task1]);
-  },
-);
+  const done = await parse(await get('/api/nodes?type=task&status=done'));
+  expect((done.items as Rec[]).map((n) => n.id)).toEqual([task1]);
+});
 
-test.skipIf(!NORN)('GET /api/nodes?status= accepts a comma-separated union (MMR-228)', async () => {
+test('GET /api/nodes?status= accepts a comma-separated union (MMR-228)', async () => {
   await send('POST', `/api/nodes/${task1}/done`);
 
   const union = await parse(await get('/api/nodes?type=task&status=ready,done'));
@@ -351,7 +307,7 @@ test.skipIf(!NORN)('GET /api/nodes?status= accepts a comma-separated union (MMR-
   expect(none.items).toEqual([]);
 });
 
-test.skipIf(!NORN)('a bad status value is a warning and an empty set, not an error', async () => {
+test('a bad status value is a warning and an empty set, not an error', async () => {
   const res = await get('/api/nodes?status=bogus');
   expect(res.status).toBe(200);
   const body = await parse(res);
@@ -361,52 +317,46 @@ test.skipIf(!NORN)('a bad status value is a warning and an empty set, not an err
   expect(warnings[0]?.expected).toContain('live');
 });
 
-test.skipIf(!NORN)(
-  'list rows carry the home facet: project key + parent title/∞ (MMR-228)',
-  async () => {
-    // A standing (open-ended) home to exercise the ∞ marker field.
-    const set = deriveSet(await store.loadWorkingSet());
-    const init = findNodeInSet(set, initiativeRef);
-    if (init === undefined) {
-      throw new Error('fixture initiative missing');
-    }
-    const standing = await createPhase(store, {
-      openEnded: true,
-      parentId: init.id,
-      title: 'Bugs',
-    });
-    await createTask(store, { parentId: standing.id, title: 'flaky test' });
+test('list rows carry the home facet: project key + parent title/∞ (MMR-228)', async () => {
+  // A standing (open-ended) home to exercise the ∞ marker field.
+  const set = deriveSet(await store.loadWorkingSet());
+  const init = findNodeInSet(set, initiativeRef);
+  if (init === undefined) {
+    throw new Error('fixture initiative missing');
+  }
+  const standing = await createPhase(store, {
+    openEnded: true,
+    parentId: init.id,
+    title: 'Bugs',
+  });
+  await createTask(store, { parentId: standing.id, title: 'flaky test' });
 
-    const body = await parse(await get('/api/nodes?type=task'));
-    const rows = body.items as Rec[];
-    const first = rows.find((n) => n.id === task1);
-    expect(first?.home).toEqual({
-      parent_id: phaseRef,
-      parent_open_ended: null,
-      parent_title: 'phase 4',
-      project_key: 'MMR',
-    });
-    const filed = rows.find((n) => n.title === 'flaky test');
-    const filedHome = filed?.home as Rec | undefined;
-    expect(filedHome?.parent_open_ended).toBe(true);
-    expect(filedHome?.parent_title).toBe('Bugs');
-  },
-);
+  const body = await parse(await get('/api/nodes?type=task'));
+  const rows = body.items as Rec[];
+  const first = rows.find((n) => n.id === task1);
+  expect(first?.home).toEqual({
+    parent_id: phaseRef,
+    parent_open_ended: null,
+    parent_title: 'phase 4',
+    project_key: 'MMR',
+  });
+  const filed = rows.find((n) => n.title === 'flaky test');
+  const filedHome = filed?.home as Rec | undefined;
+  expect(filedHome?.parent_open_ended).toBe(true);
+  expect(filedHome?.parent_title).toBe('Bugs');
+});
 
-test.skipIf(!NORN)(
-  'one bad token in a status union voids the selection with a warning (MMR-228)',
-  async () => {
-    const res = await get('/api/nodes?status=ready,bogus');
-    expect(res.status).toBe(200);
-    const body = await parse(res);
-    expect(body.items).toEqual([]);
-    const warnings = body.warnings as Rec[];
-    expect(warnings[0]?.field).toBe('status');
-    expect(warnings[0]?.value).toBe('bogus');
-  },
-);
+test('one bad token in a status union voids the selection with a warning (MMR-228)', async () => {
+  const res = await get('/api/nodes?status=ready,bogus');
+  expect(res.status).toBe(200);
+  const body = await parse(res);
+  expect(body.items).toEqual([]);
+  const warnings = body.warnings as Rec[];
+  expect(warnings[0]?.field).toBe('status');
+  expect(warnings[0]?.value).toBe('bogus');
+});
 
-test.skipIf(!NORN)('field operators filter; a bad field is a structural 400', async () => {
+test('field operators filter; a bad field is a structural 400', async () => {
   const p1 = await parse(await get('/api/nodes?eq=priority:p1'));
   expect((p1.items as Rec[]).map((n) => n.id)).toEqual([task2]);
 
@@ -415,115 +365,97 @@ test.skipIf(!NORN)('field operators filter; a bad field is a structural 400', as
   expect(errorCode(await parse(bad))).toBe('validation');
 });
 
-test.skipIf(!NORN)(
-  'an unknown verdict and a bad limit are structural 400s; limit truncates',
-  async () => {
-    expect((await get('/api/nodes?is=bogus')).status).toBe(400);
-    expect((await get('/api/nodes?limit=zero')).status).toBe(400);
+test('an unknown verdict and a bad limit are structural 400s; limit truncates', async () => {
+  expect((await get('/api/nodes?is=bogus')).status).toBe(400);
+  expect((await get('/api/nodes?limit=zero')).status).toBe(400);
 
-    const limited = await parse(await get('/api/nodes?type=task&limit=1'));
-    expect((limited.items as Rec[]).length).toBe(1);
-    expect(limited.total as number).toBeGreaterThan(1);
-  },
-);
+  const limited = await parse(await get('/api/nodes?type=task&limit=1'));
+  expect((limited.items as Rec[]).length).toBe(1);
+  expect(limited.total as number).toBeGreaterThan(1);
+});
 
 // ---------------------------------------------------------------------------
 // Nodes — detail
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)(
-  'GET /api/nodes/:id returns the full record: verdicts on, artifacts listed, no rank field',
-  async () => {
-    const body = await parse(await get(`/api/nodes/${task1}`));
-    expect(body.id).toBe(task1);
-    expect(body.verdicts).toEqual({ blocking: false, orphaned: false, stale: false });
-    expect(body.tags).toEqual([]);
-    expect(body.artifacts).toEqual([]);
-    expect(body.history).toEqual([]);
-    expect(body).not.toContainKey('rank');
-  },
-);
+test('GET /api/nodes/:id returns the full record: verdicts on, artifacts listed, no rank field', async () => {
+  const body = await parse(await get(`/api/nodes/${task1}`));
+  expect(body.id).toBe(task1);
+  expect(body.verdicts).toEqual({ blocking: false, orphaned: false, stale: false });
+  expect(body.tags).toEqual([]);
+  expect(body.artifacts).toEqual([]);
+  expect(body.history).toEqual([]);
+  expect(body).not.toContainKey('rank');
+});
 
-test.skipIf(!NORN)(
-  'GET /api/nodes/:id carries the transition history facet (oldest-first, with reasons)',
-  async () => {
-    await send('POST', `/api/nodes/${task1}/start`);
-    await send('POST', `/api/nodes/${task1}/park`, { reason: 'later' });
-    const body = await parse(await get(`/api/nodes/${task1}`));
-    const history = body.history as Rec[];
-    expect(history.length).toBeGreaterThanOrEqual(2);
-    // oldest-first: the lifecycle start precedes the hold
-    expect(history[0]).toMatchObject({ kind: 'lifecycle', to: 'in_progress' });
-    const park = history.find((h) => h.kind === 'hold' && h.to === 'parked');
-    expect(park).toMatchObject({ reason: 'later' });
-  },
-);
+test('GET /api/nodes/:id carries the transition history facet (oldest-first, with reasons)', async () => {
+  await send('POST', `/api/nodes/${task1}/start`);
+  await send('POST', `/api/nodes/${task1}/park`, { reason: 'later' });
+  const body = await parse(await get(`/api/nodes/${task1}`));
+  const history = body.history as Rec[];
+  expect(history.length).toBeGreaterThanOrEqual(2);
+  // oldest-first: the lifecycle start precedes the hold
+  expect(history[0]).toMatchObject({ kind: 'lifecycle', to: 'in_progress' });
+  const park = history.find((h) => h.kind === 'hold' && h.to === 'parked');
+  expect(park).toMatchObject({ reason: 'later' });
+});
 
-test.skipIf(!NORN)(
-  'GET /api/nodes/:id rejects project and artifact identities, 404s the unknown',
-  async () => {
-    const project = await get('/api/nodes/MMR');
-    expect(project.status).toBe(400);
-    const artifact = await get('/api/nodes/MMR-a1');
-    expect(artifact.status).toBe(400);
-    const missing = await get('/api/nodes/MMR-999');
-    expect(missing.status).toBe(404);
-  },
-);
+test('GET /api/nodes/:id rejects project and artifact identities, 404s the unknown', async () => {
+  const project = await get('/api/nodes/MMR');
+  expect(project.status).toBe(400);
+  const artifact = await get('/api/nodes/MMR-a1');
+  expect(artifact.status).toBe(400);
+  const missing = await get('/api/nodes/MMR-999');
+  expect(missing.status).toBe(404);
+});
 
 // ---------------------------------------------------------------------------
 // Writes — lifecycle, holds, dependencies, structure
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)(
-  'lifecycle actions echo the full updated record; an illegal transition is refused',
-  async () => {
-    const started = await send('POST', `/api/nodes/${task1}/start`);
-    expect(started.status).toBe(200);
-    const record = await parse(started);
-    expect(record.lifecycle).toBe('in_progress');
-    expect(record.status).toBe('in_progress');
+test('lifecycle actions echo the full updated record; an illegal transition is refused', async () => {
+  const started = await send('POST', `/api/nodes/${task1}/start`);
+  expect(started.status).toBe(200);
+  const record = await parse(started);
+  expect(record.lifecycle).toBe('in_progress');
+  expect(record.status).toBe('in_progress');
 
-    // The core codes illegal transitions `validation` (Phase-3 vocabulary) → 400.
-    const again = await send('POST', `/api/nodes/${task1}/start`);
-    expect(again.status).toBe(400);
-    expect(errorCode(await parse(again))).toBe('validation');
+  // The core codes illegal transitions `validation` (Phase-3 vocabulary) → 400.
+  const again = await send('POST', `/api/nodes/${task1}/start`);
+  expect(again.status).toBe(400);
+  expect(errorCode(await parse(again))).toBe('validation');
 
-    const done = await parse(await send('POST', `/api/nodes/${task1}/done`));
-    expect(done.lifecycle).toBe('done');
+  const done = await parse(await send('POST', `/api/nodes/${task1}/done`));
+  expect(done.lifecycle).toBe('done');
 
-    const abandoned = await parse(
-      await send('POST', `/api/nodes/${task2}/abandon`, { reason: 'obsolete' }),
-    );
-    expect(abandoned.status).toBe('abandoned');
-  },
-);
+  const abandoned = await parse(
+    await send('POST', `/api/nodes/${task2}/abandon`, { reason: 'obsolete' }),
+  );
+  expect(abandoned.status).toBe('abandoned');
+});
 
-test.skipIf(!NORN)(
-  'submit/return drive the under_review gate; approval is done (MMR-84)',
-  async () => {
-    await send('POST', `/api/nodes/${task1}/start`);
-    const submitted = await parse(await send('POST', `/api/nodes/${task1}/submit`));
-    expect(submitted.lifecycle).toBe('under_review');
-    expect(submitted.status).toBe('under_review');
+test('submit/return drive the under_review gate; approval is done (MMR-84)', async () => {
+  await send('POST', `/api/nodes/${task1}/start`);
+  const submitted = await parse(await send('POST', `/api/nodes/${task1}/submit`));
+  expect(submitted.lifecycle).toBe('under_review');
+  expect(submitted.status).toBe('under_review');
 
-    // submit is legal only from in_progress.
-    const reSubmit = await send('POST', `/api/nodes/${task1}/submit`);
-    expect(reSubmit.status).toBe(400);
+  // submit is legal only from in_progress.
+  const reSubmit = await send('POST', `/api/nodes/${task1}/submit`);
+  expect(reSubmit.status).toBe(400);
 
-    const returned = await parse(
-      await send('POST', `/api/nodes/${task1}/return`, { reason: 'tweak the copy' }),
-    );
-    expect(returned.lifecycle).toBe('in_progress');
+  const returned = await parse(
+    await send('POST', `/api/nodes/${task1}/return`, { reason: 'tweak the copy' }),
+  );
+  expect(returned.lifecycle).toBe('in_progress');
 
-    // resubmit then approve via done.
-    await send('POST', `/api/nodes/${task1}/submit`);
-    const approved = await parse(await send('POST', `/api/nodes/${task1}/done`));
-    expect(approved.lifecycle).toBe('done');
-  },
-);
+  // resubmit then approve via done.
+  await send('POST', `/api/nodes/${task1}/submit`);
+  const approved = await parse(await send('POST', `/api/nodes/${task1}/done`));
+  expect(approved.lifecycle).toBe('done');
+});
 
-test.skipIf(!NORN)('hold actions set and clear the overlay', async () => {
+test('hold actions set and clear the overlay', async () => {
   const parked = await parse(await send('POST', `/api/nodes/${task1}/park`, { reason: 'later' }));
   expect(parked.status).toBe('parked');
   expect(parked.hold_reason).toBe('later');
@@ -536,111 +468,86 @@ test.skipIf(!NORN)('hold actions set and clear the overlay', async () => {
   expect(unblocked.status).toBe('ready');
 });
 
-test.skipIf(!NORN)(
-  'depend/undepend wire the graph and flip the derived word; a cycle is refused',
-  async () => {
-    const awaiting = await parse(await send('POST', `/api/nodes/${task2}/depend`, { on: task1 }));
-    expect(awaiting.status).toBe('awaiting');
-    const deps = awaiting.deps as { depends_on: { id: string }[] };
-    expect(deps.depends_on.map((d) => d.id)).toEqual([task1]);
+test('depend/undepend wire the graph and flip the derived word; a cycle is refused', async () => {
+  const awaiting = await parse(await send('POST', `/api/nodes/${task2}/depend`, { on: task1 }));
+  expect(awaiting.status).toBe('awaiting');
+  const deps = awaiting.deps as { depends_on: { id: string }[] };
+  expect(deps.depends_on.map((d) => d.id)).toEqual([task1]);
 
-    const cycle = await send('POST', `/api/nodes/${task1}/depend`, { on: task2 });
-    expect(cycle.status).toBe(400);
+  const cycle = await send('POST', `/api/nodes/${task1}/depend`, { on: task2 });
+  expect(cycle.status).toBe(400);
 
-    const freed = await parse(await send('POST', `/api/nodes/${task2}/undepend`, { on: task1 }));
-    expect(freed.status).toBe('ready');
-  },
-);
+  const freed = await parse(await send('POST', `/api/nodes/${task2}/undepend`, { on: task1 }));
+  expect(freed.status).toBe('ready');
+});
 
-test.skipIf(!NORN)(
-  'move reparents; reorder accepts both spellings and requires a position',
-  async () => {
-    const moved = await parse(
-      await send('POST', `/api/nodes/${task1}/move`, { to: initiativeRef }),
-    );
-    expect(moved.parent).toBe(initiativeRef);
+test('move reparents; reorder accepts both spellings and requires a position', async () => {
+  const moved = await parse(await send('POST', `/api/nodes/${task1}/move`, { to: initiativeRef }));
+  expect(moved.parent).toBe(initiativeRef);
 
-    expect((await send('POST', `/api/nodes/${task2}/reorder`, { position: 'top' })).status).toBe(
-      200,
-    );
-    expect((await send('POST', `/api/nodes/${task2}/reorder`, { after: task1 })).status).toBe(200);
-    expect((await send('POST', `/api/nodes/${task2}/reorder`, {})).status).toBe(400);
+  expect((await send('POST', `/api/nodes/${task2}/reorder`, { position: 'top' })).status).toBe(200);
+  expect((await send('POST', `/api/nodes/${task2}/reorder`, { after: task1 })).status).toBe(200);
+  expect((await send('POST', `/api/nodes/${task2}/reorder`, {})).status).toBe(400);
 
-    // A container id is refused in reorder's own terms, not the start verb's.
-    const refused = await send('POST', `/api/nodes/${initiativeRef}/reorder`, { position: 'top' });
-    expect(refused.status).toBe(400);
-    const body = (await refused.json()) as { error: { message: string; hint: string } };
-    expect(body.error.message).toBe(`${initiativeRef} is an initiative, not a task`);
-    expect(body.error.hint).toContain('only tasks carry rank');
-    expect(body.error.hint).not.toContain("aren't started");
-  },
-);
+  // A container id is refused in reorder's own terms, not the start verb's.
+  const refused = await send('POST', `/api/nodes/${initiativeRef}/reorder`, { position: 'top' });
+  expect(refused.status).toBe(400);
+  const body = (await refused.json()) as { error: { message: string; hint: string } };
+  expect(body.error.message).toBe(`${initiativeRef} is an initiative, not a task`);
+  expect(body.error.hint).toContain('only tasks carry rank');
+  expect(body.error.hint).not.toContain("aren't started");
+});
 
 // ---------------------------------------------------------------------------
 // Writes — update, annotations, tags, create, attach
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)(
-  'PATCH /api/nodes/:id is exactly the dumb update; lifecycle through it is structural',
-  async () => {
-    const res = await send('PATCH', `/api/nodes/${task1}`, { priority: 'p0', title: 'renamed' });
-    expect(res.status).toBe(200);
-    const body = await parse(res);
-    expect(body.title).toBe('renamed');
-    expect(body.priority).toBe('p0');
+test('PATCH /api/nodes/:id is exactly the dumb update; lifecycle through it is structural', async () => {
+  const res = await send('PATCH', `/api/nodes/${task1}`, { priority: 'p0', title: 'renamed' });
+  expect(res.status).toBe(200);
+  const body = await parse(res);
+  expect(body.title).toBe('renamed');
+  expect(body.priority).toBe('p0');
 
-    const illegal = await send('PATCH', `/api/nodes/${task1}`, { lifecycle: 'done' });
-    expect(illegal.status).toBe(400);
-    expect(errorCode(await parse(illegal))).toBe('validation');
-  },
-);
+  const illegal = await send('PATCH', `/api/nodes/${task1}`, { lifecycle: 'done' });
+  expect(illegal.status).toBe(400);
+  expect(errorCode(await parse(illegal))).toBe('validation');
+});
 
-test.skipIf(!NORN)(
-  'PATCH /api/nodes/:id upstream "none" clears a set seed pointer (set-then-clear roundtrip, MMR-301)',
-  async () => {
-    const set = await send('PATCH', `/api/nodes/${task1}`, { upstream: 'NRN-s3' });
-    expect(set.status).toBe(200);
-    expect((await parse(set)).upstream).toBe('NRN-s3');
+test('PATCH /api/nodes/:id upstream "none" clears a set seed pointer (set-then-clear roundtrip, MMR-301)', async () => {
+  const set = await send('PATCH', `/api/nodes/${task1}`, { upstream: 'NRN-s3' });
+  expect(set.status).toBe(200);
+  expect((await parse(set)).upstream).toBe('NRN-s3');
 
-    const cleared = await send('PATCH', `/api/nodes/${task1}`, { upstream: 'none' });
-    expect(cleared.status).toBe(200);
-    expect((await parse(cleared)).upstream).toBeNull();
-  },
-);
+  const cleared = await send('PATCH', `/api/nodes/${task1}`, { upstream: 'none' });
+  expect(cleared.status).toBe(200);
+  expect((await parse(cleared)).upstream).toBeNull();
+});
 
-test.skipIf(!NORN)(
-  'PATCH /api/nodes/:id upstream "none" on an already-empty upstream is idempotent (MMR-301)',
-  async () => {
-    const cleared = await send('PATCH', `/api/nodes/${task1}`, { upstream: 'none' });
-    expect(cleared.status).toBe(200);
-    expect((await parse(cleared)).upstream).toBeNull();
-  },
-);
+test('PATCH /api/nodes/:id upstream "none" on an already-empty upstream is idempotent (MMR-301)', async () => {
+  const cleared = await send('PATCH', `/api/nodes/${task1}`, { upstream: 'none' });
+  expect(cleared.status).toBe(200);
+  expect((await parse(cleared)).upstream).toBeNull();
+});
 
-test.skipIf(!NORN)(
-  'PATCH /api/nodes/:id upstream "" (blank) is still rejected, not treated as clear (MMR-301)',
-  async () => {
-    const res = await send('PATCH', `/api/nodes/${task1}`, { upstream: '' });
-    expect(res.status).toBe(400);
-    expect(errorCode(await parse(res))).toBe('validation');
-  },
-);
+test('PATCH /api/nodes/:id upstream "" (blank) is still rejected, not treated as clear (MMR-301)', async () => {
+  const res = await send('PATCH', `/api/nodes/${task1}`, { upstream: '' });
+  expect(res.status).toBe(400);
+  expect(errorCode(await parse(res))).toBe('validation');
+});
 
-test.skipIf(!NORN)(
-  'PATCH /api/nodes/:id upstream "none" leaves an unrelated field untouched (MMR-301)',
-  async () => {
-    const res = await send('PATCH', `/api/nodes/${task1}`, {
-      title: 'renamed via clear',
-      upstream: 'none',
-    });
-    expect(res.status).toBe(200);
-    const body = await parse(res);
-    expect(body.upstream).toBeNull();
-    expect(body.title).toBe('renamed via clear');
-  },
-);
+test('PATCH /api/nodes/:id upstream "none" leaves an unrelated field untouched (MMR-301)', async () => {
+  const res = await send('PATCH', `/api/nodes/${task1}`, {
+    title: 'renamed via clear',
+    upstream: 'none',
+  });
+  expect(res.status).toBe(200);
+  const body = await parse(res);
+  expect(body.upstream).toBeNull();
+  expect(body.title).toBe('renamed via clear');
+});
 
-test.skipIf(!NORN)('annotations: POST appends (201), GET lists the sub-resource', async () => {
+test('annotations: POST appends (201), GET lists the sub-resource', async () => {
   const created = await send('POST', `/api/nodes/${task1}/annotations`, { content: 'a note' });
   expect(created.status).toBe(201);
 
@@ -649,7 +556,7 @@ test.skipIf(!NORN)('annotations: POST appends (201), GET lists the sub-resource'
   expect((listed.items as Rec[])[0]?.content).toBe('a note');
 });
 
-test.skipIf(!NORN)('tags: PUT applies (idempotently), DELETE removes', async () => {
+test('tags: PUT applies (idempotently), DELETE removes', async () => {
   const tagged = await parse(await send('PUT', `/api/nodes/${task1}/tags/urgent`));
   const tags = tagged.tags as { tag: string }[];
   expect(tags.map((t) => t.tag)).toEqual(['urgent']);
@@ -667,226 +574,202 @@ test.skipIf(!NORN)('tags: PUT applies (idempotently), DELETE removes', async () 
   expect(untagged.tags).toEqual([]);
 });
 
-test.skipIf(!NORN)(
-  'POST /api/nodes creates initiatives, phases, and tasks; bad types and parents are rejected',
-  async () => {
-    const init = await send('POST', '/api/nodes', {
-      parent: 'NRN',
-      title: 'grow',
-      type: 'initiative',
-    });
-    expect(init.status).toBe(201);
+test('POST /api/nodes creates initiatives, phases, and tasks; bad types and parents are rejected', async () => {
+  const init = await send('POST', '/api/nodes', {
+    parent: 'NRN',
+    title: 'grow',
+    type: 'initiative',
+  });
+  expect(init.status).toBe(201);
 
-    const task = await send('POST', '/api/nodes', {
-      parent: phaseRef,
-      priority: 'p2',
-      tags: ['api'],
-      title: 'new work',
-      type: 'task',
-    });
-    expect(task.status).toBe(201);
-    const record = await parse(task);
-    expect(record.priority).toBe('p2');
-    expect((record.tags as { tag: string }[]).map((t) => t.tag)).toEqual(['api']);
+  const task = await send('POST', '/api/nodes', {
+    parent: phaseRef,
+    priority: 'p2',
+    tags: ['api'],
+    title: 'new work',
+    type: 'task',
+  });
+  expect(task.status).toBe(201);
+  const record = await parse(task);
+  expect(record.priority).toBe('p2');
+  expect((record.tags as { tag: string }[]).map((t) => t.tag)).toEqual(['api']);
 
-    expect(
-      (await send('POST', '/api/nodes', { parent: 'x', title: 't', type: 'project' })).status,
-    ).toBe(400);
-    expect(
-      (await send('POST', '/api/nodes', { parent: 'MMR', title: 't', type: 'task' })).status,
-    ).toBe(400);
-  },
-);
+  expect(
+    (await send('POST', '/api/nodes', { parent: 'x', title: 't', type: 'project' })).status,
+  ).toBe(400);
+  expect(
+    (await send('POST', '/api/nodes', { parent: 'MMR', title: 't', type: 'task' })).status,
+  ).toBe(400);
+});
 
-test.skipIf(!NORN)(
-  'artifacts: POST freezes onto the node (201), GET returns content; cross-project links refused',
-  async () => {
-    const created = await send('POST', `/api/nodes/${task1}/artifacts`, {
-      content: '# Spec\nbody',
-      links: [task2],
-      title: 'spec',
-    });
-    expect(created.status).toBe(201);
-    const artifact = await parse(created);
-    expect(artifact.id).toBe('MMR-a1');
-    // The HTTP wire enriches links with the linked node's title + status (MMR-229).
-    expect(artifact.links).toEqual([
-      { id: task1, status: 'ready', title: 'first' },
-      { id: task2, status: 'ready', title: 'second' },
-    ]);
+test('artifacts: POST freezes onto the node (201), GET returns content; cross-project links refused', async () => {
+  const created = await send('POST', `/api/nodes/${task1}/artifacts`, {
+    content: '# Spec\nbody',
+    links: [task2],
+    title: 'spec',
+  });
+  expect(created.status).toBe(201);
+  const artifact = await parse(created);
+  expect(artifact.id).toBe('MMR-a1');
+  // The HTTP wire enriches links with the linked node's title + status (MMR-229).
+  expect(artifact.links).toEqual([
+    { id: task1, status: 'ready', title: 'first' },
+    { id: task2, status: 'ready', title: 'second' },
+  ]);
 
-    const fetched = await parse(await get('/api/artifacts/MMR-a1'));
-    expect(fetched.content).toBe('# Spec\nbody');
-    expect((await get('/api/artifacts/MMR-a9')).status).toBe(404);
+  const fetched = await parse(await get('/api/artifacts/MMR-a1'));
+  expect(fetched.content).toBe('# Spec\nbody');
+  expect((await get('/api/artifacts/MMR-a9')).status).toBe(404);
 
-    const crossed = await send('POST', `/api/nodes/${task1}/artifacts`, {
-      content: 'y',
-      links: [otherTask],
-      title: 'x',
-    });
-    expect(crossed.status).toBe(400);
-  },
-);
+  const crossed = await send('POST', `/api/nodes/${task1}/artifacts`, {
+    content: 'y',
+    links: [otherTask],
+    title: 'x',
+  });
+  expect(crossed.status).toBe(400);
+});
 
-test.skipIf(!NORN)(
-  'artifacts: POST dedupes a link equal to the path anchor and a repeated link (MMR-305)',
-  async () => {
-    const created = await send('POST', `/api/nodes/${task1}/artifacts`, {
-      content: 'body',
-      links: [task1, task2, task2], // link==anchor, then a repeat
-      title: 'deduped',
-    });
-    expect(created.status).toBe(201);
-    const artifact = await parse(created);
-    // The anchor leads; each node appears once, first-occurrence order preserved.
-    expect((artifact.links as { id: string }[]).map((l) => l.id)).toEqual([task1, task2]);
-  },
-);
+test('artifacts: POST dedupes a link equal to the path anchor and a repeated link (MMR-305)', async () => {
+  const created = await send('POST', `/api/nodes/${task1}/artifacts`, {
+    content: 'body',
+    links: [task1, task2, task2], // link==anchor, then a repeat
+    title: 'deduped',
+  });
+  expect(created.status).toBe(201);
+  const artifact = await parse(created);
+  // The anchor leads; each node appears once, first-occurrence order preserved.
+  expect((artifact.links as { id: string }[]).map((l) => l.id)).toEqual([task1, task2]);
+});
 
-test.skipIf(!NORN)(
-  'artifacts: the 201 create body renders from the held record and equals a subsequent GET (MMR-283)',
-  async () => {
-    // task2 < task1 lexically is untrue here (MMR-2 < MMR-1 is false), so anchor
-    // on task2 and link task1 to exercise the out-of-order-links → sorted-echo
-    // path the same way a fresh read would sort them.
-    const created = await send('POST', `/api/nodes/${task2}/artifacts`, {
-      content: '# Spec\nbody\n',
-      links: [task1],
-      tags: ['kind:spec', 'v1'],
-      title: 'held-record echo',
-    });
-    expect(created.status).toBe(201);
-    const createdBody = await parse(created);
+test('artifacts: the 201 create body renders from the held record and equals a subsequent GET (MMR-283)', async () => {
+  // task2 < task1 lexically is untrue here (MMR-2 < MMR-1 is false), so anchor
+  // on task2 and link task1 to exercise the out-of-order-links → sorted-echo
+  // path the same way a fresh read would sort them.
+  const created = await send('POST', `/api/nodes/${task2}/artifacts`, {
+    content: '# Spec\nbody\n',
+    links: [task1],
+    tags: ['kind:spec', 'v1'],
+    title: 'held-record echo',
+  });
+  expect(created.status).toBe(201);
+  const createdBody = await parse(created);
 
-    const fetchedBody = await parse(await get(`/api/artifacts/${String(createdBody.id)}`));
+  const fetchedBody = await parse(await get(`/api/artifacts/${String(createdBody.id)}`));
 
-    // Every field the 201 body renders must agree with an independent GET —
-    // the wire contract is byte-identical whether it comes from the held
-    // record or a re-read (created_at freshness and the content round-trip
-    // included).
-    expect(createdBody).toEqual(fetchedBody);
-    expect(createdBody.content).toBe('# Spec\nbody');
-    expect(createdBody.links).toEqual([
-      { id: task1, status: 'ready', title: 'first' },
-      { id: task2, status: 'ready', title: 'second' },
-    ]);
-  },
-);
+  // Every field the 201 body renders must agree with an independent GET —
+  // the wire contract is byte-identical whether it comes from the held
+  // record or a re-read (created_at freshness and the content round-trip
+  // included).
+  expect(createdBody).toEqual(fetchedBody);
+  expect(createdBody.content).toBe('# Spec\nbody');
+  expect(createdBody.links).toEqual([
+    { id: task1, status: 'ready', title: 'first' },
+    { id: task2, status: 'ready', title: 'second' },
+  ]);
+});
 
-test.skipIf(!NORN)(
-  'artifact detail degrades a dangling link to its bare id (MMR-229)',
-  async () => {
-    // The vault stores links as file-frontmatter stems (no referential
-    // enforcement), so they can go stale. Serve the same data with the artifact
-    // read carrying one resolvable and one dangling stem: the wire must degrade
-    // the dangler to `{ id }` — no invented title/status, no crash.
-    await send('POST', `/api/nodes/${task1}/artifacts`, { content: 'body', title: 'stale link' });
-    const staleStore: Store = {
-      ...store,
-      artifacts: {
-        ...store.artifacts,
-        load: async (key, seq, opts) => {
-          const record = await store.artifacts.load(key, seq, opts);
-          return record === undefined ? undefined : { ...record, links: [task1, 'MMR-999'] };
-        },
+test('artifact detail degrades a dangling link to its bare id (MMR-229)', async () => {
+  // The vault stores links as file-frontmatter stems (no referential
+  // enforcement), so they can go stale. Serve the same data with the artifact
+  // read carrying one resolvable and one dangling stem: the wire must degrade
+  // the dangler to `{ id }` — no invented title/status, no crash.
+  await send('POST', `/api/nodes/${task1}/artifacts`, { content: 'body', title: 'stale link' });
+  const staleStore: Store = {
+    ...store,
+    artifacts: {
+      ...store.artifacts,
+      load: async (key, seq, opts) => {
+        const record = await store.artifacts.load(key, seq, opts);
+        return record === undefined ? undefined : { ...record, links: [task1, 'MMR-999'] };
       },
-    };
-    const staleServer = createServer(staleStore, { port: 0, version: '0.0.0-test' });
-    try {
-      const res = await fetch(`http://127.0.0.1:${String(staleServer.port)}/api/artifacts/MMR-a1`);
-      expect(res.status).toBe(200);
-      const fetched = await parse(res);
-      expect(fetched.links).toEqual([
-        { id: task1, status: 'ready', title: 'first' },
-        { id: 'MMR-999' },
-      ]);
-    } finally {
-      await staleServer.stop(true);
-    }
-  },
-);
-
-test.skipIf(!NORN)(
-  'PATCH /api/artifacts/:id retitles; content frozen; unknown fields and blank titles 400 (MMR-40)',
-  async () => {
-    await send('POST', `/api/nodes/${task1}/artifacts`, { content: '# body', title: 'wrong' });
-
-    const patched = await send('PATCH', '/api/artifacts/MMR-a1', { title: 'right' });
-    expect(patched.status).toBe(200);
-    const echo = await parse(patched);
-    expect(echo.title).toBe('right');
-    expect(echo.content).toBe('# body');
-
-    // content is frozen — not a patchable field
-    expect((await send('PATCH', '/api/artifacts/MMR-a1', { content: 'new' })).status).toBe(400);
-    // blank title is validation
-    expect((await send('PATCH', '/api/artifacts/MMR-a1', { title: ' ' })).status).toBe(400);
-    // unknown artifact / node token on the artifact route
-    const missing = await send('PATCH', '/api/artifacts/MMR-a9', { title: 'x' });
-    expect(missing.status).toBe(404);
-    // Voice guide: token-as-subject (MMR-290).
-    const missingBody = (await parse(missing)) as { error: { message: string } };
-    expect(missingBody.error.message).toBe("MMR-a9 doesn't exist");
-    expect((await send('PATCH', `/api/artifacts/${task1}`, { title: 'x' })).status).toBe(404);
-  },
-);
-
-test.skipIf(!NORN)(
-  'artifacts: the summary lede rides POST and PATCH, clears blank, and caps at 256 (MMR-319)',
-  async () => {
-    const created = await send('POST', `/api/nodes/${task1}/artifacts`, {
-      content: '# body',
-      summary: 'the lede',
-      title: 'led',
-    });
-    expect(created.status).toBe(201);
-    expect((await parse(created)).summary).toBe('the lede');
-    expect((await parse(await get('/api/artifacts/MMR-a1'))).summary).toBe('the lede');
-    // The cross-project feed carries it too.
-    const listed = (await parse(await get('/api/artifacts'))) as { items: { summary?: string }[] };
-    expect(listed.items[0]?.summary).toBe('the lede');
-
-    const patched = await send('PATCH', '/api/artifacts/MMR-a1', { summary: 'a better lede' });
-    expect(patched.status).toBe(200);
-    expect((await parse(patched)).summary).toBe('a better lede');
-
-    // A blank clears it — the key leaves the wire object entirely.
-    const cleared = await send('PATCH', '/api/artifacts/MMR-a1', { summary: '  ' });
-    expect(cleared.status).toBe(200);
-    const clearedBody = await parse(cleared);
-    expect(clearedBody.summary).toBeUndefined();
-    expect(clearedBody.content).toBe('# body');
-
-    // The cap is the node summary's, enforced core-side.
-    expect(
-      (await send('PATCH', '/api/artifacts/MMR-a1', { summary: 'x'.repeat(257) })).status,
-    ).toBe(400);
-    expect(
-      (
-        await send('POST', `/api/nodes/${task1}/artifacts`, {
-          content: 'y',
-          summary: 'x'.repeat(257),
-          title: 'too long',
-        })
-      ).status,
-    ).toBe(400);
-  },
-);
-
-test.skipIf(!NORN)(
-  'POST /api/nodes/:id/reopen sends a done task back to in_progress (MMR-104)',
-  async () => {
-    await send('POST', `/api/nodes/${task1}/start`);
-    await send('POST', `/api/nodes/${task1}/done`);
-    const res = await send('POST', `/api/nodes/${task1}/reopen`, { reason: 'unverified' });
+    },
+  };
+  const staleServer = createServer(staleStore, { port: 0, version: '0.0.0-test' });
+  try {
+    const res = await fetch(`http://127.0.0.1:${String(staleServer.port)}/api/artifacts/MMR-a1`);
     expect(res.status).toBe(200);
-    const record = await parse(res);
-    expect(record.lifecycle).toBe('in_progress');
-    expect(record.status).toBe('in_progress');
-  },
-);
+    const fetched = await parse(res);
+    expect(fetched.links).toEqual([
+      { id: task1, status: 'ready', title: 'first' },
+      { id: 'MMR-999' },
+    ]);
+  } finally {
+    await staleServer.stop(true);
+  }
+});
 
-test.skipIf(!NORN)('POST /api/nodes/:id/reopen on a live task returns 400 (MMR-104)', async () => {
+test('PATCH /api/artifacts/:id retitles; content frozen; unknown fields and blank titles 400 (MMR-40)', async () => {
+  await send('POST', `/api/nodes/${task1}/artifacts`, { content: '# body', title: 'wrong' });
+
+  const patched = await send('PATCH', '/api/artifacts/MMR-a1', { title: 'right' });
+  expect(patched.status).toBe(200);
+  const echo = await parse(patched);
+  expect(echo.title).toBe('right');
+  expect(echo.content).toBe('# body');
+
+  // content is frozen — not a patchable field
+  expect((await send('PATCH', '/api/artifacts/MMR-a1', { content: 'new' })).status).toBe(400);
+  // blank title is validation
+  expect((await send('PATCH', '/api/artifacts/MMR-a1', { title: ' ' })).status).toBe(400);
+  // unknown artifact / node token on the artifact route
+  const missing = await send('PATCH', '/api/artifacts/MMR-a9', { title: 'x' });
+  expect(missing.status).toBe(404);
+  // Voice guide: token-as-subject (MMR-290).
+  const missingBody = (await parse(missing)) as { error: { message: string } };
+  expect(missingBody.error.message).toBe("MMR-a9 doesn't exist");
+  expect((await send('PATCH', `/api/artifacts/${task1}`, { title: 'x' })).status).toBe(404);
+});
+
+test('artifacts: the summary lede rides POST and PATCH, clears blank, and caps at 256 (MMR-319)', async () => {
+  const created = await send('POST', `/api/nodes/${task1}/artifacts`, {
+    content: '# body',
+    summary: 'the lede',
+    title: 'led',
+  });
+  expect(created.status).toBe(201);
+  expect((await parse(created)).summary).toBe('the lede');
+  expect((await parse(await get('/api/artifacts/MMR-a1'))).summary).toBe('the lede');
+  // The cross-project feed carries it too.
+  const listed = (await parse(await get('/api/artifacts'))) as { items: { summary?: string }[] };
+  expect(listed.items[0]?.summary).toBe('the lede');
+
+  const patched = await send('PATCH', '/api/artifacts/MMR-a1', { summary: 'a better lede' });
+  expect(patched.status).toBe(200);
+  expect((await parse(patched)).summary).toBe('a better lede');
+
+  // A blank clears it — the key leaves the wire object entirely.
+  const cleared = await send('PATCH', '/api/artifacts/MMR-a1', { summary: '  ' });
+  expect(cleared.status).toBe(200);
+  const clearedBody = await parse(cleared);
+  expect(clearedBody.summary).toBeUndefined();
+  expect(clearedBody.content).toBe('# body');
+
+  // The cap is the node summary's, enforced core-side.
+  expect((await send('PATCH', '/api/artifacts/MMR-a1', { summary: 'x'.repeat(257) })).status).toBe(
+    400,
+  );
+  expect(
+    (
+      await send('POST', `/api/nodes/${task1}/artifacts`, {
+        content: 'y',
+        summary: 'x'.repeat(257),
+        title: 'too long',
+      })
+    ).status,
+  ).toBe(400);
+});
+
+test('POST /api/nodes/:id/reopen sends a done task back to in_progress (MMR-104)', async () => {
+  await send('POST', `/api/nodes/${task1}/start`);
+  await send('POST', `/api/nodes/${task1}/done`);
+  const res = await send('POST', `/api/nodes/${task1}/reopen`, { reason: 'unverified' });
+  expect(res.status).toBe(200);
+  const record = await parse(res);
+  expect(record.lifecycle).toBe('in_progress');
+  expect(record.status).toBe('in_progress');
+});
+
+test('POST /api/nodes/:id/reopen on a live task returns 400 (MMR-104)', async () => {
   await send('POST', `/api/nodes/${task1}/start`);
   const res = await send('POST', `/api/nodes/${task1}/reopen`);
   expect(res.status).toBe(400);
@@ -896,33 +779,30 @@ test.skipIf(!NORN)('POST /api/nodes/:id/reopen on a live task returns 400 (MMR-1
 // Transitions feed
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)(
-  'GET /api/transitions pages by cursor: resume returns only newer entries',
-  async () => {
-    await send('POST', `/api/nodes/${task1}/start`);
-    await send('POST', `/api/nodes/${task1}/done`);
+test('GET /api/transitions pages by cursor: resume returns only newer entries', async () => {
+  await send('POST', `/api/nodes/${task1}/start`);
+  await send('POST', `/api/nodes/${task1}/done`);
 
-    const first = await parse(await get('/api/transitions'));
-    const items = first.items as Rec[];
-    expect(items.length).toBeGreaterThanOrEqual(2);
-    expect(items[0]?.node).toBe(task1);
-    const cursor = first.next_cursor as string;
-    expect(cursor).toBeDefined();
+  const first = await parse(await get('/api/transitions'));
+  const items = first.items as Rec[];
+  expect(items.length).toBeGreaterThanOrEqual(2);
+  expect(items[0]?.node).toBe(task1);
+  const cursor = first.next_cursor as string;
+  expect(cursor).toBeDefined();
 
-    const caughtUp = await parse(await get(`/api/transitions?since=${cursor}`));
-    expect(caughtUp.items).toEqual([]);
-    expect(caughtUp).not.toContainKey('next_cursor');
+  const caughtUp = await parse(await get(`/api/transitions?since=${cursor}`));
+  expect(caughtUp.items).toEqual([]);
+  expect(caughtUp).not.toContainKey('next_cursor');
 
-    await send('POST', `/api/nodes/${task2}/park`);
-    const delta = await parse(await get(`/api/transitions?since=${cursor}`));
-    expect((delta.items as Rec[]).length).toBe(1);
-    expect((delta.items as Rec[])[0]?.kind).toBe('hold');
+  await send('POST', `/api/nodes/${task2}/park`);
+  const delta = await parse(await get(`/api/transitions?since=${cursor}`));
+  expect((delta.items as Rec[]).length).toBe(1);
+  expect((delta.items as Rec[])[0]?.kind).toBe('hold');
 
-    expect((await get('/api/transitions?since=banana')).status).toBe(400);
-  },
-);
+  expect((await get('/api/transitions?since=banana')).status).toBe(400);
+});
 
-test.skipIf(!NORN)('GET /api/transitions?limit= truncates in log order', async () => {
+test('GET /api/transitions?limit= truncates in log order', async () => {
   await send('POST', `/api/nodes/${task1}/start`);
   await send('POST', `/api/nodes/${task1}/done`);
   const body = await parse(await get('/api/transitions?limit=1'));
@@ -933,7 +813,7 @@ test.skipIf(!NORN)('GET /api/transitions?limit= truncates in log order', async (
 // Protocol: bodies, fallbacks, CORS
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)('unknown body fields and malformed JSON are structural 400s', async () => {
+test('unknown body fields and malformed JSON are structural 400s', async () => {
   const unknown = await send('POST', `/api/nodes/${task1}/start`, { force: true });
   expect(unknown.status).toBe(400);
 
@@ -945,7 +825,7 @@ test.skipIf(!NORN)('unknown body fields and malformed JSON are structural 400s',
   expect(malformed.status).toBe(400);
 });
 
-test.skipIf(!NORN)('unmatched routes get the 404 envelope', async () => {
+test('unmatched routes get the 404 envelope', async () => {
   const res = await get('/api/bogus');
   expect(res.status).toBe(404);
   const body = await parse(res);
@@ -954,7 +834,7 @@ test.skipIf(!NORN)('unmatched routes get the 404 envelope', async () => {
   expect((body as { error: { message: string } }).error.message).toBe("/api/bogus doesn't exist");
 });
 
-test.skipIf(!NORN)('CORS: localhost dev origins are reflected, others get no grant', async () => {
+test('CORS: localhost dev origins are reflected, others get no grant', async () => {
   const preflight = await fetch(`${base}/api/nodes`, {
     headers: { origin: 'http://localhost:5173' },
     method: 'OPTIONS',
@@ -974,68 +854,62 @@ test.skipIf(!NORN)('CORS: localhost dev origins are reflected, others get no gra
 // Derivation through the envelope
 // ---------------------------------------------------------------------------
 
-test.skipIf(!NORN)(
-  "a prerequisite's terminal state frees the dependent through the API view",
-  async () => {
-    await send('POST', `/api/nodes/${task2}/depend`, { on: task1 });
-    const prereq = findNodeInSet(deriveSet(await store.loadWorkingSet()), task1);
-    if (prereq === undefined) {
-      throw new Error(`fixture: no node ${task1}`);
-    }
-    await completeTask(store, prereq.id);
+test("a prerequisite's terminal state frees the dependent through the API view", async () => {
+  await send('POST', `/api/nodes/${task2}/depend`, { on: task1 });
+  const prereq = findNodeInSet(deriveSet(await store.loadWorkingSet()), task1);
+  if (prereq === undefined) {
+    throw new Error(`fixture: no node ${task1}`);
+  }
+  await completeTask(store, prereq.id);
 
-    const body = await parse(await get(`/api/nodes/${task2}`));
-    expect(body.status).toBe('ready');
-  },
-);
+  const body = await parse(await get(`/api/nodes/${task2}`));
+  expect(body.status).toBe('ready');
+});
 
 // --- project archive (ADR 0015, MMR-123) ---
 
-test.skipIf(!NORN)(
-  'POST archive freezes + hides a project; the door and unarchive round-trip',
-  async () => {
-    // an artifact so the archived list's artifact_count facet has something to count
-    const frozen1 = await send('POST', `/api/nodes/${task1}/artifacts`, {
-      content: 'frozen body',
-      title: 'design',
-    });
-    expect(frozen1.status).toBe(201);
+test('POST archive freezes + hides a project; the door and unarchive round-trip', async () => {
+  // an artifact so the archived list's artifact_count facet has something to count
+  const frozen1 = await send('POST', `/api/nodes/${task1}/artifacts`, {
+    content: 'frozen body',
+    title: 'design',
+  });
+  expect(frozen1.status).toBe(201);
 
-    // archive echoes the project with its archived_at
-    const arc = await send('POST', '/api/projects/MMR/archive', { reason: 'superseded' });
-    expect(arc.status).toBe(200);
-    expect((await parse(arc)).archived_at).not.toBeUndefined();
+  // archive echoes the project with its archived_at
+  const arc = await send('POST', '/api/projects/MMR/archive', { reason: 'superseded' });
+  expect(arc.status).toBe(200);
+  expect((await parse(arc)).archived_at).not.toBeUndefined();
 
-    // hidden from the default project list; visible via the door; a sibling stays
-    const active = await parse(await get('/api/projects'));
-    expect((active.items as Rec[]).map((p) => p.id)).toEqual(['NRN']);
-    // artifact_count is archived-door-only: the active list backs the UI's 10s
-    // poll, which never reads it, so it must not pay the per-project artifact read
-    expect((active.items as Rec[])[0]?.artifact_count).toBeUndefined();
-    const archived = await parse(await get('/api/projects?status=archived'));
-    expect((archived.items as Rec[]).map((p) => p.id)).toEqual(['MMR']);
-    // the shelf's count line rides the list facets (MMR-125): the archived-404
-    // detail route can't serve them, so the list row carries archived_at,
-    // leaf_counts, and the artifact tally
-    const shelfRow = (archived.items as Rec[])[0];
-    expect(shelfRow?.archived_at).not.toBeUndefined();
-    expect(shelfRow?.artifact_count).toBe(1);
-    expect(shelfRow?.leaf_counts).not.toBeUndefined();
-    const all = await parse(await get('/api/projects?status=all'));
-    expect((all.items as { id: string }[]).map((p) => p.id).toSorted()).toEqual(['MMR', 'NRN']);
+  // hidden from the default project list; visible via the door; a sibling stays
+  const active = await parse(await get('/api/projects'));
+  expect((active.items as Rec[]).map((p) => p.id)).toEqual(['NRN']);
+  // artifact_count is archived-door-only: the active list backs the UI's 10s
+  // poll, which never reads it, so it must not pay the per-project artifact read
+  expect((active.items as Rec[])[0]?.artifact_count).toBeUndefined();
+  const archived = await parse(await get('/api/projects?status=archived'));
+  expect((archived.items as Rec[]).map((p) => p.id)).toEqual(['MMR']);
+  // the shelf's count line rides the list facets (MMR-125): the archived-404
+  // detail route can't serve them, so the list row carries archived_at,
+  // leaf_counts, and the artifact tally
+  const shelfRow = (archived.items as Rec[])[0];
+  expect(shelfRow?.archived_at).not.toBeUndefined();
+  expect(shelfRow?.artifact_count).toBe(1);
+  expect(shelfRow?.leaf_counts).not.toBeUndefined();
+  const all = await parse(await get('/api/projects?status=all'));
+  expect((all.items as { id: string }[]).map((p) => p.id).toSorted()).toEqual(['MMR', 'NRN']);
 
-    // direct reads 404; a mutation under it is a conflict
-    expect((await get('/api/projects/MMR')).status).toBe(404);
-    expect((await get(`/api/nodes/${task1}`)).status).toBe(404);
-    const frozen = await send('POST', `/api/nodes/${task1}/start`);
-    expect(frozen.status).toBeGreaterThanOrEqual(400);
-    expect(errorCode(await parse(frozen))).toBe('conflict');
+  // direct reads 404; a mutation under it is a conflict
+  expect((await get('/api/projects/MMR')).status).toBe(404);
+  expect((await get(`/api/nodes/${task1}`)).status).toBe(404);
+  const frozen = await send('POST', `/api/nodes/${task1}/start`);
+  expect(frozen.status).toBeGreaterThanOrEqual(400);
+  expect(errorCode(await parse(frozen))).toBe('conflict');
 
-    // unarchive restores everything
-    const un = await send('POST', '/api/projects/MMR/unarchive');
-    expect(un.status).toBe(200);
-    expect((await parse(un)).archived_at).toBeUndefined();
-    expect((await get('/api/projects/MMR')).status).toBe(200);
-    expect((await get(`/api/nodes/${task1}`)).status).toBe(200);
-  },
-);
+  // unarchive restores everything
+  const un = await send('POST', '/api/projects/MMR/unarchive');
+  expect(un.status).toBe(200);
+  expect((await parse(un)).archived_at).toBeUndefined();
+  expect((await get('/api/projects/MMR')).status).toBe(200);
+  expect((await get(`/api/nodes/${task1}`)).status).toBe(200);
+});

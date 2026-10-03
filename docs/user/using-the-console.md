@@ -43,7 +43,7 @@ Portfolio-wide surfaces include:
 - **Tasks** for a searchable, project-spanning task census;
 - **Artifacts** for frozen work products, filters, and full content;
 - **Seeds** for capture, promotion, rejection, and resolution;
-- **Record health** for malformed or dropped vault records.
+- **Record health** for records that the store holds but the console cannot read.
 
 Routes and filters are encoded in the URL, so a specific view can be bookmarked
 or shared.

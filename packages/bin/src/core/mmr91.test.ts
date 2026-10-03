@@ -23,8 +23,6 @@ import { resolveEntityTokenInSet } from './resolve-set';
 import { projectTree } from './resource';
 import type { Store } from './store';
 
-const NORN = Bun.which('norn') !== null;
-
 let store: Store;
 let closeStore: () => Promise<void>;
 let phaseId: string;
@@ -83,50 +81,41 @@ function renderBoth(err: RenderableError): { human: string; machine: string } {
 // ─── Site A: Container lifecycle hint ────────────────────────────────────────
 
 describe('Site A — container lifecycle hint', () => {
-  test.skipIf(!NORN)(
-    'starting a phase with ready descendants names their ids in the hint',
-    async () => {
-      const err = await caught(() => startTask(store, phaseId));
-      expect(err.code).toBe('validation');
-      expect(err.hint).toContain(`MMR-${String(taskSeq)}`);
-      expect(err.hint).toContain("containers aren't started directly");
+  test('starting a phase with ready descendants names their ids in the hint', async () => {
+    const err = await caught(() => startTask(store, phaseId));
+    expect(err.code).toBe('validation');
+    expect(err.hint).toContain(`MMR-${String(taskSeq)}`);
+    expect(err.hint).toContain("containers aren't started directly");
 
-      // The hint reaches both renderings.
-      const { human, machine } = renderBoth(err);
-      expect(human).toContain('note:');
-      expect(human).toContain(`MMR-${String(taskSeq)}`);
-      const parsed = parseJson<{ error: { hint?: string } }>(machine);
-      expect(parsed.error.hint).toContain(`MMR-${String(taskSeq)}`);
-    },
-  );
+    // The hint reaches both renderings.
+    const { human, machine } = renderBoth(err);
+    expect(human).toContain('note:');
+    expect(human).toContain(`MMR-${String(taskSeq)}`);
+    const parsed = parseJson<{ error: { hint?: string } }>(machine);
+    expect(parsed.error.hint).toContain(`MMR-${String(taskSeq)}`);
+  });
 
-  test.skipIf(!NORN)(
-    'starting a phase with no ready descendants gets the mimir tree fallback hint',
-    async () => {
-      await startTask(store, taskId);
-      await completeTask(store, taskId);
+  test('starting a phase with no ready descendants gets the mimir tree fallback hint', async () => {
+    await startTask(store, taskId);
+    await completeTask(store, taskId);
 
-      const err = await caught(() => startTask(store, phaseId));
-      expect(err.code).toBe('validation');
-      expect(err.hint).toContain('no ready tasks under it');
-      expect(err.hint).toContain(`mimir tree MMR-${String(phaseSeq)}`);
+    const err = await caught(() => startTask(store, phaseId));
+    expect(err.code).toBe('validation');
+    expect(err.hint).toContain('no ready tasks under it');
+    expect(err.hint).toContain(`mimir tree MMR-${String(phaseSeq)}`);
 
-      const { human, machine } = renderBoth(err);
-      expect(human).toContain('note:');
-      expect(human).toContain('mimir tree');
-      const parsed = parseJson<{ error: { hint?: string } }>(machine);
-      expect(parsed.error.hint).toContain('mimir tree');
-    },
-  );
+    const { human, machine } = renderBoth(err);
+    expect(human).toContain('note:');
+    expect(human).toContain('mimir tree');
+    const parsed = parseJson<{ error: { hint?: string } }>(machine);
+    expect(parsed.error.hint).toContain('mimir tree');
+  });
 
-  test.skipIf(!NORN)(
-    'starting an initiative with ready tasks under it names their ids',
-    async () => {
-      const err = await caught(() => startTask(store, initId));
-      expect(err.code).toBe('validation');
-      expect(err.hint).toContain(`MMR-${String(taskSeq)}`);
-    },
-  );
+  test('starting an initiative with ready tasks under it names their ids', async () => {
+    const err = await caught(() => startTask(store, initId));
+    expect(err.code).toBe('validation');
+    expect(err.hint).toContain(`MMR-${String(taskSeq)}`);
+  });
 });
 
 // ─── Site B: Missing project hint ───────────────────────────────────────────
@@ -138,50 +127,38 @@ const assertCreateHint = (err: MimirError): void => {
 };
 
 describe('Site B — missing project hint', () => {
-  test.skipIf(!NORN)(
-    'resolveEntityToken for an unknown project key carries the create hint (core/lookup)',
-    async () => {
-      const set = deriveSet(await store.loadWorkingSet());
-      assertCreateHint(await caught(async () => resolveEntityTokenInSet(set, 'NOPE')));
-    },
-  );
+  test('resolveEntityToken for an unknown project key carries the create hint (core/lookup)', async () => {
+    const set = deriveSet(await store.loadWorkingSet());
+    assertCreateHint(await caught(async () => resolveEntityTokenInSet(set, 'NOPE')));
+  });
 
-  test.skipIf(!NORN)(
-    'projectTree for an unknown project key carries the create hint (core/resource)',
-    async () => {
-      assertCreateHint(await caught(() => projectTree(store, 'NOPE')));
-    },
-  );
+  test('projectTree for an unknown project key carries the create hint (core/resource)', async () => {
+    assertCreateHint(await caught(() => projectTree(store, 'NOPE')));
+  });
 
-  test.skipIf(!NORN)(
-    'resolveProject for an unknown key carries the create hint (cli/resolve)',
-    async () => {
-      const err = await caught(() => resolveProject(store, 'NOPE'));
-      assertCreateHint(err);
+  test('resolveProject for an unknown key carries the create hint (cli/resolve)', async () => {
+    const err = await caught(() => resolveProject(store, 'NOPE'));
+    assertCreateHint(err);
 
-      // The same hint reaches both renderings.
-      const { human, machine } = renderBoth(err);
-      expect(human).toContain('note:');
-      expect(human).toContain('mimir create project');
-      const parsed = parseJson<{ error: { hint?: string } }>(machine);
-      expect(parsed.error.hint).toContain('mimir create project');
-      expect(parsed.error.hint).toContain('--key NOPE');
-    },
-  );
+    // The same hint reaches both renderings.
+    const { human, machine } = renderBoth(err);
+    expect(human).toContain('note:');
+    expect(human).toContain('mimir create project');
+    const parsed = parseJson<{ error: { hint?: string } }>(machine);
+    expect(parsed.error.hint).toContain('mimir create project');
+    expect(parsed.error.hint).toContain('--key NOPE');
+  });
 
-  test.skipIf(!NORN)(
-    'nextTasks with unknown --scope key carries the create hint (core/intent/queries resolveScope)',
-    async () => {
-      const err = await caught(() => nextTasks(store, { scope: 'NOPE' }));
-      assertCreateHint(err);
+  test('nextTasks with unknown --scope key carries the create hint (core/intent/queries resolveScope)', async () => {
+    const err = await caught(() => nextTasks(store, { scope: 'NOPE' }));
+    assertCreateHint(err);
 
-      // The hint reaches both renderings (previously this path threw a bare error).
-      const { human, machine } = renderBoth(err);
-      expect(human).toContain('note:');
-      expect(human).toContain('mimir create project');
-      const parsed = parseJson<{ error: { hint?: string } }>(machine);
-      expect(parsed.error.hint).toContain('mimir create project');
-      expect(parsed.error.hint).toContain('--key NOPE');
-    },
-  );
+    // The hint reaches both renderings (previously this path threw a bare error).
+    const { human, machine } = renderBoth(err);
+    expect(human).toContain('note:');
+    expect(human).toContain('mimir create project');
+    const parsed = parseJson<{ error: { hint?: string } }>(machine);
+    expect(parsed.error.hint).toContain('mimir create project');
+    expect(parsed.error.hint).toContain('--key NOPE');
+  });
 });

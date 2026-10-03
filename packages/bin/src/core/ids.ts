@@ -34,7 +34,7 @@ export function renderId(ref: NodeRef): string {
   return `${ref.key}-${String(ref.seq)}`;
 }
 
-/** Wrap a rendered id (stem) as an Obsidian wikilink — the vault relation form. */
+/** Wrap a rendered id (stem) as a wikilink — the relation form in stored markdown bodies. */
 export function wikilink(stem: string): string {
   return `[[${stem}]]`;
 }
