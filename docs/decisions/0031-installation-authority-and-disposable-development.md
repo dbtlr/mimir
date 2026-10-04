@@ -174,3 +174,18 @@ Unit files follow the supervisor's conventions. A live launchd plist stays in
 `~/.config/systemd/user`. A sandbox keeps its unit files in its own data
 directory: `launchctl bootstrap` accepts any path, and `systemctl --user enable`
 links an out-of-path file into the manager.
+
+## Refinement (2026-10-03, MMR-421): serve may open a named SQLite file
+
+`mimir serve --store <file>` serves an existing SQLite file for that one run
+instead of the installation's store. The docs fixture uses it: `bun run
+fixtures:docs` writes `.dev/fixtures/docs.sqlite`, outside every installation's
+data directory, so no installation opens the fixture unless a command names it.
+
+This refines the boundary without opening it. The flag is per invocation and
+never persists, unlike the environment flag this decision rejected. It does not
+change which store an installation, its supervisor unit, or any other command
+opens. It refuses a file that does not exist, so a typo cannot create and serve an
+empty store. It refuses on a Postgres installation, because it names no database
+endpoint and cannot redirect one. Naming a file is a deliberate act, and this
+decision guards against accidental access.

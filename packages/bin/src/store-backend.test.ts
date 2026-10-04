@@ -150,3 +150,54 @@ test('a removed norn backend names the removal and the export path to migrate', 
   expect(message).toContain('store export');
   expect(message).toContain(configPath());
 });
+
+// `serve --store <file>` opens a named SQLite file for one run — the docs
+// fixture, never an installation's own store. A named file must already exist:
+// a typo that quietly created an empty store would serve the wrong board.
+test('a named store file opens that SQLite file instead of the installation store', async () => {
+  const path = join(dir, 'fixture.sqlite');
+  const seeded = await buildSqliteStore(path);
+  try {
+    await seeded.store.transact((writer) =>
+      writer.insertProject({ description: null, key: 'AUR', name: 'Aurora', tags: [] }),
+    );
+  } finally {
+    await seeded.close();
+  }
+
+  const built = await buildStore({ serve: {}, store: {} }, { file: path });
+  try {
+    expect((await built.store.loadProjects()).map((project) => project.key)).toEqual(['AUR']);
+  } finally {
+    await built.close();
+  }
+});
+
+test('a named store file that does not exist is refused, never created', async () => {
+  const path = join(dir, 'missing.sqlite');
+  let message = '';
+  try {
+    await buildStore({ serve: {}, store: {} }, { file: path });
+  } catch (error) {
+    expect(error).toBeInstanceOf(MimirError);
+    message = (error as MimirError).message;
+  }
+  expect(message).toContain(path);
+  expect(existsSync(path)).toBe(false);
+});
+
+test('a named store file is refused on a postgres install', async () => {
+  const path = join(dir, 'fixture.sqlite');
+  let message = '';
+  try {
+    await buildStore(
+      { serve: {}, store: { backend: 'postgres', url: 'postgres://unused' } },
+      { file: path },
+    );
+  } catch (error) {
+    expect(error).toBeInstanceOf(MimirError);
+    message = (error as MimirError).message;
+  }
+  expect(message).toContain('--store');
+  expect(message).toContain('postgres');
+});

@@ -14,12 +14,15 @@
  * which renders that verb's `COMMAND_HELP` descriptor without ever touching
  * the store (MMR-294).
  */
+import { resolve } from 'node:path';
+
 import { parsePort } from '@mimir/helpers';
 
 import { findBinding, runCli } from './cli';
 import type { Io } from './cli';
 import { systemTimeZone } from './core';
 import type { Store } from './core';
+import { MimirError } from './core/errors';
 import { openPostgres } from './core/store-postgres/index';
 import { warnConfigPermissions, withConfigFindings } from './doctor/config-permissions';
 import type { DoctorBackend } from './doctor/contract';
@@ -102,6 +105,25 @@ function servePort(args: string[]): number | null | undefined {
     return null;
   }
   return parsePort(raw);
+}
+
+/**
+ * Parse `serve`'s `--store` flag, a SQLite file to serve instead of the
+ * installation's store (the docs fixture).
+ * - `undefined`: flag absent — the installation's store.
+ * - `null`: flag present without a file (a usage fault).
+ * - `string`: the file, resolved against the working directory.
+ */
+function serveStoreFile(args: string[]): string | null | undefined {
+  const at = args.indexOf('--store');
+  if (at === -1) {
+    return undefined;
+  }
+  const raw = args[at + 1];
+  if (raw === undefined || raw.startsWith('-')) {
+    return null;
+  }
+  return resolve(raw);
 }
 
 /** The serve unit's baked environment: only a non-live installation bakes its
@@ -231,6 +253,11 @@ async function main(argv: string[]): Promise<number> {
       console.error('✗ serve: --port expects an integer in 1–65535');
       return 2;
     }
+    const storeFile = serveStoreFile(args);
+    if (storeFile === null) {
+      console.error('✗ serve: --store expects a SQLite store file');
+      return 2;
+    }
     const noHunt = args.includes('--no-hunt');
     // Declared port wins: flag > MIMIR_PORT env > production-only global config
     // > built-in default (MMR-47/MMR-117/MMR-325). A malformed MIMIR_PORT is
@@ -249,7 +276,21 @@ async function main(argv: string[]): Promise<number> {
     // Long-running: the server keeps the process alive; loopback-only by
     // design (ADR 0012 — the proxy is the boundary). Signals stop it cleanly.
     // `/api/doctor` serves the backend's read-only record-health facet (MMR-185).
-    const built = await buildStore();
+    let built: BuiltStore;
+    try {
+      built = await buildStore(undefined, { file: storeFile });
+    } catch (err) {
+      // A refusal (an unusable [store], a missing --store file) is the
+      // operator's to fix: name it and its remedy rather than a stack trace.
+      if (err instanceof MimirError) {
+        console.error(`✗ serve: ${err.message}`);
+        if (err.hint !== undefined) {
+          console.error(`note: ${err.hint}`);
+        }
+        return 1;
+      }
+      throw err;
+    }
     const doctor = built.doctor.facet;
     let server: ReturnType<typeof createServer>;
     try {

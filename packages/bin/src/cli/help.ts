@@ -256,11 +256,12 @@ machinery commands (the installation, host, or store — not the work itself):
                           The store needs no setup (SQLite is created on first
                           use). Prefills current values; re-runnable.
                           Non-interactively takes flags + -y.
-  serve [--port <n>] [--no-hunt]
+  serve [--port <n>] [--no-hunt] [--store <file>]
                           HTTP API + console (loopback-only; port:
                           ${PORT_PRECEDENCE}; a
                           taken port hunts upward unless --no-hunt — the
-                          startup line names the bound URL)
+                          startup line names the bound URL; --store serves an
+                          existing SQLite file instead of this install's store)
   mcp                     the agent envelope over stdio (MCP transport)
   version                 print the installed version
   self-update [--next] [--tag <tag>]
@@ -949,14 +950,16 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir serve                    # bind the default/configured port, hunting if taken',
       'mimir serve --port 4100        # bind an explicit port',
       'mimir serve --no-hunt          # fail instead of hunting when the port is taken',
+      'mimir serve --store .dev/fixtures/docs.sqlite  # serve the docs fixture',
     ],
     flags: [
       ['--port <n>', `bind port (${PORT_PRECEDENCE})`],
       ['--no-hunt', 'fail instead of hunting upward when the port is taken'],
+      ['--store <file>', 'serve an existing SQLite store file instead of the installation store'],
     ],
     summary:
       'HTTP API + console (loopback-only, ADR 0012) — long-running; a taken port hunts upward unless --no-hunt',
-    usage: 'mimir serve [--port <n>] [--no-hunt]',
+    usage: 'mimir serve [--port <n>] [--no-hunt] [--store <file>]',
   },
   mcp: {
     examples: ['mimir mcp                      # run as an MCP stdio server'],
