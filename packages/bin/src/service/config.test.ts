@@ -1,10 +1,19 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
   configPath,
+  configPathStats,
   DEFAULT_STORE_BACKEND,
   readConfig,
   readRuntimeConfig,
@@ -281,4 +290,32 @@ test('writeConfig emits quoted keys so a space-containing key stays valid TOML',
   expect(round.serve.port).toBe(50131);
   expect(round['a b']).toEqual({ x: 1 });
   expect(round.m).toEqual([{ dst: '/b', 'src path': '/a' }]);
+});
+
+test('configPathStats walks the file and each directory up to and including home', () => {
+  const nest = join(dir, 'config', 'mimir');
+  mkdirSync(nest, { recursive: true });
+  const file = join(nest, 'config.toml');
+  writeFileSync(file, '');
+  chmodSync(file, 0o600);
+  chmodSync(nest, 0o1777);
+  const stats = configPathStats(file, dir);
+  expect(stats.map((s) => s.path)).toEqual([file, nest, join(dir, 'config'), dir]);
+  expect(stats.map((s) => s.isDirectory)).toEqual([false, true, true, true]);
+  // The sticky bit survives: it decides whether a writable directory is safe.
+  expect(stats[0]?.mode).toBe(0o600);
+  expect(stats[1]?.mode).toBe(0o1777);
+  expect(stats.every((s) => s.uid === statSync(dir).uid)).toBe(true);
+});
+
+test('configPathStats walks to the root when the file sits outside home', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '');
+  const stats = configPathStats(file, join(dir, 'elsewhere'));
+  expect(stats.at(-1)?.path).toBe('/');
+  expect(stats.map((s) => s.path)).toContain(dir);
+});
+
+test('configPathStats is empty when the config file does not exist', () => {
+  expect(configPathStats(join(dir, 'config.toml'), dir)).toEqual([]);
 });

@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import type { ConfigPathStat } from '../service/config';
 import {
   checkConfigPermissions,
+  checkConfigReplaceable,
   warnConfigPermissions,
   withConfigFindings,
 } from './config-permissions';
@@ -129,4 +131,95 @@ test('warnConfigPermissions writes one line per finding when the file is readabl
   expect(lines).toHaveLength(2);
   expect(lines.every((line) => line.startsWith('[warn] config: '))).toBe(true);
   expect(lines.join('\n')).not.toContain('secret');
+});
+
+const ME = 501;
+const OTHER = 502;
+const ROOT = 0;
+
+function stat(path: string, mode: number, uid = ME, isDirectory = true): ConfigPathStat {
+  return { isDirectory, mode, path, uid };
+}
+
+const FILE = stat('/home/me/.config/mimir/config.toml', 0o600, ME, false);
+
+test('warns when a directory above the config is world-writable without the sticky bit', () => {
+  const findings = checkConfigReplaceable([FILE, stat('/home/me/.config/mimir', 0o777)], ME);
+  expect(findings).toHaveLength(1);
+  const [item] = findings;
+  expect(item?.severity).toBe('warn');
+  expect(item?.check).toBe('config-permissions');
+  expect(item?.code).toBe('config-dir-writable');
+  expect(item?.locator).toBe('/home/me/.config/mimir');
+  expect(item?.evidence.mode).toBe('0777');
+  expect(item?.message).toContain('chmod go-w /home/me/.config/mimir');
+});
+
+test('warns on a group-writable ancestor, not only the immediate directory', () => {
+  const stats = [FILE, stat('/home/me/.config/mimir', 0o700), stat('/home/me/.config', 0o770)];
+  expect(checkConfigReplaceable(stats, ME).map((f) => f.locator)).toEqual(['/home/me/.config']);
+});
+
+test('is silent for owner-only, read-only, and sticky writable directories', () => {
+  for (const mode of [0o700, 0o755, 0o1777, 0o1770]) {
+    expect(checkConfigReplaceable([FILE, stat('/home/me/.config/mimir', mode)], ME)).toEqual([]);
+  }
+});
+
+test('leaves the file mode to the read and write checks', () => {
+  const loose = stat(FILE.path, 0o666, ME, false);
+  expect(checkConfigReplaceable([loose], ME)).toEqual([]);
+});
+
+test('warns when another user owns the config file', () => {
+  const findings = checkConfigReplaceable([stat(FILE.path, 0o600, OTHER, false)], ME);
+  expect(findings).toHaveLength(1);
+  const [item] = findings;
+  expect(item?.code).toBe('config-foreign-owner');
+  expect(item?.locator).toBe(FILE.path);
+  expect(item?.evidence.owner).toBe(OTHER);
+  expect(item?.message).toContain(`chown`);
+  expect(item?.message).toContain(FILE.path);
+});
+
+test('warns when another user owns a directory above the config', () => {
+  const stats = [FILE, stat('/home/me/.config/mimir', 0o755, OTHER)];
+  expect(checkConfigReplaceable(stats, ME).map((f) => f.code)).toEqual(['config-foreign-owner']);
+});
+
+test('trusts paths owned by root or by the current user', () => {
+  const stats = [
+    stat(FILE.path, 0o600, ROOT, false),
+    stat('/etc/mimir', 0o755, ROOT),
+    stat('/', 0o755, ROOT),
+  ];
+  expect(checkConfigReplaceable(stats, ME)).toEqual([]);
+  expect(checkConfigReplaceable([FILE, stat('/home/me', 0o700)], ME)).toEqual([]);
+});
+
+test('reports both findings for a foreign-owned writable directory', () => {
+  const stats = [FILE, stat('/home/me/.config/mimir', 0o777, OTHER)];
+  expect(checkConfigReplaceable(stats, ME).map((f) => f.code)).toEqual([
+    'config-dir-writable',
+    'config-foreign-owner',
+  ]);
+});
+
+test('is silent without a POSIX user id to compare owners against', () => {
+  const stats = [stat(FILE.path, 0o600, OTHER, false), stat('/home/me/.config/mimir', 0o777)];
+  expect(checkConfigReplaceable(stats, undefined)).toEqual([]);
+});
+
+test('checkConfigPermissions warns on a real world-writable config directory', () => {
+  const nest = join(dir, 'mimir');
+  mkdirSync(nest);
+  const nested = join(nest, 'config.toml');
+  writeFileSync(nested, WITH_URL);
+  chmodSync(nested, 0o600);
+  chmodSync(nest, 0o777);
+  const findings = checkConfigPermissions(nested, { home: dir });
+  expect(findings.map((f) => f.code)).toEqual(['config-dir-writable']);
+  expect(findings.map((f) => f.message).join('\n')).not.toContain('secret');
+  chmodSync(nest, 0o700);
+  expect(checkConfigPermissions(nested, { home: dir })).toEqual([]);
 });

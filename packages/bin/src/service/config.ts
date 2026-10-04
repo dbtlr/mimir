@@ -5,7 +5,8 @@
  * Serve's port precedence: --port > MIMIR_PORT > config > built-in default.
  */
 import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { homedir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 
 import { runtimePaths } from '../env';
 
@@ -267,13 +268,48 @@ const CONFIG_MODE = 0o600;
 
 /**
  * The config file's permission bits (`0o644`), or undefined when it cannot be
- * statted. Lives here because doctor may not touch `node:fs` (ADR 0018).
+ * statted. Lives here because doctor stays off `node:fs`.
  */
 export function configFileMode(file = configPath()): number | undefined {
   try {
     return statSync(file).mode & 0o777;
   } catch {
     return undefined;
+  }
+}
+
+/** One path on the way to the config: who owns it and its permission bits, sticky bit included. */
+export type ConfigPathStat = {
+  path: string;
+  mode: number;
+  uid: number;
+  isDirectory: boolean;
+};
+
+/**
+ * The config file, then each directory above it, up to and including `home`,
+ * or up to `/` when the file sits outside it. Whoever can rename any of these
+ * can swap the config, so doctor checks every one (OpenSSH `StrictModes` walks
+ * the same path). Empty when the file cannot be statted. Lives here because
+ * doctor stays off `node:fs`.
+ */
+export function configPathStats(file = configPath(), home = homedir()): ConfigPathStat[] {
+  const stats: ConfigPathStat[] = [];
+  const stop = resolve(home);
+  let path = resolve(file);
+  try {
+    for (;;) {
+      const s = statSync(path);
+      stats.push({ isDirectory: s.isDirectory(), mode: s.mode & 0o7777, path, uid: s.uid });
+      const parent = dirname(path);
+      if (path === stop || parent === path) {
+        return stats;
+      }
+      path = parent;
+    }
+  } catch {
+    // An unreadable ancestor ends the walk; what was statted is still checked.
+    return stats;
   }
 }
 
