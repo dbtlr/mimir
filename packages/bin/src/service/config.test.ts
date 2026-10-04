@@ -1,10 +1,21 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
   configPath,
+  configPathStats,
   DEFAULT_STORE_BACKEND,
   readConfig,
   readRuntimeConfig,
@@ -209,6 +220,19 @@ test('writeConfig leaves the config readable only by its owner', () => {
   expect(statSync(fresh).mode & 0o777).toBe(0o600);
 });
 
+test('writeConfig creates missing directories owner-only, whatever the umask', () => {
+  // A 0775 directory from a umask-002 shell would trip doctor's own
+  // config-dir-writable warning on a directory mimir made.
+  const previous = process.umask(0o002);
+  try {
+    writeConfig(join(dir, 'a', 'b', 'config.toml'), { serve: { port: 50133 } });
+  } finally {
+    process.umask(previous);
+  }
+  expect(statSync(join(dir, 'a')).mode & 0o777).toBe(0o700);
+  expect(statSync(join(dir, 'a', 'b')).mode & 0o777).toBe(0o700);
+});
+
 test('writeConfig preserves a leftover [vault] table verbatim', () => {
   // No reader knows `[vault]` since ADR 0032, but the writer works on the raw
   // TOML, so a port write leaves the table (sub-tables included) as it was.
@@ -281,4 +305,52 @@ test('writeConfig emits quoted keys so a space-containing key stays valid TOML',
   expect(round.serve.port).toBe(50131);
   expect(round['a b']).toEqual({ x: 1 });
   expect(round.m).toEqual([{ dst: '/b', 'src path': '/a' }]);
+});
+
+test('configPathStats walks the file and each directory up to and including home', () => {
+  const nest = join(dir, 'config', 'mimir');
+  mkdirSync(nest, { recursive: true });
+  const file = join(nest, 'config.toml');
+  writeFileSync(file, '');
+  chmodSync(file, 0o600);
+  chmodSync(nest, 0o1777);
+  const stats = configPathStats(file, dir);
+  expect(stats.map((s) => s.path)).toEqual([file, nest, join(dir, 'config'), dir]);
+  expect(stats.map((s) => s.isDirectory)).toEqual([false, true, true, true]);
+  // The sticky bit survives: it decides whether a writable directory is safe.
+  expect(stats[0]?.mode).toBe(0o600);
+  expect(stats[1]?.mode).toBe(0o1777);
+  expect(stats.every((s) => s.uid === statSync(dir).uid)).toBe(true);
+});
+
+test('configPathStats walks to the root when the file sits outside home', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '');
+  const stats = configPathStats(file, join(dir, 'elsewhere'));
+  expect(stats.map((s) => s.path)).toContain('/');
+  expect(stats.map((s) => s.path)).toContain(dir);
+});
+
+test('configPathStats is empty when the config file does not exist', () => {
+  expect(configPathStats(join(dir, 'config.toml'), dir)).toEqual([]);
+});
+
+test('configPathStats also walks the real location of a symlinked config', () => {
+  // A dotfile manager links the config elsewhere; whoever can rename entries
+  // along the target's path can swap the config as surely as along the link's.
+  const real = realpathSync(dir);
+  const shared = join(real, 'shared');
+  const linked = join(real, 'home', 'mimir');
+  mkdirSync(shared);
+  mkdirSync(linked, { recursive: true });
+  writeFileSync(join(shared, 'config.toml'), '');
+  const file = join(linked, 'config.toml');
+  symlinkSync(join(shared, 'config.toml'), file);
+  const paths = configPathStats(file, join(real, 'home')).map((s) => s.path);
+  expect(paths.slice(0, 3)).toEqual([file, linked, join(real, 'home')]);
+  expect(paths).toContain(shared);
+  // The link already stats as its target, so the file is listed once, by the
+  // name doctor opens; so is every directory both walks reach.
+  expect(paths).not.toContain(join(shared, 'config.toml'));
+  expect(paths.filter((p) => p === real)).toHaveLength(1);
 });
