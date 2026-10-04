@@ -9,15 +9,13 @@
  * lives in its own module and returns a {@link BuiltStore} whose only doctor
  * surface is the backend's own facet (ADR 0030 Decision 6).
  */
-import { existsSync } from 'node:fs';
-
 import type { Store } from './core';
 import { invariant } from './core/errors';
 import type { DoctorBackend } from './doctor/contract';
 import type { GlobalConfig, StoreBackend } from './service/config';
 import { configPath, DEFAULT_STORE_BACKEND, readRuntimeConfig } from './service/config';
 import { buildPostgresStore } from './store-postgres-backend';
-import { buildSqliteStore } from './store-sqlite-backend';
+import { buildNamedSqliteStore, buildSqliteStore } from './store-sqlite-backend';
 
 export type BuiltStore = {
   store: Store;
@@ -73,21 +71,19 @@ export async function buildStore(
   assertUsableStoreConfig(config);
   const backend = config.store.backend ?? DEFAULT_STORE_BACKEND;
   if (override.file !== undefined) {
-    return await buildNamedSqliteStore(backend, override.file);
+    return await buildNamedStore(backend, override.file);
   }
   return backend === 'postgres' ? await buildPostgresStore(config) : await buildSqliteStore();
 }
 
-/** Open the SQLite file a run named, refusing what would serve the wrong store. */
-async function buildNamedSqliteStore(backend: StoreBackend, file: string): Promise<BuiltStore> {
+/** Open the SQLite file a run named — only on a SQLite install, which a named
+ * file cannot redirect to another backend. */
+async function buildNamedStore(backend: StoreBackend, file: string): Promise<BuiltStore> {
   if (backend !== 'sqlite') {
     throw invariant(
       `--store names a SQLite file, but this install runs the ${backend} backend`,
       'drop --store, or run it from a SQLite install or a source checkout',
     );
   }
-  if (!existsSync(file)) {
-    throw invariant(`no store file at ${file}`, 'name an existing SQLite store file');
-  }
-  return await buildSqliteStore(file);
+  return await buildNamedSqliteStore(file);
 }

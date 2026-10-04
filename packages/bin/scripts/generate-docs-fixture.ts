@@ -25,7 +25,8 @@ import { Database } from 'bun:sqlite';
  * every operation, matching the runtime store seam.
  */
 import { setSystemTime } from 'bun:test';
-import { existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
+import { lstatSync, mkdirSync, rmSync } from 'node:fs';
+import type { Stats } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 import type { Lane, SeedLane, StatusWord, TaskStatusWord } from '@mimir/contract';
@@ -644,16 +645,18 @@ export type FixtureSummary = {
 /**
  * Guard the target. Replacement is allowed ONLY for a store holding nothing but
  * {@link FIXTURE_PROJECTS} — a previous fixture, or one a crashed run left half
- * built. An absent path proceeds. Anything else refuses: a directory, a file
+ * built. An absent path proceeds. Anything else refuses: a symlink (even a
+ * dangling one, whose destination the open would create), a directory, a file
  * that is not a SQLite store, and in particular a REAL store with its own
- * projects. The check opens the file read-only, so a refused store is neither
- * migrated nor written.
+ * projects. The check opens the file read-only, so a refused store's data is
+ * never migrated or written.
  */
 function prepareTarget(target: string): void {
-  if (!existsSync(target)) {
+  const entry = lstatSync(target, { throwIfNoEntry: false });
+  if (entry === undefined) {
     return;
   }
-  const foreign = statSync(target).isDirectory() ? ['(a directory)'] : foreignProjects(target);
+  const foreign = foreignContents(target, entry);
   if (foreign.length > 0) {
     throw new Error(
       `${target} is not a generated docs fixture (holds ${foreign.join(', ')}) — refusing to replace it. ` +
@@ -663,6 +666,18 @@ function prepareTarget(target: string): void {
   for (const file of [target, `${target}-wal`, `${target}-shm`]) {
     rmSync(file, { force: true });
   }
+}
+
+/** What at `target` the fixture does not own: everything when it is not a
+ * plain file, else the store's non-fixture projects. */
+function foreignContents(target: string, entry: Stats): string[] {
+  if (entry.isSymbolicLink()) {
+    return ['(a symlink)'];
+  }
+  if (entry.isDirectory()) {
+    return ['(a directory)'];
+  }
+  return foreignProjects(target);
 }
 
 /** The projects in the store at `file` that the fixture does not own; a file

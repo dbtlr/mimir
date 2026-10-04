@@ -1,5 +1,6 @@
+import { Database } from 'bun:sqlite';
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -200,4 +201,48 @@ test('a named store file is refused on a postgres install', async () => {
   }
   expect(message).toContain('--store');
   expect(message).toContain('postgres');
+});
+
+/** Refusal message of a named-file build, or '' when it opened. */
+async function namedRefusal(path: string): Promise<string> {
+  try {
+    const built = await buildStore({ serve: {}, store: {} }, { file: path });
+    await built.close();
+    return '';
+  } catch (error) {
+    expect(error).toBeInstanceOf(MimirError);
+    return (error as MimirError).message;
+  }
+}
+
+test('a named store file must be a Mimir store, not a directory or another file', async () => {
+  const folder = join(dir, 'folder');
+  mkdirSync(folder);
+  expect(await namedRefusal(folder)).toContain('not a Mimir SQLite store');
+
+  const notes = join(dir, 'notes.md');
+  writeFileSync(notes, 'irreplaceable\n');
+  expect(await namedRefusal(notes)).toContain('not a Mimir SQLite store');
+});
+
+// A named file is never migrated: serving a store from a branch whose schema
+// moved ahead would upgrade it past the binary that owns it.
+test("a named store file behind this binary's schema is refused, not migrated", async () => {
+  const path = join(dir, 'old.sqlite');
+  const seeded = await buildSqliteStore(path);
+  await seeded.close();
+  const raw = new Database(path);
+  raw.run('delete from schema_version');
+  raw.run(
+    "insert into schema_version (version, applied_at) values (0, '2026-01-01T00:00:00.000Z')",
+  );
+  raw.close();
+
+  expect(await namedRefusal(path)).toContain('schema is version 0');
+  const after = new Database(path, { readonly: true });
+  try {
+    expect(after.query('select version from schema_version').all()).toEqual([{ version: 0 }]);
+  } finally {
+    after.close();
+  }
 });

@@ -60,7 +60,8 @@ bun run mimir serve --store .dev/fixtures/docs.sqlite
 ```
 
 The generator writes `.dev/fixtures/docs.sqlite`, which no installation opens on
-its own. It replaces a previous fixture and refuses any other store.
+its own. It replaces a previous fixture and refuses any other store. Restart
+`serve` after regenerating: a running server keeps the replaced file open.
 
 Capture a dark 1440 × 900 viewport after the page settles:
 

@@ -14,10 +14,6 @@
  * which renders that verb's `COMMAND_HELP` descriptor without ever touching
  * the store (MMR-294).
  */
-import { resolve } from 'node:path';
-
-import { parsePort } from '@mimir/helpers';
-
 import { findBinding, runCli } from './cli';
 import type { Io } from './cli';
 import { systemTimeZone } from './core';
@@ -31,6 +27,7 @@ import { createServer } from './http';
 import { runInstallationCommand } from './installation/command';
 import { INSTALLATION_PROTOCOL_RESPONSE } from './installation/protocol';
 import { serveStdio } from './mcp';
+import { parseServeArgs } from './serve-args';
 import {
   EVENTS_FILE,
   LaunchdSupervisor,
@@ -87,43 +84,6 @@ function stdoutIo(): Io {
 /** True when `-h`/`--help` is present — the one case a machinery loner (serve/mcp/version) doesn't intercept, falling through to `runCli`'s help instead (MMR-294). */
 function wantsHelp(args: string[]): boolean {
   return args.includes('-h') || args.includes('--help');
-}
-
-/**
- * Parse `serve`'s `--port` flag.
- * - `undefined`: flag absent — caller uses config or built-in default.
- * - `null`: flag present but unusable (a usage fault).
- * - `number`: the parsed port.
- */
-function servePort(args: string[]): number | null | undefined {
-  const at = args.indexOf('--port');
-  if (at === -1) {
-    return undefined;
-  }
-  const raw = args[at + 1];
-  if (raw === undefined) {
-    return null;
-  }
-  return parsePort(raw);
-}
-
-/**
- * Parse `serve`'s `--store` flag, a SQLite file to serve instead of the
- * installation's store (the docs fixture).
- * - `undefined`: flag absent — the installation's store.
- * - `null`: flag present without a file (a usage fault).
- * - `string`: the file, resolved against the working directory.
- */
-function serveStoreFile(args: string[]): string | null | undefined {
-  const at = args.indexOf('--store');
-  if (at === -1) {
-    return undefined;
-  }
-  const raw = args[at + 1];
-  if (raw === undefined || raw.startsWith('-')) {
-    return null;
-  }
-  return resolve(raw);
 }
 
 /** The serve unit's baked environment: only a non-live installation bakes its
@@ -247,18 +207,12 @@ async function main(argv: string[]): Promise<number> {
   }
 
   if (command === 'serve' && !wantsHelp(argv.slice(1))) {
-    const args = argv.slice(1);
-    const flagPort = servePort(args);
-    if (flagPort === null) {
-      console.error('✗ serve: --port expects an integer in 1–65535');
+    const parsed = parseServeArgs(argv.slice(1));
+    if ('error' in parsed) {
+      console.error(`✗ serve: ${parsed.error}`);
       return 2;
     }
-    const storeFile = serveStoreFile(args);
-    if (storeFile === null) {
-      console.error('✗ serve: --store expects a SQLite store file');
-      return 2;
-    }
-    const noHunt = args.includes('--no-hunt');
+    const { noHunt, port: flagPort, storeFile } = parsed;
     // Declared port wins: flag > MIMIR_PORT env > production-only global config
     // > built-in default (MMR-47/MMR-117/MMR-325). A malformed MIMIR_PORT is
     // ignored with a warning.

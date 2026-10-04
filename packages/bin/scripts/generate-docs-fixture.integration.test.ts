@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -181,6 +181,19 @@ test('refuses a file that is not a SQLite store', async () => {
     expect(await refusalOf(file)).toMatch(/refusing to replace it/);
     expect(readFileSync(file, 'utf8')).toBe('irreplaceable\n');
     expect(existsSync(`${file}-wal`)).toBe(false);
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test('refuses a symlink target, even one whose destination does not exist yet', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'mimir-fixture-guard-'));
+  try {
+    const destination = join(dir, 'elsewhere.sqlite');
+    const link = join(dir, 'docs.sqlite');
+    symlinkSync(destination, link);
+    expect(await refusalOf(link)).toMatch(/refusing to replace it/);
+    expect(existsSync(destination)).toBe(false);
   } finally {
     rmSync(dir, { force: true, recursive: true });
   }

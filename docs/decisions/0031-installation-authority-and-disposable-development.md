@@ -185,7 +185,10 @@ data directory, so no installation opens the fixture unless a command names it.
 This refines the boundary without opening it. The flag is per invocation and
 never persists, unlike the environment flag this decision rejected. It does not
 change which store an installation, its supervisor unit, or any other command
-opens. It refuses a file that does not exist, so a typo cannot create and serve an
-empty store. It refuses on a Postgres installation, because it names no database
-endpoint and cannot redirect one. Naming a file is a deliberate act, and this
+opens. Serve parses its flags strictly, so a misspelled flag fails instead of
+falling back to the installation's store. The named file must already be a
+Mimir store at exactly the binary's schema version: it is checked read-only and
+never migrated, so a development build cannot upgrade a store past the binary
+that owns it. A Postgres installation refuses the flag, because a file cannot
+redirect a database endpoint. Naming a file is a deliberate act, and this
 decision guards against accidental access.
