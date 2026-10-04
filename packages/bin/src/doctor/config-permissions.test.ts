@@ -121,3 +121,12 @@ test('warnConfigPermissions is silent for a project scope and for an owner-only 
   warnConfigPermissions(undefined, file, (text) => lines.push(text));
   expect(lines).toEqual([]);
 });
+
+test('warnConfigPermissions writes one line per finding when the file is readable and writable', () => {
+  writeWithMode(WITH_URL, 0o666);
+  const lines: string[] = [];
+  warnConfigPermissions(undefined, file, (text) => lines.push(text));
+  expect(lines).toHaveLength(2);
+  expect(lines.every((line) => line.startsWith('[warn] config: '))).toBe(true);
+  expect(lines.join('\n')).not.toContain('secret');
+});
