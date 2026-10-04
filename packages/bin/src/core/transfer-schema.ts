@@ -16,7 +16,9 @@ import { STORE_EXPORT_SCHEMA_VERSION } from './export';
 import { isScratchpadId } from './scratchpads/store';
 
 // Plain text, not the canonical-instant grammar: import copies stored facts as they
-// stand, including a legacy empty timestamp a v0.20 export can carry.
+// stand, including a legacy empty timestamp a v0.20 export can carry. Refusing it
+// would strand that export and re-stamping it would invent a time, so doctor's
+// malformed-timestamp check reports it instead.
 const text = z.string();
 const nullableText = text.nullable();
 const integer = z.int32();
