@@ -187,8 +187,8 @@ never persists, unlike the environment flag this decision rejected. It does not
 change which store an installation, its supervisor unit, or any other command
 opens. Serve parses its flags strictly, so a misspelled flag fails instead of
 falling back to the installation's store. The named file must already be a
-Mimir store at exactly the binary's schema version: it is checked read-only and
-never migrated, so a development build cannot upgrade a store past the binary
+Mimir store at exactly the binary's schema version: it is checked before
+anything is written and never migrated, so a development build cannot upgrade a store past the binary
 that owns it. A Postgres installation refuses the flag, because a file cannot
 redirect a database endpoint. Naming a file is a deliberate act, and this
 decision guards against accidental access.

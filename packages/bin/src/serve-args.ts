@@ -21,7 +21,9 @@ const PORT_FAULT = '--port expects an integer in 1–65535';
 const STORE_FAULT = '--store expects a SQLite store file';
 
 /** Parse `serve`'s arguments, or name the usage fault. */
-export function parseServeArgs(args: readonly string[]): ServeArgs | { error: string } {
+export function parseServeArgs(
+  args: readonly string[],
+): ServeArgs | { error: string; hint?: string } {
   let values: { port?: string; 'no-hunt'?: boolean; store?: string };
   try {
     ({ values } = parseArgs({
@@ -34,7 +36,7 @@ export function parseServeArgs(args: readonly string[]): ServeArgs | { error: st
       strict: true,
     }));
   } catch (error) {
-    return { error: usageFault(error) };
+    return usageFault(error);
   }
   const parsed: ServeArgs = { noHunt: values['no-hunt'] === true };
   if (values.port !== undefined) {
@@ -53,15 +55,31 @@ export function parseServeArgs(args: readonly string[]): ServeArgs | { error: st
   return parsed;
 }
 
-/** A known flag missing its value gets that flag's message; any other fault
- * (an unknown flag, a stray word) keeps parseArgs', which names the token. */
-function usageFault(error: unknown): string {
+const HELP = "run 'mimir serve -h' for its flags";
+
+/**
+ * Re-voice a parseArgs failure (library text never ships; the shapes match the
+ * CLI's own rewriter in cli/run.ts). A known flag missing its value gets that
+ * flag's own message.
+ */
+function usageFault(error: unknown): { error: string; hint?: string } {
+  const code = error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined;
   const message = error instanceof Error ? error.message : String(error);
   if (/^Option '--store[ ']/.test(message)) {
-    return STORE_FAULT;
+    return { error: STORE_FAULT };
   }
   if (/^Option '--port[ ']/.test(message)) {
-    return PORT_FAULT;
+    return { error: PORT_FAULT };
   }
-  return message;
+  const token = /'([^']+)'/.exec(message)?.[1] ?? '';
+  if (code === 'ERR_PARSE_ARGS_UNKNOWN_OPTION') {
+    return { error: `unknown flag '${token}'`, hint: HELP };
+  }
+  if (code === 'ERR_PARSE_ARGS_UNEXPECTED_POSITIONAL') {
+    return { error: `unexpected argument '${token}'`, hint: HELP };
+  }
+  if (/does not take an argument/.test(message)) {
+    return { error: `'${token}' doesn't take a value`, hint: HELP };
+  }
+  return { error: 'invalid arguments', hint: HELP };
 }

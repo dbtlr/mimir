@@ -246,3 +246,10 @@ test("a named store file behind this binary's schema is refused, not migrated", 
     after.close();
   }
 });
+
+test('an empty named file is refused, never built into a store', async () => {
+  const path = join(dir, 'empty.sqlite');
+  writeFileSync(path, '');
+  expect(await namedRefusal(path)).toContain('has no schema');
+  expect(Bun.file(path).size).toBe(0);
+});

@@ -27,15 +27,13 @@ test('the inline --store=<file> form names the same file', () => {
   });
 });
 
-test('an unknown or misspelled flag is a usage fault naming that flag', () => {
-  for (const [args, named] of [
-    [['--stores', 'fixture.sqlite'], "'--stores'"],
-    [['--ports', '4100'], "'--ports'"],
-    [['stray'], "'stray'"],
+test('an unknown flag, a stray word, or a value on a switch is a usage fault in house voice', () => {
+  for (const [args, error] of [
+    [['--stores', 'fixture.sqlite'], "unknown flag '--stores'"],
+    [['stray'], "unexpected argument 'stray'"],
+    [['--no-hunt=1'], "'--no-hunt' doesn't take a value"],
   ] as const) {
-    const parsed = parseServeArgs(args);
-    expect(parsed).toHaveProperty('error');
-    expect((parsed as { error: string }).error).toContain(named);
+    expect(parseServeArgs(args)).toEqual({ error, hint: "run 'mimir serve -h' for its flags" });
   }
 });
 

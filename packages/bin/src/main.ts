@@ -210,6 +210,9 @@ async function main(argv: string[]): Promise<number> {
     const parsed = parseServeArgs(argv.slice(1));
     if ('error' in parsed) {
       console.error(`✗ serve: ${parsed.error}`);
+      if (parsed.hint !== undefined) {
+        console.error(`note: ${parsed.hint}`);
+      }
       return 2;
     }
     const { noHunt, port: flagPort, storeFile } = parsed;
