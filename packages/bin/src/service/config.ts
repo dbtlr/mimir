@@ -4,8 +4,17 @@
  * reads this file at startup, so retargeting is edit-config + restart.
  * Serve's port precedence: --port > MIMIR_PORT > config > built-in default.
  */
-import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 
 import { runtimePaths } from '../env';
 
@@ -265,9 +274,12 @@ function emitTable(prefix: string, table: Table, out: string[]): void {
  */
 const CONFIG_MODE = 0o600;
 
+/** Owner-only, so no other user can rename a config of their own into place. */
+const CONFIG_DIR_MODE = 0o700;
+
 /**
  * The config file's permission bits (`0o644`), or undefined when it cannot be
- * statted. Lives here because doctor may not touch `node:fs` (ADR 0018).
+ * statted. Lives here because doctor stays off `node:fs`.
  */
 export function configFileMode(file = configPath()): number | undefined {
   try {
@@ -275,6 +287,66 @@ export function configFileMode(file = configPath()): number | undefined {
   } catch {
     return undefined;
   }
+}
+
+/** One path on the way to the config: who owns it and its permission bits, sticky bit included. */
+export type ConfigPathStat = {
+  path: string;
+  mode: number;
+  uid: number;
+  isDirectory: boolean;
+};
+
+/** A stat plus its filesystem identity, so one directory reached by two names is checked once. */
+type ChainEntry = { stat: ConfigPathStat; id: string };
+
+/** `path` and each directory above it, up to and including `stop` or `/`; stops at the first path it cannot stat. */
+function statChain(path: string, stop: string): ChainEntry[] {
+  const chain: ChainEntry[] = [];
+  try {
+    for (;;) {
+      const s = statSync(path);
+      chain.push({
+        id: `${s.dev}:${s.ino}`,
+        stat: { isDirectory: s.isDirectory(), mode: s.mode & 0o7777, path, uid: s.uid },
+      });
+      const parent = dirname(path);
+      if (path === stop || parent === path) {
+        return chain;
+      }
+      path = parent;
+    }
+  } catch {
+    // A missing file, or a path removed mid-walk; what was statted is still checked.
+    return chain;
+  }
+}
+
+/** `path` with every symlink resolved, or `path` itself when it cannot be resolved. */
+function realOrSelf(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+}
+
+/**
+ * The config file, then each directory above it, up to and including `home`,
+ * or up to `/` when the file sits outside it. Whoever can rename any of these
+ * can swap the config, so doctor checks every one (OpenSSH `StrictModes` walks
+ * the same path). When symlinks are involved, the same walk from the file's real
+ * location follows, each directory listed once. Empty when the file cannot be
+ * statted. Lives here because doctor stays off `node:fs`.
+ */
+export function configPathStats(file = configPath(), home = homedir()): ConfigPathStat[] {
+  const named = statChain(resolve(file), resolve(home));
+  if (named.length === 0) {
+    return [];
+  }
+  const seen = new Set(named.map((entry) => entry.id));
+  const real = statChain(realOrSelf(file), realOrSelf(home)).filter((entry) => !seen.has(entry.id));
+  return [...named, ...real].map((entry) => entry.stat);
 }
 
 /** The outcome of {@link writeConfig}: whether an unparseable file was reset. */
@@ -312,7 +384,8 @@ export function writeConfig(file: string, patch: ConfigPatch): WriteResult {
   }
   const out: string[] = [];
   emitTable('', raw, out);
-  mkdirSync(dirname(file), { recursive: true });
+  // Owner-only, like the file: doctor warns on a directory others can write.
+  mkdirSync(dirname(file), { mode: CONFIG_DIR_MODE, recursive: true });
   writeFileSync(file, out.length === 0 ? '' : `${out.join('\n\n')}\n`, { mode: CONFIG_MODE });
   // `mode` on `writeFileSync` applies only when the file is CREATED, so an
   // existing file keeps whatever permissions it had. `chmod` after the write
