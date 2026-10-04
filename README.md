@@ -127,6 +127,10 @@ For Postgres development, run `bun run sandbox create`. Use
 for the native upgrade rehearsal. See the [sandbox guide](docs/guides/development-sandboxes.md)
 for fixture, restore, upgrade, and cleanup commands.
 
+For documentation screenshots, `bun run fixtures:docs` generates a demo
+workspace and `bun run mimir serve --store .dev/fixtures/docs.sqlite` serves it.
+See [writing style](docs/writing-style.md#refresh-screenshots).
+
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the project structure and review
 process.
 

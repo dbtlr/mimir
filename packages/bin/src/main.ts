@@ -14,12 +14,11 @@
  * which renders that verb's `COMMAND_HELP` descriptor without ever touching
  * the store (MMR-294).
  */
-import { parsePort } from '@mimir/helpers';
-
 import { findBinding, runCli } from './cli';
 import type { Io } from './cli';
 import { systemTimeZone } from './core';
 import type { Store } from './core';
+import { MimirError } from './core/errors';
 import { openPostgres } from './core/store-postgres/index';
 import { warnConfigPermissions, withConfigFindings } from './doctor/config-permissions';
 import type { DoctorBackend } from './doctor/contract';
@@ -28,6 +27,7 @@ import { createServer } from './http';
 import { runInstallationCommand } from './installation/command';
 import { INSTALLATION_PROTOCOL_RESPONSE } from './installation/protocol';
 import { serveStdio } from './mcp';
+import { parseServeArgs } from './serve-args';
 import {
   EVENTS_FILE,
   LaunchdSupervisor,
@@ -84,24 +84,6 @@ function stdoutIo(): Io {
 /** True when `-h`/`--help` is present — the one case a machinery loner (serve/mcp/version) doesn't intercept, falling through to `runCli`'s help instead (MMR-294). */
 function wantsHelp(args: string[]): boolean {
   return args.includes('-h') || args.includes('--help');
-}
-
-/**
- * Parse `serve`'s `--port` flag.
- * - `undefined`: flag absent — caller uses config or built-in default.
- * - `null`: flag present but unusable (a usage fault).
- * - `number`: the parsed port.
- */
-function servePort(args: string[]): number | null | undefined {
-  const at = args.indexOf('--port');
-  if (at === -1) {
-    return undefined;
-  }
-  const raw = args[at + 1];
-  if (raw === undefined) {
-    return null;
-  }
-  return parsePort(raw);
 }
 
 /** The serve unit's baked environment: only a non-live installation bakes its
@@ -225,13 +207,15 @@ async function main(argv: string[]): Promise<number> {
   }
 
   if (command === 'serve' && !wantsHelp(argv.slice(1))) {
-    const args = argv.slice(1);
-    const flagPort = servePort(args);
-    if (flagPort === null) {
-      console.error('✗ serve: --port expects an integer in 1–65535');
+    const parsed = parseServeArgs(argv.slice(1));
+    if ('error' in parsed) {
+      console.error(`✗ serve: ${parsed.error}`);
+      if (parsed.hint !== undefined) {
+        console.error(`note: ${parsed.hint}`);
+      }
       return 2;
     }
-    const noHunt = args.includes('--no-hunt');
+    const { noHunt, port: flagPort, storeFile } = parsed;
     // Declared port wins: flag > MIMIR_PORT env > production-only global config
     // > built-in default (MMR-47/MMR-117/MMR-325). A malformed MIMIR_PORT is
     // ignored with a warning.
@@ -249,7 +233,21 @@ async function main(argv: string[]): Promise<number> {
     // Long-running: the server keeps the process alive; loopback-only by
     // design (ADR 0012 — the proxy is the boundary). Signals stop it cleanly.
     // `/api/doctor` serves the backend's read-only record-health facet (MMR-185).
-    const built = await buildStore();
+    let built: BuiltStore;
+    try {
+      built = await buildStore(undefined, { file: storeFile });
+    } catch (err) {
+      // A refusal (an unusable [store], a missing --store file) is the
+      // operator's to fix: name it and its remedy rather than a stack trace.
+      if (err instanceof MimirError) {
+        console.error(`✗ serve: ${err.message}`);
+        if (err.hint !== undefined) {
+          console.error(`note: ${err.hint}`);
+        }
+        return 1;
+      }
+      throw err;
+    }
     const doctor = built.doctor.facet;
     let server: ReturnType<typeof createServer>;
     try {

@@ -1,5 +1,6 @@
+import { Database } from 'bun:sqlite';
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -149,4 +150,106 @@ test('a removed norn backend names the removal and the export path to migrate', 
   expect(message).toContain('the norn backend was removed');
   expect(message).toContain('store export');
   expect(message).toContain(configPath());
+});
+
+// `serve --store <file>` opens a named SQLite file for one run — the docs
+// fixture, never an installation's own store. A named file must already exist:
+// a typo that quietly created an empty store would serve the wrong board.
+test('a named store file opens that SQLite file instead of the installation store', async () => {
+  const path = join(dir, 'fixture.sqlite');
+  const seeded = await buildSqliteStore(path);
+  try {
+    await seeded.store.transact((writer) =>
+      writer.insertProject({ description: null, key: 'AUR', name: 'Aurora', tags: [] }),
+    );
+  } finally {
+    await seeded.close();
+  }
+
+  const built = await buildStore({ serve: {}, store: {} }, { file: path });
+  try {
+    expect((await built.store.loadProjects()).map((project) => project.key)).toEqual(['AUR']);
+  } finally {
+    await built.close();
+  }
+});
+
+test('a named store file that does not exist is refused, never created', async () => {
+  const path = join(dir, 'missing.sqlite');
+  let message = '';
+  try {
+    await buildStore({ serve: {}, store: {} }, { file: path });
+  } catch (error) {
+    expect(error).toBeInstanceOf(MimirError);
+    message = (error as MimirError).message;
+  }
+  expect(message).toContain(path);
+  expect(existsSync(path)).toBe(false);
+});
+
+test('a named store file is refused on a postgres install', async () => {
+  const path = join(dir, 'fixture.sqlite');
+  let message = '';
+  try {
+    await buildStore(
+      { serve: {}, store: { backend: 'postgres', url: 'postgres://unused' } },
+      { file: path },
+    );
+  } catch (error) {
+    expect(error).toBeInstanceOf(MimirError);
+    message = (error as MimirError).message;
+  }
+  expect(message).toContain('--store');
+  expect(message).toContain('postgres');
+});
+
+/** Refusal message of a named-file build, or '' when it opened. */
+async function namedRefusal(path: string): Promise<string> {
+  try {
+    const built = await buildStore({ serve: {}, store: {} }, { file: path });
+    await built.close();
+    return '';
+  } catch (error) {
+    expect(error).toBeInstanceOf(MimirError);
+    return (error as MimirError).message;
+  }
+}
+
+test('a named store file must be a Mimir store, not a directory or another file', async () => {
+  const folder = join(dir, 'folder');
+  mkdirSync(folder);
+  expect(await namedRefusal(folder)).toContain('not a Mimir SQLite store');
+
+  const notes = join(dir, 'notes.md');
+  writeFileSync(notes, 'irreplaceable\n');
+  expect(await namedRefusal(notes)).toContain('not a Mimir SQLite store');
+});
+
+// A named file is never migrated: serving a store from a branch whose schema
+// moved ahead would upgrade it past the binary that owns it.
+test("a named store file behind this binary's schema is refused, not migrated", async () => {
+  const path = join(dir, 'old.sqlite');
+  const seeded = await buildSqliteStore(path);
+  await seeded.close();
+  const raw = new Database(path);
+  raw.run('delete from schema_version');
+  raw.run(
+    "insert into schema_version (version, applied_at) values (0, '2026-01-01T00:00:00.000Z')",
+  );
+  raw.close();
+
+  expect(await namedRefusal(path)).toContain('schema is version 0');
+  const after = new Database(path, { readonly: true });
+  try {
+    expect(after.query('select version from schema_version').all()).toEqual([{ version: 0 }]);
+  } finally {
+    after.close();
+  }
+});
+
+test('an empty named file is refused, never built into a store', async () => {
+  const path = join(dir, 'empty.sqlite');
+  writeFileSync(path, '');
+  expect(await namedRefusal(path)).toContain('has no schema');
+  expect(Bun.file(path).size).toBe(0);
 });

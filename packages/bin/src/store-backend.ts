@@ -12,10 +12,10 @@
 import type { Store } from './core';
 import { invariant } from './core/errors';
 import type { DoctorBackend } from './doctor/contract';
-import type { GlobalConfig } from './service/config';
+import type { GlobalConfig, StoreBackend } from './service/config';
 import { configPath, DEFAULT_STORE_BACKEND, readRuntimeConfig } from './service/config';
 import { buildPostgresStore } from './store-postgres-backend';
-import { buildSqliteStore } from './store-sqlite-backend';
+import { buildNamedSqliteStore, buildSqliteStore } from './store-sqlite-backend';
 
 export type BuiltStore = {
   store: Store;
@@ -51,14 +51,39 @@ const STORE_REMEDIES: Record<NonNullable<GlobalConfig['store']['problem']>, stri
     'the norn backend was removed (ADR 0032); export the vault with mimir v0.20 (`mimir store export <file>`), then remove the backend line and run `mimir store import <file> --apply`',
 };
 
+/** What a single run may override about the store it opens. */
+export type StoreOverride = {
+  /** A SQLite file to open instead of the installation's own (`serve --store`).
+   * It must already exist: opening a typo would create and serve an empty store. */
+  file?: string;
+};
+
 /**
  * Build the store for this process. An open failure (a newer schema, an
  * unreadable or foreign database file, an unreachable server) propagates so `serve` fails fast and a supervisor retries.
  * A `[store]` section that parsed to nothing usable is FATAL on the same terms
  * — see {@link assertUsableStoreConfig}.
  */
-export async function buildStore(config: GlobalConfig = readRuntimeConfig()): Promise<BuiltStore> {
+export async function buildStore(
+  config: GlobalConfig = readRuntimeConfig(),
+  override: StoreOverride = {},
+): Promise<BuiltStore> {
   assertUsableStoreConfig(config);
   const backend = config.store.backend ?? DEFAULT_STORE_BACKEND;
+  if (override.file !== undefined) {
+    return await buildNamedStore(backend, override.file);
+  }
   return backend === 'postgres' ? await buildPostgresStore(config) : await buildSqliteStore();
+}
+
+/** Open the SQLite file a run named — only on a SQLite install, which a named
+ * file cannot redirect to another backend. */
+async function buildNamedStore(backend: StoreBackend, file: string): Promise<BuiltStore> {
+  if (backend !== 'sqlite') {
+    throw invariant(
+      `--store names a SQLite file, but this install runs the ${backend} backend`,
+      'drop --store, or run it from a SQLite install or a source checkout',
+    );
+  }
+  return await buildNamedSqliteStore(file);
 }

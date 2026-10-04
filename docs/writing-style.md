@@ -51,9 +51,17 @@ syntax; guides own intent, sequence, and the reason a workflow matters.
 
 ## Refresh screenshots
 
-Screenshots use a generated demo workspace, never a personal store. The demo
-fixture generator is being replaced; serve the console from a disposable
-sandbox installation seeded with the demo workspace, never from the live store.
+Screenshots use a generated demo workspace, never a personal store. Generate
+it, then serve the console from it:
+
+```sh
+bun run fixtures:docs
+bun run mimir serve --store .dev/fixtures/docs.sqlite
+```
+
+The generator writes `.dev/fixtures/docs.sqlite`, which no installation opens on
+its own. It replaces a previous fixture and refuses any other store. Restart
+`serve` after regenerating: a running server keeps the replaced file open.
 
 Capture a dark 1440 × 900 viewport after the page settles:
 
