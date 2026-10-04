@@ -17,6 +17,97 @@ and are compiled into a new release section at each cut
 ([ADR 0022](docs/decisions/0022-changelog-fragments-compiled-at-cut.md));
 `bun run changelog:compile` previews the pending section.
 
+## v0.21.0 - 2026-10-04
+
+### Added
+
+- **A SQLite local tier, the new default store** (MMR-417). A new install needs
+  no external binary. Mimir keeps work state in one file, `store.sqlite`, in
+  the installation's data directory, and creates and migrates it forward on
+  open. A database file that holds unrelated tables is refused.
+  `[store] backend` accepts `sqlite` (the default) and `postgres`, and
+  `mimir doctor` runs one shared check over both. Back up SQLite with
+  `mimir store export`, not by copying the live database file. See
+  `docs/decisions/0032-sqlite-local-tier-shared-sql-store.md`.
+- **`mimir serve --store <file>` serves a named SQLite store** (MMR-421). The
+  run opens that file instead of the installation's store. The file must be a
+  Mimir store at this binary's schema version; it is never migrated. A Postgres
+  installation refuses the flag.
+- **`mimir doctor` reports malformed stored timestamps** (MMR-422). A new
+  `malformed-timestamp` warning names every stored timestamp that is empty or
+  not a canonical UTC instant, with the row's locator and column. Import copies
+  record and history timestamps as they stand, so a v0.20 export's legacy empty `updated_at`
+  arrives verbatim and sorts before every real instant; doctor now surfaces it.
+
+### Changed
+
+- **`mimir store upgrade` on SQLite opens the store and reports the migration**
+  (MMR-417). Opening the file migrates it, so the command reports the versions
+  it moved from and to; on Postgres it remains the one explicit schema move.
+- **`/api/health` reports the store schema version** (MMR-418). Its `schema`
+  field is now the SQL store's schema version instead of the vault's.
+- **Record health reports `mimir doctor` findings** (MMR-420). The console's
+  Record-health panel, project chip, overview card, and attention menu count
+  findings instead of dropped records, and each finding shows its
+  `<table>/<key>` locator and evidence instead of a file, line, and snippet.
+  `GET /api/doctor` renames `dropped_total` to `finding_total`, renames each
+  group's `dropped` to `finding_count`, drops the group's `path` and `readable`,
+  and gives each record `locator` and `evidence` in place of `path`,
+  `location`, `snippet`, `suggestion`, and `title`. Its `scope` field reports
+  `matched_records` instead of `matched_documents`, and a scoped
+  `mimir doctor` run that matches nothing now warns `matched 0 records`.
+- **`mimir serve` parses its flags strictly** (MMR-421). An unknown or
+  misspelled flag now fails with a usage error instead of being ignored. Store
+  refusals at startup print the problem and its remedy instead of a stack trace.
+
+### Removed
+
+- **The Norn backend** (MMR-418). Mimir no longer reads or writes a Markdown
+  vault and no longer needs `norn` on `PATH`. With it go the `[vault]` config
+  section, `MIMIR_VAULT` and `MIMIR_NORN`, the `vault snapshot` command, the
+  snapshot timer unit (`mimir service` now manages only `serve`), and
+  `mimir setup`'s `--vault`, `--install-snapshot`, `--snapshot-interval`, and
+  `--upstream` flags. A config with `[store] backend = "norn"` is refused, and
+  a v0.20 config with no `backend` line — Norn was the v0.20 default — now
+  opens an empty SQLite store and never reads the vault. To move a vault,
+  export it with mimir v0.20 (`mimir store export <file>`), upgrade, remove any
+  `backend = "norn"` line, then run `mimir store import <file> --apply`. A
+  snapshot timer a v0.20 setup installed is no longer managed and must be
+  removed by hand; `docs/guides/postgres-store.md` lists the commands. See
+  `docs/decisions/0032-sqlite-local-tier-shared-sql-store.md`.
+- **`mimir doctor --fix` and `--dry-run`** (MMR-420). Doctor only reports;
+  each finding is fixed by hand at the database. `--fix` is now an unknown
+  flag, and `--dry-run` belongs to `mimir triage` alone: any other command
+  refuses it rather than ignoring it.
+- **`issueCount` on list results and `dropped` on overview hygiene**
+  (MMR-420). Both counted records a document reader skipped, which the SQL
+  store cannot hold. `list`, `next`, and `artifacts` no longer print the "run mimir doctor"
+  stderr note, and the `overview` hygiene block carries only `untriaged`,
+  `blocked`, and `stale`.
+
+### Fixed
+
+- **Record health names an unknown project** (MMR-420). `/doctor?project=KEY`
+  for a key the store does not hold now says so, instead of reporting the
+  board clean.
+
+### Security
+
+- **`mimir doctor` warns on a group- or world-writable config file** (MMR-400).
+  Another user who can write the config can add or change `[store] url` and point
+  every command at their own database. A new `config-writable` warning names the
+  file and the `chmod 600` fix, whether or not the file carries a url yet.
+- **`mimir doctor` warns when another user could replace the config file** (MMR-423).
+  An owner-only config is still unsafe when another user owns it, or when a
+  directory on its path lets others rename entries in it. Doctor now walks the
+  file and every directory above it, up to your home directory (or to `/` for a
+  config outside home), the way OpenSSH `StrictModes` does, and walks a
+  symlinked config's real location too. It warns on a group- or world-writable
+  directory without the sticky bit (`config-dir-writable`, fixed with
+  `chmod go-w`) and on a file or directory owned by anyone but you or root
+  (`config-foreign-owner`). Mimir now creates missing config directories
+  owner-only.
+
 ## v0.20.0 - 2026-10-02
 
 ### Added
