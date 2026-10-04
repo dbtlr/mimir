@@ -59,6 +59,37 @@ test('is silent when the config file does not exist', () => {
   expect(checkConfigPermissions(file)).toEqual([]);
 });
 
+test('warns when the group can write the file, even with no [store] url', () => {
+  writeWithMode(WITHOUT_URL, 0o620);
+  const findings = checkConfigPermissions(file);
+  expect(findings).toHaveLength(1);
+  const [item] = findings;
+  expect(item?.severity).toBe('warn');
+  expect(item?.code).toBe('config-writable');
+  expect(item?.message).toContain(`chmod 600 ${file}`);
+  expect(item?.evidence.mode).toBe('0620');
+});
+
+test('warns when only others can write the file', () => {
+  writeWithMode(WITH_URL, 0o602);
+  expect(checkConfigPermissions(file).map((f) => f.code)).toEqual(['config-writable']);
+});
+
+test('reports both findings when a file carrying [store] url is readable and writable', () => {
+  for (const mode of [0o664, 0o646]) {
+    writeWithMode(WITH_URL, mode);
+    expect(checkConfigPermissions(file).map((f) => f.code)).toEqual([
+      'config-readable',
+      'config-writable',
+    ]);
+  }
+});
+
+test('warns on a writable file it cannot parse', () => {
+  writeWithMode('[store\nurl = ', 0o666);
+  expect(checkConfigPermissions(file).map((f) => f.code)).toEqual(['config-writable']);
+});
+
 const CLEAN: DoctorDiagnosis = { findings: [], scope: null };
 
 test('withConfigFindings appends the config warning to an unscoped diagnosis', () => {
@@ -89,4 +120,13 @@ test('warnConfigPermissions is silent for a project scope and for an owner-only 
   writeWithMode(WITH_URL, 0o600);
   warnConfigPermissions(undefined, file, (text) => lines.push(text));
   expect(lines).toEqual([]);
+});
+
+test('warnConfigPermissions writes one line per finding when the file is readable and writable', () => {
+  writeWithMode(WITH_URL, 0o666);
+  const lines: string[] = [];
+  warnConfigPermissions(undefined, file, (text) => lines.push(text));
+  expect(lines).toHaveLength(2);
+  expect(lines.every((line) => line.startsWith('[warn] config: '))).toBe(true);
+  expect(lines.join('\n')).not.toContain('secret');
 });

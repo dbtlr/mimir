@@ -92,7 +92,9 @@ runs against a mismatched schema.
   the database.
 - **Doctor checks the config file mode.** The `[store] url` carries the database
   password, so `mimir doctor` warns when the config file grants group or world
-  read. The fix is `chmod 600` on the file the warning names.
+  read. It also warns when the file grants group or world write, with or without
+  a url: a writer could point the store at its own database. The fix for both is
+  `chmod 600` on the file the warning names.
 
 ## Back up
 
