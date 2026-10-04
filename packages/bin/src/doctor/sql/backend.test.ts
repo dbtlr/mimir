@@ -323,6 +323,9 @@ describe.each(arms)('$name', (arm) => {
         ['seed_history', 'MMR-s1', 'MMR', 'seed_history · at'],
         ['scratchpad', expect.any(String), 'MMR', 'scratchpad · updated_at'],
       ]);
+      // The project-keyed transition is OPS's, so a scope reaches it and only it.
+      const scoped = byCode((await f.doctor.diagnose('OPS')).findings, 'malformed-timestamp');
+      expect(scoped.map((item) => item.where)).toEqual(['transition_log · at']);
     } finally {
       await f.close();
     }
