@@ -96,9 +96,11 @@ runs against a mismatched schema.
   a url: a writer could point the store at its own database. The fix for both is
   `chmod 600` on the file the warning names. The same risk comes from anyone
   who can replace the file, so doctor also warns when another user owns the
-  file or a directory above it, or when one of those directories, up to your
-  home directory, is group- or world-writable without the sticky bit. Fix those
-  with `chown` or `chmod go-w` on the path the warning names.
+  file or a directory above it, or when one of those directories is group- or
+  world-writable without the sticky bit. The walk stops at your home directory,
+  or at `/` for a config outside home, and also covers a symlinked config's real
+  location. Fix a writable directory with `chmod go-w` on the path the warning
+  names, and move a config off any path another user owns.
 
 ## Back up
 

@@ -178,8 +178,9 @@ test('warns when another user owns the config file', () => {
   expect(item?.code).toBe('config-foreign-owner');
   expect(item?.locator).toBe(FILE.path);
   expect(item?.evidence.owner).toBe(OTHER);
-  expect(item?.message).toContain(`chown`);
   expect(item?.message).toContain(FILE.path);
+  // Never a chown hint: the owner may be a real user whose path this is.
+  expect(item?.message).not.toContain('chown');
 });
 
 test('warns when another user owns a directory above the config', () => {

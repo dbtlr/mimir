@@ -103,7 +103,7 @@ export function checkConfigReplaceable(
           'config-foreign-owner',
           'owner',
           { owner },
-          `${path} is owned by uid ${owner}, who could replace the config — run 'sudo chown $(id -u) ${path}'`,
+          `${path} is owned by uid ${owner}, who could replace the config — keep the config on a path owned only by you or root`,
         ),
       );
     }
