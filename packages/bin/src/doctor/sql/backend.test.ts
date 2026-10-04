@@ -16,7 +16,7 @@ import { sqliteDialect } from '../../core/store-sqlite/index';
 import { createSqliteTestStore } from '../../core/store-sqlite/testing';
 import { seedWorkingSet } from '../../testing/conformance';
 import type { DoctorBackend, DoctorFinding } from '../contract';
-import { createSqlDoctorBackend } from './backend';
+import { createSqlDoctorBackend, TIMESTAMP_BATCH } from './backend';
 
 /**
  * The SQL doctor facet, run on both dialects it serves — Postgres (PGlite) and
@@ -264,6 +264,92 @@ describe.each(arms)('$name', (arm) => {
         where: 'scratchpad · anchors',
       });
       expect(findings[1]?.locator).toStartWith('scratchpad/');
+    } finally {
+      await f.close();
+    }
+  });
+
+  test(`${arm.name}: an empty or non-canonical stored timestamp reports malformed-timestamp with its row and column`, async () => {
+    const f = await arm.make();
+    try {
+      await seedWorkingSet(f.store);
+      await sql
+        .raw("UPDATE project SET archived_at = '2026-09-01' WHERE key = 'OPS'")
+        .execute(f.db);
+      await sql
+        .raw("UPDATE node SET created_at = '2026-09-01 00:00:00' WHERE id = 'MMR-3'")
+        .execute(f.db);
+      // The legacy empty value a v0.20 export carries through import.
+      await sql.raw("UPDATE artifact SET updated_at = '' WHERE id = 'MMR-a1'").execute(f.db);
+      // Canonical in shape, but no such day.
+      await sql
+        .raw("UPDATE seed SET updated_at = '2026-02-30T00:00:00.000Z' WHERE id = 'MMR-s1'")
+        .execute(f.db);
+
+      const findings = byCode((await f.doctor.diagnose(undefined)).findings, 'malformed-timestamp');
+      expect(findings.map((item) => [item.locator, item.where, item.evidence.value])).toEqual([
+        ['project/OPS', 'project · archived_at', '2026-09-01'],
+        ['node/MMR-3', 'node · created_at', '2026-09-01 00:00:00'],
+        ['artifact/MMR-a1', 'artifact · updated_at', ''],
+        ['seed/MMR-s1', 'seed · updated_at', '2026-02-30T00:00:00.000Z'],
+      ]);
+      expect(findings[2]).toMatchObject({
+        evidence: { updated_at: '' },
+        scopeKey: 'MMR',
+        // The row still reads; only its order among its kind is wrong.
+        severity: 'warn',
+        stem: 'MMR-a1',
+      });
+    } finally {
+      await f.close();
+    }
+  });
+
+  test(`${arm.name}: a malformed timestamp on a history or child row is attributed to the record it belongs to`, async () => {
+    const f = await arm.make();
+    try {
+      await seedWorkingSet(f.store);
+      await sql.raw("UPDATE annotation SET created_at = '' WHERE node_id = 'MMR-3'").execute(f.db);
+      await sql.raw("UPDATE transition_log SET at = '' WHERE project_key = 'OPS'").execute(f.db);
+      await sql.raw("UPDATE seed_history SET at = 'x' WHERE seed_id = 'MMR-s1'").execute(f.db);
+      await sql.raw("UPDATE scratchpad SET updated_at = ''").execute(f.db);
+
+      const findings = byCode((await f.doctor.diagnose(undefined)).findings, 'malformed-timestamp');
+      expect(
+        findings.map((item) => [item.locator.split('/')[0], item.stem, item.scopeKey, item.where]),
+      ).toEqual([
+        ['annotation', 'MMR-3', 'MMR', 'annotation · created_at'],
+        ['transition_log', 'OPS', 'OPS', 'transition_log · at'],
+        ['seed_history', 'MMR-s1', 'MMR', 'seed_history · at'],
+        ['scratchpad', expect.any(String), 'MMR', 'scratchpad · updated_at'],
+      ]);
+      // The project-keyed transition is OPS's, so a scope reaches it and only it.
+      const scoped = byCode((await f.doctor.diagnose('OPS')).findings, 'malformed-timestamp');
+      expect(scoped.map((item) => item.where)).toEqual(['transition_log · at']);
+    } finally {
+      await f.close();
+    }
+  });
+
+  test(`${arm.name}: a malformed timestamp past the first read batch is reported, its message on one line`, async () => {
+    const f = await arm.make();
+    try {
+      await seedWorkingSet(f.store);
+      await sql
+        .raw(
+          `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ${String(TIMESTAMP_BATCH + 1)}) INSERT INTO annotation (node_id, content, created_at) SELECT 'MMR-3', 'filler', '2026-09-01T00:00:00.000Z' FROM n`,
+        )
+        .execute(f.db);
+      await sql
+        .raw(
+          "UPDATE annotation SET created_at = 'bad\nvalue' WHERE id = (SELECT max(id) FROM annotation)",
+        )
+        .execute(f.db);
+
+      const findings = byCode((await f.doctor.diagnose(undefined)).findings, 'malformed-timestamp');
+      expect(findings).toHaveLength(1);
+      expect(findings[0]?.evidence.value).toBe('bad\nvalue');
+      expect(findings[0]?.message).not.toContain('\n');
     } finally {
       await f.close();
     }

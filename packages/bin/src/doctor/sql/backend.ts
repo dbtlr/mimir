@@ -25,7 +25,7 @@ import { inLists } from '../../core/store-sql/batch';
 import type { StoreDialect } from '../../core/store-sql/dialect';
 import { readSchemaVersion, SCHEMA_VERSION } from '../../core/store-sql/migrator';
 import type { DB } from '../../core/store-sql/schema';
-import { now } from '../../core/time';
+import { isCanonicalInstant, now } from '../../core/time';
 import type { DoctorBackend, DoctorDiagnosis, DoctorFinding, DoctorScopeMatch } from '../contract';
 import type { DoctorFacet, DoctorGroup, DoctorRecord } from '../facet';
 
@@ -41,6 +41,7 @@ type SqlCheck =
   | 'counter-behind'
   | 'dangling-edge'
   | 'dangling-parent'
+  | 'malformed-timestamp'
   | 'orphan-link'
   | 'schema-version';
 
@@ -312,6 +313,130 @@ async function orphanAnchors(
 }
 
 /**
+ * Every stored timestamp column, by table. `stem` is the record a row belongs
+ * to — a history or child row is reported against its owner — and `scope` is
+ * the owning project where the stem is no identity (a scratchpad's UUID). The
+ * names are fixed SQL, never input.
+ */
+const TIMESTAMP_COLUMNS = [
+  {
+    columns: ['created_at', 'updated_at', 'archived_at'],
+    key: 'key',
+    stem: 'key',
+    table: 'project',
+  },
+  { columns: ['created_at', 'updated_at', 'completed_at'], key: 'id', stem: 'id', table: 'node' },
+  { columns: ['created_at'], key: 'id', stem: 'node_id', table: 'annotation' },
+  { columns: ['created_at', 'updated_at'], key: 'id', stem: 'id', table: 'artifact' },
+  {
+    columns: ['at'],
+    key: 'id',
+    stem: 'coalesce(node_id, project_key)',
+    table: 'transition_log',
+  },
+  { columns: ['created_at', 'updated_at'], key: 'id', stem: 'id', table: 'seed' },
+  { columns: ['at'], key: 'id', stem: 'seed_id', table: 'seed_history' },
+  {
+    columns: ['created_at', 'updated_at', 'freezing_at'],
+    key: 'id',
+    scope: 'project_key',
+    stem: 'id',
+    table: 'scratchpad',
+  },
+] as const satisfies readonly {
+  columns: readonly string[];
+  key: string;
+  scope?: string;
+  stem: string;
+  table: keyof DB;
+}[];
+
+/** A stored stamp that is present but not canonical. A plain boolean rather than
+ * a type guard, so the caller keeps the value's own type on either branch. */
+function isMalformedStamp(value: unknown): boolean {
+  return value !== null && !isCanonicalInstant(value);
+}
+
+/**
+ * A stored timestamp other than the canonical UTC instant, `null` aside in a
+ * nullable column. Import copies timestamps as they stand, so a v0.20 export's
+ * legacy empty `updated_at` lands verbatim, and reads order on the raw string:
+ * an empty value sorts first. The canonical grammar includes calendar validity,
+ * which no portable SQL pattern expresses, so every value is read and judged
+ * here by {@link isCanonicalInstant}.
+ */
+async function checkMalformedTimestamp(db: Kysely<DB>): Promise<DoctorFinding[]> {
+  const findings: DoctorFinding[] = [];
+  for (const spec of TIMESTAMP_COLUMNS) {
+    for await (const row of timestampRows(db, spec)) {
+      for (const column of spec.columns) {
+        const value = row[column];
+        if (!isMalformedStamp(value)) {
+          continue;
+        }
+        const locator = `${spec.table}/${String(row.key)}`;
+        // JSON quoting keeps a hand-edited control character from breaking the
+        // one-line message; the evidence keeps the stored value as it stands.
+        const shown = value === '' ? 'empty' : JSON.stringify(String(value));
+        findings.push(
+          finding({
+            check: 'malformed-timestamp',
+            evidence: { [column]: value, value },
+            locator,
+            message: `${locator} ${column} is ${shown}, not a canonical UTC instant`,
+            ...(row.scope === null ? {} : { scopeKey: row.scope }),
+            severity: 'warn',
+            stem: row.stem,
+            where: `${spec.table} · ${column}`,
+          }),
+        );
+      }
+    }
+  }
+  return findings;
+}
+
+/** Rows per read of one table's timestamps. */
+export const TIMESTAMP_BATCH = 1000;
+
+/**
+ * One table's key, stem, scope, and timestamp columns, read in key-ordered
+ * batches so the scan's memory stays bounded however large the logs grow.
+ */
+async function* timestampRows(
+  db: Kysely<DB>,
+  spec: (typeof TIMESTAMP_COLUMNS)[number],
+): AsyncGenerator<
+  Record<string, string | number | null> & {
+    key: string | number;
+    stem: string;
+    scope: string | null;
+  }
+> {
+  const scope = 'scope' in spec ? `${spec.scope} as scope` : 'null as scope';
+  let after: string | number | null = null;
+  let full = true;
+  while (full) {
+    const rows = await sql<
+      Record<string, string | number | null> & {
+        key: string | number;
+        stem: string;
+        scope: string | null;
+      }
+    >`
+      select ${sql.raw(`${spec.key} as key, ${spec.stem} as stem, ${scope}, ${spec.columns.join(', ')}`)}
+        from ${sql.table(spec.table)}
+       ${after === null ? sql`` : sql`where ${sql.ref(spec.key)} > ${after}`}
+       order by ${sql.ref(spec.key)}
+       limit ${TIMESTAMP_BATCH}
+    `.execute(db);
+    yield* rows.rows;
+    full = rows.rows.length === TIMESTAMP_BATCH;
+    after = rows.rows.at(-1)?.key ?? null;
+  }
+}
+
+/**
  * How many records each project holds — what a scoped run reports it matched.
  * One "record" is one thing the seam can read back: the project row itself,
  * plus its nodes, artifacts, seeds, and scratchpads.
@@ -349,6 +474,7 @@ async function diagnose(
       checkDanglingEdge(db),
       checkCounterBehind(db),
       checkOrphanLink(db, dialect),
+      checkMalformedTimestamp(db),
     ])
   ).flat();
   if (scope === undefined || scope === '') {
@@ -366,6 +492,7 @@ const CAUSES: Readonly<Record<string, string>> = {
   'counter-behind': 'counter behind',
   'dangling-edge': 'dangling dependency',
   'dangling-parent': 'dangling parent',
+  'malformed-timestamp': 'malformed timestamp',
   'orphan-link': 'orphan link',
   'schema-version': 'schema version mismatch',
 } satisfies Record<SqlCheck, string>;
