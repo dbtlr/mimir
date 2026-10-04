@@ -368,26 +368,16 @@ function isMalformedStamp(value: unknown): boolean {
 async function checkMalformedTimestamp(db: Kysely<DB>): Promise<DoctorFinding[]> {
   const findings: DoctorFinding[] = [];
   for (const spec of TIMESTAMP_COLUMNS) {
-    const scope = 'scope' in spec ? `${spec.scope} as scope` : 'null as scope';
-    const rows = await sql<
-      Record<string, string | number | null> & {
-        key: string | number;
-        stem: string;
-        scope: string | null;
-      }
-    >`
-      select ${sql.raw(`${spec.key} as key, ${spec.stem} as stem, ${scope}, ${spec.columns.join(', ')}`)}
-        from ${sql.table(spec.table)}
-       order by ${sql.raw(spec.key)}
-    `.execute(db);
-    for (const row of rows.rows) {
+    for await (const row of timestampRows(db, spec)) {
       for (const column of spec.columns) {
         const value = row[column];
         if (!isMalformedStamp(value)) {
           continue;
         }
         const locator = `${spec.table}/${String(row.key)}`;
-        const shown = value === '' ? 'empty' : `'${String(value)}'`;
+        // JSON quoting keeps a hand-edited control character from breaking the
+        // one-line message; the evidence keeps the stored value as it stands.
+        const shown = value === '' ? 'empty' : JSON.stringify(String(value));
         findings.push(
           finding({
             check: 'malformed-timestamp',
@@ -404,6 +394,46 @@ async function checkMalformedTimestamp(db: Kysely<DB>): Promise<DoctorFinding[]>
     }
   }
   return findings;
+}
+
+/** Rows per read of one table's timestamps. */
+export const TIMESTAMP_BATCH = 1000;
+
+/**
+ * One table's key, stem, scope, and timestamp columns, read in key-ordered
+ * batches so the scan's memory stays bounded however large the logs grow.
+ */
+async function* timestampRows(
+  db: Kysely<DB>,
+  spec: (typeof TIMESTAMP_COLUMNS)[number],
+): AsyncGenerator<
+  Record<string, string | number | null> & {
+    key: string | number;
+    stem: string;
+    scope: string | null;
+  }
+> {
+  const scope = 'scope' in spec ? `${spec.scope} as scope` : 'null as scope';
+  let after: string | number | null = null;
+  let full = true;
+  while (full) {
+    const rows = await sql<
+      Record<string, string | number | null> & {
+        key: string | number;
+        stem: string;
+        scope: string | null;
+      }
+    >`
+      select ${sql.raw(`${spec.key} as key, ${spec.stem} as stem, ${scope}, ${spec.columns.join(', ')}`)}
+        from ${sql.table(spec.table)}
+       ${after === null ? sql`` : sql`where ${sql.ref(spec.key)} > ${after}`}
+       order by ${sql.ref(spec.key)}
+       limit ${TIMESTAMP_BATCH}
+    `.execute(db);
+    yield* rows.rows;
+    full = rows.rows.length === TIMESTAMP_BATCH;
+    after = rows.rows.at(-1)?.key ?? null;
+  }
 }
 
 /**

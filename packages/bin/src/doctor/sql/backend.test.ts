@@ -16,7 +16,7 @@ import { sqliteDialect } from '../../core/store-sqlite/index';
 import { createSqliteTestStore } from '../../core/store-sqlite/testing';
 import { seedWorkingSet } from '../../testing/conformance';
 import type { DoctorBackend, DoctorFinding } from '../contract';
-import { createSqlDoctorBackend } from './backend';
+import { createSqlDoctorBackend, TIMESTAMP_BATCH } from './backend';
 
 /**
  * The SQL doctor facet, run on both dialects it serves — Postgres (PGlite) and
@@ -326,6 +326,30 @@ describe.each(arms)('$name', (arm) => {
       // The project-keyed transition is OPS's, so a scope reaches it and only it.
       const scoped = byCode((await f.doctor.diagnose('OPS')).findings, 'malformed-timestamp');
       expect(scoped.map((item) => item.where)).toEqual(['transition_log · at']);
+    } finally {
+      await f.close();
+    }
+  });
+
+  test(`${arm.name}: a malformed timestamp past the first read batch is reported, its message on one line`, async () => {
+    const f = await arm.make();
+    try {
+      await seedWorkingSet(f.store);
+      await sql
+        .raw(
+          `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ${String(TIMESTAMP_BATCH + 1)}) INSERT INTO annotation (node_id, content, created_at) SELECT 'MMR-3', 'filler', '2026-09-01T00:00:00.000Z' FROM n`,
+        )
+        .execute(f.db);
+      await sql
+        .raw(
+          "UPDATE annotation SET created_at = 'bad\nvalue' WHERE id = (SELECT max(id) FROM annotation)",
+        )
+        .execute(f.db);
+
+      const findings = byCode((await f.doctor.diagnose(undefined)).findings, 'malformed-timestamp');
+      expect(findings).toHaveLength(1);
+      expect(findings[0]?.evidence.value).toBe('bad\nvalue');
+      expect(findings[0]?.message).not.toContain('\n');
     } finally {
       await f.close();
     }
