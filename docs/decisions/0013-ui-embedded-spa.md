@@ -250,7 +250,8 @@ name the daemon's own host.
 
 Withdrawing CORS stops cross-origin reads, but a browser still sends a "simple"
 POST (a `text/plain` body, no preflight) from any origin. So `serve` also
-refuses any write whose `Origin` does not name the request's `Host`. The
+refuses any write that `Sec-Fetch-Site` marks as not same-origin, or whose
+`Origin` does not name the request's `Host`. The
 console's own writes pass: they are same-origin directly, behind a proxy that
 keeps `Host`, and through the Vite proxy. Clients that send no `Origin`, such
 as the CLI and agents, are unaffected. The Vite dev server's own CORS is off
