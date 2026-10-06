@@ -210,9 +210,8 @@ per line under `jsonl`. Each action carries `action`, `ok`, and `unit`;
 `install` adds `port` and `paths: { config, log, unit_file }`.
 
 `unit_file` is the supervisor's unit file: a launchd plist on macOS, a systemd
-user unit on Linux. The `plist` key is **deprecated** (MMR-397). Until its
-removal it is still emitted beside `unit_file`, with the same value on every
-platform. Read `unit_file`.
+user unit on Linux. Earlier builds named it `plist` on every platform; that
+key is gone (MMR-397, MMR-428).
 
 ## Doctor diagnostics
 

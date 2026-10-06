@@ -81,12 +81,6 @@ function eventToWire(e: ServiceEvent): Record<string, unknown> {
   return wire;
 }
 
-/** The unit file's wire keys: `unit_file`, plus the deprecated `plist` alias
- *  with the same value on every platform (MMR-397) until its removal cycle. */
-function unitFileToWire(unitFile: string): { plist: string; unit_file: string } {
-  return { plist: unitFile, unit_file: unitFile };
-}
-
 /** One unit's wire object — only the fields relevant to that unit are emitted. */
 function unitToWire(u: UnitStatus): Record<string, unknown> {
   const wire: Record<string, unknown> = {
@@ -95,7 +89,7 @@ function unitToWire(u: UnitStatus): Record<string, unknown> {
     pid: u.pid,
     running: u.running,
     unit: u.unit,
-    ...unitFileToWire(u.unitFile),
+    unit_file: u.unitFile,
   };
   if (u.port !== undefined) {
     wire.port = u.port;
@@ -136,7 +130,7 @@ function actionToWire(result: ServiceActionResult): Record<string, unknown> {
     wire.paths = {
       config: result.paths.config,
       log: result.paths.log,
-      ...unitFileToWire(result.paths.unitFile),
+      unit_file: result.paths.unitFile,
     };
   }
   return wire;

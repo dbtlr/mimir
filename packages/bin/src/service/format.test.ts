@@ -49,7 +49,6 @@ describe('formatServiceStatusJson', () => {
       loaded: true,
       log: '/p/serve.log',
       pid: 4242,
-      plist: '/p/serve.plist',
       port: 64647,
       running: true,
       unit: 'serve',
@@ -57,7 +56,7 @@ describe('formatServiceStatusJson', () => {
     });
   });
 
-  test('the deprecated plist key mirrors unit_file for a systemd unit', () => {
+  test('a systemd unit is named under unit_file and no plist key is emitted', () => {
     const parsed = JSON.parse(
       formatServiceStatusJson(
         report({ units: [serveUnit({ unitFile: '/u/mimir-serve.service' })] }),
@@ -65,7 +64,7 @@ describe('formatServiceStatusJson', () => {
       ),
     );
     expect(parsed.units[0].unit_file).toBe('/u/mimir-serve.service');
-    expect(parsed.units[0].plist).toBe('/u/mimir-serve.service');
+    expect(parsed.units[0]).not.toHaveProperty('plist');
   });
 
   test('not loaded → pid null, health null, config_problem carried', () => {
@@ -106,7 +105,7 @@ describe('formatServiceActionsJson', () => {
         {
           action: 'install',
           ok: true,
-          paths: { config: '/p/config', log: '/p/log', plist: '/p/plist', unit_file: '/p/plist' },
+          paths: { config: '/p/config', log: '/p/log', unit_file: '/p/plist' },
           port: 55440,
           unit: 'serve',
         },
