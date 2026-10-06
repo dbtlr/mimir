@@ -17,6 +17,56 @@ and are compiled into a new release section at each cut
 ([ADR 0022](docs/decisions/0022-changelog-fragments-compiled-at-cut.md));
 `bun run changelog:compile` previews the pending section.
 
+## v0.22.0 - 2026-10-06
+
+### Added
+
+- **The console's Record health panel shows the config warnings** (MMR-424).
+  An unscoped `mimir doctor` warns when another user could read the config
+  (when it carries `[store] url`), write it, or replace it through its owner or
+  a directory above it; the panel now lists the
+  same warnings under the `store` group, so it no longer reports "No findings"
+  while the CLI warns. A project-scoped scan shows none, as in the CLI.
+
+### Changed
+
+- **Breaking: service JSON names the unit file `unit_file`, not `plist`**
+  (MMR-397, MMR-428). `mimir service status` units and the `service install`
+  `paths` object carry `unit_file` in place of `plist`. It holds a launchd
+  plist path on macOS and a systemd unit path on Linux. Scripts that read
+  `plist` must read `unit_file`.
+
+### Fixed
+
+- **The attention menu's `store` health line opens the findings it counts**
+  (MMR-424). It opened the panel scoped to a project named `store`, which hides
+  every store-level finding; it now opens the unscoped panel.
+
+### Security
+
+- **`mimir serve` refuses requests whose `Host` is not its own** (MMR-425). A
+  web page whose domain rebinds to 127.0.0.1 is same-origin with the daemon and
+  could read and write the whole board through the API. The daemon now answers
+  only `localhost`, `127.0.0.1`, `[::1]`, and the hostnames listed in the new
+  `[serve] hosts` config key, and refuses any other `Host` with a 403 before
+  a route runs. **Upgrade step:** if a reverse proxy forwards its own hostname
+  (Caddy does by default), add that name to `[serve] hosts`, for example
+  `hosts = ["mimir.example.local"]`, and restart the service; until then the
+  console behind the proxy is refused, and `serve` logs the refused host.
+- **`mimir serve` no longer lets another web page drive the board** (MMR-426).
+  It used to grant cross-origin access to any `localhost` or `127.0.0.1` page
+  on any port, so another web app on the same machine could read and write the
+  board through the API. `serve` now grants CORS to no origin, and refuses any
+  write a browser marks as coming from another origin (`Sec-Fetch-Site`, or an
+  `Origin` that does not match the request's `Host`), which also stops a page
+  from writing with a plain form-style POST. The CLI, agents, and the
+  console are unaffected. The console's dev loop now reaches the API through
+  the `vite dev` proxy: run `mimir serve` from source and `bun run dev:ui`, and
+  set `MIMIR_PORT` for both when `serve` uses a port other than its dev
+  default. `VITE_API_BASE` is gone. **Upgrade note:** a reverse proxy must keep
+  the browser's `Host` (Caddy does by default); one that rewrites `Host` to the
+  upstream address now has its console writes refused.
+
 ## v0.21.0 - 2026-10-04
 
 ### Added
