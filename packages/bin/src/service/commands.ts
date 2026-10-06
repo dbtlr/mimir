@@ -18,7 +18,7 @@ import { MimirError } from '../core';
 import type { Format, Io } from '../presentation';
 import { arrow, ok, warn } from '../presentation';
 import { assertUsableStoreConfig } from '../store-backend';
-import { isUnparseableConfig, writeServePort } from './config';
+import { isUnparseableConfig, serveProblemWarning, writeServePort } from './config';
 import type { GlobalConfig } from './config';
 import { appendEvent, recentEvents } from './events';
 import type { ServiceEventName } from './events';
@@ -315,7 +315,7 @@ async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<
   // A config that couldn't be honored is always a stderr warning (warnings stay
   // off stdout, per the output contract); the JSON envelope also carries it.
   if (config.problem !== undefined) {
-    warn(io, `config ignored (${config.problem}) — ${deps.configFile}`);
+    warn(io, `${serveProblemWarning(config.problem)} — ${deps.configFile}`);
   }
 
   const serveInfo = await deps.units.serve.supervisor.info();

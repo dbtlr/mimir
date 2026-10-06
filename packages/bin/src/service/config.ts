@@ -20,8 +20,10 @@ import { runtimePaths } from '../env';
 
 export type ServeConfig = {
   port?: number;
-  /** Set when a config file exists but contributed nothing — callers may warn. */
-  problem?: 'malformed' | 'invalid-port';
+  /** Proxy hostnames `serve` answers beside the loopback names (MMR-425). */
+  hosts?: string[];
+  /** Set when a config file exists but a key in it was ignored — callers may warn. */
+  problem?: 'malformed' | 'invalid-port' | 'invalid-hosts';
 };
 
 /** Installation-bound path. Explicit bases are for isolated configuration tools. */
@@ -73,15 +75,32 @@ function serveSection(raw: unknown): ServeConfig {
   if (!isTable(raw)) {
     return { problem: 'malformed' };
   }
+  // Each key stands alone: a bad one is ignored and reported, never taking a
+  // valid neighbor down with it. An absent key is not a problem.
+  const serve: ServeConfig = {};
   const port = raw.port;
-  // No port key at all — not a problem, caller uses the default.
-  if (port === undefined) {
-    return {};
-  }
   if (typeof port === 'number' && Number.isInteger(port) && port >= 1 && port <= 65535) {
-    return { port };
+    serve.port = port;
+  } else if (port !== undefined) {
+    serve.problem = 'invalid-port';
   }
-  return { problem: 'invalid-port' };
+  const hosts = raw.hosts;
+  if (Array.isArray(hosts) && hosts.every(isHostName)) {
+    serve.hosts = hosts;
+  } else if (hosts !== undefined) {
+    serve.problem ??= 'invalid-hosts';
+  }
+  return serve;
+}
+
+/** A bare hostname or bracketed IPv6 literal — a port here would be ignored, so it is refused. */
+function isHostName(value: unknown): value is string {
+  return typeof value === 'string' && /^(\[[0-9a-f:.]+\]|[a-z0-9_.-]+)$/i.test(value);
+}
+
+/** The warning for a `[serve]` problem: a malformed section is ignored whole, a bad key alone. */
+export function serveProblemWarning(problem: NonNullable<ServeConfig['problem']>): string {
+  return problem === 'malformed' ? 'config ignored (malformed)' : `config key ignored (${problem})`;
 }
 
 function isStoreBackend(value: unknown): value is StoreBackend {
@@ -121,9 +140,9 @@ function storeSection(raw: unknown): StoreConfig {
  * Read the global config in one parse. Tolerant by design: a missing,
  * malformed, or wrong-typed file never throws — the loud-failure posture
  * belongs to the consumer (the port bind, the store open), not the parse.
- * When a section is present but contributed nothing, its `problem` is set so
- * the consumer can warn that the config was ignored rather than silently
- * falling through to a default.
+ * When a section or a key in it is present but ignored, the section's
+ * `problem` is set so the consumer can warn rather than silently falling
+ * through to a default.
  */
 export function readConfig(file = configPath()): GlobalConfig {
   if (!existsSync(file)) {

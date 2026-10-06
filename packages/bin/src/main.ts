@@ -41,6 +41,7 @@ import {
   readRuntimeConfig,
   readServePlistPort,
   readServeUnitPort,
+  serveProblemWarning,
   parseHealth,
   serveUnitFor,
   systemdUnitPathFor,
@@ -227,7 +228,7 @@ async function main(argv: string[]): Promise<number> {
     }
     const config = readRuntimeConfig().serve;
     if (config.problem !== undefined) {
-      console.error(`⚠ serve: config ignored (${config.problem}) — ${configPath()}`);
+      console.error(`⚠ serve: ${serveProblemWarning(config.problem)} — ${configPath()}`);
     }
     const port = flagPort ?? overridePort ?? config.port ?? DEFAULT_PORT;
     // Long-running: the server keeps the process alive; loopback-only by
@@ -252,7 +253,15 @@ async function main(argv: string[]): Promise<number> {
     const doctor = withConfigDoctor(built.doctor, configPath()).facet;
     let server: ReturnType<typeof createServer>;
     try {
-      server = createServer(built.store, { doctor, hunt: !noHunt, port, version: VERSION });
+      // `[serve] hosts` names the proxy's forwarded Host; any other Host is
+      // refused before routing, so a DNS-rebinding page gets nothing (MMR-425).
+      server = createServer(built.store, {
+        doctor,
+        hosts: config.hosts ?? [],
+        hunt: !noHunt,
+        port,
+        version: VERSION,
+      });
     } catch (err) {
       await built.close();
       if (err instanceof Error && 'code' in err && err.code === 'EADDRINUSE') {

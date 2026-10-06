@@ -45,9 +45,37 @@ Nothing in mimir itself terminates TLS or authenticates non-localhost
 traffic — if you need mimir reachable from another host, that's a proxy
 config, not a mimir flag.
 
+## Accepted hosts
+
+Binding loopback does not stop DNS rebinding: a web page whose domain resolves
+to `127.0.0.1` is same-origin with the daemon. That page still sends its own
+name as the `Host` header, so `mimir serve` answers only these hosts and
+refuses every other one with a 403 before any route runs:
+
+- the loopback names `localhost`, `127.0.0.1`, and `[::1]`, on any port;
+- each hostname in `[serve] hosts` in the installation configuration.
+
+Hostnames match without regard to case or port. A reverse proxy usually
+forwards the client's `Host` (Caddy does by default), so list the proxy's
+public name:
+
+```toml
+[serve]
+hosts = ["mimir.example.local"]
+```
+
+Each entry is a bare hostname (letters, digits, `.`, `-`, `_`) or a bracketed
+IPv6 literal, with no port and no wildcards. An invalid `hosts` value is
+ignored with a warning and the port still applies. `serve` reads the list at
+start, so restart the service after a change. The `serve` log names each
+refused hostname once, for up to 64 names.
+
+`X-Forwarded-Host` is never consulted: a same-origin page can set it.
+
 ## Source
 
 `packages/bin/src/main.ts` (`serve` command wiring, precedence),
 `packages/bin/src/env.ts` (`MIMIR_PORT` parsing),
-`packages/bin/src/service/config.ts` (`[serve] port` config read/write),
+`packages/bin/src/service/config.ts` (`[serve]` config read/write),
+`packages/bin/src/http/host.ts` (the accepted-host guard),
 `packages/bin/src/service/plist.ts` (the generated unit — no `--port`).

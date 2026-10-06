@@ -91,6 +91,34 @@ test('config with no [serve] port reads as empty (not a problem)', () => {
   expect(readServeConfig(file)).toEqual({});
 });
 
+test('reads [serve] hosts beside the port', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[serve]\nport = 50123\nhosts = ["mimir.example.test"]\n');
+  expect(readServeConfig(file)).toEqual({ hosts: ['mimir.example.test'], port: 50123 });
+});
+
+test('a hosts value that is not a list of names is a problem that keeps the valid port', () => {
+  const file = join(dir, 'config.toml');
+  for (const bad of [
+    '"mimir.example.test"',
+    '[1]',
+    '[""]',
+    '["mimir.example.test:443"]',
+    '["*"]',
+    '["a/b"]',
+  ]) {
+    writeFileSync(file, `[serve]\nport = 50123\nhosts = ${bad}\n`);
+    expect(readServeConfig(file)).toEqual({ port: 50123, problem: 'invalid-hosts' });
+  }
+});
+
+test('writeServePort keeps the configured hosts', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[serve]\nhosts = ["mimir.example.test"]\n');
+  writeServePort(file, 50124);
+  expect(readServeConfig(file)).toEqual({ hosts: ['mimir.example.test'], port: 50124 });
+});
+
 test('writeServePort creates parents and round-trips', () => {
   const file = join(dir, 'deep', 'mimir', 'config.toml');
   writeServePort(file, 50124);
