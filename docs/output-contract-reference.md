@@ -199,6 +199,19 @@ counts, each with a capped `listings` head.
 The MCP `overview` tool and HTTP `GET /api/projects/:key/overview` return the
 identical envelope (ADR 0012).
 
+## The `service` report (report kind, MMR-59)
+
+`mimir service status` emits `{ config, recent_events, units }`. Each `units`
+entry carries `unit`, `loaded`, `running`, `pid`, `unit_file`, and `log`,
+plus the serve daemon's `port`, `health`, and `config_problem`. The other
+service verbs emit `{ actions: [...] }`; `install` adds `port` and
+`paths: { config, log, unit_file }`.
+
+`unit_file` is the supervisor's unit file: a launchd plist on macOS, a systemd
+user unit on Linux. The `plist` key is **deprecated** (MMR-397). Until its
+removal it is still emitted beside `unit_file`, with the same value on every
+platform. Read `unit_file`.
+
 ## Doctor diagnostics
 
 `mimir doctor [-s KEY] [--format …]` is read-only and non-gating. A successful
