@@ -13,7 +13,8 @@
 import type { ConfigPathStat } from '../service/config';
 import { configFileMode, configPathStats, readConfig } from '../service/config';
 import { findingLine } from './commands';
-import type { DoctorDiagnosis, DoctorFinding } from './contract';
+import type { DoctorBackend, DoctorDiagnosis, DoctorFinding } from './contract';
+import { withFindings } from './facet';
 
 /** Group-read and other-read bits; the permission the credential file must not grant. */
 const GROUP_OR_WORLD_READ = 0o044;
@@ -30,6 +31,21 @@ const ROOT_UID = 0;
 /** The scope word store-level findings carry; no project key can be this. */
 const STORE_SCOPE = 'store';
 
+/** The closed code vocabulary of the config check. */
+type ConfigCode =
+  | 'config-dir-writable'
+  | 'config-foreign-owner'
+  | 'config-readable'
+  | 'config-writable';
+
+/** The plain-language cause chip the record-health panel shows per code. */
+const CAUSES = {
+  'config-dir-writable': 'writable config directory',
+  'config-foreign-owner': 'foreign config owner',
+  'config-readable': 'readable config',
+  'config-writable': 'writable config',
+} satisfies Record<ConfigCode, string>;
+
 /** Permission bits, sticky bit included, as a four-digit octal string, e.g. `0644` or `1777`. */
 function modeString(mode: number): string {
   return (mode & 0o7777).toString(8).padStart(4, '0');
@@ -38,7 +54,7 @@ function modeString(mode: number): string {
 /** One config-permission warning about `path`; `message` names the risk and the fix. */
 function configFinding(
   path: string,
-  code: string,
+  code: ConfigCode,
   field: 'mode' | 'owner',
   evidence: Record<string, unknown>,
   message: string,
@@ -58,7 +74,12 @@ function configFinding(
 }
 
 /** A warning about the config file's own mode; every one names `chmod 600`. */
-function fileModeFinding(file: string, code: string, shown: string, risk: string): DoctorFinding {
+function fileModeFinding(
+  file: string,
+  code: ConfigCode,
+  shown: string,
+  risk: string,
+): DoctorFinding {
   return configFinding(
     file,
     code,
@@ -168,6 +189,23 @@ export function withConfigFindings(
     return diagnosis;
   }
   return { ...diagnosis, findings: [...diagnosis.findings, ...checkConfigPermissions(file)] };
+}
+
+/**
+ * The store backend's doctor with the config-file findings composed onto both
+ * of its answers, so the CLI's report and the console's facet carry the same
+ * warnings. A project scope excludes them from each, as `withConfigFindings` does.
+ */
+export function withConfigDoctor(backend: DoctorBackend, file: string): DoctorBackend {
+  return {
+    diagnose: async (scope) => withConfigFindings(await backend.diagnose(scope), scope, file),
+    facet: async (scope) => {
+      const facet = await backend.facet(scope);
+      return scope === undefined || scope === ''
+        ? withFindings(facet, checkConfigPermissions(file), CAUSES)
+        : facet;
+    },
+  };
 }
 
 /**

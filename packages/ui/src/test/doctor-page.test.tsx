@@ -68,7 +68,10 @@ describe('doctorPage record-health panel (MMR-185)', () => {
     // Scoped header names the project.
     expect(screen.getByText('MMR · mimir doctor')).toBeDefined();
     // Amber summary banner + cause chip (await the facet-dependent banner first).
-    await expect(screen.findByText('1 finding in the store')).resolves.toBeDefined();
+    await expect(screen.findByText('1 finding')).resolves.toBeDefined();
+    // The banner defers the fix to each finding: a config warning is no database row.
+    expect(screen.getByText('— each one names what is wrong and how to fix it.')).toBeDefined();
+    expect(screen.queryByText(/at the database/)).toBeNull();
     expect(screen.getByText('dangling parent')).toBeDefined();
     // The row's table and key, and the finding's evidence, are what reach it.
     expect(screen.getByText('node/MMR-97')).toBeDefined();
@@ -180,7 +183,31 @@ describe('doctorPage record-health panel (MMR-185)', () => {
     renderAt('/doctor');
 
     await expect(screen.findByText('No findings')).resolves.toBeDefined();
-    expect(screen.queryByText(/in the store/)).toBeNull();
+    // An unscoped scan also checked the config, so its clean state says so.
+    expect(
+      screen.getByText(/Every record is consistent and the config is private to you\./),
+    ).toBeDefined();
+    expect(screen.queryByText(/each one names/)).toBeNull();
+  });
+
+  it('claims nothing about the config in a project-scoped zero state', async () => {
+    apiGet.mockImplementation((path: string) =>
+      Promise.resolve(
+        path.startsWith('/api/doctor')
+          ? {
+              finding_total: 0,
+              groups: [],
+              scanned_at: new Date().toISOString(),
+              scope: { key: 'MMR', matched_records: 4 },
+            }
+          : { items: [], total: 0 },
+      ),
+    );
+    renderAt('/doctor?project=MMR');
+
+    await expect(screen.findByText('No findings')).resolves.toBeDefined();
+    expect(screen.getByText(/Every record is consistent in MMR\./)).toBeDefined();
+    expect(screen.queryByText(/config/)).toBeNull();
   });
 
   it('names an unknown project scope instead of reporting it clean', async () => {

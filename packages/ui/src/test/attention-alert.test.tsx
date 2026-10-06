@@ -20,6 +20,17 @@ function renderApp() {
       <RouterProvider router={testRouter} />
     </QueryClientProvider>,
   );
+  return testRouter;
+}
+
+/** A facet holding one finding in each named group. */
+function facetOf(...projects: string[]) {
+  return {
+    finding_total: projects.length,
+    groups: projects.map((project) => ({ finding_count: 1, project, records: [] })),
+    scanned_at: '2026-10-05T00:00:00.000Z',
+    scope: null,
+  };
 }
 
 describe('attentionAlert (MMR-103/226)', () => {
@@ -67,5 +78,27 @@ describe('attentionAlert (MMR-103/226)', () => {
     expect(screen.getByText('Doctor read-surface')).toBeDefined();
     expect(screen.getByText(/Under review/)).toBeDefined();
     expect(screen.getByText('MMR-140')).toBeDefined();
+  });
+
+  it('opens a project health line on that project', async () => {
+    apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === '/api/doctor' ? facetOf('MMR') : { items: [], total: 0 }),
+    );
+    const testRouter = renderApp();
+    await userEvent.click(await screen.findByRole('button', { name: /1 finding/ }));
+    await userEvent.click(await screen.findByText(/MMR/));
+    expect(testRouter.state.location.pathname).toBe('/doctor');
+    expect(testRouter.state.location.search).toEqual({ project: 'MMR' });
+  });
+
+  it('opens the store health line on the unscoped panel, where store findings show', async () => {
+    apiGet.mockImplementation((path: string) =>
+      Promise.resolve(path === '/api/doctor' ? facetOf('store') : { items: [], total: 0 }),
+    );
+    const testRouter = renderApp();
+    await userEvent.click(await screen.findByRole('button', { name: /1 finding/ }));
+    await userEvent.click(await screen.findByText(/store/));
+    expect(testRouter.state.location.pathname).toBe('/doctor');
+    expect(testRouter.state.location.search).toEqual({});
   });
 });

@@ -20,7 +20,7 @@ import { systemTimeZone } from './core';
 import type { Store } from './core';
 import { MimirError } from './core/errors';
 import { openPostgres } from './core/store-postgres/index';
-import { warnConfigPermissions, withConfigFindings } from './doctor/config-permissions';
+import { warnConfigPermissions, withConfigDoctor } from './doctor/config-permissions';
 import type { DoctorBackend } from './doctor/contract';
 import { DEFAULT_PORT, IS_PRODUCTION, envPort, supervisorScope } from './env';
 import { createServer } from './http';
@@ -232,7 +232,8 @@ async function main(argv: string[]): Promise<number> {
     const port = flagPort ?? overridePort ?? config.port ?? DEFAULT_PORT;
     // Long-running: the server keeps the process alive; loopback-only by
     // design (ADR 0012 — the proxy is the boundary). Signals stop it cleanly.
-    // `/api/doctor` serves the backend's read-only record-health facet (MMR-185).
+    // `/api/doctor` serves the backend's read-only record-health facet (MMR-185),
+    // with the config-file warnings `mimir doctor` also reports.
     let built: BuiltStore;
     try {
       built = await buildStore(undefined, { file: storeFile });
@@ -248,7 +249,7 @@ async function main(argv: string[]): Promise<number> {
       }
       throw err;
     }
-    const doctor = built.doctor.facet;
+    const doctor = withConfigDoctor(built.doctor, configPath()).facet;
     let server: ReturnType<typeof createServer>;
     try {
       server = createServer(built.store, { doctor, hunt: !noHunt, port, version: VERSION });
@@ -309,7 +310,8 @@ async function main(argv: string[]): Promise<number> {
     return built;
   };
   const getStore = async (): Promise<Store> => (await getBuilt()).store;
-  const cliDoctor = async (): Promise<DoctorBackend> => (await getBuilt()).doctor;
+  const cliDoctor = async (): Promise<DoctorBackend> =>
+    withConfigDoctor((await getBuilt()).doctor, configPath());
   try {
     // Project Binding (ADR 0011): the nearest .mimir.toml supplies the
     // default -s scope; resolved here so the CLI itself never reads cwd.
@@ -319,11 +321,7 @@ async function main(argv: string[]): Promise<number> {
         // Every call first forces the lazy store build.
         diagnose: async (scope) => {
           try {
-            return withConfigFindings(
-              await (await cliDoctor()).diagnose(scope),
-              scope,
-              configPath(),
-            );
+            return await (await cliDoctor()).diagnose(scope);
           } catch (err) {
             // The permission check needs only the config file, so a store that
             // cannot be built or read (down, bad credentials) must not hide it.

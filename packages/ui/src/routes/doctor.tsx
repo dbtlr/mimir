@@ -16,8 +16,9 @@ import { doctorRoute } from '../router';
  * the evidence behind it. `?project` scopes to one board (the header-chip deep
  * link); unscoped spans every project (the overview / attention surfacing).
  * Strictly read-only — the only action anywhere is copying a location. Amber
- * throughout: a finding is a row the store holds in an inconsistent state, fixed
- * by hand at the database. Never red.
+ * throughout, never red. A finding is a record in an inconsistent state or an
+ * unscoped scan's config warning, and each one's note names its own fix, so the
+ * banner only counts.
  */
 
 /** One project group: the mono key header + finding count, then its findings. */
@@ -82,10 +83,10 @@ export function DoctorPage() {
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-xl bg-status-in-progress/[0.07] px-3.5 py-3 inset-ring inset-ring-status-in-progress/30">
             <span aria-hidden className="size-[7px] shrink-0 rounded-full bg-status-in-progress" />
             <span className="text-sm font-semibold text-status-in-progress-foreground">
-              {findingCount(total)} in the store
+              {findingCount(total)}
             </span>
             <span className="text-xs text-ink-dim">
-              — rows in an inconsistent state. Fix each one by hand at the database.
+              — each one names what is wrong and how to fix it.
             </span>
           </div>
         )}
@@ -108,9 +109,10 @@ export function DoctorPage() {
           <div className="flex flex-col items-start gap-1.5 rounded-xl border border-line bg-well-850 px-4 py-5">
             <span className="text-sm font-medium text-ink-bright">No findings</span>
             <span className="text-xs text-ink-dim">
-              Every record is consistent
-              {project !== undefined && project !== '' ? ` in ${project}` : ''}. A finding would
-              surface here as an amber group; there is none.
+              {project !== undefined && project !== ''
+                ? `Every record is consistent in ${project}.`
+                : 'Every record is consistent and the config is private to you.'}{' '}
+              A finding would surface here as an amber group; there is none.
             </span>
           </div>
         )}

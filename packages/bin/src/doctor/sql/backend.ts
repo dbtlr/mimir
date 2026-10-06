@@ -27,7 +27,8 @@ import { readSchemaVersion, SCHEMA_VERSION } from '../../core/store-sql/migrator
 import type { DB } from '../../core/store-sql/schema';
 import { isCanonicalInstant, now } from '../../core/time';
 import type { DoctorBackend, DoctorDiagnosis, DoctorFinding, DoctorScopeMatch } from '../contract';
-import type { DoctorFacet, DoctorGroup, DoctorRecord } from '../facet';
+import type { DoctorFacet } from '../facet';
+import { emptyDoctorFacet, withFindings } from '../facet';
 
 /**
  * The scope key store-level findings carry. A schema version belongs to the
@@ -485,9 +486,9 @@ async function diagnose(
   return findings.filter((item) => item.scopeKey === scope);
 }
 
-/** The plain-language cause chip the record-health panel shows per check. The
- * `satisfies` keeps the table exhaustive over the check vocabulary while the
- * index signature lets a finding's `string` check look itself up. */
+/** The plain-language cause chip the record-health panel shows per check. A
+ * SQL finding's code is its check, so the table keys either. The `satisfies`
+ * keeps it exhaustive over the check vocabulary. */
 const CAUSES: Readonly<Record<string, string>> = {
   'counter-behind': 'counter behind',
   'dangling-edge': 'dangling dependency',
@@ -496,46 +497,6 @@ const CAUSES: Readonly<Record<string, string>> = {
   'orphan-link': 'orphan link',
   'schema-version': 'schema version mismatch',
 } satisfies Record<SqlCheck, string>;
-
-/** The column a finding's `where` names, e.g. `node · parent_id` → `parent_id`. */
-function fieldOf(where: string): string | null {
-  const tail = where.split(' · ')[1];
-  return tail === undefined || tail === '' ? null : tail;
-}
-
-/** One finding as a panel record: the row's locator and the finding's own
- * evidence, which is what a human needs to reach and fix it. The evidence's
- * `value` repeats a named column already in it, so it moves to the record's
- * own `value` rather than rendering twice. */
-function toRecord(item: DoctorFinding): DoctorRecord {
-  const { value, ...evidence } = item.evidence;
-  return {
-    cause: CAUSES[item.check] ?? item.check,
-    evidence,
-    field: fieldOf(item.where),
-    id: item.stem,
-    locator: item.locator,
-    note: item.message,
-    severity: item.severity,
-    value: typeof value === 'string' ? value : null,
-  };
-}
-
-/** Group the findings by owning project, groups sorted by key. */
-function toGroups(findings: readonly DoctorFinding[]): DoctorGroup[] {
-  const groups = new Map<string, DoctorRecord[]>();
-  for (const item of findings) {
-    const records = groups.get(item.scopeKey);
-    if (records === undefined) {
-      groups.set(item.scopeKey, [toRecord(item)]);
-    } else {
-      records.push(toRecord(item));
-    }
-  }
-  return [...groups]
-    .map(([project, records]) => ({ finding_count: records.length, project, records }))
-    .toSorted((a, b) => a.project.localeCompare(b.project));
-}
 
 /** Build the doctor facet over one open handle and the dialect it speaks. */
 export function createSqlDoctorBackend(db: Kysely<DB>, dialect: StoreDialect): DoctorBackend {
@@ -549,14 +510,11 @@ export function createSqlDoctorBackend(db: Kysely<DB>, dialect: StoreDialect): D
       findings: await diagnose(db, dialect, scope),
       scope: await scopeMatch(scope),
     }),
-    facet: async (scope): Promise<DoctorFacet> => {
-      const findings = await diagnose(db, dialect, scope);
-      return {
-        finding_total: findings.length,
-        groups: toGroups(findings),
-        scanned_at: now(),
-        scope: await scopeMatch(scope),
-      };
-    },
+    facet: async (scope): Promise<DoctorFacet> =>
+      withFindings(
+        { ...emptyDoctorFacet(), scanned_at: now(), scope: await scopeMatch(scope) },
+        await diagnose(db, dialect, scope),
+        CAUSES,
+      ),
   };
 }

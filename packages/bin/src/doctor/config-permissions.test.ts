@@ -8,9 +8,11 @@ import {
   checkConfigPermissions,
   checkConfigReplaceable,
   warnConfigPermissions,
+  withConfigDoctor,
   withConfigFindings,
 } from './config-permissions';
-import type { DoctorDiagnosis } from './contract';
+import type { DoctorBackend, DoctorDiagnosis } from './contract';
+import type { DoctorFacet } from './facet';
 
 const WITH_URL = '[store]\nbackend = "postgres"\nurl = "postgres://u:secret@db.example/mimir"\n';
 const WITHOUT_URL = '[serve]\nport = 4600\n';
@@ -103,6 +105,85 @@ test('withConfigFindings appends the config warning to an unscoped diagnosis', (
 test('withConfigFindings leaves a project-scoped diagnosis alone', () => {
   writeWithMode(WITH_URL, 0o644);
   expect(withConfigFindings(CLEAN, 'MMR', file)).toBe(CLEAN);
+});
+
+/** A backend holding one project finding and one store finding, as the SQL backend would group them. */
+const BACKEND_FACET: DoctorFacet = {
+  finding_total: 1,
+  groups: [
+    {
+      finding_count: 1,
+      project: 'MMR',
+      records: [
+        {
+          cause: 'dangling parent',
+          evidence: { parent_id: 'MMR-404' },
+          field: 'parent_id',
+          id: 'MMR-2',
+          locator: 'node/MMR-2',
+          note: 'MMR-2 names parent MMR-404, which no node row holds',
+          severity: 'error',
+          value: 'MMR-404',
+        },
+      ],
+    },
+  ],
+  scanned_at: '2026-10-05T00:00:00.000Z',
+  scope: null,
+};
+
+const BACKEND: DoctorBackend = {
+  diagnose: async () => CLEAN,
+  facet: async (scope) =>
+    scope === undefined
+      ? BACKEND_FACET
+      : { ...BACKEND_FACET, scope: { key: scope, matched_records: 3 } },
+};
+
+test('withConfigDoctor puts the config warnings in the console facet under the store group', async () => {
+  writeWithMode(WITH_URL, 0o666);
+  const facet = await withConfigDoctor(BACKEND, file).facet(undefined);
+  expect(facet.finding_total).toBe(3);
+  expect(facet.groups.map((g) => g.project)).toEqual(['MMR', 'store']);
+  const store = facet.groups[1];
+  expect(store?.finding_count).toBe(2);
+  expect(store?.records.map((r) => r.cause)).toEqual(['readable config', 'writable config']);
+  expect(store?.records[0]).toMatchObject({
+    evidence: { mode: '0666' },
+    field: 'mode',
+    id: 'config',
+    locator: file,
+    severity: 'warn',
+    value: null,
+  });
+  expect(JSON.stringify(facet)).not.toContain('secret');
+});
+
+test('withConfigDoctor leaves a project-scoped facet and diagnosis alone', async () => {
+  writeWithMode(WITH_URL, 0o666);
+  const doctor = withConfigDoctor(BACKEND, file);
+  expect(await doctor.facet('MMR')).toEqual({
+    ...BACKEND_FACET,
+    scope: { key: 'MMR', matched_records: 3 },
+  });
+  expect(await doctor.diagnose('MMR')).toBe(CLEAN);
+});
+
+test('withConfigDoctor reports the same config warnings to the CLI and the console', async () => {
+  writeWithMode(WITH_URL, 0o666);
+  const doctor = withConfigDoctor(BACKEND, file);
+  const cli = (await doctor.diagnose(undefined)).findings.map((f) => f.message);
+  const console = (await doctor.facet(undefined)).groups
+    .flatMap((g) => g.records)
+    .filter((r) => r.id === 'config')
+    .map((r) => r.note);
+  expect(cli).toHaveLength(2);
+  expect(console).toEqual(cli);
+});
+
+test('withConfigDoctor keeps the backend facet untouched for an owner-only config', async () => {
+  writeWithMode(WITH_URL, 0o600);
+  expect(await withConfigDoctor(BACKEND, file).facet(undefined)).toEqual(BACKEND_FACET);
 });
 
 test('warnConfigPermissions writes the finding as a stderr-style warning line', () => {

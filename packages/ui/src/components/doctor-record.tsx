@@ -4,8 +4,9 @@ import type { WireDoctorRecord } from '../api/types';
 
 /**
  * One `mimir doctor` finding in the Record-health panel (MMR-185). Strictly
- * read-only: the ONLY affordance is Copy location (the row's `<table>/<key>`) —
- * the fix happens at the database, never here. The surface stays in the
+ * read-only: the ONLY affordance is Copy location (a row's `<table>/<key>`, or
+ * a config warning's path) — the fix happens at the database or the file, never
+ * here. The surface stays in the
  * in-progress (amber) family, never red: amber is the system reporting, not an
  * alarm.
  */
