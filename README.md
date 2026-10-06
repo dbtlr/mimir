@@ -88,9 +88,11 @@ mimir start "$task_id"
 
 Run `mimir serve` and open the URL printed at startup to use the operator
 console. The production default is `http://127.0.0.1:64647/`. Mimir listens on
-loopback unless `[serve] bind` says otherwise; remote access usually belongs
-behind a trusted reverse proxy ([port and proxy](docs/guides/port-and-proxy.md)). To harden `serve` against
-DNS rebinding, list the names it may answer to in `[serve] hosts`
+loopback unless `[serve] bind` says otherwise. To reach the console from
+another device, pick a [network mode](docs/guides/port-and-proxy.md):
+`tailscale serve` is the recommended path, and a direct bind or a reverse proxy
+also work. To harden `serve` against DNS rebinding, list the names it may
+answer to in `[serve] hosts`
 ([accepted hosts](docs/guides/port-and-proxy.md#accepted-hosts)).
 
 ## Learn Mimir
