@@ -159,6 +159,38 @@ test('withConfigDoctor puts the config warnings in the console facet under the s
   expect(JSON.stringify(facet)).not.toContain('secret');
 });
 
+test('withConfigDoctor appends the config warnings to an existing store group', async () => {
+  writeWithMode(WITHOUT_URL, 0o664);
+  const schema = {
+    cause: 'schema version mismatch',
+    evidence: { binary: 9, stored: 8 },
+    field: 'version',
+    id: 'store',
+    locator: 'schema_version',
+    note: 'the store schema is version 8; this binary reads version 9',
+    severity: 'error' as const,
+    value: null,
+  };
+  const withStore: DoctorBackend = {
+    diagnose: async () => CLEAN,
+    facet: async () => ({
+      ...BACKEND_FACET,
+      finding_total: 2,
+      groups: [...BACKEND_FACET.groups, { finding_count: 1, project: 'store', records: [schema] }],
+    }),
+  };
+  const facet = await withConfigDoctor(withStore, file).facet(undefined);
+  expect(facet.finding_total).toBe(3);
+  expect(facet.groups.map((g) => [g.project, g.finding_count])).toEqual([
+    ['MMR', 1],
+    ['store', 2],
+  ]);
+  expect(facet.groups[1]?.records.map((r) => r.cause)).toEqual([
+    'schema version mismatch',
+    'writable config',
+  ]);
+});
+
 test('withConfigDoctor leaves a project-scoped facet and diagnosis alone', async () => {
   writeWithMode(WITH_URL, 0o666);
   const doctor = withConfigDoctor(BACKEND, file);

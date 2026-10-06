@@ -111,7 +111,7 @@ export function DoctorPage() {
             <span className="text-xs text-ink-dim">
               {project !== undefined && project !== ''
                 ? `Every record is consistent in ${project}.`
-                : 'Every record is consistent and the config is private to you.'}{' '}
+                : 'Every record is consistent and nothing in the config needs attention.'}{' '}
               A finding would surface here as an amber group; there is none.
             </span>
           </div>

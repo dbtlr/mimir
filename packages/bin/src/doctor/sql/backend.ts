@@ -27,8 +27,9 @@ import { readSchemaVersion, SCHEMA_VERSION } from '../../core/store-sql/migrator
 import type { DB } from '../../core/store-sql/schema';
 import { isCanonicalInstant, now } from '../../core/time';
 import type { DoctorBackend, DoctorDiagnosis, DoctorFinding, DoctorScopeMatch } from '../contract';
+import { isUnscoped } from '../contract';
 import type { DoctorFacet } from '../facet';
-import { emptyDoctorFacet, withFindings } from '../facet';
+import { withFindings } from '../facet';
 
 /**
  * The scope key store-level findings carry. A schema version belongs to the
@@ -478,7 +479,7 @@ async function diagnose(
       checkMalformedTimestamp(db),
     ])
   ).flat();
-  if (scope === undefined || scope === '') {
+  if (isUnscoped(scope)) {
     return findings;
   }
   // A store-level finding belongs to no project, so a project scope excludes it
@@ -501,7 +502,7 @@ const CAUSES: Readonly<Record<string, string>> = {
 /** Build the doctor facet over one open handle and the dialect it speaks. */
 export function createSqlDoctorBackend(db: Kysely<DB>, dialect: StoreDialect): DoctorBackend {
   const scopeMatch = async (scope: string | undefined): Promise<DoctorScopeMatch> =>
-    scope === undefined || scope === ''
+    isUnscoped(scope)
       ? null
       : { key: scope, matched_records: (await countRecords(db)).get(scope) ?? 0 };
 
@@ -512,7 +513,7 @@ export function createSqlDoctorBackend(db: Kysely<DB>, dialect: StoreDialect): D
     }),
     facet: async (scope): Promise<DoctorFacet> =>
       withFindings(
-        { ...emptyDoctorFacet(), scanned_at: now(), scope: await scopeMatch(scope) },
+        { finding_total: 0, groups: [], scanned_at: now(), scope: await scopeMatch(scope) },
         await diagnose(db, dialect, scope),
         CAUSES,
       ),

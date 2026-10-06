@@ -185,7 +185,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
     await expect(screen.findByText('No findings')).resolves.toBeDefined();
     // An unscoped scan also checked the config, so its clean state says so.
     expect(
-      screen.getByText(/Every record is consistent and the config is private to you\./),
+      screen.getByText(/Every record is consistent and nothing in the config needs attention\./),
     ).toBeDefined();
     expect(screen.queryByText(/each one names/)).toBeNull();
   });

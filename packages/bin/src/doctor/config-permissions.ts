@@ -14,6 +14,7 @@ import type { ConfigPathStat } from '../service/config';
 import { configFileMode, configPathStats, readConfig } from '../service/config';
 import { findingLine } from './commands';
 import type { DoctorBackend, DoctorDiagnosis, DoctorFinding } from './contract';
+import { isUnscoped } from './contract';
 import { withFindings } from './facet';
 
 /** Group-read and other-read bits; the permission the credential file must not grant. */
@@ -185,7 +186,7 @@ export function withConfigFindings(
   scope: string | undefined,
   file: string,
 ): DoctorDiagnosis {
-  if (scope !== undefined && scope !== '') {
+  if (!isUnscoped(scope)) {
     return diagnosis;
   }
   return { ...diagnosis, findings: [...diagnosis.findings, ...checkConfigPermissions(file)] };
@@ -201,9 +202,7 @@ export function withConfigDoctor(backend: DoctorBackend, file: string): DoctorBa
     diagnose: async (scope) => withConfigFindings(await backend.diagnose(scope), scope, file),
     facet: async (scope) => {
       const facet = await backend.facet(scope);
-      return scope === undefined || scope === ''
-        ? withFindings(facet, checkConfigPermissions(file), CAUSES)
-        : facet;
+      return isUnscoped(scope) ? withFindings(facet, checkConfigPermissions(file), CAUSES) : facet;
     },
   };
 }
@@ -220,7 +219,7 @@ export function warnConfigPermissions(
   file: string,
   write: (line: string) => void,
 ): void {
-  if (scope !== undefined && scope !== '') {
+  if (!isUnscoped(scope)) {
     return;
   }
   for (const finding of checkConfigPermissions(file)) {

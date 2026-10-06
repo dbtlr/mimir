@@ -41,6 +41,11 @@ export type DoctorFinding = {
  * holds. Null when the run is unscoped. */
 export type DoctorScopeMatch = { key: string; matched_records: number } | null;
 
+/** Whether a doctor run spans the whole store: no project scope, or an empty one. */
+export function isUnscoped(scope: string | undefined): scope is '' | undefined {
+  return scope === undefined || scope === '';
+}
+
 /** One diagnostic pass: what was found, and what the scope actually matched. */
 export type DoctorDiagnosis = {
   findings: DoctorFinding[];
