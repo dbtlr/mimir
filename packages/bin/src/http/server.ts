@@ -100,6 +100,7 @@ import { SCHEMA_VERSION } from '../core/store-sql/migrator';
 import type { DoctorFacet } from '../doctor/facet';
 import { emptyDoctorFacet } from '../doctor/facet';
 import type { Health } from '../service';
+import { guardRoutes, hostGuard } from './host';
 import {
   boolField,
   guarded,
@@ -594,6 +595,11 @@ export type ServeOptions = {
    * backend's doctor (ADR 0030 Decision 6).
    */
   doctor?: (scope: string | undefined) => Promise<DoctorFacet>;
+  /**
+   * Proxy hostnames answered beside the loopback names (`[serve] hosts`,
+   * MMR-425); any other `Host` is refused before routing.
+   */
+  hosts?: readonly string[];
 };
 
 /** How far past a taken port the hunt walks before giving up (MMR-53). */
@@ -633,8 +639,13 @@ export function createServer(store: Store, opts: ServeOptions): Server<undefined
 }
 
 function bindServer(store: Store, opts: ServeOptions, port: number): Server<undefined> {
+  const guard = hostGuard(opts.hosts ?? []);
   return Bun.serve({
     fetch(req) {
+      const refusal = guard(req);
+      if (refusal !== null) {
+        return refusal;
+      }
       if (req.method === 'OPTIONS') {
         return preflight(req);
       }
@@ -651,7 +662,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
     },
     hostname: '127.0.0.1',
     port,
-    routes: {
+    routes: guardRoutes(guard, {
       // The twelve uniform-verb action routes (ADR 0025 Decision 3), loop-
       // generated from the operation registry — ten node routes plus the two
       // project archive routes. The remaining routes below stay bespoke.
@@ -1477,6 +1488,6 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             return json(req, body);
           }),
       },
-    },
+    }),
   });
 }

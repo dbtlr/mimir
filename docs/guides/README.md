@@ -9,7 +9,7 @@ binary should live. Each page is self-contained — read the one you need.
 | [Service lifecycle](service-lifecycle.md)   | `install` / `uninstall` / `start` / `stop` / `restart` under launchd or systemd |
 | [Health probing](health-probing.md)         | What `/api/health` does and doesn't tell you; reading a 409          |
 | [Self-update](self-update.md)               | `mimir self-update`'s channels, verification, and restart behavior   |
-| [Port and proxy posture](port-and-proxy.md) | Port precedence, why the plist never bakes a port, proxy boundary    |
+| [Port and proxy posture](port-and-proxy.md) | Port precedence, why the plist never bakes a port, proxy boundary, accepted hosts |
 | [Install location](install-location.md)     | Why the binary belongs at `~/.local/bin`, not a network volume       |
 | [Postgres store](postgres-store.md)         | Sharing one board across machines: `[store]`, `store upgrade`, export/import, doctor |
 

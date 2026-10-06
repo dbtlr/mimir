@@ -20,8 +20,10 @@ import { runtimePaths } from '../env';
 
 export type ServeConfig = {
   port?: number;
-  /** Set when a config file exists but contributed nothing — callers may warn. */
-  problem?: 'malformed' | 'invalid-port';
+  /** Proxy hostnames `serve` answers beside the loopback names (MMR-425). */
+  hosts?: string[];
+  /** Set when a config file exists but a key in it was ignored — callers may warn. */
+  problem?: 'malformed' | 'invalid-port' | 'invalid-hosts';
 };
 
 /** Installation-bound path. Explicit bases are for isolated configuration tools. */
@@ -73,15 +75,27 @@ function serveSection(raw: unknown): ServeConfig {
   if (!isTable(raw)) {
     return { problem: 'malformed' };
   }
+  // Each key stands alone: a bad one is ignored and reported, never taking a
+  // valid neighbor down with it. An absent key is not a problem.
+  const serve: ServeConfig = {};
   const port = raw.port;
-  // No port key at all — not a problem, caller uses the default.
-  if (port === undefined) {
-    return {};
-  }
   if (typeof port === 'number' && Number.isInteger(port) && port >= 1 && port <= 65535) {
-    return { port };
+    serve.port = port;
+  } else if (port !== undefined) {
+    serve.problem = 'invalid-port';
   }
-  return { problem: 'invalid-port' };
+  const hosts = raw.hosts;
+  if (Array.isArray(hosts) && hosts.every(isHostName)) {
+    serve.hosts = hosts;
+  } else if (hosts !== undefined) {
+    serve.problem ??= 'invalid-hosts';
+  }
+  return serve;
+}
+
+/** A bare hostname or bracketed IPv6 literal — a port here would be ignored, so it is refused. */
+function isHostName(value: unknown): value is string {
+  return typeof value === 'string' && /^(\[[0-9a-f:.]+\]|[^\s:[\]]+)$/i.test(value);
 }
 
 function isStoreBackend(value: unknown): value is StoreBackend {
