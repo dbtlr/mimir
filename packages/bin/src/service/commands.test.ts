@@ -469,6 +469,69 @@ test('status surfaces an ignored config', async () => {
   expect(io.err.join('\n')).toContain('[warn] config key ignored (invalid-port)');
 });
 
+test('status warns on every ignored key and lists them all in json', async () => {
+  const io = fakeIo();
+  const d = deps(new FakeSupervisor());
+  writeFileSync(d.configFile, '[serve]\nport = "x"\nhosts = "box"\n');
+
+  expect(await cmdService(['service', 'status'], {}, io, d, 'json')).toBe(0);
+
+  const err = io.err.join('\n');
+  expect(err).toContain('config key ignored (invalid-port)');
+  expect(err).toContain('config key invalid (hosts) — answering loopback names only');
+  expect(JSON.parse(io.out.join('\n')).units[0].config_problems).toEqual([
+    'invalid-port',
+    'invalid-hosts',
+  ]);
+});
+
+test('status probes the bound address and shows the configured console url', async () => {
+  let probed = '';
+  const d = deps(new FakeSupervisor(), {
+    health: (host, port) => {
+      probed = `${host}:${String(port)}`;
+      return Promise.resolve(undefined);
+    },
+  });
+  writeFileSync(
+    d.configFile,
+    '[serve]\nport = 55442\nbind = "100.64.1.2"\nurl = "https://box.tailnet.ts.net"\n',
+  );
+
+  const human = fakeIo();
+  expect(await cmdService(['service', 'status'], {}, human, d)).toBe(0);
+  expect(probed).toBe('100.64.1.2:55442');
+  expect(human.out.join('\n')).toContain('console https://box.tailnet.ts.net');
+
+  const json = fakeIo();
+  expect(await cmdService(['service', 'status'], {}, json, d, 'json')).toBe(0);
+  expect(JSON.parse(json.out.join('\n')).units[0]).toMatchObject({
+    config_problems: [],
+    console_url: 'https://box.tailnet.ts.net',
+  });
+});
+
+test('status probes loopback for a wildcard bind', async () => {
+  let probed = '';
+  const d = deps(new FakeSupervisor(), {
+    health: (host) => {
+      probed = host;
+      return Promise.resolve(undefined);
+    },
+  });
+  writeFileSync(d.configFile, '[serve]\nbind = "0.0.0.0"\n');
+  expect(await cmdService(['service', 'status'], {}, fakeIo(), d)).toBe(0);
+  expect(probed).toBe('127.0.0.1');
+});
+
+test('install prints the console url', async () => {
+  const io = fakeIo();
+  const d = deps(new FakeSupervisor());
+  writeFileSync(d.configFile, '[serve]\nbind = "0.0.0.0"\nurl = "https://box.tailnet.ts.net"\n');
+  expect(await cmdService(['service', 'install'], {}, io, d)).toBe(0);
+  expect(io.out.join('\n')).toContain('serving on https://box.tailnet.ts.net');
+});
+
 // 9. self-update: already up to date is a clean no-op
 test('self-update: already up to date is a clean no-op', async () => {
   const sup = new FakeSupervisor();
@@ -695,7 +758,7 @@ test('service status probes the build profile default when config contributes no
   let probed: number | undefined;
   const d = deps(new FakeSupervisor(), {
     defaultPort: 64747,
-    health: (port) => {
+    health: (_host, port) => {
       probed = port;
       return Promise.resolve(undefined);
     },
@@ -712,7 +775,7 @@ test('service status prefers the port persisted in an installed dev plist', asyn
   let probed: number | undefined;
   const d = deps(new FakeSupervisor(), {
     defaultPort: 64747,
-    health: (port) => {
+    health: (_host, port) => {
       probed = port;
       return Promise.resolve(undefined);
     },

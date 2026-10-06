@@ -3,9 +3,9 @@ import type { Serve, Server } from 'bun';
 import { json } from './respond';
 
 /**
- * The Host guard (MMR-425). `serve` binds loopback and the proxy is the
- * boundary (ADR 0012), but a page whose domain rebinds to 127.0.0.1 is
- * same-origin with the daemon — the bind alone does not keep it out. Such a
+ * The Host guard (MMR-425). `serve` binds loopback by default, but a page
+ * whose domain rebinds to 127.0.0.1 is same-origin with the daemon — the bind
+ * alone does not keep it out. Such a
  * page still sends its own name as `Host`, so an operator who sets
  * `[serve] hosts` gets a daemon that answers only the loopback names and the
  * listed hosts. The check is opt-in (MMR-432): without `hosts`, every name an

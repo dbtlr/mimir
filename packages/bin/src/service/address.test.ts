@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test';
-
 import type { NetworkInterfaceInfo } from 'node:os';
 
 import {
@@ -10,6 +9,7 @@ import {
   listenUrl,
   normalizeServeUrl,
   probeHost,
+  serveBanner,
 } from './address';
 
 /** `[serve] bind` and `[serve] url` (MMR-433): where serve listens, and the address it hands out. */
@@ -72,12 +72,21 @@ test('listenUrl names the bound address, loopback by default', () => {
   expect(listenUrl('::', 64647)).toBe('http://[::]:64647');
 });
 
-test('consoleUrl prefers the configured url over the bound address', () => {
+test('consoleUrl prefers the configured url, else an address that reaches serve from here', () => {
   expect(consoleUrl({ url: 'https://box.tailnet.ts.net' }, 64647)).toBe(
     'https://box.tailnet.ts.net',
   );
-  expect(consoleUrl({ bind: '0.0.0.0' }, 64647)).toBe('http://0.0.0.0:64647');
+  expect(consoleUrl({ bind: '0.0.0.0' }, 64647)).toBe('http://127.0.0.1:64647');
+  expect(consoleUrl({ bind: '100.64.1.2' }, 64647)).toBe('http://100.64.1.2:64647');
   expect(consoleUrl({}, 64647)).toBe('http://127.0.0.1:64647');
+});
+
+test('serveBanner names the listening address, then the console url when one is set', () => {
+  expect(serveBanner({}, 64647)).toEqual(['mimir serve — listening on http://127.0.0.1:64647']);
+  expect(serveBanner({ bind: '0.0.0.0', url: 'https://box.tailnet.ts.net' }, 64650)).toEqual([
+    'mimir serve — listening on http://0.0.0.0:64650',
+    'console: https://box.tailnet.ts.net',
+  ]);
 });
 
 describe('acceptedHosts', () => {
@@ -96,11 +105,13 @@ describe('acceptedHosts', () => {
   });
 });
 
+/** A fake interface address, IPv4 or IPv6 by its shape. */
+const nic = (address: string): NetworkInterfaceInfo =>
+  address.includes(':')
+    ? { address, cidr: null, family: 'IPv6', internal: false, mac: '', netmask: '', scopeid: 0 }
+    : { address, cidr: null, family: 'IPv4', internal: false, mac: '', netmask: '' };
+
 describe('isLocalAddress', () => {
-  const nic = (address: string): NetworkInterfaceInfo =>
-    address.includes(':')
-      ? { address, cidr: null, family: 'IPv6', internal: false, mac: '', netmask: '', scopeid: 0 }
-      : { address, cidr: null, family: 'IPv4', internal: false, mac: '', netmask: '' };
   const interfaces = { lo0: [nic('127.0.0.1'), nic('::1')], utun4: [nic('100.64.1.2')] };
 
   test('wildcards and addresses on an interface are local', () => {

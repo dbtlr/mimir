@@ -64,24 +64,24 @@ test('reads [serve] port', () => {
 });
 
 // Fix 3 + updated assertions for Fix 1
-test("malformed TOML reports { problem: 'malformed' } and wrong-typed port reports { problem: 'invalid-port' }", () => {
+test('malformed TOML reports malformed and a wrong-typed port reports invalid-port', () => {
   const file = join(dir, 'config.toml');
   // Fix 3 — malformed TOML
   writeFileSync(file, '[serve\nport = ???');
-  expect(readServeConfig(file)).toEqual({ problem: 'malformed' });
+  expect(readServeConfig(file)).toEqual({ problems: ['malformed'] });
   // Fix 3 — wrong-typed string port
   writeFileSync(file, '[serve]\nport = "high"\n');
-  expect(readServeConfig(file)).toEqual({ problem: 'invalid-port' });
+  expect(readServeConfig(file)).toEqual({ problems: ['invalid-port'] });
 });
 
-// Fix 3 — boundary coverage: 0, 65536, 1.5 each yield { problem: "invalid-port" }
-test("port boundary values 0, 65536, and 1.5 each yield { problem: 'invalid-port' }", () => {
+// Fix 3 — boundary coverage: 0, 65536, 1.5 each yield invalid-port
+test('port boundary values 0, 65536, and 1.5 each yield invalid-port', () => {
   const file = join(dir, 'config.toml');
   for (const bad of [0, 65536, 1.5]) {
     writeFileSync(file, `[serve]\nport = ${bad}\n`);
     const result = readServeConfig(file);
     expect(result).not.toHaveProperty('port');
-    expect(result).toEqual({ problem: 'invalid-port' });
+    expect(result).toEqual({ problems: ['invalid-port'] });
   }
 });
 
@@ -109,8 +109,30 @@ test('a hosts value that is not a list of names fails closed to loopback only, k
     '["a/b"]',
   ]) {
     writeFileSync(file, `[serve]\nport = 50123\nhosts = ${bad}\n`);
-    expect(readServeConfig(file)).toEqual({ hosts: [], port: 50123, problem: 'invalid-hosts' });
+    expect(readServeConfig(file)).toEqual({
+      hosts: [],
+      port: 50123,
+      problems: ['invalid-hosts'],
+    });
   }
+});
+
+test('reads [serve] bind and url, storing url as its origin', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[serve]\nbind = "0.0.0.0"\nurl = "https://Box.tailnet.ts.net/"\n');
+  expect(readServeConfig(file)).toEqual({ bind: '0.0.0.0', url: 'https://box.tailnet.ts.net' });
+});
+
+test('an invalid bind or url is ignored with its own problem, keeping valid neighbors', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[serve]\nport = 50123\nbind = "localhost"\nurl = "https://box/mimir"\n');
+  expect(readServeConfig(file)).toEqual({ port: 50123, problems: ['invalid-bind', 'invalid-url'] });
+});
+
+test('every bad key is reported, not only the first', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[serve]\nport = "high"\nhosts = "box"\n');
+  expect(readServeConfig(file)).toEqual({ hosts: [], problems: ['invalid-port', 'invalid-hosts'] });
 });
 
 test('the invalid-hosts warning says serve answers loopback names only', () => {
@@ -137,7 +159,7 @@ test('writeServePort creates parents and round-trips', () => {
 test('a present-but-wrong-shaped section is malformed, never silence', () => {
   const file = join(dir, 'config.toml');
   writeFileSync(file, 'serve = 5\n');
-  expect(readServeConfig(file)).toEqual({ problem: 'malformed' });
+  expect(readServeConfig(file)).toEqual({ problems: ['malformed'] });
 });
 
 test('readConfig parses once and returns every section', () => {

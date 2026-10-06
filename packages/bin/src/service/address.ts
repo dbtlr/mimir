@@ -68,9 +68,21 @@ export function listenUrl(bind: string | undefined, port: number): string {
   return `http://${authorityHost(bind ?? DEFAULT_BIND)}:${String(port)}`;
 }
 
-/** The console address to show an operator: the configured `url`, else the listening one. */
+/**
+ * The console address to show an operator: the configured `url`, else the
+ * address that reaches `serve` from this machine (loopback for a wildcard bind).
+ */
 export function consoleUrl(serve: { bind?: string; url?: string }, port: number): string {
-  return serve.url ?? listenUrl(serve.bind, port);
+  return serve.url ?? `http://${probeHost(serve.bind)}:${String(port)}`;
+}
+
+/** What `serve` prints once bound: where it listens, then the configured `url`. */
+export function serveBanner(serve: { bind?: string; url?: string }, port: number): string[] {
+  const lines = [`mimir serve — listening on ${listenUrl(serve.bind, port)}`];
+  if (serve.url !== undefined) {
+    lines.push(`console: ${serve.url}`);
+  }
+  return lines;
 }
 
 /**

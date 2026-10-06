@@ -257,8 +257,8 @@ machinery commands (the installation, host, or store — not the work itself):
                           use). Prefills current values; re-runnable.
                           Non-interactively takes flags + -y.
   serve [--port <n>] [--no-hunt] [--store <file>]
-                          HTTP API + console (loopback-only; port:
-                          ${PORT_PRECEDENCE}; a
+                          HTTP API + console (on [serve] bind, else
+                          loopback; port: ${PORT_PRECEDENCE}; a
                           taken port hunts upward unless --no-hunt — the
                           startup line names the bound URL; --store serves an
                           existing SQLite file instead of this install's store)
@@ -958,7 +958,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--store <file>', 'serve an existing SQLite store file instead of the installation store'],
     ],
     summary:
-      'HTTP API + console (loopback-only, ADR 0012) — long-running; a taken port hunts upward unless --no-hunt',
+      'HTTP API + console (on [serve] bind, else loopback) — long-running; a taken port hunts upward unless --no-hunt',
     usage: 'mimir serve [--port <n>] [--no-hunt] [--store <file>]',
   },
   mcp: {

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, spyOn, test } from 'bun:test';
 
 import type { Server } from 'bun';
 
+import { acceptedHosts } from '../service/address';
 import { inertStore } from '../testing/store';
 import { isCrossOriginWrite } from './host';
 import { createServer } from './server';
@@ -128,6 +129,12 @@ test('a configured proxy host is accepted whatever its case or port', async () =
     expect(res.status).toBe(200);
   }
   expect((await get(base, '/api/health', 'other.example.test')).status).toBe(403);
+});
+
+test("with [serve] hosts set, the configured url's host is answered too (MMR-433)", async () => {
+  const base = start(acceptedHosts({ hosts: [], url: 'https://box.tailnet.ts.net' }));
+  expect((await get(base, '/api/health', 'box.tailnet.ts.net')).status).toBe(200);
+  expect((await get(base, '/api/health', 'other.tailnet.ts.net')).status).toBe(403);
 });
 
 test('a configured host does not admit its subdomains or look-alikes', async () => {

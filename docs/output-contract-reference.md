@@ -204,7 +204,10 @@ identical envelope (ADR 0012).
 `mimir service status` emits `{ config, recent_events, units }`, on one line
 under `jsonl`. Each `units`
 entry carries `unit`, `loaded`, `running`, `pid`, `unit_file`, and `log`,
-plus the serve daemon's `port`, `health`, and `config_problem`. The other
+plus the serve daemon's `port`, `console_url`, `health`, and `config_problems`.
+`console_url` is `[serve] url` when it is set, else the address that reaches the
+daemon from this machine. `config_problems` lists each ignored `[serve]` key,
+such as `invalid-port` or `invalid-bind`, and is empty when none was. The other
 service verbs emit `{ actions: [...] }` under `json` and one bare action object
 per line under `jsonl`. Each action carries `action`, `ok`, and `unit`;
 `install` adds `port` and `paths: { config, log, unit_file }`.

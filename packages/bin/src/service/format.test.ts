@@ -9,7 +9,8 @@ import type {
 } from './format';
 
 const serveUnit = (over: Partial<UnitStatus> = {}): UnitStatus => ({
-  configProblem: null,
+  configProblems: [],
+  consoleUrl: 'http://127.0.0.1:64647',
   health: { onDiskVersion: '0.6.0', restartPending: true, runningVersion: '0.5.0' },
   loaded: true,
   log: '/p/serve.log',
@@ -44,7 +45,8 @@ describe('formatServiceStatusJson', () => {
     expect(parsed.recent_events).toHaveLength(1);
     expect(parsed.units).toHaveLength(1);
     expect(parsed.units[0]).toEqual({
-      config_problem: null,
+      config_problems: [],
+      console_url: 'http://127.0.0.1:64647',
       health: { on_disk_version: '0.6.0', restart_pending: true, running_version: '0.5.0' },
       loaded: true,
       log: '/p/serve.log',
@@ -67,12 +69,17 @@ describe('formatServiceStatusJson', () => {
     expect(parsed.units[0]).not.toHaveProperty('plist');
   });
 
-  test('not loaded → pid null, health null, config_problem carried', () => {
+  test('not loaded → pid null, health null, every config problem carried', () => {
     const parsed = JSON.parse(
       formatServiceStatusJson(
         report({
           units: [
-            serveUnit({ configProblem: 'invalid-port', health: null, loaded: false, pid: null }),
+            serveUnit({
+              configProblems: ['invalid-port', 'invalid-url'],
+              health: null,
+              loaded: false,
+              pid: null,
+            }),
           ],
         }),
         true,
@@ -81,7 +88,7 @@ describe('formatServiceStatusJson', () => {
     const serve = parsed.units[0];
     expect(serve.pid).toBeNull();
     expect(serve.health).toBeNull();
-    expect(serve.config_problem).toBe('invalid-port');
+    expect(serve.config_problems).toEqual(['invalid-port', 'invalid-url']);
   });
 
   test('jsonl variant is single-line', () => {

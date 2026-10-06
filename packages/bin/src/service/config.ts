@@ -17,6 +17,15 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
 import { runtimePaths } from '../env';
+import { isBindAddress, normalizeServeUrl } from './address';
+
+/** A `[serve]` key, or the whole section, that was present but ignored. */
+export type ServeProblem =
+  | 'malformed'
+  | 'invalid-port'
+  | 'invalid-hosts'
+  | 'invalid-bind'
+  | 'invalid-url';
 
 export type ServeConfig = {
   port?: number;
@@ -25,8 +34,12 @@ export type ServeConfig = {
    * `serve` answers any Host (MMR-432); empty, the loopback names only.
    */
   hosts?: string[];
-  /** Set when a config file exists but a key in it was ignored — callers may warn. */
-  problem?: 'malformed' | 'invalid-port' | 'invalid-hosts';
+  /** The IP literal `serve` listens on (MMR-433); absent, loopback only. */
+  bind?: string;
+  /** The console's public origin, printed in place of the bound address (MMR-433). */
+  url?: string;
+  /** One entry per ignored key, or the whole section — callers warn on every one. */
+  problems?: ServeProblem[];
 };
 
 /** Installation-bound path. Explicit bases are for isolated configuration tools. */
@@ -76,16 +89,17 @@ function serveSection(raw: unknown): ServeConfig {
   }
   // A present-but-wrong-shaped section (`serve = 5`) is a problem, not silence.
   if (!isTable(raw)) {
-    return { problem: 'malformed' };
+    return { problems: ['malformed'] };
   }
   // Each key stands alone: a bad one is ignored and reported, never taking a
   // valid neighbor down with it. An absent key is not a problem.
   const serve: ServeConfig = {};
+  const problems: ServeProblem[] = [];
   const port = raw.port;
   if (typeof port === 'number' && Number.isInteger(port) && port >= 1 && port <= 65535) {
     serve.port = port;
   } else if (port !== undefined) {
-    serve.problem = 'invalid-port';
+    problems.push('invalid-port');
   }
   // A present-but-invalid `hosts` fails closed to loopback only: the operator
   // asked for the Host check, so a typo must not quietly turn it off.
@@ -94,7 +108,23 @@ function serveSection(raw: unknown): ServeConfig {
     serve.hosts = hosts;
   } else if (hosts !== undefined) {
     serve.hosts = [];
-    serve.problem ??= 'invalid-hosts';
+    problems.push('invalid-hosts');
+  }
+  // An invalid `bind` falls back to loopback, the narrower exposure.
+  const bind = raw.bind;
+  if (isBindAddress(bind)) {
+    serve.bind = bind;
+  } else if (bind !== undefined) {
+    problems.push('invalid-bind');
+  }
+  const url = normalizeServeUrl(raw.url);
+  if (url !== undefined) {
+    serve.url = url;
+  } else if (raw.url !== undefined) {
+    problems.push('invalid-url');
+  }
+  if (problems.length > 0) {
+    serve.problems = problems;
   }
   return serve;
 }
@@ -108,7 +138,7 @@ function isHostName(value: unknown): value is string {
  * The warning for a `[serve]` problem: a malformed section is ignored whole, a
  * bad key alone, and a bad `hosts` narrows `serve` to the loopback names.
  */
-export function serveProblemWarning(problem: NonNullable<ServeConfig['problem']>): string {
+export function serveProblemWarning(problem: ServeProblem): string {
   if (problem === 'malformed') {
     return 'config ignored (malformed)';
   }
@@ -154,9 +184,10 @@ function storeSection(raw: unknown): StoreConfig {
  * Read the global config in one parse. Tolerant by design: a missing,
  * malformed, or wrong-typed file never throws — the loud-failure posture
  * belongs to the consumer (the port bind, the store open), not the parse.
- * When a section or a key in it is present but ignored, the section's
- * `problem` is set so the consumer can warn rather than silently falling
- * through to a default.
+ * When a section or a key in it is present but ignored, the section says so
+ * (`[serve]` lists every such key in `problems`; `[store]` names its one
+ * `problem`) so the consumer can warn rather than silently falling through to
+ * a default.
  */
 export function readConfig(file = configPath()): GlobalConfig {
   if (!existsSync(file)) {
@@ -167,7 +198,7 @@ export function readConfig(file = configPath()): GlobalConfig {
     parsed = Bun.TOML.parse(readFileSync(file, 'utf8'));
   } catch {
     return {
-      serve: { problem: 'malformed' },
+      serve: { problems: ['malformed'] },
       store: { problem: 'malformed' },
     };
   }

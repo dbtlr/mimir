@@ -18,6 +18,7 @@ import { MimirError } from '../core';
 import type { Format, Io } from '../presentation';
 import { arrow, ok, warn } from '../presentation';
 import { assertUsableStoreConfig } from '../store-backend';
+import { consoleUrl, probeHost } from './address';
 import { isUnparseableConfig, serveProblemWarning, writeServePort } from './config';
 import type { GlobalConfig } from './config';
 import { appendEvent, recentEvents } from './events';
@@ -90,8 +91,8 @@ export type ServiceDeps = {
   /** The build-profile-aware config projection used by every service read/render. */
   readConfig: (file: string) => GlobalConfig;
   eventsFile: string;
-  /** GET /api/health on a port, undefined when nothing answers. */
-  health: (port: number) => Promise<Health | undefined>;
+  /** GET /api/health at a host and port, undefined when nothing answers. */
+  health: (host: string, port: number) => Promise<Health | undefined>;
   fetcher: Fetcher;
   /** The supervisor units this surface manages, keyed by name. */
   units: Record<UnitName, ServiceUnit>;
@@ -245,7 +246,7 @@ export async function cmdService(
           },
         ],
         () => {
-          ok(io, `serve installed — serving on http://127.0.0.1:${String(effectivePort)}`);
+          ok(io, `serve installed — serving on ${consoleUrl(config.serve, effectivePort)}`);
           io.write(`  ${fileLabel} ${unit.unitFile}`);
           io.write(
             `  config: ${deps.configFile}${port === undefined ? ' (defaults; set with service install --port)' : ''}`,
@@ -314,14 +315,15 @@ async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<
   const config = deps.readConfig(deps.configFile).serve;
   // A config that couldn't be honored is always a stderr warning (warnings stay
   // off stdout, per the output contract); the JSON envelope also carries it.
-  if (config.problem !== undefined) {
-    warn(io, `${serveProblemWarning(config.problem)} — ${deps.configFile}`);
+  for (const problem of config.problems ?? []) {
+    warn(io, `${serveProblemWarning(problem)} — ${deps.configFile}`);
   }
 
   const serveInfo = await deps.units.serve.supervisor.info();
-  // Probe the port resolved from the installation-bound configuration.
+  // Probe the port resolved from the installation-bound configuration, at the
+  // address the daemon answers on from this machine.
   const port = deps.readInstalledPort() ?? deps.portOverride ?? config.port ?? deps.defaultPort;
-  const healthRaw = await deps.health(port);
+  const healthRaw = await deps.health(probeHost(config.bind), port);
   const health: ServiceHealth | null =
     healthRaw === undefined
       ? null
@@ -335,7 +337,8 @@ async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<
           runningVersion: healthRaw.version,
         };
   const serve: UnitStatus = {
-    configProblem: config.problem ?? null,
+    configProblems: config.problems ?? [],
+    consoleUrl: consoleUrl(config, port),
     health,
     loaded: serveInfo.loaded,
     log: deps.units.serve.logFile,
@@ -365,6 +368,9 @@ function renderUnitHuman(u: UnitStatus, io: Io): void {
     ? `loaded, ${u.running ? `running (pid ${String(u.pid ?? '?')})` : 'not running'}`
     : 'not loaded';
   io.write(`${u.unit}: ${state}`);
+  if (u.consoleUrl !== undefined) {
+    io.write(`  console ${u.consoleUrl}`);
+  }
   if (u.health === null || u.health === undefined) {
     io.write(`  port ${String(u.port)}: no answer on /api/health`);
   } else {
