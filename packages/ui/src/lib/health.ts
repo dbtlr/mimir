@@ -20,3 +20,13 @@ export function findingsByProject(facet: WireDoctorFacet | undefined): Map<strin
 export function findingCount(n: number): string {
   return `${String(n)} ${n === 1 ? 'finding' : 'findings'}`;
 }
+
+/** The group key store-level findings carry (config, schema); no project key can be it. */
+const STORE_GROUP = 'store';
+
+/** The Record-health panel search that shows a group's findings: its project
+ * scope, or the unscoped panel for the store group, since a project scope
+ * excludes every store-level finding. */
+export function healthSearch(group: string): { project?: string } {
+  return group === STORE_GROUP ? {} : { project: group };
+}

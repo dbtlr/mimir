@@ -6,7 +6,9 @@
  * at the database; it never writes.
  *
  * The backend builds it (ADR 0030 Decision 6) from the one diagnosis it also
- * hands the CLI, so the panel can never drift from what `mimir doctor` reports.
+ * hands the CLI, and `withConfigDoctor` adds the config-file findings to both
+ * through {@link withFindings}, so the panel can never drift from what
+ * `mimir doctor` reports.
  */
 import type { DoctorFinding, DoctorScopeMatch } from './contract';
 
@@ -58,4 +60,60 @@ export type DoctorFacet = {
  * (e.g. a doctor-agnostic test server) that never wires a doctor facet provider. */
 export function emptyDoctorFacet(): DoctorFacet {
   return { finding_total: 0, groups: [], scanned_at: new Date().toISOString(), scope: null };
+}
+
+/** The column a finding's `where` names, e.g. `node · parent_id` → `parent_id`. */
+function fieldOf(where: string): string | null {
+  const tail = where.split(' · ')[1];
+  return tail === undefined || tail === '' ? null : tail;
+}
+
+/** One finding as a panel record: its locator and its own evidence, which is
+ * what a human needs to reach and fix it. The evidence's `value` repeats a named
+ * column already in it, so it moves to the record's own `value` rather than
+ * rendering twice. */
+function toRecord(item: DoctorFinding, causes: Readonly<Record<string, string>>): DoctorRecord {
+  const { value, ...evidence } = item.evidence;
+  return {
+    cause: causes[item.code] ?? item.code,
+    evidence,
+    field: fieldOf(item.where),
+    id: item.stem,
+    locator: item.locator,
+    note: item.message,
+    severity: item.severity,
+    value: typeof value === 'string' ? value : null,
+  };
+}
+
+/**
+ * Add `findings` to `facet`, each under its owning project's group, groups
+ * sorted by key. `causes` maps a finding's `code` to the plain-language cause
+ * chip; a code it lacks shows verbatim. The one projection from findings to the
+ * panel, so every source of findings groups and renders alike.
+ */
+export function withFindings(
+  facet: DoctorFacet,
+  findings: readonly DoctorFinding[],
+  causes: Readonly<Record<string, string>>,
+): DoctorFacet {
+  if (findings.length === 0) {
+    return facet;
+  }
+  const groups = new Map(facet.groups.map((group) => [group.project, [...group.records]]));
+  for (const item of findings) {
+    const records = groups.get(item.scopeKey);
+    if (records === undefined) {
+      groups.set(item.scopeKey, [toRecord(item, causes)]);
+    } else {
+      records.push(toRecord(item, causes));
+    }
+  }
+  return {
+    ...facet,
+    finding_total: facet.finding_total + findings.length,
+    groups: [...groups]
+      .map(([project, records]) => ({ finding_count: records.length, project, records }))
+      .toSorted((a, b) => a.project.localeCompare(b.project)),
+  };
 }

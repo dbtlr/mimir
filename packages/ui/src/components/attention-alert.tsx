@@ -6,7 +6,7 @@ import { projectKeyOf } from '../api/types';
 import type { AttentionReason } from '../lib/attention';
 import { attentionItems } from '../lib/attention';
 import { cn } from '../lib/cn';
-import { findingCount } from '../lib/health';
+import { findingCount, healthSearch } from '../lib/health';
 import { ago } from '../lib/time';
 import { StatusDot } from './status-dot';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
@@ -122,7 +122,7 @@ export function AttentionAlert() {
           <MenuItem
             key={group.project}
             className={cn('items-center', count > 0 && 'border-t border-status-in-progress/15')}
-            onClick={() => void navigate({ search: { project: group.project }, to: '/doctor' })}
+            onClick={() => void navigate({ search: healthSearch(group.project), to: '/doctor' })}
           >
             <span
               aria-hidden
