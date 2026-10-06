@@ -587,8 +587,9 @@ export type ServeOptions = {
    */
   doctor?: (scope: string | undefined) => Promise<DoctorFacet>;
   /**
-   * Proxy hostnames answered beside the loopback names (`[serve] hosts`,
-   * MMR-425); any other `Host` is refused before routing.
+   * Hostnames answered beside the loopback names (`[serve] hosts`, MMR-425);
+   * any other `Host` is refused before routing. Absent, any `Host` is
+   * answered (MMR-432).
    */
   hosts?: readonly string[];
 };
@@ -630,7 +631,7 @@ export function createServer(store: Store, opts: ServeOptions): Server<undefined
 }
 
 function bindServer(store: Store, opts: ServeOptions, port: number): Server<undefined> {
-  const guard = hostGuard(opts.hosts ?? []);
+  const guard = hostGuard(opts.hosts);
   return Bun.serve({
     fetch(req) {
       const refusal = guard(req);

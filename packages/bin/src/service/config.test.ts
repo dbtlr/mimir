@@ -20,6 +20,7 @@ import {
   readConfig,
   readRuntimeConfig,
   readServeConfig,
+  serveProblemWarning,
   writeConfig,
   writeServePort,
 } from './config';
@@ -97,7 +98,7 @@ test('reads [serve] hosts beside the port', () => {
   expect(readServeConfig(file)).toEqual({ hosts: ['mimir.example.test'], port: 50123 });
 });
 
-test('a hosts value that is not a list of names is a problem that keeps the valid port', () => {
+test('a hosts value that is not a list of names fails closed to loopback only, keeping the valid port', () => {
   const file = join(dir, 'config.toml');
   for (const bad of [
     '"mimir.example.test"',
@@ -108,8 +109,15 @@ test('a hosts value that is not a list of names is a problem that keeps the vali
     '["a/b"]',
   ]) {
     writeFileSync(file, `[serve]\nport = 50123\nhosts = ${bad}\n`);
-    expect(readServeConfig(file)).toEqual({ port: 50123, problem: 'invalid-hosts' });
+    expect(readServeConfig(file)).toEqual({ hosts: [], port: 50123, problem: 'invalid-hosts' });
   }
+});
+
+test('the invalid-hosts warning says serve answers loopback names only', () => {
+  expect(serveProblemWarning('invalid-hosts')).toBe(
+    'config key invalid (hosts) — answering loopback names only',
+  );
+  expect(serveProblemWarning('invalid-port')).toBe('config key ignored (invalid-port)');
 });
 
 test('writeServePort keeps the configured hosts', () => {

@@ -20,7 +20,10 @@ import { runtimePaths } from '../env';
 
 export type ServeConfig = {
   port?: number;
-  /** Proxy hostnames `serve` answers beside the loopback names (MMR-425). */
+  /**
+   * Hostnames `serve` answers beside the loopback names (MMR-425). Absent,
+   * `serve` answers any Host (MMR-432); empty, the loopback names only.
+   */
   hosts?: string[];
   /** Set when a config file exists but a key in it was ignored — callers may warn. */
   problem?: 'malformed' | 'invalid-port' | 'invalid-hosts';
@@ -84,10 +87,13 @@ function serveSection(raw: unknown): ServeConfig {
   } else if (port !== undefined) {
     serve.problem = 'invalid-port';
   }
+  // A present-but-invalid `hosts` fails closed to loopback only: the operator
+  // asked for the Host check, so a typo must not quietly turn it off.
   const hosts = raw.hosts;
   if (Array.isArray(hosts) && hosts.every(isHostName)) {
     serve.hosts = hosts;
   } else if (hosts !== undefined) {
+    serve.hosts = [];
     serve.problem ??= 'invalid-hosts';
   }
   return serve;
@@ -98,9 +104,17 @@ function isHostName(value: unknown): value is string {
   return typeof value === 'string' && /^(\[[0-9a-f:.]+\]|[a-z0-9_.-]+)$/i.test(value);
 }
 
-/** The warning for a `[serve]` problem: a malformed section is ignored whole, a bad key alone. */
+/**
+ * The warning for a `[serve]` problem: a malformed section is ignored whole, a
+ * bad key alone, and a bad `hosts` narrows `serve` to the loopback names.
+ */
 export function serveProblemWarning(problem: NonNullable<ServeConfig['problem']>): string {
-  return problem === 'malformed' ? 'config ignored (malformed)' : `config key ignored (${problem})`;
+  if (problem === 'malformed') {
+    return 'config ignored (malformed)';
+  }
+  return problem === 'invalid-hosts'
+    ? 'config key invalid (hosts) — answering loopback names only'
+    : `config key ignored (${problem})`;
 }
 
 function isStoreBackend(value: unknown): value is StoreBackend {

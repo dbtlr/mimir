@@ -9,8 +9,10 @@ import { createServer } from './server';
 /**
  * The Host guard over the real server (MMR-425): a page whose domain rebinds
  * to 127.0.0.1 is same-origin with the daemon but still sends its own name as
- * Host, so anything but a loopback name or a configured proxy host is refused
- * before a route runs. The inert store proves refusals never reach the store.
+ * Host, so once `[serve] hosts` is set, anything but a loopback name or a
+ * listed host is refused before a route runs. Without `hosts` the Host check
+ * is off (MMR-432); the cross-origin write check holds either way. The inert
+ * store proves refusals never reach the store.
  */
 
 let server: Server<undefined> | undefined;
@@ -34,7 +36,7 @@ function get(base: string, path: string, host: string): Promise<Response> {
 }
 
 test('a rebound domain is refused on API routes, the console, and the fallback', async () => {
-  const base = start();
+  const base = start([]);
   for (const path of ['/api/health', '/api/nodes', '/api/doctor', '/', '/api/nope']) {
     const res = await get(base, path, 'attacker.example:64647');
     expect(res.status).toBe(403);
@@ -44,7 +46,7 @@ test('a rebound domain is refused on API routes, the console, and the fallback',
 });
 
 test('a rebound domain cannot write or preflight', async () => {
-  const base = start();
+  const base = start([]);
   const write = await fetch(`${base}/api/projects`, {
     body: JSON.stringify({ key: 'EVL', name: 'evil' }),
     headers: { 'content-type': 'application/json', host: 'attacker.example' },
@@ -59,7 +61,7 @@ test('a rebound domain cannot write or preflight', async () => {
 });
 
 test('a Host that only starts with a loopback name is refused', async () => {
-  const base = start();
+  const base = start([]);
   for (const host of ['localhost:1@attacker.example', '[::1]attacker.example', 'localhost:x']) {
     expect((await get(base, '/api/health', host)).status).toBe(403);
   }
@@ -71,7 +73,7 @@ test('each refused name is logged once, and the log stops growing past a cap', a
     lines.push(line);
   });
   try {
-    const base = start();
+    const base = start([]);
     await get(base, '/api/health', 'attacker.example:1');
     await get(base, '/api/health', 'ATTACKER.example:2');
     expect(lines).toHaveLength(1);
@@ -87,11 +89,36 @@ test('each refused name is logged once, and the log stops growing past a cap', a
 });
 
 test('loopback names reach the daemon on any port', async () => {
-  const base = start();
+  const base = start([]);
   for (const host of ['127.0.0.1:64647', 'localhost:5173', 'LOCALHOST', '[::1]:64647']) {
     const res = await get(base, '/api/health', host);
     expect(res.status).toBe(200);
   }
+});
+
+test('without [serve] hosts, any Host is answered (MMR-432)', async () => {
+  const base = start();
+  for (const host of ['box', 'box.tailnet.ts.net', '192.168.1.10:64647', 'attacker.example']) {
+    expect((await get(base, '/api/health', host)).status).toBe(200);
+  }
+});
+
+test('without [serve] hosts, a same-origin write by any name lands and a cross-origin one does not', async () => {
+  // An unrouted POST shows the guard's verdict: admitted → 404, refused → 403.
+  const base = start();
+  const post = (host: string, origin: string) =>
+    fetch(`${base}/api/nope`, { headers: { host, origin }, method: 'POST' });
+  expect((await post('192.168.1.10:64647', 'http://192.168.1.10:64647')).status).toBe(404);
+  expect((await post('box.tailnet.ts.net', 'https://box.tailnet.ts.net')).status).toBe(404);
+  const cross = await post('box.tailnet.ts.net', 'https://evil.example');
+  expect(cross.status).toBe(403);
+  expect(((await cross.json()) as { error: { code: string } }).error.code).toBe('forbidden_origin');
+});
+
+test('an empty [serve] hosts answers the loopback names only', async () => {
+  const base = start([]);
+  expect((await get(base, '/api/health', 'localhost:64647')).status).toBe(200);
+  expect((await get(base, '/api/health', 'box.tailnet.ts.net')).status).toBe(403);
 });
 
 test('a configured proxy host is accepted whatever its case or port', async () => {

@@ -253,11 +253,11 @@ async function main(argv: string[]): Promise<number> {
     const doctor = withConfigDoctor(built.doctor, configPath()).facet;
     let server: ReturnType<typeof createServer>;
     try {
-      // `[serve] hosts` names the proxy's forwarded Host; any other Host is
-      // refused before routing, so a DNS-rebinding page gets nothing (MMR-425).
+      // `[serve] hosts`, when set, limits the Host names answered so a
+      // DNS-rebinding page gets nothing (MMR-425); unset, any Host is (MMR-432).
       server = createServer(built.store, {
         doctor,
-        hosts: config.hosts ?? [],
+        hosts: config.hosts,
         hunt: !noHunt,
         port,
         version: VERSION,
