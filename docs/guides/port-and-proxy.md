@@ -80,8 +80,12 @@ refused hostname once, for up to 64 names.
 
 Whatever `hosts` says, `serve` refuses a browser write from another origin: a
 request with any method but `GET` or `HEAD` whose `Origin` does not match its
-`Host`, or whose `Sec-Fetch-Site` is neither `same-origin` nor `none`. This needs no configuration as long as
-any proxy in front keeps the browser's `Host` header.
+`Host`, or whose `Sec-Fetch-Site` is neither `same-origin` nor `none`. This
+needs no configuration as long as any proxy in front keeps the browser's
+`Host` header. It stops other sites and other local web apps, but not a
+rebinding page: that page is same-origin by construction, so without `hosts`
+it can read and write the board. Set `hosts` when the machine that runs the
+console's browser also browses untrusted sites.
 
 ## Source
 
