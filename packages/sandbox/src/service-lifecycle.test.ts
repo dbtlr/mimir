@@ -31,7 +31,7 @@ class FakeSupervisorHost implements ServiceHost {
         this.files.add(serveFile);
         this.serve = { loaded: true, pid: this.spawn() };
         const actions = [
-          { action: 'install', ok: true, paths: { plist: serveFile }, unit: 'serve' },
+          { action: 'install', ok: true, paths: { unit_file: serveFile }, unit: 'serve' },
         ];
         return Promise.resolve(JSON.stringify({ actions }));
       }
