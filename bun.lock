@@ -16,7 +16,7 @@
     },
     "packages/bin": {
       "name": "@mimir/bin",
-      "version": "0.22.1-next",
+      "version": "0.22.1",
       "bin": {
         "mimir": "./src/main.ts",
       },
