@@ -20,7 +20,7 @@ import { createServer } from './server';
 /**
  * The resource envelope end-to-end: a real server on an ephemeral loopback
  * port over a real in-memory store — requests exercise routing, parsing, the
- * envelope, status mapping, and CORS exactly as a UI would.
+ * envelope, status mapping, and the origin rules exactly as a UI would.
  */
 
 let store: Store;
@@ -810,7 +810,7 @@ test('GET /api/transitions?limit= truncates in log order', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Protocol: bodies, fallbacks, CORS
+// Protocol: bodies, fallbacks, origins
 // ---------------------------------------------------------------------------
 
 test('unknown body fields and malformed JSON are structural 400s', async () => {
@@ -836,7 +836,7 @@ test('unmatched routes get the 404 envelope', async () => {
 
 test('no origin gets a CORS grant, loopback dev origins included (MMR-426)', async () => {
   // The dev console reaches the API through the Vite proxy, same-origin; any
-  // other page on loopback must not be able to read or write cross-origin.
+  // other page on loopback must not be able to read cross-origin.
   for (const origin of ['http://localhost:5173', 'http://127.0.0.1:4000', 'https://evil.example']) {
     const preflight = await fetch(`${base}/api/nodes`, { headers: { origin }, method: 'OPTIONS' });
     expect(preflight.headers.get('access-control-allow-origin')).toBeNull();
@@ -846,6 +846,33 @@ test('no origin gets a CORS grant, loopback dev origins included (MMR-426)', asy
     expect(read.status).toBe(200);
     expect(read.headers.get('access-control-allow-origin')).toBeNull();
   }
+});
+
+test('browser writes from the same origin land: direct and through the Vite proxy (MMR-426)', async () => {
+  const self = new URL(base).host;
+  const proxied = { host: 'localhost:5173', origin: 'http://localhost:5173' };
+  const direct = { host: self, origin: `http://${self}` };
+  for (const [key, headers] of [
+    ['DIR', direct],
+    ['PXY', proxied],
+  ] as const) {
+    const res = await fetch(`${base}/api/projects`, {
+      body: JSON.stringify({ key, name: key }),
+      headers: { 'content-type': 'application/json', ...headers },
+      method: 'POST',
+    });
+    expect(res.status).toBe(201);
+  }
+});
+
+test('a cross-origin simple POST does not reach the board (MMR-426)', async () => {
+  const res = await fetch(`${base}/api/projects`, {
+    body: JSON.stringify({ key: 'EVL', name: 'evil' }),
+    headers: { 'content-type': 'text/plain', origin: 'http://localhost:3000' },
+    method: 'POST',
+  });
+  expect(res.status).toBe(403);
+  expect((await get('/api/projects/EVL')).status).toBe(404);
 });
 
 // ---------------------------------------------------------------------------

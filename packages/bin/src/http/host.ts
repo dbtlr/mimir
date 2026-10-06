@@ -9,6 +9,13 @@ import { json } from './respond';
  * page still sends its own name as `Host`, so the daemon answers only the
  * loopback names and the proxy hosts the operator lists in `[serve] hosts`.
  * `X-Forwarded-Host` is never consulted: a same-origin page can set it.
+ *
+ * The same guard refuses writes from another origin (MMR-426). The API grants
+ * no CORS, so another page cannot read it, but a browser still sends a
+ * "simple" POST (a `text/plain` body, no preflight) from any origin, and the
+ * Host of that request is the daemon's own. Every browser stamps a write with
+ * `Origin`, so a write whose Origin does not name the request's Host is
+ * refused. The CLI, agents, and other clients send no Origin and pass.
  */
 
 /** Names a rebinding page can never present: they are not the page's domain. */
@@ -28,7 +35,24 @@ export function hostnameOf(host: string): string {
   return /^(:\d+)?$/.test(lower.slice(end)) ? lower.slice(0, end) : lower;
 }
 
-/** The refusal for a request whose Host is not the daemon's; null admits it. */
+/** Methods that never write: a browser's cross-origin GET and HEAD stay unreadable. */
+const SAFE_METHODS: ReadonlySet<string> = new Set(['GET', 'HEAD']);
+
+/**
+ * Whether a browser sent this write from another origin: a non-safe method
+ * whose `Origin` host (name and port) is not the request's `Host`. An opaque
+ * `null` Origin parses to no host and never matches.
+ */
+export function isCrossOriginWrite(req: Request): boolean {
+  const origin = req.headers.get('origin');
+  if (origin === null || SAFE_METHODS.has(req.method)) {
+    return false;
+  }
+  const host = (req.headers.get('host') ?? '').trim().toLowerCase();
+  return URL.parse(origin)?.host !== host;
+}
+
+/** The refusal for a request this server must not answer; null admits it. */
 export type HostGuard = (req: Request) => Response | null;
 
 /** How many distinct refused names `serve` logs before it stops logging them. */
@@ -45,7 +69,17 @@ export function hostGuard(hosts: readonly string[]): HostGuard {
   return (req) => {
     const name = hostnameOf(req.headers.get('host') ?? '');
     if (allowed.has(name)) {
-      return null;
+      return isCrossOriginWrite(req)
+        ? json(
+            {
+              error: {
+                code: 'forbidden_origin',
+                message: 'this server does not accept writes from another origin',
+              },
+            },
+            403,
+          )
+        : null;
     }
     if (reported.size < REFUSAL_LOG_CAP && !reported.has(name)) {
       reported.add(name);

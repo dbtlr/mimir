@@ -83,7 +83,11 @@ export default defineConfig({
     // on mount, MMR-254) — inject it here so it still has one source.
     { name: 'meta-theme-color', transformIndexHtml: injectThemeColorMeta },
   ],
-  server: { proxy: { '/api': devApi } },
+  // No CORS on the dev server either: Vite's default admits every localhost
+  // origin, which would reopen the proxied API to other loopback pages. The
+  // proxy must keep the browser's Host (the string shorthand rewrites it to the
+  // target), or the daemon reads every console write as cross-origin.
+  server: { cors: false, proxy: { '/api': { changeOrigin: false, target: devApi } } },
   // Lint/fmt are centralized in the root vite.config; this member carries only
   // build + test. The jsdom test env comes from @dbtlr/tooling's testReact().
   test: testReact({ setupFiles: ['./src/test/setup.ts'] }),

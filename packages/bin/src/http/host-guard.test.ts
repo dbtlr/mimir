@@ -112,3 +112,35 @@ test('a configured host does not admit its subdomains or look-alikes', async () 
     expect((await get(base, '/api/health', host)).status).toBe(403);
   }
 });
+
+test('a write from another origin is refused before a route runs (MMR-426)', async () => {
+  // No CORS keeps another page from reading, but a browser still sends a
+  // "simple" POST cross-origin without a preflight. The inert store proves
+  // the refusal comes before any route touches the board.
+  const base = start();
+  const self = new URL(base).host;
+  const writes: { method: string; path: string; body?: string }[] = [
+    { body: JSON.stringify({ key: 'EVL', name: 'evil' }), method: 'POST', path: '/api/projects' },
+    { method: 'POST', path: '/api/nodes/EVL-1/done' },
+    { body: '{}', method: 'PATCH', path: '/api/nodes/EVL-1' },
+    { method: 'DELETE', path: '/api/nodes/EVL-1' },
+  ];
+  const origins = [
+    'http://localhost:3000',
+    `http://localhost:${new URL(base).port}`,
+    'https://evil.example',
+    'null',
+  ];
+  for (const { body, method, path } of writes) {
+    for (const origin of origins) {
+      const res = await fetch(`${base}${path}`, {
+        body,
+        headers: { 'content-type': 'text/plain', host: self, origin },
+        method,
+      });
+      expect(res.status).toBe(403);
+      const refusal = (await res.json()) as { error: { code: string } };
+      expect(refusal.error.code).toBe('forbidden_origin');
+    }
+  }
+});

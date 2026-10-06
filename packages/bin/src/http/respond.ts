@@ -9,7 +9,8 @@ import type { ErrorCode } from '../core';
  * hint?}}` — the same contract `--json` callers parse); HTTP adds only the
  * status code. The API grants no CORS (MMR-426): production is same-origin
  * behind the proxy (ADR 0012), and the dev console reaches it through the
- * Vite proxy, so no other page on loopback can read or write it cross-origin.
+ * Vite proxy, so no other page can read it cross-origin. Cross-origin writes,
+ * which a browser can send without CORS, are refused by the guard in host.ts.
  */
 
 /** A JSON response. */
