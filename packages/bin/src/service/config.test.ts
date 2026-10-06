@@ -99,7 +99,14 @@ test('reads [serve] hosts beside the port', () => {
 
 test('a hosts value that is not a list of names is a problem that keeps the valid port', () => {
   const file = join(dir, 'config.toml');
-  for (const bad of ['"mimir.example.test"', '[1]', '[""]', '["mimir.example.test:443"]']) {
+  for (const bad of [
+    '"mimir.example.test"',
+    '[1]',
+    '[""]',
+    '["mimir.example.test:443"]',
+    '["*"]',
+    '["a/b"]',
+  ]) {
     writeFileSync(file, `[serve]\nport = 50123\nhosts = ${bad}\n`);
     expect(readServeConfig(file)).toEqual({ port: 50123, problem: 'invalid-hosts' });
   }

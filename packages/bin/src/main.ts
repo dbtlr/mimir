@@ -41,6 +41,7 @@ import {
   readRuntimeConfig,
   readServePlistPort,
   readServeUnitPort,
+  serveProblemWarning,
   parseHealth,
   serveUnitFor,
   systemdUnitPathFor,
@@ -227,7 +228,7 @@ async function main(argv: string[]): Promise<number> {
     }
     const config = readRuntimeConfig().serve;
     if (config.problem !== undefined) {
-      console.error(`⚠ serve: config ignored (${config.problem}) — ${configPath()}`);
+      console.error(`⚠ serve: ${serveProblemWarning(config.problem)} — ${configPath()}`);
     }
     const port = flagPort ?? overridePort ?? config.port ?? DEFAULT_PORT;
     // Long-running: the server keeps the process alive; loopback-only by

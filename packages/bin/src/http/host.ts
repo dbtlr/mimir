@@ -14,36 +14,45 @@ import { json } from './respond';
 /** Names a rebinding page can never present: they are not the page's domain. */
 const LOOPBACK_HOSTS: readonly string[] = ['localhost', '127.0.0.1', '[::1]'];
 
-/** A Host header's hostname, lowercased, without its port. */
+/**
+ * A Host header's hostname, lowercased, without its port. Anything after the
+ * name other than `:<digits>` is not a Host a browser sends, so the whole
+ * header comes back unchanged and matches no accepted name.
+ */
 export function hostnameOf(host: string): string {
   const lower = host.trim().toLowerCase();
-  if (lower.startsWith('[')) {
-    const end = lower.indexOf(']');
-    return end === -1 ? lower : lower.slice(0, end + 1);
+  const end = lower.startsWith('[') ? lower.indexOf(']') + 1 : lower.indexOf(':');
+  if (end <= 0) {
+    return lower;
   }
-  const colon = lower.indexOf(':');
-  return colon === -1 ? lower : lower.slice(0, colon);
+  return /^(:\d+)?$/.test(lower.slice(end)) ? lower.slice(0, end) : lower;
 }
 
 /** The refusal for a request whose Host is not the daemon's; null admits it. */
 export type HostGuard = (req: Request) => Response | null;
 
+/** How many distinct refused names `serve` logs before it stops logging them. */
+const REFUSAL_LOG_CAP = 64;
+
 /**
- * Build the guard over the loopback names plus `hosts`. Each refused host is
- * logged once to stderr, JSON-escaped since the header is the caller's text.
+ * Build the guard over the loopback names plus `hosts`. Each refused name is
+ * logged once, JSON-escaped since the header is the caller's text, up to
+ * {@link REFUSAL_LOG_CAP} names: a wildcard domain can mint names forever.
  */
 export function hostGuard(hosts: readonly string[]): HostGuard {
   const allowed = new Set([...LOOPBACK_HOSTS, ...hosts.map(hostnameOf)]);
   const reported = new Set<string>();
   return (req) => {
-    const host = req.headers.get('host') ?? '';
-    if (allowed.has(hostnameOf(host))) {
+    const name = hostnameOf(req.headers.get('host') ?? '');
+    if (allowed.has(name)) {
       return null;
     }
-    if (!reported.has(host)) {
-      reported.add(host);
+    if (reported.size < REFUSAL_LOG_CAP && !reported.has(name)) {
+      reported.add(name);
       console.error(
-        `⚠ serve: refused a request for host ${JSON.stringify(host)} — add its name to [serve] hosts if your proxy forwards it`,
+        reported.size < REFUSAL_LOG_CAP
+          ? `⚠ serve: refused a request for host ${JSON.stringify(name)} — add it to [serve] hosts if your proxy forwards it`
+          : `⚠ serve: refused a request for host ${JSON.stringify(name)}; further refused hosts are not logged`,
       );
     }
     return json(

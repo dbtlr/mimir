@@ -466,7 +466,7 @@ test('status surfaces an ignored config', async () => {
   expect(code).toBe(0);
   // Warning must be on stderr (io.err), NOT stdout
   expect(io.out.join('\n')).not.toContain('config ignored');
-  expect(io.err.join('\n')).toContain('[warn] config ignored (invalid-port)');
+  expect(io.err.join('\n')).toContain('[warn] config key ignored (invalid-port)');
 });
 
 // 9. self-update: already up to date is a clean no-op

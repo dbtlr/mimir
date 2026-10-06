@@ -6,6 +6,7 @@ export {
   readConfig,
   readRuntimeConfig,
   readServeConfig,
+  serveProblemWarning,
   writeConfig,
   writeServePort,
 } from './config';

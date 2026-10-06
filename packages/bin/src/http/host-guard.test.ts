@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from 'bun:test';
+import { afterEach, expect, spyOn, test } from 'bun:test';
 
 import type { Server } from 'bun';
 
@@ -39,6 +39,49 @@ test('a rebound domain is refused on API routes, the console, and the fallback',
     expect(res.status).toBe(403);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe('forbidden_host');
+  }
+});
+
+test('a rebound domain cannot write or preflight', async () => {
+  const base = start();
+  const write = await fetch(`${base}/api/projects`, {
+    body: JSON.stringify({ key: 'EVL', name: 'evil' }),
+    headers: { 'content-type': 'application/json', host: 'attacker.example' },
+    method: 'POST',
+  });
+  expect(write.status).toBe(403);
+  const preflight = await fetch(`${base}/api/nodes`, {
+    headers: { host: 'attacker.example', origin: 'http://localhost:5173' },
+    method: 'OPTIONS',
+  });
+  expect(preflight.status).toBe(403);
+});
+
+test('a Host that only starts with a loopback name is refused', async () => {
+  const base = start();
+  for (const host of ['localhost:1@attacker.example', '[::1]attacker.example', 'localhost:x']) {
+    expect((await get(base, '/api/health', host)).status).toBe(403);
+  }
+});
+
+test('each refused name is logged once, and the log stops growing past a cap', async () => {
+  const lines: string[] = [];
+  const error = spyOn(console, 'error').mockImplementation((line: string) => {
+    lines.push(line);
+  });
+  try {
+    const base = start();
+    await get(base, '/api/health', 'attacker.example:1');
+    await get(base, '/api/health', 'ATTACKER.example:2');
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('"attacker.example"');
+    for (let i = 0; i < 100; i++) {
+      await get(base, '/api/health', `n${String(i)}.attacker.example`);
+    }
+    expect(lines.length).toBeLessThan(100);
+    expect(lines.at(-1)).toContain('further refused hosts are not logged');
+  } finally {
+    error.mockRestore();
   }
 });
 

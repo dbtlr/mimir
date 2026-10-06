@@ -64,10 +64,11 @@ public name:
 hosts = ["mimir.example.local"]
 ```
 
-Each entry is a bare hostname or a bracketed IPv6 literal, with no port. An
-invalid `hosts` value is ignored with a warning and the port still applies.
-`serve` reads the list at start, so restart the service after a change. Each
-refused host is logged once to the `serve` log.
+Each entry is a bare hostname (letters, digits, `.`, `-`, `_`) or a bracketed
+IPv6 literal, with no port and no wildcards. An invalid `hosts` value is
+ignored with a warning and the port still applies. `serve` reads the list at
+start, so restart the service after a change. The `serve` log names each
+refused hostname once, for up to 64 names.
 
 `X-Forwarded-Host` is never consulted: a same-origin page can set it.
 

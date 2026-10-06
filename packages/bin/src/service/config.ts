@@ -95,7 +95,12 @@ function serveSection(raw: unknown): ServeConfig {
 
 /** A bare hostname or bracketed IPv6 literal — a port here would be ignored, so it is refused. */
 function isHostName(value: unknown): value is string {
-  return typeof value === 'string' && /^(\[[0-9a-f:.]+\]|[^\s:[\]]+)$/i.test(value);
+  return typeof value === 'string' && /^(\[[0-9a-f:.]+\]|[a-z0-9_.-]+)$/i.test(value);
+}
+
+/** The warning for a `[serve]` problem: a malformed section is ignored whole, a bad key alone. */
+export function serveProblemWarning(problem: NonNullable<ServeConfig['problem']>): string {
+  return problem === 'malformed' ? 'config ignored (malformed)' : `config key ignored (${problem})`;
 }
 
 function isStoreBackend(value: unknown): value is StoreBackend {
@@ -135,9 +140,9 @@ function storeSection(raw: unknown): StoreConfig {
  * Read the global config in one parse. Tolerant by design: a missing,
  * malformed, or wrong-typed file never throws — the loud-failure posture
  * belongs to the consumer (the port bind, the store open), not the parse.
- * When a section is present but contributed nothing, its `problem` is set so
- * the consumer can warn that the config was ignored rather than silently
- * falling through to a default.
+ * When a section or a key in it is present but ignored, the section's
+ * `problem` is set so the consumer can warn rather than silently falling
+ * through to a default.
  */
 export function readConfig(file = configPath()): GlobalConfig {
   if (!existsSync(file)) {
