@@ -39,7 +39,7 @@ const actionsSchema = z.object({
   actions: z.array(
     z.object({
       ok: z.boolean(),
-      paths: z.object({ plist: z.string() }).optional(),
+      paths: z.object({ unit_file: z.string() }).optional(),
       unit: z.literal('serve'),
     }),
   ),
@@ -140,7 +140,7 @@ export async function verifyServiceLifecycle(
     ),
   );
   const unitFiles = installed.actions.map((action) => {
-    const file = action.paths?.plist;
+    const file = action.paths?.unit_file;
     if (!action.ok || file === undefined) {
       throw new Error(`install: ${action.unit} did not report an installed unit file`);
     }

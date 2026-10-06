@@ -239,7 +239,7 @@ export async function cmdService(
           {
             action: 'install',
             ok: true,
-            paths: { config: deps.configFile, log: unit.logFile, plist: unit.unitFile },
+            paths: { config: deps.configFile, log: unit.logFile, unitFile: unit.unitFile },
             port: effectivePort,
             unit: 'serve',
           },
@@ -340,10 +340,10 @@ async function statusReport(io: Io, deps: ServiceDeps, format: Format): Promise<
     loaded: serveInfo.loaded,
     log: deps.units.serve.logFile,
     pid: serveInfo.pid ?? null,
-    plist: deps.units.serve.unitFile,
     port,
     running: serveInfo.running,
     unit: 'serve',
+    unitFile: deps.units.serve.unitFile,
   };
 
   const status: ServiceStatusReport = {
@@ -372,7 +372,7 @@ function renderUnitHuman(u: UnitStatus, io: Io): void {
       `  port ${String(u.port)}: running ${u.health.runningVersion} · on-disk ${u.health.onDiskVersion}${u.health.restartPending ? ' — restart pending' : ''}`,
     );
   }
-  io.write(`  unit file ${u.plist} · log ${u.log}`);
+  io.write(`  unit file ${u.unitFile} · log ${u.log}`);
 }
 
 function renderStatusHuman(s: ServiceStatusReport, io: Io): void {

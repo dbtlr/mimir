@@ -15,7 +15,7 @@ export type ServiceHealth = {
 };
 
 export type ServicePaths = {
-  plist: string;
+  unitFile: string;
   config: string;
   log: string;
 };
@@ -25,15 +25,15 @@ export type ServicePaths = {
 export type UnitName = 'serve';
 
 /**
- * One unit's status. `loaded`/`running`/`pid`/`plist`/`log` are the supervisor's
- * view; `port`, `health`, and `configProblem` are the serve daemon's.
+ * One unit's status. `loaded`/`running`/`pid`/`unitFile`/`log` are the
+ * supervisor's view; `port`, `health`, and `configProblem` are the serve daemon's.
  */
 export type UnitStatus = {
   unit: UnitName;
   loaded: boolean;
   running: boolean;
   pid: number | null;
-  plist: string;
+  unitFile: string;
   log: string;
   port?: number;
   configProblem?: string | null;
@@ -81,15 +81,21 @@ function eventToWire(e: ServiceEvent): Record<string, unknown> {
   return wire;
 }
 
+/** The unit file's wire keys: `unit_file`, plus the deprecated `plist` alias
+ *  with the same value on every platform (MMR-397) until its removal cycle. */
+function unitFileToWire(unitFile: string): { plist: string; unit_file: string } {
+  return { plist: unitFile, unit_file: unitFile };
+}
+
 /** One unit's wire object — only the fields relevant to that unit are emitted. */
 function unitToWire(u: UnitStatus): Record<string, unknown> {
   const wire: Record<string, unknown> = {
     loaded: u.loaded,
     log: u.log,
     pid: u.pid,
-    plist: u.plist,
     running: u.running,
     unit: u.unit,
+    ...unitFileToWire(u.unitFile),
   };
   if (u.port !== undefined) {
     wire.port = u.port;
@@ -127,7 +133,11 @@ function actionToWire(result: ServiceActionResult): Record<string, unknown> {
     wire.port = result.port;
   }
   if (result.paths !== undefined) {
-    wire.paths = result.paths;
+    wire.paths = {
+      config: result.paths.config,
+      log: result.paths.log,
+      ...unitFileToWire(result.paths.unitFile),
+    };
   }
   return wire;
 }
