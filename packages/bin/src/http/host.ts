@@ -6,11 +6,13 @@ import { json } from './respond';
  * The Host guard (MMR-425). `serve` binds loopback and the proxy is the
  * boundary (ADR 0012), but a page whose domain rebinds to 127.0.0.1 is
  * same-origin with the daemon — the bind alone does not keep it out. Such a
- * page still sends its own name as `Host`, so the daemon answers only the
- * loopback names and the proxy hosts the operator lists in `[serve] hosts`.
+ * page still sends its own name as `Host`, so an operator who sets
+ * `[serve] hosts` gets a daemon that answers only the loopback names and the
+ * listed hosts. The check is opt-in (MMR-432): without `hosts`, every name an
+ * install is reached by (an IP, a MagicDNS name, a proxy host) just works.
  * `X-Forwarded-Host` is never consulted: a same-origin page can set it.
  *
- * The same guard refuses writes from another origin (MMR-426). The API grants
+ * The same guard always refuses writes from another origin (MMR-426). The API grants
  * no CORS, so another page cannot read it, but a browser still sends a
  * "simple" POST (a `text/plain` body, no preflight) from any origin, and the
  * Host of that request is the daemon's own. Every current browser marks such
@@ -72,16 +74,18 @@ export type HostGuard = (req: Request) => Response | null;
 const REFUSAL_LOG_CAP = 64;
 
 /**
- * Build the guard over the loopback names plus `hosts`. Each refused name is
- * logged once, JSON-escaped since the header is the caller's text, up to
- * {@link REFUSAL_LOG_CAP} names: a wildcard domain can mint names forever.
+ * Build the guard. With `hosts` undefined any Host is answered; with a list
+ * (even an empty one) only the loopback names plus `hosts` are. Each refused
+ * name is logged once, JSON-escaped since the header is the caller's text, up
+ * to {@link REFUSAL_LOG_CAP} names: a wildcard domain can mint names forever.
  */
-export function hostGuard(hosts: readonly string[]): HostGuard {
-  const allowed = new Set([...LOOPBACK_HOSTS, ...hosts.map(hostnameOf)]);
+export function hostGuard(hosts: readonly string[] | undefined): HostGuard {
+  const allowed =
+    hosts === undefined ? undefined : new Set([...LOOPBACK_HOSTS, ...hosts.map(hostnameOf)]);
   const reported = new Set<string>();
   return (req) => {
     const name = hostnameOf(req.headers.get('host') ?? '');
-    if (allowed.has(name)) {
+    if (allowed === undefined || allowed.has(name)) {
       return isCrossOriginWrite(req)
         ? json(
             {

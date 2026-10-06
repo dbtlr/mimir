@@ -47,30 +47,45 @@ config, not a mimir flag.
 
 ## Accepted hosts
 
-Binding loopback does not stop DNS rebinding: a web page whose domain resolves
-to `127.0.0.1` is same-origin with the daemon. That page still sends its own
-name as the `Host` header, so `mimir serve` answers only these hosts and
-refuses every other one with a 403 before any route runs:
+By default `mimir serve` answers any `Host`, so every name the install is
+reached by (an IP address, a MagicDNS name, a proxy hostname) works without
+configuration.
+
+The Host check is optional hardening against DNS rebinding. Binding loopback
+does not stop it: a web page whose domain resolves to `127.0.0.1` is
+same-origin with the daemon. That page still sends its own name as the `Host`
+header, so when `[serve] hosts` is set, `mimir serve` answers only these hosts
+and refuses every other one with a 403 before any route runs:
 
 - the loopback names `localhost`, `127.0.0.1`, and `[::1]`, on any port;
 - each hostname in `[serve] hosts` in the installation configuration.
 
-Hostnames match without regard to case or port. A reverse proxy usually
-forwards the client's `Host` (Caddy does by default), so list the proxy's
-public name:
+Hostnames match without regard to case or port. List every name you reach the
+console by; a reverse proxy usually forwards the client's `Host` (Caddy does
+by default), so that includes the proxy's public name:
 
 ```toml
 [serve]
 hosts = ["mimir.example.local"]
 ```
 
-Each entry is a bare hostname (letters, digits, `.`, `-`, `_`) or a bracketed
-IPv6 literal, with no port and no wildcards. An invalid `hosts` value is
-ignored with a warning and the port still applies. `serve` reads the list at
-start, so restart the service after a change. The `serve` log names each
+`hosts = []` answers the loopback names only. Each entry is a bare hostname
+(letters, digits, `.`, `-`, `_`) or a bracketed IPv6 literal, with no port and
+no wildcards. An invalid `hosts` value fails closed: `serve` warns and answers
+the loopback names only, and the port still applies. `serve` reads the list
+at start, so restart the service after a change. The `serve` log names each
 refused hostname once, for up to 64 names.
 
 `X-Forwarded-Host` is never consulted: a same-origin page can set it.
+
+Whatever `hosts` says, `serve` refuses a browser write from another origin: a
+request with any method but `GET` or `HEAD` whose `Origin` does not match its
+`Host`, or whose `Sec-Fetch-Site` is neither `same-origin` nor `none`. This
+needs no configuration as long as any proxy in front keeps the browser's
+`Host` header. It stops other sites and other local web apps, but not a
+rebinding page: that page is same-origin by construction, so without `hosts`
+it can read and write the board. Set `hosts` when the machine that runs the
+console's browser also browses untrusted sites.
 
 ## Source
 
