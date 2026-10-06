@@ -17,6 +17,33 @@ and are compiled into a new release section at each cut
 ([ADR 0022](docs/decisions/0022-changelog-fragments-compiled-at-cut.md));
 `bun run changelog:compile` previews the pending section.
 
+## v0.22.1 - 2026-10-06
+
+### Added
+
+- **`[serve] bind` and `[serve] url`** (MMR-433). `bind` sets the IP address
+  `serve` listens on, loopback by default; an address not on the machine stops
+  `serve` with an error that names it. `url` is the console's public address:
+  `serve`, `service install`, and `service status` show it. When
+  `[serve] hosts` is set, a specific `bind` address and `url`'s host are
+  answered too, so every printed console address works.
+
+### Changed
+
+- **`mimir serve` answers any Host unless `[serve] hosts` is set** (MMR-432).
+  The Host check is now opt-in hardening against DNS rebinding: a proxy name,
+  IP address, or MagicDNS name works with no configuration. Setting `hosts`
+  restores the allowlist (`hosts = []` answers the loopback names only), and an
+  invalid `hosts` value now fails closed to the loopback names. The
+  cross-origin write check stays on in every case.
+- **Every ignored `[serve]` key is reported** (MMR-433). `serve` and
+  `service status` warn once per invalid key instead of only the first, and
+  the `service status` JSON replaces `config_problem` with a
+  `config_problems` list beside a new `console_url`.
+- **A malformed `[serve]` section fails closed** (MMR-433). A section that is
+  not a table, such as `[[serve]]`, now answers the loopback names only, as an
+  invalid `hosts` value does, instead of answering any Host.
+
 ## v0.22.0 - 2026-10-06
 
 ### Added
