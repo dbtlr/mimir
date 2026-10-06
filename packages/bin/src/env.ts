@@ -2,7 +2,7 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parsePort } from '@mimir/helpers';
+import { DEV_PORT, PROD_PORT, parsePort } from '@mimir/helpers';
 
 import { SQLITE_FILE } from './core/store-sqlite/client';
 import { readInstallation } from './installation';
@@ -14,8 +14,7 @@ const installing =
   process.argv[2] === 'installation-install' || process.argv[2] === 'installation-protocol';
 const installation = installing ? undefined : readInstallation();
 export const IS_PRODUCTION = installation?.mode === 'live';
-export const PROD_PORT = 64647;
-export const DEV_PORT = 64747;
+export { DEV_PORT, PROD_PORT } from '@mimir/helpers';
 export const DEFAULT_PORT = IS_PRODUCTION ? PROD_PORT : DEV_PORT;
 
 export function runtimePaths(): { config: string; data: string; cache: string } {

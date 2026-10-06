@@ -11,6 +11,7 @@
  * be parsed safely without coupling this util to a specific validation library.
  */
 
+export { DEV_PORT, PROD_PORT, parsePort } from './ports';
 export { UNREADABLE, ago, formatDay, formatInstant, relativeTime } from './time';
 
 /** Minimal Standard Schema v1 surface — inlined to keep this package dependency-free. */
@@ -37,18 +38,6 @@ type InferOutput<S extends StandardSchemaV1> =
  */
 export function isMember<T extends string>(value: string, allowed: readonly T[]): value is T {
   return allowed.some((member) => member === value);
-}
-
-/**
- * Parse a raw string into a valid TCP port — an integer in 1–65535 — or
- * `null` when it isn't one (non-numeric, non-integer, or out of range).
- * Deliberately silent on `undefined`/absent input: a caller decides what "no
- * value was given" means for it (an unset override vs. a usage fault), then
- * calls this only once it has a string to validate.
- */
-export function parsePort(raw: string): number | null {
-  const port = Number(raw);
-  return Number.isInteger(port) && port >= 1 && port <= 65535 ? port : null;
 }
 
 // T is the caller-specified return type of the typed-cast form — single-use by design.

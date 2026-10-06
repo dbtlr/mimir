@@ -56,7 +56,6 @@ export function hostGuard(hosts: readonly string[]): HostGuard {
       );
     }
     return json(
-      req,
       { error: { code: 'forbidden_host', message: 'this server does not answer for that host' } },
       403,
     );

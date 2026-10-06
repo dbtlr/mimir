@@ -3,41 +3,21 @@ import type { ErrorCode } from '../core';
 
 /**
  * Response plumbing for the resource envelope: JSON rendering, the error
- * envelope → HTTP status mapping, dev-only CORS, and strict body parsing.
+ * envelope → HTTP status mapping, and strict body parsing.
  *
  * The error body is the existing envelope verbatim (`{"error":{code,message,
  * hint?}}` — the same contract `--json` callers parse); HTTP adds only the
- * status code. CORS exists solely so a localhost dev server (the Phase-5 UI)
- * can reach the API — production is same-origin behind the proxy (ADR 0012).
+ * status code. The API grants no CORS (MMR-426): production is same-origin
+ * behind the proxy (ADR 0012), and the dev console reaches it through the
+ * Vite proxy, so no other page on loopback can read or write it cross-origin.
  */
 
-const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
-
-/** Reflect localhost dev origins only; any other origin gets no CORS grant. */
-export function corsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get('origin');
-  if (origin === null || !LOCAL_ORIGIN.test(origin)) {
-    return {};
-  }
-  return {
-    'access-control-allow-headers': 'content-type',
-    'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'access-control-allow-origin': origin,
-    vary: 'origin',
-  };
-}
-
-/** A JSON response with CORS headers when the request carries a dev origin. */
-export function json(req: Request, data: unknown, status = 200): Response {
+/** A JSON response. */
+export function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data, null, 2), {
-    headers: { 'content-type': 'application/json', ...corsHeaders(req) },
+    headers: { 'content-type': 'application/json' },
     status,
   });
-}
-
-/** The CORS preflight answer — 204, headers only. */
-export function preflight(req: Request): Response {
-  return new Response(null, { headers: corsHeaders(req), status: 204 });
 }
 
 /** Envelope `code` → HTTP status. Invariant refusals are conflicts with current state. */
@@ -58,7 +38,7 @@ export function errorResponse(req: Request, error: unknown): Response {
         ...(error.hint !== undefined ? { hint: error.hint } : {}),
       },
     };
-    return json(req, body, STATUS_BY_CODE[error.code]);
+    return json(body, STATUS_BY_CODE[error.code]);
   }
   // A non-domain error is an internal fault: the envelope ships a house-voice
   // fact + a next move (output-voice.md — library text never ships, and every
@@ -84,7 +64,7 @@ export function errorResponse(req: Request, error: unknown): Response {
       message: 'the request did not complete',
     },
   };
-  return json(req, body, 500);
+  return json(body, 500);
 }
 
 /** Run a handler, rendering any thrown error through the envelope. */

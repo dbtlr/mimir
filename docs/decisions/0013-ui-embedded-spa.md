@@ -236,3 +236,13 @@ fallback; a serial two-build Chromium test pins update, offline, and reconnect
 behavior together. It remains available as `bun run test:pwa` for local and
 manual release verification rather than running as a separate GitHub Actions
 gate.
+
+## Refinement (v0.22, MMR-426): the dev loop is same-origin through the Vite proxy
+
+The dev loop no longer relies on CORS. `vite dev` forwards `/api` to a running
+from-source `mimir serve` (the port in `MIMIR_PORT`, else the dev default), so
+the console is same-origin in development as it is in production, and `serve`
+grants CORS to no origin. The earlier reflection of any `localhost` or
+`127.0.0.1` origin let every other web app on loopback read and write the
+board. The Host guard (MMR-425) cannot catch that case, because those requests
+name the daemon's own host.

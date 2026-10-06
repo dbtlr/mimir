@@ -834,20 +834,18 @@ test('unmatched routes get the 404 envelope', async () => {
   expect((body as { error: { message: string } }).error.message).toBe("/api/bogus doesn't exist");
 });
 
-test('CORS: localhost dev origins are reflected, others get no grant', async () => {
-  const preflight = await fetch(`${base}/api/nodes`, {
-    headers: { origin: 'http://localhost:5173' },
-    method: 'OPTIONS',
-  });
-  expect(preflight.status).toBe(204);
-  expect(preflight.headers.get('access-control-allow-origin')).toBe('http://localhost:5173');
+test('no origin gets a CORS grant, loopback dev origins included (MMR-426)', async () => {
+  // The dev console reaches the API through the Vite proxy, same-origin; any
+  // other page on loopback must not be able to read or write cross-origin.
+  for (const origin of ['http://localhost:5173', 'http://127.0.0.1:4000', 'https://evil.example']) {
+    const preflight = await fetch(`${base}/api/nodes`, { headers: { origin }, method: 'OPTIONS' });
+    expect(preflight.headers.get('access-control-allow-origin')).toBeNull();
+    expect(preflight.headers.get('access-control-allow-methods')).toBeNull();
 
-  const dev = await get('/api/nodes', { origin: 'http://127.0.0.1:4000' });
-  expect(dev.headers.get('access-control-allow-origin')).toBe('http://127.0.0.1:4000');
-
-  const foreign = await get('/api/nodes', { origin: 'https://evil.example' });
-  expect(foreign.headers.get('access-control-allow-origin')).toBeNull();
-  expect(foreign.status).toBe(200);
+    const read = await get('/api/nodes', { origin });
+    expect(read.status).toBe(200);
+    expect(read.headers.get('access-control-allow-origin')).toBeNull();
+  }
 });
 
 // ---------------------------------------------------------------------------

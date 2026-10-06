@@ -1,14 +1,11 @@
 /**
- * The one fetch seam. Production is same-origin (the SPA is served by
- * `mimir serve` itself); `VITE_API_BASE` exists for the dev loop — `vite dev`
- * against a running `mimir serve`, which already reflects localhost CORS.
+ * The one fetch seam. Every request is same-origin: production serves the SPA
+ * from `mimir serve` itself, and `vite dev` proxies `/api` to it (MMR-426).
  */
 import { ApiError } from './errors';
 
-const API_BASE: string = import.meta.env.VITE_API_BASE ?? '';
-
 export async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, { headers: { accept: 'application/json' } });
+  const res = await fetch(path, { headers: { accept: 'application/json' } });
   if (!res.ok) {
     throw new ApiError(`GET ${path} → ${String(res.status)}`, res.status);
   }
@@ -27,7 +24,7 @@ type WriteMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
  * caller can toast the real reason rather than a bare status code.
  */
 export async function apiSend<T>(method: WriteMethod, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(path, {
     body: body === undefined ? undefined : JSON.stringify(body),
     headers: { accept: 'application/json', 'content-type': 'application/json' },
     method,
