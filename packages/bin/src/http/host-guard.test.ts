@@ -1,8 +1,9 @@
-import { afterEach, expect, spyOn, test } from 'bun:test';
+import { afterEach, describe, expect, spyOn, test } from 'bun:test';
 
 import type { Server } from 'bun';
 
 import { inertStore } from '../testing/store';
+import { isCrossOriginWrite } from './host';
 import { createServer } from './server';
 
 /**
@@ -111,4 +112,87 @@ test('a configured host does not admit its subdomains or look-alikes', async () 
   ]) {
     expect((await get(base, '/api/health', host)).status).toBe(403);
   }
+});
+
+test('a write from another origin is refused before a route runs (MMR-426)', async () => {
+  // No CORS keeps another page from reading, but a browser still sends a
+  // "simple" POST cross-origin without a preflight. The inert store proves
+  // the refusal comes before any route touches the board.
+  const base = start();
+  const self = new URL(base).host;
+  const writes: { method: string; path: string; body?: string }[] = [
+    { body: JSON.stringify({ key: 'EVL', name: 'evil' }), method: 'POST', path: '/api/projects' },
+    { method: 'POST', path: '/api/nodes/EVL-1/done' },
+    { body: '{}', method: 'PATCH', path: '/api/nodes/EVL-1' },
+    { method: 'DELETE', path: '/api/nodes/EVL-1' },
+  ];
+  const origins = [
+    'http://localhost:3000',
+    `http://localhost:${new URL(base).port}`,
+    'https://evil.example',
+    'null',
+  ];
+  for (const { body, method, path } of writes) {
+    for (const origin of origins) {
+      const res = await fetch(`${base}${path}`, {
+        body,
+        headers: { 'content-type': 'text/plain', host: self, origin },
+        method,
+      });
+      expect(res.status).toBe(403);
+      const refusal = (await res.json()) as { error: { code: string } };
+      expect(refusal.error.code).toBe('forbidden_origin');
+    }
+  }
+});
+
+test('a write through a proxy host lands when the proxy keeps Host (MMR-426)', async () => {
+  // Behind Caddy the Origin is https with no port, and Host is the proxy name.
+  // An unrouted POST shows the guard's verdict: admitted → 404, refused → 403.
+  const base = start(['mimir.example']);
+  const post = (host: string) =>
+    fetch(`${base}/api/nope`, {
+      headers: { host, origin: 'https://mimir.example' },
+      method: 'POST',
+    });
+  expect((await post('mimir.example')).status).toBe(404);
+  expect((await post('mimir.example:443')).status).toBe(404);
+  // A proxy that rewrites Host to the upstream address loses its writes.
+  const rewritten = await post(new URL(base).host);
+  expect(rewritten.status).toBe(403);
+  expect(((await rewritten.json()) as { error: { code: string } }).error.code).toBe(
+    'forbidden_origin',
+  );
+});
+
+const write = (headers: Record<string, string>, method = 'POST') =>
+  isCrossOriginWrite(new Request('http://127.0.0.1/api/projects', { headers, method }));
+
+describe('isCrossOriginWrite', () => {
+  test('an Origin matching Host is same-origin, default ports and case included', () => {
+    expect(write({ host: 'localhost:5173', origin: 'http://localhost:5173' })).toBe(false);
+    expect(write({ host: 'Mimir.Example:443', origin: 'https://mimir.example' })).toBe(false);
+    expect(write({ host: 'localhost:80', origin: 'http://localhost' })).toBe(false);
+    expect(write({ host: '[::1]:8080', origin: 'http://[0:0:0:0:0:0:0:1]:8080' })).toBe(false);
+  });
+
+  test('a differing name, port, or an opaque Origin is cross-origin', () => {
+    expect(write({ host: 'localhost:64647', origin: 'http://localhost:3000' })).toBe(true);
+    expect(write({ host: '127.0.0.1:64647', origin: 'http://localhost:64647' })).toBe(true);
+    expect(write({ host: 'localhost:64647', origin: 'null' })).toBe(true);
+    expect(write({ host: 'localhost:443', origin: 'http://localhost' })).toBe(true);
+  });
+
+  test('Sec-Fetch-Site other than same-origin or none marks a write cross-origin', () => {
+    expect(write({ host: 'localhost:64647', 'sec-fetch-site': 'same-site' })).toBe(true);
+    expect(write({ host: 'localhost:64647', 'sec-fetch-site': 'cross-site' })).toBe(true);
+    expect(write({ host: 'localhost:64647', 'sec-fetch-site': 'same-origin' })).toBe(false);
+    expect(write({ host: 'localhost:64647', 'sec-fetch-site': 'none' })).toBe(false);
+  });
+
+  test('reads and Origin-less clients are never cross-origin writes', () => {
+    expect(write({ host: 'localhost:64647', origin: 'https://evil.example' }, 'GET')).toBe(false);
+    expect(write({ host: 'localhost:64647', origin: 'https://evil.example' }, 'HEAD')).toBe(false);
+    expect(write({ host: 'localhost:64647' })).toBe(false);
+  });
 });

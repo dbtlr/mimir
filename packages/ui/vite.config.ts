@@ -5,6 +5,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+import { DEV_PORT, parsePort } from '../helpers/src/ports.ts';
 import { injectThemeColorMeta, WELL_900 } from './src/lib/theme-colors.ts';
 
 /**
@@ -26,6 +27,14 @@ function readVersion(pkgPath: URL): string {
 }
 
 const binVersion = readVersion(new URL('../bin/package.json', import.meta.url));
+
+/**
+ * The dev loop's API (MMR-426): `vite dev` forwards `/api` to a running
+ * from-source `mimir serve`, so the console stays same-origin and the daemon
+ * grants no CORS. The port follows the daemon's own knob — `MIMIR_PORT`, else
+ * its dev default.
+ */
+const devApi = `http://127.0.0.1:${String(parsePort(process.env.MIMIR_PORT ?? '') ?? DEV_PORT)}`;
 
 /**
  * The console build (ADR 0013): a static SPA whose `dist/` output is embedded
@@ -74,6 +83,11 @@ export default defineConfig({
     // on mount, MMR-254) — inject it here so it still has one source.
     { name: 'meta-theme-color', transformIndexHtml: injectThemeColorMeta },
   ],
+  // No CORS on the dev server either: Vite's default admits every localhost
+  // origin, which would reopen the proxied API to other loopback pages. The
+  // proxy must keep the browser's Host (the string shorthand rewrites it to the
+  // target), or the daemon reads every console write as cross-origin.
+  server: { cors: false, proxy: { '/api': { changeOrigin: false, target: devApi } } },
   // Lint/fmt are centralized in the root vite.config; this member carries only
   // build + test. The jsdom test env comes from @dbtlr/tooling's testReact().
   test: testReact({ setupFiles: ['./src/test/setup.ts'] }),

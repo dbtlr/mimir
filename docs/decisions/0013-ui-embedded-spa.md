@@ -101,6 +101,7 @@ hard-to-reverse shape.
   local `build` script becomes build-ui-then-compile.
 - The localhost CORS reflection in `src/http/respond.ts` is the dev loop
   (`vite dev` against a running `mimir serve`), as anticipated at Phase 4.
+  Superseded in v0.22 (MMR-426): see the refinement below.
 - PWA requires HTTPS; that lands on the proxy, where ADR 0012 puts boundary
   concerns. Mobile-on-LAN as an access path sharpens the auth revisit noted
   on the intervention chunk.
@@ -236,3 +237,22 @@ fallback; a serial two-build Chromium test pins update, offline, and reconnect
 behavior together. It remains available as `bun run test:pwa` for local and
 manual release verification rather than running as a separate GitHub Actions
 gate.
+
+## Refinement (v0.22, MMR-426): the dev loop is same-origin through the Vite proxy
+
+The dev loop no longer relies on CORS. `vite dev` forwards `/api` to a running
+from-source `mimir serve` (the port in `MIMIR_PORT`, else the dev default), so
+the console is same-origin in development as it is in production, and `serve`
+grants CORS to no origin. The earlier reflection of any `localhost` or
+`127.0.0.1` origin let every other web app on loopback read and write the
+board. The Host guard (MMR-425) cannot catch that case, because those requests
+name the daemon's own host.
+
+Withdrawing CORS stops cross-origin reads, but a browser still sends a "simple"
+POST (a `text/plain` body, no preflight) from any origin. So `serve` also
+refuses any write that `Sec-Fetch-Site` marks as not same-origin, or whose
+`Origin` does not name the request's `Host`. The
+console's own writes pass: they are same-origin directly, behind a proxy that
+keeps `Host`, and through the Vite proxy. Clients that send no `Origin`, such
+as the CLI and agents, are unaffected. The Vite dev server's own CORS is off
+for the same reason.

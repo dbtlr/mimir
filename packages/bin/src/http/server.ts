@@ -101,16 +101,7 @@ import type { DoctorFacet } from '../doctor/facet';
 import { emptyDoctorFacet } from '../doctor/facet';
 import type { Health } from '../service';
 import { guardRoutes, hostGuard } from './host';
-import {
-  boolField,
-  guarded,
-  json,
-  preflight,
-  readBody,
-  requiredStr,
-  strField,
-  strList,
-} from './respond';
+import { boolField, guarded, json, readBody, requiredStr, strField, strList } from './respond';
 import { uiResponse } from './static';
 import type { UiAssetMap } from './static';
 import { UI_ASSETS } from './ui-assets.generated';
@@ -305,7 +296,7 @@ async function echoNode(
   status = 200,
 ): Promise<Response> {
   const view = await nodeViewOf(store, node, new Set(DETAIL_FACETS));
-  return json(req, nodeToWire(view), status);
+  return json(nodeToWire(view), status);
 }
 
 // ─── Uniform-verb action routes (ADR 0025 Decision 3) ───────────────────────
@@ -400,7 +391,7 @@ function uniformProjectRoute(store: Store, spec: UniformRouteSpec): UniformRoute
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion
         const row = project as Parameters<typeof projectViewOf>[1];
         const view = await projectViewOf(store, row, new Set(PROJECT_FACETS));
-        return json(req, nodeToWire(view));
+        return json(nodeToWire(view));
       }),
   };
 }
@@ -646,9 +637,6 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
       if (refusal !== null) {
         return refusal;
       }
-      if (req.method === 'OPTIONS') {
-        return preflight(req);
-      }
       const { pathname } = new URL(req.url);
       // Everything outside /api/* is the console's: exact asset, else the
       // SPA fallback (ADR 0013). With no UI built, misses stay 404s.
@@ -658,7 +646,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           return ui;
         }
       }
-      return json(req, { error: { code: 'not_found', message: `${pathname} doesn't exist` } }, 404);
+      return json({ error: { code: 'not_found', message: `${pathname} doesn't exist` } }, 404);
     },
     hostname: '127.0.0.1',
     port,
@@ -711,7 +699,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             // state lives with the node backend, so the caller supplies the keys.
             listOpts.excludeProjects = await archivedProjectKeys(store);
             const result = await store.artifacts.list(listOpts);
-            return json(req, {
+            return json({
               items: result.items.map((r) =>
                 artifactSummaryToWire({
                   createdAt: r.created_at,
@@ -734,7 +722,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const detail = await getArtifact(store, req.params.id, {
               content: true,
             });
-            return json(req, await artifactDetailToWire(store, detail));
+            return json(await artifactDetailToWire(store, detail));
           }),
         // The dumb update for an artifact (MMR-40, MMR-319): title and the
         // summary lede; content is frozen (ADR 0004) and never patchable.
@@ -760,7 +748,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const detail = await getArtifact(store, req.params.id, {
               content: true,
             });
-            return json(req, await artifactDetailToWire(store, detail));
+            return json(await artifactDetailToWire(store, detail));
           }),
       },
 
@@ -773,10 +761,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
         GET: (req) =>
           guarded(req, async () => {
             const scope = new URL(req.url).searchParams.get('project') ?? undefined;
-            return json(
-              req,
-              opts.doctor === undefined ? emptyDoctorFacet() : await opts.doctor(scope),
-            );
+            return json(opts.doctor === undefined ? emptyDoctorFacet() : await opts.doctor(scope));
           }),
       },
 
@@ -784,8 +769,8 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
         // `version` is the daemon's build (MMR-57); `schema` is the store
         // schema it reads and writes — together the console's stale-binary signal
         // (MMR-260): a running UI bundle compares its own build against this.
-        GET: (req) =>
-          json(req, {
+        GET: () =>
+          json({
             schema: SCHEMA_VERSION,
             status: 'ok',
             version: opts.version,
@@ -797,7 +782,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
           guarded(req, async () => {
             const { opts: nodeOpts, badStatus } = parseNodesQuery(new URL(req.url));
             if (badStatus !== undefined) {
-              return json(req, {
+              return json({
                 items: [],
                 total: 0,
                 warnings: [
@@ -812,7 +797,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               });
             }
             const result = await listNodes(store, nodeOpts);
-            return json(req, setBody(result.total, result.items, result.warnings));
+            return json(setBody(result.total, result.items, result.warnings));
           }),
         POST: (req) =>
           guarded(req, async () => {
@@ -898,7 +883,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               throw validation(`${id} is an artifact`, `use /api/artifacts/${id}`);
             }
             const view = await getNode(store, id, { facets: DETAIL_FACETS });
-            return json(req, nodeToWire(view));
+            return json(nodeToWire(view));
           }),
         PATCH: (req) =>
           guarded(req, async () => {
@@ -942,7 +927,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               content: a.content,
               created_at: a.createdAt,
             }));
-            return json(req, { items, total: items.length });
+            return json({ items, total: items.length });
           }),
         POST: (req) =>
           guarded(req, async () => {
@@ -983,7 +968,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               title: requiredStr(body, 'title', 'attach'),
             });
             const detail = buildArtifactDetail(record);
-            return json(req, await artifactDetailToWire(store, detail), 201);
+            return json(await artifactDetailToWire(store, detail), 201);
           }),
       },
 
@@ -1110,7 +1095,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               filter === 'archived' ? ARCHIVED_LIST_FACETS : PROJECT_LIST_FACETS,
               filter,
             );
-            return json(req, setBody(items.length, items));
+            return json(setBody(items.length, items));
           }),
         POST: (req) =>
           guarded(req, async () => {
@@ -1124,7 +1109,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const view = await getNode(store, project.key, {
               facets: PROJECT_FACETS,
             });
-            return json(req, nodeToWire(view), 201);
+            return json(nodeToWire(view), 201);
           }),
       },
 
@@ -1136,7 +1121,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               throw validation(`${key} is not a project key`, 'nodes live at /api/nodes/:id');
             }
             const view = await getNode(store, key, { facets: PROJECT_FACETS });
-            return json(req, nodeToWire(view));
+            return json(nodeToWire(view));
           }),
         PATCH: (req) =>
           guarded(req, async () => {
@@ -1157,7 +1142,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (view === undefined) {
               throw projectNotFound(key);
             }
-            return json(req, nodeToWire(view));
+            return json(nodeToWire(view));
           }),
       },
 
@@ -1173,7 +1158,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (parseIdentity(key)?.kind !== 'project') {
               throw validation(`${key} is not a project key`, 'nodes live at /api/nodes/:id');
             }
-            return json(req, overviewToWire(await overviewOf(store, key)));
+            return json(overviewToWire(await overviewOf(store, key)));
           }),
       },
 
@@ -1187,7 +1172,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (parseIdentity(key)?.kind !== 'project') {
               throw validation(`${key} is not a project key`);
             }
-            return json(req, treeToWire(await projectTree(store, key)));
+            return json(treeToWire(await projectTree(store, key)));
           }),
       },
 
@@ -1200,7 +1185,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             const scratchpads = (
               await scratchService(store).list(scope === 'all' ? undefined : scope)
             ).toSorted(compareScratchpadRows);
-            return json(req, {
+            return json({
               items: scratchpads.map((scratchpad) => ({
                 ...scratchpadReceiptToWire(scratchpad),
                 state: scratchpad.freezingAt === null ? 'active' : 'freezing',
@@ -1216,7 +1201,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               project: requiredStr(body, 'project', 'scratchpad create'),
               title: requiredStr(body, 'title', 'scratchpad create'),
             });
-            return json(req, scratchpadReceiptToWire(scratchpad), 201);
+            return json(scratchpadReceiptToWire(scratchpad), 201);
           }),
       },
 
@@ -1229,11 +1214,11 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               force: boolField(body, 'force'),
               reason: strField(body, 'reason'),
             });
-            return json(req, { id: req.params.id, result: 'discarded' });
+            return json({ id: req.params.id, result: 'discarded' });
           }),
         GET: (req) =>
           guarded(req, async () =>
-            json(req, scratchpadToWire(await scratchService(store).get(req.params.id))),
+            json(scratchpadToWire(await scratchService(store).get(req.params.id))),
           ),
         PATCH: (req) =>
           guarded(req, async () => {
@@ -1243,7 +1228,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               expectedUpdatedAt: requiredStr(body, 'expected_updated_at', 'scratchpad update'),
               title: strField(body, 'title'),
             });
-            return json(req, scratchpadReceiptToWire(scratchpad));
+            return json(scratchpadReceiptToWire(scratchpad));
           }),
       },
 
@@ -1255,7 +1240,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               content: requiredStr(body, 'content', 'scratchpad agenda add'),
               expectedUpdatedAt: requiredStr(body, 'expected_updated_at', 'scratchpad agenda add'),
             });
-            return json(req, scratchpadReceiptToWire(scratchpad));
+            return json(scratchpadReceiptToWire(scratchpad));
           }),
       },
 
@@ -1272,7 +1257,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               ),
               number,
             });
-            return json(req, scratchpadReceiptToWire(scratchpad));
+            return json(scratchpadReceiptToWire(scratchpad));
           }),
       },
 
@@ -1290,7 +1275,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               number,
               reason: requiredStr(body, 'reason', 'scratchpad agenda supersede'),
             });
-            return json(req, scratchpadReceiptToWire(scratchpad));
+            return json(scratchpadReceiptToWire(scratchpad));
           }),
       },
 
@@ -1302,7 +1287,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               content: requiredStr(body, 'content', 'scratchpad checkpoint'),
               expectedUpdatedAt: requiredStr(body, 'expected_updated_at', 'scratchpad checkpoint'),
             });
-            return json(req, scratchpadReceiptToWire(scratchpad));
+            return json(scratchpadReceiptToWire(scratchpad));
           }),
       },
 
@@ -1315,7 +1300,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               summary: requiredStr(body, 'summary', 'scratchpad freeze'),
               tags: strList(body, 'tags'),
             });
-            return json(req, {
+            return json({
               created_at: artifact.created_at,
               id: renderArtifactRef({ key: artifact.key, seq: artifact.seq }),
               linked_work: artifact.links,
@@ -1361,7 +1346,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               }
             }
             const seeds = await listSeeds(store, listOpts);
-            return json(req, {
+            return json({
               items: seeds.map(seedToWire),
               total: seeds.length,
             });
@@ -1382,14 +1367,14 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               requester: strField(body, 'requester') ?? null,
               title: requiredStr(body, 'title', 'file seed'),
             });
-            return json(req, seedToWire(seed), 201);
+            return json(seedToWire(seed), 201);
           }),
       },
 
       '/api/seeds/:id': {
         GET: (req) =>
           guarded(req, async () =>
-            json(req, seedToWire(await getSeed(store, req.params.id, { content: true }))),
+            json(seedToWire(await getSeed(store, req.params.id, { content: true }))),
           ),
         // The dumb seed patch (MMR-245): title/kind/description on a LIVE seed;
         // the store refuses a terminal (frozen) seed. requester/spawned are
@@ -1410,7 +1395,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (kind !== undefined) {
               fields.kind = kind;
             }
-            return json(req, seedToWire(await updateSeed(store, req.params.id, fields)));
+            return json(seedToWire(await updateSeed(store, req.params.id, fields)));
           }),
       },
 
@@ -1437,7 +1422,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             });
             // `created` rides as a sibling of the seed wire (not a re-wrap), so the
             // response surfaces the spawned task id in create mode (B7).
-            return json(req, promoteToWire(seed, created));
+            return json(promoteToWire(seed, created));
           }),
       },
 
@@ -1451,7 +1436,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               'rejected',
               requiredStr(body, 'reason', 'reject'),
             );
-            return json(req, seedToWire(seed));
+            return json(seedToWire(seed));
           }),
       },
 
@@ -1465,7 +1450,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
               'resolved',
               requiredStr(body, 'reason', 'resolve'),
             );
-            return json(req, seedToWire(seed));
+            return json(seedToWire(seed));
           }),
       },
 
@@ -1485,7 +1470,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
             if (result.nextCursor !== undefined) {
               body.next_cursor = result.nextCursor;
             }
-            return json(req, body);
+            return json(body);
           }),
       },
     }),
