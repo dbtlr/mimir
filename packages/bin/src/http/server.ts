@@ -100,6 +100,13 @@ import { SCHEMA_VERSION } from '../core/store-sql/migrator';
 import type { DoctorFacet } from '../doctor/facet';
 import { emptyDoctorFacet } from '../doctor/facet';
 import type { Health } from '../service';
+import {
+  DEFAULT_BIND,
+  canonicalAddress,
+  isLocalAddress,
+  isWildcard,
+  localAddress,
+} from '../service/address';
 import { guardRoutes, hostGuard } from './host';
 import { boolField, guarded, json, readBody, requiredStr, strField, strList } from './respond';
 import { uiResponse } from './static';
@@ -132,8 +139,8 @@ async function artifactDetailToWire(
  * The HTTP transport — the resource envelope (ADR 0012): conventional,
  * extensible REST over the core for the operator-console UI. Reads are
  * resource-shaped; writes are the core verbs as action sub-routes (`PATCH` is
- * exactly the dumb `update`). Loopback-only, plain HTTP — TLS, exposure, and
- * auth (open question) belong to the proxy in front.
+ * exactly the dumb `update`). Plain HTTP on loopback unless `[serve] bind`
+ * says otherwise — TLS and auth belong to whatever fronts it.
  *
  * Route-level contract: `MMR-14`'s annotations. Collections return envelope
  * objects (`{items: […]}`) so cursor metadata can arrive later non-breaking.
@@ -572,6 +579,11 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
 
 export type ServeOptions = {
   port: number;
+  /**
+   * The IP literal to listen on (`[serve] bind`, MMR-433); absent, loopback.
+   * A wildcard listens on every interface.
+   */
+  hostname?: string;
   /** Reported by /api/health — how `service status` asks a live process what it is. */
   version: string;
   /** The embedded-UI manifest; tests inject fixtures, prod uses the generated map. */
@@ -603,17 +615,52 @@ function isPortTaken(err: unknown): boolean {
 }
 
 /**
- * Build and start the server. Binds `127.0.0.1` unconditionally — the
- * loopback-only posture is the architecture, not a default (ADR 0012). A taken
- * port hunts upward (+1 … +`PORT_HUNT_SPAN`) to the next free one — a dev
- * convenience; a supervised deployment pins the port and the proxy points at
- * it. Callers must surface the bound port: it may differ from the request.
+ * Throw Bun's `EADDRINUSE` when another listener holds `address` on `port`.
+ * On macOS a wildcard bind succeeds over such a listener, yet local clients
+ * (the health probe, the printed console address) still reach the other one,
+ * so a wildcard bind first takes and releases its loopback address. Any other
+ * failure (no IPv6 loopback, say) means nothing local can collide there.
+ */
+function assertLocalPortFree(address: string, port: number): void {
+  let claim: Server<undefined>;
+  try {
+    claim = Bun.serve({
+      fetch: () => new Response(null, { status: 503 }),
+      hostname: address,
+      port,
+    });
+  } catch (err) {
+    if (isPortTaken(err)) {
+      throw err;
+    }
+    return;
+  }
+  void claim.stop(true);
+}
+
+/**
+ * Build and start the server on `hostname`, loopback when absent (ADR 0012).
+ * A specific address must be on this machine: Bun reports one that is not as
+ * a taken port, so it is refused first, by name, with code `EADDRNOTAVAIL`. A
+ * wildcard bind treats its port as taken when another listener holds it on
+ * loopback. A taken port hunts upward (+1 … +`PORT_HUNT_SPAN`) to the next
+ * free one — a dev convenience; a supervised deployment pins the port. Callers
+ * must surface the bound port: it may differ from the request.
  */
 export function createServer(store: Store, opts: ServeOptions): Server<undefined> {
+  const hostname = canonicalAddress(opts.hostname ?? DEFAULT_BIND);
+  if (!isLocalAddress(hostname)) {
+    throw Object.assign(new Error(`${hostname} is not an address on this machine`), {
+      code: 'EADDRNOTAVAIL',
+    });
+  }
   const last = Math.min(opts.port + PORT_HUNT_SPAN, 65535);
   for (let port = opts.port; ; port++) {
     try {
-      return bindServer(store, opts, port);
+      if (isWildcard(hostname) && port !== 0) {
+        assertLocalPortFree(localAddress(hostname), port);
+      }
+      return bindServer(store, opts, hostname, port);
     } catch (err) {
       if (!isPortTaken(err) || opts.port === 0 || opts.hunt === false) {
         throw err;
@@ -630,7 +677,12 @@ export function createServer(store: Store, opts: ServeOptions): Server<undefined
   }
 }
 
-function bindServer(store: Store, opts: ServeOptions, port: number): Server<undefined> {
+function bindServer(
+  store: Store,
+  opts: ServeOptions,
+  hostname: string,
+  port: number,
+): Server<undefined> {
   const guard = hostGuard(opts.hosts);
   return Bun.serve({
     fetch(req) {
@@ -649,7 +701,7 @@ function bindServer(store: Store, opts: ServeOptions, port: number): Server<unde
       }
       return json({ error: { code: 'not_found', message: `${pathname} doesn't exist` } }, 404);
     },
-    hostname: '127.0.0.1',
+    hostname,
     port,
     routes: guardRoutes(guard, {
       // The twelve uniform-verb action routes (ADR 0025 Decision 3), loop-

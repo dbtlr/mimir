@@ -1,0 +1,171 @@
+import { describe, expect, test } from 'bun:test';
+import type { NetworkInterfaceInfo } from 'node:os';
+
+import {
+  acceptedHosts,
+  canonicalAddress,
+  consoleUrl,
+  isBindAddress,
+  isLocalAddress,
+  listenUrl,
+  normalizeServeUrl,
+  probeHost,
+  serveBanner,
+} from './address';
+
+/** `[serve] bind` and `[serve] url` (MMR-433): where serve listens, and the address it hands out. */
+
+describe('isBindAddress', () => {
+  test('accepts IPv4 and IPv6 literals, wildcards included', () => {
+    for (const ok of ['127.0.0.1', '0.0.0.0', '100.64.1.2', '::', '::1', 'fd7a:115c:a1e0::1']) {
+      expect(isBindAddress(ok)).toBe(true);
+    }
+  });
+
+  test('refuses hostnames, bracketed or ported literals, and non-strings', () => {
+    for (const bad of ['localhost', 'box.tailnet.ts.net', '[::1]', '127.0.0.1:80', '', 5]) {
+      expect(isBindAddress(bad)).toBe(false);
+    }
+  });
+
+  test('refuses a zone-scoped address: no URL can carry the zone to probe or print it', () => {
+    expect(isBindAddress('fe80::1%en0')).toBe(false);
+  });
+});
+
+test('canonicalAddress lowercases and compresses IPv6, leaving IPv4 alone', () => {
+  expect(canonicalAddress('FD7A:115C:A1E0::1234')).toBe('fd7a:115c:a1e0::1234');
+  expect(canonicalAddress('0:0:0:0:0:0:0:1')).toBe('::1');
+  expect(canonicalAddress('::0')).toBe('::');
+  expect(canonicalAddress('100.64.1.2')).toBe('100.64.1.2');
+});
+
+describe('normalizeServeUrl', () => {
+  test('keeps an http or https origin, dropping a bare trailing slash', () => {
+    expect(normalizeServeUrl('https://box.tailnet.ts.net/')).toBe('https://box.tailnet.ts.net');
+    expect(normalizeServeUrl('http://192.168.1.10:64647')).toBe('http://192.168.1.10:64647');
+    expect(normalizeServeUrl('HTTPS://Mimir.Example')).toBe('https://mimir.example');
+  });
+
+  test('refuses other schemes, paths, queries, fragments, credentials, and non-URLs', () => {
+    for (const bad of [
+      'ftp://box',
+      'https://box/mimir',
+      'https://box/?a=1',
+      'https://box/#x',
+      'https://u:p@box',
+      'box.tailnet.ts.net',
+      '',
+      7,
+    ]) {
+      expect(normalizeServeUrl(bad)).toBeUndefined();
+    }
+  });
+});
+
+describe('probeHost', () => {
+  test('loopback and wildcard binds are probed over loopback', () => {
+    expect(probeHost(undefined)).toBe('127.0.0.1');
+    expect(probeHost('127.0.0.1')).toBe('127.0.0.1');
+    expect(probeHost('0.0.0.0')).toBe('127.0.0.1');
+    expect(probeHost('::')).toBe('[::1]');
+  });
+
+  test('a specific address is probed at that address, IPv6 bracketed', () => {
+    expect(probeHost('100.64.1.2')).toBe('100.64.1.2');
+    expect(probeHost('::1')).toBe('[::1]');
+    expect(probeHost('fd7a:115c:a1e0::1')).toBe('[fd7a:115c:a1e0::1]');
+  });
+});
+
+test('listenUrl names the bound address, loopback by default', () => {
+  expect(listenUrl(undefined, 64647)).toBe('http://127.0.0.1:64647');
+  expect(listenUrl('0.0.0.0', 64647)).toBe('http://0.0.0.0:64647');
+  expect(listenUrl('::', 64647)).toBe('http://[::]:64647');
+});
+
+test('consoleUrl prefers the configured url, else an address that reaches serve from here', () => {
+  expect(consoleUrl({ url: 'https://box.tailnet.ts.net' }, 64647)).toBe(
+    'https://box.tailnet.ts.net',
+  );
+  expect(consoleUrl({ bind: '0.0.0.0' }, 64647)).toBe('http://127.0.0.1:64647');
+  expect(consoleUrl({ bind: '100.64.1.2' }, 64647)).toBe('http://100.64.1.2:64647');
+  expect(consoleUrl({}, 64647)).toBe('http://127.0.0.1:64647');
+});
+
+test('serveBanner names the listening address, then the console address when it differs', () => {
+  expect(serveBanner({}, 64647)).toEqual(['mimir serve — listening on http://127.0.0.1:64647']);
+  expect(serveBanner({ bind: '100.64.1.2' }, 64647)).toEqual([
+    'mimir serve — listening on http://100.64.1.2:64647',
+  ]);
+  expect(serveBanner({ bind: '0.0.0.0' }, 64647)).toEqual([
+    'mimir serve — listening on http://0.0.0.0:64647',
+    'console: http://127.0.0.1:64647',
+  ]);
+  expect(serveBanner({ bind: '0.0.0.0', url: 'https://box.tailnet.ts.net' }, 64650)).toEqual([
+    'mimir serve — listening on http://0.0.0.0:64650',
+    'console: https://box.tailnet.ts.net',
+  ]);
+});
+
+describe('acceptedHosts', () => {
+  test('without hosts, url does not turn the Host check on', () => {
+    expect(acceptedHosts({ url: 'https://box.tailnet.ts.net' })).toBeUndefined();
+    expect(acceptedHosts({})).toBeUndefined();
+  });
+
+  test("with hosts, url's host joins them", () => {
+    expect(acceptedHosts({ hosts: ['box'], url: 'https://box.tailnet.ts.net:8443' })).toEqual([
+      'box',
+      'box.tailnet.ts.net',
+    ]);
+    expect(acceptedHosts({ hosts: [], url: 'http://[fd7a::1]:64647' })).toEqual(['[fd7a::1]']);
+    expect(acceptedHosts({ hosts: ['box'] })).toEqual(['box']);
+  });
+
+  test('with hosts, a specific bind address joins them, so the printed address is answered', () => {
+    expect(acceptedHosts({ bind: '192.168.68.70', hosts: ['mimir.example'] })).toEqual([
+      'mimir.example',
+      '192.168.68.70',
+    ]);
+    expect(acceptedHosts({ bind: 'fd7a::1', hosts: [] })).toEqual(['[fd7a::1]']);
+  });
+
+  test('a wildcard bind adds no name: its printed console address is loopback', () => {
+    expect(acceptedHosts({ bind: '0.0.0.0', hosts: [] })).toEqual([]);
+    expect(acceptedHosts({ bind: '::', hosts: [] })).toEqual([]);
+  });
+});
+
+/** A fake interface address, IPv4 or IPv6 by its shape. */
+const nic = (address: string): NetworkInterfaceInfo =>
+  address.includes(':')
+    ? { address, cidr: null, family: 'IPv6', internal: false, mac: '', netmask: '', scopeid: 0 }
+    : { address, cidr: null, family: 'IPv4', internal: false, mac: '', netmask: '' };
+
+describe('isLocalAddress', () => {
+  const interfaces = { lo0: [nic('127.0.0.1'), nic('::1')], utun4: [nic('100.64.1.2')] };
+
+  test('wildcards and addresses on an interface are local', () => {
+    for (const ok of ['0.0.0.0', '::', '127.0.0.1', '100.64.1.2', '::1']) {
+      expect(isLocalAddress(ok, interfaces)).toBe(true);
+    }
+  });
+
+  test('an address on no interface is not local', () => {
+    expect(isLocalAddress('192.0.2.55', interfaces)).toBe(false);
+    expect(isLocalAddress('fd7a::9', interfaces)).toBe(false);
+  });
+
+  test('IPv6 matches in any spelling, wildcards included', () => {
+    const tailnet = { ...interfaces, utun5: [nic('fd7a:115c:a1e0::1234')] };
+    for (const ok of ['::0', '0:0:0:0:0:0:0:0', '0:0:0:0:0:0:0:1', 'FD7A:115C:A1E0::1234']) {
+      expect(isLocalAddress(ok, tailnet)).toBe(true);
+    }
+  });
+
+  test('on Linux all of 127.0.0.0/8 is local; elsewhere only the configured loopback is', () => {
+    expect(isLocalAddress('127.0.0.2', interfaces, 'linux')).toBe(true);
+    expect(isLocalAddress('127.0.0.2', interfaces, 'darwin')).toBe(false);
+  });
+});

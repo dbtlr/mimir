@@ -33,6 +33,7 @@ import {
   LaunchdSupervisor,
   SERVE_LOG_FILE,
   SystemdSupervisor,
+  acceptedHosts,
   bunExec,
   configPath,
   manualFetch,
@@ -41,13 +42,14 @@ import {
   readRuntimeConfig,
   readServePlistPort,
   readServeUnitPort,
+  serveBanner,
   serveProblemWarning,
-  parseHealth,
+  probeHealth,
   serveUnitFor,
   systemdUnitPathFor,
   unitLabels,
 } from './service';
-import type { Health, ServeUnitOptions, ServiceDeps, SupervisorScope } from './service';
+import type { ServeUnitOptions, ServiceDeps, SupervisorScope } from './service';
 import { buildStore } from './store-backend';
 import type { BuiltStore } from './store-backend';
 import { openInstallationSqlite } from './store-sqlite-backend';
@@ -146,19 +148,7 @@ function realServiceDeps(): ServiceDeps {
     defaultPort: DEFAULT_PORT,
     eventsFile: EVENTS_FILE,
     fetcher: manualFetch,
-    health: async (port: number): Promise<Health | undefined> => {
-      try {
-        const res = await fetch(`http://127.0.0.1:${String(port)}/api/health`, {
-          signal: AbortSignal.timeout(1500),
-        });
-        if (!res.ok) {
-          return undefined;
-        }
-        return parseHealth(await res.json());
-      } catch {
-        return undefined;
-      }
-    },
+    health: probeHealth,
     platform: process.platform,
     portOverride: !IS_PRODUCTION && typeof explicitPort === 'number' ? explicitPort : undefined,
     readConfig: readRuntimeConfig,
@@ -227,12 +217,12 @@ async function main(argv: string[]): Promise<number> {
       );
     }
     const config = readRuntimeConfig().serve;
-    if (config.problem !== undefined) {
-      console.error(`⚠ serve: ${serveProblemWarning(config.problem)} — ${configPath()}`);
+    for (const problem of config.problems ?? []) {
+      console.error(`⚠ serve: ${serveProblemWarning(problem)} — ${configPath()}`);
     }
     const port = flagPort ?? overridePort ?? config.port ?? DEFAULT_PORT;
-    // Long-running: the server keeps the process alive; loopback-only by
-    // design (ADR 0012 — the proxy is the boundary). Signals stop it cleanly.
+    // Long-running: the server keeps the process alive; it listens on
+    // `[serve] bind`, loopback when unset (MMR-433). Signals stop it cleanly.
     // `/api/doctor` serves the backend's read-only record-health facet (MMR-185),
     // with the config-file warnings `mimir doctor` also reports.
     let built: BuiltStore;
@@ -254,16 +244,25 @@ async function main(argv: string[]): Promise<number> {
     let server: ReturnType<typeof createServer>;
     try {
       // `[serve] hosts`, when set, limits the Host names answered so a
-      // DNS-rebinding page gets nothing (MMR-425); unset, any Host is (MMR-432).
+      // DNS-rebinding page gets nothing (MMR-425), and `[serve] url`'s host
+      // joins them; unset, any Host is answered (MMR-432).
       server = createServer(built.store, {
         doctor,
-        hosts: config.hosts,
+        hostname: config.bind,
+        hosts: acceptedHosts(config),
         hunt: !noHunt,
         port,
         version: VERSION,
       });
     } catch (err) {
       await built.close();
+      if (err instanceof Error && 'code' in err && err.code === 'EADDRNOTAVAIL') {
+        console.error(`✗ serve: ${err.message}`);
+        console.error(
+          `note: set [serve] bind to an address on this machine, or remove it to listen on loopback — ${configPath()}`,
+        );
+        return 1;
+      }
       if (err instanceof Error && 'code' in err && err.code === 'EADDRINUSE') {
         console.error(`✗ serve: ${err.message}`);
         console.error(
@@ -275,7 +274,9 @@ async function main(argv: string[]): Promise<number> {
       }
       throw err;
     }
-    console.log(`mimir serve — listening on http://127.0.0.1:${String(server.port)}`);
+    for (const bannerLine of serveBanner(config, server.port ?? port)) {
+      console.log(bannerLine);
+    }
     if (server.port !== port) {
       console.log(`note: port ${String(port)} was taken — hunted up to ${String(server.port)}`);
     }

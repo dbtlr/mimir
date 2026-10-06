@@ -26,7 +26,8 @@ export type UnitName = 'serve';
 
 /**
  * One unit's status. `loaded`/`running`/`pid`/`unitFile`/`log` are the
- * supervisor's view; `port`, `health`, and `configProblem` are the serve daemon's.
+ * supervisor's view; `port`, `consoleUrl`, `health`, and `configProblems` are
+ * the serve daemon's.
  */
 export type UnitStatus = {
   unit: UnitName;
@@ -36,7 +37,10 @@ export type UnitStatus = {
   unitFile: string;
   log: string;
   port?: number;
-  configProblem?: string | null;
+  /** The address an operator opens the console at: `[serve] url`, else the bound one. */
+  consoleUrl?: string;
+  /** Every ignored `[serve]` key; empty when the config was honored whole. */
+  configProblems?: string[];
   health?: ServiceHealth | null;
 };
 
@@ -94,8 +98,11 @@ function unitToWire(u: UnitStatus): Record<string, unknown> {
   if (u.port !== undefined) {
     wire.port = u.port;
   }
-  if (u.configProblem !== undefined) {
-    wire.config_problem = u.configProblem;
+  if (u.consoleUrl !== undefined) {
+    wire.console_url = u.consoleUrl;
+  }
+  if (u.configProblems !== undefined) {
+    wire.config_problems = u.configProblems;
   }
   if (u.health !== undefined) {
     wire.health =

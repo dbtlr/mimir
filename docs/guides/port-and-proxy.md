@@ -1,5 +1,5 @@
 ---
-description: "Reference for installation-bound port selection and loopback proxy behavior."
+description: "Reference for installation-bound port selection, the listening address, and proxy behavior."
 ---
 
 # Port and proxy posture
@@ -35,15 +35,36 @@ rewrite: `mimir service install --port <n>` followed by
 Only a registered installation can install or manage a host service, and only
 its own units. There is no environment override that grants this authority to a development binary.
 
-## Loopback only — the proxy is the boundary
+## Listening address
 
-`mimir serve` binds `127.0.0.1` hard-coded; there is no `--host` flag and no
-plan to add one. TLS, hostnames, and any exposure beyond localhost are
-deliberately left to a reverse proxy in front (Caddy, in the reference setup)
-per [ADR 0012](../decisions/0012-http-api-true-resource-envelope.md).
-Nothing in mimir itself terminates TLS or authenticates non-localhost
-traffic — if you need mimir reachable from another host, that's a proxy
-config, not a mimir flag.
+`mimir serve` listens on `127.0.0.1` unless `[serve] bind` names another IP
+address. `0.0.0.0` or `::` listens on every interface; a specific address, such
+as a Tailscale IP, listens there only. An address that is not on this machine
+stops `serve` with an error that names it. An invalid `bind` is ignored with a
+warning, and `serve` listens on loopback. A zone-scoped link-local address,
+such as `fe80::1%en0`, is invalid: no URL can carry its zone.
+
+With `0.0.0.0` or `::`, `serve` also checks the loopback address on its port.
+If another program holds it there, `serve` treats the port as taken, because
+the health check and the printed console address would reach that program.
+
+`[serve] url` is the console's public `http` or `https` origin, such as the
+name a reverse proxy serves. `serve` prints it at startup, and
+`service install` and `service status` show it as the console address. It does
+not turn on the Host check; when `hosts` is set, its host is answered too. An
+invalid `url` is ignored with a warning.
+
+```toml
+[serve]
+bind = "0.0.0.0"
+url = "https://mimir.example.local"
+```
+
+`serve` speaks plain HTTP and authenticates no one. A bind beyond loopback lets
+anyone who can reach the address read and write the board. TLS and
+authentication belong to a reverse proxy in front (Caddy, in the reference
+setup) per [ADR 0012](../decisions/0012-http-api-true-resource-envelope.md).
+Restart the service after changing either key.
 
 ## Accepted hosts
 
@@ -58,7 +79,11 @@ header, so when `[serve] hosts` is set, `mimir serve` answers only these hosts
 and refuses every other one with a 403 before any route runs:
 
 - the loopback names `localhost`, `127.0.0.1`, and `[::1]`, on any port;
-- each hostname in `[serve] hosts` in the installation configuration.
+- each hostname in `[serve] hosts` in the installation configuration;
+- the `[serve] bind` address, when it names one address rather than a wildcard;
+- the host of `[serve] url`, when it is set.
+
+Every console address `serve` prints is one of these names.
 
 Hostnames match without regard to case or port. List every name you reach the
 console by; a reverse proxy usually forwards the client's `Host` (Caddy does
@@ -72,7 +97,8 @@ hosts = ["mimir.example.local"]
 `hosts = []` answers the loopback names only. Each entry is a bare hostname
 (letters, digits, `.`, `-`, `_`) or a bracketed IPv6 literal, with no port and
 no wildcards. An invalid `hosts` value fails closed: `serve` warns and answers
-the loopback names only, and the port still applies. `serve` reads the list
+the loopback names only, and the port still applies. A `[serve]` section that
+is not a table, such as `[[serve]]`, fails closed the same way. `serve` reads the list
 at start, so restart the service after a change. The `serve` log names each
 refused hostname once, for up to 64 names.
 
@@ -92,5 +118,6 @@ console's browser also browses untrusted sites.
 `packages/bin/src/main.ts` (`serve` command wiring, precedence),
 `packages/bin/src/env.ts` (`MIMIR_PORT` parsing),
 `packages/bin/src/service/config.ts` (`[serve]` config read/write),
+`packages/bin/src/service/address.ts` (`bind` and `url` handling),
 `packages/bin/src/http/host.ts` (the accepted-host guard),
 `packages/bin/src/service/plist.ts` (the generated unit — no `--port`).

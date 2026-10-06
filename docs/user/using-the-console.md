@@ -9,8 +9,8 @@ mimir serve
 ```
 
 Open the URL printed at startup. The installed production profile defaults to
-`http://127.0.0.1:64647/`. The server binds to loopback; use a trusted reverse
-proxy for access from another device
+`http://127.0.0.1:64647/`. The server binds to loopback unless `[serve] bind`
+says otherwise; use a trusted reverse proxy for access from another device
 ([port and proxy](../guides/port-and-proxy.md)).
 
 ![Mimir project board with an active task dossier](../assets/console-project.png)
