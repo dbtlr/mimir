@@ -339,6 +339,10 @@ describe('authoringSheet', () => {
     expect(taskSegment).toHaveAttribute('tabindex', '0');
     expect(screen.getByRole('radio', { name: 'Phase' })).toHaveAttribute('tabindex', '-1');
 
+    // The dialog focuses the title on a requestAnimationFrame after open, so wait
+    // for it before moving focus — otherwise it can steal focus back and the arrow
+    // key reaches the title input instead of the radio.
+    await waitFor(() => expect(screen.getByLabelText('Title')).toHaveFocus());
     taskSegment.focus();
     await user.keyboard('{ArrowRight}');
     const phase = screen.getByRole('radio', { name: 'Phase' });
