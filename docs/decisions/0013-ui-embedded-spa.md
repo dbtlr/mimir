@@ -69,7 +69,8 @@ hard-to-reverse shape.
 - **Read-only-first keeps the open auth question parked.** A console without
   verbs behind the colocated proxy is the small exposure; the auth question
   (ADR 0012, deliberately open) must be revisited before the intervention
-  chunk ships writes over the LAN.
+  chunk ships writes over the LAN. Revisited in v0.22.1 (MMR-433): see
+  ADR 0012's refinement.
 - **Stale-presented-as-stale is useful; stale-presented-as-fresh is poison.**
   The offline posture follows from that one rule: last-known-good is a real
   console job (the glance away from the desk), safe by construction while
