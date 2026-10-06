@@ -687,7 +687,7 @@ test('service status emits the json envelope when format is json', async () => {
     running: true,
   });
   expect(serve.unit_file).toBe(d.units.serve.unitFile);
-  expect(serve.plist).toBe(d.units.serve.unitFile);
+  expect(serve).not.toHaveProperty('plist');
 });
 
 test('service status probes the build profile default when config contributes no port', async () => {
@@ -742,12 +742,12 @@ test('service install serve echoes the action envelope when format is json', asy
     unit: 'serve',
   });
   expect(parsed.actions[0].paths.unit_file).toBe(d.units.serve.unitFile);
-  expect(parsed.actions[0].paths.plist).toBe(d.units.serve.unitFile);
+  expect(parsed.actions[0].paths).not.toHaveProperty('plist');
   // The human path's detail lines must not leak into json mode.
   expect(io.out.join('\n')).not.toContain('plist:');
 });
 
-test('linux service install and status carry the systemd unit under unit_file and plist', async () => {
+test('linux service install and status carry the systemd unit under unit_file only', async () => {
   const sup = new FakeSupervisor();
   const d = deps(sup, { platform: 'linux' });
   const unitFile = join(dir, 'com.dbtlr.mimir.serve.service');
@@ -757,13 +757,13 @@ test('linux service install and status carry the systemd unit under unit_file an
   expect(await cmdService(['service', 'install', 'serve'], {}, installIo, d, 'json')).toBe(0);
   const paths = JSON.parse(installIo.out.join('\n')).actions[0].paths;
   expect(paths.unit_file).toBe(unitFile);
-  expect(paths.plist).toBe(unitFile);
+  expect(paths).not.toHaveProperty('plist');
 
   const statusIo = fakeIo();
   expect(await cmdService(['service', 'status'], {}, statusIo, d, 'json')).toBe(0);
   const serve = JSON.parse(statusIo.out.join('\n')).units[0];
   expect(serve.unit_file).toBe(unitFile);
-  expect(serve.plist).toBe(unitFile);
+  expect(serve).not.toHaveProperty('plist');
 });
 
 test('dev service install honors its captured MIMIR_PORT override', async () => {
