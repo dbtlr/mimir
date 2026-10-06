@@ -68,7 +68,7 @@ test('malformed TOML reports malformed and a wrong-typed port reports invalid-po
   const file = join(dir, 'config.toml');
   // Fix 3 — malformed TOML
   writeFileSync(file, '[serve\nport = ???');
-  expect(readServeConfig(file)).toEqual({ problems: ['malformed'] });
+  expect(readServeConfig(file)).toEqual({ hosts: [], problems: ['malformed'] });
   // Fix 3 — wrong-typed string port
   writeFileSync(file, '[serve]\nport = "high"\n');
   expect(readServeConfig(file)).toEqual({ problems: ['invalid-port'] });
@@ -156,10 +156,23 @@ test('writeServePort creates parents and round-trips', () => {
   expect(readServeConfig(file)).toEqual({ port: 50124 });
 });
 
-test('a present-but-wrong-shaped section is malformed, never silence', () => {
+test('a present-but-wrong-shaped section is malformed and fails closed to loopback names', () => {
   const file = join(dir, 'config.toml');
-  writeFileSync(file, 'serve = 5\n');
-  expect(readServeConfig(file)).toEqual({ problems: ['malformed'] });
+  for (const bad of ['serve = 5\n', '[[serve]]\nhosts = ["mimir.example.test"]\n']) {
+    writeFileSync(file, bad);
+    expect(readServeConfig(file)).toEqual({ hosts: [], problems: ['malformed'] });
+  }
+  expect(serveProblemWarning('malformed')).toBe(
+    'config ignored (malformed) — answering loopback names only',
+  );
+});
+
+test('bind is stored in its canonical spelling', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[serve]\nbind = "0:0:0:0:0:0:0:0"\n');
+  expect(readServeConfig(file)).toEqual({ bind: '::' });
+  writeFileSync(file, '[serve]\nbind = "FD7A:115C:A1E0::1234"\n');
+  expect(readServeConfig(file)).toEqual({ bind: 'fd7a:115c:a1e0::1234' });
 });
 
 test('readConfig parses once and returns every section', () => {

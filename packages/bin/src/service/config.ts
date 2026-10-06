@@ -17,7 +17,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
 import { runtimePaths } from '../env';
-import { isBindAddress, normalizeServeUrl } from './address';
+import { canonicalAddress, isBindAddress, normalizeServeUrl } from './address';
 
 /** A `[serve]` key, or the whole section, that was present but ignored. */
 export type ServeProblem =
@@ -34,7 +34,7 @@ export type ServeConfig = {
    * `serve` answers any Host (MMR-432); empty, the loopback names only.
    */
   hosts?: string[];
-  /** The IP literal `serve` listens on (MMR-433); absent, loopback only. */
+  /** The IP literal `serve` listens on, canonically spelled (MMR-433); absent, loopback only. */
   bind?: string;
   /** The console's public origin, printed in place of the bound address (MMR-433). */
   url?: string;
@@ -83,13 +83,22 @@ function isTable(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/**
+ * A `[serve]` section that cannot be read. Its `hosts` may have asked for the
+ * Host check, so it fails closed to the loopback names, as a bad `hosts` does.
+ */
+function malformedServe(): ServeConfig {
+  return { hosts: [], problems: ['malformed'] };
+}
+
 function serveSection(raw: unknown): ServeConfig {
   if (raw === undefined) {
     return {};
   }
-  // A present-but-wrong-shaped section (`serve = 5`) is a problem, not silence.
+  // A present-but-wrong-shaped section (`serve = 5`, `[[serve]]`) is a
+  // problem, not silence.
   if (!isTable(raw)) {
-    return { problems: ['malformed'] };
+    return malformedServe();
   }
   // Each key stands alone: a bad one is ignored and reported, never taking a
   // valid neighbor down with it. An absent key is not a problem.
@@ -113,7 +122,7 @@ function serveSection(raw: unknown): ServeConfig {
   // An invalid `bind` falls back to loopback, the narrower exposure.
   const bind = raw.bind;
   if (isBindAddress(bind)) {
-    serve.bind = bind;
+    serve.bind = canonicalAddress(bind);
   } else if (bind !== undefined) {
     problems.push('invalid-bind');
   }
@@ -135,12 +144,13 @@ function isHostName(value: unknown): value is string {
 }
 
 /**
- * The warning for a `[serve]` problem: a malformed section is ignored whole, a
- * bad key alone, and a bad `hosts` narrows `serve` to the loopback names.
+ * The warning for a `[serve]` problem: a malformed section is ignored whole
+ * and a bad key alone, and either a malformed section or a bad `hosts`
+ * narrows `serve` to the loopback names.
  */
 export function serveProblemWarning(problem: ServeProblem): string {
   if (problem === 'malformed') {
-    return 'config ignored (malformed)';
+    return 'config ignored (malformed) — answering loopback names only';
   }
   return problem === 'invalid-hosts'
     ? 'config key invalid (hosts) — answering loopback names only'
@@ -198,7 +208,7 @@ export function readConfig(file = configPath()): GlobalConfig {
     parsed = Bun.TOML.parse(readFileSync(file, 'utf8'));
   } catch {
     return {
-      serve: { problems: ['malformed'] },
+      serve: malformedServe(),
       store: { problem: 'malformed' },
     };
   }

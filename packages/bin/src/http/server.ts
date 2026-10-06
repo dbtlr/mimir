@@ -100,7 +100,13 @@ import { SCHEMA_VERSION } from '../core/store-sql/migrator';
 import type { DoctorFacet } from '../doctor/facet';
 import { emptyDoctorFacet } from '../doctor/facet';
 import type { Health } from '../service';
-import { DEFAULT_BIND, isLocalAddress } from '../service/address';
+import {
+  DEFAULT_BIND,
+  canonicalAddress,
+  isLocalAddress,
+  isWildcard,
+  localAddress,
+} from '../service/address';
 import { guardRoutes, hostGuard } from './host';
 import { boolField, guarded, json, readBody, requiredStr, strField, strList } from './respond';
 import { uiResponse } from './static';
@@ -609,15 +615,40 @@ function isPortTaken(err: unknown): boolean {
 }
 
 /**
+ * Throw Bun's `EADDRINUSE` when another listener holds `address` on `port`.
+ * On macOS a wildcard bind succeeds over such a listener, yet local clients
+ * (the health probe, the printed console address) still reach the other one,
+ * so a wildcard bind first takes and releases its loopback address. Any other
+ * failure (no IPv6 loopback, say) means nothing local can collide there.
+ */
+function assertLocalPortFree(address: string, port: number): void {
+  let claim: Server<undefined>;
+  try {
+    claim = Bun.serve({
+      fetch: () => new Response(null, { status: 503 }),
+      hostname: address,
+      port,
+    });
+  } catch (err) {
+    if (isPortTaken(err)) {
+      throw err;
+    }
+    return;
+  }
+  void claim.stop(true);
+}
+
+/**
  * Build and start the server on `hostname`, loopback when absent (ADR 0012).
  * A specific address must be on this machine: Bun reports one that is not as
  * a taken port, so it is refused first, by name, with code `EADDRNOTAVAIL`. A
- * taken port hunts upward (+1 … +`PORT_HUNT_SPAN`) to the next free one — a
- * dev convenience; a supervised deployment pins the port. Callers must surface
- * the bound port: it may differ from the request.
+ * wildcard bind treats its port as taken when another listener holds it on
+ * loopback. A taken port hunts upward (+1 … +`PORT_HUNT_SPAN`) to the next
+ * free one — a dev convenience; a supervised deployment pins the port. Callers
+ * must surface the bound port: it may differ from the request.
  */
 export function createServer(store: Store, opts: ServeOptions): Server<undefined> {
-  const hostname = opts.hostname ?? DEFAULT_BIND;
+  const hostname = canonicalAddress(opts.hostname ?? DEFAULT_BIND);
   if (!isLocalAddress(hostname)) {
     throw Object.assign(new Error(`${hostname} is not an address on this machine`), {
       code: 'EADDRNOTAVAIL',
@@ -626,6 +657,9 @@ export function createServer(store: Store, opts: ServeOptions): Server<undefined
   const last = Math.min(opts.port + PORT_HUNT_SPAN, 65535);
   for (let port = opts.port; ; port++) {
     try {
+      if (isWildcard(hostname) && port !== 0) {
+        assertLocalPortFree(localAddress(hostname), port);
+      }
       return bindServer(store, opts, hostname, port);
     } catch (err) {
       if (!isPortTaken(err) || opts.port === 0 || opts.hunt === false) {
