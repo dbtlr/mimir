@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -70,6 +70,8 @@ const mmrTree = {
   updated_at: '',
 };
 
+let seedDescription = 'Alpha original text.';
+
 function mockApi() {
   apiGet.mockImplementation((path: string) => {
     if (path === '/api/health') {
@@ -88,7 +90,7 @@ function mockApi() {
       return Promise.resolve({ items: list, total: list.length });
     }
     if (path === '/api/seeds/MMR-s1') {
-      return Promise.resolve({ ...list[0], description: 'Alpha original text.' });
+      return Promise.resolve({ ...list[0], description: seedDescription });
     }
     if (path === '/api/seeds/MMR-s2') {
       return Promise.resolve({
@@ -118,6 +120,7 @@ function renderSeeds(initial = '/seeds') {
 }
 
 afterEach(() => {
+  seedDescription = 'Alpha original text.';
   vi.clearAllMocks();
 });
 
@@ -145,6 +148,26 @@ describe('seedsPage (13a/14a, MMR-247)', () => {
     await expect(
       screen.findByText('The list scroll position jumps back to the top on every refetch.'),
     ).resolves.toBeDefined();
+  });
+
+  it('renders the seed body as markdown in the reading pane and the expanded row', async () => {
+    seedDescription =
+      '- first item\n- second with `inline_code`\n\n[the docs](https://example.com/docs)';
+    mockApi();
+    renderSeeds('/seeds?seed=MMR-s1');
+
+    // The narrow card and the wide pane both mount the body (CSS picks one).
+    await waitFor(() => {
+      expect(screen.getAllByRole('article')).toHaveLength(2);
+    });
+    for (const article of screen.getAllByRole('article')) {
+      expect(within(article).getAllByRole('listitem')).toHaveLength(2);
+      expect(within(article).getByText('inline_code').tagName).toBe('CODE');
+      expect(within(article).getByRole('link', { name: 'the docs' })).toHaveAttribute(
+        'href',
+        'https://example.com/docs',
+      );
+    }
   });
 
   it('folds SETTLED to a strip with resolved/rejected counts', async () => {

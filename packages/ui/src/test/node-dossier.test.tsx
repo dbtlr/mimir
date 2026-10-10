@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, vi } from 'vitest';
@@ -56,6 +56,35 @@ function mockNode(
     return Promise.reject(new Error(`unexpected ${path}`));
   });
 }
+
+/** Markdown with a list, inline and fenced code, and a link — one body for every surface. */
+const MARKDOWN_BODY = [
+  '- first item',
+  '- second with `inline_code`',
+  '',
+  '[the docs](https://example.com/docs)',
+  '',
+  '```ts',
+  'const fenced = 1;',
+  '```',
+].join('\n');
+
+/** What an article made of MARKDOWN_BODY exposes as elements (not literal syntax). */
+function markdownFacts(article: HTMLElement) {
+  return {
+    fencedInPre: within(article).getByText('const fenced = 1;').closest('pre') !== null,
+    href: within(article).getByRole('link', { name: 'the docs' }).getAttribute('href'),
+    inlineTag: within(article).getByText('inline_code').tagName,
+    items: within(article).getAllByRole('listitem').length,
+  };
+}
+
+const RENDERED_FACTS = {
+  fencedInPre: true,
+  href: 'https://example.com/docs',
+  inlineTag: 'CODE',
+  items: 2,
+};
 
 describe('nodeDossier', () => {
   it('renders the full record with annotations, tags, signals and artifacts', async () => {
@@ -531,6 +560,26 @@ describe('nodeDossier', () => {
     // A non-URL external_ref renders as plain text, never a dead in-app link.
     const ref = screen.getByText('GH-123');
     expect(ref.tagName).not.toBe('A');
+  });
+
+  it('renders the description as markdown', async () => {
+    mockNode(
+      task({ description: MARKDOWN_BODY, id: 'MMR-81', status: 'in_progress', title: 'md task' }),
+    );
+    render(<NodeDossier nodeId="MMR-81" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+
+    expect(markdownFacts(await screen.findByRole('article'))).toEqual(RENDERED_FACTS);
+  });
+
+  it('renders a note as markdown inside its clamp', async () => {
+    mockNode(task({ id: 'MMR-82', status: 'in_progress', title: 'noted task' }), [
+      { content: MARKDOWN_BODY, created_at: '2026-06-02T00:00:00.000Z' },
+    ]);
+    render(<NodeDossier nodeId="MMR-82" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+
+    const article = await screen.findByRole('article');
+    expect(markdownFacts(article)).toEqual(RENDERED_FACTS);
+    expect(article.className).toContain('line-clamp-3');
   });
 
   it('move… opens the reparent picker and moves to the chosen parent', async () => {

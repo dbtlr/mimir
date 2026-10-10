@@ -6,6 +6,7 @@ import { useUpdateSeed } from '../api/mutations';
 import { projectsQuery, seedQuery } from '../api/queries';
 import type { WireSeed } from '../api/types';
 import { ago } from '../lib/time';
+import { MarkdownBody } from './markdown-body';
 import { SeedKindChip } from './seed-kind-chip';
 import { SeedVerbs } from './seed-verbs';
 import { ActionButton } from './ui/action-button';
@@ -138,7 +139,7 @@ export function SeedDetail({
             </p>
           )}
           {!editing && description !== '' && (
-            <p className="text-body leading-[1.75] whitespace-pre-wrap text-ink">{description}</p>
+            <MarkdownBody className="max-w-none">{description}</MarkdownBody>
           )}
         </section>
       </div>

@@ -16,6 +16,7 @@ import type { VerbSpec } from '../lib/transitions';
 import { verdictSummary } from '../lib/verdict';
 import { AnnotationComposer } from './annotation-composer';
 import { DirectionLine } from './direction-line';
+import { MarkdownBody } from './markdown-body';
 import { MoveDialog } from './move-dialog';
 import { ReasonDialog } from './reason-dialog';
 import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
@@ -312,7 +313,7 @@ function TransitionLine({ entry }: { entry: WireHistoryEntry }) {
 
 /** A note that clamps to 3 lines, revealing "Show all ⌄" only when it overflows. */
 function TimelineNote({ content }: { content: string }) {
-  const ref = useRef<HTMLParagraphElement>(null);
+  const ref = useRef<HTMLElement>(null);
   const [expanded, setExpanded] = useState(false);
   // Total rendered line count (measured while clamped), so the expand affordance
   // can carry the handoff-of-record copy "Show all · N lines ⌄" (brief §2).
@@ -335,15 +336,13 @@ function TimelineNote({ content }: { content: string }) {
   const overflowing = lines > 3;
   return (
     <div className="flex flex-col gap-0.5">
-      <p
+      <MarkdownBody
         ref={ref}
-        className={cn(
-          'text-meta leading-relaxed whitespace-pre-wrap text-ink',
-          !expanded && 'line-clamp-3',
-        )}
+        size="compact"
+        className={cn('max-w-none', !expanded && 'line-clamp-3')}
       >
         {content}
-      </p>
+      </MarkdownBody>
       {overflowing && (
         <button
           type="button"
@@ -699,9 +698,7 @@ function DossierBody({
               {data.description != null && data.description.trim() !== '' && (
                 <section className="flex flex-col gap-1.5">
                   <Microlabel>Description</Microlabel>
-                  <p className="text-body leading-[1.65] whitespace-pre-wrap text-ink">
-                    {data.description}
-                  </p>
+                  <MarkdownBody className="max-w-none">{data.description}</MarkdownBody>
                 </section>
               )}
 

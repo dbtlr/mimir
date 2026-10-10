@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -67,6 +67,43 @@ describe('quickViewPanel — desktop drop panel', () => {
     await userEvent.click(screen.getByText('Request changes…'));
     expect(screen.getByPlaceholderText(/context for the next agent/i)).toBeDefined();
     expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('renders the description as markdown and keeps its 3-line clamp', async () => {
+    const node = task({
+      description:
+        '- first item\n- second with `inline_code`\n\n[the docs](https://example.com/docs)',
+      id: 'MMR-42',
+      status: 'in_progress',
+      title: 'md preview',
+    });
+    mockDetail(node);
+    render(<QuickViewPanel node={node} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+
+    const article = await screen.findByRole('article');
+    expect(article.className).toContain('line-clamp-3');
+    expect(within(article).getAllByRole('listitem')).toHaveLength(2);
+    expect(within(article).getByText('inline_code').tagName).toBe('CODE');
+    expect(within(article).getByRole('link', { name: 'the docs' })).toHaveAttribute(
+      'href',
+      'https://example.com/docs',
+    );
+  });
+
+  it('the phone shelf renders the description as markdown and keeps its 2-line clamp', async () => {
+    const node = task({
+      description: '- first item\n- second with **bold**',
+      id: 'MMR-43',
+      status: 'in_progress',
+      title: 'md shelf',
+    });
+    mockDetail(node);
+    render(<QuickShelf node={node} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+
+    const article = await screen.findByRole('article');
+    expect(article.className).toContain('line-clamp-2');
+    expect(within(article).getAllByRole('listitem')).toHaveLength(2);
+    expect(within(article).getByText('bold').tagName).toBe('STRONG');
   });
 
   it('the Full dossier link routes via onOpenNode', async () => {
