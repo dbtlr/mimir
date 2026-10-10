@@ -257,3 +257,52 @@ console's own writes pass: they are same-origin directly, behind a proxy that
 keeps `Host`, and through the Vite proxy. Clients that send no `Origin`, such
 as the CLI and agents, are unaffected. The Vite dev server's own CORS is off
 for the same reason.
+
+## Refinement (v0.23, MMR-444): a record is a page under its project
+
+§3 made record detail a drawer parameter on a scope route. The console rebuild
+(MMR-356) gives every task, container, seed, and artifact its own page that
+works the same on desktop and phone, so §3 is revised: a URL names a scope, a
+view, or a record, and only filters are parameters.
+
+- **A record's path is its ID's suffix under its project.** `/p/KEY` is the
+  project. A task or container is `/p/KEY/417`, a seed `/p/KEY/s41`, and an
+  artifact `/p/KEY/a219`. The path is the ID split at its hyphen, so the
+  translation between ID and URL is mechanical in both directions. Records sit
+  under their project to make ownership explicit in the URL, at the same level
+  as the project's views.
+- **A distinct page gets a path; a narrowed page gets a parameter.** Project
+  views move from the `?view=` lens parameter to path segments:
+  `/p/KEY/board`, `/p/KEY/tasks`, `/p/KEY/seeds`, and `/p/KEY/artifacts`. The
+  tree lens gets no path, because the work page retires it. Filters and
+  groupings stay typed search parameters (`?status=`, `?q=`, `?bands=`). §3's
+  lens-parameter rule survives in that narrower form.
+- **Record suffix shapes are reserved.** A view segment is never all digits,
+  and never `s` or `a` followed by digits. Those shapes always name a record.
+- **The cross-project browsers stay top-level.** `/tasks`, `/artifacts`, and
+  `/seeds` remain the browsers across all projects, and `/` remains the
+  cross-project landing.
+- **A bare ID redirects by grammar alone.** An unmatched path that is a
+  well-formed ID (`/MMR-417`, `/mmr-s41`) or a bare project key (`/MMR`),
+  in any case, redirects to its record or project URL without a lookup. The record
+  page owns the not-found state when no record has that ID. An ID copied from
+  the CLI, a commit, or a session summary is one edit away from a working link.
+- **Drawer links are not carried forward.** `?node=`, `/artifacts?a=`, and
+  `/seeds?seed=` were drawer state, not a stable link format. They get no
+  redirect, and the parameters go away with the overlay.
+- **No server change.** `serve` answers every GET outside `/api/` with the
+  embedded SPA shell. The service worker precaches the shell and its static
+  assets, and navigation falls back to the shell everywhere except `/api/`, so
+  new paths need no cache changes.
+
+Considered and rejected:
+
+- **The ID as the whole path** (`/MMR-417`): the shortest form, but records
+  would sit above the project's views instead of beside them, and the project
+  would be implicit. It survives as the redirect form.
+- **Nesting by collection** (`/p/KEY/seeds/41`): the URL stops spelling the
+  ID, and seeds and artifacts sit a level deeper than tasks.
+- **Kind prefixes** (`/t/MMR-417`, `/s/MMR-s41`): the ID already encodes its
+  kind.
+- **The full ID under the project** (`/p/KEY/MMR-417`): repeats the key and
+  admits mismatches such as `/p/MMR/NRN-4`.
