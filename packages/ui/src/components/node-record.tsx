@@ -12,6 +12,7 @@ import { availableTransitions, transitionLabel } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
 import { verdictSummary } from '../lib/verdict';
 import { DistributionBar } from './distribution-bar';
+import { MarkdownBody } from './markdown-body';
 import { ReasonDialog } from './reason-dialog';
 import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
 import { StatusDot } from './status-dot';
@@ -78,17 +79,43 @@ export function ArtifactLinks({
   );
 }
 
+/** A record's description as rendered markdown, or a quiet line when it has none. */
+export function DescriptionSection({ description }: { description?: string | null }) {
+  return (
+    <section className="flex flex-col gap-1.5">
+      <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">Description</h2>
+      {description != null && description.trim() !== '' ? (
+        <MarkdownBody breaks className="max-w-none">
+          {description}
+        </MarkdownBody>
+      ) : (
+        <p className="text-xs text-ink-faint">No description.</p>
+      )}
+    </section>
+  );
+}
+
 /**
  * What a project or container holds (MMR-450): one row per child in rank
  * order, each linking to its page. A container child names its kind and
- * carries its rollup bar. `items` is undefined while the tree loads.
+ * carries its rollup bar. `items` is undefined until the tree arrives;
+ * `unavailable` says the tree read failed with nothing cached.
  */
-export function ContentsSection({ items }: { items: readonly WireTreeNode[] | undefined }) {
+export function ContentsSection({
+  items,
+  unavailable = false,
+}: {
+  items: readonly WireTreeNode[] | undefined;
+  unavailable?: boolean;
+}) {
   return (
     <section aria-label="Contents" className="flex flex-col gap-1.5">
       <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">
         Contents{items !== undefined && items.length > 0 && ` · ${String(items.length)}`}
       </h2>
+      {items === undefined && unavailable && (
+        <p className="text-xs text-ink-faint">Couldn’t load the contents.</p>
+      )}
       {items !== undefined && items.length === 0 && (
         <p className="text-xs text-ink-faint">Nothing here yet.</p>
       )}

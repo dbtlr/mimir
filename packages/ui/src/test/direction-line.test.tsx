@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, vi } from 'vitest';
 
-import { DirectionLine, foldDirection } from '../components/direction-line';
+import { DirectionLine, DirectionPanel, foldDirection } from '../components/direction-line';
 
 const { apiSend } = vi.hoisted(() => ({ apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet: vi.fn(), apiSend }));
@@ -234,6 +234,74 @@ describe('directionLine', () => {
 
     await waitFor(() => {
       expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/nodes/MMR-12', { next: 'New plan.' });
+    });
+  });
+});
+
+describe('directionPanel (MMR-450)', () => {
+  it('opens straight into the editor and closes on Cancel', async () => {
+    render(
+      <DirectionPanel
+        subject={{ key: 'MMR', kind: 'project' }}
+        title="Mimir"
+        next={PROSE}
+        offline={false}
+      />,
+      { wrapper },
+    );
+    expect(screen.getByText('cut').tagName).toBe('STRONG');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit direction' }));
+    expect(screen.getByRole('textbox', { name: 'Direction text' })).toHaveValue(PROSE);
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+  });
+
+  it('closes on Save once the rewrite lands', async () => {
+    apiSend.mockResolvedValue({});
+    render(
+      <DirectionPanel
+        subject={{ key: 'MMR', kind: 'project' }}
+        title="Mimir"
+        next={PROSE}
+        offline={false}
+      />,
+      { wrapper },
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit direction' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(apiSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops an open draft when the panel moves to another subject', async () => {
+    const view = render(
+      <DirectionPanel
+        subject={{ key: 'MMR', kind: 'project' }}
+        title="Mimir"
+        next={PROSE}
+        offline={false}
+      />,
+      { wrapper },
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Edit direction' }));
+    expect(screen.getByRole('dialog')).toBeDefined();
+
+    view.rerender(
+      <DirectionPanel
+        subject={{ key: 'ABC', kind: 'project' }}
+        title="Other"
+        next="Other prose."
+        offline={false}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
     });
   });
 });

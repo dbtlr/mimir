@@ -542,4 +542,31 @@ describe('boardView — mobile board (mock 9a)', () => {
     rerender(<BoardView board={withoutNode} {...props} />);
     expect(within(mobile()).queryByTestId('quick-shelf')).toBeNull();
   });
+
+  it('names the band of loose tasks without a way to a page (MMR-450)', () => {
+    const tree = {
+      children: [{ children: [], id: 'MMR-9', title: 't', type: 'task' }],
+      id: 'MMR',
+      title: 'Mimir',
+      type: 'project',
+    } as unknown as WireTreeNode;
+    const board = buildBoard([task({ id: 'MMR-9', status: 'ready', title: 'loose' })], [], NOW);
+    render(
+      <BoardView
+        board={board}
+        bands="phase"
+        tree={tree}
+        onOpenNode={vi.fn()}
+        doneTotal={0}
+        onViewDone={vi.fn()}
+      />,
+      { wrapper },
+    );
+
+    expect(within(swimlane()).getByText('Mimir')).toBeDefined();
+    expect(within(swimlane()).queryByRole('button', { name: 'Mimir' })).toBeNull();
+    expect(
+      within(screen.getByTestId('mobile-board')).queryByRole('button', { name: 'Mimir' }),
+    ).toBeNull();
+  });
 });

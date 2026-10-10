@@ -55,8 +55,28 @@ export const overviewRoute = createRoute({
     typeof search.node === 'string' ? { node: search.node } : {},
 });
 
+/**
+ * One record, one URL: a lowercase key (`/p/mmr`, `/p/mmr/417`) moves to its
+ * canonical spelling, keeping the rest of the path and the search.
+ */
+function canonicalKey(key: string, to: '/p/$key' | '/p/$key/board' | '/p/$key/$seq') {
+  const canonical = key.toUpperCase();
+  if (canonical !== key) {
+    // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
+    throw redirect({
+      params: (prev: Record<string, string>) => ({ ...prev, key: canonical }),
+      replace: true,
+      search: true,
+      to,
+    });
+  }
+}
+
 /** A project's own page: what it is, where it is headed, and what it holds. */
 export const projectRoute = createRoute({
+  beforeLoad: ({ params }) => {
+    canonicalKey(params.key, '/p/$key');
+  },
   component: ProjectPage,
   getParentRoute: () => rootRoute,
   path: '/p/$key',
@@ -64,6 +84,9 @@ export const projectRoute = createRoute({
 
 /** A project's board — a view of the project, beside its records (v0.23 refinement). */
 export const boardRoute = createRoute({
+  beforeLoad: ({ params }) => {
+    canonicalKey(params.key, '/p/$key/board');
+  },
   component: BoardPage,
   getParentRoute: () => rootRoute,
   path: '/p/$key/board',
@@ -81,13 +104,8 @@ export const boardRoute = createRoute({
 
 /** A work node's page: the node id split at its hyphen (`MMR-417` → `/p/MMR/417`). */
 export const nodeRoute = createRoute({
-  // One record, one URL: a lowercase key (`/p/mmr/417`) moves to its canonical spelling.
   beforeLoad: ({ params }) => {
-    const key = params.key.toUpperCase();
-    if (key !== params.key) {
-      // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
-      throw redirect({ params: { key, seq: params.seq }, replace: true, to: '/p/$key/$seq' });
-    }
+    canonicalKey(params.key, '/p/$key/$seq');
   },
   component: NodePage,
   getParentRoute: () => rootRoute,

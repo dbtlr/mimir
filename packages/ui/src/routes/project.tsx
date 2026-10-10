@@ -7,16 +7,19 @@ import type { WireNode } from '../api/types';
 import { DirectionPanel } from '../components/direction-line';
 import { DistributionBar } from '../components/distribution-bar';
 import { FindingsChip } from '../components/findings-chip';
-import { MarkdownBody } from '../components/markdown-body';
 import { NewTaskButton } from '../components/new-task-button';
-import { ArtifactLinks, ContentsSection, MetaRow } from '../components/node-record';
+import {
+  ArtifactLinks,
+  ContentsSection,
+  DescriptionSection,
+  MetaRow,
+} from '../components/node-record';
 import { OfflineBanner } from '../components/offline-banner';
 import { ProjectSettingsButton } from '../components/project-settings-button';
-import { RailSection, RecordLayout } from '../components/record-layout';
+import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
 import type { RailChip } from '../components/record-layout';
 import { StatusBadge } from '../components/status-badge';
 import { Badge } from '../components/ui/badge';
-import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { nodeLink } from '../lib/record-url';
@@ -83,8 +86,10 @@ export function ProjectPage() {
   const { key } = projectRoute.useParams();
   const project = useQuery(projectQuery(key));
   // The tree lists the contents and the doctor read counts findings; a miss on
-  // either only thins the page, so neither counts toward connectivity.
-  const tree = useQuery(treeQuery(key));
+  // either only thins the page, so neither counts toward connectivity. The
+  // tree is the whole board, so it is read once rather than polled, as on the
+  // record pages; a console write invalidates it.
+  const tree = useQuery({ ...treeQuery(key), refetchInterval: false });
   const health = useQuery(doctorQuery(key));
   const conn = connectivity([project]);
   const offline = conn.offline;
@@ -100,19 +105,7 @@ export function ProjectPage() {
     return (
       <>
         <OfflineBanner {...conn} />
-        <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-2 p-5">
-          {project.isError ? (
-            <p className="text-xs text-status-blocked">
-              Unreachable, and nothing cached yet — is `mimir serve` running?
-            </p>
-          ) : (
-            <>
-              <Skeleton className="h-4 w-1/3" />
-              <Skeleton className="h-7 w-2/3" />
-              <Skeleton className="h-24 w-full" />
-            </>
-          )}
-        </main>
+        <RecordPending unreachable={project.isError} />
       </>
     );
   }
@@ -172,17 +165,8 @@ export function ProjectPage() {
         chips={chips}
         className={cn(offline && 'offline-demoted')}
       >
-        <section className="flex flex-col gap-1.5">
-          <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">Description</h2>
-          {data.description != null && data.description.trim() !== '' ? (
-            <MarkdownBody breaks className="max-w-none">
-              {data.description}
-            </MarkdownBody>
-          ) : (
-            <p className="text-xs text-ink-faint">No description.</p>
-          )}
-        </section>
-        <ContentsSection items={tree.data?.children} />
+        <DescriptionSection description={data.description} />
+        <ContentsSection items={tree.data?.children} unavailable={tree.isError} />
       </RecordLayout>
     </>
   );

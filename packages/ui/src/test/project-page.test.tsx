@@ -221,4 +221,40 @@ describe('project page (MMR-450)', () => {
     fireEvent.click(within(sheet).getByRole('button', { name: 'Edit direction' }));
     await expect(screen.findByRole('textbox', { name: 'Direction text' })).resolves.toBeDefined();
   });
+
+  it.each([
+    ['/p/mmr', '/p/MMR', ''],
+    ['/p/mmr/board?view=tree', '/p/MMR/board', '?view=tree'],
+  ])('moves %s to its canonical spelling', async (url, pathname, search) => {
+    serveProject();
+    const testRouter = createRouter({
+      history: createMemoryHistory({ initialEntries: [url] }),
+      routeTree: router.routeTree,
+    });
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <RouterProvider router={testRouter} />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(testRouter.state.location.pathname).toBe(pathname);
+    });
+    expect(testRouter.state.location.searchStr).toBe(search);
+  });
+
+  it('says so when its contents cannot be read', async () => {
+    serveProject();
+    const served = apiGet.getMockImplementation();
+    apiGet.mockImplementation((path: string) =>
+      path === '/api/projects/MMR/tree'
+        ? Promise.reject(new TypeError('fetch failed'))
+        : served?.(path),
+    );
+    renderProject('MMR');
+
+    await expect(screen.findByText(/couldn’t load the contents/i)).resolves.toBeDefined();
+  });
 });

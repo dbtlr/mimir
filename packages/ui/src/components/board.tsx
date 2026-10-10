@@ -137,11 +137,20 @@ function StatusColumnHeader({ column, count }: { column: SwimlaneColumn; count: 
 }
 
 /**
+ * The container a band opens (MMR-450): its phase or initiative. The band of
+ * loose tasks is backed by the project root, which has no record page here.
+ */
+function bandContainerId(band: Band): string | undefined {
+  return band.node === undefined || band.node.type === 'project' ? undefined : band.node.id;
+}
+
+/**
  * The band spine (leftmost 170px cell) — name, mono id + kind, and the mini
  * bar. A band backed by a container names it as a way to its page (MMR-450).
  */
 function BandSpine({ band, onOpenNode }: { band: Band; onOpenNode: (id: string) => void }) {
   const node = band.node;
+  const containerId = bandContainerId(band);
   const kind = band.openEnded ? 'standing' : (node?.type ?? '');
   const nameClass = cn(
     'text-meta leading-[1.3] font-semibold',
@@ -155,13 +164,13 @@ function BandSpine({ band, onOpenNode }: { band: Band; onOpenNode: (id: string) 
   );
   return (
     <div className="flex flex-col gap-1.5 pt-0.5">
-      {node === undefined ? (
+      {containerId === undefined ? (
         <div className={nameClass}>{name}</div>
       ) : (
         <button
           type="button"
           onClick={() => {
-            onOpenNode(node.id);
+            onOpenNode(containerId);
           }}
           className={cn(
             nameClass,
@@ -779,7 +788,7 @@ function MobileBoard({
                   openEnded={band.openEnded}
                   count={band.columns[selected].length}
                   first={i === 0}
-                  containerId={band.node?.id}
+                  containerId={bandContainerId(band)}
                   onOpenNode={onOpenNode}
                 />
               )}

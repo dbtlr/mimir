@@ -8,11 +8,11 @@ import type { WireNode, WireScratchpadRow, WireTreeNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { AnnotationComposer } from '../components/annotation-composer';
 import { DirectionPanel } from '../components/direction-line';
-import { MarkdownBody } from '../components/markdown-body';
 import { MoveDialog } from '../components/move-dialog';
 import {
   ArtifactLinks,
   ContentsSection,
+  DescriptionSection,
   ExternalRef,
   HoldCallout,
   MetaRow,
@@ -28,12 +28,11 @@ import {
 } from '../components/node-record';
 import { FeedList } from '../components/node-timeline';
 import { OfflineBanner } from '../components/offline-banner';
-import { RailSection, RecordLayout } from '../components/record-layout';
+import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
 import type { RailChip } from '../components/record-layout';
 import { StatusBadge } from '../components/status-badge';
 import { TaskForm } from '../components/task-form';
 import { ActionButton } from '../components/ui/action-button';
-import { Skeleton } from '../components/ui/skeleton';
 import { ancestorsOf, subtreeOf } from '../lib/ancestry';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
@@ -220,19 +219,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
     return (
       <>
         <OfflineBanner {...conn} />
-        <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-2 p-5">
-          {node.isError ? (
-            <p className="text-xs text-status-blocked">
-              Unreachable, and nothing cached yet — is `mimir serve` running?
-            </p>
-          ) : (
-            <>
-              <Skeleton className="h-4 w-1/3" />
-              <Skeleton className="h-7 w-2/3" />
-              <Skeleton className="h-24 w-full" />
-            </>
-          )}
-        </main>
+        <RecordPending unreachable={node.isError} />
       </>
     );
   }
@@ -379,17 +366,10 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
               />
             )}
             <HoldCallout node={data} />
-            <section className="flex flex-col gap-1.5">
-              <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">Description</h2>
-              {data.description != null && data.description.trim() !== '' ? (
-                <MarkdownBody breaks className="max-w-none">
-                  {data.description}
-                </MarkdownBody>
-              ) : (
-                <p className="text-xs text-ink-faint">No description.</p>
-              )}
-            </section>
-            {data.type !== 'task' && <ContentsSection items={contents} />}
+            <DescriptionSection description={data.description} />
+            {data.type !== 'task' && (
+              <ContentsSection items={contents} unavailable={tree.isError} />
+            )}
             <section className="flex flex-col gap-3">
               <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">
                 Timeline · {feed.length}

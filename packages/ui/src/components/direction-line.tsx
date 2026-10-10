@@ -58,7 +58,7 @@ export function foldDirection(next: string | undefined): string | undefined {
 
 /**
  * The folded direction row (MMR-390) — the owned `## Next` prose (ADR 0026
- * Decision 2) stated in one line under the project header and in the
+ * Decision 2) stated in one line under the board header and in the
  * initiative/phase dossier. It is a control, not a card: clicking opens the
  * reading dialog, where Edit replaces the whole text. Deliberately one visual
  * line — direction is a pointer to the full record, not the record itself.
@@ -79,7 +79,7 @@ export function DirectionLine({
   // swaps subjects under a mounted row (navigating between projects) closes
   // the dialog instead of pointing it at the new record.
   const [openFor, setOpenFor] = useState<string | null>(null);
-  // Adjusted during render, not in an effect: the project route is one
+  // Adjusted during render, not in an effect: the board route is one
   // non-remounting component, so a subject swap must forget the old open
   // state immediately — an effect would let a return trip to the first
   // subject reopen the dialog uninvited before it ran.
@@ -287,7 +287,14 @@ export function DirectionPanel({
   next: string | undefined;
   offline: boolean;
 }) {
-  const [editing, setEditing] = useState(false);
+  const id = subjectId(subject);
+  // Held as the subject it was opened FOR, as in DirectionLine: the project
+  // page does not remount between projects, and a draft must never follow the
+  // panel to another record's direction.
+  const [editingFor, setEditingFor] = useState<string | null>(null);
+  if (editingFor !== null && editingFor !== id) {
+    setEditingFor(null);
+  }
   const empty = next === undefined || next.trim() === '';
   return (
     <div className="flex flex-col gap-2">
@@ -304,15 +311,17 @@ export function DirectionPanel({
           aria-haspopup="dialog"
           disabled={offline}
           onClick={() => {
-            setEditing(true);
+            setEditingFor(id);
           }}
         >
           Edit
         </ActionButton>
       </div>
-      {/* Mounted only while editing, so each opening drafts from the current text. */}
-      {editing && (
+      {/* Mounted only while editing, so each opening drafts from the current
+          text; keyed by subject so a draft never carries over. */}
+      {editingFor === id && (
         <DirectionDialog
+          key={id}
           subject={subject}
           title={title}
           next={next}
@@ -320,7 +329,7 @@ export function DirectionPanel({
           open
           editOnly
           onClose={() => {
-            setEditing(false);
+            setEditingFor(null);
           }}
         />
       )}

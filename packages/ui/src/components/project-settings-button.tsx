@@ -14,7 +14,7 @@ export type ProjectFormValues = {
 };
 
 /**
- * Modest settings affordance for the active project board header. Opens a
+ * Modest settings affordance on the project's page and board. Opens a
  * Sheet letting the user rename the project, edit its description, and — in
  * the LIFECYCLE section (20b / MMR-230) — archive it. Archiving carries no
  * confirm: the undo toast's Unarchive is the safety (ADR 0015), and since the

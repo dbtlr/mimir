@@ -72,7 +72,7 @@ export type AuthoringSheetProps = {
   /** The scope's project — the board pre-fills it; omitted, the first project wins. */
   projectKey?: string;
   offline?: boolean;
-  /** "Create & open" routes the fresh node here (`?node=<id>`). */
+  /** "Create & open" routes the fresh node here (its record page). */
   onOpenNode?: (id: string) => void;
   prefill?: AuthoringPrefill;
   /**

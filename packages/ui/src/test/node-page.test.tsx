@@ -308,6 +308,19 @@ describe('task page (MMR-449)', () => {
     });
   });
 
+  it('closes a sheet when an action in it is chosen', async () => {
+    serve(sqlite);
+    renderAt('/p/MMR/417');
+    const chips = await screen.findByRole('group', { name: 'Record details' });
+
+    fireEvent.click(within(chips).getByRole('button', { name: 'Actions' }));
+    const actions = await screen.findByRole('dialog', { name: 'Actions' });
+    fireEvent.click(within(actions).getByRole('button', { name: 'Edit' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Actions' })).toBeNull();
+    });
+  });
+
   it('sets the actions aside while the edit form is open', async () => {
     serve(sqlite);
     renderAt('/p/MMR/417');
