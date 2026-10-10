@@ -62,6 +62,10 @@
   --color-accent: #4fc4d6;
   --color-accent-foreground: #7fd4e2;
 
+  /* inline code — the only non-semantic hue: it carries no status meaning, so
+     it reads apart from links (accent) and code blocks (machine ground) */
+  --color-code: #e59ac0;
+
   /* action — THE one solid button fill per surface */
   --color-action: #4fc4d6;
   --color-action-foreground: #08222a;
@@ -204,6 +208,9 @@ body {
   /* accent */
   --color-accent: #0e93a8;
   --color-accent-foreground: #0b6472;
+
+  /* inline code — deepened for a light ground */
+  --color-code: #a8326e;
 
   /* action — slate; teal fills read wrong on white */
   --color-action: #31485e;

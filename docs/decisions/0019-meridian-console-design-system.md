@@ -70,7 +70,7 @@ absorbing it as an ever-growing list of refinements.
    black); demotion drops an ink tier instead of opacity (opacity is reserved
    for the offline full-page demotion); machine ground stays dark (source/code
    readouts keep the dark well inside light surfaces — the inversion marks the
-   boundary between UI and record); amber text on white uses the darkened
+   boundary between UI and record; refined in MMR-445: inline code is coloured text, fenced blocks stay machine ground, see the refinement below); amber text on white uses the darkened
    family, the bright variant is decoration-only; unvalidated token values are
    validated on a rendered composite before implementation locks them.
 
@@ -157,3 +157,20 @@ absorbing it as an ever-growing list of refinements.
 - New surfaces (seeds, record health, archive) inherit the role system as a
   constraint: e.g. record-damage surfacing is amber ("the system is
   behaving"), never red, and never joins the violet needs-you set's hue.
+
+## Refinement (2026-10-10, MMR-445): inline code is coloured text; code blocks stay machine ground
+
+Rule 4 of §7 keeps source and code readouts on the dark well in both themes,
+because the inversion marks the boundary between UI and record. Fenced code
+blocks and source readouts keep that treatment unchanged.
+
+Inline code inside prose is not a readout. It renders as monospace text, with
+no pill, in a dedicated token: `--color-code` (`#e59ac0` in the dark theme,
+`#a8326e` in the light theme). It is the only hue in the palette with no status
+meaning, so it reads as distinct from links (accent) and from code blocks
+(machine ground). Measured contrast: 8.69:1 against the dark page and 8.24:1
+against the dark panel; 5.41:1 against the light page and 6.28:1 against the
+light panel.
+
+Code inside a fenced block keeps the machine ink and never takes the inline
+colour.

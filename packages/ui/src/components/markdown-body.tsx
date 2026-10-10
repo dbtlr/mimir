@@ -1,29 +1,32 @@
-import type { Ref } from 'react';
+import type { ComponentProps, Ref } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { cn } from '../lib/cn';
 
 /**
- * Machine ground: the dark well stays dark in BOTH themes (ADR 0019 §7 rule 4
- * — the inversion marks the boundary between UI and record), so the values in
- * the two groups below are literal, not theme tokens.
+ * Two code treatments, one rule (ADR 0019 §7 rule 4 and its MMR-445
+ * refinement). Fenced blocks are machine ground: the dark well stays dark in
+ * BOTH themes (the inversion marks the boundary between UI and record), so
+ * their values are literal, not theme tokens. Inline code is not a readout: it
+ * is coloured monospace text in the dedicated `--color-code` token, so it
+ * reads apart from links (accent) and from blocks.
  *
- * Inline code — the single-backtick pill. Its own group so the treatment can
- * be swapped without touching the blocks.
+ * Inline code — no pill, no padding, no injected backticks. Its own group so
+ * the treatment can be swapped without touching the blocks.
  */
 const INLINE_CODE_PROSE = cn(
-  'prose-code:rounded-[4px] prose-code:bg-[#0B0F14] prose-code:px-1.5 prose-code:py-px',
-  'prose-code:font-mono prose-code:text-xs prose-code:font-normal prose-code:text-[#B9C4CD]',
+  'prose-code:font-mono prose-code:text-[0.9em] prose-code:font-normal prose-code:text-code',
   'prose-code:before:content-none prose-code:after:content-none',
-  '[--tw-prose-code:#B9C4CD] [--tw-prose-invert-code:#B9C4CD]',
+  '[--tw-prose-code:var(--color-code)] [--tw-prose-invert-code:var(--color-code)]',
 );
 
 /** Fenced code blocks — the same well; they scroll sideways rather than widen the host. */
 const CODE_BLOCK_PROSE = cn(
   'prose-pre:overflow-x-auto prose-pre:bg-[#0B0F14] prose-pre:text-[#B9C4CD]',
-  // Inside a block the code sits on the pre's own ground, not a second pill.
-  '[&_pre_code]:rounded-none [&_pre_code]:bg-transparent [&_pre_code]:p-0',
+  // Inside a block the code sits on the pre's own ground.
+  // The block's code keeps the machine ink, never the inline colour.
+  '[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-[#B9C4CD] [&_pre_code]:text-xs',
   '[--tw-prose-pre-code:#B9C4CD] [--tw-prose-invert-pre-code:#B9C4CD]',
   '[--tw-prose-pre-bg:#0B0F14] [--tw-prose-invert-pre-bg:#0B0F14]',
 );
@@ -41,10 +44,10 @@ const INK_PROSE = cn(
   '[--tw-prose-bold:var(--color-ink-bright)] [--tw-prose-invert-bold:var(--color-ink-bright)]',
   '[--tw-prose-links:var(--color-accent-foreground)] [--tw-prose-invert-links:var(--color-accent-foreground)]',
   '[--tw-prose-counters:var(--color-ink-dim)] [--tw-prose-invert-counters:var(--color-ink-dim)]',
-  '[--tw-prose-bullets:var(--color-ink-faint)] [--tw-prose-invert-bullets:var(--color-ink-faint)]',
+  '[--tw-prose-bullets:var(--color-ink-dim)] [--tw-prose-invert-bullets:var(--color-ink-dim)]',
   '[--tw-prose-hr:var(--color-line-bright)] [--tw-prose-invert-hr:var(--color-line-bright)]',
   '[--tw-prose-quotes:var(--color-ink-dim)] [--tw-prose-invert-quotes:var(--color-ink-dim)]',
-  '[--tw-prose-quote-borders:var(--color-line-bright)] [--tw-prose-invert-quote-borders:var(--color-line-bright)]',
+  '[--tw-prose-quote-borders:var(--color-ink-faint)] [--tw-prose-invert-quote-borders:var(--color-ink-faint)]',
   '[--tw-prose-captions:var(--color-ink-faint)] [--tw-prose-invert-captions:var(--color-ink-faint)]',
   '[--tw-prose-kbd:var(--color-ink-bright)] [--tw-prose-invert-kbd:var(--color-ink-bright)]',
   '[--tw-prose-th-borders:var(--color-line-bright)] [--tw-prose-invert-th-borders:var(--color-line-bright)]',
@@ -84,7 +87,8 @@ const BLOCK_PROSE = cn(
   '[&_blockquote_p]:before:content-none [&_blockquote_p]:after:content-none',
   'prose-hr:my-6',
   'prose-th:font-semibold prose-th:text-ink-bright',
-  '[&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto',
+  // The table fills the measure; the wrapper from BODY_COMPONENTS scrolls it.
+  'prose-table:my-0 prose-table:w-full',
   'prose-img:h-auto prose-img:max-w-full prose-img:rounded',
   'prose-kbd:rounded prose-kbd:border prose-kbd:border-line-bright prose-kbd:shadow-none',
 );
@@ -96,6 +100,17 @@ const BLOCK_PROSE = cn(
  * HEADING_PROSE sizes the demoted levels as a modest ladder.
  */
 const BODY_HEADINGS = { h1: 'h3', h2: 'h4', h3: 'h5', h4: 'h6', h5: 'h6', h6: 'h6' } as const;
+
+/** A wide table scrolls inside its wrapper while the table itself fills the measure. */
+function ScrollingTable({ node: _node, ...props }: ComponentProps<'table'> & { node?: unknown }) {
+  return (
+    <div className="my-3 overflow-x-auto">
+      <table {...props} />
+    </div>
+  );
+}
+
+const BODY_COMPONENTS = { ...BODY_HEADINGS, table: ScrollingTable };
 
 /**
  * The two text scales a host can ask for. `default` is the reading scale;
@@ -146,7 +161,7 @@ export function MarkdownBody({
         className,
       )}
     >
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={BODY_HEADINGS}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={BODY_COMPONENTS}>
         {children}
       </ReactMarkdown>
     </article>

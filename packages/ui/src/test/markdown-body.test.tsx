@@ -58,6 +58,8 @@ describe('markdownBody', () => {
     expect(within(article).getByRole('table')).toBeInTheDocument();
     expect(within(article).getByRole('columnheader', { name: 'head' })).toBeInTheDocument();
     expect(article.querySelector('pre > code')).toHaveTextContent('const fenced = 1;');
-    expect(within(article).getByText('inline').tagName).toBe('CODE');
+    const inline = within(article).getByText('inline');
+    expect(inline.tagName).toBe('CODE');
+    expect(inline.closest('pre')).toBeNull();
   });
 });
