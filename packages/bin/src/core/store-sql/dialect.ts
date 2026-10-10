@@ -1,4 +1,4 @@
-import type { Kysely, Transaction } from 'kysely';
+import type { Expression, Kysely, SqlBool, Transaction } from 'kysely';
 
 import type { MigrationStatements } from './migrations';
 import type { DB, Executor, Stored } from './schema';
@@ -75,6 +75,15 @@ export type StoreDialect = {
 
   /** The column shapes that differ by driver (see {@link Stored}). */
   codecs: ValueCodecs;
+
+  /**
+   * Does `text` hold `word` as a whole word (MMR-447)? `word` is a lowercase
+   * ASCII alphanumeric run; a word boundary is the text's edge or any other
+   * character, matched case-insensitively. A null `text` never matches. The
+   * one matching rule no portable SQL spells: Postgres has a regex operator,
+   * SQLite has none.
+   */
+  wholeWord: (text: Expression<string | null>, word: string) => Expression<SqlBool>;
 };
 
 /** One column shape: the value the store speaks, and the form the driver stores. */

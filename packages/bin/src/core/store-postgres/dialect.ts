@@ -1,4 +1,4 @@
-import type { Kysely } from 'kysely';
+import type { Kysely, SqlBool } from 'kysely';
 import { sql } from 'kysely';
 
 import type { Store } from '../store';
@@ -97,6 +97,9 @@ export const postgresDialect: StoreDialect = {
       await sql`select pg_advisory_xact_lock(${UPGRADE_LOCK}::bigint)`.execute(tx);
       return fn(tx);
     }),
+  // An explicit ASCII class rather than `\m`/`\M`, whose word characters
+  // follow the locale: both backends must agree on what a boundary is.
+  wholeWord: (text, word) => sql<SqlBool>`lower(${text}) ~ ${`(^|[^a-z0-9])${word}([^a-z0-9]|$)`}`,
   write: serializable,
 };
 

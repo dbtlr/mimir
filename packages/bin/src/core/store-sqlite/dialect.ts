@@ -1,4 +1,4 @@
-import type { Kysely } from 'kysely';
+import type { Kysely, SqlBool } from 'kysely';
 import { sql } from 'kysely';
 
 import { invariant } from '../errors';
@@ -106,6 +106,10 @@ export const sqliteDialect: StoreDialect = {
   // `BEGIN IMMEDIATE` (see ./driver) takes the database's one write lock up
   // front, so a migration step excludes every other writer and upgrader.
   upgrade: (db, fn) => db.transaction().execute((tx) => holdingConnection(() => fn(tx))),
+  // SQLite has no regex operator; GLOB has character classes. Padding the
+  // text with a space on each side gives the edges a boundary to match.
+  wholeWord: (text, word) =>
+    sql<SqlBool>`(' ' || lower(${text}) || ' ') glob ${`*[^a-z0-9]${word}[^a-z0-9]*`}`,
   // Writers serialize on the write lock rather than abort, so there is nothing
   // to replay: a contended write waits out the busy timeout.
   write: (db, fn) => db.transaction().execute((tx) => holdingConnection(() => fn(tx))),

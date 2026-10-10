@@ -1,0 +1,169 @@
+import type { SearchHit, SetResult } from '@mimir/contract';
+
+import { validation } from '../errors';
+import { markdownToPlainText } from '../seeds/lede';
+import type { Store } from '../store';
+import type { SearchStore, SuffixClass, TextHit } from './store';
+
+/**
+ * Cross-record search (MMR-447): one query over tasks, containers, projects,
+ * seeds, and artifacts, built first as the jump tool behind the console's
+ * palette.
+ *
+ * An ID-like query — a full ID in any case (`mmr-417`, `MMR-s41`), a bare key
+ * (`mmr`), or a bare suffix (`417`, `s41`, `a219`) — finds that record and up
+ * to {@link LINK_CAP} records linked to it, newest first. With no current
+ * project, a bare suffix lists every active project's record with that suffix.
+ * An ID-like query that names nothing falls back to text search: titles that
+ * contain every term, then titles that hold every term as a subsequence, then
+ * descriptions that hold every word as a whole word.
+ */
+
+export const DEFAULT_SEARCH_LIMIT = 20;
+export const MAX_SEARCH_LIMIT = 100;
+const LINK_CAP = 8;
+const SNIPPET_RADIUS = 60;
+
+export type SearchOptions = {
+  query: string;
+  /** The current project: ranked first, and where a bare suffix resolves. */
+  project?: string;
+  limit?: number;
+};
+
+const FULL_ID = /^([a-z]{2,4})-([as]?)(\d+)$/i;
+const BARE_KEY = /^[a-z]{2,4}$/i;
+const BARE_SUFFIX = /^([as]?)(\d+)$/i;
+
+const SUFFIX_CLASS: Record<string, SuffixClass> = { '': 'node', a: 'artifact', s: 'seed' };
+
+export async function searchRecords(
+  store: Store,
+  opts: SearchOptions,
+): Promise<SetResult<SearchHit>> {
+  const query = opts.query.trim();
+  if (query === '') {
+    throw validation('search needs a query');
+  }
+  const limit = opts.limit ?? DEFAULT_SEARCH_LIMIT;
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_SEARCH_LIMIT) {
+    throw validation(`limit must be a whole number from 1 to ${String(MAX_SEARCH_LIMIT)}`);
+  }
+  const byId = await idHits(store.search, query, opts.project);
+  if (byId !== undefined) {
+    const items = byId.slice(0, limit);
+    return { items, returned: items.length, startsAt: 0, total: byId.length };
+  }
+  return textHits(store.search, query, opts.project, limit);
+}
+
+/** The hits an ID-like query names, or `undefined` when it names nothing. */
+async function idHits(
+  search: SearchStore,
+  query: string,
+  project: string | undefined,
+): Promise<SearchHit[] | undefined> {
+  const full = FULL_ID.exec(query);
+  if (full !== null) {
+    const [, key = '', prefix = '', seq = ''] = full;
+    return withLinks(search, renderSuffix(key.toUpperCase(), prefix, seq));
+  }
+  if (BARE_KEY.test(query)) {
+    return withLinks(search, query.toUpperCase());
+  }
+  const bare = BARE_SUFFIX.exec(query);
+  if (bare === null) {
+    return undefined;
+  }
+  const [, prefix = '', seq = ''] = bare;
+  if (project !== undefined) {
+    return withLinks(search, renderSuffix(project, prefix, seq));
+  }
+  const records = await search.bySuffix({
+    class: SUFFIX_CLASS[prefix.toLowerCase()] ?? 'node',
+    seq: Number(seq),
+  });
+  return records.length === 0
+    ? undefined
+    : records.map((record) => Object.assign(record, { match: 'id' as const }));
+}
+
+/** `KEY` + `a`/`s`/`` + digits → the rendered id (`MMR-a219`); leading zeros drop. */
+function renderSuffix(key: string, prefix: string, seq: string): string {
+  return `${key}-${prefix.toLowerCase()}${String(Number(seq))}`;
+}
+
+/** The record an ID names, then its links newest first; `undefined` when it names nothing. */
+async function withLinks(search: SearchStore, id: string): Promise<SearchHit[] | undefined> {
+  const [record] = await search.records([id]);
+  if (record === undefined) {
+    return undefined;
+  }
+  const links = await search.links(id);
+  const linked = new Map(
+    (await search.records(links.map((link) => link.id))).map((r) => [r.id, r]),
+  );
+  const hits: SearchHit[] = [];
+  for (const { id: linkedId, link } of links) {
+    const found = linked.get(linkedId);
+    if (found !== undefined) {
+      hits.push({ ...found, link, match: 'link' });
+    }
+  }
+  const newestFirst = hits.toSorted(
+    (a, b) => compareText(b.updatedAt, a.updatedAt) || compareText(a.id, b.id),
+  );
+  return [{ ...record, match: 'id' }, ...newestFirst.slice(0, LINK_CAP)];
+}
+
+async function textHits(
+  search: SearchStore,
+  query: string,
+  project: string | undefined,
+  limit: number,
+): Promise<SetResult<SearchHit>> {
+  const lowered = query.toLowerCase();
+  const words = lowered.match(/[a-z0-9]+/g) ?? [];
+  const result = await search.text({
+    limit,
+    terms: lowered.split(/\s+/).filter((term) => term !== ''),
+    words,
+    ...(project === undefined ? {} : { project }),
+  });
+  const items = result.items.map((hit) => toTextHit(hit, words));
+  return { items, returned: items.length, startsAt: 0, total: result.total };
+}
+
+function toTextHit(hit: TextHit, words: readonly string[]): SearchHit {
+  const { description, tier, ...record } = hit;
+  if (tier !== 3) {
+    return { ...record, match: 'title' };
+  }
+  return { ...record, match: 'description', snippet: snippet(description ?? '', words) };
+}
+
+/**
+ * Plain text around the first matched word, at most about twice
+ * {@link SNIPPET_RADIUS} characters, with an ellipsis where it was cut. The
+ * markup is stripped first, so a word the database found inside markup (a link
+ * target, a code block) may not appear: the snippet then starts the text.
+ */
+export function snippet(description: string, words: readonly string[]): string {
+  const text = markdownToPlainText(description).replaceAll(/\s+/g, ' ').trim();
+  const at = words
+    .map((word) => new RegExp(`(?:^|[^a-z0-9])(${word})(?:[^a-z0-9]|$)`, 'i').exec(text))
+    .filter((match) => match !== null)
+    .map((match) => match.index + match[0].indexOf(match[1] ?? ''))
+    .reduce((first, index) => Math.min(first, index), Number.POSITIVE_INFINITY);
+  const centre = Number.isFinite(at) ? at : 0;
+  const start = Math.max(0, centre - SNIPPET_RADIUS);
+  const end = Math.min(text.length, centre + SNIPPET_RADIUS);
+  return `${start > 0 ? '…' : ''}${text.slice(start, end).trim()}${end < text.length ? '…' : ''}`;
+}
+
+function compareText(a: string, b: string): number {
+  if (a === b) {
+    return 0;
+  }
+  return a < b ? -1 : 1;
+}
