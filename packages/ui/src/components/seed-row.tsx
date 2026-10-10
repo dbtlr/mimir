@@ -48,7 +48,9 @@ function ExpandedBody({
             <p className="text-meta text-ink-faint">No body — the title is the whole seed.</p>
           )}
           {!detail.isPending && description !== '' && (
-            <MarkdownBody className="max-w-none">{description}</MarkdownBody>
+            <MarkdownBody breaks className="max-w-none">
+              {description}
+            </MarkdownBody>
           )}
         </div>
         {description !== '' && (

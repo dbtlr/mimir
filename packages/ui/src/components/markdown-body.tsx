@@ -1,5 +1,6 @@
 import type { ComponentProps, Ref } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
 
 import { cn } from '../lib/cn';
@@ -23,7 +24,8 @@ const INLINE_CODE_PROSE = cn(
 
 /** Fenced code blocks — the same well; they scroll sideways rather than widen the host. */
 const CODE_BLOCK_PROSE = cn(
-  'prose-pre:overflow-x-auto prose-pre:bg-[#0B0F14] prose-pre:text-[#B9C4CD]',
+  // The hairline keeps the well legible against the dark page.
+  'prose-pre:overflow-x-auto prose-pre:border prose-pre:border-line-bright prose-pre:bg-[#0B0F14] prose-pre:text-[#B9C4CD]',
   // Inside a block the code sits on the pre's own ground.
   // The block's code keeps the machine ink, never the inline colour.
   '[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-[#B9C4CD] [&_pre_code]:text-xs',
@@ -65,10 +67,27 @@ const HEADING_PROSE = cn(
   '[&_:is(h3,h4,h5,h6)]:leading-snug [&_:is(h3,h4,h5,h6)]:mt-[1.5em] [&_:is(h3,h4,h5,h6)]:mb-[0.5em]',
   '[&_h3]:text-[1.2em] [&_h3]:font-bold [&_h3]:tracking-tight',
   '[&_h4]:text-[1.1em] [&_h4]:font-semibold',
-  '[&_h5]:text-[1em] [&_h5]:font-semibold',
+  '[&_h5]:text-[1em] [&_h5]:font-semibold [&_h5]:text-ink-bright',
   '[&_h6]:text-[0.8em] [&_h6]:font-semibold [&_h6]:tracking-wider [&_h6]:text-ink-dim [&_h6]:uppercase',
   // A body that opens with a heading starts flush; the last block adds no tail.
   '[&>:first-child]:mt-0 [&>:last-child]:mb-0',
+);
+
+/**
+ * GFM task-list boxes are read-only, and a browser greys a native disabled
+ * checkbox past what `accent-color` or `opacity` can undo, so they are drawn
+ * here: a hollow ink-dim box, filled with the action token (and its tick) when
+ * checked. The tick is an inline SVG, so its colour is a literal pair — dark
+ * ink on the dark theme's teal, white on the light theme's slate.
+ */
+const TASK_BOX_PROSE = cn(
+  '[&_input[type=checkbox]]:mr-2 [&_input[type=checkbox]]:size-[1.05em] [&_input[type=checkbox]]:appearance-none',
+  '[&_input[type=checkbox]]:rounded-[3px] [&_input[type=checkbox]]:border [&_input[type=checkbox]]:border-ink-dim',
+  '[&_input[type=checkbox]]:bg-transparent [&_input[type=checkbox]]:bg-center [&_input[type=checkbox]]:bg-no-repeat',
+  '[&_input[type=checkbox]]:align-[-0.2em]',
+  '[&_input[type=checkbox]:checked]:border-action [&_input[type=checkbox]:checked]:bg-action',
+  '[&_input[type=checkbox]:checked]:bg-[url(data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2016%2016%27%3E%3Cpath%20d=%27M3.5%208.5l3%203%206-6.5%27%20fill=%27none%27%20stroke=%27%2308222a%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27/%3E%3C/svg%3E)]',
+  'light:[&_input[type=checkbox]:checked]:bg-[url(data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2016%2016%27%3E%3Cpath%20d=%27M3.5%208.5l3%203%206-6.5%27%20fill=%27none%27%20stroke=%27%23ffffff%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27/%3E%3C/svg%3E)]',
 );
 
 /** Everything between the headings and the code: flow, lists, quotes, rules, tables, media. */
@@ -76,12 +95,12 @@ const BLOCK_PROSE = cn(
   'break-words',
   'prose-p:my-3 prose-em:italic',
   'prose-a:underline prose-a:decoration-accent-foreground/40 prose-a:underline-offset-2',
-  'hover:prose-a:decoration-accent-foreground',
+  'prose-a:hover:decoration-accent-foreground',
   'prose-ul:my-3 prose-ol:my-3 prose-li:my-1 [&_li>ul]:my-1 [&_li>ol]:my-1',
   // GFM task lists: no bullet, nested ones keep their indent, the box tracks the text.
   '[&_.contains-task-list]:list-none [&_.contains-task-list]:pl-0',
   '[&_.contains-task-list_.contains-task-list]:pl-5',
-  '[&_input[type=checkbox]]:mr-2 [&_input[type=checkbox]]:align-middle [&_input[type=checkbox]]:accent-accent',
+  TASK_BOX_PROSE,
   // The plugin italicises quotes and injects curly quote marks; neither belongs here.
   'prose-blockquote:border-l-2 prose-blockquote:font-normal prose-blockquote:not-italic',
   '[&_blockquote_p]:before:content-none [&_blockquote_p]:after:content-none',
@@ -104,7 +123,7 @@ const BODY_HEADINGS = { h1: 'h3', h2: 'h4', h3: 'h5', h4: 'h6', h5: 'h6', h6: 'h
 /** A wide table scrolls inside its wrapper while the table itself fills the measure. */
 function ScrollingTable({ node: _node, ...props }: ComponentProps<'table'> & { node?: unknown }) {
   return (
-    <div className="my-3 overflow-x-auto">
+    <div data-md="table" className="my-3 overflow-x-auto">
       <table {...props} />
     </div>
   );
@@ -121,7 +140,7 @@ export type MarkdownSize = 'default' | 'compact';
 
 const SIZE_PROSE: Record<MarkdownSize, string> = {
   compact:
-    'text-meta leading-[1.6] prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-pre:my-1.5',
+    'text-meta leading-[1.6] prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-pre:my-1.5 prose-hr:my-3 prose-li:my-0 [&_[data-md=table]]:my-2',
   default: 'text-[0.84375rem] leading-[1.75] max-md:text-sm',
 };
 
@@ -134,16 +153,23 @@ const SIZE_PROSE: Record<MarkdownSize, string> = {
  * wherever it is opened. `className` carries the host's measure (the reader
  * pins 620px) or clamp, never a new palette; `size` picks the text scale; `ref`
  * lets a clamping host measure the rendered block.
+ *
+ * `breaks` keeps single newlines as line breaks. Comment-like fields
+ * (descriptions, notes, seed bodies) pass it so authored line breaks survive,
+ * the way GitHub renders comments; documents (artifacts, direction) leave it
+ * off and follow standard markdown, where a single newline joins the line.
  */
 export function MarkdownBody({
   children,
   className,
   size = 'default',
+  breaks = false,
   ref,
 }: {
   children: string;
   className?: string;
   size?: MarkdownSize;
+  breaks?: boolean;
   ref?: Ref<HTMLElement>;
 }) {
   return (
@@ -161,7 +187,10 @@ export function MarkdownBody({
         className,
       )}
     >
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={BODY_COMPONENTS}>
+      <ReactMarkdown
+        remarkPlugins={breaks ? [remarkGfm, remarkBreaks] : [remarkGfm]}
+        components={BODY_COMPONENTS}
+      >
         {children}
       </ReactMarkdown>
     </article>

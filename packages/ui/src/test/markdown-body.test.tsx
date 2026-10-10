@@ -62,4 +62,20 @@ describe('markdownBody', () => {
     expect(inline.tagName).toBe('CODE');
     expect(inline.closest('pre')).toBeNull();
   });
+
+  it('joins single newlines into one paragraph by default, as standard markdown does', () => {
+    render(<MarkdownBody>{'Status: done\nTests: pass'}</MarkdownBody>);
+    const article = screen.getByRole('article');
+
+    expect(article.querySelectorAll('p')).toHaveLength(1);
+    expect(article.querySelector('br')).toBeNull();
+  });
+
+  it('keeps single newlines as line breaks when `breaks` is set', () => {
+    render(<MarkdownBody breaks>{'Status: done\nTests: pass'}</MarkdownBody>);
+    const article = screen.getByRole('article');
+
+    expect(article.querySelectorAll('p')).toHaveLength(1);
+    expect(article.querySelectorAll('br')).toHaveLength(1);
+  });
 });

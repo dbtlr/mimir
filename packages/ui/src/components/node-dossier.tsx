@@ -311,35 +311,37 @@ function TransitionLine({ entry }: { entry: WireHistoryEntry }) {
   );
 }
 
-/** A note that clamps to 3 lines, revealing "Show all ⌄" only when it overflows. */
+/** Non-empty source lines — the honest "N lines" however the markdown spaces its blocks. */
+function sourceLineCount(content: string): number {
+  return content.split('\n').filter((line) => line.trim() !== '').length;
+}
+
+/**
+ * A note clamped to 3 lines of height (`3lh` resolves against the article's own
+ * line-height; block children such as code and tables clamp too, which
+ * `line-clamp` cannot do). "Show all · N lines" appears only when the rendered
+ * note really overflows its clamp.
+ */
 function TimelineNote({ content }: { content: string }) {
   const ref = useRef<HTMLElement>(null);
   const [expanded, setExpanded] = useState(false);
-  // Total rendered line count (measured while clamped), so the expand affordance
-  // can carry the handoff-of-record copy "Show all · N lines ⌄" (brief §2).
-  const [lines, setLines] = useState(0);
+  const [overflowing, setOverflowing] = useState(false);
   useLayoutEffect(() => {
     const el = ref.current;
-    if (el === null) {
-      return;
-    }
-    const lh = Number.parseFloat(getComputedStyle(el).lineHeight);
-    if (Number.isFinite(lh) && lh > 0) {
-      setLines(Math.round(el.scrollHeight / lh));
-    } else {
-      // No computed line-height (jsdom): fall back to bare overflow detection.
-      setLines(el.scrollHeight - el.clientHeight > 1 ? 4 : 0);
+    if (el !== null) {
+      // Measured while clamped, so scrollHeight (full content) beats clientHeight.
+      setOverflowing(el.scrollHeight > el.clientHeight + 1);
     }
     // The effect measures the DOM `content` renders, so a new text must re-measure.
     // oxlint-disable-next-line react/exhaustive-effect-dependencies
   }, [content]);
-  const overflowing = lines > 3;
   return (
     <div className="flex flex-col gap-0.5">
       <MarkdownBody
         ref={ref}
+        breaks
         size="compact"
-        className={cn('max-w-none', !expanded && 'line-clamp-3')}
+        className={cn('max-w-none', !expanded && 'max-h-[3lh] overflow-hidden')}
       >
         {content}
       </MarkdownBody>
@@ -349,7 +351,7 @@ function TimelineNote({ content }: { content: string }) {
           onClick={() => setExpanded((e) => !e)}
           className="self-start text-micro text-accent-foreground transition-colors hover:text-accent"
         >
-          {expanded ? 'Show less ⌃' : `Show all · ${String(lines)} lines ⌄`}
+          {expanded ? 'Show less ⌃' : `Show all · ${String(sourceLineCount(content))} lines ⌄`}
         </button>
       )}
     </div>
@@ -698,7 +700,9 @@ function DossierBody({
               {data.description != null && data.description.trim() !== '' && (
                 <section className="flex flex-col gap-1.5">
                   <Microlabel>Description</Microlabel>
-                  <MarkdownBody className="max-w-none">{data.description}</MarkdownBody>
+                  <MarkdownBody breaks className="max-w-none">
+                    {data.description}
+                  </MarkdownBody>
                 </section>
               )}
 

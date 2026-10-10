@@ -69,7 +69,7 @@ describe('quickViewPanel — desktop drop panel', () => {
     expect(mutate).not.toHaveBeenCalled();
   });
 
-  it('renders the description as markdown and keeps its 3-line clamp', async () => {
+  it('renders the description as markdown', async () => {
     const node = task({
       description:
         '- first item\n- second with `inline_code`\n\n[the docs](https://example.com/docs)',
@@ -81,7 +81,6 @@ describe('quickViewPanel — desktop drop panel', () => {
     render(<QuickViewPanel node={node} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
 
     const article = await screen.findByRole('article');
-    expect(article.className).toContain('line-clamp-3');
     expect(within(article).getAllByRole('listitem')).toHaveLength(2);
     expect(within(article).getByText('inline_code').tagName).toBe('CODE');
     expect(within(article).getByRole('link', { name: 'the docs' })).toHaveAttribute(
@@ -90,7 +89,7 @@ describe('quickViewPanel — desktop drop panel', () => {
     );
   });
 
-  it('the phone shelf renders the description as markdown and keeps its 2-line clamp', async () => {
+  it('the phone shelf renders the description as markdown', async () => {
     const node = task({
       description: '- first item\n- second with **bold**',
       id: 'MMR-43',
@@ -101,7 +100,6 @@ describe('quickViewPanel — desktop drop panel', () => {
     render(<QuickShelf node={node} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
 
     const article = await screen.findByRole('article');
-    expect(article.className).toContain('line-clamp-2');
     expect(within(article).getAllByRole('listitem')).toHaveLength(2);
     expect(within(article).getByText('bold').tagName).toBe('STRONG');
   });

@@ -70,9 +70,10 @@ absorbing it as an ever-growing list of refinements.
    black); demotion drops an ink tier instead of opacity (opacity is reserved
    for the offline full-page demotion); machine ground stays dark (source/code
    readouts keep the dark well inside light surfaces — the inversion marks the
-   boundary between UI and record; refined in MMR-445: inline code is coloured text, fenced blocks stay machine ground, see the refinement below); amber text on white uses the darkened
-   family, the bright variant is decoration-only; unvalidated token values are
-   validated on a rendered composite before implementation locks them.
+   boundary between UI and record; inline code is refined below, MMR-445);
+   amber text on white uses the darkened family, the bright variant is
+   decoration-only; unvalidated token values are validated on a rendered
+   composite before implementation locks them.
 
 8. **The motion budget is exhaustive.** Three movers: the in-progress pulse
    dot, the detail panel/sheet slide, and note expand/collapse. Nothing else

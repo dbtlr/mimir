@@ -139,7 +139,9 @@ export function SeedDetail({
             </p>
           )}
           {!editing && description !== '' && (
-            <MarkdownBody className="max-w-none">{description}</MarkdownBody>
+            <MarkdownBody breaks className="max-w-none">
+              {description}
+            </MarkdownBody>
           )}
         </section>
       </div>

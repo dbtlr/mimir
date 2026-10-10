@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { describe, expect, vi } from 'vitest';
+import { afterEach, describe, expect, vi } from 'vitest';
 
 import { NodeDossier } from '../components/node-dossier';
 import { transitionLabel } from '../lib/transitions';
@@ -55,6 +55,13 @@ function mockNode(
     }
     return Promise.reject(new Error(`unexpected ${path}`));
   });
+}
+
+function renderNote(content: string) {
+  mockNode(task({ id: 'MMR-83', status: 'in_progress', title: 'long note' }), [
+    { content, created_at: '2026-06-02T00:00:00.000Z' },
+  ]);
+  render(<NodeDossier nodeId="MMR-83" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
 }
 
 /** Markdown with a list, inline and fenced code, and a link — one body for every surface. */
@@ -571,7 +578,16 @@ describe('nodeDossier', () => {
     expect(markdownFacts(await screen.findByRole('article'))).toEqual(RENDERED_FACTS);
   });
 
-  it('renders a note as markdown inside its clamp', async () => {
+  it('keeps single line breaks in a note', async () => {
+    mockNode(task({ id: 'MMR-84', status: 'in_progress', title: 'broken note' }), [
+      { content: 'Status: done\nTests: pass', created_at: '2026-06-02T00:00:00.000Z' },
+    ]);
+    render(<NodeDossier nodeId="MMR-84" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+
+    expect((await screen.findByRole('article')).querySelectorAll('br')).toHaveLength(1);
+  });
+
+  it('renders a note as markdown', async () => {
     mockNode(task({ id: 'MMR-82', status: 'in_progress', title: 'noted task' }), [
       { content: MARKDOWN_BODY, created_at: '2026-06-02T00:00:00.000Z' },
     ]);
@@ -579,7 +595,53 @@ describe('nodeDossier', () => {
 
     const article = await screen.findByRole('article');
     expect(markdownFacts(article)).toEqual(RENDERED_FACTS);
-    expect(article.className).toContain('line-clamp-3');
+  });
+
+  describe('note clamp toggle', () => {
+    const proto = HTMLElement.prototype;
+    const original = {
+      client: Object.getOwnPropertyDescriptor(proto, 'clientHeight'),
+      scroll: Object.getOwnPropertyDescriptor(proto, 'scrollHeight'),
+    };
+
+    /** jsdom has no layout; stub the two heights the note measures. */
+    function stubHeights(scrollHeight: number, clientHeight: number) {
+      Object.defineProperty(proto, 'scrollHeight', { configurable: true, get: () => scrollHeight });
+      Object.defineProperty(proto, 'clientHeight', { configurable: true, get: () => clientHeight });
+    }
+
+    afterEach(() => {
+      for (const [name, descriptor] of [
+        ['clientHeight', original.client],
+        ['scrollHeight', original.scroll],
+      ] as const) {
+        if (descriptor === undefined) {
+          Reflect.deleteProperty(proto, name);
+        } else {
+          Object.defineProperty(proto, name, descriptor);
+        }
+      }
+    });
+
+    it('offers "Show all" with the source line count when the note overflows, and toggles', async () => {
+      stubHeights(200, 60);
+      // Blank lines and block spacing are not lines: three source lines, three.
+      renderNote('- one\n- two\n\n- three');
+
+      const toggle = await screen.findByRole('button', { name: 'Show all · 3 lines ⌄' });
+      await userEvent.click(toggle);
+      expect(screen.getByRole('button', { name: 'Show less ⌃' })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Show less ⌃' }));
+      expect(screen.getByRole('button', { name: 'Show all · 3 lines ⌄' })).toBeInTheDocument();
+    });
+
+    it('offers no toggle when the note fits its clamp', async () => {
+      stubHeights(60, 60);
+      renderNote('- one\n- two\n- three');
+
+      await screen.findByRole('article');
+      expect(screen.queryByRole('button', { name: /show (all|less)/i })).toBeNull();
+    });
   });
 
   it('move… opens the reparent picker and moves to the chosen parent', async () => {
