@@ -132,7 +132,16 @@ function ScrollingTable({ node: _node, ...props }: ComponentProps<'table'> & { n
   );
 }
 
-const BODY_COMPONENTS = { ...BODY_HEADINGS, table: ScrollingTable };
+/**
+ * An image as a link to it: opening a record never fetches a remote URL, which
+ * would hand the viewer's IP and read time to whoever wrote the image in.
+ */
+function ImageLink({ src, alt }: ComponentProps<'img'>) {
+  return <a href={typeof src === 'string' ? src : undefined}>Image: {alt || 'untitled'}</a>;
+}
+
+const BODY_COMPONENTS = { ...BODY_HEADINGS, img: ImageLink, table: ScrollingTable };
+const DOCUMENT_COMPONENTS = { ...BODY_HEADINGS, table: ScrollingTable };
 
 /**
  * The two text scales a host can ask for. `default` is the reading scale;
@@ -183,12 +192,17 @@ export type MarkdownClamp = 2 | 3;
  * (descriptions, notes, seed bodies) pass it so authored line breaks survive,
  * the way GitHub renders comments; documents (artifacts, direction) leave it
  * off and follow standard markdown, where a single newline joins the line.
+ *
+ * `images` loads markdown images. Without it an image renders as a link to its
+ * URL, so a body written by an agent cannot make the console fetch a remote
+ * address; only the artifact reader opts in.
  */
 export function MarkdownBody({
   children,
   className,
   size = 'default',
   breaks = false,
+  images = false,
   clamp,
   onClampMeasure,
 }: {
@@ -196,6 +210,7 @@ export function MarkdownBody({
   className?: string;
   size?: MarkdownSize;
   breaks?: boolean;
+  images?: boolean;
   clamp?: MarkdownClamp;
   onClampMeasure?: (measure: ClampMeasure) => void;
 }) {
@@ -237,7 +252,7 @@ export function MarkdownBody({
     >
       <ReactMarkdown
         remarkPlugins={breaks ? [remarkGfm, remarkBreaks] : [remarkGfm]}
-        components={BODY_COMPONENTS}
+        components={images ? DOCUMENT_COMPONENTS : BODY_COMPONENTS}
       >
         {children}
       </ReactMarkdown>

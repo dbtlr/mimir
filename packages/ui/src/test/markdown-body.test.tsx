@@ -78,4 +78,22 @@ describe('markdownBody', () => {
     expect(article.querySelectorAll('p')).toHaveLength(1);
     expect(article.querySelectorAll('br')).toHaveLength(1);
   });
+
+  it('renders an image as a link to it, fetching nothing, by default', () => {
+    render(<MarkdownBody>![build graph](https://tracker.example/pixel.png)</MarkdownBody>);
+    const article = screen.getByRole('article');
+
+    expect(article.querySelector('img')).toBeNull();
+    expect(screen.getByRole('link', { name: /build graph/ }).getAttribute('href')).toBe(
+      'https://tracker.example/pixel.png',
+    );
+  });
+
+  it('loads the image when the host opts in with `images`', () => {
+    render(<MarkdownBody images>![build graph](https://example.com/graph.png)</MarkdownBody>);
+
+    expect(screen.getByRole('img', { name: 'build graph' }).getAttribute('src')).toBe(
+      'https://example.com/graph.png',
+    );
+  });
 });
