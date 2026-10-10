@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { describe, expect, vi } from 'vitest';
 
 import { NodeDossier } from '../components/node-dossier';
+import { transitionLabel } from '../lib/transitions';
 import { task } from './fixtures';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
@@ -276,8 +277,8 @@ describe('nodeDossier', () => {
     expect(screen.getAllByText('79 tests · drop-cause facet').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/example\.test\/pr\/41/)).toBeDefined();
     expect(screen.getByRole('button', { name: 'Request changes…' })).toBeDefined();
-    // done/return are inline (Approve/Return), never duplicated as header chips
-    expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
+    // done/return are inline (Approve/Request changes), never duplicated as header chips
+    expect(screen.queryByRole('button', { name: transitionLabel('done') })).toBeNull();
 
     await userEvent.click(screen.getByRole('button', { name: 'Approve' }));
     expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-70/done', undefined);

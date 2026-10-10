@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { WireNode } from '../api/types';
 import { QuickShelf, QuickViewPanel } from '../components/node-quick-view';
+import { transitionLabel } from '../lib/transitions';
 import { task } from './fixtures';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
@@ -207,8 +208,8 @@ describe('quickShelf — mobile shelf', () => {
     render(<QuickShelf node={node} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
     expect(screen.getByText('Approve')).toBeDefined();
     expect(screen.getByText('Request changes…')).toBeDefined();
-    // done/return move out of the generic primary slot, so no bare "Done" button.
-    expect(screen.queryByText('Done')).toBeNull();
+    // done/return move out of the generic primary slot, so no separate "Mark done" button.
+    expect(screen.queryByText(transitionLabel('done'))).toBeNull();
   });
 
   it('the verdict pair Approve runs the done verb', async () => {

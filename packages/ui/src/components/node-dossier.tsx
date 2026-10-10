@@ -239,7 +239,7 @@ export function describeTransition(e: WireHistoryEntry): { label: string; detail
         return { label: 'Blocked' };
       }
       if (e.from === 'parked') {
-        return { label: 'Unparked' };
+        return { label: 'Resumed' };
       }
       if (e.from === 'blocked') {
         return { label: 'Unblocked' };
