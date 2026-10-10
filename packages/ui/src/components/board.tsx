@@ -650,7 +650,7 @@ function boardNode(board: Board, id: string | null): WireNode | undefined {
  * are grouped by band (the shared buildBands model) under inline band headers;
  * swipe left/right pages across the board-status order; the control opens the
  * sheet. A card tap opens the mobile **shelf** (MMR-223/258) — a local
- * selection, not the `?node=` dossier — whose own Dossier ↗ routes through
+ * selection, not a page — whose own Open page ↗ routes through
  * onOpenNode; changing status (swipe or sheet) closes it. No drag-to-reorder
  * here — the surface is swipe-first.
  */

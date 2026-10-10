@@ -9,6 +9,7 @@ import type {
   WireDoctorFacet,
   WireHealth,
   WireNode,
+  WireScratchpadRow,
   WireSeed,
   WireTreeNode,
 } from './types';
@@ -167,6 +168,14 @@ export const nodeQuery = (id: string) =>
   queryOptions({
     queryFn: () => apiGet<WireNode>(`/api/nodes/${encodeURIComponent(id)}`),
     queryKey: ['node', id],
+  });
+
+/** One board's active Scratchpads, each with the work it is anchored to. */
+export const scratchpadsQuery = (key: string) =>
+  queryOptions({
+    queryFn: () =>
+      apiGet<Collection<WireScratchpadRow>>(`/api/scratchpads?project=${encodeURIComponent(key)}`),
+    queryKey: ['scratchpads', key],
   });
 
 /** Drawer: the node's freeform annotations (their own sub-resource). */

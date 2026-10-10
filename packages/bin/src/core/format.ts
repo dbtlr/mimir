@@ -15,10 +15,11 @@ import type {
   UpstreamResolution,
 } from '@mimir/contract';
 
+import { overviewScratchpadOf } from './intent/queries';
 import { seedLane } from './seeds/lane';
 
 /** Map the compact active-Scratchpad projection to its public wire vocabulary. */
-export function overviewScratchpadToWire(scratchpad: OverviewScratchpad): Record<string, unknown> {
+export function overviewScratchpadToWire(scratchpad: OverviewScratchpad) {
   return {
     id: scratchpad.id,
     linked_work: scratchpad.linkedWork,
@@ -28,6 +29,11 @@ export function overviewScratchpadToWire(scratchpad: OverviewScratchpad): Record
     title: scratchpad.title,
     updated_at: scratchpad.updatedAt,
   };
+}
+
+/** A Scratchpad list row on every transport: the Overview's active-Scratchpad row. */
+export function scratchpadRowToWire(scratchpad: Scratchpad) {
+  return overviewScratchpadToWire(overviewScratchpadOf(scratchpad));
 }
 
 /** Map a complete Scratchpad to the public snake-case transport vocabulary. */

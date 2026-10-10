@@ -4,7 +4,6 @@ import type { UIEvent } from 'react';
 
 import { artifactsQuery, projectsQuery } from '../api/queries';
 import type { ArtifactFilters as Filters } from '../api/queries';
-import { projectKeyOf } from '../api/types';
 import { ArtifactFilters } from '../components/artifact-filters';
 import { ArtifactList } from '../components/artifact-list';
 import { ArtifactReader } from '../components/artifact-reader';
@@ -12,6 +11,7 @@ import { OfflineBanner } from '../components/offline-banner';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
+import { nodeLink } from '../lib/record-url';
 import { artifactsRoute } from '../router';
 
 const FILTER_KEYS = ['project', 'tag', 'q', 'atOrAfter', 'atOrBefore'] as const;
@@ -69,12 +69,7 @@ export function ArtifactsPage() {
 
   const back = () => {
     if (search.from !== undefined) {
-      const from = search.from;
-      void navigate({
-        params: { key: projectKeyOf(from) },
-        search: { node: from, view: 'board' },
-        to: '/p/$key',
-      });
+      void navigate(nodeLink(search.from));
     } else {
       void navigate({
         search: (prev) => ({ ...prev, a: undefined, from: undefined }),
@@ -83,12 +78,7 @@ export function ArtifactsPage() {
     }
   };
 
-  const openNode = (nodeId: string) =>
-    void navigate({
-      params: { key: projectKeyOf(nodeId) },
-      search: { node: nodeId, view: 'board' },
-      to: '/p/$key',
-    });
+  const openNode = (nodeId: string) => void navigate(nodeLink(nodeId));
 
   const openProject = (key: string) =>
     void navigate({ params: { key }, search: { view: 'board' }, to: '/p/$key' });

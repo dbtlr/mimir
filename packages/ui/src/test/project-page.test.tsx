@@ -1,17 +1,19 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
 import { router } from '../router';
+import { task } from './fixtures';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend: vi.fn() }));
 
-function renderProject(key: string) {
+function renderProject(key: string, search = '') {
   const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: [`/p/${key}`] }),
+    history: createMemoryHistory({ initialEntries: [`/p/${key}${search}`] }),
     routeTree: router.routeTree,
   });
   render(
@@ -21,6 +23,7 @@ function renderProject(key: string) {
       <RouterProvider router={testRouter} />
     </QueryClientProvider>,
   );
+  return testRouter;
 }
 
 describe('projectPage archived-404 (MMR-230)', () => {
@@ -75,5 +78,30 @@ describe('projectPage direction (MMR-390)', () => {
     expect(screen.getByRole('button', { name: /direction/i })).toBeDefined();
     // The fold is one line — the rest stays in the dialog.
     expect(screen.queryByText(/Then the dossier/)).toBeNull();
+  });
+});
+
+describe('projectPage record links (MMR-449)', () => {
+  it("a tree row opens the task's page", async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path === '/api/projects/MMR/tree') {
+        return Promise.resolve({
+          children: [
+            { ...task({ id: 'MMR-7', status: 'ready', title: 'Leaf task' }), children: [] },
+          ],
+          id: 'MMR',
+          title: 'Mimir',
+          type: 'project',
+        });
+      }
+      if (path === '/api/projects/MMR') {
+        return Promise.resolve({ id: 'MMR', status: 'ready', title: 'Mimir', type: 'project' });
+      }
+      return Promise.resolve({ items: [], total: 0 });
+    });
+    const testRouter = renderProject('MMR', '?view=tree');
+
+    await userEvent.click(await screen.findByText('Leaf task'));
+    expect(testRouter.state.location.pathname).toBe('/p/MMR/7');
   });
 });

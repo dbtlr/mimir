@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { WireSeed } from '../api/types';
 import { router } from '../router';
-import { seed } from './fixtures';
+import { seed, task } from './fixtures';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
@@ -91,6 +91,9 @@ function mockApi() {
     }
     if (path === '/api/seeds/MMR-s1') {
       return Promise.resolve({ ...list[0], description: seedDescription });
+    }
+    if (path === '/api/nodes/MMR-42') {
+      return Promise.resolve(task({ id: 'MMR-42', parent: 'MMR-9', status: 'ready' }));
     }
     if (path === '/api/seeds/MMR-s2') {
       return Promise.resolve({
@@ -225,10 +228,9 @@ describe('seedsPage (13a/14a, MMR-247)', () => {
       });
     });
     expect(apiSend).not.toHaveBeenCalledWith('POST', '/api/nodes', expect.anything());
-    // "& open" routes to the created task's URL-addressable dossier
+    // "& open" routes to the created task's page
     await waitFor(() => {
-      expect(testRouter.state.location.pathname).toBe('/');
-      expect(testRouter.state.location.search).toMatchObject({ node: 'MMR-42' });
+      expect(testRouter.state.location.pathname).toBe('/p/MMR/42');
     });
   });
 

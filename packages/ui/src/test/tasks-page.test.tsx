@@ -293,7 +293,7 @@ describe('tasksPage (17a, MMR-228)', () => {
     expect(headerGroup?.className).not.toContain('max-md:hidden');
   });
 
-  it('a row click opens the dossier via ?node=', async () => {
+  it("a row click opens the task's page", async () => {
     mockApi();
     const testRouter = renderTasks();
     const user = userEvent.setup();
@@ -301,7 +301,7 @@ describe('tasksPage (17a, MMR-228)', () => {
 
     await user.click(screen.getByRole('row', { name: /MMR-10/ }));
     await waitFor(() => {
-      expect(search(testRouter).node).toBe('MMR-10');
+      expect(testRouter.state.location.pathname).toBe('/p/MMR/10');
     });
   });
 

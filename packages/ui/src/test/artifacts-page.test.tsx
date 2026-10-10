@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, vi } from 'vitest';
 
 import type { WireArtifactSummary } from '../api/types';
@@ -17,9 +18,9 @@ const summary = (n: number): WireArtifactSummary => ({
   title: `Artifact ${String(n)}`,
 });
 
-function renderArtifactsPage() {
+function renderArtifactsPage(url = '/artifacts') {
   const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: ['/artifacts'] }),
+    history: createMemoryHistory({ initialEntries: [url] }),
     routeTree: router.routeTree,
   });
   render(
@@ -27,6 +28,25 @@ function renderArtifactsPage() {
       <RouterProvider router={testRouter} />
     </QueryClientProvider>,
   );
+  return testRouter;
+}
+
+/** Serve one artifact, MMR-a8, linked to MMR-140, and empty lists elsewhere. */
+function serveLinkedArtifact() {
+  apiGet.mockImplementation((path: string) => {
+    if (path === '/api/artifacts/MMR-a8') {
+      return Promise.resolve({
+        content: 'Body.',
+        created_at: '2026-06-16T00:00:00.000Z',
+        id: 'MMR-a8',
+        links: [{ id: 'MMR-140', status: 'ready', title: 'Doctor read-surface' }],
+        project: 'MMR',
+        tags: [],
+        title: 'Artifacts browser',
+      });
+    }
+    return Promise.resolve({ items: [], total: 0 });
+  });
 }
 
 describe('artifactsPage', () => {
@@ -84,5 +104,20 @@ describe('artifactsPage', () => {
     // Scrolling near the bottom fetches the next offset window.
     fireEvent.scroll(screen.getByTestId('artifact-scroll'));
     await expect(screen.findByText('Artifact 101')).resolves.toBeDefined();
+  });
+
+  it('returns to the task it was opened from, on its page', async () => {
+    serveLinkedArtifact();
+    const testRouter = renderArtifactsPage('/artifacts?a=MMR-a8&from=MMR-140');
+    await userEvent.click(await screen.findByRole('button', { name: '← back to MMR-140' }));
+    expect(testRouter.state.location.pathname).toBe('/p/MMR/140');
+  });
+
+  it("opens a linked node's page", async () => {
+    serveLinkedArtifact();
+    const testRouter = renderArtifactsPage('/artifacts?a=MMR-a8');
+    const rail = await screen.findByRole('complementary', { name: 'Provenance' });
+    await userEvent.click(await within(rail).findByRole('button', { name: /MMR-140/ }));
+    expect(testRouter.state.location.pathname).toBe('/p/MMR/140');
   });
 });

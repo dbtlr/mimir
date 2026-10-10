@@ -38,7 +38,6 @@ export function OverviewPage() {
   const findingsByKey = findingsByProject(health.data);
   const archivedProjects = archived.data?.items ?? [];
   const conn = connectivity([projects, archived]);
-  const openNode = (id: string) => void navigate({ search: { node: id }, to: '.' });
   const closeNode = () => void navigate({ search: {}, to: '.' });
   const onOpen = (key: string) => void navigate({ params: { key }, to: '/p/$key' });
 
@@ -155,7 +154,7 @@ export function OverviewPage() {
         <ArchivedShelf projects={archivedProjects} offline={conn.offline} />
       </main>
       <NewProjectSheet open={creating} onOpenChange={setCreating} />
-      <NodeDossier nodeId={node} onClose={closeNode} onOpenNode={openNode} offline={conn.offline} />
+      <NodeDossier nodeId={node} onClose={closeNode} offline={conn.offline} />
     </>
   );
 }

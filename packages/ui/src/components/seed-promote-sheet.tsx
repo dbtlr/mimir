@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { seedQuery } from '../api/queries';
 import type { WireSeed } from '../api/types';
+import { nodeLink } from '../lib/record-url';
 import { AuthoringSheet } from './authoring-sheet';
 import { SeedKindChip } from './seed-kind-chip';
 
@@ -57,7 +58,7 @@ export function SeedPromoteSheet({
       onOpenChange={onOpenChange}
       projectKey={seed.project}
       offline={offline}
-      onOpenNode={(id) => void navigate({ search: { node: id }, to: '/' })}
+      onOpenNode={(id) => void navigate(nodeLink(id))}
       prefill={{
         description: body?.description ?? seed.description ?? undefined,
         title: body?.title ?? seed.title,

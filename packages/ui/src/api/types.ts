@@ -202,6 +202,17 @@ export type WireTreeNode = {
   children: WireTreeNode[];
 } & Omit<WireNode, 'children'>;
 
+/** An active Scratchpad row (`GET /api/scratchpads`) — the work it is anchored to rides along. */
+export type WireScratchpadRow = {
+  id: string;
+  project: string;
+  title: string;
+  linked_work: string[];
+  open_agenda: number;
+  state: 'active' | 'freezing';
+  updated_at: string;
+};
+
 /** The collection envelope with its count (ADR 0012 — never a bare array). */
 export type Collection<T> = {
   total: number;

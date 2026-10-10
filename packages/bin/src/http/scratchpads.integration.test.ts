@@ -199,6 +199,31 @@ describe('/api/scratchpads', () => {
     expect((await parse(unknown)).error).toMatchObject({ code: 'validation' });
   });
 
+  test('list rows carry linked work, matching the Overview row', async () => {
+    const receipt = await parse(
+      await send('POST', '/api/scratchpads', {
+        linked_work: [linkedWork],
+        project: 'MMR',
+        title: 'Linked episode',
+      }),
+    );
+    const list = await parse(await fetch(`${base}/api/scratchpads?project=MMR`));
+    expect(list).toEqual({
+      items: [
+        {
+          id: receipt.id,
+          linked_work: [linkedWork],
+          open_agenda: 0,
+          project: 'MMR',
+          state: 'active',
+          title: 'Linked episode',
+          updated_at: receipt.updated_at,
+        },
+      ],
+      total: 1,
+    });
+  });
+
   test('preserves linked work when PATCH updates only the title', async () => {
     const created = await parse(
       await send('POST', '/api/scratchpads', {

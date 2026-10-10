@@ -104,12 +104,12 @@ describe('quickViewPanel — desktop drop panel', () => {
     expect(within(article).getByText('bold').tagName).toBe('STRONG');
   });
 
-  it('the Full dossier link routes via onOpenNode', async () => {
+  it('the Open page link routes via onOpenNode', async () => {
     const onOpenNode = vi.fn();
     const node = task({ id: 'MMR-32', status: 'ready', title: 'preview me' });
     mockDetail(node);
     render(<QuickViewPanel node={node} onClose={vi.fn()} onOpenNode={onOpenNode} />, { wrapper });
-    await userEvent.click(screen.getByText('Full dossier ↗'));
+    await userEvent.click(screen.getByText('Open page ↗'));
     expect(onOpenNode).toHaveBeenCalledWith('MMR-32');
   });
 
@@ -296,12 +296,12 @@ describe('quickShelf — mobile shelf', () => {
     expect(mutate).not.toHaveBeenCalled();
   });
 
-  it('the Dossier ↗ button routes via onOpenNode', async () => {
+  it('the Open page button routes via onOpenNode', async () => {
     const onOpenNode = vi.fn();
     const node = task({ id: 'MMR-10', status: 'ready', title: 'go' });
     mockDetail(node);
     render(<QuickShelf node={node} onClose={vi.fn()} onOpenNode={onOpenNode} />, { wrapper });
-    await userEvent.click(screen.getByText('Dossier ↗'));
+    await userEvent.click(screen.getByText('Open page ↗'));
     expect(onOpenNode).toHaveBeenCalledWith('MMR-10');
   });
 

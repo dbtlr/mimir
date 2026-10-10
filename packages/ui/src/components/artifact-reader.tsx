@@ -69,7 +69,7 @@ export function ArtifactReader({
             onClick={onBack}
             className="rounded text-tag text-accent-foreground transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-accent"
           >
-            {fromNode === undefined ? '← Artifacts' : `← back to board · ${fromNode}`}
+            {fromNode === undefined ? '← Artifacts' : `← back to ${fromNode}`}
           </button>
           {data !== undefined && (
             <span className="ml-auto font-mono text-micro tracking-[0.1em] text-ink-faint">

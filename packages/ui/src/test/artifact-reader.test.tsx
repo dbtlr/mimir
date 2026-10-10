@@ -84,7 +84,7 @@ describe('artifactReader', () => {
         onOpenProject={vi.fn()}
       />,
     );
-    expect(screen.getByRole('button', { name: '← back to board · MMR-140' })).toBeDefined();
+    expect(screen.getByRole('button', { name: '← back to MMR-140' })).toBeDefined();
   });
 
   it('a rail link opens its node; the project row opens the project', async () => {
