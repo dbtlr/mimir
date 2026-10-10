@@ -25,7 +25,7 @@
     "test:sandbox": "bun run build && MIMIR_SANDBOX_LIFECYCLE_TEST=1 bun test packages/sandbox/src/workflow.integration.test.ts packages/sandbox/src/installer.integration.test.ts"
   },
   "dependencies": {
-    "vite": "^8.3.2"
+    "vite": "^8.3.3"
   },
   "devDependencies": {
     "@dbtlr/tooling": "0.6.0",
