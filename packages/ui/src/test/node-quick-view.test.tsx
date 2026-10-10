@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { WireNode } from '../api/types';
 import { QuickShelf, QuickViewPanel } from '../components/node-quick-view';
+import { transitionLabel } from '../lib/transitions';
 import { task } from './fixtures';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
@@ -58,12 +59,12 @@ describe('quickViewPanel — desktop drop panel', () => {
     expect(mutate).toHaveBeenCalledWith({ verb: 'done' });
   });
 
-  it('clicking Return… opens the reason dialog rather than mutating immediately', async () => {
+  it('clicking Request changes… opens the reason dialog rather than mutating immediately', async () => {
     mutate.mockClear();
     const node = task({ id: 'MMR-31', status: 'under_review', title: 'sign off' });
     mockDetail(node);
     render(<QuickViewPanel node={node} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
-    await userEvent.click(screen.getByText('Return…'));
+    await userEvent.click(screen.getByText('Request changes…'));
     expect(screen.getByPlaceholderText(/context for the next agent/i)).toBeDefined();
     expect(mutate).not.toHaveBeenCalled();
   });
@@ -206,9 +207,9 @@ describe('quickShelf — mobile shelf', () => {
     mockDetail(node);
     render(<QuickShelf node={node} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
     expect(screen.getByText('Approve')).toBeDefined();
-    expect(screen.getByText('Return…')).toBeDefined();
-    // done/return move out of the generic primary slot, so no bare "Done" button.
-    expect(screen.queryByText('Done')).toBeNull();
+    expect(screen.getByText('Request changes…')).toBeDefined();
+    // done/return move out of the generic primary slot, so no separate "Mark done" button.
+    expect(screen.queryByText(transitionLabel('done'))).toBeNull();
   });
 
   it('the verdict pair Approve runs the done verb', async () => {
@@ -220,23 +221,23 @@ describe('quickShelf — mobile shelf', () => {
     expect(mutate).toHaveBeenCalledWith({ verb: 'done' });
   });
 
-  it('the verdict pair Return… opens the reason dialog rather than mutating immediately', async () => {
+  it('the verdict pair Request changes… opens the reason dialog rather than mutating immediately', async () => {
     mutate.mockClear();
     const node = task({ id: 'MMR-15', status: 'under_review', title: 'sign off' });
     mockDetail(node);
     render(<QuickShelf node={node} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
-    await userEvent.click(screen.getByText('Return…'));
+    await userEvent.click(screen.getByText('Request changes…'));
     expect(screen.getByPlaceholderText(/context for the next agent/i)).toBeDefined();
     expect(mutate).not.toHaveBeenCalled();
   });
 
-  it('the remaining verbs (park/block/abandon) still surface under Verbs… for under_review', async () => {
+  it('the remaining verbs (park/block/abandon) still surface under More actions… for under_review', async () => {
     const node = task({ id: 'MMR-16', status: 'under_review', title: 'sign off' });
     mockDetail(node);
     render(<QuickShelf node={node} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
-    await userEvent.click(screen.getByText('Verbs…'));
-    await expect(screen.findByText('Park')).resolves.toBeDefined();
-    expect(screen.getByText('Block')).toBeDefined();
+    await userEvent.click(screen.getByText('More actions…'));
+    await expect(screen.findByText('Park for later')).resolves.toBeDefined();
+    expect(screen.getByText('Mark blocked')).toBeDefined();
     expect(screen.getByText('Abandon')).toBeDefined();
   });
 
@@ -245,16 +246,16 @@ describe('quickShelf — mobile shelf', () => {
     mockDetail(node);
     render(<QuickShelf node={node} onClose={vi.fn()} onOpenNode={vi.fn()} offline />, { wrapper });
     expect(screen.getByText('Approve')).toHaveProperty('disabled', true);
-    expect(screen.getByText('Return…')).toHaveProperty('disabled', true);
+    expect(screen.getByText('Request changes…')).toHaveProperty('disabled', true);
   });
 
-  it('the Verbs… menu surfaces the remaining transitions (park needs a reason)', async () => {
+  it('the More actions… menu surfaces the remaining transitions (park needs a reason)', async () => {
     mutate.mockClear();
     const node = task({ id: 'MMR-9', status: 'ready', title: 'go' });
     mockDetail(node);
     render(<QuickShelf node={node} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
-    await userEvent.click(screen.getByText('Verbs…'));
-    await userEvent.click(await screen.findByText('Park'));
+    await userEvent.click(screen.getByText('More actions…'));
+    await userEvent.click(await screen.findByText('Park for later'));
     // Park carries a reason → the dialog opens instead of an immediate mutate.
     expect(screen.getByPlaceholderText(/context for the next agent/i)).toBeDefined();
     expect(mutate).not.toHaveBeenCalled();
@@ -286,6 +287,6 @@ describe('quickShelf — mobile shelf', () => {
     mockDetail(node);
     render(<QuickShelf node={node} onClose={vi.fn()} onOpenNode={vi.fn()} offline />, { wrapper });
     expect(screen.getByText('Start')).toHaveProperty('disabled', true);
-    expect(screen.getByText('Verbs…')).toHaveProperty('disabled', true);
+    expect(screen.getByText('More actions…')).toHaveProperty('disabled', true);
   });
 });

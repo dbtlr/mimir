@@ -6,6 +6,7 @@ import { useTransition } from '../api/mutations';
 import type { WireTreeNode } from '../api/types';
 import { cn } from '../lib/cn';
 import { STATUS_META } from '../lib/status';
+import { transitionLabel } from '../lib/transitions';
 import { DistributionBar } from './distribution-bar';
 import { ReasonDialog } from './reason-dialog';
 import { StatusDot } from './status-dot';
@@ -389,7 +390,7 @@ function LeafRow({
 
 /**
  * An under-review leaf row: the faint violet wash plus inline Approve (`done`)
- * / Return… (`return`, via the shared reason dialog), still showing the trailing
+ * / Request changes… (`return`, via the shared reason dialog), still showing the trailing
  * UNDER REVIEW word. The title cluster and the trailing status-word region are
  * each their own open target, so every part of the row outside the two verdict
  * buttons fires `onOpenNode`.
@@ -441,7 +442,7 @@ function UnderReviewLeafRow({
           }}
           className="rounded-md px-3 py-[3px] text-[11px] text-ink-dim"
         >
-          Return…
+          {transitionLabel('return')}…
         </ActionButton>
       </div>
       <button

@@ -7,7 +7,7 @@ import { annotationsQuery, nodeQuery } from '../api/queries';
 import type { WireAnnotation, WireHistoryEntry, WireNode } from '../api/types';
 import { cn } from '../lib/cn';
 import { ago, relativeTime } from '../lib/time';
-import { availableTransitions } from '../lib/transitions';
+import { availableTransitions, transitionLabel } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
 import { verdictSummary } from '../lib/verdict';
 import { describeTransition } from './node-dossier';
@@ -164,7 +164,7 @@ function VerdictBlock({
             setReturning(true);
           }}
         >
-          Return…
+          {transitionLabel('return')}…
         </ActionButton>
         <ReasonDialog
           verb={returning ? 'return' : null}
@@ -422,11 +422,11 @@ function useVerbRunner(id: string) {
 /**
  * The mobile shelf (6c). A fixed bottom sheet: drag handle, id + status pill +
  * close, title, 2-line description, and ≥44px actions — the primary verb, a
- * "Verbs…" menu for the rest, and "Dossier ↗". Under review swaps the primary
- * slot for the same **Approve** / **Return…** verdict pair the desktop drop
- * panel shows (MMR-258): Approve fires `done` directly, Return… opens the
+ * "More actions…" menu for the rest, and "Dossier ↗". Under review swaps the primary
+ * slot for the same **Approve** / **Request changes…** verdict pair the desktop drop
+ * panel shows (MMR-258): Approve fires `done` directly, Request changes… opens the
  * reason dialog for `return`; the remaining verbs (park/block/abandon) still
- * land under "Verbs…". The handle is decorative (no drag-to-dismiss in this
+ * land under "More actions…". The handle is decorative (no drag-to-dismiss in this
  * scope); ✕ closes. 180ms ease-out slide-up.
  */
 export function QuickShelf({
@@ -474,7 +474,7 @@ export function QuickShelf({
   const verbs = availableTransitions(node.status);
   const isUnderReview = node.status === 'under_review';
   // Under review, done/return move out of the generic primary slot into the
-  // Approve/Return verdict pair below; everything else still falls to Verbs….
+  // Approve/Return verdict pair below; everything else still falls to More actions….
   const primary = isUnderReview ? undefined : verbs[0];
   const rest = isUnderReview
     ? verbs.filter((v) => v.verb !== 'done' && v.verb !== 'return')
@@ -545,7 +545,7 @@ export function QuickShelf({
                 run(returnVerb);
               }}
             >
-              Return…
+              {transitionLabel('return')}…
             </ActionButton>
           )}
         </div>
@@ -569,7 +569,7 @@ export function QuickShelf({
               disabled={offline}
               className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg px-3 py-1.5 text-body font-semibold whitespace-nowrap text-ink transition-colors inset-ring inset-ring-line-bright hover:bg-line/50 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40"
             >
-              Verbs…
+              More actions…
             </MenuTrigger>
             <MenuContent>
               <MenuLabel>Transition</MenuLabel>

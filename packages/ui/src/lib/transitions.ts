@@ -22,16 +22,21 @@ export type VerbSpec = {
 
 const LABEL: Record<TransitionVerb, string> = {
   abandon: 'Abandon',
-  block: 'Block',
-  done: 'Done',
-  park: 'Park',
+  block: 'Mark blocked',
+  done: 'Mark done',
+  park: 'Park for later',
   reopen: 'Reopen',
   return: 'Request changes',
   start: 'Start',
   submit: 'Submit for review',
   unblock: 'Unblock',
-  unpark: 'Unpark',
+  unpark: 'Resume',
 };
+
+/** The plain-language label for a transition — the one source for every console surface. */
+export function transitionLabel(verb: TransitionVerb): string {
+  return LABEL[verb];
+}
 
 const NEEDS_REASON = new Set<TransitionVerb>(['park', 'block', 'abandon', 'return', 'reopen']);
 
@@ -55,7 +60,7 @@ const VERBS: Partial<Record<StatusWord, TransitionVerb[]>> = {
 
 export function availableTransitions(status: StatusWord): VerbSpec[] {
   return (VERBS[status] ?? []).map((verb) => ({
-    label: LABEL[verb],
+    label: transitionLabel(verb),
     needsReason: NEEDS_REASON.has(verb),
     verb,
   }));

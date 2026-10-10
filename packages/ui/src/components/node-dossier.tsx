@@ -11,7 +11,7 @@ import type { WireAnnotation, WireDeps, WireHistoryEntry, WireNode } from '../ap
 import { cn } from '../lib/cn';
 import type { TaskFormValues } from '../lib/schemas';
 import { absoluteTime, ago } from '../lib/time';
-import { availableTransitions } from '../lib/transitions';
+import { availableTransitions, transitionLabel } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
 import { verdictSummary } from '../lib/verdict';
 import { AnnotationComposer } from './annotation-composer';
@@ -239,7 +239,7 @@ export function describeTransition(e: WireHistoryEntry): { label: string; detail
         return { label: 'Blocked' };
       }
       if (e.from === 'parked') {
-        return { label: 'Unparked' };
+        return { label: 'Resumed' };
       }
       if (e.from === 'blocked') {
         return { label: 'Unblocked' };
@@ -490,7 +490,7 @@ function VerdictBlock({
             disabled={offline}
             onClick={() => onVerb(returnSpec)}
           >
-            Return with notes…
+            {transitionLabel('return')}…
           </ActionButton>
         )}
       </div>

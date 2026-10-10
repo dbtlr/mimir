@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { describe, expect, vi } from 'vitest';
 
 import { NodeDossier } from '../components/node-dossier';
+import { transitionLabel } from '../lib/transitions';
 import { task } from './fixtures';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
@@ -229,7 +230,7 @@ describe('nodeDossier', () => {
     mockNode(task({ id: 'MMR-51', status: 'ready', title: 'Chunk 2' }));
     render(<NodeDossier nodeId="MMR-51" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Park…' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Park for later…' }));
     await userEvent.type(await screen.findByRole('textbox'), 'later');
     await userEvent.click(screen.getByRole('button', { name: /confirm/i }));
     expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-51/park', { reason: 'later' });
@@ -275,9 +276,9 @@ describe('nodeDossier', () => {
     await screen.findByRole('button', { name: 'Approve' });
     expect(screen.getAllByText('79 tests · drop-cause facet').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/example\.test\/pr\/41/)).toBeDefined();
-    expect(screen.getByRole('button', { name: 'Return with notes…' })).toBeDefined();
-    // done/return are inline (Approve/Return), never duplicated as header chips
-    expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Request changes…' })).toBeDefined();
+    // done/return are inline (Approve/Request changes), never duplicated as header chips
+    expect(screen.queryByRole('button', { name: transitionLabel('done') })).toBeNull();
 
     await userEvent.click(screen.getByRole('button', { name: 'Approve' }));
     expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-70/done', undefined);

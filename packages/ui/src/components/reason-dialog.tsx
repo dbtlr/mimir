@@ -1,7 +1,7 @@
 import { Dialog } from '@base-ui-components/react/dialog';
 import { useState } from 'react';
 
-import { cn } from '../lib/cn';
+import { transitionLabel } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
 import { ActionButton } from './ui/action-button';
 
@@ -14,7 +14,7 @@ import { ActionButton } from './ui/action-button';
  *  - required (the seed queue's reject/resolve): confirm stays disabled
  *    until the reason is non-empty — the reason doubles as the
  *    server-mandated triage record (400 otherwise).
- * `verb` drives the default (capitalized) title for the node lens; `title`
+ * `verb` drives the default title (the action's plain label) for the node lens; `title`
  * overrides it for callers with their own heading, like the seed dialogs.
  */
 export function ReasonDialog({
@@ -49,13 +49,8 @@ export function ReasonDialog({
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-50 bg-well-950/70 backdrop-blur-[2px]" />
         <Dialog.Popup className="fixed top-1/2 left-1/2 z-50 flex w-[min(92vw,380px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 rounded-lg border border-line bg-well-900 p-4 shadow-2xl outline-none">
-          <Dialog.Title
-            className={cn(
-              'text-sm font-semibold text-ink-bright',
-              title === undefined && 'capitalize',
-            )}
-          >
-            {title ?? verb}
+          <Dialog.Title className="text-sm font-semibold text-ink-bright">
+            {title ?? (verb === null ? '' : transitionLabel(verb))}
           </Dialog.Title>
           <textarea
             autoFocus

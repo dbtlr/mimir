@@ -13,6 +13,17 @@ describe('reasonDialog', () => {
     expect(onConfirm).toHaveBeenCalledWith('waiting on review');
   });
 
+  it('titles the dialog with the action label, not the raw transition id', async () => {
+    render(<ReasonDialog verb="park" open onClose={vi.fn()} onConfirm={vi.fn()} />);
+    await expect(screen.findByRole('heading', { name: 'Park for later' })).resolves.toBeDefined();
+    expect(screen.queryByText('park')).toBeNull();
+  });
+
+  it('an explicit title wins over the verb label', async () => {
+    render(<ReasonDialog title="Reject seed" open onClose={vi.fn()} onConfirm={vi.fn()} />);
+    await expect(screen.findByRole('heading', { name: 'Reject seed' })).resolves.toBeDefined();
+  });
+
   it('confirms with empty reason when none typed (optional)', async () => {
     const onConfirm = vi.fn();
     render(<ReasonDialog verb="abandon" open onClose={vi.fn()} onConfirm={onConfirm} />);
