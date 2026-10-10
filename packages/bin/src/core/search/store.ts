@@ -11,8 +11,10 @@ import type { SearchHit, SearchLink } from '@mimir/contract';
 export type SearchRecord = Omit<SearchHit, 'match' | 'link' | 'snippet'>;
 
 /**
- * A text search. `terms` are the query's lowercased whitespace-separated
- * tokens, matched against titles; `words` are its lowercased ASCII
+ * A text search. Matching folds case with the database's own `lower()`, which
+ * on SQLite folds ASCII letters only: there a title's non-ASCII capitals (`É`)
+ * match only a query typed the same way. `terms` are the query's lowercased
+ * whitespace-separated tokens, matched against titles; `words` are its lowercased ASCII
  * alphanumeric runs, matched as whole words against descriptions (an
  * artifact's summary). `project` is ranked first when given.
  */

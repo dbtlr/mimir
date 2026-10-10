@@ -1,6 +1,6 @@
 import type { SearchHit, SetResult } from '@mimir/contract';
 
-import { validation } from '../errors';
+import { projectNotFound, validation } from '../errors';
 import { markdownToPlainText } from '../seeds/lede';
 import type { Store } from '../store';
 import type { SearchStore, SuffixClass, TextHit } from './store';
@@ -36,6 +36,9 @@ const FULL_ID = /^([a-z]{2,4})-([as]?)(\d+)$/i;
 const BARE_KEY = /^[a-z]{2,4}$/i;
 const BARE_SUFFIX = /^([as]?)(\d+)$/i;
 
+/** The largest sequence a store holds (a 32-bit `integer` column on Postgres). */
+const MAX_SEQ = 2_147_483_647;
+
 const SUFFIX_CLASS: Record<string, SuffixClass> = { '': 'node', a: 'artifact', s: 'seed' };
 
 export async function searchRecords(
@@ -49,6 +52,12 @@ export async function searchRecords(
   const limit = opts.limit ?? DEFAULT_SEARCH_LIMIT;
   if (!Number.isInteger(limit) || limit < 1 || limit > MAX_SEARCH_LIMIT) {
     throw validation(`limit must be a whole number from 1 to ${String(MAX_SEARCH_LIMIT)}`);
+  }
+  if (
+    opts.project !== undefined &&
+    !(await store.loadProjects()).some((project) => project.key === opts.project)
+  ) {
+    throw projectNotFound(opts.project);
   }
   const byId = await idHits(store.search, query, opts.project);
   if (byId !== undefined) {
@@ -77,6 +86,9 @@ async function idHits(
     return undefined;
   }
   const [, prefix = '', seq = ''] = bare;
+  if (Number(seq) > MAX_SEQ) {
+    return undefined;
+  }
   if (project !== undefined) {
     return withLinks(search, renderSuffix(project, prefix, seq));
   }
@@ -123,11 +135,19 @@ async function textHits(
   project: string | undefined,
   limit: number,
 ): Promise<SetResult<SearchHit>> {
-  const lowered = query.toLowerCase();
-  const words = lowered.match(/[a-z0-9]+/g) ?? [];
+  const terms = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((term) => term !== '');
+  // Description words are ASCII alphanumeric runs. A term holding any other
+  // letter is left out whole: `résumé` split into `r` and `sum` would find
+  // descriptions it never named.
+  const words = terms
+    .filter((term) => /^[ -~]+$/.test(term))
+    .flatMap((term) => term.match(/[a-z0-9]+/g) ?? []);
   const result = await search.text({
     limit,
-    terms: lowered.split(/\s+/).filter((term) => term !== ''),
+    terms,
     words,
     ...(project === undefined ? {} : { project }),
   });
@@ -145,7 +165,8 @@ function toTextHit(hit: TextHit, words: readonly string[]): SearchHit {
 
 /**
  * Plain text around the first matched word, at most about twice
- * {@link SNIPPET_RADIUS} characters, cut between words and marked by an ellipsis. The
+ * {@link SNIPPET_RADIUS} characters, cut between words where a space allows and
+ * marked by an ellipsis. The
  * markup is stripped first, so a word the database found inside markup (a link
  * target, a code block) may not appear: the snippet then starts the text.
  */

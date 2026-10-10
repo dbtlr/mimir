@@ -200,9 +200,28 @@ for (const backend of backends) {
         for (let n = 1; n <= 7; n++) {
           await createInitiative(store, { projectId: 'MMR', title: `Extra ${String(n)}` });
         }
+        // The oldest child is the one left out.
+        await store.transact(async (w) => {
+          await w.updateNode('MMR-1', { updated_at: '2000-01-01T00:00:00.000Z' });
+        });
         const result = await searchRecords(store, { query: 'MMR' });
         expect(result.items[0]?.id).toBe('MMR');
         expect(result.items).toHaveLength(9);
+        expect(ids(result)).not.toContain('MMR-1');
+      });
+
+      test('a number too large for a sequence falls back to text search', async () => {
+        for (const query of ['3000000000', 'a3000000000', '99999999999999999999']) {
+          const result = await searchRecords(store, { query });
+          expect(result.items.filter((hit) => hit.match === 'id')).toEqual([]);
+        }
+      });
+
+      test('an unknown current project is refused', async () => {
+        const error = await searchRecords(store, { project: 'NOPE', query: '1' }).catch(
+          (e: unknown) => e,
+        );
+        expect((error as MimirError).code).toBe('not_found');
       });
 
       test('a bare suffix resolves in the current project', async () => {
@@ -297,6 +316,16 @@ for (const backend of backends) {
         expect(ids(result)).toEqual(['MMR-10', 'MMR-7']);
         expect(result.returned).toBe(2);
         expect(result.total).toBe(5);
+      });
+
+      test('a word with non-ASCII letters is not split into ASCII fragments', async () => {
+        await createTask(store, {
+          description: 'The sum of r values.',
+          parentId: 'MMR-5',
+          title: 'Totals',
+        });
+        const result = await searchRecords(store, { query: 'résumé' });
+        expect(result.items.filter((hit) => hit.match === 'description')).toEqual([]);
       });
 
       test('LIKE wildcards in a query match only themselves', async () => {

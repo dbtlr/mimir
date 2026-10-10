@@ -253,6 +253,8 @@ describe('MCP search', () => {
           ((await client.callTool({ arguments: args, name: 'search' })) as ToolCall).content[0]
             ?.text ?? '',
         ).results.map((hit) => hit.id);
+      // Bound to MMR, the bare suffix resolves there alone.
+      expect((await ids({ query: '2' }))[0]).toBe('MMR-2');
       expect(await ids({ query: '2' })).not.toContain('NOR-2');
       expect((await ids({ query: '2', scope: 'all' })).toSorted()).toEqual(['MMR-2', 'NOR-2']);
     } finally {
