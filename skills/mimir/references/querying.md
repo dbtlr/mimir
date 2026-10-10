@@ -169,7 +169,9 @@ ID query returns the record plus its parent, children, dependencies, artifacts,
 and seed links, each labelled. Use `list -q` to filter a known task queue by
 title; it does not read descriptions or other record types. Each hit's `match`
 says how it was found (`id`, `title`, `description`, or `link`), and description
-hits carry a `snippet`. A quote or several words are one query.
+hits carry a `snippet`. A quote or several words are one query. When no title
+or description matches the words, an abbreviation such as `srch` still finds
+titles that hold its letters in order.
 
 ## 8. Reporting and scripting
 

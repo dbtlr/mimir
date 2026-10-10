@@ -15,8 +15,9 @@ import type { SearchStore, SuffixClass, TextHit } from './store';
  * to {@link LINK_CAP} records linked to it, newest first. With no current
  * project, a bare suffix lists every active project's record with that suffix.
  * An ID-like query that names nothing falls back to text search: titles that
- * contain every term, then titles that hold every term as a subsequence, then
- * descriptions that hold every word as a whole word.
+ * contain every term, then descriptions that hold every word as a whole word.
+ * When neither finds anything, titles that hold every term as a subsequence
+ * are the fuzzy fallback, so an abbreviation or a typo still finds its record.
  */
 
 export const DEFAULT_SEARCH_LIMIT = 20;
@@ -144,7 +145,7 @@ function toTextHit(hit: TextHit, words: readonly string[]): SearchHit {
 
 /**
  * Plain text around the first matched word, at most about twice
- * {@link SNIPPET_RADIUS} characters, with an ellipsis where it was cut. The
+ * {@link SNIPPET_RADIUS} characters, cut between words and marked by an ellipsis. The
  * markup is stripped first, so a word the database found inside markup (a link
  * target, a code block) may not appear: the snippet then starts the text.
  */
@@ -156,8 +157,17 @@ export function snippet(description: string, words: readonly string[]): string {
     .map((match) => match.index + match[0].indexOf(match[1] ?? ''))
     .reduce((first, index) => Math.min(first, index), Number.POSITIVE_INFINITY);
   const centre = Number.isFinite(at) ? at : 0;
-  const start = Math.max(0, centre - SNIPPET_RADIUS);
-  const end = Math.min(text.length, centre + SNIPPET_RADIUS);
+  // Each cut moves inward to the nearest space, so no word is shown in part.
+  let start = Math.max(0, centre - SNIPPET_RADIUS);
+  if (start > 0 && text[start - 1] !== ' ') {
+    const space = text.indexOf(' ', start);
+    start = space === -1 || space >= centre ? centre : space + 1;
+  }
+  let end = Math.min(text.length, centre + SNIPPET_RADIUS);
+  if (end < text.length && text[end] !== ' ') {
+    const space = text.lastIndexOf(' ', end);
+    end = space > centre ? space : end;
+  }
   return `${start > 0 ? '…' : ''}${text.slice(start, end).trim()}${end < text.length ? '…' : ''}`;
 }
 

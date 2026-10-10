@@ -246,29 +246,44 @@ function titleLike(eb: CatalogBuilder, pattern: string) {
   return sql<SqlBool>`lower(${eb.ref('title')}) like ${pattern} escape '!'`;
 }
 
-function tierOf(eb: CatalogBuilder, query: TextSearch, dialect: StoreDialect) {
-  let tier = eb
+/**
+ * The two passes of a text search. The precise pass finds titles holding every
+ * term (tier 1) and descriptions holding every word whole (tier 3); the fuzzy
+ * pass finds titles holding every term as a subsequence (tier 2) and runs only
+ * when the precise pass finds nothing. Over long titles a subsequence matches
+ * far more than it means, so it never outranks a precise hit.
+ */
+type Pass = 'precise' | 'fuzzy';
+
+function tierOf(eb: CatalogBuilder, query: TextSearch, dialect: StoreDialect, pass: Pass) {
+  if (pass === 'fuzzy') {
+    return eb
+      .case()
+      .when(eb.and(query.terms.map((term) => titleLike(eb, subsequencePattern(term)))))
+      .then(eb.lit<MatchTier>(2))
+      .end();
+  }
+  const tier = eb
     .case()
     .when(eb.and(query.terms.map((term) => titleLike(eb, `%${escapeLike(term)}%`))))
-    .then(eb.lit<MatchTier>(1))
-    .when(eb.and(query.terms.map((term) => titleLike(eb, subsequencePattern(term)))))
-    .then(eb.lit<MatchTier>(2));
-  if (query.words.length > 0) {
-    tier = tier
-      .when(eb.and(query.words.map((word) => dialect.wholeWord(eb.ref('description'), word))))
-      .then(eb.lit<MatchTier>(3));
+    .then(eb.lit<MatchTier>(1));
+  if (query.words.length === 0) {
+    return tier.end();
   }
-  return tier.end();
+  return tier
+    .when(eb.and(query.words.map((word) => dialect.wholeWord(eb.ref('description'), word))))
+    .then(eb.lit<MatchTier>(3))
+    .end();
 }
 
 export function createSqlSearchStore(db: Executor, dialect: StoreDialect): SearchStore {
-  const text: SearchStore['text'] = async (query) => {
-    let ranked = catalog(db, dialect)
+  const ranked = async (query: TextSearch, pass: Pass) => {
+    let hits = catalog(db, dialect)
       .with('ranked', (cte) =>
         cte
           .selectFrom('catalog')
           .selectAll()
-          .select((eb) => tierOf(eb, query, dialect).as('tier')),
+          .select((eb) => tierOf(eb, query, dialect, pass).as('tier')),
       )
       .selectFrom('ranked')
       .where('tier', 'is not', null)
@@ -281,11 +296,11 @@ export function createSqlSearchStore(db: Executor, dialect: StoreDialect): Searc
       .orderBy('tier');
     if (query.project !== undefined) {
       const project = query.project;
-      ranked = ranked.orderBy((eb) =>
+      hits = hits.orderBy((eb) =>
         eb.case().when('project', '=', project).then(eb.lit(0)).else(eb.lit(1)).end(),
       );
     }
-    const rows = await ranked
+    const rows = await hits
       .orderBy('finished')
       .orderBy('updated_at', 'desc')
       .orderBy('id')
@@ -297,6 +312,11 @@ export function createSqlSearchStore(db: Executor, dialect: StoreDialect): Searc
       tier: toTier(row.tier),
     }));
     return { items, total: Number(rows[0]?.total ?? 0) };
+  };
+
+  const text: SearchStore['text'] = async (query) => {
+    const precise = await ranked(query, 'precise');
+    return precise.total > 0 ? precise : ranked(query, 'fuzzy');
   };
 
   const records: SearchStore['records'] = async (ids) => {

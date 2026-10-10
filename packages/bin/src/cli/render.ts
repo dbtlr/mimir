@@ -988,16 +988,22 @@ export function renderArtifacts(
   }
 }
 
-/** One search hit row: id · kind · title · how it matched — a link hit names its
+/** How a search hit matched, as its row shows it: a link hit's relation, else the match. */
+const searchMarker = (h: SearchHit): string =>
+  h.match === 'link' && h.link !== undefined ? h.link : h.match;
+
+/** One search hit row: id · kind · how it matched · title — a link hit names its
  * relation to the searched record, and a description hit carries its snippet
- * dimmed beneath it. */
+ * dimmed beneath it. The title comes last, as in `list`, so a long one never
+ * pushes a column off screen. */
 export function searchRows(items: readonly SearchHit[], io: Io): string[] {
   const idW = Math.max(...items.map((h) => h.id.length));
   const kindW = Math.max(...items.map((h) => h.kind.length));
-  const titleW = Math.max(...items.map((h) => h.title.length));
+  const markerW = Math.max(...items.map((h) => searchMarker(h).length));
   return items.map((h) => {
-    const marker = h.match === 'link' && h.link !== undefined ? h.link : h.match;
-    const head = [pad(h.id, idW), pad(h.kind, kindW), pad(h.title, titleW), marker].join('   ');
+    const head = [pad(h.id, idW), pad(h.kind, kindW), pad(searchMarker(h), markerW), h.title].join(
+      '   ',
+    );
     if (h.snippet === undefined || h.snippet === '') {
       return head;
     }

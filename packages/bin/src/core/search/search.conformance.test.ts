@@ -241,7 +241,7 @@ for (const backend of backends) {
     });
 
     describe('text queries', () => {
-      test('title hits rank above subsequence hits, then whole-word description hits', async () => {
+      test('title hits rank above whole-word description hits', async () => {
         const result = await searchRecords(store, { project: 'MMR', query: 'Seed page' });
         expect(result.items.map((hit) => [hit.id, hit.match])).toEqual([
           // Titles holding every term: the current project's open hits newest
@@ -250,13 +250,20 @@ for (const backend of backends) {
           ['MMR-7', 'title'],
           ['MMR-3', 'title'],
           ['NOR-2', 'title'],
-          // A title holding the terms only as subsequences.
-          ['MMR-6', 'title'],
           // A description holding both words whole; MMR-9's "seedling
-          // pageant" holds them only as parts of words.
+          // pageant" holds them only as parts of words, and MMR-6's title
+          // holds them only as subsequences, which a precise hit outranks.
           ['MMR-8', 'description'],
         ]);
-        expect(result.total).toBe(6);
+        expect(result.total).toBe(5);
+      });
+
+      test('with no precise hit, titles holding every term as a subsequence are found', async () => {
+        const result = await searchRecords(store, { project: 'MMR', query: 'srch' });
+        expect(result.items.every((hit) => hit.match === 'title')).toBe(true);
+        // The current project's hits first (their recency order is not the point).
+        expect(ids(result).slice(0, 3).toSorted()).toEqual(['MMR-4', 'MMR-6', 'MMR-a1']);
+        expect(ids(result).slice(3)).toEqual(['NOR-4']);
       });
 
       test('with no current project, open hits come first across projects', async () => {
@@ -289,7 +296,7 @@ for (const backend of backends) {
         const result = await searchRecords(store, { limit: 2, project: 'MMR', query: 'seed page' });
         expect(ids(result)).toEqual(['MMR-10', 'MMR-7']);
         expect(result.returned).toBe(2);
-        expect(result.total).toBe(6);
+        expect(result.total).toBe(5);
       });
 
       test('LIKE wildcards in a query match only themselves', async () => {

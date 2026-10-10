@@ -24,9 +24,10 @@ export type TextSearch = {
 };
 
 /**
- * The match tier, best first: the title contains every term (1), the title
- * holds every term as a subsequence (2), the description holds every word as a
- * whole word (3).
+ * How a text hit matched: the title contains every term (1), the title holds
+ * every term as a subsequence (2), the description holds every word as a whole
+ * word (3). Tiers 1 and 3 are the precise hits, ranked 1 before 3; tier 2 is
+ * the fuzzy fallback, found only when there is no precise hit.
  */
 export type MatchTier = 1 | 2 | 3;
 
@@ -38,9 +39,9 @@ export type SuffixClass = 'node' | 'seed' | 'artifact';
 
 export type SearchStore = {
   /**
-   * Ranked text hits: by tier, then `project` first, then open before
-   * finished, then most recently updated. `total` counts every hit, not just
-   * the `limit` returned.
+   * Ranked text hits: the precise tiers, or the fuzzy tier when they find
+   * nothing; then `project` first, open before finished, and most recently
+   * updated. `total` counts every hit, not just the `limit` returned.
    */
   text: (query: TextSearch) => Promise<{ total: number; items: TextHit[] }>;
   /** The named records (any kind, by rendered id), in no particular order. */
