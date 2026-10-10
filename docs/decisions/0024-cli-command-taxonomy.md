@@ -184,6 +184,10 @@ regrouping + descriptors) and MMR-287 (skill-reference alignment).
   the only project listing on the CLI and MCP; `list` selects nodes only, and
   ADR 0015's archived opt-in moves from `list --status archived` to
   `projects --status archived`.
+- `mimir search <query>` lands as a flat read verb (MMR-447). Search spans every
+  record type and finds one by ID, title, or description, so no node, seed, or
+  artifact verb can host it; like `artifacts` it honors the binding and takes
+  `-s all`.
 - Scratchpads use the narrow `mimir scratch <operation>` exception recorded in
   ADR 0028; the ordinary work lifecycle remains flat.
 

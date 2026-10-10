@@ -42,7 +42,9 @@ import {
   nodeTree,
   overviewOf,
   parseFilterToken,
+  MAX_SEARCH_LIMIT,
   parseIdentity,
+  searchRecords,
   statusOfNode,
   treeToWire,
 } from '../core';
@@ -95,6 +97,7 @@ import {
   renderNodeView,
   renderOverview,
   renderRecords,
+  renderSearch,
   renderSeedView,
   renderStatus,
   renderTable,
@@ -962,6 +965,40 @@ export async function runCli(
           );
         }
         renderArtifacts(result, format, ctx, { showProject: scope === undefined });
+        return 0;
+      }
+      case 'search': {
+        // Cross-record search (MMR-447): the positionals after the verb are the
+        // query. The current project is the bound one, `-s KEY` overrides it, and
+        // `-s all` means none. Every structural fault is decided BEFORE the store
+        // is acquired (MMR-39).
+        const query = positionals.slice(1).join(' ').trim();
+        if (query === '') {
+          throw usage('search needs a query', "e.g. 'mimir search MMR-12' or 'mimir search auth'");
+        }
+        const searchLimit = parseLimit(values.limit);
+        if (searchLimit !== undefined && (searchLimit < 1 || searchLimit > MAX_SEARCH_LIMIT)) {
+          throw usage(
+            `invalid limit: ${String(searchLimit)}`,
+            `limit is a whole number from 1 to ${String(MAX_SEARCH_LIMIT)}`,
+          );
+        }
+        const project = effectiveScope(values.scope, defaults.scope);
+        const format = pickFormat(values.format, 'set', ctx);
+        const result = await searchRecords(await getStore(), {
+          limit: searchLimit,
+          project,
+          query,
+        });
+        if (result.returned === 0) {
+          const where = project === undefined ? '' : ` (${project} ranks first)`;
+          emptySetWarning(
+            `nothing matches '${query}'${where} — try fewer or different words`,
+            format,
+            ctx,
+          );
+        }
+        renderSearch(result, format, ctx);
         return 0;
       }
       case 'scratch': {

@@ -5,6 +5,7 @@ import type {
   NodeView,
   OverviewAttentionTask,
   OverviewReport,
+  SearchHit,
   SeedView,
   SetResult,
   StatusView,
@@ -21,6 +22,9 @@ import {
   formatArtifactSetJsonl,
   formatNodeJson,
   formatPromoteJson,
+  formatSearchIds,
+  formatSearchSetJson,
+  formatSearchSetJsonl,
   formatSeedsJson,
   formatSeedsJsonl,
   formatTriageJson,
@@ -977,6 +981,51 @@ export function renderArtifacts(
       const lines = [countLine(result.total, 'artifact')];
       if (result.items.length > 0) {
         lines.push('', ...artifactRows(result.items, io, { showProject: opts.showProject }));
+      }
+      io.write(lines.join('\n'));
+      break;
+    }
+  }
+}
+
+/** One search hit row: id · kind · title · how it matched — a link hit names its
+ * relation to the searched record, and a description hit carries its snippet
+ * dimmed beneath it. */
+export function searchRows(items: readonly SearchHit[], io: Io): string[] {
+  const idW = Math.max(...items.map((h) => h.id.length));
+  const kindW = Math.max(...items.map((h) => h.kind.length));
+  const titleW = Math.max(...items.map((h) => h.title.length));
+  return items.map((h) => {
+    const marker = h.match === 'link' && h.link !== undefined ? h.link : h.match;
+    const head = [pad(h.id, idW), pad(h.kind, kindW), pad(h.title, titleW), marker].join('   ');
+    if (h.snippet === undefined || h.snippet === '') {
+      return head;
+    }
+    return `${head}\n${color(`      ${h.snippet}`, 90, io.plain)}`;
+  });
+}
+
+/** Render cross-record search (MMR-447) in any format; the machine formats are
+ * the shared `results`-unit wire. */
+export function renderSearch(result: SetResult<SearchHit>, format: Format, io: Io): void {
+  switch (format) {
+    case 'json': {
+      io.write(formatSearchSetJson(result));
+      break;
+    }
+    case 'jsonl': {
+      io.write(formatSearchSetJsonl(result.items));
+      break;
+    }
+    case 'ids': {
+      io.write(formatSearchIds(result.items));
+      break;
+    }
+    case 'records':
+    case 'table': {
+      const lines = [countLine(result.total, 'result')];
+      if (result.items.length > 0) {
+        lines.push('', ...searchRows(result.items, io));
       }
       io.write(lines.join('\n'));
       break;
