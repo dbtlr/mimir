@@ -2,226 +2,188 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 
 import { isNotFound } from '../api/errors';
-import {
-  boardDoneQuery,
-  boardLiveQuery,
-  doctorQuery,
-  projectQuery,
-  treeQuery,
-} from '../api/queries';
-import { BoardView } from '../components/board';
-import { DirectionLine } from '../components/direction-line';
+import { doctorQuery, projectQuery, treeQuery } from '../api/queries';
+import type { WireNode } from '../api/types';
+import { DirectionPanel } from '../components/direction-line';
 import { DistributionBar } from '../components/distribution-bar';
+import { FindingsChip } from '../components/findings-chip';
+import { MarkdownBody } from '../components/markdown-body';
 import { NewTaskButton } from '../components/new-task-button';
-import { NodeDossier } from '../components/node-dossier';
+import { ArtifactLinks, ContentsSection, MetaRow } from '../components/node-record';
 import { OfflineBanner } from '../components/offline-banner';
 import { ProjectSettingsButton } from '../components/project-settings-button';
+import { RailSection, RecordLayout } from '../components/record-layout';
+import type { RailChip } from '../components/record-layout';
 import { StatusBadge } from '../components/status-badge';
-import { TreeView } from '../components/tree';
-import { segmentVariants, segmentedTrackClass } from '../components/ui/segmented-control';
+import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
-import type { BandMode } from '../lib/bands';
-import { buildBoard } from '../lib/board';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
-import { findingCount } from '../lib/health';
 import { nodeLink } from '../lib/record-url';
+import { absoluteTime } from '../lib/time';
 import { projectRoute } from '../router';
-import type { ProjectLens } from '../router';
+import { ProjectUnavailablePage } from './not-found';
 
-/** The Board/Tree lens toggle — a routed segmented control on `?view`. */
-function LensToggle({ view }: { view: ProjectLens }) {
-  const lens = (target: ProjectLens, label: string) => (
-    <Link
-      from={projectRoute.fullPath}
-      search={(prev) => ({ ...prev, view: target })}
-      className={segmentVariants({ active: view === target })}
-    >
-      {label}
-    </Link>
-  );
+/** The project's verbs: open its board, file new work, change its settings. */
+function ActionsPanel({
+  project,
+  offline,
+  onOpenNode,
+}: {
+  project: WireNode;
+  offline: boolean;
+  onOpenNode: (id: string) => void;
+}) {
   return (
-    <nav aria-label="Lens" className={segmentedTrackClass}>
-      {lens('board', 'Board')}
-      {lens('tree', 'Tree')}
-    </nav>
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Link
+        to="/p/$key/board"
+        params={{ key: project.id }}
+        className="rounded border border-line bg-well-850 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-ink transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+      >
+        Open board
+      </Link>
+      <NewTaskButton projectKey={project.id} offline={offline} onOpenNode={onOpenNode} />
+      <ProjectSettingsButton project={project} offline={offline} />
+    </div>
   );
 }
 
-/** The swimlane grouping toggle — a routed segmented control on `?bands` (MMR-221). */
-function BandsToggle({ bands }: { bands: BandMode }) {
-  const band = (target: BandMode, label: string) => (
-    <Link
-      from={projectRoute.fullPath}
-      search={(prev) => ({ ...prev, bands: target })}
-      className={segmentVariants({ active: bands === target })}
-    >
-      {label}
-    </Link>
-  );
+function DetailsPanel({ project }: { project: WireNode }) {
   return (
-    <nav aria-label="Bands" className={segmentedTrackClass}>
-      {band('phase', 'Phase')}
-      {band('release', 'Release')}
-      {band('off', 'Off')}
-    </nav>
+    <div className="flex flex-col gap-2.5">
+      {project.distribution !== undefined && (
+        <DistributionBar distribution={project.distribution} className="h-[5px] w-full" />
+      )}
+      {(project.tags?.length ?? 0) > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {project.tags?.map((t) => (
+            <Badge key={t.tag} variant="mono">
+              {t.tag}
+            </Badge>
+          ))}
+        </div>
+      )}
+      <dl className="flex flex-col gap-1">
+        <MetaRow label="created">{absoluteTime(project.created_at)}</MetaRow>
+        <MetaRow label="updated">{absoluteTime(project.updated_at)}</MetaRow>
+      </dl>
+    </div>
   );
 }
 
 /**
- * `/p/$key` — the working surface. The URL names the scope; the lens
- * (`?view=board|tree`), the band grouping (`?bands=phase|release|off`), and the
- * drawer (`?node=KEY-seq`) are search params (ADR 0013 §3 / MMR-221).
+ * `/p/$key` — the project's own page (MMR-450): what it is, where it is
+ * headed, and what it holds, on the shared record shell. The board is a view
+ * one link away at `/p/$key/board`. The work page (MMR-439) replaces this
+ * page's body with the six operator questions.
  */
 export function ProjectPage() {
   const navigate = useNavigate();
   const { key } = projectRoute.useParams();
-  const { view, bands, node } = projectRoute.useSearch();
-
   const project = useQuery(projectQuery(key));
-  // Record-health finding count for this board (MMR-185) — the amber header
-  // chip; a miss just omits the chip.
-  const health = useQuery(doctorQuery(key));
-  const findings = health.data?.finding_total ?? 0;
-  const live = useQuery({ ...boardLiveQuery(key), enabled: view === 'board' });
-  const done = useQuery({ ...boardDoneQuery(key), enabled: view === 'board' });
-  // Fetched for both lenses: the tree view renders it, the board's Phase bands
-  // walk it, and cards degrade gracefully if it's missing. Excluded from the
-  // board's connectivity so a tree miss never demotes a cached board.
+  // The tree lists the contents and the doctor read counts findings; a miss on
+  // either only thins the page, so neither counts toward connectivity.
   const tree = useQuery(treeQuery(key));
+  const health = useQuery(doctorQuery(key));
+  const conn = connectivity([project]);
+  const offline = conn.offline;
 
-  const conn = connectivity(view === 'board' ? [project, live, done] : [project, tree]);
-
-  const openNode = (id: string) => void navigate(nodeLink(id));
-  const closeNode = () =>
-    void navigate({ search: (prev) => ({ bands: prev.bands, view: prev.view }), to: '.' });
-
-  const boardReady = live.data !== undefined && done.data !== undefined;
-
-  // Archived-404 semantics (ADR 0015): a 404 means the server ANSWERED — this
-  // is not "offline". Back-navigating to a just-archived board (or opening a
-  // stale bookmark) gets a notice and a way home instead of a sticky false
-  // Offline banner; the project query keeps polling, so an unarchive heals
-  // straight back into the board.
+  // Archived-404 semantics (ADR 0015): the server answered, so this is not
+  // "offline"; the project query keeps polling, so an unarchive heals.
   if (isNotFound(project.error)) {
+    return <ProjectUnavailablePage projectKey={key} />;
+  }
+
+  const data = project.data;
+  if (data === undefined) {
     return (
-      <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col items-start gap-3 p-5">
-        <div className="flex items-center gap-3.5">
-          <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">
-            Project unavailable
-          </h1>
-          <span className="rounded-[5px] px-[7px] py-[3px] font-mono text-tag text-ink-faint inset-ring inset-ring-line-bright">
-            {key}
-          </span>
-        </div>
-        <p className="text-xs leading-relaxed text-ink-dim">
-          This project is archived or no longer exists. Archived projects leave the board and
-          picker; nothing is deleted.
-        </p>
-        <Link
-          to="/"
-          className="text-xs font-semibold text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
-        >
-          ← Back to Overview
-        </Link>
-      </main>
+      <>
+        <OfflineBanner {...conn} />
+        <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-2 p-5">
+          {project.isError ? (
+            <p className="text-xs text-status-blocked">
+              Unreachable, and nothing cached yet — is `mimir serve` running?
+            </p>
+          ) : (
+            <>
+              <Skeleton className="h-4 w-1/3" />
+              <Skeleton className="h-7 w-2/3" />
+              <Skeleton className="h-24 w-full" />
+            </>
+          )}
+        </main>
+      </>
     );
   }
+
+  const openNode = (id: string) => void navigate(nodeLink(id));
+  const artifactCount = data.artifacts?.length ?? 0;
+
+  const direction = (
+    <DirectionPanel
+      subject={{ key, kind: 'project' }}
+      title={data.title}
+      next={data.next}
+      offline={offline}
+    />
+  );
+  const actions = <ActionsPanel project={data} offline={offline} onOpenNode={openNode} />;
+  const artifacts = <ArtifactLinks artifacts={data.artifacts} />;
+  const details = <DetailsPanel project={data} />;
+
+  const chips: RailChip[] = [
+    { content: direction, label: 'Direction' },
+    { content: actions, label: 'Actions' },
+    { content: artifacts, count: artifactCount, label: 'Artifacts' },
+    { content: details, label: 'Details' },
+  ];
+
+  const rail = (
+    <>
+      <RailSection label="Direction">{direction}</RailSection>
+      <RailSection label="Actions">{actions}</RailSection>
+      <RailSection label="Artifacts" count={artifactCount > 0 ? artifactCount : undefined}>
+        {artifacts}
+      </RailSection>
+      <RailSection label="Details">{details}</RailSection>
+    </>
+  );
+
+  const head = (
+    <header className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-mono-id text-ink-faint">{key} · project</span>
+        <StatusBadge status={data.status} pill />
+        <FindingsChip projectKey={key} findings={health.data?.finding_total ?? 0} />
+      </div>
+      <h1 className="text-dossier leading-[1.35] font-bold tracking-[-0.01em] text-ink-bright md:text-header">
+        {data.title}
+      </h1>
+    </header>
+  );
 
   return (
     <>
       <OfflineBanner {...conn} />
-      <main
-        className={cn(
-          'mx-auto flex w-full max-w-[1600px] min-h-0 flex-1 flex-col overflow-y-auto pb-5',
-          conn.offline && 'offline-demoted',
-        )}
+      <RecordLayout
+        head={head}
+        rail={rail}
+        chips={chips}
+        className={cn(offline && 'offline-demoted')}
       >
-        <header className="flex flex-wrap items-center gap-3.5 px-5 pt-[18px] pb-3">
-          <h1 className="truncate text-header font-bold tracking-[-0.01em] text-ink-bright">
-            {project.data?.title ?? key}
-          </h1>
-          <span className="rounded-[5px] px-[7px] py-[3px] font-mono text-tag text-ink-faint inset-ring inset-ring-line-bright">
-            {key}
-          </span>
-          {project.data !== undefined && <StatusBadge status={project.data.status} />}
-          {findings > 0 && (
-            <Link
-              to="/doctor"
-              search={{ project: key }}
-              className="inline-flex items-center gap-1.5 rounded-full bg-status-in-progress/10 px-2.5 py-1 text-tag font-semibold text-status-in-progress-foreground inset-ring inset-ring-status-in-progress/30 transition-colors hover:bg-status-in-progress/16 focus-visible:outline-2 focus-visible:outline-accent"
-            >
-              <span aria-hidden className="size-1.5 rounded-full bg-status-in-progress" />
-              {findingCount(findings)}
-            </Link>
+        <section className="flex flex-col gap-1.5">
+          <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">Description</h2>
+          {data.description != null && data.description.trim() !== '' ? (
+            <MarkdownBody breaks className="max-w-none">
+              {data.description}
+            </MarkdownBody>
+          ) : (
+            <p className="text-xs text-ink-faint">No description.</p>
           )}
-          {project.data?.distribution !== undefined && (
-            <DistributionBar
-              distribution={project.data.distribution}
-              className="hidden h-[5px] w-[200px] md:flex"
-            />
-          )}
-          <div className="ml-auto flex flex-wrap items-center gap-2.5">
-            <span className="hidden text-tag text-ink-faint sm:inline">Bands</span>
-            <BandsToggle bands={bands} />
-            <LensToggle view={view} />
-            {project.data !== undefined && (
-              <ProjectSettingsButton project={project.data} offline={conn.offline} />
-            )}
-            <NewTaskButton projectKey={key} offline={conn.offline} onOpenNode={openNode} />
-          </div>
-        </header>
-
-        {/* Direction under the header (MMR-390): the owned `## Next` prose
-            folded to one line, above the work itself. */}
-        {project.data !== undefined && (
-          <div className="px-5 pb-3">
-            <DirectionLine
-              subject={{ key, kind: 'project' }}
-              title={project.data.title}
-              next={project.data.next}
-              offline={conn.offline}
-            />
-          </div>
-        )}
-
-        {view === 'board' && !boardReady && (live.isPending || done.isPending) && (
-          <div className="grid grid-cols-2 gap-1.5 px-5 md:grid-cols-4">
-            {Array.from({ length: 4 }, (_, i) => (
-              <Skeleton key={i} className="h-48" />
-            ))}
-          </div>
-        )}
-        {view === 'board' && boardReady && (
-          <BoardView
-            board={buildBoard(live.data.items, done.data.items)}
-            bands={bands}
-            tree={tree.data}
-            onOpenNode={openNode}
-            offline={conn.offline}
-            distribution={project.data?.distribution}
-            doneTotal={done.data.items.length}
-            onViewDone={() =>
-              void navigate({ search: { project: key, status: 'done' }, to: '/tasks' })
-            }
-          />
-        )}
-
-        {view === 'tree' && tree.isPending && <Skeleton className="mx-5 h-64" />}
-        {view === 'tree' && tree.data !== undefined && (
-          <div className="px-5">
-            <TreeView root={tree.data} onOpenNode={openNode} offline={conn.offline} />
-          </div>
-        )}
-
-        {((view === 'board' && live.isError && live.data === undefined) ||
-          (view === 'tree' && tree.isError && tree.data === undefined)) && (
-          <p className="px-5 text-xs text-status-blocked">
-            Unreachable, and nothing cached yet — is `mimir serve` running?
-          </p>
-        )}
-      </main>
-      <NodeDossier nodeId={node} onClose={closeNode} offline={conn.offline} />
+        </section>
+        <ContentsSection items={tree.data?.children} />
+      </RecordLayout>
     </>
   );
 }

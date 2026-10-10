@@ -105,6 +105,62 @@ function leafCountSummary(dist: Distribution): string {
   return parts.join(' · ');
 }
 
+/**
+ * A container header's fold control: just the caret, so the title beside it
+ * can open the container's page without nesting one button in another.
+ */
+function FoldButton({
+  open,
+  title,
+  onToggle,
+  className,
+}: {
+  open: boolean;
+  title: string;
+  onToggle: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-expanded={open}
+      aria-label={`Toggle ${title}`}
+      onClick={onToggle}
+      className={cn(
+        // A 24px hit area around the 10px caret; the negative margin keeps the glyph in place.
+        '-mx-[7px] flex w-6 shrink-0 items-center justify-center self-stretch rounded-sm focus-visible:outline-2 focus-visible:outline-accent',
+        className,
+      )}
+    >
+      <Caret open={open} />
+    </button>
+  );
+}
+
+/** A container's title as the way to its page (MMR-450). */
+function TitleButton({
+  onOpen,
+  className,
+  children,
+}: {
+  onOpen: () => void;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={cn(
+        'flex min-w-0 items-center gap-2.5 rounded-sm text-left transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent',
+        className,
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 /** The ▾/▸ disclosure glyph shared by every caret on the surface. */
 function Caret({ open }: { open: boolean }) {
   return (
@@ -156,23 +212,32 @@ function Group({
 
   return (
     <section>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => {
-          setOpen((v) => !v);
-        }}
-        className="flex w-full items-center gap-2.5 px-1 pt-1.5 pb-2.5 text-left focus-visible:outline-2 focus-visible:outline-accent"
-      >
-        <Caret open={open} />
-        <span className={cn('microlabel', standing ? 'text-ink-faint' : 'text-accent-foreground')}>
-          {standing ? 'STANDING' : 'INITIATIVE'}
-        </span>
-        <span className="min-w-0 truncate text-[15px] font-bold text-ink-bright">{node.title}</span>
-        {standing && (
-          <span className="shrink-0 font-mono text-[12px] text-accent-foreground">∞</span>
-        )}
-        <span className="shrink-0 font-mono text-mono-id text-ink-faint">{node.id}</span>
+      <div className="flex w-full items-center gap-2.5 px-1 pt-1.5 pb-2.5">
+        <FoldButton
+          open={open}
+          title={node.title}
+          onToggle={() => {
+            setOpen((v) => !v);
+          }}
+        />
+        <TitleButton
+          onOpen={() => {
+            onOpenNode(node.id);
+          }}
+        >
+          <span
+            className={cn('microlabel', standing ? 'text-ink-faint' : 'text-accent-foreground')}
+          >
+            {standing ? 'STANDING' : 'INITIATIVE'}
+          </span>
+          <span className="min-w-0 truncate text-[15px] font-bold text-ink-bright">
+            {node.title}
+          </span>
+          {standing && (
+            <span className="shrink-0 font-mono text-[12px] text-accent-foreground">∞</span>
+          )}
+          <span className="shrink-0 font-mono text-mono-id text-ink-faint">{node.id}</span>
+        </TitleButton>
         <span className="ml-auto flex shrink-0 items-center gap-2.5">
           {standing ? (
             <span className="microlabel text-accent-foreground">OPEN FOR FILING</span>
@@ -181,7 +246,7 @@ function Group({
           )}
           <DistributionBar distribution={node.distribution ?? {}} className="w-[150px]" />
         </span>
-      </button>
+      </div>
       {open && (
         <div
           className={cn(
@@ -283,27 +348,31 @@ function PhasePanel({
 
   return (
     <Card className="overflow-hidden rounded-[12px]">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => {
-          setOpen((v) => !v);
-        }}
-        className={cn(
-          'flex w-full items-center gap-2.5 px-4 py-3 text-left focus-visible:outline-2 focus-visible:outline-accent',
-          open && 'border-b border-line',
-        )}
+      <div
+        className={cn('flex w-full items-center gap-2.5 px-4 py-3', open && 'border-b border-line')}
       >
-        <Caret open={open} />
-        <span className="min-w-0 truncate text-body font-semibold text-ink-bright">
-          {node.title}
-        </span>
-        <span className="shrink-0 font-mono text-mono-id text-ink-faint">{node.id}</span>
+        <FoldButton
+          open={open}
+          title={node.title}
+          onToggle={() => {
+            setOpen((v) => !v);
+          }}
+        />
+        <TitleButton
+          onOpen={() => {
+            onOpenNode(node.id);
+          }}
+        >
+          <span className="min-w-0 truncate text-body font-semibold text-ink-bright">
+            {node.title}
+          </span>
+          <span className="shrink-0 font-mono text-mono-id text-ink-faint">{node.id}</span>
+        </TitleButton>
         <DistributionBar distribution={node.distribution ?? {}} className="ml-1.5 w-[120px]" />
         <span className={cn('microlabel ml-auto shrink-0', meta.text)}>
           {interpretedWord(node.status)}
         </span>
-      </button>
+      </div>
       {open && <LeafList tasks={node.children} onOpenNode={onOpenNode} offline={offline} />}
     </Card>
   );

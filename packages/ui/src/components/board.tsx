@@ -136,21 +136,41 @@ function StatusColumnHeader({ column, count }: { column: SwimlaneColumn; count: 
   );
 }
 
-/** The band spine (leftmost 170px cell) — name, mono id + kind, and the mini bar. */
-function BandSpine({ band }: { band: Band }) {
+/**
+ * The band spine (leftmost 170px cell) — name, mono id + kind, and the mini
+ * bar. A band backed by a container names it as a way to its page (MMR-450).
+ */
+function BandSpine({ band, onOpenNode }: { band: Band; onOpenNode: (id: string) => void }) {
   const node = band.node;
   const kind = band.openEnded ? 'standing' : (node?.type ?? '');
+  const nameClass = cn(
+    'text-meta leading-[1.3] font-semibold',
+    band.muted === true ? 'text-ink-faint' : 'text-ink-bright',
+  );
+  const name = (
+    <>
+      {band.name}
+      {band.openEnded && <span className="font-normal text-ink-faint"> ∞</span>}
+    </>
+  );
   return (
     <div className="flex flex-col gap-1.5 pt-0.5">
-      <div
-        className={cn(
-          'text-meta leading-[1.3] font-semibold',
-          band.muted === true ? 'text-ink-faint' : 'text-ink-bright',
-        )}
-      >
-        {band.name}
-        {band.openEnded && <span className="font-normal text-ink-faint"> ∞</span>}
-      </div>
+      {node === undefined ? (
+        <div className={nameClass}>{name}</div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            onOpenNode(node.id);
+          }}
+          className={cn(
+            nameClass,
+            'rounded-sm text-left transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent',
+          )}
+        >
+          {name}
+        </button>
+      )}
       {node !== undefined && (
         <div className="font-mono text-mono-id text-ink-faint">
           {node.id} · {kind}
@@ -364,7 +384,7 @@ function SwimlaneGrid({
             )}
             style={{ gridTemplateColumns: template }}
           >
-            {spine && <BandSpine band={band} />}
+            {spine && <BandSpine band={band} onOpenNode={onOpenNode} />}
             {SWIMLANE_COLUMNS.map((column) => (
               <SwimlaneColumnCell
                 key={column}
@@ -428,22 +448,40 @@ const BOARD_STATUS_ORDER: readonly BoardColumn[] = STATUS_ORDER.filter(isBoardCo
 /**
  * One inline band header above a status's card group (MMR-224). A lighter
  * anatomy than the desktop BandSpine: name + (∞ for standing bands) + hairline +
- * this status's count. Purely informational — no collapse affordance.
+ * this status's count. No collapse affordance; a container band's name opens
+ * the container's page (MMR-450).
  */
 function MobileBandHeader({
   name,
   openEnded,
   count,
   first,
+  containerId,
+  onOpenNode,
 }: {
   name: string;
   openEnded: boolean;
   count: number;
   first: boolean;
+  /** The container backing the band; absent for release and untagged bands. */
+  containerId?: string;
+  onOpenNode: (id: string) => void;
 }) {
   return (
     <div className={cn('flex items-center gap-2 px-4 pb-2', first ? 'pt-0.5' : 'pt-3.5')}>
-      <span className="text-tag font-semibold text-ink-dim">{name}</span>
+      {containerId === undefined ? (
+        <span className="text-tag font-semibold text-ink-dim">{name}</span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            onOpenNode(containerId);
+          }}
+          className="rounded-sm text-left text-tag font-semibold text-ink-dim transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          {name}
+        </button>
+      )}
       {openEnded && <span className="font-mono text-mono-id text-ink-faint">∞</span>}
       <span className="h-px flex-1 bg-line" />
       <span className="font-mono text-mono-id text-ink-faint tabular-nums">{count}</span>
@@ -741,6 +779,8 @@ function MobileBoard({
                   openEnded={band.openEnded}
                   count={band.columns[selected].length}
                   first={i === 0}
+                  containerId={band.node?.id}
+                  onOpenNode={onOpenNode}
                 />
               )}
               <ol className="flex flex-col gap-2 px-4">

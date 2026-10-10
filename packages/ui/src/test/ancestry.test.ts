@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { WireTreeNode } from '../api/types';
-import { ancestorsOf } from '../lib/ancestry';
+import { ancestorsOf, subtreeOf } from '../lib/ancestry';
 
 function tn(id: string, type: WireTreeNode['type'], children: WireTreeNode[] = []): WireTreeNode {
   return {
@@ -31,5 +31,19 @@ describe('ancestorsOf', () => {
 
   it('is undefined for a node the tree does not hold', () => {
     expect(ancestorsOf(tree, 'MMR-99')).toBeUndefined();
+  });
+});
+
+describe('subtreeOf', () => {
+  it('finds a nested container with its children', () => {
+    expect(subtreeOf(tree, 'MMR-2')?.children.map((n) => n.id)).toStrictEqual(['MMR-3']);
+  });
+
+  it('is the root itself for the project key', () => {
+    expect(subtreeOf(tree, 'MMR')).toBe(tree);
+  });
+
+  it('is undefined for a node the tree does not hold', () => {
+    expect(subtreeOf(tree, 'MMR-99')).toBeUndefined();
   });
 });

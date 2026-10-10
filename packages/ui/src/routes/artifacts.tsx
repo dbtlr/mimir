@@ -80,8 +80,7 @@ export function ArtifactsPage() {
 
   const openNode = (nodeId: string) => void navigate(nodeLink(nodeId));
 
-  const openProject = (key: string) =>
-    void navigate({ params: { key }, search: { view: 'board' }, to: '/p/$key' });
+  const openProject = (key: string) => void navigate({ params: { key }, to: '/p/$key' });
 
   const selected = search.a;
 

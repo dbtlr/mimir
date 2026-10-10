@@ -144,6 +144,7 @@ function DirectionDialog({
   offline,
   open,
   onClose,
+  editOnly = false,
 }: {
   subject: DirectionTarget;
   title: string;
@@ -151,16 +152,27 @@ function DirectionDialog({
   offline: boolean;
   open: boolean;
   onClose: () => void;
+  /** Open straight into the editor, and close on Save or Cancel: the caller
+   * already shows the text, so there is no reading view to return to. */
+  editOnly?: boolean;
 }) {
-  const [draft, setDraft] = useState<string | null>(null);
+  const [draft, setDraft] = useState<string | null>(editOnly ? (next ?? '') : null);
   const update = useUpdateDirection(subject);
+
+  const leaveEditor = () => {
+    if (editOnly) {
+      onClose();
+    } else {
+      setDraft(null);
+    }
+  };
 
   // mutateAsync settles after the hook's awaited invalidation, so view mode
   // returns to the refetched prose rather than flashing the replaced text.
   const handleSave = async (text: string) => {
     try {
       await update.mutateAsync(text);
-      setDraft(null);
+      leaveEditor();
     } catch {
       // The hook toasts the cause; the draft stays put so it isn't lost.
     }
@@ -236,9 +248,7 @@ function DirectionDialog({
                 </p>
                 <button
                   type="button"
-                  onClick={() => {
-                    setDraft(null);
-                  }}
+                  onClick={leaveEditor}
                   className="rounded px-3 py-1.5 text-xs text-ink-dim hover:text-ink"
                 >
                   Cancel
@@ -258,5 +268,62 @@ function DirectionDialog({
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>
+  );
+}
+
+/**
+ * The direction in full (MMR-450): the owned `## Next` prose rendered as
+ * markdown, with Edit opening the whole-text rewrite. Record pages show it
+ * where the dossier showed the folded {@link DirectionLine}.
+ */
+export function DirectionPanel({
+  subject,
+  title,
+  next,
+  offline,
+}: {
+  subject: DirectionTarget;
+  title: string;
+  next: string | undefined;
+  offline: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const empty = next === undefined || next.trim() === '';
+  return (
+    <div className="flex flex-col gap-2">
+      {empty ? (
+        <p className="text-xs text-ink-ghost">No direction set</p>
+      ) : (
+        <MarkdownBody className="max-w-none">{next}</MarkdownBody>
+      )}
+      <div>
+        <ActionButton
+          size="sm"
+          variant="outline"
+          aria-label="Edit direction"
+          aria-haspopup="dialog"
+          disabled={offline}
+          onClick={() => {
+            setEditing(true);
+          }}
+        >
+          Edit
+        </ActionButton>
+      </div>
+      {/* Mounted only while editing, so each opening drafts from the current text. */}
+      {editing && (
+        <DirectionDialog
+          subject={subject}
+          title={title}
+          next={next}
+          offline={offline}
+          open
+          editOnly
+          onClose={() => {
+            setEditing(false);
+          }}
+        />
+      )}
+    </div>
   );
 }

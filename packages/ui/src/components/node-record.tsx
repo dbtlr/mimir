@@ -4,13 +4,14 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useTag, useTransition, useUntag, useUpdateNode } from '../api/mutations';
-import type { WireAnnotation, WireDeps, WireNode } from '../api/types';
+import type { WireAnnotation, WireArtifact, WireDeps, WireNode, WireTreeNode } from '../api/types';
 import { cn } from '../lib/cn';
 import { nodeLink } from '../lib/record-url';
 import type { TaskFormValues } from '../lib/schemas';
 import { availableTransitions, transitionLabel } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
 import { verdictSummary } from '../lib/verdict';
+import { DistributionBar } from './distribution-bar';
 import { ReasonDialog } from './reason-dialog';
 import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
 import { StatusDot } from './status-dot';
@@ -19,9 +20,9 @@ import { ActionButton } from './ui/action-button';
 import { Badge } from './ui/badge';
 
 /*
- * The pieces of a work node's record that the task page and the dossier
+ * The pieces of a work node's record that the record pages and the dossier
  * overlay share: links to other records, the verdict block, the hold callout,
- * detail rows, and the edit and transition wiring.
+ * detail rows, a container's contents, and the edit and transition wiring.
  */
 
 export function Microlabel({ children }: { children: ReactNode }) {
@@ -41,6 +42,84 @@ export function RefRow({ refNode }: { refNode: NodeRef }) {
         <span className="truncate text-ink-dim">{refNode.title}</span>
       )}
     </Link>
+  );
+}
+
+/**
+ * Links to a record's artifacts in the artifact reader. `from` is the work
+ * node the reader's "back to" link returns to; a project passes none.
+ */
+export function ArtifactLinks({
+  artifacts,
+  from,
+}: {
+  artifacts?: readonly WireArtifact[];
+  from?: string;
+}) {
+  if (artifacts === undefined || artifacts.length === 0) {
+    return <p className="text-xs text-ink-faint">None yet.</p>;
+  }
+  return (
+    <div className="flex flex-col gap-0.5">
+      {artifacts.map((a) => (
+        <Link
+          key={a.id}
+          to="/artifacts"
+          search={from === undefined ? { a: a.id } : { a: a.id, from }}
+          className="flex min-w-0 items-center gap-2 rounded-sm px-1 py-0.5 text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          <span aria-hidden className="text-accent-foreground select-none">
+            ❄
+          </span>
+          <span className="truncate">{a.title}</span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * What a project or container holds (MMR-450): one row per child in rank
+ * order, each linking to its page. A container child names its kind and
+ * carries its rollup bar. `items` is undefined while the tree loads.
+ */
+export function ContentsSection({ items }: { items: readonly WireTreeNode[] | undefined }) {
+  return (
+    <section aria-label="Contents" className="flex flex-col gap-1.5">
+      <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">
+        Contents{items !== undefined && items.length > 0 && ` · ${String(items.length)}`}
+      </h2>
+      {items !== undefined && items.length === 0 && (
+        <p className="text-xs text-ink-faint">Nothing here yet.</p>
+      )}
+      {items !== undefined && items.length > 0 && (
+        <ul className="flex flex-col gap-0.5">
+          {items.map((child) => (
+            <li key={child.id}>
+              <Link
+                {...nodeLink(child.id)}
+                className="flex min-w-0 items-center gap-2 rounded-sm px-1 py-1 text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                <StatusDot status={child.status} />
+                <span className="shrink-0 font-mono text-mono-id text-accent-foreground">
+                  {child.id}
+                </span>
+                {child.type !== 'task' && (
+                  <span className="microlabel shrink-0 text-ink-faint">{child.type}</span>
+                )}
+                <span className="min-w-0 flex-1 truncate">{child.title}</span>
+                {child.type !== 'task' && (
+                  <DistributionBar
+                    distribution={child.distribution ?? {}}
+                    className="hidden h-1 w-[90px] shrink-0 sm:flex"
+                  />
+                )}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

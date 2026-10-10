@@ -24,6 +24,7 @@ export function NewTaskButton({
       <button
         type="button"
         aria-label="New task"
+        aria-haspopup="dialog"
         disabled={offline === true}
         onClick={() => setOpen(true)}
         className="rounded border border-line bg-well-850 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-ink transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"

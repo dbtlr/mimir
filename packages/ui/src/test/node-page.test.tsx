@@ -320,3 +320,71 @@ describe('task page (MMR-449)', () => {
     expect(within(rail).queryByRole('button', { name: 'Start' })).toBeNull();
   });
 });
+
+describe('container page (MMR-450)', () => {
+  const phase: WireNode = {
+    ...task({
+      description: 'Swap the **store** under the board.',
+      id: 'MMR-2',
+      parent: 'MMR-1',
+      status: 'ready',
+      title: 'SQLite replaces Norn',
+    }),
+    next: 'Land the dialect first.\n\nThen remove the Norn backend.',
+    type: 'phase',
+  };
+
+  it('shows its direction in full, with a way to rewrite it', async () => {
+    serve(phase);
+    renderAt('/p/MMR/2');
+
+    const rail = await screen.findByRole('complementary', { name: 'Record details' });
+    expect(within(rail).getByText('Land the dialect first.')).toBeDefined();
+    expect(within(rail).getByText('Then remove the Norn backend.')).toBeDefined();
+    fireEvent.click(within(rail).getByRole('button', { name: 'Edit direction' }));
+    await expect(screen.findByRole('textbox', { name: 'Direction text' })).resolves.toHaveValue(
+      'Land the dialect first.\n\nThen remove the Norn backend.',
+    );
+  });
+
+  it('lists what it contains, each linked to its page', async () => {
+    serve(phase);
+    renderAt('/p/MMR/2');
+
+    const contents = await screen.findByRole('region', { name: /contents/i });
+    await waitFor(() => {
+      expect(
+        within(contents)
+          .getByRole('link', { name: /MMR-417/ })
+          .getAttribute('href'),
+      ).toBe('/p/MMR/417');
+    });
+  });
+
+  it('lists an initiative’s phases the same way', async () => {
+    serve({
+      ...phase,
+      id: 'MMR-1',
+      parent: null,
+      title: 'Hosted and external backends',
+      type: 'initiative',
+    });
+    renderAt('/p/MMR/1');
+
+    const contents = await screen.findByRole('region', { name: /contents/i });
+    await waitFor(() => {
+      expect(
+        within(contents)
+          .getByRole('link', { name: /SQLite replaces Norn/ })
+          .getAttribute('href'),
+      ).toBe('/p/MMR/2');
+    });
+  });
+
+  it('says so when it contains nothing yet', async () => {
+    serve({ ...phase, id: 'MMR-5', title: 'Empty phase' });
+    renderAt('/p/MMR/5');
+
+    await expect(screen.findByText(/nothing here yet/i)).resolves.toBeDefined();
+  });
+});

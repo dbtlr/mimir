@@ -54,6 +54,7 @@ export function ProjectSettingsButton({
       <button
         type="button"
         aria-label="Project settings"
+        aria-haspopup="dialog"
         disabled={offline === true}
         onClick={() => setOpen(true)}
         className="rounded border border-line bg-well-850 px-2 py-1.5 text-xs font-medium text-ink-dim transition-colors hover:bg-well-800 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"

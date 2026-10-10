@@ -7,10 +7,12 @@ import { annotationsQuery, nodeQuery, scratchpadsQuery, treeQuery } from '../api
 import type { WireNode, WireScratchpadRow, WireTreeNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { AnnotationComposer } from '../components/annotation-composer';
-import { DirectionLine } from '../components/direction-line';
+import { DirectionPanel } from '../components/direction-line';
 import { MarkdownBody } from '../components/markdown-body';
 import { MoveDialog } from '../components/move-dialog';
 import {
+  ArtifactLinks,
+  ContentsSection,
   ExternalRef,
   HoldCallout,
   MetaRow,
@@ -32,7 +34,7 @@ import { StatusBadge } from '../components/status-badge';
 import { TaskForm } from '../components/task-form';
 import { ActionButton } from '../components/ui/action-button';
 import { Skeleton } from '../components/ui/skeleton';
-import { ancestorsOf } from '../lib/ancestry';
+import { ancestorsOf, subtreeOf } from '../lib/ancestry';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { nodeIdOf, nodeLink } from '../lib/record-url';
@@ -45,7 +47,9 @@ import { NotFoundPage } from './not-found';
 /**
  * `/p/$key/$seq` — a work node's own page (ADR 0013, v0.23 refinement). The
  * path is the node id split at its hyphen; a suffix that is not a node's shows
- * the not-found state without a lookup.
+ * the not-found state without a lookup. A task's page carries its actions and
+ * agent context; an initiative's or phase's carries its direction in full and
+ * its contents, until the work page (MMR-439) takes containers over.
  */
 export function NodePage() {
   const { key, seq } = nodeRoute.useParams();
@@ -175,30 +179,6 @@ function hasAgentContext(node: WireNode, scratchpads: readonly WireScratchpadRow
   );
 }
 
-function ArtifactLinks({ node }: { node: WireNode }) {
-  const artifacts = node.artifacts ?? [];
-  if (artifacts.length === 0) {
-    return <p className="text-xs text-ink-faint">None yet.</p>;
-  }
-  return (
-    <div className="flex flex-col gap-0.5">
-      {artifacts.map((a) => (
-        <Link
-          key={a.id}
-          to="/artifacts"
-          search={{ a: a.id, from: node.id }}
-          className="flex min-w-0 items-center gap-2 rounded-sm px-1 py-0.5 text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
-        >
-          <span aria-hidden className="text-accent-foreground select-none">
-            ❄
-          </span>
-          <span className="truncate">{a.title}</span>
-        </Link>
-      ))}
-    </div>
-  );
-}
-
 function DetailsPanel({ node }: { node: WireNode }) {
   return (
     <div className="flex flex-col gap-2.5">
@@ -305,12 +285,28 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
     ) : null;
   const artifacts = (
     <RailSection label="Artifacts" count={artifactCount > 0 ? artifactCount : undefined}>
-      <ArtifactLinks node={data} />
+      <ArtifactLinks artifacts={data.artifacts} from={data.id} />
     </RailSection>
   );
   const details = <DetailsPanel node={data} />;
+  // Direction (MMR-390) is a container facet: initiatives and phases own
+  // `## Next`, tasks never do. It leads the rail, as on the work page to come.
+  const direction =
+    data.type === 'initiative' || data.type === 'phase' ? (
+      <DirectionPanel
+        subject={{ id: data.id, kind: 'node' }}
+        title={data.title}
+        next={data.next}
+        offline={offline}
+      />
+    ) : null;
+  // Undefined while the tree loads; the tree is read once, so a child's status
+  // here is as fresh as the last console write or window focus.
+  const contents =
+    tree.data === undefined ? undefined : (subtreeOf(tree.data, nodeId)?.children ?? []);
 
   const chips: RailChip[] = [
+    ...(direction === null ? [] : [{ content: direction, label: 'Direction' }]),
     ...(actions === null ? [] : [{ content: actions, label: 'Actions' }]),
     {
       content: (
@@ -329,6 +325,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
 
   const rail = (
     <>
+      {direction !== null && <RailSection label="Direction">{direction}</RailSection>}
       {actions !== null && <RailSection label="Actions">{actions}</RailSection>}
       {agent !== null && <RailSection label="Agent">{agent}</RailSection>}
       {dependsOn}
@@ -382,16 +379,6 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
               />
             )}
             <HoldCallout node={data} />
-            {/* Direction (MMR-390) is a container facet: initiatives and
-                phases own `## Next`, tasks never do. */}
-            {(data.type === 'initiative' || data.type === 'phase') && (
-              <DirectionLine
-                subject={{ id: data.id, kind: 'node' }}
-                title={data.title}
-                next={data.next}
-                offline={offline}
-              />
-            )}
             <section className="flex flex-col gap-1.5">
               <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">Description</h2>
               {data.description != null && data.description.trim() !== '' ? (
@@ -402,6 +389,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
                 <p className="text-xs text-ink-faint">No description.</p>
               )}
             </section>
+            {data.type !== 'task' && <ContentsSection items={contents} />}
             <section className="flex flex-col gap-3">
               <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">
                 Timeline · {feed.length}

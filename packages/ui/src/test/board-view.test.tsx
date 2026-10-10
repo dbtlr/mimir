@@ -115,6 +115,41 @@ describe('boardView — swimlane', () => {
     expect(within(swimlane()).getByText('Phase A')).toBeDefined();
   });
 
+  it("opens a phase band's container page from its spine and phone header (MMR-450)", async () => {
+    const tree = {
+      children: [
+        {
+          children: [{ children: [], id: 'MMR-9', title: 't', type: 'task' }],
+          id: 'MMR-2',
+          title: 'Phase A',
+          type: 'phase',
+        },
+      ],
+      id: 'MMR',
+      title: 'Mimir',
+      type: 'project',
+    } as unknown as WireTreeNode;
+    const board = buildBoard([task({ id: 'MMR-9', status: 'ready', title: 'phased' })], [], NOW);
+    const onOpen = vi.fn();
+    render(
+      <BoardView
+        board={board}
+        bands="phase"
+        tree={tree}
+        onOpenNode={onOpen}
+        doneTotal={0}
+        onViewDone={vi.fn()}
+      />,
+      { wrapper },
+    );
+
+    await userEvent.click(within(swimlane()).getByRole('button', { name: /Phase A/ }));
+    await userEvent.click(
+      within(screen.getByTestId('mobile-board')).getByRole('button', { name: /Phase A/ }),
+    );
+    expect(onOpen.mock.calls).toStrictEqual([['MMR-2'], ['MMR-2']]);
+  });
+
   it('the HELD ledge counts parked/blocked/awaiting project-wide', () => {
     const board = buildBoard(
       [

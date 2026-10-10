@@ -34,12 +34,20 @@ export function RailSection({
 
 /**
  * Close the open sheet once something inside it is chosen: a link navigates
- * away, and an action either opens its own dialog or changes the record
- * behind the sheet.
+ * away, and an action changes the record behind the sheet. A button that
+ * opens a dialog of its own (`aria-haspopup="dialog"`) leaves the sheet open
+ * beneath it, because that dialog lives inside the sheet's content. Clicks
+ * inside that dialog reach here only through React's portal bubbling, so a
+ * target outside the sheet body is ignored.
  */
 function closeOnChoice(close: () => void) {
   return (event: MouseEvent<HTMLElement>) => {
-    if (event.target instanceof Element && event.target.closest('a, button') !== null) {
+    const target = event.target;
+    if (!(target instanceof Element) || !event.currentTarget.contains(target)) {
+      return;
+    }
+    const choice = target.closest('a, button');
+    if (choice !== null && choice.getAttribute('aria-haspopup') !== 'dialog') {
       close();
     }
   };
