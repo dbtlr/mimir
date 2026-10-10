@@ -1365,7 +1365,8 @@ function bindServer(
           }),
       },
 
-      // Cross-record search (MMR-447): `project` absent means no current project;
+      // Cross-record search (MMR-447): `project` absent, empty (a client
+      // serializing an unset field), or `all` means no current project;
       // a blank or missing `q` is the core's validation error.
       '/api/search': {
         GET: (req) =>
@@ -1379,11 +1380,12 @@ function bindServer(
                 throw validation(`invalid limit ${rawLimit}`);
               }
             }
-            const result = await searchRecords(store, {
-              limit,
-              project: q.get('project') ?? undefined,
-              query: q.get('q') ?? '',
-            });
+            const rawProject = q.get('project');
+            const project =
+              rawProject === null || rawProject === '' || rawProject === 'all'
+                ? undefined
+                : rawProject;
+            const result = await searchRecords(store, { limit, project, query: q.get('q') ?? '' });
             return json({ items: result.items.map(searchHitToWire), total: result.total });
           }),
       },

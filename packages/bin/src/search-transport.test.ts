@@ -221,6 +221,20 @@ describe('HTTP search', () => {
     }
   });
 
+  test.each(['project=', 'project=all'])(
+    'an empty project or "all" means no current project (%s)',
+    async (param) => {
+      const res = await fetch(`${base}/api/search?q=2&${param}`);
+      expect(res.status).toBe(200);
+      const body = parseJson<{ items: { id: string }[] }>(await res.text());
+      expect(body.items.map((hit) => hit.id).toSorted()).toEqual(['MMR-2', 'NOR-2']);
+    },
+  );
+
+  test('an unknown project is a 404', async () => {
+    expect((await fetch(`${base}/api/search?q=2&project=NOPE`)).status).toBe(404);
+  });
+
   test('returns the collection envelope', async () => {
     const res = await fetch(`${base}/api/search?q=MMR-2`);
     const body = parseJson<{ items: unknown[]; total: number }>(await res.text());
