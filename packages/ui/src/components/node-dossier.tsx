@@ -2,7 +2,7 @@ import { Dialog } from '@base-ui-components/react/dialog';
 import type { NodeRef } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useTag, useTransition, useUntag, useUpdateNode } from '../api/mutations';
@@ -17,6 +17,7 @@ import { verdictSummary } from '../lib/verdict';
 import { AnnotationComposer } from './annotation-composer';
 import { DirectionLine } from './direction-line';
 import { MarkdownBody } from './markdown-body';
+import type { ClampMeasure } from './markdown-body';
 import { MoveDialog } from './move-dialog';
 import { ReasonDialog } from './reason-dialog';
 import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
@@ -311,47 +312,36 @@ function TransitionLine({ entry }: { entry: WireHistoryEntry }) {
   );
 }
 
-/** Non-empty source lines — the honest "N lines" however the markdown spaces its blocks. */
-function sourceLineCount(content: string): number {
-  return content.split('\n').filter((line) => line.trim() !== '').length;
-}
-
 /**
- * A note clamped to 3 lines of height (`3lh` resolves against the article's own
- * line-height; block children such as code and tables clamp too, which
- * `line-clamp` cannot do). "Show all · N lines" appears only when the rendered
- * note really overflows its clamp.
+ * A note clamped to 3 lines. "Show all · N lines" appears only when the
+ * rendered note really overflows its clamp; N is the approximate rendered
+ * line count the clamp measured.
  */
 function TimelineNote({ content }: { content: string }) {
-  const ref = useRef<HTMLElement>(null);
   const [expanded, setExpanded] = useState(false);
-  const [overflowing, setOverflowing] = useState(false);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (el !== null) {
-      // Measured while clamped, so scrollHeight (full content) beats clientHeight.
-      setOverflowing(el.scrollHeight > el.clientHeight + 1);
-    }
-    // The effect measures the DOM `content` renders, so a new text must re-measure.
-    // oxlint-disable-next-line react/exhaustive-effect-dependencies
-  }, [content]);
+  const [measure, setMeasure] = useState<ClampMeasure>({ lines: 0, overflowing: false });
+  const count =
+    measure.lines > 0
+      ? ` · ${String(measure.lines)} ${measure.lines === 1 ? 'line' : 'lines'}`
+      : '';
   return (
     <div className="flex flex-col gap-0.5">
       <MarkdownBody
-        ref={ref}
         breaks
         size="compact"
-        className={cn('max-w-none', !expanded && 'max-h-[3lh] overflow-hidden')}
+        clamp={expanded ? undefined : 3}
+        onClampMeasure={setMeasure}
+        className="max-w-none"
       >
         {content}
       </MarkdownBody>
-      {overflowing && (
+      {measure.overflowing && (
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
           className="self-start text-micro text-accent-foreground transition-colors hover:text-accent"
         >
-          {expanded ? 'Show less ⌃' : `Show all · ${String(sourceLineCount(content))} lines ⌄`}
+          {expanded ? 'Show less ⌃' : `Show all${count} ⌄`}
         </button>
       )}
     </div>

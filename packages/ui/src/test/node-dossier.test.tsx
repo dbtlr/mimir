@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { afterEach, describe, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { NodeDossier } from '../components/node-dossier';
 import { transitionLabel } from '../lib/transitions';
@@ -610,7 +610,18 @@ describe('nodeDossier', () => {
       Object.defineProperty(proto, 'clientHeight', { configurable: true, get: () => clientHeight });
     }
 
+    beforeEach(() => {
+      // jsdom has no computed line-height; the clamp reads it off the article.
+      const real = globalThis.getComputedStyle.bind(globalThis);
+      vi.spyOn(globalThis, 'getComputedStyle').mockImplementation((el, pseudo) =>
+        el.tagName === 'ARTICLE'
+          ? ({ lineHeight: '20px' } as CSSStyleDeclaration)
+          : real(el, pseudo),
+      );
+    });
+
     afterEach(() => {
+      vi.restoreAllMocks();
       for (const [name, descriptor] of [
         ['clientHeight', original.client],
         ['scrollHeight', original.scroll],
@@ -623,16 +634,20 @@ describe('nodeDossier', () => {
       }
     });
 
-    it('offers "Show all" with the source line count when the note overflows, and toggles', async () => {
+    it('offers "Show all" with the rendered line count when the note overflows, and toggles the clamp', async () => {
       stubHeights(200, 60);
-      // Blank lines and block spacing are not lines: three source lines, three.
-      renderNote('- one\n- two\n\n- three');
+      renderNote('- one\n- two\n- three');
 
-      const toggle = await screen.findByRole('button', { name: 'Show all · 3 lines ⌄' });
+      // 200px of content at a 20px line-height: ten rendered lines.
+      const toggle = await screen.findByRole('button', { name: 'Show all · 10 lines ⌄' });
+      const article = screen.getByRole('article');
+      expect(article).toHaveAttribute('data-clamped');
       await userEvent.click(toggle);
       expect(screen.getByRole('button', { name: 'Show less ⌃' })).toBeInTheDocument();
+      expect(article).not.toHaveAttribute('data-clamped');
       await userEvent.click(screen.getByRole('button', { name: 'Show less ⌃' }));
-      expect(screen.getByRole('button', { name: 'Show all · 3 lines ⌄' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Show all · 10 lines ⌄' })).toBeInTheDocument();
+      expect(article).toHaveAttribute('data-clamped');
     });
 
     it('offers no toggle when the note fits its clamp', async () => {

@@ -331,7 +331,7 @@ export function QuickViewPanel({
         ) : (
           description != null &&
           description !== '' && (
-            <MarkdownBody breaks size="compact" className="max-h-[3lh] max-w-none overflow-hidden">
+            <MarkdownBody breaks size="compact" clamp={3} className="max-w-none">
               {description}
             </MarkdownBody>
           )
@@ -523,7 +523,7 @@ export function QuickShelf({
       </div>
       <p className="text-card-mobile font-semibold leading-[1.45] text-ink-bright">{node.title}</p>
       {description != null && description !== '' && (
-        <MarkdownBody breaks size="compact" className="max-h-[2lh] max-w-none overflow-hidden">
+        <MarkdownBody breaks size="compact" clamp={2} className="max-w-none">
           {description}
         </MarkdownBody>
       )}
