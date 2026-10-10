@@ -14,7 +14,7 @@ export type ProjectFormValues = {
 };
 
 /**
- * Modest settings affordance for the active project board header. Opens a
+ * Modest settings affordance on the project's page and board. Opens a
  * Sheet letting the user rename the project, edit its description, and — in
  * the LIFECYCLE section (20b / MMR-230) — archive it. Archiving carries no
  * confirm: the undo toast's Unarchive is the safety (ADR 0015), and since the
@@ -54,6 +54,7 @@ export function ProjectSettingsButton({
       <button
         type="button"
         aria-label="Project settings"
+        aria-haspopup="dialog"
         disabled={offline === true}
         onClick={() => setOpen(true)}
         className="rounded border border-line bg-well-850 px-2 py-1.5 text-xs font-medium text-ink-dim transition-colors hover:bg-well-800 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"

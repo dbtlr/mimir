@@ -7,10 +7,12 @@ import { annotationsQuery, nodeQuery, scratchpadsQuery, treeQuery } from '../api
 import type { WireNode, WireScratchpadRow, WireTreeNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { AnnotationComposer } from '../components/annotation-composer';
-import { DirectionLine } from '../components/direction-line';
-import { MarkdownBody } from '../components/markdown-body';
+import { DirectionPanel } from '../components/direction-line';
 import { MoveDialog } from '../components/move-dialog';
 import {
+  ArtifactLinks,
+  ContentsSection,
+  DescriptionSection,
   ExternalRef,
   HoldCallout,
   MetaRow,
@@ -26,13 +28,12 @@ import {
 } from '../components/node-record';
 import { FeedList } from '../components/node-timeline';
 import { OfflineBanner } from '../components/offline-banner';
-import { RailSection, RecordLayout } from '../components/record-layout';
+import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
 import type { RailChip } from '../components/record-layout';
 import { StatusBadge } from '../components/status-badge';
 import { TaskForm } from '../components/task-form';
 import { ActionButton } from '../components/ui/action-button';
-import { Skeleton } from '../components/ui/skeleton';
-import { ancestorsOf } from '../lib/ancestry';
+import { ancestorsOf, subtreeOf } from '../lib/ancestry';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { nodeIdOf, nodeLink } from '../lib/record-url';
@@ -45,7 +46,9 @@ import { NotFoundPage } from './not-found';
 /**
  * `/p/$key/$seq` — a work node's own page (ADR 0013, v0.23 refinement). The
  * path is the node id split at its hyphen; a suffix that is not a node's shows
- * the not-found state without a lookup.
+ * the not-found state without a lookup. A task's page carries its actions and
+ * agent context; an initiative's or phase's carries its direction in full and
+ * its contents, until the work page (MMR-439) takes containers over.
  */
 export function NodePage() {
   const { key, seq } = nodeRoute.useParams();
@@ -175,30 +178,6 @@ function hasAgentContext(node: WireNode, scratchpads: readonly WireScratchpadRow
   );
 }
 
-function ArtifactLinks({ node }: { node: WireNode }) {
-  const artifacts = node.artifacts ?? [];
-  if (artifacts.length === 0) {
-    return <p className="text-xs text-ink-faint">None yet.</p>;
-  }
-  return (
-    <div className="flex flex-col gap-0.5">
-      {artifacts.map((a) => (
-        <Link
-          key={a.id}
-          to="/artifacts"
-          search={{ a: a.id, from: node.id }}
-          className="flex min-w-0 items-center gap-2 rounded-sm px-1 py-0.5 text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
-        >
-          <span aria-hidden className="text-accent-foreground select-none">
-            ❄
-          </span>
-          <span className="truncate">{a.title}</span>
-        </Link>
-      ))}
-    </div>
-  );
-}
-
 function DetailsPanel({ node }: { node: WireNode }) {
   return (
     <div className="flex flex-col gap-2.5">
@@ -240,19 +219,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
     return (
       <>
         <OfflineBanner {...conn} />
-        <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-2 p-5">
-          {node.isError ? (
-            <p className="text-xs text-status-blocked">
-              Unreachable, and nothing cached yet — is `mimir serve` running?
-            </p>
-          ) : (
-            <>
-              <Skeleton className="h-4 w-1/3" />
-              <Skeleton className="h-7 w-2/3" />
-              <Skeleton className="h-24 w-full" />
-            </>
-          )}
-        </main>
+        <RecordPending unreachable={node.isError} />
       </>
     );
   }
@@ -305,12 +272,28 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
     ) : null;
   const artifacts = (
     <RailSection label="Artifacts" count={artifactCount > 0 ? artifactCount : undefined}>
-      <ArtifactLinks node={data} />
+      <ArtifactLinks artifacts={data.artifacts} from={data.id} />
     </RailSection>
   );
   const details = <DetailsPanel node={data} />;
+  // Direction (MMR-390) is a container facet: initiatives and phases own
+  // `## Next`, tasks never do. It leads the rail, as on the work page to come.
+  const direction =
+    data.type === 'initiative' || data.type === 'phase' ? (
+      <DirectionPanel
+        subject={{ id: data.id, kind: 'node' }}
+        title={data.title}
+        next={data.next}
+        offline={offline}
+      />
+    ) : null;
+  // Undefined while the tree loads; the tree is read once, so a child's status
+  // here is as fresh as the last console write or window focus.
+  const contents =
+    tree.data === undefined ? undefined : (subtreeOf(tree.data, nodeId)?.children ?? []);
 
   const chips: RailChip[] = [
+    ...(direction === null ? [] : [{ content: direction, label: 'Direction' }]),
     ...(actions === null ? [] : [{ content: actions, label: 'Actions' }]),
     {
       content: (
@@ -329,6 +312,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
 
   const rail = (
     <>
+      {direction !== null && <RailSection label="Direction">{direction}</RailSection>}
       {actions !== null && <RailSection label="Actions">{actions}</RailSection>}
       {agent !== null && <RailSection label="Agent">{agent}</RailSection>}
       {dependsOn}
@@ -382,26 +366,10 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
               />
             )}
             <HoldCallout node={data} />
-            {/* Direction (MMR-390) is a container facet: initiatives and
-                phases own `## Next`, tasks never do. */}
-            {(data.type === 'initiative' || data.type === 'phase') && (
-              <DirectionLine
-                subject={{ id: data.id, kind: 'node' }}
-                title={data.title}
-                next={data.next}
-                offline={offline}
-              />
+            <DescriptionSection description={data.description} />
+            {data.type !== 'task' && (
+              <ContentsSection items={contents} unavailable={tree.isError} />
             )}
-            <section className="flex flex-col gap-1.5">
-              <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">Description</h2>
-              {data.description != null && data.description.trim() !== '' ? (
-                <MarkdownBody breaks className="max-w-none">
-                  {data.description}
-                </MarkdownBody>
-              ) : (
-                <p className="text-xs text-ink-faint">No description.</p>
-              )}
-            </section>
             <section className="flex flex-col gap-3">
               <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">
                 Timeline · {feed.length}

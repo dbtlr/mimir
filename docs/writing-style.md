@@ -68,7 +68,7 @@ Capture a dark 1440 × 900 viewport after the page settles:
 | File | Route |
 | --- | --- |
 | `docs/assets/console-overview.png` | `/` |
-| `docs/assets/console-project.png` | `/p/AUR?node=AUR-3` |
+| `docs/assets/console-project.png` | `/p/AUR/board?node=AUR-3` |
 
 Regenerate the fixture immediately before capture. Inspect both images at full
 size and at the width used by the rendered Markdown page.

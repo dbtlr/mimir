@@ -23,20 +23,33 @@ each reading. Use it to find work awaiting review, active projects, blocked or
 stale work, and projects at rest. Archived projects remain available in a
 separate shelf.
 
-From the overview you can create a project, open a project board, or jump into a
-task dossier.
+From the overview you can create a project, open a project's page, or jump into
+a task's page.
 
 ## Work within a project
 
-The project page offers two views:
+Every project, initiative, phase, and task has its own page at its own address:
+`/p/MMR` for the project and `/p/MMR/417` for `MMR-417`. Typing a bare ID such as
+`/MMR-417` or `/mmr` redirects to its page.
+
+- **The project page** shows the description and the project's top-level work.
+  Its rail holds the direction in full, Open board, New task, settings,
+  artifacts, and details.
+- **An initiative or phase page** shows the description, what the container
+  holds, and its own direction in full.
+- **A task page** shows the path above the task, its description, a timeline
+  with a note field, and a rail with actions, agent context, dependencies,
+  artifacts, and details.
+
+On a phone, the rail folds into chips that open bottom sheets.
+
+The board lives at `/p/MMR/board` and offers two views:
 
 - **Board** groups tasks into status lanes. Rank within Ready is the queue.
 - **Tree** preserves the initiative and phase hierarchy.
 
-Open a task to inspect its description, dependencies, annotations, linked
-Artifacts, history, and signals. The dossier supports field edits, tags,
-annotations, lifecycle changes, dependencies, and moves. The project header
-provides direction, authoring, and archive controls.
+Container names in the board's bands and the tree's headers open the
+container's page.
 
 ## Browse portfolio records
 

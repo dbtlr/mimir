@@ -20,3 +20,17 @@ export function ancestorsOf(root: WireTreeNode, id: string): WireTreeNode[] | un
   };
   return walk(root, []);
 }
+
+/** The subtree rooted at `id`, or undefined when the tree does not hold it. */
+export function subtreeOf(root: WireTreeNode, id: string): WireTreeNode | undefined {
+  if (root.id === id) {
+    return root;
+  }
+  for (const child of root.children) {
+    const found = subtreeOf(child, id);
+    if (found !== undefined) {
+      return found;
+    }
+  }
+  return undefined;
+}

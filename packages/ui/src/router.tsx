@@ -11,6 +11,7 @@ import { BAND_MODES } from './lib/bands';
 import type { BandMode } from './lib/bands';
 import { bareIdRedirect } from './lib/record-url';
 import { ArtifactsPage } from './routes/artifacts';
+import { BoardPage } from './routes/board';
 import { DoctorPage } from './routes/doctor';
 import { NodePage } from './routes/node';
 import { NotFoundPage } from './routes/not-found';
@@ -21,13 +22,14 @@ import { Shell } from './routes/shell';
 import { TasksPage } from './routes/tasks';
 
 /**
- * Navigation (ADR 0013 §3 and its v0.23 refinement): URLs name scopes and
- * records — `/` the overview, `/p/KEY` a project, `/p/KEY/417` a work node's
- * page. `view` picks the project lens (board is primary). `node` still opens
- * the dossier overlay until the overlay retires (MMR-453). Typed search
- * params carry that contract in the type system.
+ * Navigation (ADR 0013 §3 and its v0.23 refinement): URLs name scopes, views,
+ * and records — `/` the overview, `/p/KEY` the project's page, `/p/KEY/board`
+ * its board, `/p/KEY/417` a work node's page. On the board, `view` picks the
+ * lens (board or tree) until the work page retires the tree (MMR-439). `node`
+ * still opens the dossier overlay until the overlay retires (MMR-453). Typed
+ * search params carry that contract in the type system.
  */
-export type ProjectLens = 'board' | 'tree';
+export type BoardLens = 'board' | 'tree';
 
 const isBandMode = (value: unknown): value is BandMode =>
   typeof value === 'string' && (BAND_MODES as readonly string[]).includes(value);
@@ -36,8 +38,8 @@ export type OverviewSearch = {
   node?: string;
 };
 
-export type ProjectSearch = {
-  view: ProjectLens;
+export type BoardSearch = {
+  view: BoardLens;
   /** The board's swimlane grouping (MMR-221) — addressable, `phase` defaulted-out. */
   bands: BandMode;
   node?: string;
@@ -53,17 +55,48 @@ export const overviewRoute = createRoute({
     typeof search.node === 'string' ? { node: search.node } : {},
 });
 
+/**
+ * One record, one URL: a lowercase key (`/p/mmr`, `/p/mmr/417`) moves to its
+ * canonical spelling, keeping the rest of the path and the search.
+ */
+function canonicalKey(key: string, to: '/p/$key' | '/p/$key/board' | '/p/$key/$seq') {
+  const canonical = key.toUpperCase();
+  if (canonical !== key) {
+    // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
+    throw redirect({
+      params: (prev: Record<string, string>) => ({ ...prev, key: canonical }),
+      replace: true,
+      search: true,
+      to,
+    });
+  }
+}
+
+/** A project's own page: what it is, where it is headed, and what it holds. */
 export const projectRoute = createRoute({
+  beforeLoad: ({ params }) => {
+    canonicalKey(params.key, '/p/$key');
+  },
   component: ProjectPage,
   getParentRoute: () => rootRoute,
   path: '/p/$key',
+});
+
+/** A project's board — a view of the project, beside its records (v0.23 refinement). */
+export const boardRoute = createRoute({
+  beforeLoad: ({ params }) => {
+    canonicalKey(params.key, '/p/$key/board');
+  },
+  component: BoardPage,
+  getParentRoute: () => rootRoute,
+  path: '/p/$key/board',
   search: {
     // board is the primary lens and phase the primary grouping — keep both defaults
-    // out of the URL, so a clean `/p/KEY` is the canonical board.
-    middlewares: [stripSearchParams<ProjectSearch>({ bands: 'phase', view: 'board' })],
+    // out of the URL, so a clean `/p/KEY/board` is the canonical board.
+    middlewares: [stripSearchParams<BoardSearch>({ bands: 'phase', view: 'board' })],
   },
-  validateSearch: (search: Record<string, unknown> & SearchSchemaInput): ProjectSearch => {
-    const view: ProjectLens = search.view === 'tree' ? 'tree' : 'board';
+  validateSearch: (search: Record<string, unknown> & SearchSchemaInput): BoardSearch => {
+    const view: BoardLens = search.view === 'tree' ? 'tree' : 'board';
     const bands: BandMode = isBandMode(search.bands) ? search.bands : 'phase';
     return typeof search.node === 'string' ? { bands, node: search.node, view } : { bands, view };
   },
@@ -71,13 +104,8 @@ export const projectRoute = createRoute({
 
 /** A work node's page: the node id split at its hyphen (`MMR-417` → `/p/MMR/417`). */
 export const nodeRoute = createRoute({
-  // One record, one URL: a lowercase key (`/p/mmr/417`) moves to its canonical spelling.
   beforeLoad: ({ params }) => {
-    const key = params.key.toUpperCase();
-    if (key !== params.key) {
-      // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
-      throw redirect({ params: { key, seq: params.seq }, replace: true, to: '/p/$key/$seq' });
-    }
+    canonicalKey(params.key, '/p/$key/$seq');
   },
   component: NodePage,
   getParentRoute: () => rootRoute,
@@ -205,6 +233,7 @@ const devRoutes = import.meta.env.DEV
 const routeTree = rootRoute.addChildren([
   overviewRoute,
   projectRoute,
+  boardRoute,
   nodeRoute,
   artifactsRoute,
   seedsRoute,

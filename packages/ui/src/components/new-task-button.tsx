@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { AuthoringSheet } from './authoring-sheet';
 
 /**
- * The board header's create affordance. Opens the Meridian authoring sheet
+ * The create affordance on the board header and the project page. Opens the Meridian authoring sheet
  * (MMR-227) — task / phase / initiative behind a type selector — pre-filled to
  * the current project. Replaces the retired `TaskForm mode="create"` path.
  */
@@ -14,7 +14,7 @@ export function NewTaskButton({
 }: {
   projectKey: string;
   offline?: boolean;
-  /** "Create & open" routes the fresh node here (`?node=<id>`). */
+  /** "Create & open" routes the fresh node here (its record page). */
   onOpenNode?: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -24,6 +24,7 @@ export function NewTaskButton({
       <button
         type="button"
         aria-label="New task"
+        aria-haspopup="dialog"
         disabled={offline === true}
         onClick={() => setOpen(true)}
         className="rounded border border-line bg-well-850 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-ink transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"

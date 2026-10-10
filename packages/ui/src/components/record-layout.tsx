@@ -3,6 +3,7 @@ import type { MouseEvent, ReactNode } from 'react';
 
 import { cn } from '../lib/cn';
 import { Sheet, SheetClose, SheetContent, SheetTitle } from './ui/sheet';
+import { Skeleton } from './ui/skeleton';
 
 /** One phone chip: its label, an optional count, and what its bottom sheet holds. */
 export type RailChip = {
@@ -34,12 +35,20 @@ export function RailSection({
 
 /**
  * Close the open sheet once something inside it is chosen: a link navigates
- * away, and an action either opens its own dialog or changes the record
- * behind the sheet.
+ * away, and an action changes the record behind the sheet. A button that
+ * opens a dialog of its own (`aria-haspopup="dialog"`) leaves the sheet open
+ * beneath it, because that dialog lives inside the sheet's content. Clicks
+ * inside that dialog reach here only through React's portal bubbling, so a
+ * target outside the sheet body is ignored.
  */
 function closeOnChoice(close: () => void) {
   return (event: MouseEvent<HTMLElement>) => {
-    if (event.target instanceof Element && event.target.closest('a, button') !== null) {
+    const target = event.target;
+    if (!(target instanceof Element) || !event.currentTarget.contains(target)) {
+      return;
+    }
+    const choice = target.closest('a, button');
+    if (choice !== null && choice.getAttribute('aria-haspopup') !== 'dialog') {
       close();
     }
   };
@@ -107,7 +116,7 @@ function RailChips({ chips }: { chips: readonly RailChip[] }) {
  * The record page shell (ADR 0013, v0.23 refinement): a main column beside a
  * rail, the same page on desktop and phone. Below `md` the rail folds into
  * chips under the page head, each opening its part of the rail in a bottom
- * sheet. Task, container, seed, and artifact pages share it.
+ * sheet. Project, container, task, seed, and artifact pages share it.
  */
 export function RecordLayout({
   head,
@@ -140,6 +149,28 @@ export function RecordLayout({
           {rail}
         </aside>
       </div>
+    </main>
+  );
+}
+
+/**
+ * A record page before its record arrives: skeleton lines while the read is
+ * in flight, or the unreachable notice when it failed with nothing cached.
+ */
+export function RecordPending({ unreachable }: { unreachable: boolean }) {
+  return (
+    <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-2 p-5">
+      {unreachable ? (
+        <p className="text-xs text-status-blocked">
+          Unreachable, and nothing cached yet — is `mimir serve` running?
+        </p>
+      ) : (
+        <>
+          <Skeleton className="h-4 w-1/3" />
+          <Skeleton className="h-7 w-2/3" />
+          <Skeleton className="h-24 w-full" />
+        </>
+      )}
     </main>
   );
 }

@@ -238,8 +238,31 @@ describe('treeView', () => {
     render(<TreeView root={root} onOpenNode={vi.fn()} />, { wrapper });
     // both the initiative header and the (default-open) phase header expose state
     for (const name of ['Init', 'Phase']) {
-      expect(screen.getByText(name).closest('button')).toHaveProperty('ariaExpanded', 'true');
+      expect(screen.getByRole('button', { name: `Toggle ${name}` })).toHaveProperty(
+        'ariaExpanded',
+        'true',
+      );
     }
+  });
+
+  it("opens a container's page from its header title (MMR-450)", async () => {
+    const onOpen = vi.fn();
+    const root = project([
+      branch({ id: 'MMR-2', status: 'in_progress', title: 'Init', type: 'initiative' }, [
+        branch({ id: 'MMR-3', status: 'in_progress', title: 'Phase', type: 'phase' }, [
+          leaf({ id: 'MMR-10', status: 'ready', title: 'a' }),
+        ]),
+      ]),
+    ]);
+    render(<TreeView root={root} onOpenNode={onOpen} />, { wrapper });
+
+    await userEvent.click(screen.getByText('Init'));
+    await userEvent.click(screen.getByText('Phase'));
+    expect(onOpen.mock.calls).toStrictEqual([['MMR-2'], ['MMR-3']]);
+    // Opening a page leaves the fold alone; only the caret folds.
+    expect(screen.getByText('a')).toBeDefined();
+    await userEvent.click(screen.getByRole('button', { name: 'Toggle Phase' }));
+    expect(screen.queryByText('a')).toBeNull();
   });
 
   it('opens the node when the trailing status word of an under-review row is clicked', async () => {
