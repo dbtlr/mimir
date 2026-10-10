@@ -80,6 +80,24 @@ describe('attentionAlert (MMR-103/226)', () => {
     expect(screen.getByText('MMR-140')).toBeDefined();
   });
 
+  it("opens a task's page from its row", async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path.includes('status=under_review')) {
+        return Promise.resolve({
+          items: [
+            { id: 'MMR-140', title: 'Doctor read-surface', updated_at: '2026-07-09T00:00:00.000Z' },
+          ],
+          total: 1,
+        });
+      }
+      return Promise.resolve({ items: [], total: 0 });
+    });
+    const testRouter = renderApp();
+    await userEvent.click(await screen.findByRole('button', { name: /1 for you/ }));
+    await userEvent.click(await screen.findByText('Doctor read-surface'));
+    expect(testRouter.state.location.pathname).toBe('/p/MMR/140');
+  });
+
   it('opens a project health line on that project', async () => {
     apiGet.mockImplementation((path: string) =>
       Promise.resolve(path === '/api/doctor' ? facetOf('MMR') : { items: [], total: 0 }),

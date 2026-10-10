@@ -2,14 +2,18 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  redirect,
   stripSearchParams,
 } from '@tanstack/react-router';
 import type { SearchSchemaInput } from '@tanstack/react-router';
 
 import { BAND_MODES } from './lib/bands';
 import type { BandMode } from './lib/bands';
+import { bareIdRedirect } from './lib/record-url';
 import { ArtifactsPage } from './routes/artifacts';
 import { DoctorPage } from './routes/doctor';
+import { NodePage } from './routes/node';
+import { NotFoundPage } from './routes/not-found';
 import { OverviewPage } from './routes/overview';
 import { ProjectPage } from './routes/project';
 import { SeedsPage } from './routes/seeds';
@@ -17,10 +21,11 @@ import { Shell } from './routes/shell';
 import { TasksPage } from './routes/tasks';
 
 /**
- * Navigation (ADR 0013 §3): URLs name scopes — `/` the overview, `/p/KEY` a
- * project; everything else is a lens parameter. `view` picks the project
- * lens (board is primary); `node` addresses the detail drawer on either
- * scope. Typed search params carry that contract in the type system.
+ * Navigation (ADR 0013 §3 and its v0.23 refinement): URLs name scopes and
+ * records — `/` the overview, `/p/KEY` a project, `/p/KEY/417` a work node's
+ * page. `view` picks the project lens (board is primary). `node` still opens
+ * the dossier overlay until the overlay retires (MMR-453). Typed search
+ * params carry that contract in the type system.
  */
 export type ProjectLens = 'board' | 'tree';
 
@@ -62,6 +67,30 @@ export const projectRoute = createRoute({
     const bands: BandMode = isBandMode(search.bands) ? search.bands : 'phase';
     return typeof search.node === 'string' ? { bands, node: search.node, view } : { bands, view };
   },
+});
+
+/** A work node's page: the node id split at its hyphen (`MMR-417` → `/p/MMR/417`). */
+export const nodeRoute = createRoute({
+  component: NodePage,
+  getParentRoute: () => rootRoute,
+  path: '/p/$key/$seq',
+});
+
+/**
+ * Every unmatched path. A bare ID or project key (`/MMR-417`, `/mmr`)
+ * redirects to its page by grammar alone; anything else is not found.
+ */
+const notFoundRoute = createRoute({
+  beforeLoad: ({ params }) => {
+    const target = bareIdRedirect(params._splat ?? '');
+    if (target !== undefined) {
+      // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
+      throw redirect({ ...target, replace: true });
+    }
+  },
+  component: NotFoundPage,
+  getParentRoute: () => rootRoute,
+  path: '$',
 });
 
 export type ArtifactsSearch = {
@@ -168,11 +197,13 @@ const devRoutes = import.meta.env.DEV
 const routeTree = rootRoute.addChildren([
   overviewRoute,
   projectRoute,
+  nodeRoute,
   artifactsRoute,
   seedsRoute,
   tasksRoute,
   doctorRoute,
   ...devRoutes,
+  notFoundRoute,
 ]);
 
 export const router = createRouter({ routeTree });

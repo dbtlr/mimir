@@ -4,7 +4,7 @@ import { useAnnotate } from '../api/mutations';
 import { ActionButton } from './ui/action-button';
 
 /**
- * The dossier's append-only note composer (ADR 0003): a single-row field + an
+ * A node's append-only note composer (ADR 0003): a single-row field + an
  * accent-wash "Append" chip. Submitting only ever adds a new annotation — never
  * edits or deletes a prior one. Inert (disabled, 40% via ActionButton) when
  * offline; writes invalidate + refetch, never queue.
@@ -29,6 +29,7 @@ export function AnnotationComposer({ nodeId, offline }: { nodeId: string; offlin
         onChange={(e) => setValue(e.target.value)}
         disabled={offline === true}
         placeholder="Add a note…"
+        aria-label="Add a note"
         rows={1}
         className="min-h-9 flex-1 resize-y rounded-md border border-line bg-well-850 px-2.5 py-2 text-xs text-ink outline-none focus-visible:border-accent disabled:opacity-40"
       />

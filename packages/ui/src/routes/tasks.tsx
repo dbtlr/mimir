@@ -18,6 +18,7 @@ import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../components/ui/m
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
+import { nodeLink } from '../lib/record-url';
 import { STATUS_META, TASK_STATUS_ORDER } from '../lib/status';
 import { relativeTime } from '../lib/time';
 import { tasksRoute } from '../router';
@@ -143,8 +144,7 @@ export function TasksPage() {
       to: '/tasks',
     });
 
-  const openNode = (id: string) =>
-    void navigate({ search: (prev) => ({ ...prev, node: id }), to: '/tasks' });
+  const openNode = (id: string) => void navigate(nodeLink(id));
   const closeNode = () =>
     void navigate({ search: (prev) => ({ ...prev, node: undefined }), to: '/tasks' });
 
@@ -529,12 +529,7 @@ export function TasksPage() {
         onOpenNode={openNode}
         offline={conn.offline}
       />
-      <NodeDossier
-        nodeId={search.node}
-        onClose={closeNode}
-        onOpenNode={openNode}
-        offline={conn.offline}
-      />
+      <NodeDossier nodeId={search.node} onClose={closeNode} offline={conn.offline} />
     </>
   );
 }

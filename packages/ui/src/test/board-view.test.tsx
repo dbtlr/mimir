@@ -196,7 +196,7 @@ describe('boardView — swimlane', () => {
     expect(within(swimlane()).getByTestId('quick-panel')).toBeDefined();
   });
 
-  it("the drop panel's Full dossier link routes via onOpenNode (MMR-223)", async () => {
+  it("the drop panel's Open page link routes via onOpenNode (MMR-223)", async () => {
     const onOpen = vi.fn();
     const board = buildBoard([task({ id: 'MMR-8', status: 'ready', title: 'open me' })], [], NOW);
     render(
@@ -211,7 +211,7 @@ describe('boardView — swimlane', () => {
     );
     const title = within(swimlane()).getByText('open me').closest('button');
     await userEvent.click(title as HTMLElement);
-    await userEvent.click(within(swimlane()).getByText('Full dossier ↗'));
+    await userEvent.click(within(swimlane()).getByText('Open page ↗'));
     expect(onOpen).toHaveBeenCalledWith('MMR-8');
   });
 });
@@ -404,7 +404,7 @@ describe('boardView — mobile board (mock 9a)', () => {
     expect(within(mobile()).getByTestId('quick-shelf')).toBeDefined();
   });
 
-  it("the shelf's Dossier ↗ routes via onOpenNode (MMR-258)", async () => {
+  it("the shelf's Open page ↗ routes via onOpenNode (MMR-258)", async () => {
     const onOpen = vi.fn();
     const board = buildBoard(
       [task({ id: 'MMR-8', status: 'in_progress', title: 'open me mobile' })],
@@ -422,7 +422,7 @@ describe('boardView — mobile board (mock 9a)', () => {
       { wrapper },
     );
     fireEvent.click(within(mobile()).getByText('open me mobile').closest('button') as HTMLElement);
-    await userEvent.click(within(screen.getByTestId('quick-shelf')).getByText('Dossier ↗'));
+    await userEvent.click(within(screen.getByTestId('quick-shelf')).getByText('Open page ↗'));
     expect(onOpen).toHaveBeenCalledWith('MMR-8');
   });
 

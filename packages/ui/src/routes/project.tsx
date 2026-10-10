@@ -25,6 +25,7 @@ import { buildBoard } from '../lib/board';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { findingCount } from '../lib/health';
+import { nodeLink } from '../lib/record-url';
 import { projectRoute } from '../router';
 import type { ProjectLens } from '../router';
 
@@ -91,8 +92,7 @@ export function ProjectPage() {
 
   const conn = connectivity(view === 'board' ? [project, live, done] : [project, tree]);
 
-  const openNode = (id: string) =>
-    void navigate({ search: (prev) => ({ ...prev, node: id }), to: '.' });
+  const openNode = (id: string) => void navigate(nodeLink(id));
   const closeNode = () =>
     void navigate({ search: (prev) => ({ bands: prev.bands, view: prev.view }), to: '.' });
 
@@ -221,7 +221,7 @@ export function ProjectPage() {
           </p>
         )}
       </main>
-      <NodeDossier nodeId={node} onClose={closeNode} onOpenNode={openNode} offline={conn.offline} />
+      <NodeDossier nodeId={node} onClose={closeNode} offline={conn.offline} />
     </>
   );
 }

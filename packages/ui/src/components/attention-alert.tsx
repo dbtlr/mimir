@@ -2,11 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 
 import { blockedQuery, doctorQuery, staleQuery, underReviewQuery } from '../api/queries';
-import { projectKeyOf } from '../api/types';
 import type { AttentionReason } from '../lib/attention';
 import { attentionItems } from '../lib/attention';
 import { cn } from '../lib/cn';
 import { findingCount, healthSearch } from '../lib/health';
+import { nodeLink } from '../lib/record-url';
 import { ago } from '../lib/time';
 import { StatusDot } from './status-dot';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
@@ -89,13 +89,7 @@ export function AttentionAlert() {
             <MenuItem
               key={node.id}
               className="items-start"
-              onClick={() =>
-                void navigate({
-                  params: { key: projectKeyOf(node.id) },
-                  search: { node: node.id, view: 'board' },
-                  to: '/p/$key',
-                })
-              }
+              onClick={() => void navigate(nodeLink(node.id))}
             >
               {reason === 'going_cold' ? (
                 <span

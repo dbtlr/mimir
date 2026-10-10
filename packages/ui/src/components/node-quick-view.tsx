@@ -7,11 +7,11 @@ import { annotationsQuery, nodeQuery } from '../api/queries';
 import type { WireAnnotation, WireHistoryEntry, WireNode } from '../api/types';
 import { cn } from '../lib/cn';
 import { ago, relativeTime } from '../lib/time';
+import { describeTransition } from '../lib/timeline';
 import { availableTransitions, transitionLabel } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
 import { verdictSummary } from '../lib/verdict';
 import { MarkdownBody } from './markdown-body';
-import { describeTransition } from './node-dossier';
 import { ReasonDialog } from './reason-dialog';
 import { PriorityBadge, SizeBadge } from './signal-badges';
 import { StatusBadge } from './status-badge';
@@ -315,7 +315,7 @@ export function QuickViewPanel({
             }}
             className="text-micro font-semibold text-accent-foreground hover:underline focus-visible:outline-2 focus-visible:outline-accent"
           >
-            Full dossier ↗
+            Open page ↗
           </button>
           <button
             type="button"
@@ -425,7 +425,7 @@ function useVerbRunner(id: string) {
 /**
  * The mobile shelf (6c). A fixed bottom sheet: drag handle, id + status pill +
  * close, title, 2-line description, and ≥44px actions — the primary verb, a
- * "More actions…" menu for the rest, and "Dossier ↗". Under review swaps the primary
+ * "More actions…" menu for the rest, and "Open page ↗". Under review swaps the primary
  * slot for the same **Approve** / **Request changes…** verdict pair the desktop drop
  * panel shows (MMR-258): Approve fires `done` directly, Request changes… opens the
  * reason dialog for `return`; the remaining verbs (park/block/abandon) still
@@ -599,7 +599,7 @@ export function QuickShelf({
             onOpenNode(node.id);
           }}
         >
-          Dossier ↗
+          Open page ↗
         </ActionButton>
       </div>
       {dialog}

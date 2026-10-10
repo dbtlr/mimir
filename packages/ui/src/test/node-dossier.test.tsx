@@ -17,6 +17,20 @@ vi.mock('@tanstack/react-router', async (orig) => ({
   // import() type captures the whole module for orig<>(); no clean type-import equiv
   // oxlint-disable-next-line typescript/consistent-type-imports
   ...(await orig<typeof import('@tanstack/react-router')>()),
+  // Record links render as plain anchors; the dossier mounts outside a router.
+  Link: ({
+    children,
+    className,
+    params,
+  }: {
+    children: ReactNode;
+    className?: string;
+    params?: { key: string; seq: string };
+  }) => (
+    <a className={className} href={params && `/p/${params.key}/${params.seq}`}>
+      {children}
+    </a>
+  ),
   useNavigate: () => navigate,
 }));
 
@@ -61,7 +75,7 @@ function renderNote(content: string) {
   mockNode(task({ id: 'MMR-83', status: 'in_progress', title: 'long note' }), [
     { content, created_at: '2026-06-02T00:00:00.000Z' },
   ]);
-  render(<NodeDossier nodeId="MMR-83" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+  render(<NodeDossier nodeId="MMR-83" onClose={vi.fn()} />, { wrapper });
 }
 
 /** Markdown with a list, inline and fenced code, and a link — one body for every surface. */
@@ -119,7 +133,7 @@ describe('nodeDossier', () => {
       [{ content: 'Groomed: read-only console first.', created_at: '2026-06-10T01:00:00.000Z' }],
     );
 
-    render(<NodeDossier nodeId="MMR-16" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    render(<NodeDossier nodeId="MMR-16" onClose={vi.fn()} />, { wrapper });
 
     await expect(screen.findByText('Web UI chunk 1')).resolves.toBeDefined();
     await expect(screen.findByText('Groomed: read-only console first.')).resolves.toBeDefined();
@@ -142,15 +156,12 @@ describe('nodeDossier', () => {
         type: 'initiative',
       }),
     );
-    const initiative = render(
-      <NodeDossier nodeId="MMR-30" onClose={vi.fn()} onOpenNode={vi.fn()} />,
-      { wrapper },
-    );
+    const initiative = render(<NodeDossier nodeId="MMR-30" onClose={vi.fn()} />, { wrapper });
     await expect(screen.findByText('Cut the console direction line.')).resolves.toBeDefined();
     initiative.unmount();
 
     mockNode(task({ id: 'MMR-31', status: 'in_progress', title: 'plain task' }));
-    render(<NodeDossier nodeId="MMR-31" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    render(<NodeDossier nodeId="MMR-31" onClose={vi.fn()} />, { wrapper });
     await screen.findByText('plain task');
     expect(screen.queryByRole('button', { name: /direction/i })).toBeNull();
   });
@@ -169,7 +180,7 @@ describe('nodeDossier', () => {
       }),
     );
 
-    render(<NodeDossier nodeId="MMR-21" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    render(<NodeDossier nodeId="MMR-21" onClose={vi.fn()} />, { wrapper });
 
     await screen.findByText('dep dedupe task');
     expect(screen.getAllByText('MMR-20')).toHaveLength(1);
@@ -204,7 +215,7 @@ describe('nodeDossier', () => {
       [{ content: 'looked into the facet', created_at: '2026-06-03T09:00:00.000Z' }],
     );
 
-    render(<NodeDossier nodeId="MMR-60" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    render(<NodeDossier nodeId="MMR-60" onClose={vi.fn()} />, { wrapper });
 
     await screen.findByText('Created');
     const rows = screen.getAllByRole('listitem').map((li) => li.textContent ?? '');
@@ -236,7 +247,7 @@ describe('nodeDossier', () => {
       [{ content: 'a freeform note', created_at: '2026-06-03T09:00:00.000Z' }],
     );
 
-    render(<NodeDossier nodeId="MMR-60" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    render(<NodeDossier nodeId="MMR-60" onClose={vi.fn()} />, { wrapper });
 
     await userEvent.click(await screen.findByRole('tab', { name: 'Activity' }));
     expect(screen.getByText('Started')).toBeDefined();
@@ -248,14 +259,14 @@ describe('nodeDossier', () => {
   });
 
   it('closed dossier renders nothing', () => {
-    render(<NodeDossier nodeId={undefined} onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    render(<NodeDossier nodeId={undefined} onClose={vi.fn()} />, { wrapper });
     expect(screen.queryByTestId('dossier-body')).toBeNull();
   });
 
   it('replaces the kebab with labeled verb chips; an immediate verb fires directly', async () => {
     apiSend.mockResolvedValue({ id: 'MMR-51' });
     mockNode(task({ id: 'MMR-51', status: 'ready', title: 'Chunk 2' }));
-    render(<NodeDossier nodeId="MMR-51" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    render(<NodeDossier nodeId="MMR-51" onClose={vi.fn()} />, { wrapper });
 
     await userEvent.click(await screen.findByRole('button', { name: 'Start' }));
     expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-51/start', undefined);
@@ -264,7 +275,7 @@ describe('nodeDossier', () => {
   it('a reason-carrying verb chip opens the reason dialog, then mutates', async () => {
     apiSend.mockResolvedValue({ id: 'MMR-51' });
     mockNode(task({ id: 'MMR-51', status: 'ready', title: 'Chunk 2' }));
-    render(<NodeDossier nodeId="MMR-51" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    render(<NodeDossier nodeId="MMR-51" onClose={vi.fn()} />, { wrapper });
 
     await userEvent.click(await screen.findByRole('button', { name: 'Park for later…' }));
     await userEvent.type(await screen.findByRole('textbox'), 'later');
@@ -274,7 +285,7 @@ describe('nodeDossier', () => {
 
   it('offline disables the verb chips and hides Edit', async () => {
     mockNode(task({ id: 'MMR-51', status: 'ready', title: 'Chunk 2' }));
-    render(<NodeDossier nodeId="MMR-51" offline onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+    render(<NodeDossier nodeId="MMR-51" offline onClose={vi.fn()} />, {
       wrapper,
     });
 
@@ -305,7 +316,7 @@ describe('nodeDossier', () => {
       }),
       [{ content: '79 tests · drop-cause facet', created_at: '2026-06-05T10:00:00.000Z' }],
     );
-    render(<NodeDossier nodeId="MMR-70" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    render(<NodeDossier nodeId="MMR-70" onClose={vi.fn()} />, { wrapper });
 
     // derived submitted-summary (latest annotation at/after submit) — echoed in
     // the verdict block AND the timeline feed, so both instances are expected
@@ -322,13 +333,13 @@ describe('nodeDossier', () => {
 
   it('the breadcrumb titles the parent from its fetched record', async () => {
     mockNode(task({ id: 'MMR-16', parent: 'MMR-1', status: 'in_progress', title: 'child' }));
-    render(<NodeDossier nodeId="MMR-16" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    render(<NodeDossier nodeId="MMR-16" onClose={vi.fn()} />, { wrapper });
     await expect(screen.findByText('Parent')).resolves.toBeDefined();
   });
 
   it('edit chip toggles the task form, prefilled with node values', async () => {
     mockNode(task({ id: 'MMR-51', status: 'ready', title: 'Chunk 2 edit test' }));
-    render(<NodeDossier nodeId="MMR-51" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+    render(<NodeDossier nodeId="MMR-51" offline={false} onClose={vi.fn()} />, {
       wrapper,
     });
     await screen.findByText('Chunk 2 edit test');
@@ -350,7 +361,7 @@ describe('nodeDossier', () => {
     );
     apiSend.mockResolvedValue({ id: 'MMR-65' });
 
-    render(<NodeDossier nodeId="MMR-65" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+    render(<NodeDossier nodeId="MMR-65" offline={false} onClose={vi.fn()} />, {
       wrapper,
     });
     await screen.findByText('Regression task');
@@ -381,7 +392,7 @@ describe('nodeDossier', () => {
         title: 'tagged task',
       }),
     );
-    render(<NodeDossier nodeId="MMR-90" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+    render(<NodeDossier nodeId="MMR-90" offline={false} onClose={vi.fn()} />, {
       wrapper,
     });
     await screen.findByText('tagged task');
@@ -392,7 +403,7 @@ describe('nodeDossier', () => {
   it('saving with an added tag fires the tag mutation with the right payload', async () => {
     apiSend.mockResolvedValue({ id: 'MMR-91' });
     mockNode(task({ id: 'MMR-91', status: 'ready', tags: [], title: 'tag-add task' }));
-    render(<NodeDossier nodeId="MMR-91" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+    render(<NodeDossier nodeId="MMR-91" offline={false} onClose={vi.fn()} />, {
       wrapper,
     });
     await screen.findByText('tag-add task');
@@ -414,7 +425,7 @@ describe('nodeDossier', () => {
         title: 'tag-remove task',
       }),
     );
-    render(<NodeDossier nodeId="MMR-92" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+    render(<NodeDossier nodeId="MMR-92" offline={false} onClose={vi.fn()} />, {
       wrapper,
     });
     await screen.findByText('tag-remove task');
@@ -436,7 +447,7 @@ describe('nodeDossier', () => {
         title: 'tag-keep task',
       }),
     );
-    render(<NodeDossier nodeId="MMR-93" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+    render(<NodeDossier nodeId="MMR-93" offline={false} onClose={vi.fn()} />, {
       wrapper,
     });
     await screen.findByText('tag-keep task');
@@ -462,7 +473,7 @@ describe('nodeDossier', () => {
         title: 'tag-append task',
       }),
     );
-    render(<NodeDossier nodeId="MMR-94" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+    render(<NodeDossier nodeId="MMR-94" offline={false} onClose={vi.fn()} />, {
       wrapper,
     });
     await screen.findByText('tag-append task');
@@ -494,7 +505,7 @@ describe('nodeDossier', () => {
         title: 'tag-mix task',
       }),
     );
-    render(<NodeDossier nodeId="MMR-95" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+    render(<NodeDossier nodeId="MMR-95" offline={false} onClose={vi.fn()} />, {
       wrapper,
     });
     await screen.findByText('tag-mix task');
@@ -520,7 +531,7 @@ describe('nodeDossier', () => {
         : Promise.resolve({ id: 'MMR-96' }),
     );
     mockNode(task({ id: 'MMR-96', status: 'ready', tags: [], title: 'tag-fail task' }));
-    render(<NodeDossier nodeId="MMR-96" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+    render(<NodeDossier nodeId="MMR-96" offline={false} onClose={vi.fn()} />, {
       wrapper,
     });
     await screen.findByText('tag-fail task');
@@ -547,7 +558,7 @@ describe('nodeDossier', () => {
         title: 'described task',
       }),
     );
-    render(<NodeDossier nodeId="MMR-80" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    render(<NodeDossier nodeId="MMR-80" onClose={vi.fn()} />, { wrapper });
 
     await screen.findByText('described task');
     expect(screen.getByText('The full unclamped body text.')).toBeDefined();
@@ -573,7 +584,7 @@ describe('nodeDossier', () => {
     mockNode(
       task({ description: MARKDOWN_BODY, id: 'MMR-81', status: 'in_progress', title: 'md task' }),
     );
-    render(<NodeDossier nodeId="MMR-81" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    render(<NodeDossier nodeId="MMR-81" onClose={vi.fn()} />, { wrapper });
 
     expect(markdownFacts(await screen.findByRole('article'))).toEqual(RENDERED_FACTS);
   });
@@ -582,7 +593,7 @@ describe('nodeDossier', () => {
     mockNode(task({ id: 'MMR-84', status: 'in_progress', title: 'broken note' }), [
       { content: 'Status: done\nTests: pass', created_at: '2026-06-02T00:00:00.000Z' },
     ]);
-    render(<NodeDossier nodeId="MMR-84" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    render(<NodeDossier nodeId="MMR-84" onClose={vi.fn()} />, { wrapper });
 
     expect((await screen.findByRole('article')).querySelectorAll('br')).toHaveLength(1);
   });
@@ -591,7 +602,7 @@ describe('nodeDossier', () => {
     mockNode(task({ id: 'MMR-82', status: 'in_progress', title: 'noted task' }), [
       { content: MARKDOWN_BODY, created_at: '2026-06-02T00:00:00.000Z' },
     ]);
-    render(<NodeDossier nodeId="MMR-82" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    render(<NodeDossier nodeId="MMR-82" onClose={vi.fn()} />, { wrapper });
 
     const article = await screen.findByRole('article');
     expect(markdownFacts(article)).toEqual(RENDERED_FACTS);
@@ -683,7 +694,7 @@ describe('nodeDossier', () => {
       }
       return Promise.reject(new Error(`unexpected ${path}`));
     });
-    render(<NodeDossier nodeId="MMR-16" offline={false} onClose={vi.fn()} onOpenNode={vi.fn()} />, {
+    render(<NodeDossier nodeId="MMR-16" offline={false} onClose={vi.fn()} />, {
       wrapper,
     });
 
@@ -712,7 +723,7 @@ describe('nodeDossier', () => {
         title: 'chunk 1',
       }),
     );
-    render(<NodeDossier nodeId="MMR-16" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
+    render(<NodeDossier nodeId="MMR-16" onClose={vi.fn()} />, { wrapper });
     await userEvent.click(await screen.findByText('console notes'));
     expect(navigate).toHaveBeenCalledWith({
       search: { a: 'MMR-a3', from: 'MMR-16' },
