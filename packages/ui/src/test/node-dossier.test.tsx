@@ -229,7 +229,7 @@ describe('nodeDossier', () => {
     mockNode(task({ id: 'MMR-51', status: 'ready', title: 'Chunk 2' }));
     render(<NodeDossier nodeId="MMR-51" onClose={vi.fn()} onOpenNode={vi.fn()} />, { wrapper });
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Park…' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Park for later…' }));
     await userEvent.type(await screen.findByRole('textbox'), 'later');
     await userEvent.click(screen.getByRole('button', { name: /confirm/i }));
     expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-51/park', { reason: 'later' });
@@ -275,7 +275,7 @@ describe('nodeDossier', () => {
     await screen.findByRole('button', { name: 'Approve' });
     expect(screen.getAllByText('79 tests · drop-cause facet').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/example\.test\/pr\/41/)).toBeDefined();
-    expect(screen.getByRole('button', { name: 'Return with notes…' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Request changes…' })).toBeDefined();
     // done/return are inline (Approve/Return), never duplicated as header chips
     expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
 

@@ -148,7 +148,7 @@ describe('treeView', () => {
   it('an under-review leaf carries inline Approve / Return and its status word', () => {
     render(<TreeView root={underReviewTree()} onOpenNode={vi.fn()} />, { wrapper });
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDefined();
-    expect(screen.getByRole('button', { name: 'Return…' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Request changes…' })).toBeDefined();
     expect(screen.getByText('Under review')).toBeDefined();
   });
 
@@ -160,7 +160,7 @@ describe('treeView', () => {
 
   it('inline Return opens the reason dialog and mutates with the return verb', async () => {
     render(<TreeView root={underReviewTree()} onOpenNode={vi.fn()} />, { wrapper });
-    await userEvent.click(screen.getByRole('button', { name: 'Return…' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Request changes…' }));
     await userEvent.type(await screen.findByRole('textbox'), 'needs tests');
     await userEvent.click(screen.getByRole('button', { name: /confirm/i }));
     expect(mutate).toHaveBeenCalledWith({ reason: 'needs tests', verb: 'return' });
@@ -169,7 +169,10 @@ describe('treeView', () => {
   it('offline inerts the inline verdict buttons', () => {
     render(<TreeView root={underReviewTree()} onOpenNode={vi.fn()} offline />, { wrapper });
     expect(screen.getByRole('button', { name: 'Approve' })).toHaveProperty('disabled', true);
-    expect(screen.getByRole('button', { name: 'Return…' })).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: 'Request changes…' })).toHaveProperty(
+      'disabled',
+      true,
+    );
   });
 
   it('folds consecutive done phases into one recessed row with an ordinal range and count', () => {

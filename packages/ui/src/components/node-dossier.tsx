@@ -11,7 +11,7 @@ import type { WireAnnotation, WireDeps, WireHistoryEntry, WireNode } from '../ap
 import { cn } from '../lib/cn';
 import type { TaskFormValues } from '../lib/schemas';
 import { absoluteTime, ago } from '../lib/time';
-import { availableTransitions } from '../lib/transitions';
+import { availableTransitions, transitionLabel } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
 import { verdictSummary } from '../lib/verdict';
 import { AnnotationComposer } from './annotation-composer';
@@ -490,7 +490,7 @@ function VerdictBlock({
             disabled={offline}
             onClick={() => onVerb(returnSpec)}
           >
-            Return with notes…
+            {transitionLabel('return')}…
           </ActionButton>
         )}
       </div>

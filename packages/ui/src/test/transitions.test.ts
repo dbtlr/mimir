@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest';
 
-import { availableTransitions } from '../lib/transitions';
+import { availableTransitions, transitionLabel } from '../lib/transitions';
 
 const inProgressNeedsReason = (v: string): boolean | undefined =>
   availableTransitions('in_progress').find((s) => s.verb === v)?.needsReason;
@@ -61,5 +61,20 @@ describe('availableTransitions', () => {
     expect(inProgressNeedsReason('block')).toBe(true);
     expect(inProgressNeedsReason('abandon')).toBe(true);
     expect(inProgressNeedsReason('done')).toBe(false);
+  });
+});
+
+describe('transition labels', () => {
+  it('name what the action does in plain words', () => {
+    expect(transitionLabel('done')).toBe('Mark done');
+    expect(transitionLabel('park')).toBe('Park for later');
+    expect(transitionLabel('unpark')).toBe('Resume');
+    expect(transitionLabel('block')).toBe('Mark blocked');
+    expect(transitionLabel('return')).toBe('Request changes');
+  });
+
+  it('availableTransitions carries the same labels', () => {
+    const labels = availableTransitions('parked').map((s) => s.label);
+    expect(labels).toStrictEqual(['Resume', 'Abandon']);
   });
 });

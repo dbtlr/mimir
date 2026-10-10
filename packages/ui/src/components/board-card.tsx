@@ -6,6 +6,7 @@ import type { WireNode } from '../api/types';
 import type { BoardColumn } from '../lib/board';
 import { cn } from '../lib/cn';
 import { STATUS_META } from '../lib/status';
+import { transitionLabel } from '../lib/transitions';
 import { ReasonDialog } from './reason-dialog';
 import { PriorityBadge, SizeBadge } from './signal-badges';
 import { ActionButton } from './ui/action-button';
@@ -200,7 +201,7 @@ export function BoardCard({
               setReturning(true);
             }}
           >
-            Return…
+            {transitionLabel('return')}…
           </ActionButton>
           <ReasonDialog
             verb={returning ? 'return' : null}
