@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
-import type { ReactNode } from 'react';
 
 import { isNotFound } from '../api/errors';
 import { annotationsQuery, nodeQuery, scratchpadsQuery, treeQuery } from '../api/queries';
@@ -16,8 +15,10 @@ import {
   HoldCallout,
   MetaRow,
   RefRow,
+  SignalBadges,
   VerdictBlock,
   awaitsVerdict,
+  hasSignals,
   prerequisiteRows,
   recordVerbs,
   useNodeEdit,
@@ -27,11 +28,9 @@ import { FeedList } from '../components/node-timeline';
 import { OfflineBanner } from '../components/offline-banner';
 import { RailSection, RecordLayout } from '../components/record-layout';
 import type { RailChip } from '../components/record-layout';
-import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from '../components/signal-badges';
 import { StatusBadge } from '../components/status-badge';
 import { TaskForm } from '../components/task-form';
 import { ActionButton } from '../components/ui/action-button';
-import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
 import { ancestorsOf } from '../lib/ancestry';
 import { cn } from '../lib/cn';
@@ -41,6 +40,7 @@ import { absoluteTime } from '../lib/time';
 import { buildFeed } from '../lib/timeline';
 import type { VerbSpec } from '../lib/transitions';
 import { nodeRoute } from '../router';
+import { NotFoundPage } from './not-found';
 
 /**
  * `/p/$key/$seq` — a work node's own page (ADR 0013, v0.23 refinement). The
@@ -52,28 +52,12 @@ export function NodePage() {
   const nodeId = nodeIdOf(key, seq);
   if (nodeId === undefined) {
     return (
-      <RecordNotFound projectKey={key.toUpperCase()}>
+      <NotFoundPage projectKey={key.toUpperCase()}>
         No record at /p/{key}/{seq}.
-      </RecordNotFound>
+      </NotFoundPage>
     );
   }
   return <NodeRecord key={nodeId} nodeId={nodeId} />;
-}
-
-function RecordNotFound({ projectKey, children }: { projectKey: string; children: ReactNode }) {
-  return (
-    <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col items-start gap-3 p-5">
-      <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">Not found</h1>
-      <p className="text-xs leading-relaxed text-ink-dim">{children}</p>
-      <Link
-        to="/p/$key"
-        params={{ key: projectKey }}
-        className="text-xs font-semibold text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
-      >
-        ← Back to {projectKey}
-      </Link>
-    </main>
-  );
 }
 
 /** The path above a record: its project, then each container down to its parent. */
@@ -216,27 +200,9 @@ function ArtifactLinks({ node }: { node: WireNode }) {
 }
 
 function DetailsPanel({ node }: { node: WireNode }) {
-  const signals =
-    node.open_ended === true ||
-    node.priority != null ||
-    node.size != null ||
-    node.verdicts?.stale === true ||
-    (node.tags?.length ?? 0) > 0;
   return (
     <div className="flex flex-col gap-2.5">
-      {signals && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {node.open_ended === true && <OpenEndedBadge />}
-          {node.priority != null && <PriorityBadge priority={node.priority} />}
-          {node.size != null && <SizeBadge size={node.size} />}
-          {node.verdicts?.stale === true && <StaleBadge />}
-          {node.tags?.map((t) => (
-            <Badge key={t.tag} variant="mono">
-              {t.tag}
-            </Badge>
-          ))}
-        </div>
-      )}
+      {hasSignals(node) && <SignalBadges node={node} />}
       <dl className="flex flex-col gap-1">
         {node.target != null && <MetaRow label="target">{node.target}</MetaRow>}
         <MetaRow label="created">{absoluteTime(node.created_at)}</MetaRow>
@@ -256,7 +222,9 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
   // The tree titles the path and the Scratchpad list names the agent's
   // episode; a miss on either only thins the page, so neither counts toward
   // connectivity.
-  const tree = useQuery(treeQuery(projectKey));
+  // The tree is the whole board, so it is read once rather than polled; a
+  // console write invalidates it and returning to the window refetches it.
+  const tree = useQuery({ ...treeQuery(projectKey), refetchInterval: false });
   const scratchpadRows = useQuery(scratchpadsQuery(projectKey));
   const edit = useNodeEdit(nodeId);
   const verbs = useNodeVerbs(nodeId);
@@ -264,7 +232,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
   const conn = connectivity([node, annotations]);
 
   if (isNotFound(node.error)) {
-    return <RecordNotFound projectKey={projectKey}>No record {nodeId}.</RecordNotFound>;
+    return <NotFoundPage projectKey={projectKey}>No record {nodeId}.</NotFoundPage>;
   }
 
   const data = node.data;
@@ -298,9 +266,12 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
   const feed = buildFeed(data.created_at, data.history, annotations.data?.items);
   const offline = conn.offline;
 
-  // Edit, Move…, and the transitions are task verbs; a container has none yet.
+  // Edit, Move…, and the transitions are task verbs; a container has none
+  // yet. They step aside while the edit form is open, as in the dossier: a
+  // second Edit would re-snapshot the tag baseline under a form that kept the
+  // first one, and a transition would land mid-edit.
   const actions =
-    data.type === 'task' ? (
+    data.type === 'task' && edit.baseline === null ? (
       <ActionsPanel
         node={data}
         offline={offline}

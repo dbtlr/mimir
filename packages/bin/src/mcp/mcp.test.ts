@@ -295,6 +295,7 @@ test('scratch tools create, mutate, read full state, and list compactly', async 
   );
   expect(listed.total).toBe(1);
   expect(listed.scratchpads[0]).not.toHaveProperty('journal');
+  expect(listed.scratchpads[0]).toHaveProperty('linked_work', []);
 });
 
 test('scratch update preserves omitted links and rejects a stale guard', async () => {

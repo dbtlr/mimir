@@ -1,7 +1,12 @@
 import type { Scratchpad } from '@mimir/contract';
 import { formatInstant, relativeTime } from '@mimir/helpers';
 
-import { compareScratchpadRows, createScratchpadService, scratchpadReceiptToWire } from '../core';
+import {
+  compareScratchpadRows,
+  createScratchpadService,
+  scratchpadReceiptToWire,
+  scratchpadRowToWire,
+} from '../core';
 import type { ArtifactRecord, Store } from '../core';
 import type { Format, Io } from '../presentation';
 import { usage } from './errors';
@@ -217,12 +222,7 @@ export async function cmdScratch(c: ScratchContext): Promise<number> {
   if (sub === 'list') {
     const project = c.values.scope === 'all' ? undefined : (c.values.scope ?? c.boundScope);
     const pads = (await service.list(project)).toSorted(compareScratchpadRows);
-    const values = pads.map((pad) => {
-      const summary = receipt(pad);
-      return Object.assign(summary, {
-        state: pad.freezingAt === null ? ('active' as const) : ('freezing' as const),
-      });
-    });
+    const values = pads.map(scratchpadRowToWire);
     if (c.format === 'ids') {
       c.io.write(values.map((pad) => pad.id).join('\n'));
     } else if (c.format === 'json') {

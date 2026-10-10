@@ -12,9 +12,11 @@ import { availableTransitions, transitionLabel } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
 import { verdictSummary } from '../lib/verdict';
 import { ReasonDialog } from './reason-dialog';
+import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
 import { StatusDot } from './status-dot';
 import type { TaskFormSubmit } from './task-form';
 import { ActionButton } from './ui/action-button';
+import { Badge } from './ui/badge';
 
 /*
  * The pieces of a work node's record that the task page and the dossier
@@ -69,6 +71,34 @@ export function prerequisiteRows(deps: WireDeps): NodeRef[] {
 /** The dossier's merged Blocking section: prerequisites, then the nodes waiting on this one. */
 export function blockingRows(deps: WireDeps): NodeRef[] {
   return dedupe(deps.depends_on, deps.awaiting_on, deps.blocking);
+}
+
+/** Does the node carry any signal: open-ended, priority, size, staleness, or tags? */
+export function hasSignals(node: WireNode): boolean {
+  return (
+    node.open_ended === true ||
+    node.priority != null ||
+    node.size != null ||
+    node.verdicts?.stale === true ||
+    (node.tags?.length ?? 0) > 0
+  );
+}
+
+/** A node's signals as badges; render it only when {@link hasSignals} holds. */
+export function SignalBadges({ node }: { node: WireNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {node.open_ended === true && <OpenEndedBadge />}
+      {node.priority != null && <PriorityBadge priority={node.priority} />}
+      {node.size != null && <SizeBadge size={node.size} />}
+      {node.verdicts?.stale === true && <StaleBadge />}
+      {node.tags?.map((t) => (
+        <Badge key={t.tag} variant="mono">
+          {t.tag}
+        </Badge>
+      ))}
+    </div>
+  );
 }
 
 /** external_ref is free text (e.g. `GH-123`, `PR #41`) — only link genuine URLs. */

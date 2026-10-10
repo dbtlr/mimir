@@ -211,7 +211,7 @@ describe('task page (MMR-449)', () => {
     ).toBe('/p/MMR/418');
   });
 
-  it('folds the rail into chips that open bottom sheets on a phone', async () => {
+  it('each rail chip opens its part of the rail in a sheet', async () => {
     serve({
       ...sqlite,
       deps: {
@@ -268,5 +268,55 @@ describe('task page (MMR-449)', () => {
     expect(within(rail).getByText('claude-code')).toBeDefined();
     expect(within(rail).getByText('feat/mmr-417-sqlite')).toBeDefined();
     expect(within(rail).queryByText('Unrelated episode')).toBeNull();
+  });
+
+  it('moves a lowercase key to its canonical URL', async () => {
+    serve(sqlite);
+    const testRouter = renderAt('/p/mmr/417');
+
+    await expect(
+      screen.findByRole('heading', { level: 1, name: 'Add the SQLite dialect' }),
+    ).resolves.toBeDefined();
+    expect(testRouter.state.location.pathname).toBe('/p/MMR/417');
+  });
+
+  it('closes a sheet when a link in it is chosen, not when its text is', async () => {
+    serve({
+      ...sqlite,
+      deps: {
+        blocking: [],
+        depends_on: [{ id: 'MMR-416', status: 'done', title: 'Extract a dialect seam' }],
+      },
+    });
+    renderAt('/p/MMR/417');
+    const chips = await screen.findByRole('group', { name: 'Record details' });
+
+    fireEvent.click(within(chips).getByRole('button', { name: /details/i }));
+    const details = await screen.findByRole('dialog', { name: /details/i });
+    fireEvent.click(within(details).getByText('created'));
+    expect(screen.getByRole('dialog', { name: /details/i })).toBeDefined();
+    fireEvent.click(within(details).getByRole('button', { name: 'Close' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    fireEvent.click(within(chips).getByRole('button', { name: /links/i }));
+    const links = await screen.findByRole('dialog', { name: /links/i });
+    fireEvent.click(within(links).getByRole('link', { name: /MMR-416/ }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /links/i })).toBeNull();
+    });
+  });
+
+  it('sets the actions aside while the edit form is open', async () => {
+    serve(sqlite);
+    renderAt('/p/MMR/417');
+    const rail = await screen.findByRole('complementary', { name: 'Record details' });
+
+    fireEvent.click(within(rail).getByRole('button', { name: 'Edit' }));
+    await waitFor(() => {
+      expect(within(rail).queryByRole('button', { name: 'Edit' })).toBeNull();
+    });
+    expect(within(rail).queryByRole('button', { name: 'Start' })).toBeNull();
   });
 });

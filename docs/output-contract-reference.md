@@ -311,8 +311,8 @@ HTTP exposes Scratchpad parity through `GET/POST /api/scratchpads`,
 `GET/PATCH/DELETE /api/scratchpads/:id`, and the `checkpoints`, `agenda`,
 `agenda/:number/complete`, `agenda/:number/supersede`, and `freeze` mutation
 sub-routes. Collection rows use `items` plus `total`; detail alone carries the
-Journal and Agenda. A collection row has the Overview row's shape, including
-`linked_work`. Every existing-Scratchpad mutation requires
+Journal and Agenda. A list row has the Overview's active-Scratchpad row shape,
+including `linked_work`, on HTTP, MCP, and the CLI's structured formats. Every existing-Scratchpad mutation requires
 `expected_updated_at`; create takes no token. The collection accepts
 `?project=KEY` to scope one board and `?project=all` for every board. Unlike the
 CLI, an absent parameter reads every board because the daemon has no bound

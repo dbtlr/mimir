@@ -71,6 +71,14 @@ export const projectRoute = createRoute({
 
 /** A work node's page: the node id split at its hyphen (`MMR-417` → `/p/MMR/417`). */
 export const nodeRoute = createRoute({
+  // One record, one URL: a lowercase key (`/p/mmr/417`) moves to its canonical spelling.
+  beforeLoad: ({ params }) => {
+    const key = params.key.toUpperCase();
+    if (key !== params.key) {
+      // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
+      throw redirect({ params: { key, seq: params.seq }, replace: true, to: '/p/$key/$seq' });
+    }
+  },
   component: NodePage,
   getParentRoute: () => rootRoute,
   path: '/p/$key/$seq',

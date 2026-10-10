@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 
 import { cn } from '../lib/cn';
-import { Sheet, SheetContent, SheetTitle } from './ui/sheet';
+import { Sheet, SheetClose, SheetContent, SheetTitle } from './ui/sheet';
 
 /** One phone chip: its label, an optional count, and what its bottom sheet holds. */
 export type RailChip = {
@@ -56,6 +56,8 @@ function RailChips({ chips }: { chips: readonly RailChip[] }) {
           <button
             key={chip.label}
             type="button"
+            aria-haspopup="dialog"
+            aria-expanded={open === chip.label}
             onClick={() => setOpen(chip.label)}
             className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-3.5 text-meta font-medium text-ink inset-ring inset-ring-line-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
           >
@@ -78,6 +80,12 @@ function RailChips({ chips }: { chips: readonly RailChip[] }) {
           <SheetContent side="bottom" aria-describedby={undefined}>
             <div className="flex items-center border-b border-line px-5 py-3">
               <SheetTitle className="microlabel text-ink-faint">{active.label}</SheetTitle>
+              <SheetClose
+                aria-label="Close"
+                className="ml-auto flex size-9 items-center justify-center rounded text-ink-faint transition-colors hover:bg-well-800 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
+              >
+                ✕
+              </SheetClose>
             </div>
             {/* The sheet body is a click boundary, not a control: choosing a
                 link or button inside it closes the sheet. */}

@@ -48,6 +48,7 @@ import {
   promoteToWire,
   seedToWire,
   scratchpadReceiptToWire,
+  scratchpadRowToWire,
   scratchpadToWire,
   transitionSeed,
   updateSeed,
@@ -1239,13 +1240,7 @@ function bindServer(
               await scratchService(store).list(scope === 'all' ? undefined : scope)
             ).toSorted(compareScratchpadRows);
             return json({
-              // The Overview row's shape: the receipt plus state and linked work,
-              // so a console page can find the Scratchpads anchored to a task.
-              items: scratchpads.map((scratchpad) => ({
-                ...scratchpadReceiptToWire(scratchpad),
-                linked_work: scratchpad.anchors,
-                state: scratchpad.freezingAt === null ? 'active' : 'freezing',
-              })),
+              items: scratchpads.map(scratchpadRowToWire),
               total: scratchpads.length,
             });
           }),

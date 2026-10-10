@@ -64,6 +64,7 @@ import {
   formatStatusJson,
   formatTriageJson,
   scratchpadReceiptToWire,
+  scratchpadRowToWire,
   scratchpadToWire,
   getArtifact,
   getNode,
@@ -171,10 +172,7 @@ export function toolScratchList(store: Store, args: ScratchListToolArgs): Promis
     return ok(
       JSON.stringify(
         {
-          scratchpads: scratchpads.map((scratchpad) => ({
-            ...scratchpadReceiptToWire(scratchpad),
-            state: scratchpad.freezingAt === null ? 'active' : 'freezing',
-          })),
+          scratchpads: scratchpads.map(scratchpadRowToWire),
           total: scratchpads.length,
         },
         null,

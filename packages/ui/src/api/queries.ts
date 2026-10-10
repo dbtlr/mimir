@@ -170,7 +170,6 @@ export const nodeQuery = (id: string) =>
     queryKey: ['node', id],
   });
 
-/** Drawer: the node's freeform annotations (their own sub-resource). */
 /** One board's active Scratchpads, each with the work it is anchored to. */
 export const scratchpadsQuery = (key: string) =>
   queryOptions({
@@ -179,6 +178,7 @@ export const scratchpadsQuery = (key: string) =>
     queryKey: ['scratchpads', key],
   });
 
+/** Drawer: the node's freeform annotations (their own sub-resource). */
 export const annotationsQuery = (id: string) =>
   queryOptions({
     queryFn: () =>

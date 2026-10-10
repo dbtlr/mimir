@@ -18,18 +18,18 @@ import {
   MetaRow,
   Microlabel,
   RefRow,
+  SignalBadges,
   VerdictBlock,
   awaitsVerdict,
   blockingRows,
+  hasSignals,
   recordVerbs,
   useNodeEdit,
   useNodeVerbs,
 } from './node-record';
 import { FeedList } from './node-timeline';
-import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
 import { StatusBadge } from './status-badge';
 import { TaskForm } from './task-form';
-import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
 import { Skeleton } from './ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
@@ -294,24 +294,10 @@ function DossierBody({ nodeId, offline }: { nodeId: string; offline?: boolean })
               )}
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {(data.open_ended === true ||
-                  data.priority != null ||
-                  data.size != null ||
-                  data.verdicts?.stale === true ||
-                  (data.tags?.length ?? 0) > 0) && (
+                {hasSignals(data) && (
                   <section className="flex flex-col gap-1.5">
                     <Microlabel>Signals</Microlabel>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {data.open_ended === true && <OpenEndedBadge />}
-                      {data.priority != null && <PriorityBadge priority={data.priority} />}
-                      {data.size != null && <SizeBadge size={data.size} />}
-                      {data.verdicts?.stale === true && <StaleBadge />}
-                      {data.tags?.map((t) => (
-                        <Badge key={t.tag} variant="mono">
-                          {t.tag}
-                        </Badge>
-                      ))}
-                    </div>
+                    <SignalBadges node={data} />
                   </section>
                 )}
 
