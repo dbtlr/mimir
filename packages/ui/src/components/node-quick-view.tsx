@@ -10,6 +10,7 @@ import { ago, relativeTime } from '../lib/time';
 import { availableTransitions, transitionLabel } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
 import { verdictSummary } from '../lib/verdict';
+import { MarkdownBody } from './markdown-body';
 import { describeTransition } from './node-dossier';
 import { ReasonDialog } from './reason-dialog';
 import { PriorityBadge, SizeBadge } from './signal-badges';
@@ -330,7 +331,9 @@ export function QuickViewPanel({
         ) : (
           description != null &&
           description !== '' && (
-            <p className="line-clamp-3 text-meta leading-[1.6] text-ink">{description}</p>
+            <MarkdownBody breaks size="compact" clamp={3} className="max-w-none">
+              {description}
+            </MarkdownBody>
           )
         )}
         {(priority != null || size != null || blockingId !== undefined || artifactCount > 0) && (
@@ -520,7 +523,9 @@ export function QuickShelf({
       </div>
       <p className="text-card-mobile font-semibold leading-[1.45] text-ink-bright">{node.title}</p>
       {description != null && description !== '' && (
-        <p className="line-clamp-2 text-meta leading-[1.6] text-ink">{description}</p>
+        <MarkdownBody breaks size="compact" clamp={2} className="max-w-none">
+          {description}
+        </MarkdownBody>
       )}
       {isUnderReview && (
         <div className="flex gap-2">

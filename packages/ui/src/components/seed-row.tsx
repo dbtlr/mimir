@@ -4,6 +4,7 @@ import { seedQuery } from '../api/queries';
 import type { WireSeed } from '../api/types';
 import { cn } from '../lib/cn';
 import { relativeTime } from '../lib/time';
+import { MarkdownBody } from './markdown-body';
 import { SeedKindChip } from './seed-kind-chip';
 import { SeedVerbs, SpawnedRef } from './seed-verbs';
 import { Skeleton } from './ui/skeleton';
@@ -47,7 +48,9 @@ function ExpandedBody({
             <p className="text-meta text-ink-faint">No body — the title is the whole seed.</p>
           )}
           {!detail.isPending && description !== '' && (
-            <p className="whitespace-pre-wrap">{description}</p>
+            <MarkdownBody breaks className="max-w-none">
+              {description}
+            </MarkdownBody>
           )}
         </div>
         {description !== '' && (

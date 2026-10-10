@@ -2,7 +2,7 @@ import { Dialog } from '@base-ui-components/react/dialog';
 import type { NodeRef } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useTag, useTransition, useUntag, useUpdateNode } from '../api/mutations';
@@ -16,6 +16,8 @@ import type { VerbSpec } from '../lib/transitions';
 import { verdictSummary } from '../lib/verdict';
 import { AnnotationComposer } from './annotation-composer';
 import { DirectionLine } from './direction-line';
+import { MarkdownBody } from './markdown-body';
+import type { ClampMeasure } from './markdown-body';
 import { MoveDialog } from './move-dialog';
 import { ReasonDialog } from './reason-dialog';
 import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
@@ -310,47 +312,36 @@ function TransitionLine({ entry }: { entry: WireHistoryEntry }) {
   );
 }
 
-/** A note that clamps to 3 lines, revealing "Show all ⌄" only when it overflows. */
+/**
+ * A note clamped to 3 lines. "Show all · N lines" appears only when the
+ * rendered note really overflows its clamp; N is the approximate rendered
+ * line count the clamp measured.
+ */
 function TimelineNote({ content }: { content: string }) {
-  const ref = useRef<HTMLParagraphElement>(null);
   const [expanded, setExpanded] = useState(false);
-  // Total rendered line count (measured while clamped), so the expand affordance
-  // can carry the handoff-of-record copy "Show all · N lines ⌄" (brief §2).
-  const [lines, setLines] = useState(0);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (el === null) {
-      return;
-    }
-    const lh = Number.parseFloat(getComputedStyle(el).lineHeight);
-    if (Number.isFinite(lh) && lh > 0) {
-      setLines(Math.round(el.scrollHeight / lh));
-    } else {
-      // No computed line-height (jsdom): fall back to bare overflow detection.
-      setLines(el.scrollHeight - el.clientHeight > 1 ? 4 : 0);
-    }
-    // The effect measures the DOM `content` renders, so a new text must re-measure.
-    // oxlint-disable-next-line react/exhaustive-effect-dependencies
-  }, [content]);
-  const overflowing = lines > 3;
+  const [measure, setMeasure] = useState<ClampMeasure>({ lines: 0, overflowing: false });
+  const count =
+    measure.lines > 0
+      ? ` · ${String(measure.lines)} ${measure.lines === 1 ? 'line' : 'lines'}`
+      : '';
   return (
     <div className="flex flex-col gap-0.5">
-      <p
-        ref={ref}
-        className={cn(
-          'text-meta leading-relaxed whitespace-pre-wrap text-ink',
-          !expanded && 'line-clamp-3',
-        )}
+      <MarkdownBody
+        breaks
+        size="compact"
+        clamp={expanded ? undefined : 3}
+        onClampMeasure={setMeasure}
+        className="max-w-none"
       >
         {content}
-      </p>
-      {overflowing && (
+      </MarkdownBody>
+      {measure.overflowing && (
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
           className="self-start text-micro text-accent-foreground transition-colors hover:text-accent"
         >
-          {expanded ? 'Show less ⌃' : `Show all · ${String(lines)} lines ⌄`}
+          {expanded ? 'Show less ⌃' : `Show all${count} ⌄`}
         </button>
       )}
     </div>
@@ -699,9 +690,9 @@ function DossierBody({
               {data.description != null && data.description.trim() !== '' && (
                 <section className="flex flex-col gap-1.5">
                   <Microlabel>Description</Microlabel>
-                  <p className="text-body leading-[1.65] whitespace-pre-wrap text-ink">
+                  <MarkdownBody breaks className="max-w-none">
                     {data.description}
-                  </p>
+                  </MarkdownBody>
                 </section>
               )}
 

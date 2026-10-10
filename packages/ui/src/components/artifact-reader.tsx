@@ -131,7 +131,9 @@ export function ArtifactReader({
         {artifact.isPending && <Skeleton className="h-40 w-full max-w-[620px]" />}
         {artifact.isError && <p className="text-xs text-status-blocked">Couldn't load {id}.</p>}
         {data?.content !== undefined && (
-          <MarkdownBody className="max-w-[620px]">{data.content}</MarkdownBody>
+          <MarkdownBody images className="max-w-[620px]">
+            {data.content}
+          </MarkdownBody>
         )}
       </div>
 
