@@ -59,4 +59,104 @@ describe('deriveLede', () => {
       expect(lede.length).toBeGreaterThanOrEqual(SEED_LEDE_BUDGET - 1);
     }
   });
+
+  // Seed bodies are markdown (MMR-457): the lede is plain prose, never raw markup.
+  describe('markdown projects to plain prose', () => {
+    test('headings lose their # markers and do not glue to the next block', () => {
+      expect(deriveLede('# Heading\n## Sub\nBody text')).toBe('Heading Sub Body text');
+    });
+
+    test('bold and italic lose their markers', () => {
+      expect(deriveLede('some **bold** and *italic* and __strong__ and _em_ words')).toBe(
+        'some bold and italic and strong and em words',
+      );
+    });
+
+    test('inline code loses its backticks', () => {
+      expect(deriveLede('run `bun test` now')).toBe('run bun test now');
+    });
+
+    test('links give their text only; images give their alt text', () => {
+      expect(deriveLede('see [the docs](https://example.com/docs) now')).toBe('see the docs now');
+      expect(deriveLede('look ![a diagram](https://example.com/d.png) here')).toBe(
+        'look a diagram here',
+      );
+    });
+
+    test('autolinks give the URL text', () => {
+      expect(deriveLede('go to <https://example.com> soon')).toBe('go to https://example.com soon');
+    });
+
+    test('bulleted and ordered list items join with spaces and no markers', () => {
+      expect(deriveLede('- one\n- two\n- three')).toBe('one two three');
+      expect(deriveLede('1. first\n2. second\n3. third')).toBe('first second third');
+    });
+
+    test('task-list markers are stripped', () => {
+      expect(deriveLede('- [ ] todo\n- [x] done\n- [X] also done')).toBe('todo done also done');
+    });
+
+    test('blockquotes lose their > marker', () => {
+      expect(deriveLede('> quoted line\n> more quote\n\nafter')).toBe(
+        'quoted line more quote after',
+      );
+    });
+
+    test('hard breaks become a space', () => {
+      expect(deriveLede('first  \nsecond\\\nthird')).toBe('first second third');
+    });
+
+    test('block-level html is dropped and thematic breaks vanish', () => {
+      expect(deriveLede('before\n\n<div>raw</div>\n\n---\n\nafter')).toBe('before after');
+      expect(deriveLede('> quoted\n>\n> <div>raw</div>\n\nafter')).toBe('quoted after');
+      expect(deriveLede('- item\n\n  <div>raw</div>')).toBe('item');
+    });
+
+    test('inline angle-bracket placeholders keep their literal text', () => {
+      expect(deriveLede('run mimir get <id> first')).toBe('run mimir get <id> first');
+      expect(deriveLede('waiting on <KEY-s3>')).toBe('waiting on <KEY-s3>');
+      expect(deriveLede('# see <id>\n\n**use <id>**')).toBe('see <id> use <id>');
+    });
+
+    test('html comments are dropped wherever they appear', () => {
+      expect(deriveLede('before <!-- note --> after')).toBe('before after');
+      expect(deriveLede('before\n\n<!-- note -->\n\nafter')).toBe('before after');
+    });
+
+    test('fenced and indented code blocks are dropped', () => {
+      expect(deriveLede('intro\n\n```ts\nconst x = 1;\n```\n\noutro')).toBe('intro outro');
+      expect(deriveLede('intro\n\n    indented code\n\noutro')).toBe('intro outro');
+    });
+
+    test('a code-only body has no prose, so no lede', () => {
+      expect(deriveLede('```\nconst x = 1;\n```')).toBeNull();
+      expect(deriveLede('    just code')).toBeNull();
+    });
+
+    test('adjacent blocks never glue their words together', () => {
+      expect(deriveLede('# Title\nParagraph one.\n\n- item\n\n> quote')).toBe(
+        'Title Paragraph one. item quote',
+      );
+    });
+
+    test('a long markdown body still respects the budget, word boundary and ellipsis', () => {
+      const body = `# Heading\n\n${'**lorem** [ipsum](https://example.com) `dolor` '.repeat(40)}`;
+      const value = deriveLede(body) ?? '';
+      expect(value.endsWith('…')).toBe(true);
+      expect(value.length).toBeLessThanOrEqual(SEED_LEDE_BUDGET);
+      expect(value).not.toMatch(/[*`[\]#(]/);
+      const text = value.slice(0, -1);
+      expect(text.endsWith(' ')).toBe(false);
+      // Cut on a whole word: the next character of the plain text is a space.
+      const plain = `Heading ${'lorem ipsum dolor '.repeat(40)}`.trim();
+      expect(plain.startsWith(text)).toBe(true);
+      expect(plain[text.length]).toBe(' ');
+    });
+
+    test('plain prose is unchanged', () => {
+      expect(deriveLede('a rough idea, with punctuation: it works (mostly).')).toBe(
+        'a rough idea, with punctuation: it works (mostly).',
+      );
+    });
+  });
 });
