@@ -219,16 +219,23 @@ export function MarkdownBody({
   useLayoutEffect(() => {
     const el = ref.current;
     if (clamp === undefined || el === null) {
-      return;
+      return undefined;
     }
-    // Measured while clamped: scrollHeight is the full content, clientHeight the clamp.
-    const over = el.scrollHeight > el.clientHeight + 1;
-    const lineHeight = Number.parseFloat(getComputedStyle(el).lineHeight);
-    setOverflowing(over);
-    onClampMeasure?.({
-      lines: lineHeight > 0 ? Math.ceil(el.scrollHeight / lineHeight) : 0,
-      overflowing: over,
-    });
+    const measure = (): void => {
+      // Measured while clamped: scrollHeight is the full content, clientHeight the clamp.
+      const over = el.scrollHeight > el.clientHeight + 1;
+      const lineHeight = Number.parseFloat(getComputedStyle(el).lineHeight);
+      setOverflowing(over);
+      onClampMeasure?.({
+        lines: lineHeight > 0 ? Math.ceil(el.scrollHeight / lineHeight) : 0,
+        overflowing: over,
+      });
+    };
+    measure();
+    // A width change rewraps the text, so the overflow verdict can flip on resize.
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(el);
+    return () => observer?.disconnect();
     // The effect measures the DOM `children` renders, so a new text must re-measure.
     // oxlint-disable-next-line react/exhaustive-effect-dependencies
   }, [children, clamp, onClampMeasure]);

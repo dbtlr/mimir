@@ -1,5 +1,5 @@
-import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { act, render, screen, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
 import { MarkdownBody } from '../components/markdown-body';
 
@@ -87,6 +87,39 @@ describe('markdownBody', () => {
     expect(screen.getByRole('link', { name: /build graph/ }).getAttribute('href')).toBe(
       'https://tracker.example/pixel.png',
     );
+  });
+
+  it('re-measures a clamped body when its width changes', () => {
+    const observed: { resize?: () => void } = {};
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(onResize: () => void) {
+          observed.resize = onResize;
+        }
+        observe(): void {}
+        disconnect(): void {}
+      },
+    );
+    let scrollHeight = 60;
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(60);
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(() => scrollHeight);
+    const onClampMeasure = vi.fn();
+    render(
+      <MarkdownBody clamp={3} onClampMeasure={onClampMeasure}>
+        a note that fits until the window narrows
+      </MarkdownBody>,
+    );
+    expect(onClampMeasure).toHaveBeenLastCalledWith(
+      expect.objectContaining({ overflowing: false }),
+    );
+
+    scrollHeight = 120;
+    act(() => observed.resize?.());
+
+    expect(onClampMeasure).toHaveBeenLastCalledWith(expect.objectContaining({ overflowing: true }));
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it('loads the image when the host opts in with `images`', () => {
