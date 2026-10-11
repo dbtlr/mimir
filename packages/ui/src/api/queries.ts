@@ -10,6 +10,7 @@ import type {
   WireHealth,
   WireNode,
   WireScratchpadRow,
+  WireSearchHit,
   WireSeed,
   WireTreeNode,
 } from './types';
@@ -308,4 +309,25 @@ export const seedQuery = (id: string) =>
   queryOptions({
     queryFn: () => apiGet<WireSeed>(`/api/seeds/${encodeURIComponent(id)}`),
     queryKey: ['seeds', 'detail', id],
+  });
+
+/**
+ * Cross-record search (MMR-447) for the jump palette. `project` ranks the
+ * current project first and resolves a bare suffix there. A search is a
+ * passing question, not board state: it is not polled, and it leaves the
+ * cache a minute after the palette stops asking, so it never piles up in the
+ * persisted offline snapshot.
+ */
+export const searchQuery = (q: string, project?: string) =>
+  queryOptions({
+    gcTime: 60_000,
+    queryFn: () => {
+      const p = new URLSearchParams({ q });
+      if (project !== undefined && project !== '') {
+        p.set('project', project);
+      }
+      return apiGet<Collection<WireSearchHit>>(`/api/search?${p.toString()}`);
+    },
+    queryKey: ['search', project ?? 'all', q],
+    refetchInterval: false,
   });

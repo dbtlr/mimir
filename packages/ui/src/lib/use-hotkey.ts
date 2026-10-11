@@ -71,3 +71,39 @@ export function useHotkey(
     };
   }, [key, enabled]);
 }
+
+/**
+ * A global Cmd-key / Ctrl-key chord (MMR-455) — the ⌘K palette opener. Unlike a
+ * bare hotkey it fires from inside a text field, since the modifier means no
+ * keystroke is being typed; it still yields to an already-open dialog, menu,
+ * or listbox. Either modifier counts, so ⌘K on a Mac and Ctrl-K elsewhere
+ * both work.
+ */
+export function useCommandHotkey(
+  key: string,
+  handler: () => void,
+  opts: { enabled?: boolean } = {},
+): void {
+  const enabled = opts.enabled ?? true;
+  const onHotkey = useEffectEvent(handler);
+
+  useEffect(() => {
+    if (!enabled) {
+      return undefined;
+    }
+    function onKeyDown(e: KeyboardEvent): void {
+      if (e.key.toLowerCase() !== key || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) {
+        return;
+      }
+      if (hasOpenPopup()) {
+        return;
+      }
+      e.preventDefault();
+      onHotkey();
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [key, enabled]);
+}

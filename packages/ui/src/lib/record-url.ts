@@ -4,6 +4,8 @@
  * translation is mechanical in both directions, so no lookup is ever needed.
  */
 
+import type { SearchKind } from '@mimir/contract';
+
 const KEY = /^[A-Z]{2,4}$/;
 const NODE_SUFFIX = /^\d+$/;
 const BARE_NODE = /^([A-Z]{2,4})-(\d+)$/;
@@ -15,6 +17,27 @@ export function nodeLink(id: string) {
     params: { key: id.slice(0, dash), seq: id.slice(dash + 1) },
     to: '/p/$key/$seq' as const,
   };
+}
+
+/**
+ * Router target for any record's page, by kind. Seeds and artifacts open in
+ * their browsers until they get pages of their own (MMR-451, MMR-452).
+ */
+export function recordLink(record: { kind: SearchKind; id: string }) {
+  switch (record.kind) {
+    case 'project': {
+      return { params: { key: record.id }, to: '/p/$key' as const };
+    }
+    case 'seed': {
+      return { search: { seed: record.id }, to: '/seeds' as const };
+    }
+    case 'artifact': {
+      return { search: { a: record.id }, to: '/artifacts' as const };
+    }
+    default: {
+      return nodeLink(record.id);
+    }
+  }
 }
 
 /** The node id a record path names, or undefined when the suffix is not a node's. */
