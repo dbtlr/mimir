@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { WireTreeNode } from '../api/types';
-import { ancestorsOf, subtreeOf } from '../lib/ancestry';
+import { ancestorsOf, sharedPathOf, subtreeOf } from '../lib/ancestry';
 
 function tn(id: string, type: WireTreeNode['type'], children: WireTreeNode[] = []): WireTreeNode {
   return {
@@ -17,7 +17,11 @@ function tn(id: string, type: WireTreeNode['type'], children: WireTreeNode[] = [
 }
 
 const tree = tn('MMR', 'project', [
-  tn('MMR-1', 'initiative', [tn('MMR-2', 'phase', [tn('MMR-3', 'task')]), tn('MMR-4', 'task')]),
+  tn('MMR-1', 'initiative', [
+    tn('MMR-2', 'phase', [tn('MMR-3', 'task'), tn('MMR-5', 'task')]),
+    tn('MMR-4', 'task'),
+  ]),
+  tn('MMR-6', 'task'),
 ]);
 
 describe('ancestorsOf', () => {
@@ -36,7 +40,7 @@ describe('ancestorsOf', () => {
 
 describe('subtreeOf', () => {
   it('finds a nested container with its children', () => {
-    expect(subtreeOf(tree, 'MMR-2')?.children.map((n) => n.id)).toStrictEqual(['MMR-3']);
+    expect(subtreeOf(tree, 'MMR-2')?.children.map((n) => n.id)).toStrictEqual(['MMR-3', 'MMR-5']);
   });
 
   it('is the root itself for the project key', () => {
@@ -45,5 +49,32 @@ describe('subtreeOf', () => {
 
   it('is undefined for a node the tree does not hold', () => {
     expect(subtreeOf(tree, 'MMR-99')).toBeUndefined();
+  });
+});
+
+const ids = (path?: WireTreeNode[]) => path?.map((n) => n.id);
+
+describe('sharedPathOf (MMR-452)', () => {
+  it('runs through a lone record itself, below its containers', () => {
+    expect(ids(sharedPathOf(tree, ['MMR-3']))).toStrictEqual(['MMR-1', 'MMR-2', 'MMR-3']);
+  });
+
+  it('stops at the nearest container holding every record', () => {
+    expect(ids(sharedPathOf(tree, ['MMR-3', 'MMR-5']))).toStrictEqual(['MMR-1', 'MMR-2']);
+    expect(ids(sharedPathOf(tree, ['MMR-3', 'MMR-4']))).toStrictEqual(['MMR-1']);
+  });
+
+  it('stops at a linked container that holds the other records', () => {
+    expect(ids(sharedPathOf(tree, ['MMR-2', 'MMR-3']))).toStrictEqual(['MMR-1', 'MMR-2']);
+  });
+
+  it('is empty when only the project holds them all', () => {
+    expect(sharedPathOf(tree, ['MMR-3', 'MMR-6'])).toStrictEqual([]);
+  });
+
+  it('ignores records the tree does not hold, and is undefined when it holds none', () => {
+    expect(ids(sharedPathOf(tree, ['MMR-3', 'MMR-99']))).toStrictEqual(['MMR-1', 'MMR-2', 'MMR-3']);
+    expect(sharedPathOf(tree, ['MMR-99'])).toBeUndefined();
+    expect(sharedPathOf(tree, [])).toBeUndefined();
   });
 });

@@ -10,6 +10,7 @@ const KEY = /^[A-Z]{2,4}$/;
 const NODE_SUFFIX = /^\d+$/;
 const BARE_NODE = /^([A-Z]{2,4})-(\d+)$/;
 const BARE_SEED = /^([A-Z]{2,4})-S(\d+)$/;
+const BARE_ARTIFACT = /^([A-Z]{2,4})-A(\d+)$/;
 
 /** Router target for a work node's page: `nodeLink('MMR-417')` → `/p/MMR/417`. */
 export function nodeLink(id: string) {
@@ -35,10 +36,22 @@ export function seedPath(id: string): string {
   return `/p/${params.key}/s${params.seq}`;
 }
 
-/**
- * Router target for any record's page, by kind. Artifacts open in their
- * browser until they get a page of their own (MMR-452).
- */
+/** Router target for an artifact's page: `artifactLink('MMR-a219')` → `/p/MMR/a219`. */
+export function artifactLink(id: string) {
+  const dash = id.indexOf('-');
+  return {
+    params: { key: id.slice(0, dash), seq: id.slice(dash + 2) },
+    to: '/p/$key/a{$seq}' as const,
+  };
+}
+
+/** An artifact page's path as text, for copying and display: `/p/MMR/a219`. */
+export function artifactPath(id: string): string {
+  const { params } = artifactLink(id);
+  return `/p/${params.key}/a${params.seq}`;
+}
+
+/** Router target for any record's page, by kind. */
 export function recordLink(record: { kind: SearchKind; id: string }) {
   switch (record.kind) {
     case 'project': {
@@ -48,7 +61,7 @@ export function recordLink(record: { kind: SearchKind; id: string }) {
       return seedLink(record.id);
     }
     case 'artifact': {
-      return { search: { a: record.id }, to: '/artifacts' as const };
+      return artifactLink(record.id);
     }
     default: {
       return nodeLink(record.id);
@@ -68,10 +81,16 @@ export function seedIdOf(key: string, seq: string): string | undefined {
   return KEY.test(upper) && NODE_SUFFIX.test(seq) ? `${upper}-s${seq}` : undefined;
 }
 
+/** The artifact id an artifact path names (`a219` arrives as `219`), or undefined off the grammar. */
+export function artifactIdOf(key: string, seq: string): string | undefined {
+  const upper = key.toUpperCase();
+  return KEY.test(upper) && NODE_SUFFIX.test(seq) ? `${upper}-a${seq}` : undefined;
+}
+
 /**
  * Where an unmatched path that is a bare ID or project key goes, judged by
  * grammar alone and in any case: `/mmr-417` → `/p/MMR/417`, `/mmr-s41` →
- * `/p/MMR/s41`, `/MMR` → `/p/MMR`.
+ * `/p/MMR/s41`, `/mmr-a219` → `/p/MMR/a219`, `/MMR` → `/p/MMR`.
  * The record page owns the not-found state when no such record exists.
  */
 export function bareIdRedirect(segment: string) {
@@ -83,5 +102,9 @@ export function bareIdRedirect(segment: string) {
     return nodeLink(upper);
   }
   const seed = BARE_SEED.exec(upper);
-  return seed === null ? undefined : seedLink(`${seed[1] ?? ''}-s${seed[2] ?? ''}`);
+  if (seed !== null) {
+    return seedLink(`${seed[1] ?? ''}-s${seed[2] ?? ''}`);
+  }
+  const artifact = BARE_ARTIFACT.exec(upper);
+  return artifact === null ? undefined : artifactLink(`${artifact[1] ?? ''}-a${artifact[2] ?? ''}`);
 }

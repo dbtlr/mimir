@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { useTag, useTransition, useUntag, useUpdateNode } from '../api/mutations';
 import type { WireAnnotation, WireArtifact, WireDeps, WireNode, WireTreeNode } from '../api/types';
 import { cn } from '../lib/cn';
-import { nodeLink } from '../lib/record-url';
+import { artifactLink, nodeLink } from '../lib/record-url';
 import type { TaskFormValues } from '../lib/schemas';
 import { availableTransitions, transitionLabel } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
@@ -46,17 +46,8 @@ export function RefRow({ refNode }: { refNode: NodeRef }) {
   );
 }
 
-/**
- * Links to a record's artifacts in the artifact reader. `from` is the work
- * node the reader's "back to" link returns to; a project passes none.
- */
-export function ArtifactLinks({
-  artifacts,
-  from,
-}: {
-  artifacts?: readonly WireArtifact[];
-  from?: string;
-}) {
+/** Links to a record's artifacts, each at its own page (MMR-452). */
+export function ArtifactLinks({ artifacts }: { artifacts?: readonly WireArtifact[] }) {
   if (artifacts === undefined || artifacts.length === 0) {
     return <p className="text-xs text-ink-faint">None yet.</p>;
   }
@@ -65,8 +56,7 @@ export function ArtifactLinks({
       {artifacts.map((a) => (
         <Link
           key={a.id}
-          to="/artifacts"
-          search={from === undefined ? { a: a.id } : { a: a.id, from }}
+          {...artifactLink(a.id)}
           className="flex min-w-0 items-center gap-2 rounded-sm px-1 py-0.5 text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
         >
           <span aria-hidden className="text-accent-foreground select-none">

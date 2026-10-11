@@ -25,7 +25,7 @@ import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { useRememberRecord } from '../lib/recent-records';
 import { nodeLink, seedIdOf, seedPath } from '../lib/record-url';
-import { STATUS_META } from '../lib/status';
+import { STATUS_META, isSettledTask, taskStanding } from '../lib/status';
 import { ago, calendarDate } from '../lib/time';
 import { seedRoute } from '../router';
 import { NotFoundPage } from './not-found';
@@ -138,19 +138,6 @@ function upstreamReadOf(read: { data?: unknown; isError: boolean }): UpstreamRea
   return read.isError ? 'failed' : 'pending';
 }
 
-const isSettledTask = (node: WireNode): boolean =>
-  node.status === 'done' || node.status === 'abandoned';
-
-/**
- * How a task stands, in words: its status, and when it settled. Only `done`
- * stamps `completed_at`; an abandoned task settled when it last changed.
- */
-function outcomeState(node: WireNode): string {
-  const word = STATUS_META[node.status].label.toLowerCase();
-  const settledAt = isSettledTask(node) ? (node.completed_at ?? node.updated_at) : null;
-  return settledAt === null ? word : `${word} ${calendarDate(settledAt)}`;
-}
-
 /**
  * What came of the seed: the tasks promoted from it, then the tasks on any
  * board that name it as upstream. A spawned row links before its task loads.
@@ -191,7 +178,7 @@ function OutcomeSection({
                 )}
                 {node !== undefined && (
                   <span className="shrink-0 font-mono text-mono-id text-ink-faint">
-                    {outcomeState(node)}
+                    {taskStanding(node)}
                   </span>
                 )}
               </Link>

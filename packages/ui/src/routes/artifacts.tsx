@@ -67,16 +67,8 @@ export function ArtifactsPage() {
   const select = (id: string) =>
     void navigate({ search: (prev) => ({ ...prev, a: id }), to: '/artifacts' });
 
-  const back = () => {
-    if (search.from !== undefined) {
-      void navigate(nodeLink(search.from));
-    } else {
-      void navigate({
-        search: (prev) => ({ ...prev, a: undefined, from: undefined }),
-        to: '/artifacts',
-      });
-    }
-  };
+  const back = () =>
+    void navigate({ search: (prev) => ({ ...prev, a: undefined }), to: '/artifacts' });
 
   const openNode = (nodeId: string) => void navigate(nodeLink(nodeId));
 
@@ -138,7 +130,6 @@ export function ArtifactsPage() {
           {selected !== undefined ? (
             <ArtifactReader
               id={selected}
-              fromNode={search.from}
               onBack={back}
               onOpenNode={openNode}
               onOpenProject={openProject}

@@ -28,9 +28,10 @@ a task's page.
 
 ## Work within a project
 
-Every project, initiative, phase, task, and seed has its own page at its own
-address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`, and `/p/MMR/s41`
-for the seed `MMR-s41`. Typing a bare ID such as `/MMR-417`, `/mmr-s41`, or
+Every project, initiative, phase, task, seed, and artifact has its own page at
+its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
+`/p/MMR/s41` for the seed `MMR-s41`, and `/p/MMR/a219` for the artifact
+`MMR-a219`. Typing a bare ID such as `/MMR-417`, `/mmr-s41`, `/mmr-a219`, or
 `/mmr` redirects to its page.
 
 - **The project page** shows the description and the project's top-level work.
@@ -48,6 +49,12 @@ for the seed `MMR-s41`. Typing a bare ID such as `/MMR-417`, `/mmr-s41`, or
   again or reject while its work is under way; and resolve, promote again, or
   reject once that work has settled. Its rail holds Edit, Copy link, and
   details.
+- **An artifact page** shows the frozen body under the work it is attached to.
+  The path runs through that task, a card for the task sits above the body,
+  and the rail lists the task's other artifacts. An artifact attached to
+  several records lists each in the card, and its path stops at the nearest
+  container that holds them all; one attached to none sits under its project.
+  The rail holds Copy link, Download .md, and details.
 
 On a phone, the rail folds into chips that open bottom sheets.
 

@@ -34,3 +34,36 @@ export function subtreeOf(root: WireTreeNode, id: string): WireTreeNode | undefi
   }
   return undefined;
 }
+
+/**
+ * The path an artifact's page runs through (MMR-452): the containers down to
+ * the nearest record holding every linked record, outermost first, without
+ * the project root. A lone record is its own end, so the path runs through
+ * it; several stop at the deepest container they share, and a linked
+ * container that holds the rest counts. Empty when only the project holds
+ * them all; undefined when the tree holds none of them.
+ */
+export function sharedPathOf(
+  root: WireTreeNode,
+  ids: readonly string[],
+): WireTreeNode[] | undefined {
+  let shared: WireTreeNode[] | undefined;
+  for (const id of ids) {
+    const above = ancestorsOf(root, id);
+    const node = above === undefined ? undefined : subtreeOf(root, id);
+    if (above === undefined || node === undefined) {
+      continue;
+    }
+    const chain = [...above, node];
+    if (shared === undefined) {
+      shared = chain;
+      continue;
+    }
+    let common = 0;
+    while (common < shared.length && shared[common]?.id === chain[common]?.id) {
+      common += 1;
+    }
+    shared = shared.slice(0, common);
+  }
+  return shared;
+}

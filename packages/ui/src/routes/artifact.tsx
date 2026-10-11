@@ -1,0 +1,336 @@
+import { useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
+import { useState } from 'react';
+
+import { isNotFound } from '../api/errors';
+import { artifactQuery, nodeQuery, projectsQuery, treeQuery } from '../api/queries';
+import type { WireArtifact, WireArtifactDetail, WireArtifactLink, WireNode } from '../api/types';
+import { projectKeyOf } from '../api/types';
+import { MarkdownBody } from '../components/markdown-body';
+import { MetaRow } from '../components/node-record';
+import { OfflineBanner } from '../components/offline-banner';
+import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
+import type { RailChip } from '../components/record-layout';
+import { StatusDot } from '../components/status-dot';
+import { ActionButton } from '../components/ui/action-button';
+import { sharedPathOf } from '../lib/ancestry';
+import { splitKindTags } from '../lib/artifacts';
+import { copyText } from '../lib/clipboard';
+import { cn } from '../lib/cn';
+import { connectivity } from '../lib/connectivity';
+import { useRememberRecord } from '../lib/recent-records';
+import { artifactIdOf, artifactLink, artifactPath, nodeLink } from '../lib/record-url';
+import { STATUS_META, taskStanding } from '../lib/status';
+import { ago, calendarDate } from '../lib/time';
+import { artifactRoute } from '../router';
+import { NotFoundPage } from './not-found';
+
+/**
+ * `/p/$key/a$seq` — an artifact's own page (ADR 0013, v0.23 refinement;
+ * MMR-452). The artifact reads under the work it is attached to: the path
+ * runs through that record, a card for it sits above the frozen body, and
+ * the rail lists its other artifacts. Attached to several records, the path
+ * stops at the nearest container holding them all and the card lists each;
+ * attached to none, the path is the project. A suffix off the artifact
+ * grammar shows the not-found state without a lookup.
+ */
+export function ArtifactPage() {
+  const { key, seq } = artifactRoute.useParams();
+  const artifactId = artifactIdOf(key, seq);
+  if (artifactId === undefined) {
+    return (
+      <NotFoundPage projectKey={key.toUpperCase()}>
+        No record at /p/{key}/a{seq}.
+      </NotFoundPage>
+    );
+  }
+  return <ArtifactRecord key={artifactId} artifactId={artifactId} />;
+}
+
+const crumb =
+  'rounded-sm font-mono text-tag text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent';
+
+const row =
+  'flex min-w-0 items-center gap-2 rounded-sm px-1 py-1 text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent';
+
+/** How many attached records show before the rest fold behind "Show all". */
+const ATTACHED_SHOWN = 5;
+
+/** The number after an id's hyphen: `MMR-417` → 417. */
+const seqOf = (id: string): number => Number(id.slice(id.indexOf('-') + 1));
+
+/** Linked records in id-number order; the wire sorts them as text, putting MMR-10 before MMR-9. */
+const byNumber = (links: readonly WireArtifactLink[]): WireArtifactLink[] =>
+  links.toSorted((a, b) => seqOf(a.id) - seqOf(b.id));
+
+/** A linked record's standing: the loaded node's, or its status word alone. */
+function linkStanding(link: WireArtifactLink, node: WireNode | undefined): string | undefined {
+  if (node !== undefined) {
+    return taskStanding(node);
+  }
+  return link.status === undefined ? undefined : STATUS_META[link.status].label.toLowerCase();
+}
+
+/** One attached record: its state, id, and title, linked to its page. */
+function AttachedRow({ link, node }: { link: WireArtifactLink; node?: WireNode }) {
+  const status = node?.status ?? link.status;
+  const standing = linkStanding(link, node);
+  return (
+    <Link {...nodeLink(link.id)} className={row}>
+      {status !== undefined && <StatusDot status={status} />}
+      <span className="shrink-0 font-mono text-mono-id text-accent-foreground">{link.id}</span>
+      <span className="min-w-0 flex-1 truncate">{node?.title ?? link.title}</span>
+      {standing !== undefined && (
+        <span className="shrink-0 font-mono text-mono-id text-ink-faint">{standing}</span>
+      )}
+    </Link>
+  );
+}
+
+/**
+ * The records the artifact is attached to, above its body. One record is the
+ * work the artifact reads under; several are listed, folding past a handful.
+ */
+function AttachedCard({
+  links,
+  host,
+}: {
+  links: readonly WireArtifactLink[];
+  host: WireNode | undefined;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const label = links.length === 1 ? 'Attached to' : `Attached to · ${String(links.length)}`;
+  const shown = expanded ? links : links.slice(0, ATTACHED_SHOWN);
+  return (
+    <div
+      role="group"
+      aria-label={label}
+      className="flex flex-col gap-1 rounded-lg bg-well-850 px-2.5 py-2 inset-ring inset-ring-line"
+    >
+      <h2 className="microlabel px-1 text-ink-faint">{label}</h2>
+      <ul className="flex flex-col">
+        {shown.map((link) => (
+          <li key={link.id}>
+            <AttachedRow link={link} node={links.length === 1 ? host : undefined} />
+          </li>
+        ))}
+      </ul>
+      {shown.length < links.length && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="self-start rounded-sm px-1 text-tag text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          Show all {links.length}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** The host record's artifacts, this one marked as the current page. */
+function SiblingArtifacts({
+  artifacts,
+  currentId,
+}: {
+  artifacts: readonly WireArtifact[];
+  currentId: string;
+}) {
+  return (
+    <ul className="flex flex-col">
+      {artifacts.map((a) => (
+        <li key={a.id}>
+          <Link
+            {...artifactLink(a.id)}
+            aria-current={a.id === currentId ? 'page' : undefined}
+            className={cn(row, 'aria-[current=page]:bg-well-800')}
+          >
+            <span className="shrink-0 font-mono text-mono-id text-ink-faint">
+              {a.id.slice(a.id.indexOf('-') + 1)}
+            </span>
+            <span className="min-w-0 flex-1 truncate">{a.title}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Copy link, and the frozen body as a markdown download. */
+function ActionsPanel({ artifact }: { artifact: WireArtifactDetail }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      <ActionButton
+        size="sm"
+        variant="outline"
+        onClick={() =>
+          void copyText(`${globalThis.location.origin}${artifactPath(artifact.id)}`, {
+            copied: `Copied the link to ${artifact.id}`,
+            failed: `Couldn't copy the link to ${artifact.id}.`,
+          })
+        }
+      >
+        Copy link
+      </ActionButton>
+      {artifact.content !== undefined && (
+        <a
+          href={`data:text/markdown;charset=utf-8,${encodeURIComponent(artifact.content)}`}
+          download={`${artifact.id}.md`}
+          className="inline-flex h-7 items-center rounded-md px-2.5 text-xs font-medium text-ink inset-ring inset-ring-line-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          Download .md
+        </a>
+      )}
+    </div>
+  );
+}
+
+function DetailsPanel({
+  artifact,
+  projectTitle,
+}: {
+  artifact: WireArtifactDetail;
+  projectTitle: string | undefined;
+}) {
+  const { rest: tags } = splitKindTags(artifact.tags);
+  return (
+    <dl className="flex flex-col gap-1">
+      <MetaRow label="Frozen">
+        {calendarDate(artifact.created_at)} · {ago(artifact.created_at)}
+      </MetaRow>
+      <MetaRow label="Project">
+        <Link to="/p/$key" params={{ key: artifact.project }} className={crumb}>
+          {artifact.project}
+          {projectTitle !== undefined && ` ${projectTitle}`}
+        </Link>
+      </MetaRow>
+      {tags.length > 0 && <MetaRow label="Tags">{tags.join(' · ')}</MetaRow>}
+      <MetaRow label="Link">{artifactPath(artifact.id)}</MetaRow>
+    </dl>
+  );
+}
+
+function ArtifactRecord({ artifactId }: { artifactId: string }) {
+  const projectKey = projectKeyOf(artifactId);
+  const artifact = useQuery(artifactQuery(artifactId));
+  const projects = useQuery(projectsQuery);
+  // The tree is the whole board, so it is read once rather than polled.
+  const tree = useQuery({ ...treeQuery(projectKey), refetchInterval: false });
+  const links = byNumber(artifact.data?.links ?? []);
+  const hostId = links.length === 1 ? links[0]?.id : undefined;
+  const host = useQuery({ ...nodeQuery(hostId ?? ''), enabled: hostId !== undefined });
+  const conn = connectivity([artifact]);
+  const data = artifact.data;
+  useRememberRecord(
+    data && { id: artifactId, kind: 'artifact', project: data.project, title: data.title },
+  );
+
+  if (isNotFound(artifact.error)) {
+    return <NotFoundPage projectKey={projectKey}>No record {artifactId}.</NotFoundPage>;
+  }
+  if (data === undefined) {
+    return (
+      <>
+        <OfflineBanner {...conn} />
+        <RecordPending unreachable={artifact.isError} />
+      </>
+    );
+  }
+
+  const projectTitle = projects.data?.items.find((p) => p.id === data.project)?.title;
+  const { kind } = splitKindTags(data.tags);
+  const hostNode = hostId === undefined ? undefined : host.data;
+  const siblings = hostNode?.artifacts ?? [];
+  const path =
+    tree.data === undefined
+      ? []
+      : (sharedPathOf(
+          tree.data,
+          links.map((l) => l.id),
+        ) ?? []);
+
+  const actions = <ActionsPanel artifact={data} />;
+  const details = <DetailsPanel artifact={data} projectTitle={projectTitle} />;
+  const siblingList =
+    hostId !== undefined && siblings.length > 0 ? (
+      <SiblingArtifacts artifacts={siblings} currentId={artifactId} />
+    ) : null;
+  const siblingLabel = `${hostId ?? ''}'s artifacts`;
+  const chips: RailChip[] = [
+    ...(siblingList === null
+      ? []
+      : [{ content: siblingList, count: siblings.length, label: 'Artifacts' }]),
+    { content: actions, label: 'Actions' },
+    { content: details, label: 'Details' },
+  ];
+  const rail = (
+    <>
+      {siblingList !== null && (
+        <RailSection label={siblingLabel} count={siblings.length}>
+          {siblingList}
+        </RailSection>
+      )}
+      <RailSection label="Actions">{actions}</RailSection>
+      <RailSection label="Details">{details}</RailSection>
+    </>
+  );
+
+  const head = (
+    <header className="flex flex-col gap-1.5">
+      <nav aria-label="Path" className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+        <Link to="/p/$key" params={{ key: data.project }} className={crumb}>
+          {tree.data?.title ?? projectTitle ?? data.project}
+        </Link>
+        {path.map((n) => (
+          <span key={n.id} className="flex items-baseline gap-1.5">
+            <span aria-hidden className="text-tag text-ink-faint">
+              ›
+            </span>
+            <Link {...nodeLink(n.id)} className={crumb}>
+              {n.id === hostId ? n.id : n.title}
+            </Link>
+          </span>
+        ))}
+      </nav>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-mono-id text-ink-faint">{artifactId} · artifact</span>
+        {kind !== undefined && (
+          <span className="rounded-full bg-well-800 px-2 py-0.5 font-mono text-micro text-ink-dim inset-ring inset-ring-line">
+            {kind}
+          </span>
+        )}
+        <span className="ml-auto font-mono text-micro tracking-[0.1em] text-ink-faint">
+          <span aria-hidden className="select-none">
+            ❄{' '}
+          </span>
+          Frozen {calendarDate(data.created_at)}
+        </span>
+      </div>
+      <h1 className="text-dossier leading-[1.35] font-bold tracking-[-0.01em] text-ink-bright md:text-header">
+        {data.title}
+      </h1>
+      {data.summary !== undefined && (
+        <p className="max-w-[68ch] text-meta leading-relaxed text-ink-dim">{data.summary}</p>
+      )}
+    </header>
+  );
+
+  return (
+    <>
+      <OfflineBanner {...conn} />
+      <RecordLayout
+        head={head}
+        rail={rail}
+        chips={chips}
+        className={cn(conn.offline && 'offline-demoted')}
+      >
+        {links.length > 0 && <AttachedCard links={links} host={hostNode} />}
+        {data.content !== undefined && (
+          <MarkdownBody images className="max-w-[68ch]">
+            {data.content}
+          </MarkdownBody>
+        )}
+      </RecordLayout>
+    </>
+  );
+}

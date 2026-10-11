@@ -1,6 +1,9 @@
 import type { StatusWord, TaskStatusWord } from '@mimir/contract';
 import { TASK_STATUS_WORD_VALUES } from '@mimir/contract';
 
+import type { WireNode } from '../api/types';
+import { calendarDate } from './time';
+
 /**
  * The status color system — one lookup, used identically everywhere a status
  * word shows (overview distribution bars, board column headers, tree badges, the
@@ -106,3 +109,17 @@ export const STATUS_ORDER: readonly StatusWord[] = [
 export const TASK_STATUS_ORDER: readonly TaskStatusWord[] = STATUS_ORDER.filter(
   (w): w is TaskStatusWord => (TASK_STATUS_WORD_VALUES as readonly string[]).includes(w),
 );
+
+/** A task has settled once it is done or abandoned. */
+export const isSettledTask = (node: WireNode): boolean =>
+  node.status === 'done' || node.status === 'abandoned';
+
+/**
+ * How a task stands, in words: its status, and when it settled. Only `done`
+ * stamps `completed_at`; an abandoned task settled when it last changed.
+ */
+export function taskStanding(node: WireNode): string {
+  const word = STATUS_META[node.status].label.toLowerCase();
+  const settledAt = isSettledTask(node) ? (node.completed_at ?? node.updated_at) : null;
+  return settledAt === null ? word : `${word} ${calendarDate(settledAt)}`;
+}

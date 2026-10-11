@@ -211,6 +211,22 @@ describe('task page (MMR-449)', () => {
     ).toBe('/p/MMR/418');
   });
 
+  it('links each of its artifacts to the artifact page (MMR-452)', async () => {
+    serve({
+      ...sqlite,
+      artifacts: [
+        { created_at: '2026-06-10T00:00:00.000Z', id: 'MMR-a3', tags: [], title: 'Dialect spec' },
+      ],
+    });
+    renderAt('/p/MMR/417');
+
+    const rail = await screen.findByRole('complementary', { name: 'Record details' });
+    expect(within(rail).getByRole('link', { name: /Dialect spec/ })).toHaveAttribute(
+      'href',
+      '/p/MMR/a3',
+    );
+  });
+
   it('each rail chip opens its part of the rail in a sheet', async () => {
     serve({
       ...sqlite,
