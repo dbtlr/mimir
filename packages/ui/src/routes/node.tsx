@@ -276,7 +276,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
     ) : null;
   const artifacts = (
     <RailSection label="Artifacts" count={artifactCount > 0 ? artifactCount : undefined}>
-      <ArtifactLinks artifacts={data.artifacts} from={data.id} />
+      <ArtifactLinks artifacts={data.artifacts} />
     </RailSection>
   );
   const details = <DetailsPanel node={data} />;

@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 
 import { annotationsQuery, nodeQuery } from '../api/queries';
 import type { WireAnnotation, WireHistoryEntry } from '../api/types';
+import { artifactLink } from '../lib/record-url';
 import { absoluteTime } from '../lib/time';
 import { buildFeed } from '../lib/timeline';
 import { AnnotationComposer } from './annotation-composer';
@@ -325,7 +326,7 @@ function DossierBody({ nodeId, offline }: { nodeId: string; offline?: boolean })
                         key={a.id}
                         type="button"
                         onClick={() => {
-                          void navigate({ search: { a: a.id, from: nodeId }, to: '/artifacts' });
+                          void navigate(artifactLink(a.id));
                         }}
                         className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-ink-dim inset-ring inset-ring-line transition-colors hover:bg-well-800 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
                       >

@@ -1,4 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+} from '@tanstack/react-router';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
@@ -10,8 +16,17 @@ import { ArtifactReader } from '../components/artifact-reader';
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet }));
 
+/** The reader inside a bare router, since its id links to the artifact's page. */
 function wrapper({ children }: { children: ReactNode }) {
-  return <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>;
+  const testRouter = createRouter({
+    history: createMemoryHistory(),
+    routeTree: createRootRoute({ component: () => children }),
+  });
+  return (
+    <QueryClientProvider client={new QueryClient()}>
+      <RouterProvider router={testRouter} />
+    </QueryClientProvider>
+  );
 }
 
 const detail: WireArtifactDetail = {
@@ -53,7 +68,7 @@ describe('artifactReader', () => {
     expect(screen.getByText(/FROZEN 2026-06-16 · IMMUTABLE/)).toBeDefined();
     // Rail: linked node with status dot + id + title; project; kind/tags split.
     // The dot is aria-hidden color, so the accessible name carries the status.
-    const rail = screen.getByRole('complementary', { name: /provenance/i });
+    const rail = await screen.findByRole('complementary', { name: /provenance/i });
     expect(within(rail).getByText('Linked nodes')).toBeDefined();
     expect(
       within(rail).getByRole('button', { name: 'Open MMR-52 Doctor read-surface — Done' }),
@@ -63,28 +78,27 @@ describe('artifactReader', () => {
     expect(within(rail).getByText('doctor')).toBeDefined();
   });
 
-  it('back reads “← Artifacts” when browsing and names the node when arrived from one', async () => {
+  it('back returns to the browser, and the id opens the artifact page (MMR-452)', async () => {
     mockApi();
     const onBack = vi.fn();
-    const { rerender } = render(
+    render(
       <ArtifactReader id="MMR-a8" onBack={onBack} onOpenNode={vi.fn()} onOpenProject={vi.fn()} />,
       { wrapper },
     );
     await screen.findByText('Artifacts browser');
-    const back = screen.getByRole('button', { name: '← Artifacts' });
-    await userEvent.click(back);
+    await userEvent.click(screen.getByRole('button', { name: '← Artifacts' }));
     expect(onBack).toHaveBeenCalled();
+    expect(screen.getByRole('link', { name: 'MMR-a8' })).toHaveAttribute('href', '/p/MMR/a8');
+  });
 
-    rerender(
-      <ArtifactReader
-        id="MMR-a8"
-        fromNode="MMR-140"
-        onBack={onBack}
-        onOpenNode={vi.fn()}
-        onOpenProject={vi.fn()}
-      />,
+  it('links no page until the artifact has loaded, so a stray id never points elsewhere', async () => {
+    apiGet.mockRejectedValue(new Error('unreachable'));
+    render(
+      <ArtifactReader id="MMR-419" onBack={vi.fn()} onOpenNode={vi.fn()} onOpenProject={vi.fn()} />,
+      { wrapper },
     );
-    expect(screen.getByRole('button', { name: '← back to MMR-140' })).toBeDefined();
+    await screen.findByRole('heading', { level: 2, name: 'MMR-419' });
+    expect(screen.queryByRole('link')).toBeNull();
   });
 
   it('a rail link opens its node; the project row opens the project', async () => {
@@ -100,7 +114,7 @@ describe('artifactReader', () => {
       />,
       { wrapper },
     );
-    const rail = screen.getByRole('complementary', { name: /provenance/i });
+    const rail = await screen.findByRole('complementary', { name: /provenance/i });
     await userEvent.click(
       await within(rail).findByRole('button', { name: 'Open MMR-52 Doctor read-surface — Done' }),
     );
@@ -157,7 +171,7 @@ describe('artifactReader', () => {
       <ArtifactReader id="MMR-a8" onBack={vi.fn()} onOpenNode={vi.fn()} onOpenProject={vi.fn()} />,
       { wrapper },
     );
-    const rail = screen.getByRole('complementary', { name: /provenance/i });
+    const rail = await screen.findByRole('complementary', { name: /provenance/i });
     await expect(within(rail).findByRole('button', { name: 'Open MMR-99' })).resolves.toBeDefined();
   });
 });

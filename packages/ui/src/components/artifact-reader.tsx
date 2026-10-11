@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 
 import { artifactQuery, projectsQuery } from '../api/queries';
 import type { WireArtifactLink } from '../api/types';
 import { splitKindTags } from '../lib/artifacts';
+import { artifactLink } from '../lib/record-url';
 import { STATUS_META } from '../lib/status';
 import { calendarDate, shortDate } from '../lib/time';
 import { MarkdownBody } from './markdown-body';
@@ -26,19 +28,16 @@ function linkName(link: WireArtifactLink): string {
  * body at a fixed 620px measure, and provenance on a recessed rail (desktop)
  * or a project-first chip row under the title (mobile — the owning project is
  * always the first chip, so an artifact with no linked nodes is never a dead
- * end). Reached two ways (the browser's reader pane, and a dossier's artifact
- * row); `onBack` is supplied by the host so Back is provenance-aware, and
- * `fromNode` names the node it returns to when set.
+ * end). It is the artifacts browser's reading pane; Back returns to the list,
+ * and the id opens the artifact's own page (MMR-452).
  */
 export function ArtifactReader({
   id,
-  fromNode,
   onBack,
   onOpenNode,
   onOpenProject,
 }: {
   id: string;
-  fromNode?: string | undefined;
   onBack: () => void;
   onOpenNode: (nodeId: string) => void;
   onOpenProject: (key: string) => void;
@@ -69,8 +68,18 @@ export function ArtifactReader({
             onClick={onBack}
             className="rounded text-tag text-accent-foreground transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-accent"
           >
-            {fromNode === undefined ? '← Artifacts' : `← back to ${fromNode}`}
+            ← Artifacts
           </button>
+          {/* Linked from the loaded record, never the raw `?a=` value, so a
+              stray id cannot point at some other artifact's page. */}
+          {data !== undefined && (
+            <Link
+              {...artifactLink(data.id)}
+              className="rounded-sm font-mono text-mono-id text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              {data.id}
+            </Link>
+          )}
           {data !== undefined && (
             <span className="ml-auto font-mono text-micro tracking-[0.1em] text-ink-faint">
               <span aria-hidden className="select-none">

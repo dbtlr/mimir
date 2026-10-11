@@ -106,13 +106,6 @@ describe('artifactsPage', () => {
     await expect(screen.findByText('Artifact 101')).resolves.toBeDefined();
   });
 
-  it('returns to the task it was opened from, on its page', async () => {
-    serveLinkedArtifact();
-    const testRouter = renderArtifactsPage('/artifacts?a=MMR-a8&from=MMR-140');
-    await userEvent.click(await screen.findByRole('button', { name: '← back to MMR-140' }));
-    expect(testRouter.state.location.pathname).toBe('/p/MMR/140');
-  });
-
   it("opens a linked node's page", async () => {
     serveLinkedArtifact();
     const testRouter = renderArtifactsPage('/artifacts?a=MMR-a8');

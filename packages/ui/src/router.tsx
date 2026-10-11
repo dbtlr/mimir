@@ -9,7 +9,16 @@ import type { SearchSchemaInput } from '@tanstack/react-router';
 
 import { BAND_MODES } from './lib/bands';
 import type { BandMode } from './lib/bands';
-import { bareIdRedirect, seedLink, seedPath } from './lib/record-url';
+import {
+  artifactIdOf,
+  artifactLink,
+  artifactPath,
+  bareIdRedirect,
+  seedIdOf,
+  seedLink,
+  seedPath,
+} from './lib/record-url';
+import { ArtifactPage } from './routes/artifact';
 import { ArtifactsPage } from './routes/artifacts';
 import { BoardPage } from './routes/board';
 import { DoctorPage } from './routes/doctor';
@@ -25,7 +34,8 @@ import { TasksPage } from './routes/tasks';
 /**
  * Navigation (ADR 0013 §3 and its v0.23 refinement): URLs name scopes, views,
  * and records — `/` the overview, `/p/KEY` the project's page, `/p/KEY/board`
- * its board, `/p/KEY/417` a work node's page, `/p/KEY/s41` a seed's page. On the board, `view` picks the
+ * its board, `/p/KEY/417` a work node's page, `/p/KEY/s41` a seed's page,
+ * `/p/KEY/a219` an artifact's page. On the board, `view` picks the
  * lens (board or tree) until the work page retires the tree (MMR-439). `node`
  * still opens the dossier overlay until the overlay retires (MMR-453). Typed
  * search params carry that contract in the type system.
@@ -114,17 +124,24 @@ export const nodeRoute = createRoute({
 });
 
 /**
+ * The canonical id a lettered record path names (`S41`, `s041` → `MMR-s41`),
+ * or undefined when the key or suffix is off the grammar and the page shows
+ * not-found.
+ */
+function lettered(key: string, letter: 's' | 'a', seq: string): string | undefined {
+  const bare = seq.replace(/^0+(?=\d)/, '');
+  return letter === 's' ? seedIdOf(key, bare) : artifactIdOf(key, bare);
+}
+
+/**
  * A seed's page: the seed id split at its hyphen (`MMR-s41` → `/p/MMR/s41`).
  * The route matches `S41` and `s041` too, so any spelling but the seed's own
  * moves to it, keeping the search.
  */
 export const seedRoute = createRoute({
   beforeLoad: ({ params, location }) => {
-    if (!/^\d+$/.test(params.seq)) {
-      return;
-    }
-    const id = `${params.key.toUpperCase()}-s${params.seq.replace(/^0+(?=\d)/, '')}`;
-    if (location.pathname !== seedPath(id)) {
+    const id = lettered(params.key, 's', params.seq);
+    if (id !== undefined && location.pathname !== seedPath(id)) {
       // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
       throw redirect({ ...seedLink(id), replace: true, search: true });
     }
@@ -132,6 +149,23 @@ export const seedRoute = createRoute({
   component: SeedPage,
   getParentRoute: () => rootRoute,
   path: '/p/$key/s{$seq}',
+});
+
+/**
+ * An artifact's page: the artifact id split at its hyphen (`MMR-a219` →
+ * `/p/MMR/a219`). Like the seed route, any other spelling moves to it.
+ */
+export const artifactRoute = createRoute({
+  beforeLoad: ({ params, location }) => {
+    const id = lettered(params.key, 'a', params.seq);
+    if (id !== undefined && location.pathname !== artifactPath(id)) {
+      // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
+      throw redirect({ ...artifactLink(id), replace: true, search: true });
+    }
+  },
+  component: ArtifactPage,
+  getParentRoute: () => rootRoute,
+  path: '/p/$key/a{$seq}',
 });
 
 /**
@@ -158,7 +192,6 @@ export type ArtifactsSearch = {
   atOrAfter?: string;
   atOrBefore?: string;
   a?: string;
-  from?: string;
 };
 
 export const artifactsRoute = createRoute({
@@ -167,7 +200,7 @@ export const artifactsRoute = createRoute({
   path: '/artifacts',
   validateSearch: (search: Record<string, unknown>): ArtifactsSearch => {
     const out: ArtifactsSearch = {};
-    for (const k of ['project', 'tag', 'q', 'atOrAfter', 'atOrBefore', 'a', 'from'] as const) {
+    for (const k of ['project', 'tag', 'q', 'atOrAfter', 'atOrBefore', 'a'] as const) {
       const v = search[k];
       if (typeof v === 'string' && v !== '') {
         out[k] = v;
@@ -258,6 +291,7 @@ const routeTree = rootRoute.addChildren([
   boardRoute,
   nodeRoute,
   seedRoute,
+  artifactRoute,
   artifactsRoute,
   seedsRoute,
   tasksRoute,

@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { NodeDossier } from '../components/node-dossier';
+import { artifactLink } from '../lib/record-url';
 import { transitionLabel } from '../lib/transitions';
 import { task } from './fixtures';
 
@@ -706,7 +707,7 @@ describe('nodeDossier', () => {
     expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-16/move', { to: 'MMR-2' });
   });
 
-  it('clicking an artifact navigates to the reader with provenance', async () => {
+  it('clicking an artifact opens its page (MMR-452)', async () => {
     navigate.mockClear();
     mockNode(
       task({
@@ -725,9 +726,6 @@ describe('nodeDossier', () => {
     );
     render(<NodeDossier nodeId="MMR-16" onClose={vi.fn()} />, { wrapper });
     await userEvent.click(await screen.findByText('console notes'));
-    expect(navigate).toHaveBeenCalledWith({
-      search: { a: 'MMR-a3', from: 'MMR-16' },
-      to: '/artifacts',
-    });
+    expect(navigate).toHaveBeenCalledWith(artifactLink('MMR-a3'));
   });
 });
