@@ -312,6 +312,21 @@ export const seedQuery = (id: string) =>
   });
 
 /**
+ * The tasks on any board that name a seed as their upstream (MMR-451): the
+ * requester's own work waiting on the seed, for the seed page's outcome list.
+ */
+export const upstreamTasksQuery = (seedId: string) =>
+  queryOptions({
+    queryFn: () => {
+      const p = new URLSearchParams({ type: 'task' });
+      p.set('status', 'all');
+      p.set('eq', `upstream:${seedId}`);
+      return apiGet<Collection<WireNode>>(`/api/nodes?${p.toString()}`);
+    },
+    queryKey: ['nodes', 'upstream', seedId],
+  });
+
+/**
  * Key roots of the queries kept out of the persisted offline snapshot: passing
  * questions, not board state. A restored entry would also take the client's
  * week-long `gcTime`, so it would outlive every reload.

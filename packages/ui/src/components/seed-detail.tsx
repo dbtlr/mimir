@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useUpdateSeed } from '../api/mutations';
 import { projectsQuery, seedQuery } from '../api/queries';
 import type { WireSeed } from '../api/types';
+import { nodeLink, seedLink } from '../lib/record-url';
 import { ago } from '../lib/time';
 import { MarkdownBody } from './markdown-body';
 import { SeedKindChip } from './seed-kind-chip';
@@ -30,7 +32,8 @@ function RailField({ label, children }: { label: string; children: ReactNode }) 
  * The wide reading pane (Meridian 14a, MMR-247) — verbs pinned at the top, the
  * title at a ~640px measure, the body prose, and a right meta rail
  * (requester / filed / project / spawned). The description is editable while
- * the seed is live (the dossier Edit idiom) and frozen once terminal.
+ * the seed is live (the dossier Edit idiom) and frozen once terminal. The seed
+ * id opens the seed's page and each spawned id its task's page (MMR-451).
  */
 export function SeedDetail({
   id,
@@ -86,7 +89,12 @@ export function SeedDetail({
       <div className="flex flex-col gap-3.5 border-line px-7 py-5 md:border-r">
         <div className="flex flex-wrap items-center gap-2.5">
           <SeedKindChip kind={data.kind} />
-          <span className="font-mono text-mono-id text-ink-faint">{data.id}</span>
+          <Link
+            {...seedLink(data.id)}
+            className="rounded-sm font-mono text-mono-id text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            {data.id}
+          </Link>
           <div className="ml-auto">
             <SeedVerbs seed={data} onLater={onLater} onPromote={onPromote} offline={offline} />
           </div>
@@ -155,7 +163,17 @@ export function SeedDetail({
         </RailField>
         <RailField label="SPAWNED">
           {data.spawned.length > 0 ? (
-            <span className="font-mono text-accent-foreground">{data.spawned.join(', ')}</span>
+            <span className="flex flex-wrap gap-x-2 font-mono">
+              {data.spawned.map((spawnedId) => (
+                <Link
+                  key={spawnedId}
+                  {...nodeLink(spawnedId)}
+                  className="rounded-sm text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+                >
+                  {spawnedId}
+                </Link>
+              ))}
+            </span>
           ) : (
             <span className="text-ink-faint">nothing yet</span>
           )}

@@ -15,8 +15,7 @@ import { SeedKindChip } from './seed-kind-chip';
  * `description`) and hands the {@link AuthoringSheet} its promote seam — the
  * prefill (title/description), the PROMOTE SEED header, and the promote context
  * that locks the type, suggests the home, and swaps the submit to the promote
- * endpoint. "Promote & open" routes to the spawned task's URL-addressable
- * dossier (`/?node=<id>`), the same `?node=` drawer the boards use.
+ * endpoint. "Promote & open" routes to the spawned task's page (`/p/KEY/<seq>`).
  *
  * The sheet mounts on the click regardless of the body read — the list-row title
  * shows at once and the description folds in (pending until then) when the detail

@@ -154,9 +154,9 @@ describe('task page (MMR-449)', () => {
 
   it('names no node for a suffix that is not a node id, without a lookup', async () => {
     serve(sqlite);
-    renderAt('/p/MMR/s41');
+    renderAt('/p/MMR/x41');
 
-    await expect(screen.findByText(/no record at \/p\/MMR\/s41/i)).resolves.toBeDefined();
+    await expect(screen.findByText(/no record at \/p\/MMR\/x41/i)).resolves.toBeDefined();
     expect(apiGet.mock.calls.some(([path]) => String(path).startsWith('/api/nodes/'))).toBe(false);
   });
 

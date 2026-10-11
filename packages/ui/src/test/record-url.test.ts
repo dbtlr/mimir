@@ -1,12 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
-import { bareIdRedirect, nodeIdOf, nodeLink, recordLink } from '../lib/record-url';
+import { bareIdRedirect, nodeIdOf, nodeLink, recordLink, seedLink } from '../lib/record-url';
 
 describe('nodeLink (ADR 0013 v0.23)', () => {
   it('splits a node id at its hyphen into the project and the record suffix', () => {
     expect(nodeLink('MMR-417')).toStrictEqual({
       params: { key: 'MMR', seq: '417' },
       to: '/p/$key/$seq',
+    });
+  });
+});
+
+describe('seedLink (MMR-451)', () => {
+  it('splits a seed id at its hyphen, keeping the s in the path', () => {
+    expect(seedLink('MMR-s41')).toStrictEqual({
+      params: { key: 'MMR', seq: '41' },
+      to: '/p/$key/s{$seq}',
     });
   });
 });
@@ -39,8 +48,12 @@ describe('bareIdRedirect', () => {
     expect(bareIdRedirect('mmr')).toStrictEqual({ params: { key: 'MMR' }, to: '/p/$key' });
   });
 
-  it('leaves seed and artifact ids alone until their pages exist', () => {
-    expect(bareIdRedirect('MMR-s41')).toBeUndefined();
+  it('sends a bare seed id to its seed page, in any case', () => {
+    expect(bareIdRedirect('MMR-s41')).toStrictEqual(seedLink('MMR-s41'));
+    expect(bareIdRedirect('mmr-S41')).toStrictEqual(seedLink('MMR-s41'));
+  });
+
+  it('leaves artifact ids alone until their page exists', () => {
     expect(bareIdRedirect('MMR-a219')).toBeUndefined();
   });
 
@@ -61,11 +74,11 @@ describe('recordLink (MMR-455)', () => {
     });
   });
 
-  it('opens a seed or an artifact in its browser', () => {
-    expect(recordLink({ id: 'MMR-s41', kind: 'seed' })).toStrictEqual({
-      search: { seed: 'MMR-s41' },
-      to: '/seeds',
-    });
+  it('opens a seed at its page (MMR-451)', () => {
+    expect(recordLink({ id: 'MMR-s41', kind: 'seed' })).toStrictEqual(seedLink('MMR-s41'));
+  });
+
+  it('opens an artifact in its browser', () => {
     expect(recordLink({ id: 'MMR-a219', kind: 'artifact' })).toStrictEqual({
       search: { a: 'MMR-a219' },
       to: '/artifacts',

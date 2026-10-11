@@ -17,6 +17,7 @@ import { NodePage } from './routes/node';
 import { NotFoundPage } from './routes/not-found';
 import { OverviewPage } from './routes/overview';
 import { ProjectPage } from './routes/project';
+import { SeedPage } from './routes/seed';
 import { SeedsPage } from './routes/seeds';
 import { Shell } from './routes/shell';
 import { TasksPage } from './routes/tasks';
@@ -24,7 +25,7 @@ import { TasksPage } from './routes/tasks';
 /**
  * Navigation (ADR 0013 §3 and its v0.23 refinement): URLs name scopes, views,
  * and records — `/` the overview, `/p/KEY` the project's page, `/p/KEY/board`
- * its board, `/p/KEY/417` a work node's page. On the board, `view` picks the
+ * its board, `/p/KEY/417` a work node's page, `/p/KEY/s41` a seed's page. On the board, `view` picks the
  * lens (board or tree) until the work page retires the tree (MMR-439). `node`
  * still opens the dossier overlay until the overlay retires (MMR-453). Typed
  * search params carry that contract in the type system.
@@ -59,7 +60,10 @@ export const overviewRoute = createRoute({
  * One record, one URL: a lowercase key (`/p/mmr`, `/p/mmr/417`) moves to its
  * canonical spelling, keeping the rest of the path and the search.
  */
-function canonicalKey(key: string, to: '/p/$key' | '/p/$key/board' | '/p/$key/$seq') {
+function canonicalKey(
+  key: string,
+  to: '/p/$key' | '/p/$key/board' | '/p/$key/$seq' | '/p/$key/s{$seq}',
+) {
   const canonical = key.toUpperCase();
   if (canonical !== key) {
     // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
@@ -110,6 +114,16 @@ export const nodeRoute = createRoute({
   component: NodePage,
   getParentRoute: () => rootRoute,
   path: '/p/$key/$seq',
+});
+
+/** A seed's page: the seed id split at its hyphen (`MMR-s41` → `/p/MMR/s41`). */
+export const seedRoute = createRoute({
+  beforeLoad: ({ params }) => {
+    canonicalKey(params.key, '/p/$key/s{$seq}');
+  },
+  component: SeedPage,
+  getParentRoute: () => rootRoute,
+  path: '/p/$key/s{$seq}',
 });
 
 /**
@@ -235,6 +249,7 @@ const routeTree = rootRoute.addChildren([
   projectRoute,
   boardRoute,
   nodeRoute,
+  seedRoute,
   artifactsRoute,
   seedsRoute,
   tasksRoute,

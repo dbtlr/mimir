@@ -182,11 +182,10 @@ describe('jump palette (MMR-455)', () => {
     );
     await user.keyboard('{Enter}');
 
-    // A seed opens in the seeds browser until it has a page of its own.
+    // A seed opens at its own page (MMR-451).
     await waitFor(() => {
-      expect(testRouter.state.location.pathname).toBe('/seeds');
+      expect(testRouter.state.location.pathname).toBe('/p/MMR/s41');
     });
-    expect(testRouter.state.location.search).toEqual({ seed: 'MMR-s41' });
   });
 
   it('shows a description hit under its own group, with the matched words', async () => {
