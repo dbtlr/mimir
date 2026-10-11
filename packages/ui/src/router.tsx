@@ -9,7 +9,7 @@ import type { SearchSchemaInput } from '@tanstack/react-router';
 
 import { BAND_MODES } from './lib/bands';
 import type { BandMode } from './lib/bands';
-import { bareIdRedirect } from './lib/record-url';
+import { bareIdRedirect, seedLink, seedPath } from './lib/record-url';
 import { ArtifactsPage } from './routes/artifacts';
 import { BoardPage } from './routes/board';
 import { DoctorPage } from './routes/doctor';
@@ -60,10 +60,7 @@ export const overviewRoute = createRoute({
  * One record, one URL: a lowercase key (`/p/mmr`, `/p/mmr/417`) moves to its
  * canonical spelling, keeping the rest of the path and the search.
  */
-function canonicalKey(
-  key: string,
-  to: '/p/$key' | '/p/$key/board' | '/p/$key/$seq' | '/p/$key/s{$seq}',
-) {
+function canonicalKey(key: string, to: '/p/$key' | '/p/$key/board' | '/p/$key/$seq') {
   const canonical = key.toUpperCase();
   if (canonical !== key) {
     // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
@@ -116,10 +113,21 @@ export const nodeRoute = createRoute({
   path: '/p/$key/$seq',
 });
 
-/** A seed's page: the seed id split at its hyphen (`MMR-s41` → `/p/MMR/s41`). */
+/**
+ * A seed's page: the seed id split at its hyphen (`MMR-s41` → `/p/MMR/s41`).
+ * The route matches `S41` and `s041` too, so any spelling but the seed's own
+ * moves to it, keeping the search.
+ */
 export const seedRoute = createRoute({
-  beforeLoad: ({ params }) => {
-    canonicalKey(params.key, '/p/$key/s{$seq}');
+  beforeLoad: ({ params, location }) => {
+    if (!/^\d+$/.test(params.seq)) {
+      return;
+    }
+    const id = `${params.key.toUpperCase()}-s${String(Number(params.seq))}`;
+    if (location.pathname !== seedPath(id)) {
+      // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
+      throw redirect({ ...seedLink(id), replace: true, search: true });
+    }
   },
   component: SeedPage,
   getParentRoute: () => rootRoute,

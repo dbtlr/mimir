@@ -8,6 +8,13 @@ import { ReasonDialog } from './reason-dialog';
 
 type PendingVerb = 'reject' | 'resolve' | null;
 
+/** A lead verb's wash: the accent, or the ready lane's violet. */
+const PRIMARY_INK = {
+  accent: 'bg-accent/14 text-accent-foreground inset-ring inset-ring-accent/30 hover:bg-accent/20',
+  attention:
+    'bg-attention/14 text-attention inset-ring inset-ring-attention/30 hover:bg-attention/20',
+};
+
 /** A quiet hairline verb chip (the node-dossier VerbChip idiom, seed-local). */
 function VerbChip({
   children,
@@ -30,11 +37,9 @@ function VerbChip({
       onClick={onClick}
       className={cn(
         'inline-flex items-center rounded-md px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40',
-        primary && attention === true
-          ? 'bg-attention/14 text-attention inset-ring inset-ring-attention/30 hover:bg-attention/20'
-          : primary
-            ? 'bg-accent/14 text-accent-foreground inset-ring inset-ring-accent/30 hover:bg-accent/20'
-            : 'font-medium text-ink-dim inset-ring inset-ring-line hover:bg-well-800 hover:text-ink-bright',
+        primary
+          ? PRIMARY_INK[attention === true ? 'attention' : 'accent']
+          : 'font-medium text-ink-dim inset-ring inset-ring-line hover:bg-well-800 hover:text-ink-bright',
       )}
     >
       {children}
@@ -98,7 +103,13 @@ export function SeedVerbs({
   const chips: ReactNode[] = [];
   if (seed.lane === 'ready') {
     chips.push(
-      <VerbChip key="resolve" primary attention disabled={offline} onClick={() => setPending('resolve')}>
+      <VerbChip
+        key="resolve"
+        primary
+        attention
+        disabled={offline}
+        onClick={() => setPending('resolve')}
+      >
         Resolve…
       </VerbChip>,
     );

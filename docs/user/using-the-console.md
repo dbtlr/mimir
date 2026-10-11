@@ -44,8 +44,9 @@ for the seed `MMR-s41`. Typing a bare ID such as `/MMR-417`, `/mmr-s41`, or
 - **A seed page** reads as a request: which board asks which, the description,
   and what came of it, meaning the tasks promoted from the seed and the tasks
   on any board that name it as upstream. A decision block offers the verbs the
-  seed needs next: promote, reject, or leave a new seed for later; resolve or
-  promote again once its work has settled. Its rail holds Edit, Copy link, and
+  seed needs next: promote, reject, or leave a new seed for later; promote
+  again or reject while its work is under way; and resolve, promote again, or
+  reject once that work has settled. Its rail holds Edit, Copy link, and
   details.
 
 On a phone, the rail folds into chips that open bottom sheets.

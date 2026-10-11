@@ -19,6 +19,7 @@ import { SeedPromoteSheet } from '../components/seed-promote-sheet';
 import { SeedVerbs } from '../components/seed-verbs';
 import { StatusDot } from '../components/status-dot';
 import { ActionButton } from '../components/ui/action-button';
+import { Skeleton } from '../components/ui/skeleton';
 import { copyText } from '../lib/clipboard';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
@@ -125,7 +126,20 @@ function RequestCard({
 }
 
 /** One task that came of the seed: its state, linked to its page. */
-type Outcome = { id: string; node?: WireNode; waits: boolean };
+type Outcome = { id: string; node?: WireNode; upstream: boolean };
+
+/** Whether the read of the tasks naming the seed upstream has answered. */
+type UpstreamRead = 'pending' | 'failed' | 'answered';
+
+function upstreamReadOf(read: { data?: unknown; isError: boolean }): UpstreamRead {
+  if (read.data !== undefined) {
+    return 'answered';
+  }
+  return read.isError ? 'failed' : 'pending';
+}
+
+const isSettledTask = (node: WireNode): boolean =>
+  node.status === 'done' || node.status === 'abandoned';
 
 /**
  * How a task stands, in words: its status, and when it settled. Only `done`
@@ -133,28 +147,35 @@ type Outcome = { id: string; node?: WireNode; waits: boolean };
  */
 function outcomeState(node: WireNode): string {
   const word = STATUS_META[node.status].label.toLowerCase();
-  const settledAt =
-    node.status === 'done' || node.status === 'abandoned'
-      ? (node.completed_at ?? node.updated_at)
-      : null;
+  const settledAt = isSettledTask(node) ? (node.completed_at ?? node.updated_at) : null;
   return settledAt === null ? word : `${word} ${calendarDate(settledAt)}`;
 }
 
 /**
  * What came of the seed: the tasks promoted from it, then the tasks on any
  * board that name it as upstream. A spawned row links before its task loads.
+ * "Nothing yet" waits for the upstream read to answer, so a slow or failed
+ * read never claims that nothing waits on the seed.
  */
-function OutcomeSection({ outcomes }: { outcomes: readonly Outcome[] }) {
+function OutcomeSection({
+  outcomes,
+  upstreamRead,
+}: {
+  outcomes: readonly Outcome[];
+  upstreamRead: UpstreamRead;
+}) {
   return (
     <section aria-label="What came of it" className="flex flex-col gap-1.5">
       <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">What came of it</h2>
-      {outcomes.length === 0 ? (
+      {outcomes.length === 0 && upstreamRead === 'pending' && <Skeleton className="h-5 w-2/3" />}
+      {outcomes.length === 0 && upstreamRead === 'answered' && (
         <p className="text-xs text-ink-faint">
           Nothing yet. No task has been promoted from this seed, and none waits on it.
         </p>
-      ) : (
+      )}
+      {outcomes.length > 0 && (
         <ul className="flex flex-col gap-0.5">
-          {outcomes.map(({ id, node, waits }) => (
+          {outcomes.map(({ id, node, upstream }) => (
             <li key={id}>
               <Link
                 {...nodeLink(id)}
@@ -163,7 +184,11 @@ function OutcomeSection({ outcomes }: { outcomes: readonly Outcome[] }) {
                 {node !== undefined && <StatusDot status={node.status} />}
                 <span className="shrink-0 font-mono text-mono-id text-accent-foreground">{id}</span>
                 <span className="min-w-0 flex-1 truncate">{node?.title}</span>
-                {waits && <span className="microlabel shrink-0 text-ink-faint">waits on it</span>}
+                {upstream && node !== undefined && (
+                  <span className="microlabel shrink-0 text-ink-faint">
+                    {isSettledTask(node) ? 'named it upstream' : 'waits on it'}
+                  </span>
+                )}
                 {node !== undefined && (
                   <span className="shrink-0 font-mono text-mono-id text-ink-faint">
                     {outcomeState(node)}
@@ -173,6 +198,9 @@ function OutcomeSection({ outcomes }: { outcomes: readonly Outcome[] }) {
             </li>
           ))}
         </ul>
+      )}
+      {upstreamRead === 'failed' && (
+        <p className="text-xs text-ink-faint">Couldn’t check which tasks wait on this seed.</p>
       )}
     </section>
   );
@@ -198,6 +226,30 @@ function decisionPrompt(
   return 'Its work is under way. Promote it again for more, or reject it with a reason.';
 }
 
+type SeedEdit = { title?: string; kind?: SeedKind; description?: string };
+
+/**
+ * Only the fields an edit changed. A seed filed before the title cap keeps
+ * its long title through an edit of its kind or body, because an unchanged
+ * title is never sent back for the server to re-check.
+ */
+function changedFields(
+  seed: WireSeed,
+  next: { title: string; kind: SeedKind; description: string },
+): SeedEdit {
+  const fields: SeedEdit = {};
+  if (next.title !== seed.title) {
+    fields.title = next.title;
+  }
+  if (next.kind !== seed.kind) {
+    fields.kind = next.kind;
+  }
+  if (next.description !== (seed.description ?? '')) {
+    fields.description = next.description;
+  }
+  return fields;
+}
+
 /** The seed's title, kind, and body, edited in place of the page body. */
 function SeedEditForm({
   seed,
@@ -207,7 +259,7 @@ function SeedEditForm({
 }: {
   seed: WireSeed;
   submitting: boolean;
-  onSave: (fields: { title: string; kind: SeedKind; description: string }) => void;
+  onSave: (fields: SeedEdit) => void;
   onCancel: () => void;
 }) {
   const [title, setTitle] = useState(seed.title);
@@ -221,7 +273,7 @@ function SeedEditForm({
       className="flex flex-col gap-3"
       onSubmit={(e) => {
         e.preventDefault();
-        onSave({ description: description.trim(), kind, title: title.trim() });
+        onSave(changedFields(seed, { description: description.trim(), kind, title: title.trim() }));
       }}
     >
       <label className="flex flex-col gap-1.5">
@@ -348,13 +400,17 @@ function SeedRecord({ seedId }: { seedId: string }) {
   const ownerTitle = titleOf(data.project) ?? data.project;
   const spawnedNodes = spawned.map((q) => q.data);
   const outcomes: Outcome[] = [
-    ...spawnedIds.map((id, i) => ({ id, node: spawnedNodes[i], waits: false })),
+    ...spawnedIds.map((id, i) => ({ id, node: spawnedNodes[i], upstream: false })),
     ...(upstream.data?.items ?? [])
       .filter((n) => !spawnedIds.includes(n.id))
-      .map((n) => ({ id: n.id, node: n, waits: true })),
+      .map((n) => ({ id: n.id, node: n, upstream: true })),
   ];
 
-  async function save(fields: { title: string; kind: SeedKind; description: string }) {
+  async function save(fields: SeedEdit) {
+    if (Object.keys(fields).length === 0) {
+      setEditing(false);
+      return;
+    }
     try {
       await update.mutateAsync(fields);
       setEditing(false);
@@ -433,7 +489,7 @@ function SeedRecord({ seedId }: { seedId: string }) {
         <p className="text-meta text-ink">{decisionPrompt(data, ownerTitle, spawnedNodes)}</p>
         <SeedVerbs
           seed={data}
-          onLater={() => void navigate({ to: '/seeds' })}
+          onLater={() => void navigate({ search: { project: data.project }, to: '/seeds' })}
           onPromote={setPromoting}
           offline={offline}
           withSpawned={false}
@@ -461,7 +517,7 @@ function SeedRecord({ seedId }: { seedId: string }) {
           <>
             <RequestCard seed={data} titleOf={titleOf} />
             <DescriptionSection description={data.description} />
-            <OutcomeSection outcomes={outcomes} />
+            <OutcomeSection outcomes={outcomes} upstreamRead={upstreamReadOf(upstream)} />
             {decision}
           </>
         )}
