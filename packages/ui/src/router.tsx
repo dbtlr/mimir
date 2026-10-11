@@ -9,7 +9,15 @@ import type { SearchSchemaInput } from '@tanstack/react-router';
 
 import { BAND_MODES } from './lib/bands';
 import type { BandMode } from './lib/bands';
-import { artifactLink, artifactPath, bareIdRedirect, seedLink, seedPath } from './lib/record-url';
+import {
+  artifactIdOf,
+  artifactLink,
+  artifactPath,
+  bareIdRedirect,
+  seedIdOf,
+  seedLink,
+  seedPath,
+} from './lib/record-url';
 import { ArtifactPage } from './routes/artifact';
 import { ArtifactsPage } from './routes/artifacts';
 import { BoardPage } from './routes/board';
@@ -117,13 +125,12 @@ export const nodeRoute = createRoute({
 
 /**
  * The canonical id a lettered record path names (`S41`, `s041` → `MMR-s41`),
- * or undefined when the suffix is off the grammar and the page shows
+ * or undefined when the key or suffix is off the grammar and the page shows
  * not-found.
  */
 function lettered(key: string, letter: 's' | 'a', seq: string): string | undefined {
-  return /^\d+$/.test(seq)
-    ? `${key.toUpperCase()}-${letter}${seq.replace(/^0+(?=\d)/, '')}`
-    : undefined;
+  const bare = seq.replace(/^0+(?=\d)/, '');
+  return letter === 's' ? seedIdOf(key, bare) : artifactIdOf(key, bare);
 }
 
 /**

@@ -25,7 +25,7 @@ import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { useRememberRecord } from '../lib/recent-records';
 import { nodeLink, seedIdOf, seedPath } from '../lib/record-url';
-import { STATUS_META, isSettledTask, taskStanding } from '../lib/status';
+import { STATUS_META, isSettledTask, recordStanding } from '../lib/status';
 import { ago, calendarDate } from '../lib/time';
 import { seedRoute } from '../router';
 import { NotFoundPage } from './not-found';
@@ -178,7 +178,7 @@ function OutcomeSection({
                 )}
                 {node !== undefined && (
                   <span className="shrink-0 font-mono text-mono-id text-ink-faint">
-                    {taskStanding(node)}
+                    {recordStanding(node)}
                   </span>
                 )}
               </Link>

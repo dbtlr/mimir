@@ -91,6 +91,16 @@ describe('artifactReader', () => {
     expect(screen.getByRole('link', { name: 'MMR-a8' })).toHaveAttribute('href', '/p/MMR/a8');
   });
 
+  it('links no page until the artifact has loaded, so a stray id never points elsewhere', async () => {
+    apiGet.mockRejectedValue(new Error('unreachable'));
+    render(
+      <ArtifactReader id="MMR-419" onBack={vi.fn()} onOpenNode={vi.fn()} onOpenProject={vi.fn()} />,
+      { wrapper },
+    );
+    await screen.findByRole('heading', { level: 2, name: 'MMR-419' });
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
   it('a rail link opens its node; the project row opens the project', async () => {
     mockApi();
     const onOpenNode = vi.fn();

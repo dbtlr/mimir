@@ -70,12 +70,16 @@ export function ArtifactReader({
           >
             ← Artifacts
           </button>
-          <Link
-            {...artifactLink(id)}
-            className="rounded-sm font-mono text-mono-id text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
-          >
-            {id}
-          </Link>
+          {/* Linked from the loaded record, never the raw `?a=` value, so a
+              stray id cannot point at some other artifact's page. */}
+          {data !== undefined && (
+            <Link
+              {...artifactLink(data.id)}
+              className="rounded-sm font-mono text-mono-id text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              {data.id}
+            </Link>
+          )}
           {data !== undefined && (
             <span className="ml-auto font-mono text-micro tracking-[0.1em] text-ink-faint">
               <span aria-hidden className="select-none">

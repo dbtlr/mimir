@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 import { isNotFound } from '../api/errors';
 import { artifactQuery, nodeQuery, projectsQuery, treeQuery } from '../api/queries';
@@ -20,7 +20,7 @@ import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { useRememberRecord } from '../lib/recent-records';
 import { artifactIdOf, artifactLink, artifactPath, nodeLink } from '../lib/record-url';
-import { STATUS_META, taskStanding } from '../lib/status';
+import { STATUS_META, recordStanding } from '../lib/status';
 import { ago, calendarDate } from '../lib/time';
 import { artifactRoute } from '../router';
 import { NotFoundPage } from './not-found';
@@ -53,7 +53,7 @@ const crumb =
 const row =
   'flex min-w-0 items-center gap-2 rounded-sm px-1 py-1 text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent';
 
-/** How many attached records show before the rest fold behind "Show all". */
+/** How many attached records show before the rest fold behind "Show all N". */
 const ATTACHED_SHOWN = 5;
 
 /** The number after an id's hyphen: `MMR-417` → 417. */
@@ -66,7 +66,7 @@ const byNumber = (links: readonly WireArtifactLink[]): WireArtifactLink[] =>
 /** A linked record's standing: the loaded node's, or its status word alone. */
 function linkStanding(link: WireArtifactLink, node: WireNode | undefined): string | undefined {
   if (node !== undefined) {
-    return taskStanding(node);
+    return recordStanding(node);
   }
   return link.status === undefined ? undefined : STATUS_META[link.status].label.toLowerCase();
 }
@@ -99,15 +99,18 @@ function AttachedCard({
   host: WireNode | undefined;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const labelId = useId();
   const label = links.length === 1 ? 'Attached to' : `Attached to · ${String(links.length)}`;
   const shown = expanded ? links : links.slice(0, ATTACHED_SHOWN);
   return (
     <div
       role="group"
-      aria-label={label}
+      aria-labelledby={labelId}
       className="flex flex-col gap-1 rounded-lg bg-well-850 px-2.5 py-2 inset-ring inset-ring-line"
     >
-      <h2 className="microlabel px-1 text-ink-faint">{label}</h2>
+      <h2 id={labelId} className="microlabel px-1 text-ink-faint">
+        {label}
+      </h2>
       <ul className="flex flex-col">
         {shown.map((link) => (
           <li key={link.id}>
@@ -115,13 +118,14 @@ function AttachedCard({
           </li>
         ))}
       </ul>
-      {shown.length < links.length && (
+      {links.length > ATTACHED_SHOWN && (
+        // One toggle that stays put, so keyboard focus survives the unfold.
         <button
           type="button"
-          onClick={() => setExpanded(true)}
+          onClick={() => setExpanded(!expanded)}
           className="self-start rounded-sm px-1 text-tag text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
         >
-          Show all {links.length}
+          {expanded ? 'Show fewer' : `Show all ${String(links.length)}`}
         </button>
       )}
     </div>
@@ -241,13 +245,18 @@ function ArtifactRecord({ artifactId }: { artifactId: string }) {
   const { kind } = splitKindTags(data.tags);
   const hostNode = hostId === undefined ? undefined : host.data;
   const siblings = hostNode?.artifacts ?? [];
-  const path =
+  // The tree names the containers; until it answers, or if it cannot, a lone
+  // linked record still heads the path on its own.
+  const shared =
     tree.data === undefined
-      ? []
-      : (sharedPathOf(
+      ? undefined
+      : sharedPathOf(
           tree.data,
           links.map((l) => l.id),
-        ) ?? []);
+        );
+  const crumbs =
+    shared?.map((n) => ({ id: n.id, label: n.id === hostId ? n.id : n.title })) ??
+    (hostId === undefined ? [] : [{ id: hostId, label: hostId }]);
 
   const actions = <ActionsPanel artifact={data} />;
   const details = <DetailsPanel artifact={data} projectTitle={projectTitle} />;
@@ -281,13 +290,13 @@ function ArtifactRecord({ artifactId }: { artifactId: string }) {
         <Link to="/p/$key" params={{ key: data.project }} className={crumb}>
           {tree.data?.title ?? projectTitle ?? data.project}
         </Link>
-        {path.map((n) => (
+        {crumbs.map((n) => (
           <span key={n.id} className="flex items-baseline gap-1.5">
             <span aria-hidden className="text-tag text-ink-faint">
               ›
             </span>
             <Link {...nodeLink(n.id)} className={crumb}>
-              {n.id === hostId ? n.id : n.title}
+              {n.label}
             </Link>
           </span>
         ))}

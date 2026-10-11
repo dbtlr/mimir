@@ -115,11 +115,14 @@ export const isSettledTask = (node: WireNode): boolean =>
   node.status === 'done' || node.status === 'abandoned';
 
 /**
- * How a task stands, in words: its status, and when it settled. Only `done`
- * stamps `completed_at`; an abandoned task settled when it last changed.
+ * How a record stands, in words: its status, and when a task settled. Only
+ * `done` stamps `completed_at`; an abandoned task settled when it last
+ * changed. A container's status rolls up from its children, so its last
+ * change says nothing about when it settled, and it gets the word alone.
  */
-export function taskStanding(node: WireNode): string {
+export function recordStanding(node: WireNode): string {
   const word = STATUS_META[node.status].label.toLowerCase();
-  const settledAt = isSettledTask(node) ? (node.completed_at ?? node.updated_at) : null;
+  const settledAt =
+    node.type === 'task' && isSettledTask(node) ? (node.completed_at ?? node.updated_at) : null;
   return settledAt === null ? word : `${word} ${calendarDate(settledAt)}`;
 }

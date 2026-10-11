@@ -194,6 +194,48 @@ describe('artifact page (MMR-452)', () => {
         'page',
       );
     });
+
+    it('runs the path through the record even when the tree cannot be read', async () => {
+      apiGet.mockImplementation((p: string) => {
+        if (p === '/api/artifacts/MMR-a232') {
+          return Promise.resolve(spec);
+        }
+        if (p === '/api/projects/MMR/tree') {
+          return Promise.reject(new Error('tree unreachable'));
+        }
+        return p === '/api/nodes/MMR-432'
+          ? Promise.resolve(hostTask)
+          : Promise.resolve({ items: [], total: 0 });
+      });
+      renderAt('/p/MMR/a232');
+
+      const nav = await path();
+      await waitFor(() =>
+        expect(
+          within(nav)
+            .getAllByRole('link')
+            .map((a) => a.getAttribute('href')),
+        ).toStrictEqual(['/p/MMR', '/p/MMR/432']),
+      );
+    });
+
+    it('gives a container its status alone, since only a task stamps when it settled', async () => {
+      const phase = task({
+        id: 'MMR-437',
+        status: 'done',
+        title: 'Console phase 1, as loaded',
+        type: 'phase',
+        updated_at: '2026-06-01T10:00:00.000Z',
+      });
+      serve({ ...spec, links: [{ id: 'MMR-437', status: 'done', title: 'Console phase 1' }] }, [
+        phase,
+      ]);
+      renderAt('/p/MMR/a232');
+
+      const card = await screen.findByRole('group', { name: 'Attached to' });
+      await within(card).findByText('Console phase 1, as loaded');
+      expect(card).toHaveTextContent(/as loaded\s*done$/);
+    });
   });
 
   describe('attached to several records', () => {
@@ -242,6 +284,23 @@ describe('artifact page (MMR-452)', () => {
           .getAllByRole('link')
           .map((a) => a.textContent),
       ).toStrictEqual([expect.stringContaining('Nine'), expect.stringContaining('Ten')]);
+    });
+
+    it('folds past five records, and unfolds and refolds on request', async () => {
+      const many = Array.from({ length: 7 }, (_, i) => ({
+        id: `MMR-${String(i + 1)}`,
+        status: 'ready' as const,
+        title: `Record ${String(i + 1)}`,
+      }));
+      serve({ ...picks, links: many });
+      renderAt('/p/MMR/a239');
+
+      const card = await screen.findByRole('group', { name: 'Attached to · 7' });
+      expect(within(card).getAllByRole('link')).toHaveLength(5);
+      await userEvent.click(within(card).getByRole('button', { name: 'Show all 7' }));
+      expect(within(card).getAllByRole('link')).toHaveLength(7);
+      await userEvent.click(within(card).getByRole('button', { name: 'Show fewer' }));
+      expect(within(card).getAllByRole('link')).toHaveLength(5);
     });
 
     it("lists no single record's artifacts", async () => {
@@ -318,6 +377,14 @@ describe('artifact page (MMR-452)', () => {
 
       await screen.findByRole('heading', { level: 1, name: spec.title });
       expect(testRouter.state.location.pathname).toBe('/p/MMR/a232');
+    });
+
+    it('shows not-found for a key off the grammar rather than redirecting', async () => {
+      serve(spec);
+      const testRouter = renderAt('/p/MM-X/a1');
+
+      await expect(screen.findByText('No record at /p/MM-X/a1.')).resolves.toBeInTheDocument();
+      expect(testRouter.state.location.pathname).toBe('/p/MM-X/a1');
     });
 
     it('owns the not-found state when no artifact has the id', async () => {
