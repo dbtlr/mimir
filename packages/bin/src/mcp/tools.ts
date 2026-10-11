@@ -55,6 +55,7 @@ import {
   resolveProjectKeyInSet,
   formatArtifactJson,
   formatArtifactSetJson,
+  formatSearchSetJson,
   formatNodeJson,
   formatOverviewJson,
   formatPromoteJson,
@@ -69,6 +70,7 @@ import {
   getArtifact,
   getNode,
   listArtifacts,
+  searchRecords,
   listNodes,
   listProjects,
   moveNode,
@@ -580,6 +582,28 @@ export function toolArtifacts(store: Store, args: ArtifactQueryToolArgs): Promis
           scope: args.scope,
           tag: args.tag,
           timeZone: requireTimeZone(args.tz),
+        }),
+      ),
+    ),
+  );
+}
+
+/** The `search` tool args (MMR-447). */
+export type SearchToolArgs = { query: string; scope?: string; limit?: number };
+
+/**
+ * `search` — find any record by id, title, or description. An id also returns
+ * the records linked to it. `scope` is the current project (ranked first, and
+ * where a bare number resolves); `all` — resolved by the caller — means none.
+ */
+export function toolSearch(store: Store, args: SearchToolArgs): Promise<ToolResult> {
+  return guard(async () =>
+    ok(
+      formatSearchSetJson(
+        await searchRecords(store, {
+          limit: args.limit,
+          project: args.scope,
+          query: args.query,
         }),
       ),
     ),

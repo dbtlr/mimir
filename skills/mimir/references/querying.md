@@ -9,7 +9,7 @@ Contents: [1. Orientation](#1-orientation--one-command) ·
 [2. What's in the middle?](#2-whats-in-the-middle) ·
 [3. Triage and hygiene](#3-triage-and-hygiene) · [4. Filtered queues](#4-filtered-queues) ·
 [5. Drill-down](#5-drill-down) · [6. Artifacts](#6-artifacts--the-frozen-work-products) ·
-[7. Reporting and scripting](#7-reporting-and-scripting)
+[7. Search](#7-search--find-any-record) · [8. Reporting and scripting](#8-reporting-and-scripting)
 
 `list` selects **tasks**. Containers (initiatives/phases) are reached by id
 (`get`/`status`) or explicitly: `--status all --eq type:initiative`. Projects
@@ -154,7 +154,26 @@ Rows are metadata only — id, project, title, tags, the `summary` lede,
 puts its "why nothing came back" note on **stderr** (including when `--offset`
 lands past the end), leaving stdout a clean machine contract.
 
-## 7. Reporting and scripting
+## 7. Search — find any record
+
+```sh
+mimir search MMR-42                 # that record, then the records linked to it
+mimir search 42                     # a bare number resolves in the bound project
+mimir search "cross record"         # titles first, then descriptions
+mimir search palette -s all -n 5    # every project, five results
+```
+
+Use `search` when you do not know which kind of record you want or where it
+lives: it reaches tasks, containers, projects, seeds, and artifacts at once. An
+ID query returns the record plus its parent, children, dependencies, artifacts,
+and seed links, each labelled. Use `list -q` to filter a known task queue by
+title; it does not read descriptions or other record types. Each hit's `match`
+says how it was found (`id`, `title`, `description`, or `link`), and description
+hits carry a `snippet`. A quote or several words are one query. When no title
+or description matches the words, an abbreviation such as `srch` still finds
+titles that hold its letters in order.
+
+## 8. Reporting and scripting
 
 ```sh
 mimir list --status done --after completed_at:2026-06-01    # what shipped since

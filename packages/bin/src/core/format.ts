@@ -7,6 +7,7 @@ import type {
   OverviewScratchpad,
   OverviewSession,
   Scratchpad,
+  SearchHit,
   SeedView,
   SetResult,
   StatusView,
@@ -564,4 +565,50 @@ export function formatArtifactSetJsonl(items: readonly ArtifactSummary[]): strin
 /** `ids` for the artifact feed — one `KEY-aN` per line. */
 export function formatArtifactIds(items: readonly ArtifactSummary[]): string {
   return items.map((a) => a.id).join('\n');
+}
+
+/** Map a {@link SearchHit} to its wire object — `link` and `snippet` appear only
+ * on the hits that carry them. */
+export function searchHitToWire(hit: SearchHit): Record<string, unknown> {
+  const wire: Record<string, unknown> = {
+    finished: hit.finished,
+    id: hit.id,
+    kind: hit.kind,
+    lifecycle: hit.lifecycle,
+    match: hit.match,
+    project: hit.project,
+    title: hit.title,
+    updated_at: hit.updatedAt,
+  };
+  if (hit.link !== undefined) {
+    wire.link = hit.link;
+  }
+  if (hit.snippet !== undefined) {
+    wire.snippet = hit.snippet;
+  }
+  return wire;
+}
+
+/** `json` for cross-record search (MMR-447) — the count-led set wrapper the
+ * artifact feed uses, with `results` as the unit key. */
+export function formatSearchSetJson(result: SetResult<SearchHit>): string {
+  return emitWire(
+    {
+      results: result.items.map(searchHitToWire),
+      returned: result.returned,
+      starts_at: result.startsAt,
+      total: result.total,
+    },
+    true,
+  );
+}
+
+/** `jsonl` for search — one wire object per line, no wrapper (streaming). */
+export function formatSearchSetJsonl(items: readonly SearchHit[]): string {
+  return items.map((hit) => emitWire(searchHitToWire(hit), false)).join('\n');
+}
+
+/** `ids` for search — one rendered id per line. */
+export function formatSearchIds(items: readonly SearchHit[]): string {
+  return items.map((hit) => hit.id).join('\n');
 }

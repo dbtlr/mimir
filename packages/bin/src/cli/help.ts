@@ -105,6 +105,8 @@ work commands (flat verbs — read or mutate work state; the agent hot path):
                     scope, bind, or file seeds against (--status all
                     adds the archived shelf)
     artifacts       the artifact feed — frozen work products, newest first
+    search <query>  find any record by id, title, or description; an id also
+                    returns the records linked to it
     scratch <sub>   temporary resumable episode state (UUID-addressed)
     get <id>        full record: task/phase/initiative (KEY-seq), project (KEY), artifact (KEY-aN), seed (KEY-sN)
     status <id>     rollup distribution + status (KEY-seq or project KEY)
@@ -437,6 +439,18 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     summary: 'the artifact feed — frozen work products, newest first (KEY-aN)',
     usage: 'mimir artifacts [-s <KEY>] [selection]',
+  },
+  search: {
+    examples: [
+      'mimir search MMR-447                # that record, plus what links to it',
+      'mimir search 447                    # a bare number resolves in the bound project',
+      'mimir search "cross record" -s all  # titles and descriptions, every project',
+      'mimir search auth -n 5 -f json      # structured output, five results',
+    ],
+    flags: [F_SCOPE, F_LIMIT, F_FORMAT],
+    summary:
+      'find any record (task, container, project, seed, artifact) by id, title, or description',
+    usage: 'mimir search <query> [-s <KEY>] [-n <limit>]',
   },
   scratch: {
     examples: [
@@ -1189,6 +1203,7 @@ examples:
   mimir get MMR-16 --col annotations  # expand annotation bodies, not just the count
   mimir get MMR-a1 --col content      # an artifact's frozen body
   mimir artifacts -t session_summary  # the retrospectives, newest first
+  mimir search auth                   # any record whose id, title, or description matches
   mimir projects                      # active project keys (the binding never narrows it)
   mimir status MMR-3                  # rollup of an initiative/phase
   mimir tree MMR                      # full hierarchy under the project

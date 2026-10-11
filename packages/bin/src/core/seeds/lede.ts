@@ -95,7 +95,7 @@ const TASK_MARKER = /^\[[ xX]\]\s+/;
  * Inline html keeps its literal text, because CommonMark reads bare placeholders
  * such as `<id>` in prose as inline html.
  */
-function markdownToPlainText(markdown: string): string {
+export function markdownToPlainText(markdown: string): string {
   const root = fromMarkdown(markdown);
   return childrenText(root, ' ');
 }

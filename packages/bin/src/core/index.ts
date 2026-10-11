@@ -22,6 +22,8 @@ export * from './resource';
 export * from './errors';
 export * from './status';
 export * from './intent';
+export { DEFAULT_SEARCH_LIMIT, MAX_SEARCH_LIMIT, searchRecords } from './search/intent';
+export type { SearchOptions } from './search/intent';
 export * from './format';
 export { now } from './time';
 export type * from './artifacts';

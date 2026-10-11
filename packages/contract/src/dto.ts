@@ -68,6 +68,53 @@ export type TagView = {
   createdAt: string;
 };
 
+/** The record kinds a cross-record search returns (MMR-447). */
+export type SearchKind = NodeType | 'project' | 'seed' | 'artifact';
+
+/**
+ * How a search hit matched: its `id`, its `title`, its `description` (an
+ * artifact's summary), or a `link` to the record an ID query found.
+ */
+export type SearchMatch = 'id' | 'title' | 'description' | 'link';
+
+/**
+ * What a linked record is to the record an ID query found: a node's `parent`,
+ * `child`, prerequisite (`depends_on`), dependent (`blocks`), `artifact`, and
+ * `upstream` seed; a seed's `spawned` tasks and the `downstream` tasks naming
+ * it upstream; the tasks an artifact is `attached` to.
+ */
+export type SearchLink =
+  | 'parent'
+  | 'child'
+  | 'depends_on'
+  | 'blocks'
+  | 'artifact'
+  | 'upstream'
+  | 'spawned'
+  | 'downstream'
+  | 'attached';
+
+/**
+ * One cross-record search result (MMR-447). `lifecycle` is the stored one — a
+ * task's or a seed's — and `null` for the kinds that have none; `finished` is
+ * terminal work (done, abandoned, resolved, rejected, or a container whose
+ * tasks all are). Derived status words are not computed here.
+ */
+export type SearchHit = {
+  kind: SearchKind;
+  id: string;
+  project: string;
+  title: string;
+  updatedAt: string;
+  lifecycle: Lifecycle | SeedLifecycle | null;
+  finished: boolean;
+  match: SearchMatch;
+  /** Present on `link` hits. */
+  link?: SearchLink;
+  /** Present on `description` hits — plain text around the first matched word. */
+  snippet?: string;
+};
+
 /** A portfolio artifact-search result row (`listArtifacts`) — metadata, no body. */
 export type ArtifactSummary = {
   id: string;

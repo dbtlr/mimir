@@ -65,6 +65,8 @@ import {
   resolveNodeTokenInSet,
   resolveProjectKeyInSet,
   ARTIFACT_DATE_FIELD,
+  searchHitToWire,
+  searchRecords,
   getArtifact,
   getNode,
   listNodes,
@@ -1360,6 +1362,31 @@ function bindServer(
               tags: artifact.tags,
               title: artifact.title,
             });
+          }),
+      },
+
+      // Cross-record search (MMR-447): `project` absent, empty (a client
+      // serializing an unset field), or `all` means no current project;
+      // a blank or missing `q` is the core's validation error.
+      '/api/search': {
+        GET: (req) =>
+          guarded(req, async () => {
+            const q = new URL(req.url).searchParams;
+            let limit: number | undefined;
+            const rawLimit = q.get('limit');
+            if (rawLimit !== null) {
+              limit = Number(rawLimit);
+              if (!Number.isInteger(limit) || limit < 1) {
+                throw validation(`invalid limit ${rawLimit}`);
+              }
+            }
+            const rawProject = q.get('project');
+            const project =
+              rawProject === null || rawProject === '' || rawProject === 'all'
+                ? undefined
+                : rawProject;
+            const result = await searchRecords(store, { limit, project, query: q.get('q') ?? '' });
+            return json({ items: result.items.map(searchHitToWire), total: result.total });
           }),
       },
 

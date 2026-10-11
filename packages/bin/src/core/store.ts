@@ -14,6 +14,7 @@ import type { BodySectionStore, NextFacet } from './body-sections/store';
 import type { ImportOptions, ImportReport, StoreExport } from './export';
 import type { Artifact, Dependency, Node, Project } from './model';
 import type { ScratchpadStore } from './scratchpads/store';
+import type { SearchStore } from './search/store';
 import type { SeedStore } from './seeds/store';
 import type { TransitionsFeed } from './transitions/store';
 
@@ -344,6 +345,12 @@ export type Store = {
 
   /** UUID-addressed, project-owned temporary episode documents. */
   readonly scratchpads: ScratchpadStore;
+
+  /**
+   * The cross-record search slice (MMR-447) — the database matches, ranks, and
+   * limits, so a search never loads the store into the process.
+   */
+  readonly search: SearchStore;
 
   /**
    * The body-section read slice (MMR-154, ADR 0016 Phase 3) — a node's

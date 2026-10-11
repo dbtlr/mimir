@@ -6,6 +6,7 @@ import { createSqlBodySectionStore } from './body-sections';
 import type { StoreDialect } from './dialect';
 import type { DB } from './schema';
 import { createSqlScratchpadStore } from './scratchpads';
+import { createSqlSearchStore } from './search';
 import { createSqlSeedStore } from './seeds';
 import { exportSqlStoreFrom, importSqlStore } from './transfer';
 import { createSqlTransitionsFeed } from './transitions';
@@ -47,6 +48,7 @@ export function createSqlStore(db: Kysely<DB>, dialect: StoreDialect): Store {
     loadProjects: () => loadProjects(db),
     loadWorkingSet: () => dialect.snapshot(db, (tx) => loadWorkingSet(tx, dialect)),
     scratchpads: createSqlScratchpadStore(db, dialect),
+    search: createSqlSearchStore(db, dialect),
     seeds: createSqlSeedStore(db, dialect),
     transact: (fn) => dialect.write(db, (tx) => fn(createSqlWriter(tx, dialect))),
     transitions: createSqlTransitionsFeed(db),

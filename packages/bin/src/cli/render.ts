@@ -5,6 +5,7 @@ import type {
   NodeView,
   OverviewAttentionTask,
   OverviewReport,
+  SearchHit,
   SeedView,
   SetResult,
   StatusView,
@@ -21,6 +22,9 @@ import {
   formatArtifactSetJsonl,
   formatNodeJson,
   formatPromoteJson,
+  formatSearchIds,
+  formatSearchSetJson,
+  formatSearchSetJsonl,
   formatSeedsJson,
   formatSeedsJsonl,
   formatTriageJson,
@@ -977,6 +981,57 @@ export function renderArtifacts(
       const lines = [countLine(result.total, 'artifact')];
       if (result.items.length > 0) {
         lines.push('', ...artifactRows(result.items, io, { showProject: opts.showProject }));
+      }
+      io.write(lines.join('\n'));
+      break;
+    }
+  }
+}
+
+/** How a search hit matched, as its row shows it: a link hit's relation, else the match. */
+const searchMarker = (h: SearchHit): string =>
+  h.match === 'link' && h.link !== undefined ? h.link : h.match;
+
+/** One search hit row: id · kind · how it matched · title — a link hit names its
+ * relation to the searched record, and a description hit carries its snippet
+ * dimmed beneath it. The title comes last, as in `list`, so a long one never
+ * pushes a column off screen. */
+export function searchRows(items: readonly SearchHit[], io: Io): string[] {
+  const idW = Math.max(...items.map((h) => h.id.length));
+  const kindW = Math.max(...items.map((h) => h.kind.length));
+  const markerW = Math.max(...items.map((h) => searchMarker(h).length));
+  return items.map((h) => {
+    const head = [pad(h.id, idW), pad(h.kind, kindW), pad(searchMarker(h), markerW), h.title].join(
+      '   ',
+    );
+    if (h.snippet === undefined || h.snippet === '') {
+      return head;
+    }
+    return `${head}\n${color(`      ${h.snippet}`, 90, io.plain)}`;
+  });
+}
+
+/** Render cross-record search (MMR-447) in any format; the machine formats are
+ * the shared `results`-unit wire. */
+export function renderSearch(result: SetResult<SearchHit>, format: Format, io: Io): void {
+  switch (format) {
+    case 'json': {
+      io.write(formatSearchSetJson(result));
+      break;
+    }
+    case 'jsonl': {
+      io.write(formatSearchSetJsonl(result.items));
+      break;
+    }
+    case 'ids': {
+      io.write(formatSearchIds(result.items));
+      break;
+    }
+    case 'records':
+    case 'table': {
+      const lines = [countLine(result.total, 'result')];
+      if (result.items.length > 0) {
+        lines.push('', ...searchRows(result.items, io));
       }
       io.write(lines.join('\n'));
       break;

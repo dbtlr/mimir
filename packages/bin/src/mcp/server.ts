@@ -32,6 +32,7 @@ import {
   toolGetSeed,
   toolNext,
   toolArtifacts,
+  toolSearch,
   toolOverview,
   toolProjects,
   toolPromote,
@@ -61,6 +62,7 @@ import {
 } from './tools';
 import type {
   ArtifactQueryToolArgs,
+  SearchToolArgs,
   SeedQueryToolArgs,
   SetQueryArgs,
   ToolResult,
@@ -559,6 +561,18 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       ...DATE_OPERATOR_SCHEMA,
     },
     (args: ArtifactQueryToolArgs) => toolArtifacts(store, applyScope(args)),
+  );
+
+  register(
+    server,
+    'search',
+    'Find any record (task, phase, initiative, project, seed, artifact) by ID, title, or description. An ID (MMR-12, MMR-s4, MMR-a2, or a bare number in the scoped project) returns that record plus the records linked to it; other text matches titles, then descriptions, with a snippet. scope is the project that ranks first (defaults to the bound board; "all" means none); limit is 1 to 100.',
+    {
+      limit: LIMIT.optional(),
+      query: z.string(),
+      scope: z.string().optional(),
+    },
+    (args: SearchToolArgs) => toolSearch(store, applyScope(args)),
   );
 
   register(
