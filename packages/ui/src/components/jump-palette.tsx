@@ -326,6 +326,7 @@ function PaletteBody({
             activeKey={active?.key}
             optionId={optionId}
             onHover={setActiveKey}
+            stale={waiting}
           />
         ))}
         {notice !== undefined && <p className="px-2 py-3 text-meta text-ink-faint">{notice}</p>}
@@ -348,11 +349,14 @@ function ChoiceGroupView({
   activeKey,
   optionId,
   onHover,
+  stale,
 }: {
   group: ChoiceGroup;
   activeKey: string | undefined;
   optionId: (choice: Choice) => string;
   onHover: (key: string) => void;
+  /** The rows answer an older query: a click must not open one, as Enter would not. */
+  stale: boolean;
 }) {
   const labelId = useId();
   return (
@@ -376,7 +380,11 @@ function ChoiceGroupView({
             onMouseMove={() => onHover(choice.key)}
             // Keep focus in the input, so the keys still drive the list after a click.
             onMouseDown={(e) => e.preventDefault()}
-            onClick={(e) => choice.run(e.metaKey || e.ctrlKey)}
+            onClick={(e) => {
+              if (!stale) {
+                choice.run(e.metaKey || e.ctrlKey);
+              }
+            }}
             className={cn(
               'flex min-w-0 cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-sm',
               selected && 'bg-accent/10 inset-ring inset-ring-accent/25',

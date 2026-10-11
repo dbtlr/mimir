@@ -251,6 +251,20 @@ describe('jump palette (MMR-455)', () => {
     });
   });
 
+  it('ignores a click on a row left over from the previous query', async () => {
+    const user = userEvent.setup();
+    const testRouter = renderApp();
+
+    const input = await jump(user, 'sqlite');
+    await screen.findByRole('option', { name: /MMR-s41/ });
+    // Typing over the query keeps the old rows on screen until the new search lands.
+    await user.type(input, 'norn', { initialSelectionEnd: 6, initialSelectionStart: 0 });
+    await user.click(screen.getByRole('option', { name: /MMR-s41/ }));
+
+    await screen.findByRole('option', { name: /MMR-500/ });
+    expect(testRouter.state.location.pathname).toBe('/');
+  });
+
   it('searches every project from a page whose project does not exist', async () => {
     const user = userEvent.setup();
     renderApp('/p/ZZ/417');
