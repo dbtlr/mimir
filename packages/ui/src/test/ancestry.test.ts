@@ -72,8 +72,8 @@ describe('sharedPathOf (MMR-452)', () => {
     expect(sharedPathOf(tree, ['MMR-3', 'MMR-6'])).toStrictEqual([]);
   });
 
-  it('ignores records the tree does not hold, and is undefined when it holds none', () => {
-    expect(ids(sharedPathOf(tree, ['MMR-3', 'MMR-99']))).toStrictEqual(['MMR-1', 'MMR-2', 'MMR-3']);
+  it('is undefined when the tree cannot place every record', () => {
+    expect(sharedPathOf(tree, ['MMR-3', 'MMR-99'])).toBeUndefined();
     expect(sharedPathOf(tree, ['MMR-99'])).toBeUndefined();
     expect(sharedPathOf(tree, [])).toBeUndefined();
   });

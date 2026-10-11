@@ -41,7 +41,7 @@ export function subtreeOf(root: WireTreeNode, id: string): WireTreeNode | undefi
  * the project root. A lone record is its own end, so the path runs through
  * it; several stop at the deepest container they share, and a linked
  * container that holds the rest counts. Empty when only the project holds
- * them all; undefined when the tree holds none of them.
+ * them all; undefined when the tree cannot place every one of them.
  */
 export function sharedPathOf(
   root: WireTreeNode,
@@ -51,8 +51,9 @@ export function sharedPathOf(
   for (const id of ids) {
     const above = ancestorsOf(root, id);
     const node = above === undefined ? undefined : subtreeOf(root, id);
+    // A record the tree cannot place leaves the shared container unknown.
     if (above === undefined || node === undefined) {
-      continue;
+      return undefined;
     }
     const chain = [...above, node];
     if (shared === undefined) {
