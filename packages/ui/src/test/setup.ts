@@ -40,6 +40,14 @@ Object.defineProperty(globalThis, 'scrollTo', {
   value: () => {},
 });
 
+// jsdom has no scrollIntoView. The jump palette scrolls its highlighted row
+// into view; tests do not observe scroll position, so a no-op stands in.
+// oxlint-disable-next-line vitest/require-hook
+Object.defineProperty(Element.prototype, 'scrollIntoView', {
+  configurable: true,
+  value: () => {},
+});
+
 // jsdom has no matchMedia; the theme resolver (lib/theme.ts) reads it on mount.
 // Default to "no match" (→ dark). theme.test.ts stubs it per-case for OS-pref tests.
 if (typeof globalThis !== 'undefined' && typeof globalThis.matchMedia !== 'function') {

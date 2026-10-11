@@ -31,11 +31,19 @@ describe('shouldPersistQuery', () => {
   it('a failed poll over last-known data stays in the snapshot', () => {
     // v5 flips status to "error" on a failed refetch while keeping data —
     // the status-based default would erase the offline cache as the server dies
-    expect(shouldPersistQuery({ state: { data: { items: [] } } })).toBe(true);
+    expect(shouldPersistQuery({ queryKey: ['projects'], state: { data: { items: [] } } })).toBe(
+      true,
+    );
+  });
+
+  it('a search is a passing question, never persisted (MMR-455)', () => {
+    expect(
+      shouldPersistQuery({ queryKey: ['search', 'all', 'sqlite'], state: { data: { items: [] } } }),
+    ).toBe(false);
   });
 
   it('a query that never got data is not persisted', () => {
-    expect(shouldPersistQuery({ state: { data: undefined } })).toBe(false);
+    expect(shouldPersistQuery({ queryKey: ['projects'], state: { data: undefined } })).toBe(false);
   });
 });
 

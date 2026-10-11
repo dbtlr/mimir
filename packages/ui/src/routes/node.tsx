@@ -36,6 +36,7 @@ import { ActionButton } from '../components/ui/action-button';
 import { ancestorsOf, subtreeOf } from '../lib/ancestry';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
+import { useRememberRecord } from '../lib/recent-records';
 import { nodeIdOf, nodeLink } from '../lib/record-url';
 import { absoluteTime } from '../lib/time';
 import { buildFeed } from '../lib/timeline';
@@ -209,6 +210,9 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
   const verbs = useNodeVerbs(nodeId);
   const [moving, setMoving] = useState(false);
   const conn = connectivity([node, annotations]);
+  useRememberRecord(
+    node.data && { id: nodeId, kind: node.data.type, project: projectKey, title: node.data.title },
+  );
 
   if (isNotFound(node.error)) {
     return <NotFoundPage projectKey={projectKey}>No record {nodeId}.</NotFoundPage>;

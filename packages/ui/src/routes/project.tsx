@@ -22,6 +22,7 @@ import { StatusBadge } from '../components/status-badge';
 import { Badge } from '../components/ui/badge';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
+import { useRememberRecord } from '../lib/recent-records';
 import { nodeLink } from '../lib/record-url';
 import { absoluteTime } from '../lib/time';
 import { projectRoute } from '../router';
@@ -93,6 +94,9 @@ export function ProjectPage() {
   const health = useQuery(doctorQuery(key));
   const conn = connectivity([project]);
   const offline = conn.offline;
+  useRememberRecord(
+    project.data && { id: key, kind: 'project', project: key, title: project.data.title },
+  );
 
   // Archived-404 semantics (ADR 0015): the server answered, so this is not
   // "offline"; the project query keeps polling, so an unarchive heals.

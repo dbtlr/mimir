@@ -71,3 +71,45 @@ export function useHotkey(
     };
   }, [key, enabled]);
 }
+
+/** A Mac or iOS browser, where the command chord is ⌘ rather than Ctrl. */
+export const IS_APPLE =
+  typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+
+/**
+ * A global command chord (MMR-455) — the ⌘K palette opener: ⌘ on a Mac, Ctrl
+ * elsewhere, so a Mac keeps Ctrl-K's delete-to-end-of-line in text fields.
+ * Unlike a bare hotkey it fires from inside a text field, since the modifier
+ * means no keystroke is being typed; it still yields to an already-open
+ * dialog, menu, or listbox. `code` names the physical key (`KeyK`), so the
+ * chord works on any keyboard layout.
+ */
+export function useCommandHotkey(
+  code: string,
+  handler: () => void,
+  opts: { enabled?: boolean } = {},
+): void {
+  const enabled = opts.enabled ?? true;
+  const onHotkey = useEffectEvent(handler);
+
+  useEffect(() => {
+    if (!enabled) {
+      return undefined;
+    }
+    function onKeyDown(e: KeyboardEvent): void {
+      const command = IS_APPLE ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+      if (e.code !== code || !command || e.altKey || e.shiftKey) {
+        return;
+      }
+      if (hasOpenPopup()) {
+        return;
+      }
+      e.preventDefault();
+      onHotkey();
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [code, enabled]);
+}

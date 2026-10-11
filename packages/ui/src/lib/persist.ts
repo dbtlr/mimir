@@ -2,7 +2,7 @@ import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persi
 import type { PersistedClient } from '@tanstack/react-query-persist-client';
 import { del, get, set } from 'idb-keyval';
 
-import { INFINITE_QUERY_KEY_ROOTS } from '../api/queries';
+import { INFINITE_QUERY_KEY_ROOTS, UNPERSISTED_QUERY_KEY_ROOTS } from '../api/queries';
 
 /**
  * The query cache persisted to IndexedDB (ADR 0013 §5) — the substrate of the
@@ -14,9 +14,17 @@ import { INFINITE_QUERY_KEY_ROOTS } from '../api/queries';
  * would drop a query the moment a poll fails — v5 flips status to `error`
  * while KEEPING data, so the live session would erase its own offline cache
  * exactly as the server dies. Last-known data is the asset: persist whatever
- * has data, whatever the error overlay says.
+ * has data, whatever the error overlay says — except the passing questions
+ * that are not board state ({@link UNPERSISTED_QUERY_KEY_ROOTS}).
  */
-export function shouldPersistQuery(query: { state: { data: unknown } }): boolean {
+export function shouldPersistQuery(query: {
+  queryKey: readonly unknown[];
+  state: { data: unknown };
+}): boolean {
+  const root = query.queryKey[0];
+  if (typeof root === 'string' && UNPERSISTED_QUERY_KEY_ROOTS.has(root)) {
+    return false;
+  }
   return query.state.data !== undefined;
 }
 

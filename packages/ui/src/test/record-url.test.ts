@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { bareIdRedirect, nodeIdOf, nodeLink } from '../lib/record-url';
+import { bareIdRedirect, nodeIdOf, nodeLink, recordLink } from '../lib/record-url';
 
 describe('nodeLink (ADR 0013 v0.23)', () => {
   it('splits a node id at its hyphen into the project and the record suffix', () => {
@@ -49,5 +49,26 @@ describe('bareIdRedirect', () => {
     expect(bareIdRedirect('MMR-417/edit')).toBeUndefined();
     expect(bareIdRedirect('M-1')).toBeUndefined();
     expect(bareIdRedirect('')).toBeUndefined();
+  });
+});
+
+describe('recordLink (MMR-455)', () => {
+  it('opens a work node at its page and a project at its key', () => {
+    expect(recordLink({ id: 'MMR-417', kind: 'task' })).toStrictEqual(nodeLink('MMR-417'));
+    expect(recordLink({ id: 'MMR', kind: 'project' })).toStrictEqual({
+      params: { key: 'MMR' },
+      to: '/p/$key',
+    });
+  });
+
+  it('opens a seed or an artifact in its browser', () => {
+    expect(recordLink({ id: 'MMR-s41', kind: 'seed' })).toStrictEqual({
+      search: { seed: 'MMR-s41' },
+      to: '/seeds',
+    });
+    expect(recordLink({ id: 'MMR-a219', kind: 'artifact' })).toStrictEqual({
+      search: { a: 'MMR-a219' },
+      to: '/artifacts',
+    });
   });
 });

@@ -10,6 +10,7 @@ import type {
   WireHealth,
   WireNode,
   WireScratchpadRow,
+  WireSearchHit,
   WireSeed,
   WireTreeNode,
 } from './types';
@@ -308,4 +309,31 @@ export const seedQuery = (id: string) =>
   queryOptions({
     queryFn: () => apiGet<WireSeed>(`/api/seeds/${encodeURIComponent(id)}`),
     queryKey: ['seeds', 'detail', id],
+  });
+
+/**
+ * Key roots of the queries kept out of the persisted offline snapshot: passing
+ * questions, not board state. A restored entry would also take the client's
+ * week-long `gcTime`, so it would outlive every reload.
+ */
+export const UNPERSISTED_QUERY_KEY_ROOTS: ReadonlySet<string> = new Set(['search']);
+
+/**
+ * Cross-record search (MMR-447) for the jump palette. `project` ranks the
+ * current project first and resolves a bare suffix there. A search is a
+ * passing question, not board state: it is not polled, is never persisted,
+ * and leaves the cache a minute after the palette stops asking.
+ */
+export const searchQuery = (q: string, project?: string) =>
+  queryOptions({
+    gcTime: 60_000,
+    queryFn: () => {
+      const p = new URLSearchParams({ q });
+      if (project !== undefined && project !== '') {
+        p.set('project', project);
+      }
+      return apiGet<Collection<WireSearchHit>>(`/api/search?${p.toString()}`);
+    },
+    queryKey: ['search', project ?? 'all', q],
+    refetchInterval: false,
   });

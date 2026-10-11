@@ -3,6 +3,7 @@ import { Toaster } from 'sonner';
 
 import { AttentionAlert } from '../components/attention-alert';
 import { BrandMark } from '../components/brand-mark';
+import { JumpPalette } from '../components/jump-palette';
 import { ProjectPicker } from '../components/project-picker';
 import { PwaRefreshAction } from '../components/pwa-refresh-action';
 import { PwaUpdateBanner } from '../components/pwa-update-banner';
@@ -15,7 +16,7 @@ import { useTheme } from '../lib/use-theme';
 import { useToastPosition } from '../lib/use-toast-position';
 
 /** The app shell: brand + project picker, the routed surface, and the global
- * top-bar controls (artifacts, attention, theme). */
+ * top-bar controls (jump palette, artifacts, attention, theme). */
 export function Shell() {
   return (
     <PwaUpdateProvider>
@@ -41,6 +42,7 @@ function ShellContent() {
           </Link>
           <ProjectPicker />
           <div className="ml-auto flex items-center gap-1">
+            <JumpPalette />
             {/* desktop — the secondary nav inline */}
             <Link
               to="/tasks"
