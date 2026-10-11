@@ -146,6 +146,12 @@ describe('seed page (MMR-451)', () => {
     expect(padded.state.location.pathname).toBe('/p/NRN/s30');
   });
 
+  it('strips the padding as text, keeping every digit of a long seed number', async () => {
+    serve(crossBoardBug);
+    const long = renderAt('/p/NRN/s0123456789012345678901');
+    await waitFor(() => expect(long.state.location.pathname).toBe('/p/NRN/s123456789012345678901'));
+  });
+
   it('redirects a bare seed id to its page', async () => {
     serve(crossBoardBug);
     const testRouter = renderAt('/nrn-s30');

@@ -123,7 +123,7 @@ export const seedRoute = createRoute({
     if (!/^\d+$/.test(params.seq)) {
       return;
     }
-    const id = `${params.key.toUpperCase()}-s${String(Number(params.seq))}`;
+    const id = `${params.key.toUpperCase()}-s${params.seq.replace(/^0+(?=\d)/, '')}`;
     if (location.pathname !== seedPath(id)) {
       // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
       throw redirect({ ...seedLink(id), replace: true, search: true });
