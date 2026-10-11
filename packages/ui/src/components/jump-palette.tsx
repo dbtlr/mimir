@@ -1,10 +1,10 @@
 import { Dialog } from '@base-ui-components/react/dialog';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useRouter } from '@tanstack/react-router';
-import { useId, useState } from 'react';
-import type { KeyboardEvent, ReactNode } from 'react';
+import { useEffect, useEffectEvent, useId, useRef, useState } from 'react';
+import type { KeyboardEvent, ReactNode, RefObject } from 'react';
 
-import { searchQuery } from '../api/queries';
+import { projectsQuery, searchQuery } from '../api/queries';
 import type { WireSearchHit } from '../api/types';
 import { cn } from '../lib/cn';
 import { LINK_LABEL, groupHits, highlightTerms, hitStatus } from '../lib/jump';
@@ -12,7 +12,7 @@ import { readRecentRecords, rememberRecord } from '../lib/recent-records';
 import type { RecentRecord } from '../lib/recent-records';
 import { nodeLink, recordLink } from '../lib/record-url';
 import { useDebouncedValue } from '../lib/use-debounced-value';
-import { useCommandHotkey } from '../lib/use-hotkey';
+import { IS_APPLE, useCommandHotkey } from '../lib/use-hotkey';
 import { AuthoringSheet } from './authoring-sheet';
 import { useSeedCapture } from './seed-capture';
 import { StatusDot } from './status-dot';
@@ -33,8 +33,6 @@ type Choice = {
 
 type ChoiceGroup = { label: string; count?: number; choices: Choice[] };
 
-const IS_APPLE = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
-
 /**
  * The jump palette (MMR-455, mock A "grouped list"): ⌘K or Ctrl-K from any
  * page, or the top-bar button, opens a search across every project. Results
@@ -44,9 +42,33 @@ const IS_APPLE = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navi
 export function JumpPalette() {
   const [open, setOpen] = useState(false);
   const [authoring, setAuthoring] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  // Where focus goes back to on close: what had it when the palette opened,
+  // else the top-bar button. The button is not a base-ui trigger, so base-ui
+  // would otherwise drop focus on the page body.
+  const returnTo = useRef<HTMLElement | null>(null);
+  // An action that opens a dialog of its own waits for the palette to finish
+  // closing, so the palette's focus return cannot pull focus out of it.
+  const afterClose = useRef<(() => void) | null>(null);
   const { key } = useParams({ strict: false });
+  const projects = useQuery(projectsQuery);
+  // Only a project that exists scopes the search: the server rejects an
+  // unknown one, which would fail every search on a mistyped URL.
+  const project = projects.data?.items.some((p) => p.id === key) === true ? key : undefined;
   const navigate = useNavigate();
-  useCommandHotkey('k', () => setOpen(true), { enabled: !open });
+  useCommandHotkey('KeyK', openPalette, { enabled: !open });
+
+  function openPalette() {
+    const focused = document.activeElement;
+    returnTo.current = focused instanceof HTMLElement && focused !== document.body ? focused : null;
+    setOpen(true);
+  }
+
+  function closeThen(after?: () => void) {
+    afterClose.current = after ?? null;
+    setOpen(false);
+  }
 
   return (
     <>
@@ -54,7 +76,8 @@ export function JumpPalette() {
         type="button"
         aria-label="Jump to…"
         aria-haspopup="dialog"
-        onClick={() => setOpen(true)}
+        ref={triggerRef}
+        onClick={openPalette}
         className="flex h-9 min-w-9 items-center justify-center gap-2 rounded text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent md:h-8 md:justify-start md:border md:border-line md:bg-well-850 md:px-2.5 md:text-meta"
       >
         <span aria-hidden>⌕</span>
@@ -63,17 +86,35 @@ export function JumpPalette() {
           {IS_APPLE ? '⌘K' : 'Ctrl K'}
         </kbd>
       </button>
-      <Dialog.Root open={open} onOpenChange={setOpen}>
+      <Dialog.Root
+        open={open}
+        onOpenChange={setOpen}
+        onOpenChangeComplete={(isOpen) => {
+          const after = afterClose.current;
+          if (isOpen || after === null) {
+            return;
+          }
+          afterClose.current = null;
+          // A task later, once the palette has handed focus back to where it
+          // was: the next dialog then returns focus there when it closes.
+          setTimeout(after, 0);
+        }}
+      >
         <Dialog.Portal>
           <Dialog.Backdrop className="fixed inset-0 z-50 bg-well-950/70 backdrop-blur-[2px]" />
           <Dialog.Popup
             aria-label="Jump to a record or action"
+            initialFocus={inputRef}
+            finalFocus={() =>
+              returnTo.current?.isConnected === true ? returnTo.current : triggerRef.current
+            }
             className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-well-850 outline-none md:inset-auto md:top-16 md:left-1/2 md:max-h-[min(560px,80dvh)] md:w-[min(620px,calc(100vw-2rem))] md:-translate-x-1/2 md:rounded-2xl md:border md:border-line-bright md:shadow-2xl light:md:shadow-overlay"
           >
             {open && (
               <PaletteBody
-                project={key}
-                onClose={() => setOpen(false)}
+                project={project}
+                inputRef={inputRef}
+                closeThen={closeThen}
                 onNewTask={() => setAuthoring(true)}
               />
             )}
@@ -83,7 +124,7 @@ export function JumpPalette() {
       <AuthoringSheet
         open={authoring}
         onOpenChange={setAuthoring}
-        projectKey={key}
+        projectKey={project}
         onOpenNode={(id) => void navigate(nodeLink(id))}
       />
     </>
@@ -92,12 +133,15 @@ export function JumpPalette() {
 
 function PaletteBody({
   project,
-  onClose,
+  inputRef,
+  closeThen,
   onNewTask,
 }: {
   /** The current page's project, when it has one: ranked first, and named on New task. */
   project: string | undefined;
-  onClose: () => void;
+  inputRef: RefObject<HTMLInputElement | null>;
+  /** Close the palette, then run `after` once it has finished closing. */
+  closeThen: (after?: () => void) => void;
   onNewTask: () => void;
 }) {
   const [query, setQuery] = useState('');
@@ -127,7 +171,7 @@ function PaletteBody({
       window.open(router.buildLocation(target).href, '_blank', 'noopener');
       return;
     }
-    onClose();
+    closeThen();
     void navigate(target);
   }
 
@@ -150,10 +194,7 @@ function PaletteBody({
                   </ActionRow>
                 ),
                 key: 'action:new-task',
-                run: () => {
-                  onClose();
-                  onNewTask();
-                },
+                run: () => closeThen(onNewTask),
               },
               {
                 content: (
@@ -162,10 +203,7 @@ function PaletteBody({
                   </ActionRow>
                 ),
                 key: 'action:file-seed',
-                run: () => {
-                  onClose();
-                  openSeedCapture();
-                },
+                run: () => closeThen(openSeedCapture),
               },
             ],
             label: 'Actions',
@@ -185,24 +223,57 @@ function PaletteBody({
   );
   const active = choices.at(activeIndex);
   const optionId = (choice: Choice) => `${listId}-${choice.key}`;
+  const activeOptionId = active === undefined ? undefined : optionId(active);
+
+  // The rows on screen answer an older query until the search for what is
+  // typed now lands: debounce pending, first fetch, or previous data held.
+  const searching = query.trim() !== '';
+  const waiting =
+    searching && (settled !== query.trim() || search.isPending || search.isPlaceholderData);
+
+  // Enter pressed while waiting is held for the fresh results, so it never
+  // opens a record the old query found. The value is its new-tab flag.
+  const heldEnter = useRef<boolean | null>(null);
+  const runHeldEnter = useEffectEvent(() => {
+    const newTab = heldEnter.current;
+    heldEnter.current = null;
+    if (newTab !== null) {
+      active?.run(newTab);
+    }
+  });
+  useEffect(() => {
+    if (!waiting) {
+      runHeldEnter();
+    }
+  }, [waiting]);
+
+  // The input keeps focus, so the list scrolls the highlighted row into view.
+  useEffect(() => {
+    if (activeOptionId !== undefined) {
+      document.getElementById(activeOptionId)?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [activeOptionId]);
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (choices.length === 0) {
+    // Enter that commits an IME composition is not a choice.
+    if (event.nativeEvent.isComposing) {
       return;
     }
     const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
-    if (step !== undefined) {
+    if (step !== undefined && choices.length > 0) {
       event.preventDefault();
       const next = choices.at((activeIndex + step) % choices.length);
       setActiveKey(next?.key ?? null);
-    } else if (event.key === 'Enter' && active !== undefined) {
+    } else if (event.key === 'Enter') {
       event.preventDefault();
-      active.run(event.metaKey || event.ctrlKey);
+      const newTab = event.metaKey || event.ctrlKey;
+      if (waiting) {
+        heldEnter.current = newTab;
+      } else {
+        active?.run(newTab);
+      }
     }
   }
-
-  const searching = query.trim() !== '';
-  const waiting = searching && (settled !== query.trim() || search.isPending);
   let notice: string | undefined;
   if (searching && search.isError) {
     notice = 'Search is unreachable — is `mimir serve` running?';
@@ -222,12 +293,13 @@ function PaletteBody({
           aria-expanded
           aria-controls={listId}
           aria-autocomplete="list"
-          aria-activedescendant={active === undefined ? undefined : optionId(active)}
-          autoFocus
+          aria-activedescendant={activeOptionId}
+          ref={inputRef}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
             setActiveKey(null);
+            heldEnter.current = null;
           }}
           onKeyDown={onKeyDown}
           placeholder="Jump to a record or action"
@@ -241,7 +313,11 @@ function PaletteBody({
         id={listId}
         role="listbox"
         aria-label="Results"
-        className="min-h-0 flex-1 overflow-y-auto px-2 py-1.5"
+        aria-busy={waiting}
+        className={cn(
+          'min-h-0 flex-1 overflow-y-auto px-2 py-1.5 transition-opacity',
+          waiting && 'opacity-60',
+        )}
       >
         {shown.map((group) => (
           <ChoiceGroupView
@@ -298,6 +374,8 @@ function ChoiceGroupView({
             tabIndex={-1}
             aria-selected={selected}
             onMouseMove={() => onHover(choice.key)}
+            // Keep focus in the input, so the keys still drive the list after a click.
+            onMouseDown={(e) => e.preventDefault()}
             onClick={(e) => choice.run(e.metaKey || e.ctrlKey)}
             className={cn(
               'flex min-w-0 cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-sm',
@@ -324,7 +402,7 @@ function RecordRow({ record, query }: { record: RowRecord; query: string }) {
       ) : (
         <StatusDot status={status} />
       )}
-      <span className="shrink-0 font-mono text-micro text-ink-dim">{record.id}</span>
+      <span className="min-w-16 shrink-0 font-mono text-micro text-ink-dim">{record.id}</span>
       {record.link !== undefined && (
         <span className="shrink-0 font-mono text-micro text-ink-faint">
           {LINK_LABEL[record.link]}

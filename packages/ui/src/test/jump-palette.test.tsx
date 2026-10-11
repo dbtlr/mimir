@@ -4,6 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ApiError } from '../api/errors';
 import type { WireSearchHit } from '../api/types';
 import { router } from '../router';
 import { project, task } from './fixtures';
@@ -55,6 +56,7 @@ const RESULTS: Record<string, WireSearchHit[]> = {
       title: 'Remove the Norn backend',
     }),
   ],
+  norn: [hit({ id: 'MMR-500', title: 'Retire Norn' })],
   sqlite: [
     hit({ id: 'MMR-417', title: 'Add the SQLite dialect' }),
     hit({ id: 'MMR-s41', kind: 'seed', lifecycle: 'new', title: 'SQLite locks under load' }),
@@ -79,6 +81,9 @@ function mockApi() {
     }
     if (path === '/api/projects/MMR') {
       return Promise.resolve(project({ id: 'MMR', title: 'Mimir' }));
+    }
+    if (path.startsWith('/api/nodes/ZZ-')) {
+      return Promise.reject(new ApiError(`GET ${path} → 404`, 404));
     }
     if (path === '/api/nodes/MMR-417') {
       return Promise.resolve(
@@ -109,9 +114,19 @@ function renderApp(initial = '/') {
 /** Open the palette with the keyboard and type a query into it. */
 async function jump(user: ReturnType<typeof userEvent.setup>, query: string) {
   await screen.findByRole('button', { name: 'Jump to…' });
-  await user.keyboard('{Meta>}k{/Meta}');
+  await user.keyboard('{Control>}k{/Control}');
   const input = await screen.findByRole('combobox', { name: 'Jump to a record or action' });
   await user.type(input, query);
+  return input;
+}
+
+/** Open the palette from the top-bar button, once its input has focus. */
+async function openFromButton(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: 'Jump to…' }));
+  const input = await screen.findByRole('combobox', { name: 'Jump to a record or action' });
+  await waitFor(() => {
+    expect(input).toHaveFocus();
+  });
   return input;
 }
 
@@ -210,13 +225,51 @@ describe('jump palette (MMR-455)', () => {
     const user = userEvent.setup();
     renderApp();
 
-    await user.click(await screen.findByRole('button', { name: 'Jump to…' }));
-    await expect(screen.findByRole('combobox')).resolves.toHaveFocus();
+    await openFromButton(user);
 
     await user.keyboard('{Escape}');
     await waitFor(() => {
       expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Jump to…' })).toHaveFocus();
+    });
+  });
+
+  it('opens the result for what is typed now, not for the query before it', async () => {
+    const user = userEvent.setup();
+    const testRouter = renderApp();
+
+    const input = await jump(user, 'sqlite');
+    await screen.findByRole('group', { name: /Titles · 2/ });
+    await user.clear(input);
+    // Enter lands before the new search has answered; it waits for it.
+    await user.type(input, 'norn{Enter}');
+
+    await waitFor(() => {
+      expect(testRouter.state.location.pathname).toBe('/p/MMR/500');
+    });
+  });
+
+  it('searches every project from a page whose project does not exist', async () => {
+    const user = userEvent.setup();
+    renderApp('/p/ZZ/417');
+
+    await screen.findByText(/No record ZZ-417/);
+    await jump(user, 'sqlite');
+
+    await screen.findByRole('group', { name: /Titles/ });
+    expect(apiGet).toHaveBeenCalledWith('/api/search?q=sqlite');
+    expect(apiGet).not.toHaveBeenCalledWith(expect.stringMatching(/^\/api\/search\?.*project=ZZ/));
+  });
+
+  it('leaves ⌘K alone off a Mac, where the chord is Ctrl-K', async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByRole('button', { name: 'Jump to…' });
+    await user.keyboard('{Meta>}k{/Meta}');
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
   });
 
   it('lists recently opened records and the actions when the query is empty', async () => {
@@ -230,7 +283,7 @@ describe('jump palette (MMR-455)', () => {
       expect(testRouter.state.location.pathname).toBe('/p/MMR/417');
     });
 
-    await user.keyboard('{Meta>}k{/Meta}');
+    await user.keyboard('{Control>}k{/Control}');
     const recent = await screen.findByRole('group', { name: /Recent/ });
     expect(within(recent).getByRole('option', { name: /MMR-417/ })).toBeInTheDocument();
     const actions = screen.getByRole('group', { name: /Actions/ });
@@ -261,13 +314,16 @@ describe('jump palette (MMR-455)', () => {
     const user = userEvent.setup();
     renderApp('/tasks');
 
-    await user.click(await screen.findByRole('button', { name: 'Jump to…' }));
-    const actions = await screen.findByRole('group', { name: /Actions/ });
+    await openFromButton(user);
+    const actions = screen.getByRole('group', { name: /Actions/ });
     // Recent is empty, so the options start at the actions: New task, then File a seed.
     expect(within(actions).getAllByRole('option')[1]).toHaveTextContent('File a seed');
     await user.keyboard('{ArrowDown}{Enter}');
 
-    await expect(screen.findByLabelText('Seed')).resolves.toBeInTheDocument();
+    await screen.findByLabelText('Seed');
+    await waitFor(() => {
+      expect(screen.getByLabelText('Seed')).toHaveFocus();
+    });
     expect(
       screen.queryByRole('combobox', { name: 'Jump to a record or action' }),
     ).not.toBeInTheDocument();
