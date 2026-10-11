@@ -192,7 +192,16 @@ describe('seedsPage (13a/14a, MMR-247)', () => {
     // spawned work id shows on the master row and the SPAWNED rail alike
     expect(screen.getAllByText('MMR-118').length).toBeGreaterThan(0);
     // the ready lane leads with the resolve verb (renamed from the mock's "dispose")
-    expect(screen.getAllByRole('button', { name: 'Resolve — done' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Resolve…' }).length).toBeGreaterThan(0);
+  });
+
+  it('the reading pane links the seed to its page and spawned work to its task pages (MMR-451)', async () => {
+    mockApi();
+    renderSeeds('/seeds?seed=MMR-s2');
+    await screen.findByText('The banner repaints on every wake.');
+
+    expect(screen.getByRole('link', { name: 'MMR-s2' })).toHaveAttribute('href', '/p/MMR/s2');
+    expect(screen.getByRole('link', { name: 'MMR-118' })).toHaveAttribute('href', '/p/MMR/118');
   });
 
   it('never says "dispose" anywhere — the shipped copy is "resolve"', async () => {
@@ -210,7 +219,7 @@ describe('seedsPage (13a/14a, MMR-247)', () => {
     await screen.findAllByText('Alpha original text.');
 
     // the reading pane leads with the promote chip on this untriaged bug
-    const chips = screen.getAllByRole('button', { name: 'Promote → task…' });
+    const chips = screen.getAllByRole('button', { name: 'Promote to task…' });
     await userEvent.click(chips[0] as HTMLElement);
 
     // the promote sheet arrives full — its provenance strip + Enter-to-promote action

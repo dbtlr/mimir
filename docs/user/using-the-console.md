@@ -28,9 +28,10 @@ a task's page.
 
 ## Work within a project
 
-Every project, initiative, phase, and task has its own page at its own address:
-`/p/MMR` for the project and `/p/MMR/417` for `MMR-417`. Typing a bare ID such as
-`/MMR-417` or `/mmr` redirects to its page.
+Every project, initiative, phase, task, and seed has its own page at its own
+address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`, and `/p/MMR/s41`
+for the seed `MMR-s41`. Typing a bare ID such as `/MMR-417`, `/mmr-s41`, or
+`/mmr` redirects to its page.
 
 - **The project page** shows the description and the project's top-level work.
   Its rail holds the direction in full, Open board, New task, settings,
@@ -40,6 +41,13 @@ Every project, initiative, phase, and task has its own page at its own address:
 - **A task page** shows the path above the task, its description, a timeline
   with a note field, and a rail with actions, agent context, dependencies,
   artifacts, and details.
+- **A seed page** reads as a request: which board asks which, the description,
+  and what came of it, meaning the tasks promoted from the seed and the tasks
+  on any board that name it as upstream. A decision block offers the verbs the
+  seed needs next: promote, reject, or leave a new seed for later; promote
+  again or reject while its work is under way; and resolve, promote again, or
+  reject once that work has settled. Its rail holds Edit, Copy link, and
+  details.
 
 On a phone, the rail folds into chips that open bottom sheets.
 

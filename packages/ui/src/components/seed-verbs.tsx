@@ -8,17 +8,27 @@ import { ReasonDialog } from './reason-dialog';
 
 type PendingVerb = 'reject' | 'resolve' | null;
 
+/** A lead verb's wash: the accent, or the ready lane's violet. */
+const PRIMARY_INK = {
+  accent: 'bg-accent/14 text-accent-foreground inset-ring inset-ring-accent/30 hover:bg-accent/20',
+  attention:
+    'bg-attention/14 text-attention inset-ring inset-ring-attention/30 hover:bg-attention/20',
+};
+
 /** A quiet hairline verb chip (the node-dossier VerbChip idiom, seed-local). */
 function VerbChip({
   children,
   onClick,
   disabled,
   primary,
+  attention,
 }: {
   children: ReactNode;
   onClick: () => void;
   disabled?: boolean;
   primary?: boolean;
+  /** The ready lane's violet, for its lead verb. */
+  attention?: boolean;
 }) {
   return (
     <button
@@ -28,7 +38,7 @@ function VerbChip({
       className={cn(
         'inline-flex items-center rounded-md px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40',
         primary
-          ? 'bg-accent/14 text-accent-foreground inset-ring inset-ring-accent/30 hover:bg-accent/20'
+          ? PRIMARY_INK[attention === true ? 'attention' : 'accent']
           : 'font-medium text-ink-dim inset-ring inset-ring-line hover:bg-well-800 hover:text-ink-bright',
       )}
     >
@@ -53,11 +63,12 @@ export function SpawnedRef({ seed }: { seed: WireSeed }) {
 /**
  * The pinned triage verb row (MMR-247, ADR 0019 §5) — labeled chips scoped to
  * the seed's lane:
- *  - untriaged: Promote → task… (primary) · Reject… · Later
- *  - ready (to resolve): Resolve — done (primary) · Promote → task… · Reject…, with the spawned link
- *  - promoted (in flight): Promote → task… (primary) · Reject…, with the spawned reference
+ *  - untriaged: Promote to task… (primary) · Reject… · Later
+ *  - ready (to resolve): Resolve… (primary) · Promote again… · Reject…, with the spawned link
+ *  - promoted (in flight): Promote again… (primary) · Reject…, with the spawned reference
  * "Later" is purely local — it collapses/deselects the row, no lifecycle change,
- * no server call. Reject/Resolve open the required-reason dialog.
+ * no server call. Reject/Resolve open the required-reason dialog. A surface
+ * that lists the spawned work itself (the seed page) drops the reference.
  *
  * Seam (MMR-248): one primary per lane. Promote leads (primary) on untriaged and
  * promoted; on the ready lane Resolve keeps the lead and Promote falls in behind
@@ -68,6 +79,7 @@ export function SeedVerbs({
   onLater,
   onPromote,
   offline,
+  withSpawned = true,
   className,
 }: {
   seed: WireSeed;
@@ -75,6 +87,8 @@ export function SeedVerbs({
   /** MMR-248: opens the promote sheet for this seed (the lead verb while live). */
   onPromote?: (seed: WireSeed) => void;
   offline?: boolean;
+  /** Show the spawned-work reference after the chips. */
+  withSpawned?: boolean;
   className?: string;
 }) {
   const [pending, setPending] = useState<PendingVerb>(null);
@@ -89,8 +103,14 @@ export function SeedVerbs({
   const chips: ReactNode[] = [];
   if (seed.lane === 'ready') {
     chips.push(
-      <VerbChip key="resolve" primary disabled={offline} onClick={() => setPending('resolve')}>
-        Resolve — done
+      <VerbChip
+        key="resolve"
+        primary
+        attention
+        disabled={offline}
+        onClick={() => setPending('resolve')}
+      >
+        Resolve…
       </VerbChip>,
     );
     // On the ready lane Resolve is the lead primary, so Promote falls in behind
@@ -98,7 +118,7 @@ export function SeedVerbs({
     if (onPromote !== undefined) {
       chips.push(
         <VerbChip key="promote" disabled={offline} onClick={() => onPromote(seed)}>
-          Promote → task…
+          Promote again…
         </VerbChip>,
       );
     }
@@ -121,7 +141,7 @@ export function SeedVerbs({
   if (onPromote !== undefined && seed.lane !== 'ready') {
     chips.unshift(
       <VerbChip key="promote" primary disabled={offline} onClick={() => onPromote(seed)}>
-        Promote → task…
+        {seed.lane === 'untriaged' ? 'Promote to task…' : 'Promote again…'}
       </VerbChip>,
     );
   }
@@ -129,7 +149,7 @@ export function SeedVerbs({
   return (
     <div className={cn('flex flex-wrap items-center gap-2', className)}>
       {chips}
-      <SpawnedRef seed={seed} />
+      {withSpawned && <SpawnedRef seed={seed} />}
       <ReasonDialog
         title="Reject seed"
         confirmLabel="Reject"
@@ -142,7 +162,7 @@ export function SeedVerbs({
         }}
       />
       <ReasonDialog
-        title="Resolve — done"
+        title="Resolve seed"
         confirmLabel="Resolve"
         required
         open={pending === 'resolve'}

@@ -9,7 +9,7 @@ import type { SearchSchemaInput } from '@tanstack/react-router';
 
 import { BAND_MODES } from './lib/bands';
 import type { BandMode } from './lib/bands';
-import { bareIdRedirect } from './lib/record-url';
+import { bareIdRedirect, seedLink, seedPath } from './lib/record-url';
 import { ArtifactsPage } from './routes/artifacts';
 import { BoardPage } from './routes/board';
 import { DoctorPage } from './routes/doctor';
@@ -17,6 +17,7 @@ import { NodePage } from './routes/node';
 import { NotFoundPage } from './routes/not-found';
 import { OverviewPage } from './routes/overview';
 import { ProjectPage } from './routes/project';
+import { SeedPage } from './routes/seed';
 import { SeedsPage } from './routes/seeds';
 import { Shell } from './routes/shell';
 import { TasksPage } from './routes/tasks';
@@ -24,7 +25,7 @@ import { TasksPage } from './routes/tasks';
 /**
  * Navigation (ADR 0013 §3 and its v0.23 refinement): URLs name scopes, views,
  * and records — `/` the overview, `/p/KEY` the project's page, `/p/KEY/board`
- * its board, `/p/KEY/417` a work node's page. On the board, `view` picks the
+ * its board, `/p/KEY/417` a work node's page, `/p/KEY/s41` a seed's page. On the board, `view` picks the
  * lens (board or tree) until the work page retires the tree (MMR-439). `node`
  * still opens the dossier overlay until the overlay retires (MMR-453). Typed
  * search params carry that contract in the type system.
@@ -110,6 +111,27 @@ export const nodeRoute = createRoute({
   component: NodePage,
   getParentRoute: () => rootRoute,
   path: '/p/$key/$seq',
+});
+
+/**
+ * A seed's page: the seed id split at its hyphen (`MMR-s41` → `/p/MMR/s41`).
+ * The route matches `S41` and `s041` too, so any spelling but the seed's own
+ * moves to it, keeping the search.
+ */
+export const seedRoute = createRoute({
+  beforeLoad: ({ params, location }) => {
+    if (!/^\d+$/.test(params.seq)) {
+      return;
+    }
+    const id = `${params.key.toUpperCase()}-s${params.seq.replace(/^0+(?=\d)/, '')}`;
+    if (location.pathname !== seedPath(id)) {
+      // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
+      throw redirect({ ...seedLink(id), replace: true, search: true });
+    }
+  },
+  component: SeedPage,
+  getParentRoute: () => rootRoute,
+  path: '/p/$key/s{$seq}',
 });
 
 /**
@@ -235,6 +257,7 @@ const routeTree = rootRoute.addChildren([
   projectRoute,
   boardRoute,
   nodeRoute,
+  seedRoute,
   artifactsRoute,
   seedsRoute,
   tasksRoute,

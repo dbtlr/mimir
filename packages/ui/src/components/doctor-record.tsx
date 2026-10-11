@@ -1,6 +1,5 @@
-import { toast } from 'sonner';
-
 import type { WireDoctorRecord } from '../api/types';
+import { copyText } from '../lib/clipboard';
 
 /**
  * One `mimir doctor` finding in the Record-health panel (MMR-185). Strictly
@@ -28,22 +27,13 @@ function evidenceText(value: unknown): string {
   return JSON.stringify(value);
 }
 
-/** Copy the row locator — the one affordance. The success toast waits for the
- * clipboard write to resolve; a rejection or an absent `navigator.clipboard` (an
- * insecure off-loopback context) toasts the failure instead of falsely
- * announcing a copy. */
+/** Copy the row locator — the one affordance. */
 function CopyLocation({ locator }: { locator: string }) {
-  const copy = async () => {
-    try {
-      if (navigator.clipboard === undefined) {
-        throw new Error('clipboard unavailable');
-      }
-      await navigator.clipboard.writeText(locator);
-      toast.success(`Copied ${locator}`);
-    } catch {
-      toast.error(`Couldn't copy ${locator} — select it from the finding above.`);
-    }
-  };
+  const copy = () =>
+    copyText(locator, {
+      copied: `Copied ${locator}`,
+      failed: `Couldn't copy ${locator} — select it from the finding above.`,
+    });
   return (
     <button
       type="button"
