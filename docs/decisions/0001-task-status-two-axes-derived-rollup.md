@@ -154,8 +154,9 @@ deferral is always the operator's own.
   derived `awaiting` status, so ownership only splits the stored,
   manually-set block.
 - **`block --on you|others` sets it, with a default from the record.** When
-  the task has an `upstream` seed (ADR 0020), the default is `others`: the
-  edge already names the board it waits on. Otherwise the default is `you`.
+  the task has an `upstream` seed (ADR 0020), the default is `others`: that
+  reference names the board the task asked for help from. It stays a reference,
+  not a dependency edge. Otherwise the default is `you`.
   Existing blocks are migrated by the same rule.
 - **Changing an owner is `unblock`, then `block`.** `block` still refuses a
   task that is already held, so each `blocked` entry in the transition log has
