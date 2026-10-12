@@ -127,55 +127,36 @@ export const tasksQuery = (f: TaskFilters) =>
 
 /**
  * The tasks browser's Finished window (MMR-460): the newest this many finished
- * tasks load first and "Show more" pulls the next window, so history growth
- * costs neither the request, the server's lede reads, nor the persisted cache.
+ * tasks load first and each "Show more" asks for this many more, so history
+ * growth costs neither the request, the server's lede reads, nor the
+ * persisted cache.
  */
 export const FINISHED_PAGE_SIZE = 50;
 
 /**
- * The browser's loaded rows, one per task. Windows page by offset, so a task
- * that finishes between loads shifts a row into the next window; the first
- * occurrence wins.
+ * The `/tasks` browser read (MMR-78, MMR-454, MMR-460). A `terminal` selection
+ * asks for the newest `FINISHED_PAGE_SIZE * windows` rows; "Show more" grows
+ * `windows` and refetches that larger prefix, so a task that finishes or
+ * reopens between loads can never skip or repeat a row the way offset paging
+ * would. Every other view sends no limit. While the larger prefix loads the
+ * previous rows stay (same filters only — a filter change must not show the
+ * old selection). Keyed under `nodes`, so every write invalidates it.
  */
-export function flattenTaskPages(pages: readonly Collection<WireNode>[]): WireNode[] {
-  const seen = new Set<string>();
-  return pages
-    .flatMap((page) => page.items)
-    .filter((node) => {
-      if (seen.has(node.id)) {
-        return false;
-      }
-      seen.add(node.id);
-      return true;
-    });
-}
-
-/**
- * The `/tasks` browser read (MMR-78, MMR-454, MMR-460). Infinite so the
- * Finished view can window: a `terminal` selection asks for
- * {@link FINISHED_PAGE_SIZE} rows at an explicit offset, the next offset being
- * however many rows are already on screen; every other view sends no limit,
- * so its one page already holds `total` rows and there is no next one.
- */
-export const tasksBrowserQuery = (f: TaskFilters) =>
-  infiniteQueryOptions({
-    getNextPageParam: (last: Collection<WireNode>, pages) => {
-      const fetched = pages.reduce((n, page) => n + page.items.length, 0);
-      return fetched < last.total && last.items.length > 0 ? fetched : undefined;
-    },
-    initialPageParam: 0,
-    queryFn: ({ pageParam }) => {
+export const tasksBrowserQuery = (f: TaskFilters, windows = 1) => {
+  const limit = f.status === 'terminal' ? FINISHED_PAGE_SIZE * windows : undefined;
+  return queryOptions({
+    placeholderData: (previous, previousQuery) =>
+      JSON.stringify(previousQuery?.queryKey[2]) === JSON.stringify(f) ? previous : undefined,
+    queryFn: () => {
       const p = taskParams(f);
-      if (f.status === 'terminal') {
-        p.set('limit', String(FINISHED_PAGE_SIZE));
-        if (pageParam > 0) {
-          p.set('offset', String(pageParam));
-        }
+      if (limit !== undefined) {
+        p.set('limit', String(limit));
       }
       return apiGet<Collection<WireNode>>(`/api/nodes?${p.toString()}`);
     },
-    queryKey: ['tasks', 'browser', f],
+    queryKey: ['nodes', 'tasks-browser', f, limit],
   });
+};
 
 /**
  * The board's live half: every non-terminal task in the project, in rank
@@ -299,7 +280,7 @@ export const ARTIFACT_PAGE_SIZE = 100;
  * query became infinite, or any shape drift a missed persister-buster bump let
  * through. Add an infinite query's root here when you add the query.
  */
-export const INFINITE_QUERY_KEY_ROOTS: ReadonlySet<string> = new Set(['artifacts', 'tasks']);
+export const INFINITE_QUERY_KEY_ROOTS: ReadonlySet<string> = new Set(['artifacts']);
 
 /**
  * Portfolio artifact search — re-runs as filters change. Windowed (the list

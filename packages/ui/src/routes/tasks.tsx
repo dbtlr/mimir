@@ -1,12 +1,12 @@
 import type { StatusSelector, TaskStatusWord } from '@mimir/contract';
 import { STATUS_SELECTOR_VALUES } from '@mimir/contract';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
-import { flattenTaskPages, projectsQuery, tasksBrowserQuery } from '../api/queries';
+import { projectsQuery, tasksBrowserQuery } from '../api/queries';
 import type { TaskFilters } from '../api/queries';
-import type { WireNode } from '../api/types';
+import type { Collection, WireNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { AuthoringSheet } from '../components/authoring-sheet';
 import {
@@ -169,6 +169,53 @@ function TaskMeta({ node }: { node: WireNode }) {
 }
 
 /**
+ * The browser's task read with its Show more window (MMR-460). `windows`
+ * grows on each "Show more" and resets whenever the filters change; the
+ * query refetches the larger prefix, keeping the shown rows meanwhile. If
+ * that larger read fails the last good rows stay on screen and the failure
+ * is reported beside the button, which retries it.
+ */
+function useTaskWindow(filters: TaskFilters) {
+  const scope = JSON.stringify(filters);
+  const [grown, setGrown] = useState({ scope, windows: 1 });
+  // A filter change starts over at one window (reset during render, so the
+  // stale window count never reaches a query).
+  if (grown.scope !== scope) {
+    setGrown({ scope, windows: 1 });
+  }
+  const windows = grown.scope === scope ? grown.windows : 1;
+  const tasks = useQuery(tasksBrowserQuery(filters, windows));
+
+  // The last settled result for these filters, so a failed larger read does
+  // not blank the list (an errored query without data has none of its own).
+  const [kept, setKept] = useState<{ scope: string; data: Collection<WireNode> }>();
+  if (
+    tasks.data !== undefined &&
+    !tasks.isPlaceholderData &&
+    (kept?.scope !== scope || kept.data !== tasks.data)
+  ) {
+    setKept({ data: tasks.data, scope });
+  }
+  const shown = tasks.data ?? (kept?.scope === scope ? kept.data : undefined);
+
+  return {
+    hasMore: shown !== undefined && shown.items.length < shown.total,
+    loadMore: () => {
+      if (tasks.isError) {
+        void tasks.refetch();
+      } else {
+        setGrown({ scope, windows: windows + 1 });
+      }
+    },
+    loadMoreFailed: tasks.isError && tasks.data === undefined && shown !== undefined,
+    loadedTasks: shown?.items,
+    loadingMore: tasks.isPlaceholderData,
+    tasks,
+    totalTasks: shown?.total,
+  };
+}
+
+/**
  * `/tasks` — the grouped reading list (MMR-454, mock "Browsers C"): every task
  * across all projects, grouped by status or project, each row a real link with
  * its lede and where it lives. Live is the default view; the filter set
@@ -196,12 +243,8 @@ export function TasksPage() {
   }
 
   const projects = useQuery(projectsQuery);
-  const tasks = useInfiniteQuery(tasksBrowserQuery(filters));
-  const loadedTasks = useMemo(
-    () => (tasks.data === undefined ? undefined : flattenTaskPages(tasks.data.pages)),
-    [tasks.data],
-  );
-  const totalTasks = tasks.data?.pages.at(-1)?.total;
+  const { tasks, loadedTasks, totalTasks, hasMore, loadingMore, loadMoreFailed, loadMore } =
+    useTaskWindow(filters);
   const conn = connectivity([tasks]);
   const [createOpen, setCreateOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -359,8 +402,8 @@ export function TasksPage() {
             />
           </FilterRow>
 
-          {tasks.isPending && <Skeleton className="mt-4 h-40" />}
-          {tasks.isError && tasks.data === undefined && (
+          {tasks.isPending && loadedTasks === undefined && <Skeleton className="mt-4 h-40" />}
+          {tasks.isError && loadedTasks === undefined && (
             <p className="py-4 text-xs text-status-blocked">
               Unreachable — is `mimir serve` running?
             </p>
@@ -392,13 +435,15 @@ export function TasksPage() {
               ))}
             </BrowserGroup>
           ))}
-          {tasks.hasNextPage && (
-            <BrowserShowMore
-              loading={tasks.isFetchingNextPage}
-              onClick={() => {
-                void tasks.fetchNextPage();
-              }}
-            />
+          {hasMore && (
+            <>
+              {loadMoreFailed && (
+                <p role="alert" className="mt-4 text-center text-xs text-status-blocked">
+                  Couldn't load more finished tasks.
+                </p>
+              )}
+              <BrowserShowMore loading={loadingMore} onClick={loadMore} />
+            </>
           )}
         </BrowserPage>
       </main>

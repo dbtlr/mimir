@@ -14,7 +14,6 @@ const WRITE_KEYS: readonly (readonly string[])[] = [
   ['projects'],
   ['project'],
   ['seeds'],
-  ['tasks'],
   ['tree'],
 ];
 
