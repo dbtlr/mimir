@@ -78,7 +78,7 @@ describe('boardCard', () => {
     expect(screen.getByText('Approve')).toHaveProperty('disabled', true);
   });
 
-  it('a todo card shows its grooming state; needs answers reads as attention, not groomed stays quiet', async () => {
+  it('a todo card shows its grooming state: needs answers amber, groomed settled, not groomed quiet', async () => {
     await renderInRouter(
       <>
         <BoardCard
@@ -95,8 +95,15 @@ describe('boardCard', () => {
         />
       </>,
     );
-    expect(screen.getByText('groomed')).toBeDefined();
-    expect(screen.getByText('needs answers').className).toContain('text-attention-foreground');
+    // Violet is the needs-you set's (ADR 0019); needs answers borrows the amber of record damage.
+    expect(screen.getByText('groomed').className).toContain('text-ink');
+    expect(screen.getByText('groomed').className).not.toContain('status-done');
+    expect(screen.getByText('groomed').textContent).toContain('✓');
+    expect(screen.getByText('not groomed').textContent).not.toContain('✓');
+    expect(screen.getByText('needs answers').className).toContain(
+      'text-status-in-progress-foreground',
+    );
+    expect(screen.getByText('needs answers').className).not.toContain('attention');
     expect(screen.getByText('not groomed').className).toContain('text-ink-dim');
   });
 
