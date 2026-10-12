@@ -9,9 +9,9 @@ import { HARNESSES, SkillEval } from './skill-eval';
 import { snapshotSchema } from './snapshot';
 import { Sandbox } from './workflow';
 
-if (Bun.version !== '1.4.0') {
+if (Bun.version !== '1.4.3') {
   throw new Error(
-    'Sandbox tooling requires Bun 1.4.0. Run mise install and use the workspace runtime.',
+    'Sandbox tooling requires Bun 1.4.3. Run mise install and use the workspace runtime.',
   );
 }
 
@@ -70,14 +70,14 @@ const application = new Application('sandbox', {
   )
   .command(
     new Command('verify', { description: 'Verify sandbox store integrity.' })
-      .argument('id', { required: true })
+      .argument('id', { description: 'Sandbox ID.', required: true })
       .action(async ({ args }) => {
         await sandbox.verify(args.id);
       }),
   )
   .command(
     new Command('upgrade', { description: 'Install a candidate and run its real migrations.' })
-      .argument('id', { required: true })
+      .argument('id', { description: 'Sandbox ID.', required: true })
       .option('to', { description: 'Candidate binary path.', required: true, type: 'string' })
       .action(async ({ args, options }) => {
         await sandbox.upgrade(args.id, options.to);
@@ -87,7 +87,10 @@ const application = new Application('sandbox', {
     new Command('rehearse', {
       description: 'Restore, upgrade, verify, and clean up; retain failures.',
     })
-      .argument('snapshot', { required: true })
+      .argument('snapshot', {
+        description: 'Snapshot ID or latest from configured directory.',
+        required: true,
+      })
       .option('to', { description: 'Candidate binary path.', required: true, type: 'string' })
       .action(async ({ args, options, out }) => {
         await out.print(await sandbox.rehearse(args.snapshot, options.to));
@@ -98,14 +101,14 @@ const application = new Application('sandbox', {
       description:
         'Run finite candidate CLI commands with isolated configuration. Output is captured; timeout is ten minutes. Append -- then Mimir arguments.',
     })
-      .argument('id', { required: true })
+      .argument('id', { description: 'Sandbox ID.', required: true })
       .action(async ({ args, passthrough, out }) => {
         await out.print(await sandbox.run(args.id, passthrough));
       }),
   )
   .command(
     new Command('destroy', { description: 'Remove only resources owned by a sandbox.' })
-      .argument('id', { required: true })
+      .argument('id', { description: 'Sandbox ID.', required: true })
       .action(async ({ args }) => {
         await sandbox.destroy(args.id);
       }),
@@ -136,7 +139,7 @@ const application = new Application('sandbox', {
     new Command('service-destroy', {
       description: 'Tear down a retained service-verify sandbox by ownership.',
     })
-      .argument('id', { required: true })
+      .argument('id', { description: 'Service-verify sandbox ID.', required: true })
       .action(async ({ args }) => {
         await services.destroy(args.id);
       }),
