@@ -103,10 +103,13 @@ export function taskRows(items: readonly NodeView[], io: Io): string[] {
   const stW = Math.max(...items.map((n) => n.status.length));
   // Parent id — the row's hierarchy anchor (MMR-87). A top-level node has none.
   const parentW = Math.max(...items.map((n) => (n.parent ?? '').length));
-  return items.map(
-    (n) =>
-      `${pad(n.id, idW)}   ${statusCell(n.status, stW, io.plain)}   ${pad(n.priority ?? '', 2)}   ${pad(n.parent ?? '', parentW)}   ${n.title}`,
-  );
+  return items.map((n) => {
+    const head = `${pad(n.id, idW)}   ${statusCell(n.status, stW, io.plain)}   ${pad(n.priority ?? '', 2)}   ${pad(n.parent ?? '', parentW)}   ${n.title}`;
+    // The `--col lede` preview (MMR-454) — a dim second line, as the artifact feed shows its summary.
+    return n.lede == null || n.lede === ''
+      ? head
+      : `${head}\n${color(`      ${n.lede}`, 90, io.plain)}`;
+  });
 }
 
 /** `table` — one row per line, count-led (`unit` names a row), in array (rank) order. */
@@ -249,6 +252,10 @@ export function renderRecords(node: NodeView, io: Io, expandAnnotations = false)
   }
   if (node.summary != null) {
     pairs.push(['summary', node.summary]);
+  }
+  // The derived list preview (`--col lede`, MMR-454) — opt-in, absent otherwise.
+  if (node.lede != null) {
+    pairs.push(['lede', node.lede]);
   }
   if (node.priority != null) {
     pairs.push(['priority', node.priority]);

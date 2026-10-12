@@ -1,4 +1,5 @@
-import type { SeedLane } from '@mimir/contract';
+import { SEED_KIND_VALUES } from '@mimir/contract';
+import type { SeedKind, SeedLane } from '@mimir/contract';
 
 import type { WireSeed } from '../api/types';
 
@@ -10,12 +11,12 @@ import type { WireSeed } from '../api/types';
  */
 export const SEED_LANE_ORDER: readonly SeedLane[] = ['untriaged', 'ready', 'promoted', 'settled'];
 
-/** Mono microlabel per lane (the lane-header idiom). */
+/** Group-header label per lane — sentence case; the group header uppercases it. */
 export const SEED_LANE_LABEL: Record<SeedLane, string> = {
-  promoted: 'PROMOTED',
-  ready: 'READY TO RESOLVE',
-  settled: 'SETTLED',
-  untriaged: 'UNTRIAGED',
+  promoted: 'Promoted',
+  ready: 'Ready to resolve',
+  settled: 'Settled',
+  untriaged: 'Untriaged',
 };
 
 /** Header ink per lane: teal untriaged, violet ready-to-resolve, neutral promoted, ghost settled. */
@@ -47,21 +48,15 @@ export function groupSeedsByLane(seeds: readonly WireSeed[]): SeedLaneGroup[] {
   return groups;
 }
 
-/** SETTLED fold counts, split by terminal lifecycle (resolved vs rejected). */
-export function settledCounts(settled: readonly WireSeed[]): {
-  resolved: number;
-  rejected: number;
-} {
-  let resolved = 0;
-  let rejected = 0;
-  for (const s of settled) {
-    if (s.lifecycle === 'resolved') {
-      resolved += 1;
-    } else if (s.lifecycle === 'rejected') {
-      rejected += 1;
-    }
+/** Whether a seed matches a search query: id, title, or lede, case-insensitive. */
+export function seedMatchesQuery(seed: WireSeed, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (needle === '') {
+    return true;
   }
-  return { rejected, resolved };
+  return [seed.id, seed.title, seed.lede ?? ''].some((field) =>
+    field.toLowerCase().includes(needle),
+  );
 }
 
 /** Header summary: how many seeds await triage (untriaged) and resolution (ready). */
@@ -76,4 +71,9 @@ export function seedSummary(seeds: readonly WireSeed[]): { toTriage: number; toR
     }
   }
   return { toResolve, toTriage };
+}
+
+/** Whether a URL value is one of the seed kinds (`validateSearch` drops anything else). */
+export function isSeedKind(value: unknown): value is SeedKind {
+  return typeof value === 'string' && (SEED_KIND_VALUES as readonly string[]).includes(value);
 }

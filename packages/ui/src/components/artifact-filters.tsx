@@ -1,61 +1,46 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
 import type { ArtifactFilters as Filters } from '../api/queries';
-import { cn } from '../lib/cn';
+import { kindTagLabel, kindTagOptions } from '../lib/artifacts';
+import { BrowserSearch, FilterRow, MenuChip, RemovableChip } from './browser-list';
 
 /** Delay before a paused search push reaches the URL/query (one round-trip per pause, not per keystroke). */
 const SEARCH_DEBOUNCE_MS = 250;
 
-/** The removable-chip renderings of the non-search filters. */
-const CHIP_FIELDS: {
-  key: keyof Filters;
-  clear: Partial<Filters>;
-  label: (v: string) => string;
-}[] = [
-  { clear: { project: '' }, key: 'project', label: (v) => v },
-  { clear: { tag: '' }, key: 'tag', label: (v) => v },
-  { clear: { atOrAfter: '' }, key: 'atOrAfter', label: (v) => `on or after ${v}` },
-  { clear: { atOrBefore: '' }, key: 'atOrBefore', label: (v) => `on or before ${v}` },
+/** The filters with no menu of their own: URL-addressable, shown as removable chips. */
+const REMOVABLE: { key: keyof Filters; label: (v: string) => string }[] = [
+  { key: 'tag', label: (v) => `tag ${v}` },
+  { key: 'atOrAfter', label: (v) => `on or after ${v}` },
+  { key: 'atOrBefore', label: (v) => `on or before ${v}` },
 ];
 
-const fieldInput =
-  'rounded border border-line bg-well-900 px-2 py-1 text-xs text-ink outline-none focus-visible:border-accent';
-
 /**
- * The artifact-browser filter block (Meridian 16a): a labeled title+body
- * search over removable filter chips. `onChange` carries the single changed
- * field; the page merges it into the search params (an empty string clears
- * that filter) via a history-replacing navigation.
+ * The artifact browser's filter row (MMR-454): a title search, a project menu,
+ * and a kind menu. `onChange` carries the single changed field; the page
+ * merges it into the search params (an empty string clears that filter).
+ * Dates and a non-kind `tag` have no menu; when the URL carries them they
+ * render as removable accent chips.
  *
- * The Search input is controlled by local state and **debounced**: keystrokes
- * update the box immediately but only push `q` to the URL/query once typing
- * pauses. Because it's controlled, an externally-changed `q` (Back/Forward, a
- * future "clear filters") re-syncs the box. Active project/tag/since/before
- * filters render as accent-wash chips with ✕ removal; `+ filter` unfolds the
- * field editors.
+ * The search box is controlled by local state and **debounced**: keystrokes
+ * update the box immediately but only push `q` once typing pauses. An
+ * externally-changed `q` (Back/Forward) re-syncs the box.
  */
 export function ArtifactFilters({
   filters,
   projects,
+  rowTags,
   onChange,
 }: {
   filters: Filters;
   projects: string[];
+  /** The loaded rows' tags — the kind menu offers the kinds they show. */
+  rowTags: readonly (readonly string[])[];
   onChange: (partial: Partial<Filters>) => void;
 }) {
-  // Local, immediate value for the search box; the URL trails it by the debounce.
   const [q, setQ] = useState(filters.q ?? '');
-  const [adding, setAdding] = useState(false);
 
-  // Focus handoff on chip removal: the activated ✕ button unmounts, which would
-  // drop keyboard focus to <body>. Before the removal lands, focus hops to a
-  // surviving neighbor chip (next, else previous), falling back to `+ filter`.
-  const chipRefs = useRef(new Map<string, HTMLButtonElement>());
-  const addFilterRef = useRef<HTMLButtonElement>(null);
-
-  // Re-sync during render when `q` changes from outside (Back/Forward,
-  // clear-filters). When our own debounced push lands, filters.q already equals
-  // q, so the box keeps its value and only the tracked URL value advances.
+  // Re-sync during render when `q` changes from outside. When our own debounced
+  // push lands, filters.q already equals q, so the box keeps its value.
   const [syncedQ, setSyncedQ] = useState(filters.q);
   if (filters.q !== syncedQ) {
     setSyncedQ(filters.q);
@@ -67,7 +52,6 @@ export function ArtifactFilters({
     onChange({ q: value });
   });
 
-  // Push the paused value up once, after the debounce window.
   useEffect(() => {
     if (q === (filters.q ?? '')) {
       return undefined;
@@ -80,125 +64,68 @@ export function ArtifactFilters({
     };
   }, [q, filters.q]);
 
-  const chips = CHIP_FIELDS.flatMap(({ key, clear, label }) => {
+  // Focus handoff on chip removal: the activated button unmounts, which would
+  // drop keyboard focus to <body>. Focus hops to the search box first.
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  const chosenKind = filters.tag === undefined ? undefined : kindTagLabel(filters.tag);
+  const removable = REMOVABLE.flatMap(({ key, label }) => {
     const value = filters[key];
-    return value === undefined || value === '' ? [] : [{ clear, key, label: label(value) }];
+    if (value === undefined || value === '') {
+      return [];
+    }
+    // A kind tag is the kind menu's, not a removable chip.
+    if (key === 'tag' && chosenKind !== undefined) {
+      return [];
+    }
+    return [{ key, label: label(value) }];
   });
 
   return (
-    <div className="flex flex-col gap-2 px-3 pb-2.5">
-      <label className="flex items-center gap-2 rounded-[9px] border border-line-bright bg-well-900 px-3 py-2 focus-within:border-accent">
-        <span aria-hidden className="text-meta text-ink-faint select-none">
-          ⌕
-        </span>
-        <input
+    <FilterRow>
+      <div ref={searchRef} className="flex min-w-0 flex-[1_1_260px]">
+        <BrowserSearch
           value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-          }}
-          aria-label="Search title + body (substring)"
-          placeholder="Search title + body (substring)"
-          className="w-full bg-transparent text-[0.78125rem] text-ink outline-none placeholder:text-ink-faint"
+          onChange={setQ}
+          label="Search artifacts"
+          placeholder="Search titles…"
         />
-      </label>
-
-      <div className="flex flex-wrap items-center gap-1.5">
-        {chips.map((chip, i) => (
-          <button
-            key={chip.key}
-            type="button"
-            ref={(el) => {
-              if (el === null) {
-                chipRefs.current.delete(chip.key);
-              } else {
-                chipRefs.current.set(chip.key, el);
-              }
-            }}
-            aria-label={`Remove filter ${chip.label}`}
-            onClick={() => {
-              const neighbor = chips[i + 1] ?? chips[i - 1];
-              const target =
-                neighbor === undefined ? addFilterRef.current : chipRefs.current.get(neighbor.key);
-              target?.focus();
-              onChange(chip.clear);
-            }}
-            className="inline-flex items-center gap-1.5 rounded-full bg-accent/9 px-2.5 py-1 font-mono text-tag font-semibold text-accent-foreground inset-ring inset-ring-accent/20 transition-colors hover:bg-accent/15 focus-visible:outline-2 focus-visible:outline-accent"
-          >
-            <span className="max-w-32 truncate">{chip.label}</span>
-            <span aria-hidden>✕</span>
-          </button>
-        ))}
-        <button
-          type="button"
-          ref={addFilterRef}
-          aria-expanded={adding}
-          onClick={() => {
-            setAdding((v) => !v);
-          }}
-          className={cn(
-            'inline-flex items-center rounded-full px-2.5 py-1 text-tag text-ink-dim inset-ring inset-ring-line-bright',
-            'transition-colors hover:bg-well-800 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent',
-            adding && 'bg-well-800 text-ink',
-          )}
-        >
-          + filter
-        </button>
       </div>
-
-      {adding && (
-        <div className="flex flex-wrap items-end gap-2 rounded-lg border border-line bg-well-850 p-2.5">
-          <label className="flex flex-col gap-0.5 text-tag text-ink-dim">
-            Project
-            <select
-              value={filters.project ?? ''}
-              onChange={(e) => {
-                onChange({ project: e.target.value });
-              }}
-              className={fieldInput}
-            >
-              <option value="">All</option>
-              {projects.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-0.5 text-tag text-ink-dim">
-            Tag
-            <input
-              value={filters.tag ?? ''}
-              onChange={(e) => {
-                onChange({ tag: e.target.value });
-              }}
-              placeholder="kind:spec"
-              className={cn(fieldInput, 'w-28')}
-            />
-          </label>
-          <label className="flex flex-col gap-0.5 text-tag text-ink-dim">
-            On or after
-            <input
-              type="date"
-              value={filters.atOrAfter ?? ''}
-              onChange={(e) => {
-                onChange({ atOrAfter: e.target.value });
-              }}
-              className={fieldInput}
-            />
-          </label>
-          <label className="flex flex-col gap-0.5 text-tag text-ink-dim">
-            On or before
-            <input
-              type="date"
-              value={filters.atOrBefore ?? ''}
-              onChange={(e) => {
-                onChange({ atOrBefore: e.target.value });
-              }}
-              className={fieldInput}
-            />
-          </label>
-        </div>
-      )}
-    </div>
+      <MenuChip
+        label={
+          filters.project === undefined || filters.project === '' ? 'All projects' : filters.project
+        }
+        on={filters.project !== undefined && filters.project !== ''}
+        options={[
+          { label: 'All projects', value: '' },
+          ...projects.map((p) => ({ label: p, value: p })),
+        ]}
+        onSelect={(project) => {
+          onChange({ project });
+        }}
+      />
+      <MenuChip
+        label={chosenKind ?? 'Any kind'}
+        on={chosenKind !== undefined}
+        options={[
+          { label: 'Any kind', value: '' },
+          ...kindTagOptions(rowTags, filters.tag).map((o) => ({ label: o.label, value: o.tag })),
+        ]}
+        onSelect={(tag) => {
+          onChange({ tag });
+        }}
+      />
+      {removable.map((chip) => (
+        <RemovableChip
+          key={chip.key}
+          label={chip.label}
+          removeLabel={`Remove filter ${chip.label}`}
+          onRemove={() => {
+            searchRef.current?.querySelector('input')?.focus();
+            onChange({ [chip.key]: '' });
+          }}
+        />
+      ))}
+    </FilterRow>
   );
 }

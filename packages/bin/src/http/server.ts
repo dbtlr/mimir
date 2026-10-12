@@ -38,6 +38,7 @@ import {
   artifactToWire,
   attachArtifact,
   buildArtifactDetail,
+  canonicalSetOrder,
   deriveSet,
   fileSeed,
   findNodeInSet,
@@ -151,6 +152,13 @@ async function artifactDetailToWire(
 
 /** The set-read projection — one record shape on every collection (boundary at selection). */
 const SET_FACETS: readonly FacetName[] = ['deps', 'tags', 'distribution', 'verdicts', 'home'];
+/**
+ * The opt-in list columns `GET /api/nodes?col=` accepts (MMR-454) — a closed
+ * allowlist, not the whole facet vocabulary: the endpoint's projection is fixed
+ * ({@link SET_FACETS}) and a `col` only ADDS a cheap, bulk-safe facet.
+ */
+const NODE_LIST_COLS = ['lede'] as const satisfies readonly FacetName[];
+
 /** Detail/echo add the artifact inventory (id + title — content stays a sub-resource) and the per-node transition history. */
 const DETAIL_FACETS: readonly FacetName[] = [
   ...SET_FACETS,
@@ -482,6 +490,25 @@ function dateQueryOf(
   return timeZone === undefined ? { dates } : { dates, timeZone };
 }
 
+/** The `col` facets of `/api/nodes` — repeatable and/or comma-separated, each in {@link NODE_LIST_COLS}. */
+function nodeListCols(q: URLSearchParams): FacetName[] {
+  const cols: FacetName[] = [];
+  for (const raw of q.getAll('col')) {
+    for (const token of raw
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean)) {
+      if (!isMember(token, NODE_LIST_COLS)) {
+        throw validation(`unknown col ${token}`, `cols: ${NODE_LIST_COLS.join(', ')}`);
+      }
+      if (!cols.includes(token)) {
+        cols.push(token);
+      }
+    }
+  }
+  return cols;
+}
+
 /** Parse `/api/nodes` query params into a `listNodes` selection. */
 function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
   const q = url.searchParams;
@@ -530,7 +557,7 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
     }
   }
 
-  const opts: ListOptions = { facets: SET_FACETS, filters, verdicts };
+  const opts: ListOptions = { facets: [...SET_FACETS, ...nodeListCols(q)], filters, verdicts };
   const timeZone = requireTimeZone(q.get('tz') ?? undefined);
   if (timeZone !== undefined) {
     opts.timeZone = timeZone;
@@ -760,6 +787,7 @@ function bindServer(
                 artifactSummaryToWire({
                   createdAt: r.created_at,
                   id: renderArtifactRef({ key: r.key, seq: r.seq }),
+                  links: canonicalSetOrder(r.links),
                   project: r.key,
                   // Optional (MMR-319): no lede, no key on the wire.
                   ...(r.summary === null ? {} : { summary: r.summary }),

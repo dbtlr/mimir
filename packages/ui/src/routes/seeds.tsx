@@ -1,28 +1,112 @@
+import { SEED_KIND_VALUES } from '@mimir/contract';
+import type { SeedKind } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useEffectEvent, useId, useMemo, useState } from 'react';
 
-import { seedsQuery } from '../api/queries';
+import { projectsQuery, seedsQuery } from '../api/queries';
 import type { SeedFilters } from '../api/queries';
 import type { WireSeed } from '../api/types';
+import {
+  BrowserEmpty,
+  BrowserGroup,
+  BrowserPage,
+  BrowserRow,
+  BrowserSearch,
+  FilterRow,
+  MenuChip,
+} from '../components/browser-list';
 import { OfflineBanner } from '../components/offline-banner';
 import { useSeedCapture } from '../components/seed-capture';
-import { SeedDetail } from '../components/seed-detail';
-import { SeedPromoteSheet } from '../components/seed-promote-sheet';
-import { SeedRow } from '../components/seed-row';
-import { SeedSettledStrip } from '../components/seed-settled-strip';
+import { SeedKindChip } from '../components/seed-kind-chip';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
-import { SEED_LANE_INK, SEED_LANE_LABEL, groupSeedsByLane, seedSummary } from '../lib/seed-lanes';
+import { seedLink } from '../lib/record-url';
+import {
+  SEED_LANE_INK,
+  SEED_LANE_LABEL,
+  groupSeedsByLane,
+  isSeedKind,
+  seedMatchesQuery,
+  seedSummary,
+} from '../lib/seed-lanes';
+import { relativeTime } from '../lib/time';
 import { seedsRoute } from '../router';
 
+const SEARCH_DEBOUNCE_MS = 250;
+
+const ALL = '';
+
+/** The header's faint count: untriaged and ready-to-resolve seeds, a zero half omitted. */
+function summaryText(toTriage: number, toResolve: number): string | undefined {
+  const parts = [
+    toTriage > 0 ? `${String(toTriage)} to triage` : undefined,
+    toResolve > 0 ? `${String(toResolve)} to resolve` : undefined,
+  ].filter((p) => p !== undefined);
+  return parts.length === 0 ? undefined : parts.join(' · ');
+}
+
+/** `from {requester} · {age}` when filed from another project, else just the age. */
+function seedMeta(seed: WireSeed): string {
+  const age = relativeTime(seed.created_at);
+  return seed.requester !== null && seed.requester !== seed.project
+    ? `from ${seed.requester} · ${age}`
+    : age;
+}
+
+function SeedBrowserRow({ seed, demoted = false }: { seed: WireSeed; demoted?: boolean }) {
+  return (
+    <BrowserRow
+      to={seedLink(seed.id)}
+      id={seed.id}
+      title={seed.title}
+      beforeTitle={<SeedKindChip kind={seed.kind} />}
+      lede={seed.lede}
+      meta={seedMeta(seed)}
+      demoted={demoted}
+    />
+  );
+}
+
+/** The folded SETTLED group: its rows stay hidden until the reader asks. */
+function SettledGroup({ seeds }: { seeds: readonly WireSeed[] }) {
+  const [shown, setShown] = useState(false);
+  const rowsId = useId();
+  return (
+    <BrowserGroup
+      label={SEED_LANE_LABEL.settled}
+      count={seeds.length}
+      labelClassName={SEED_LANE_INK.settled}
+    >
+      <button
+        type="button"
+        aria-expanded={shown}
+        aria-controls={rowsId}
+        onClick={() => {
+          setShown((s) => !s);
+        }}
+        className="mb-1 rounded-sm px-1 text-[0.78125rem] text-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      >
+        {shown ? 'Hide settled seeds' : 'Show settled seeds'}
+      </button>
+      {shown && (
+        <div id={rowsId}>
+          {seeds.map((seed) => (
+            <SeedBrowserRow key={seed.id} seed={seed} demoted />
+          ))}
+        </div>
+      )}
+    </BrowserGroup>
+  );
+}
+
 /**
- * `/seeds` — the grooming queue (Meridian 13a/14a, MMR-247). A full-width
- * stacked expand-in-place list below the master-detail breakpoint; a fixed
- * master list beside a reading pane at and above it (the artifacts-browser
- * grammar). Lanes are the server's `lane` grouping in fixed order; SETTLED
- * folds to a bottom strip.
+ * `/seeds` — the grooming queue as a grouped reading list (MMR-454): a centred
+ * column, search and project/kind chips, and rows grouped by the server's
+ * `lane` in fixed order. Every row links to the seed's page; SETTLED folds
+ * behind a "Show settled seeds" control. Search and kind filter client-side;
+ * the project filter is the server's.
  */
 export function SeedsPage() {
   const navigate = useNavigate();
@@ -34,115 +118,148 @@ export function SeedsPage() {
     filters.project = search.project;
   }
   const seeds = useQuery(seedsQuery(filters));
+  const projects = useQuery(projectsQuery);
   const conn = connectivity([seeds]);
 
-  const items = seeds.data?.items ?? [];
-  const groups = groupSeedsByLane(items);
-  const { toTriage, toResolve } = seedSummary(items);
-  const selected = search.seed;
+  const setFilter = (partial: { project?: string; q?: string; kind?: SeedKind }) =>
+    void navigate({
+      replace: true,
+      search: (prev) => {
+        const next: Record<string, unknown> = { ...prev, ...partial };
+        for (const [k, v] of Object.entries(partial)) {
+          if (v === '' || v === undefined) {
+            delete next[k];
+          }
+        }
+        return next;
+      },
+      to: '/seeds',
+    });
 
-  // The seed being promoted (its sheet is a single instance, opened from any
-  // lane's verb row — narrow expanded rows and the wide reading pane alike).
-  const [promoting, setPromoting] = useState<WireSeed | null>(null);
+  // Controlled + debounced search (the /tasks pattern): the box and the list
+  // filter now, the URL trails by the debounce; an external `q` change
+  // (Back/clear) re-syncs during render.
+  const [q, setQ] = useState(search.q ?? '');
+  const [syncedQ, setSyncedQ] = useState(search.q);
+  if (search.q !== syncedQ) {
+    setSyncedQ(search.q);
+    setQ(search.q ?? '');
+  }
+  const pushQ = useEffectEvent((value: string) => {
+    setFilter({ q: value });
+  });
+  useEffect(() => {
+    if (q === (search.q ?? '')) {
+      return undefined;
+    }
+    const t = setTimeout(() => {
+      pushQ(q);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      clearTimeout(t);
+    };
+  }, [q, search.q]);
 
-  const select = (id: string | undefined) =>
-    void navigate({ search: (prev) => ({ ...prev, seed: id }), to: '/seeds' });
+  const all = seeds.data?.items;
+  const shown = useMemo(
+    () =>
+      (all ?? []).filter(
+        (s) => (search.kind === undefined || s.kind === search.kind) && seedMatchesQuery(s, q),
+      ),
+    [all, search.kind, q],
+  );
+  const groups = groupSeedsByLane(shown);
+  const { toTriage, toResolve } = seedSummary(all ?? []);
+  const loaded = seeds.data !== undefined;
+
+  const projectOptions = [
+    { label: 'All projects', value: ALL },
+    ...(projects.data?.items ?? []).map((p) => ({ label: p.id, value: p.id })),
+  ];
+  const kindOptions = [
+    { label: 'Any kind', value: ALL },
+    ...SEED_KIND_VALUES.map((k) => ({ label: k, value: k })),
+  ];
 
   return (
     <>
       <OfflineBanner {...conn} />
-      <main className={cn('flex min-h-0 flex-1', conn.offline && 'offline-demoted')}>
-        <div className="flex min-h-0 w-full flex-col border-line bg-well-950 md:w-96 md:shrink-0 md:border-r">
-          <header className="flex flex-wrap items-center gap-2.5 px-4 pt-4 pb-2.5">
-            <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">Seeds</h1>
-            <span className="text-tag text-ink-faint">
-              {toTriage} to triage · {toResolve} to resolve
-            </span>
+      <main
+        className={cn(
+          'flex min-h-0 w-full flex-1 flex-col overflow-y-auto',
+          conn.offline && 'offline-demoted',
+        )}
+      >
+        <BrowserPage
+          title="Seeds"
+          count={summaryText(toTriage, toResolve)}
+          action={
             <button
               type="button"
               onClick={openCapture}
-              className="ml-auto rounded-lg bg-action px-3 py-1.5 text-tag font-bold whitespace-nowrap text-action-foreground transition-colors hover:bg-action/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="inline-flex items-center rounded-lg bg-action px-[13px] py-1.5 text-tag font-bold whitespace-nowrap text-action-foreground transition-colors hover:bg-action/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               + File a seed
             </button>
-          </header>
-
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto px-3 py-3">
-            {seeds.isPending && <Skeleton className="h-24" />}
-            {groups.map(({ lane, seeds: laneSeeds }) =>
-              lane === 'settled' ? (
-                <SeedSettledStrip
-                  key={lane}
-                  seeds={laneSeeds}
-                  activeId={selected}
-                  onSelect={select}
-                />
-              ) : (
-                <section
-                  key={lane}
-                  aria-label={SEED_LANE_LABEL[lane]}
-                  className="flex flex-col gap-2"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className={cn('microlabel shrink-0 font-mono', SEED_LANE_INK[lane])}>
-                      {SEED_LANE_LABEL[lane]} · {laneSeeds.length}
-                    </span>
-                    <span className="h-px flex-1 bg-gradient-to-r from-line to-transparent" />
-                  </div>
-                  {laneSeeds.map((seed) => (
-                    <SeedRow
-                      key={seed.id}
-                      seed={seed}
-                      active={seed.id === selected}
-                      onSelect={select}
-                      onPromote={setPromoting}
-                      offline={conn.offline}
-                    />
-                  ))}
-                </section>
-              ),
-            )}
-            {!seeds.isPending && items.length === 0 && seeds.data !== undefined && (
-              <p className="px-1 py-8 text-center text-xs text-ink-faint">
-                No seeds yet — press <span className="font-mono text-ink-dim">s</span> to file one.
-              </p>
-            )}
-            {seeds.isError && seeds.data === undefined && (
-              <p className="p-4 text-xs text-status-blocked">
-                Unreachable — is `mimir serve` running?
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="hidden min-h-0 flex-1 flex-col bg-well-900 md:flex">
-          {selected !== undefined ? (
-            <SeedDetail
-              key={selected}
-              id={selected}
-              onLater={() => select(undefined)}
-              onPromote={setPromoting}
-              offline={conn.offline}
+          }
+        >
+          <FilterRow>
+            <BrowserSearch
+              value={q}
+              onChange={setQ}
+              label="Search seeds"
+              placeholder="Search seeds…"
             />
-          ) : (
-            <p className="flex w-full items-center justify-center p-8 text-xs text-ink-faint">
-              Select a seed to read.
+            <MenuChip
+              label={search.project ?? 'All projects'}
+              on={search.project !== undefined}
+              options={projectOptions}
+              onSelect={(value) => {
+                setFilter({ project: value });
+              }}
+            />
+            <MenuChip
+              label={search.kind ?? 'Any kind'}
+              on={search.kind !== undefined}
+              options={kindOptions}
+              onSelect={(value) => {
+                setFilter({ kind: isSeedKind(value) ? value : undefined });
+              }}
+            />
+          </FilterRow>
+
+          {seeds.isPending && <Skeleton className="h-24" />}
+          {groups.map(({ lane, seeds: laneSeeds }) =>
+            lane === 'settled' ? (
+              <SettledGroup key={lane} seeds={laneSeeds} />
+            ) : (
+              <BrowserGroup
+                key={lane}
+                label={SEED_LANE_LABEL[lane]}
+                count={laneSeeds.length}
+                labelClassName={SEED_LANE_INK[lane]}
+              >
+                {laneSeeds.map((seed) => (
+                  <SeedBrowserRow key={seed.id} seed={seed} />
+                ))}
+              </BrowserGroup>
+            ),
+          )}
+          {loaded && all?.length === 0 && (
+            <BrowserEmpty>
+              No seeds yet — press <span className="font-mono text-ink-dim">s</span> to file one.
+            </BrowserEmpty>
+          )}
+          {loaded && all !== undefined && all.length > 0 && shown.length === 0 && (
+            <BrowserEmpty>No seeds match.</BrowserEmpty>
+          )}
+          {seeds.isError && !loaded && (
+            <p className="p-4 text-xs text-status-blocked">
+              Unreachable — is `mimir serve` running?
             </p>
           )}
-        </div>
+        </BrowserPage>
       </main>
-      {promoting !== null && (
-        <SeedPromoteSheet
-          seed={promoting}
-          open
-          onOpenChange={(next) => {
-            if (!next) {
-              setPromoting(null);
-            }
-          }}
-          offline={conn.offline}
-        />
-      )}
     </>
   );
 }

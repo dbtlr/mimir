@@ -90,6 +90,8 @@ export type WireArtifactSummary = {
   summary?: string;
   project: string;
   tags: string[];
+  /** The ids of the records the artifact is attached to (MMR-454), sorted. */
+  links: string[];
   created_at: string;
 };
 
@@ -151,6 +153,10 @@ export type WireNode = {
   next?: string;
   /** Short single-line lede for list/board views (all-node, optional). */
   summary?: string | null;
+  /** Facet (MMR-454) — the list row's one-line preview: the stored summary when
+   * set, else derived from the description (ADR 0021). Only on reads that ask
+   * for it (`col=lede`); null when there is nothing to show or the read failed. */
+  lede?: string | null;
 
   priority?: Priority | null;
   size?: Size | null;

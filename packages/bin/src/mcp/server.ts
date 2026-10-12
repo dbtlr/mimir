@@ -487,7 +487,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'next',
-    'Ready tasks in rank order — what to work on next. Optionally scope to a project key; filter by case-insensitive title substring (q), priority/size, verdicts (is/notIs: stale|blocking|orphaned), and field operators (eq/notEq/in/notIn/has/missing + the date ops on/before/after/atOrBefore/atOrAfter, all FIELD:VALUE tokens). A bare YYYY-MM-DD date resolves through tz, your IANA timezone, which is required whenever a date carries no time. Value faults return an empty set plus a warnings array.',
+    'Ready tasks in rank order — what to work on next. Optionally scope to a project key; filter by case-insensitive substring of the title or id (q), priority/size, verdicts (is/notIs: stale|blocking|orphaned), and field operators (eq/notEq/in/notIn/has/missing + the date ops on/before/after/atOrBefore/atOrAfter, all FIELD:VALUE tokens). A bare YYYY-MM-DD date resolves through tz, your IANA timezone, which is required whenever a date carries no time. Value faults return an empty set plus a warnings array.',
     {
       limit: LIMIT.optional(),
       priority: PRIORITY.optional(),
@@ -502,7 +502,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'list',
-    'Broad selection: status picks the universe (ready|awaiting|in_progress|under_review|blocked|parked|done|abandoned or live|terminal|all; default live); case-insensitive title substring (q), verdicts (is/notIs), and field operators (FIELD:VALUE tokens, date ops on/before/after/atOrBefore/atOrAfter) filter within it — all AND-composed. A bare YYYY-MM-DD date resolves through tz, your IANA timezone, which is required whenever a date carries no time. Value faults return an empty set plus a warnings array.',
+    'Broad selection: status picks the universe (ready|awaiting|in_progress|under_review|blocked|parked|done|abandoned or live|terminal|all; default live); case-insensitive substring of the title or id (q), verdicts (is/notIs), and field operators (FIELD:VALUE tokens, date ops on/before/after/atOrBefore/atOrAfter) filter within it — all AND-composed. A bare YYYY-MM-DD date resolves through tz, your IANA timezone, which is required whenever a date carries no time. Value faults return an empty set plus a warnings array.',
     {
       limit: LIMIT.optional(),
       priority: PRIORITY.optional(),

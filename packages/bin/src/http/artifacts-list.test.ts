@@ -49,6 +49,40 @@ test('GET /api/artifacts returns the envelope of summaries', async () => {
   expect(body.items[0]).not.toHaveProperty('content');
 });
 
+test('each list item carries the sorted ids of the records it is attached to (MMR-454)', async () => {
+  const list = (await (await fetch(`${base}/api/artifacts`)).json()) as {
+    items: { links: string[] }[];
+  };
+  expect(list.items[0]?.links).toHaveLength(1);
+  expect(list.items[0]?.links[0]).toMatch(/^MMR-\d+$/);
+
+  // Attach in reverse order: the wire list is sorted regardless of link order.
+  const projectId = await projectIdOf(store, 'MMR');
+  const refs: string[] = [];
+  const ids: string[] = [];
+  const ws = await store.loadWorkingSet();
+  const parent = ws.nodes.find((n) => n.type === 'phase');
+  if (parent === undefined) {
+    throw new Error('expected a phase');
+  }
+  for (const title of ['a', 'b', 'c']) {
+    const t = await createTask(store, { parentId: parent.id, title });
+    refs.push(`MMR-${String(t.seq)}`);
+    ids.push(await nodeIdOf(store, `MMR-${String(t.seq)}`));
+  }
+  await attachArtifact(store, {
+    content: 'x',
+    linkNodeIds: ids.toReversed(),
+    projectId,
+    tags: [],
+    title: 'multi',
+  });
+  const after = (await (await fetch(`${base}/api/artifacts?q=multi`)).json()) as {
+    items: { links: string[] }[];
+  };
+  expect(after.items[0]?.links).toEqual(refs.toSorted());
+});
+
 test('q filter is honored over the wire', async () => {
   // `q` searches titles only, ignoring case (the ArtifactStore contract).
   const hit = (await (await fetch(`${base}/api/artifacts?q=gate`)).json()) as { total: number };

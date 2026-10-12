@@ -85,6 +85,7 @@ describe('artifacts route rehydrating a legacy warm cache', () => {
             {
               created_at: '2026-06-16T00:00:00.000Z',
               id: 'MMR-new',
+              links: [],
               project: 'MMR',
               tags: [],
               title: 'Fresh artifact',

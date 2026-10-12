@@ -119,6 +119,8 @@ export type SearchHit = {
 export type ArtifactSummary = {
   id: string;
   title: string;
+  /** Rendered ids (`KEY-seq`) of the nodes the artifact is attached to, sorted (MMR-454). */
+  links: string[];
   /** The optional lede (MMR-319) — omitted when the artifact carries none. */
   summary?: string;
   project: string;
@@ -457,6 +459,13 @@ export type NodeView = {
   attention?: AttentionState;
   /** Where the row lives (MMR-228) — project KEY + parent container ref. */
   home?: HomeFacet;
+  /**
+   * The one-line list preview (MMR-454, ADR 0021 Refinement) — the stored
+   * `summary` when non-empty, else the bounded plain-text lede derived from the
+   * description at read time, else `null`. A list-only facet: present on `list`
+   * rows only when requested, never stored.
+   */
+  lede?: string | null;
 };
 
 /**
@@ -713,6 +722,7 @@ export const FACET_NAMES = [
   'verdicts',
   'attention',
   'home',
+  'lede',
 ] as const;
 export type FacetName = (typeof FACET_NAMES)[number];
 

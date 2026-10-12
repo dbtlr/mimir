@@ -306,3 +306,11 @@ Considered and rejected:
   kind.
 - **The full ID under the project** (`/p/KEY/MMR-417`): repeats the key and
   admits mismatches such as `/p/MMR/NRN-4`.
+
+## Refinement (2026-10-11, MMR-454): `q` matches a node's id as well as its title
+
+The `q` search added in v0.9 matched the title only. It now matches the title
+or the rendered id, so typing `mmr-45` in the `/tasks` browser finds `MMR-45`
+and `MMR-450`. The change lives in the shared node selection, so the CLI
+(`list`/`next -q`) and MCP get it too. The artifact feed's `q` stays
+title-only.

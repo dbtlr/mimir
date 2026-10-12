@@ -1,18 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { WireSeed } from '../api/types';
 import { router } from '../router';
-import { seed, task } from './fixtures';
+import { seed } from './fixtures';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
 
-/** One seed per lane, plus two terminal rows for the settled fold. */
+/** One seed per live lane, plus two terminal rows for the settled fold. */
 const list: WireSeed[] = [
   seed({
     id: 'MMR-s1',
@@ -27,79 +27,31 @@ const list: WireSeed[] = [
     lane: 'ready',
     lifecycle: 'promoted',
     ready_to_resolve: true,
+    requester: 'NRN',
     spawned: ['MMR-118'],
     title: 'Offline banner flicker',
   }),
   seed({ id: 'MMR-s3', lane: 'promoted', lifecycle: 'promoted', spawned: ['MMR-90'] }),
-  seed({ id: 'MMR-s4', lane: 'settled', lifecycle: 'resolved' }),
-  seed({ id: 'MMR-s5', lane: 'settled', lifecycle: 'rejected' }),
+  seed({ id: 'MMR-s4', lane: 'settled', lifecycle: 'resolved', title: 'Old resolved thing' }),
+  seed({ id: 'MMR-s5', lane: 'settled', lifecycle: 'rejected', title: 'Old rejected thing' }),
 ];
 
-/** A minimal MMR tree with a lone standing (∞) container, so a bug suggests it. */
-const mmrTree = {
-  children: [
-    {
-      children: [],
-      created_at: '',
-      id: 'MMR-1',
-      open_ended: false,
-      parent: 'MMR',
-      status: 'in_progress',
-      title: 'Build',
-      type: 'initiative',
-      updated_at: '',
-    },
-    {
-      children: [],
-      created_at: '',
-      id: 'MMR-9',
-      open_ended: true,
-      parent: 'MMR',
-      status: 'in_progress',
-      title: 'Maintenance & releases',
-      type: 'initiative',
-      updated_at: '',
-    },
-  ],
-  created_at: '',
-  id: 'MMR',
-  parent: null,
-  status: 'in_progress',
-  title: 'Mimir',
-  type: 'project',
-  updated_at: '',
-};
-
-let seedDescription = 'Alpha original text.';
-
-function mockApi() {
+function mockApi(items: WireSeed[] = list) {
   apiGet.mockImplementation((path: string) => {
     if (path === '/api/health') {
       return Promise.resolve({ schema: 1, status: 'ok', version: '0.0.0' });
     }
-    if (path === '/api/projects/MMR/tree') {
-      return Promise.resolve(mmrTree);
-    }
     if (path.startsWith('/api/projects')) {
       return Promise.resolve({
-        items: [{ id: 'MMR', status: 'in_progress', title: 'Mimir' }],
-        total: 1,
+        items: [
+          { id: 'MMR', status: 'in_progress', title: 'Mimir' },
+          { id: 'NRN', status: 'ready', title: 'Norn' },
+        ],
+        total: 2,
       });
     }
     if (path.startsWith('/api/seeds?')) {
-      return Promise.resolve({ items: list, total: list.length });
-    }
-    if (path === '/api/seeds/MMR-s1') {
-      return Promise.resolve({ ...list[0], description: seedDescription });
-    }
-    if (path === '/api/nodes/MMR-42') {
-      return Promise.resolve(task({ id: 'MMR-42', parent: 'MMR-9', status: 'ready' }));
-    }
-    if (path === '/api/seeds/MMR-s2') {
-      return Promise.resolve({
-        ...list[1],
-        description: 'The banner repaints on every wake.',
-      });
+      return Promise.resolve({ items, total: items.length });
     }
     return Promise.resolve({ items: [], total: 0 });
   });
@@ -123,153 +75,214 @@ function renderSeeds(initial = '/seeds') {
 }
 
 afterEach(() => {
-  seedDescription = 'Alpha original text.';
   vi.clearAllMocks();
 });
 
-describe('seedsPage (13a/14a, MMR-247)', () => {
-  it('renders lanes in fixed order with counts and the header summary', async () => {
+describe('seedsPage (grouped reading list, MMR-454)', () => {
+  it('renders the live lanes in fixed order with counted labels and hides empty ones', async () => {
     mockApi();
     renderSeeds();
-    const untriaged = await screen.findByText('UNTRIAGED · 1');
-    const ready = screen.getByText('READY TO RESOLVE · 1');
-    const promoted = screen.getByText('PROMOTED · 1');
-
-    // header summary
-    expect(screen.getByText('1 to triage · 1 to resolve')).toBeDefined();
-
-    // DOM order is the fixed lane order (FOLLOWING bit set ⇒ later in the tree)
+    const untriaged = await screen.findByText('Untriaged · 1');
+    const ready = screen.getByText('Ready to resolve · 1');
+    const promoted = screen.getByText('Promoted · 1');
     expect(untriaged.compareDocumentPosition(ready) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
     expect(ready.compareDocumentPosition(promoted) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
   });
 
-  it('renders the derived lede as a preview on a collapsed queue row (MMR-263)', async () => {
+  it('hides a live lane with no seeds', async () => {
+    mockApi([seed({ id: 'MMR-s1', lane: 'untriaged' })]);
+    renderSeeds();
+    await screen.findByText('Untriaged · 1');
+    expect(screen.queryByText(/Ready to resolve/)).toBeNull();
+    expect(screen.queryByText(/Promoted/)).toBeNull();
+    expect(screen.queryByText(/Settled/)).toBeNull();
+  });
+
+  it('shows the to-triage and to-resolve counts in the header', async () => {
     mockApi();
     renderSeeds();
-    // The live untriaged row shows its body lede (the 2-line clamp of mock 13a)
-    // straight from the list payload — no detail fetch, no expand.
-    await expect(
-      screen.findByText('The list scroll position jumps back to the top on every refetch.'),
-    ).resolves.toBeDefined();
+    await expect(screen.findByText('1 to triage · 1 to resolve')).resolves.toBeDefined();
   });
 
-  it('renders the seed body as markdown in the reading pane and the expanded row', async () => {
-    seedDescription =
-      '- first item\n- second with `inline_code`\n\n[the docs](https://example.com/docs)';
-    mockApi();
-    renderSeeds('/seeds?seed=MMR-s1');
-
-    // The narrow card and the wide pane both mount the body (CSS picks one).
-    await waitFor(() => {
-      expect(screen.getAllByRole('article')).toHaveLength(2);
-    });
-    for (const article of screen.getAllByRole('article')) {
-      expect(within(article).getAllByRole('listitem')).toHaveLength(2);
-      expect(within(article).getByText('inline_code').tagName).toBe('CODE');
-      expect(within(article).getByRole('link', { name: 'the docs' })).toHaveAttribute(
-        'href',
-        'https://example.com/docs',
-      );
-    }
+  it('omits a zero half of the header count', async () => {
+    mockApi([seed({ id: 'MMR-s1', lane: 'untriaged' })]);
+    renderSeeds();
+    await expect(screen.findByText('1 to triage')).resolves.toBeDefined();
   });
 
-  it('folds SETTLED to a strip with resolved/rejected counts', async () => {
+  it('links every row to the seed page and shows kind chip and lede', async () => {
     mockApi();
     renderSeeds();
-    await screen.findByText('UNTRIAGED · 1');
-    expect(screen.getByText('Settled · 2')).toBeDefined();
-    expect(screen.getByText('1 resolved · 1 rejected')).toBeDefined();
-  });
-
-  it('the detail meta rail renders a null requester as "you" and lists spawned work', async () => {
-    mockApi();
-    renderSeeds('/seeds?seed=MMR-s2');
-    await screen.findByText('The banner repaints on every wake.');
-
-    // meta rail
-    expect(screen.getByText('REQUESTER')).toBeDefined();
-    expect(screen.getByText('you')).toBeDefined();
-    // spawned work id shows on the master row and the SPAWNED rail alike
-    expect(screen.getAllByText('MMR-118').length).toBeGreaterThan(0);
-    // the ready lane leads with the resolve verb (renamed from the mock's "dispose")
-    expect(screen.getAllByRole('button', { name: 'Resolve…' }).length).toBeGreaterThan(0);
-  });
-
-  it('the reading pane links the seed to its page and spawned work to its task pages (MMR-451)', async () => {
-    mockApi();
-    renderSeeds('/seeds?seed=MMR-s2');
-    await screen.findByText('The banner repaints on every wake.');
-
-    expect(screen.getByRole('link', { name: 'MMR-s2' })).toHaveAttribute('href', '/p/MMR/s2');
-    expect(screen.getByRole('link', { name: 'MMR-118' })).toHaveAttribute('href', '/p/MMR/118');
-  });
-
-  it('never says "dispose" anywhere — the shipped copy is "resolve"', async () => {
-    mockApi();
-    renderSeeds('/seeds?seed=MMR-s2');
-    await screen.findByText('The banner repaints on every wake.');
-    expect(document.body.textContent?.toLowerCase()).not.toContain('dispose');
-    expect(document.body.textContent).toContain('READY TO RESOLVE');
-  });
-
-  it('promotes a live seed from the pane and, with Promote & open, routes to the spawned task (MMR-248)', async () => {
-    mockApi();
-    apiSend.mockResolvedValue({ created: 'MMR-42', id: 'MMR-s1', lifecycle: 'promoted' });
-    const testRouter = renderSeeds('/seeds?seed=MMR-s1');
-    await screen.findAllByText('Alpha original text.');
-
-    // the reading pane leads with the promote chip on this untriaged bug
-    const chips = screen.getAllByRole('button', { name: 'Promote to task…' });
-    await userEvent.click(chips[0] as HTMLElement);
-
-    // the promote sheet arrives full — its provenance strip + Enter-to-promote action
-    const promote = await screen.findByRole('button', { name: 'Promote & open' });
-    await waitFor(() => expect(promote).toBeEnabled());
-
-    await userEvent.click(promote);
-
-    // POSTs the promote endpoint with the carried body + suggested standing home
-    await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s1/promote', {
-        description: 'Alpha original text.',
-        parent: 'MMR-9',
-        title: 'Scroll snaps to top',
-      });
-    });
-    expect(apiSend).not.toHaveBeenCalledWith('POST', '/api/nodes', expect.anything());
-    // "& open" routes to the created task's page
-    await waitFor(() => {
-      expect(testRouter.state.location.pathname).toBe('/p/MMR/42');
-    });
-  });
-
-  it('clears an in-progress edit when the selected seed changes (no state bleed across ids)', async () => {
-    mockApi();
-    renderSeeds('/seeds?seed=MMR-s1');
-    await screen.findAllByText('Alpha original text.');
-
-    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    const textarea = await screen.findByRole('textbox');
-    await userEvent.clear(textarea);
-    await userEvent.type(textarea, 'DRAFT FOR A — UNSAVED');
-
-    // switch the selection to a different seed without saving A's draft
-    const rowB = screen.getAllByText('Offline banner flicker')[0];
-    if (rowB === undefined) {
-      throw new Error('row B not found');
-    }
-    await userEvent.click(rowB);
-
-    await waitFor(() => {
-      expect(screen.getAllByText('The banner repaints on every wake.').length).toBeGreaterThan(0);
-    });
-    expect(screen.queryByRole('textbox')).toBeNull();
-    expect(document.body.textContent).not.toContain('DRAFT FOR A');
-
-    // starting a fresh edit on B shows B's own untouched description, never A's draft
-    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    await expect(screen.findByRole('textbox')).resolves.toHaveValue(
-      'The banner repaints on every wake.',
+    const link = await screen.findByRole('link', { name: 'Scroll snaps to top' });
+    expect(link).toHaveAttribute('href', '/p/MMR/s1');
+    expect(screen.getByRole('link', { name: 'Offline banner flicker' })).toHaveAttribute(
+      'href',
+      '/p/MMR/s2',
     );
+    expect(screen.getByText('bug')).toBeDefined();
+    expect(
+      screen.getByText('The list scroll position jumps back to the top on every refetch.'),
+    ).toBeDefined();
+  });
+
+  it('gives each row link the seed id as its accessible description', async () => {
+    mockApi();
+    renderSeeds();
+    const link = await screen.findByRole('link', { name: 'Scroll snaps to top' });
+    expect(link).toHaveAccessibleDescription('MMR-s1');
+  });
+
+  it('names the requester project only when the seed was filed from another project', async () => {
+    mockApi();
+    renderSeeds();
+    await screen.findByText('Ready to resolve · 1');
+    expect(screen.getByText(/^from NRN · /)).toBeDefined();
+    expect(screen.getAllByText(/^from /)).toHaveLength(1);
+  });
+
+  it('folds settled seeds until "Show settled seeds" reveals them', async () => {
+    mockApi();
+    const user = userEvent.setup();
+    renderSeeds();
+    await screen.findByText('Settled · 2');
+    expect(screen.queryByText('Old resolved thing')).toBeNull();
+
+    const toggle = screen.getByRole('button', { name: 'Show settled seeds' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await user.click(toggle);
+    expect(screen.getByRole('button', { name: 'Hide settled seeds' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    const controlled = document.getElementById(
+      screen.getByRole('button', { name: 'Hide settled seeds' }).getAttribute('aria-controls') ??
+        '',
+    );
+    expect(controlled).toContainElement(screen.getByText('Old rejected thing'));
+    expect(screen.getByRole('link', { name: 'Old resolved thing' })).toHaveAttribute(
+      'href',
+      '/p/MMR/s4',
+    );
+    expect(screen.getByText('Old rejected thing')).toBeDefined();
+
+    await user.click(screen.getByRole('button', { name: 'Hide settled seeds' }));
+    expect(screen.getByRole('button', { name: 'Show settled seeds' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.queryByText('Old resolved thing')).toBeNull();
+  });
+
+  it('searches by title and by id', async () => {
+    mockApi();
+    const user = userEvent.setup();
+    renderSeeds();
+    const search = await screen.findByRole('searchbox', { name: 'Search seeds' });
+    expect(search).toHaveAttribute('placeholder', 'Search seeds…');
+
+    await user.type(search, 'FLICKER');
+    expect(screen.getByText('Offline banner flicker')).toBeDefined();
+    expect(screen.queryByText('Scroll snaps to top')).toBeNull();
+
+    await user.clear(search);
+    await user.type(search, 'mmr-s1');
+    expect(screen.getByText('Scroll snaps to top')).toBeDefined();
+    expect(screen.queryByText('Offline banner flicker')).toBeNull();
+  });
+
+  it('treats a numeric q in the URL as text instead of throwing', async () => {
+    mockApi([
+      seed({ id: 'MMR-s1', lane: 'untriaged', title: 'Scroll snaps to top' }),
+      seed({ id: 'MMR-s2', lane: 'untriaged', title: 'Retry 45 times' }),
+    ]);
+    renderSeeds('/seeds?q=45');
+    await screen.findByText('Retry 45 times');
+    expect(screen.queryByText('Scroll snaps to top')).toBeNull();
+    expect(screen.getByRole('searchbox', { name: 'Search seeds' })).toHaveValue('45');
+  });
+
+  it('reflects the search in the q URL param after the debounce', async () => {
+    mockApi();
+    const user = userEvent.setup();
+    const testRouter = renderSeeds();
+    await user.type(await screen.findByRole('searchbox', { name: 'Search seeds' }), 'flicker');
+    await waitFor(() => {
+      expect(testRouter.state.location.search).toMatchObject({ q: 'flicker' });
+    });
+  });
+
+  it('filters by kind and records it in the URL', async () => {
+    mockApi();
+    const user = userEvent.setup();
+    const testRouter = renderSeeds();
+    await user.click(await screen.findByRole('button', { name: /Any kind/ }));
+    await user.click(await screen.findByRole('menuitem', { name: 'bug' }));
+
+    await waitFor(() => {
+      expect(testRouter.state.location.search).toMatchObject({ kind: 'bug' });
+    });
+    expect(screen.getByText('Scroll snaps to top')).toBeDefined();
+    expect(screen.queryByText('Offline banner flicker')).toBeNull();
+  });
+
+  it('applies a kind from the URL and drops an invalid one', async () => {
+    mockApi();
+    renderSeeds('/seeds?kind=feature');
+    await screen.findByText('Offline banner flicker');
+    expect(screen.queryByText('Scroll snaps to top')).toBeNull();
+    expect(screen.getByRole('button', { name: /feature/ })).toBeDefined();
+  });
+
+  it('ignores an invalid kind param', async () => {
+    mockApi();
+    const testRouter = renderSeeds('/seeds?kind=epic');
+    await screen.findByText('Scroll snaps to top');
+    expect(testRouter.state.location.search).not.toHaveProperty('kind');
+  });
+
+  it('filters by project server-side and shows the chosen key', async () => {
+    mockApi();
+    renderSeeds('/seeds?project=NRN');
+    await screen.findByText('Untriaged · 1');
+    expect(apiGet).toHaveBeenCalledWith(expect.stringContaining('project=NRN'));
+    expect(screen.getByRole('button', { name: /NRN/ })).toBeDefined();
+  });
+
+  it('says "No seeds match." when the filters exclude everything', async () => {
+    mockApi();
+    const user = userEvent.setup();
+    renderSeeds();
+    await user.type(await screen.findByRole('searchbox', { name: 'Search seeds' }), 'zzzzz');
+    await expect(screen.findByText('No seeds match.')).resolves.toBeDefined();
+  });
+
+  it('keeps the friendly empty copy when there are no seeds at all', async () => {
+    mockApi([]);
+    renderSeeds();
+    await expect(screen.findByText(/No seeds yet/)).resolves.toBeDefined();
+  });
+
+  it('no longer opens a reading pane from ?seed=', async () => {
+    mockApi();
+    renderSeeds('/seeds?seed=MMR-s1');
+    await screen.findByText('Untriaged · 1');
+    expect(screen.queryByRole('article')).toBeNull();
+    expect(screen.queryByText('Select a seed to read.')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Promote to task…' })).toBeNull();
+  });
+
+  it('opens the seed capture from "+ File a seed"', async () => {
+    mockApi();
+    const user = userEvent.setup();
+    renderSeeds();
+    await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
+    await expect(screen.findByLabelText('Seed')).resolves.toBeDefined();
+  });
+
+  it('never says "dispose" — the shipped copy is "resolve"', async () => {
+    mockApi();
+    renderSeeds();
+    await screen.findByText('Ready to resolve · 1');
+    expect(document.body.textContent?.toLowerCase()).not.toContain('dispose');
   });
 });

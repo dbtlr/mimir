@@ -302,6 +302,117 @@ test('list filters by q — case-insensitive substring over title (MMR-78)', asy
   expect((await listNodes(store, { q: 'auth.', scope: key })).total).toBe(0);
 });
 
+test('list q also matches the rendered id (MMR-454)', async () => {
+  const a = await createTask(store, { parentId: phaseId, title: 'Wire up AUTH gate' });
+  const b = await createTask(store, { parentId: phaseId, title: 'Polish the board' });
+
+  // A lowercase id substring selects by id; the title still matches.
+  const byId = await listNodes(store, { q: idOf(b).toLowerCase(), scope: key });
+  expect(byId.items.map((n) => n.id)).toEqual([idOf(b)]);
+  expect((await listNodes(store, { q: 'auth', scope: key })).items.map((n) => n.id)).toEqual([
+    idOf(a),
+  ]);
+  // `next` shares the title-or-id semantic.
+  const next = await nextTasks(store, { q: idOf(a), scope: key });
+  expect(next.items.map((n) => n.id)).toEqual([idOf(a)]);
+});
+
+test('list carries no lede key unless the lede facet is requested (MMR-454)', async () => {
+  await createTask(store, { description: 'some prose', parentId: phaseId, title: 'plain' });
+  const res = await listNodes(store, { scope: key });
+  expect(res.items.length).toBe(1);
+  for (const item of res.items) {
+    expect('lede' in item).toBe(false);
+  }
+});
+
+test('lede facet: stored summary wins, else the derived description lede, else null (MMR-454)', async () => {
+  const withSummary = await createTask(store, {
+    description: 'the description is ignored',
+    parentId: phaseId,
+    summary: 'stored summary wins',
+    title: 'has summary',
+  });
+  const withDescription = await createTask(store, {
+    description: '# Heading\n\nSome **bold** prose\nover two lines.',
+    parentId: phaseId,
+    title: 'has description',
+  });
+  const bare = await createTask(store, { parentId: phaseId, title: 'bare' });
+  const long = await createTask(store, {
+    description: 'word '.repeat(100),
+    parentId: phaseId,
+    title: 'long',
+  });
+
+  const res = await listNodes(store, { facets: ['lede'], scope: key });
+  const lede = new Map(res.items.map((n) => [n.id, n.lede] as const));
+  expect(lede.get(idOf(withSummary))).toBe('stored summary wins');
+  expect(lede.get(idOf(withDescription))).toBe('Heading Some bold prose over two lines.');
+  expect(lede.get(idOf(bare))).toBeNull();
+  const longLede = lede.get(idOf(long));
+  expect(longLede?.length).toBeLessThanOrEqual(240);
+  expect(longLede?.endsWith('…')).toBe(true);
+});
+
+test('lede facet applies to terminal rows too (MMR-454)', async () => {
+  const done = await createTask(store, {
+    description: 'finished work prose',
+    parentId: phaseId,
+    title: 'done one',
+  });
+  await completeTask(store, await nodeIdOf(store, idOf(done)));
+  const res = await listNodes(store, { facets: ['lede'], scope: key, status: 'terminal' });
+  expect(res.items.map((n) => [n.id, n.lede])).toEqual([[idOf(done), 'finished work prose']]);
+});
+
+test('lede facet reads descriptions in ONE batch, only for returned rows without a summary (MMR-454)', async () => {
+  await createTask(store, { description: 'first', parentId: phaseId, title: 'one' });
+  await createTask(store, {
+    description: 'second',
+    parentId: phaseId,
+    summary: 'has summary',
+    title: 'two',
+  });
+  const cut = await createTask(store, { description: 'third', parentId: phaseId, title: 'three' });
+
+  const original = store.bodySections.readSectionsMany.bind(store.bodySections);
+  const calls: string[][] = [];
+  store.bodySections.readSectionsMany = (stems, want) => {
+    calls.push([...stems]);
+    return original(stems, want);
+  };
+  try {
+    const res = await listNodes(store, { facets: ['lede'], limit: 2, scope: key });
+    expect(res.returned).toBe(2);
+    expect(calls.length).toBe(1);
+    // limit cut the third row; the summary row needs no read.
+    expect(calls[0]).not.toContain(idOf(cut));
+    expect(calls[0]?.length).toBe(1);
+  } finally {
+    store.bodySections.readSectionsMany = original;
+  }
+});
+
+test('a rejected lede batch read degrades rows to lede null and the list still returns (MMR-454)', async () => {
+  await createTask(store, { description: 'would lede', parentId: phaseId, title: 'one' });
+  await createTask(store, { description: 'would lede', parentId: phaseId, title: 'two' });
+
+  const original = store.bodySections.readSectionsMany;
+  const originalError = console.error;
+  const notes: string[] = [];
+  console.error = (...args: unknown[]) => notes.push(args.map(String).join(' '));
+  try {
+    store.bodySections.readSectionsMany = () => Promise.reject(new Error('transport down'));
+    const res = await listNodes(store, { facets: ['lede'], scope: key });
+    expect(res.items.map((n) => n.lede)).toEqual([null, null]);
+    expect(notes.some((n) => /lede read failed/.test(n))).toBe(true);
+  } finally {
+    store.bodySections.readSectionsMany = original;
+    console.error = originalError;
+  }
+});
+
 test('deps facet lists prerequisites in ascending id order regardless of edge insertion order', async () => {
   const older = await createTask(store, { parentId: phaseId, title: 'older prereq' });
   const newer = await createTask(store, { parentId: phaseId, title: 'newer prereq' });

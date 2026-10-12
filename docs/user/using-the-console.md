@@ -71,11 +71,19 @@ links like any other link.
 
 Portfolio-wide surfaces include:
 
-- **Tasks** for a searchable, project-spanning task census;
-- **Artifacts** for frozen work products, filters, and full content;
-- **Seeds** for capture, promotion, rejection, and resolution;
+- **Tasks** for every task across projects, grouped by status (or by project),
+  with **Live** and **Finished** views and a search over titles and IDs;
+- **Artifacts** for frozen work products, grouped by the day they were frozen,
+  each showing the records it is attached to;
+- **Seeds** for the grooming queue, grouped by lane: untriaged, ready to
+  resolve, and promoted, with settled seeds folded behind **Show settled
+  seeds**;
 - **Record health** for `mimir doctor` findings: rows the store holds in an
   inconsistent state, each with its table, key, and evidence.
+
+The tasks, artifacts, and seeds browsers show a one-line preview of each
+record's description or summary under its title, and every row opens the
+record's own page. On a phone the previews are hidden, and the groups stay.
 
 Routes and filters are encoded in the URL, so a specific view can be bookmarked
 or shared.
