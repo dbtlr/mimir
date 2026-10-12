@@ -120,7 +120,7 @@ the current binary.
 
 ## Develop
 
-Mimir uses Bun `1.4.0`:
+Mimir uses Bun `1.4.3`:
 
 ```sh
 bun install

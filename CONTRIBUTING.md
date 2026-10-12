@@ -11,7 +11,7 @@ and feature work.
 
 ## Getting started
 
-Install [Bun](https://bun.sh) `1.4.0` (pinned in `.tool-versions`; `mise install`
+Install [Bun](https://bun.sh) `1.4.3` (pinned in `.tool-versions`; `mise install`
 picks it up), then:
 
 ```bash
