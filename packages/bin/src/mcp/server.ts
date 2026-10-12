@@ -1,4 +1,5 @@
 import {
+  GROOMING_VALUES,
   HOLD_VALUES,
   isTerminalLifecycle,
   LIFECYCLE_VALUES,
@@ -133,6 +134,7 @@ const LIMIT = z.number().int().positive();
  */
 const KIND_ZOD: Record<FieldKindName, z.ZodType> = {
   bool: z.boolean(),
+  'enum:grooming': z.enum(GROOMING_VALUES),
   'enum:hold': z.enum(HOLD_VALUES),
   'enum:lifecycle': z.enum(LIFECYCLE_VALUES),
   'enum:priority': z.enum(PRIORITY_VALUES),

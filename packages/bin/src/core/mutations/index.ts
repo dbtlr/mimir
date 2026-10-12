@@ -9,6 +9,7 @@ export {
   startTask,
   submitTask,
 } from './lifecycle';
+export { groomTasks } from './grooming';
 export { blockTask, parkTask, unblockTask, unparkTask } from './hold';
 // The resume-handle machinery (MMR-320) is internal to the mutation verbs — only
 // its patch type crosses the boundary (`createNode`'s input, the op registry's

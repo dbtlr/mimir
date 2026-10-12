@@ -20,6 +20,7 @@ import type { NodeType } from './enums';
 export type DataFieldKey =
   | 'summary'
   | 'lifecycle'
+  | 'grooming'
   | 'hold'
   | 'hold_reason'
   | 'priority'
@@ -61,7 +62,8 @@ export type FieldKindName =
   | 'enum:priority'
   | 'enum:size'
   | 'enum:lifecycle'
-  | 'enum:hold';
+  | 'enum:hold'
+  | 'enum:grooming';
 
 /**
  * One data-plane field's pure facts. `update` names the camelCase generic-`update`
@@ -95,6 +97,7 @@ const ALL_TYPES = ['task', 'phase', 'initiative'] as const;
 export const FIELD_FACTS = {
   branch: { appliesTo: TASK, key: 'branch', kind: 'string', update: 'branch' },
   external_ref: { appliesTo: TASK, key: 'external_ref', kind: 'string', update: 'externalRef' },
+  grooming: { appliesTo: TASK, key: 'grooming', kind: 'enum:grooming' },
   harness: { appliesTo: TASK, key: 'harness', kind: 'string', update: 'harness' },
   hold: { appliesTo: TASK, key: 'hold', kind: 'enum:hold' },
   hold_reason: { appliesTo: TASK, key: 'hold_reason', kind: 'string' },

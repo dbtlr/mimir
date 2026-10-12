@@ -696,6 +696,7 @@ function nodeValues(node: Node, dialect: StoreDialect): Insertable<NodeTable> {
     created_at: node.created_at,
     description: null,
     external_ref: node.external_ref,
+    grooming: node.grooming,
     harness: node.harness,
     hold: node.hold,
     hold_reason: node.hold_reason,

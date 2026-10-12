@@ -9,6 +9,7 @@ import {
   archiveProject,
   attachArtifact,
   depend,
+  groomTasks,
   startTask,
   submitTask,
   tagEntities,
@@ -145,6 +146,12 @@ export async function seedWorkingSet(store: Store): Promise<void> {
     size: 'medium',
     title: 'Import',
   });
+
+  // The other two grooming states (ADR 0033): `prereq` and `dependent` are born
+  // `not_groomed`, one task is born `groomed`, and one is set `needs_answers`.
+  await createTask(store, { groomed: true, parentId: phase.id, title: 'Groomed at birth' });
+  const questioned = await createTask(store, { parentId: phase.id, title: 'Has open questions' });
+  await groomTasks(store, [questioned.id], 'needs_answers', 'which backend owns the retry?');
 
   await depend(store, dependent.id, [prereq.id]);
   await tagEntities(

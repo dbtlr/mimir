@@ -75,6 +75,19 @@ const invalidCases: InvalidCase[] = [
     name: 'missing task lifecycle',
   },
   {
+    change: (d) => ({ ...d, nodes: patchFirst(d.nodes, { grooming: 'groomed' }) }),
+    field: 'grooming',
+    name: 'grooming on container',
+  },
+  {
+    change: (d) => ({
+      ...d,
+      nodes: d.nodes.map((n) => (n.type === 'task' ? { ...n, grooming: 'half_groomed' } : n)),
+    }),
+    field: 'grooming',
+    name: 'off-enum grooming',
+  },
+  {
     change: (d) => ({ ...d, nodes: patchFirst(d.nodes, { lifecycle: 'done' }) }),
     field: 'lifecycle',
     name: 'task field on container',
@@ -377,6 +390,45 @@ describe.each(backends)('$name', (backend) => {
         }
       } finally {
         await target.close();
+      }
+    } finally {
+      await source.close();
+    }
+  });
+  test('grooming round-trips through export and import, and a document without it defaults', async () => {
+    const source = await backend.make();
+    try {
+      await seedWorkingSet(source.store);
+      const document = await source.store.export();
+      const target = await backend.make();
+      try {
+        const states = document.nodes.filter((n) => n.type === 'task').map((n) => n.grooming);
+        expect(new Set(states)).toEqual(new Set(['not_groomed', 'needs_answers', 'groomed']));
+        expect(document.nodes.filter((n) => n.type !== 'task').map((n) => n.grooming)).toEqual([
+          null,
+          null,
+        ]);
+
+        await target.store.import(document, { dryRun: false, mode: 'fresh' });
+        expect(withoutStamp(await target.store.export())).toEqual(withoutStamp(document));
+      } finally {
+        await target.close();
+      }
+
+      // A document written before the field existed carries no `grooming` key.
+      const legacyTarget = await backend.make();
+      try {
+        const legacy = {
+          ...document,
+          nodes: document.nodes.map(({ grooming: _grooming, ...node }) => node),
+        };
+        await legacyTarget.store.import(legacy, { dryRun: false, mode: 'fresh' });
+        const imported = await legacyTarget.store.export();
+        for (const node of imported.nodes) {
+          expect(node.grooming, node.id).toBe(node.type === 'task' ? 'not_groomed' : null);
+        }
+      } finally {
+        await legacyTarget.close();
       }
     } finally {
       await source.close();

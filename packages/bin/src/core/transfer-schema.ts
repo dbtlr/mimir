@@ -1,5 +1,6 @@
 import {
   AGENDA_ITEM_STATE_VALUES,
+  GROOMING_VALUES,
   HOLD_VALUES,
   LIFECYCLE_VALUES,
   NODE_TYPE_VALUES,
@@ -65,33 +66,43 @@ export const transferSchema = z.object({
   edges: z.array(z.object({ depends_on_node_id: text, node_id: text })),
   exported_at: text,
   nodes: z.array(
-    z.object({
-      branch: nullableText,
-      completed_at: nullableText,
-      created_at: text,
-      description: nullableText,
-      external_ref: nullableText,
-      harness: nullableText,
-      hold: z.enum(HOLD_VALUES).nullable(),
-      hold_reason: nullableText,
-      host: nullableText,
-      id: text,
-      lifecycle: z.enum(LIFECYCLE_VALUES).nullable(),
-      open_ended: z.boolean().nullable(),
-      parent_id: nullableText,
-      priority: z.enum(PRIORITY_VALUES).nullable(),
-      project_id: key,
-      rank: integer.nullable(),
-      seq: integer.nonnegative(),
-      session: nullableText,
-      size: z.enum(SIZE_VALUES).nullable(),
-      summary: nullableText,
-      target: nullableText,
-      title: text,
-      type: z.enum(NODE_TYPE_VALUES),
-      updated_at: text,
-      upstream: nullableText,
-    }),
+    z
+      .object({
+        branch: nullableText,
+        completed_at: nullableText,
+        created_at: text,
+        description: nullableText,
+        external_ref: nullableText,
+        // Absent in a document written before the field existed (ADR 0033); the
+        // transform below defaults it.
+        grooming: z.enum(GROOMING_VALUES).nullable().optional(),
+        harness: nullableText,
+        hold: z.enum(HOLD_VALUES).nullable(),
+        hold_reason: nullableText,
+        host: nullableText,
+        id: text,
+        lifecycle: z.enum(LIFECYCLE_VALUES).nullable(),
+        open_ended: z.boolean().nullable(),
+        parent_id: nullableText,
+        priority: z.enum(PRIORITY_VALUES).nullable(),
+        project_id: key,
+        rank: integer.nullable(),
+        seq: integer.nonnegative(),
+        session: nullableText,
+        size: z.enum(SIZE_VALUES).nullable(),
+        summary: nullableText,
+        target: nullableText,
+        title: text,
+        type: z.enum(NODE_TYPE_VALUES),
+        updated_at: text,
+        upstream: nullableText,
+      })
+      // A document written before `grooming` existed imports with the default a
+      // fresh node is born with: `not_groomed` for a task, none for a container.
+      .transform((node) => ({
+        ...node,
+        grooming: node.grooming ?? (node.type === 'task' ? ('not_groomed' as const) : null),
+      })),
   ),
   projects: z.array(
     z.object({

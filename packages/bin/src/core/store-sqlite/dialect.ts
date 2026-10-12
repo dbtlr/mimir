@@ -14,6 +14,7 @@ import { fromStored, toStored } from '../store-sql/schema';
 import { createSqlStore } from '../store-sql/store';
 import { holdingConnection } from './driver';
 import { statements as init } from './migrations/0001-init';
+import { statements as grooming } from './migrations/0002-grooming';
 
 /**
  * The SQLite dialect of the shared SQL store (ADR 0032) — the local tier's
@@ -91,7 +92,7 @@ export const sqliteDialect: StoreDialect = {
   label: 'SQLite',
   // SQLITE_MAX_VARIABLE_NUMBER's default since SQLite 3.32.
   maxParameters: 32_766,
-  migrations: { '0001_init': init },
+  migrations: { '0001_init': init, '0002_grooming': grooming },
   // A local store migrates forward whenever it is opened (ADR 0032 Decision
   // 3), so a gap only shows to a reader that skipped the opener.
   schemaRemedy: {

@@ -10,6 +10,7 @@ import { createInitiative, createPhase, createProject, createTask } from '../cre
 import { SCHEMA_VERSION } from '../store-sql/migrator';
 import { openSqlite, SQLITE_FILE } from './client';
 import { createSqliteStore, readSchemaVersion } from './dialect';
+import { statements as initStatements } from './migrations/0001-init';
 
 /**
  * The SQLite store's file-backed behavior (ADR 0032 Decision 3): what opening
@@ -44,12 +45,57 @@ afterEach(() => {
 test('opening a new file creates it, migrates it, and puts it in WAL mode', async () => {
   const handle = await openSqlite(path);
   try {
-    expect(handle.upgrade).toEqual({ applied: ['0001_init'], from: 0, to: SCHEMA_VERSION });
+    expect(handle.upgrade).toEqual({
+      applied: ['0001_init', '0002_grooming'],
+      from: 0,
+      to: SCHEMA_VERSION,
+    });
     expect(await readSchemaVersion(handle.db)).toBe(SCHEMA_VERSION);
     const mode = await sql<{ journal_mode: string }>`pragma journal_mode`.execute(handle.db);
     expect(mode.rows[0]?.journal_mode).toBe('wal');
     const keys = await sql<{ foreign_keys: number }>`pragma foreign_keys`.execute(handle.db);
     expect(keys.rows[0]?.foreign_keys).toBe(1);
+  } finally {
+    await handle.close();
+  }
+});
+
+test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NULL, bogus values rejected', async () => {
+  // Build the store as the previous binary left it: only 0001, with live rows.
+  const old = new Database(path, { create: true });
+  for (const statement of initStatements) {
+    old.run(statement);
+  }
+  old.run(
+    `INSERT INTO schema_version (version, applied_at) VALUES (1, '2026-09-01T00:00:00.000Z')`,
+  );
+  old.run(
+    `INSERT INTO project (key, name, created_at, updated_at) VALUES ('MMR', 'Mimir', 't', 't')`,
+  );
+  const node = (id: string, seq: number, type: string, task: boolean) =>
+    old.run(
+      `INSERT INTO node (id, project_key, type, seq, title, lifecycle, hold, created_at, updated_at)
+       VALUES ('${id}', 'MMR', '${type}', ${String(seq)}, 't', ${task ? "'todo'" : 'NULL'}, ${task ? "'none'" : 'NULL'}, 't', 't')`,
+    );
+  node('MMR-1', 1, 'initiative', false);
+  node('MMR-2', 2, 'phase', false);
+  node('MMR-3', 3, 'task', true);
+  old.close();
+
+  const handle = await openSqlite(path);
+  try {
+    expect(handle.upgrade).toEqual({ applied: ['0002_grooming'], from: 1, to: SCHEMA_VERSION });
+    const rows = await sql<{ id: string; grooming: string | null }>`
+      select id, grooming from node order by seq
+    `.execute(handle.db);
+    expect(rows.rows).toEqual([
+      { grooming: null, id: 'MMR-1' },
+      { grooming: null, id: 'MMR-2' },
+      { grooming: 'not_groomed', id: 'MMR-3' },
+    ]);
+    expect(
+      await refusal(sql`update node set grooming = 'bogus' where id = 'MMR-3'`.execute(handle.db)),
+    ).toContain('CHECK');
   } finally {
     await handle.close();
   }

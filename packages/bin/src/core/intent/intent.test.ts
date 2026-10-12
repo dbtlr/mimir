@@ -483,6 +483,22 @@ test('a value fault returns an empty set with warnings, not an error', async () 
   expect(res.warnings?.[0]?.expected).toEqual(['p0', 'p1', 'p2', 'p3']);
 });
 
+test('grooming filters list and next, and the node view carries it for tasks only (ADR 0033)', async () => {
+  const born = await createTask(store, { groomed: true, parentId: phaseId, title: 'born groomed' });
+  const plain = await createTask(store, { parentId: phaseId, title: 'plain' });
+
+  const filters = [{ field: 'grooming', op: 'eq' as const, value: 'groomed' }];
+  expect((await listNodes(store, { filters, scope: key })).items.map((n) => n.id)).toEqual([
+    idOf(born),
+  ]);
+  expect((await nextTasks(store, { filters, scope: key })).items.map((n) => n.id)).toEqual([
+    idOf(born),
+  ]);
+
+  expect((await getNode(store, idOf(plain))).grooming).toBe('not_groomed');
+  expect((await getNode(store, phaseId)).grooming).toBeUndefined();
+});
+
 test('upstream filters at parity with external_ref (MMR-265)', async () => {
   const a = await createTask(store, { parentId: phaseId, title: 'a', upstream: 'MMR-s6' });
   await createTask(store, { parentId: phaseId, title: 'b' });

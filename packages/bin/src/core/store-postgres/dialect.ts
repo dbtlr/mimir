@@ -14,6 +14,7 @@ import type { DB, Executor } from '../store-sql/schema';
 import { fromStored, toStored } from '../store-sql/schema';
 import { createSqlStore } from '../store-sql/store';
 import { statements as init } from './migrations/0001-init';
+import { statements as grooming } from './migrations/0002-grooming';
 import { serializable, snapshotRead } from './tx';
 
 /**
@@ -84,7 +85,7 @@ export const postgresDialect: StoreDialect = {
   isUniqueViolation,
   label: 'Postgres',
   maxParameters: 65_535,
-  migrations: { '0001_init': init },
+  migrations: { '0001_init': init, '0002_grooming': grooming },
   // A shared store upgrades by one explicit act, never as a side effect of a
   // binary opening it (ADR 0030).
   schemaRemedy: {

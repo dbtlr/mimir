@@ -22,6 +22,7 @@ export function toNode(row: NodeRow, dialect: StoreDialect): Node {
     // prose is read on demand through `bodySections.readDescription`.
     description: null,
     external_ref: row.external_ref,
+    grooming: row.grooming,
     harness: row.harness,
     hold: row.hold,
     hold_reason: row.hold_reason,

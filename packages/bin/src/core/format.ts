@@ -120,6 +120,9 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
   if (node.lifecycle !== undefined) {
     wire.lifecycle = node.lifecycle;
   }
+  if (node.grooming !== undefined) {
+    wire.grooming = node.grooming;
+  }
   if (node.hold !== undefined) {
     wire.hold = node.hold;
   }

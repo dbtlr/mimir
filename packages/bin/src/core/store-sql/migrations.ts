@@ -12,7 +12,10 @@
  * literal statements by name ({@link MigrationStatements}), so appending a
  * migration here without writing it for every dialect does not compile.
  */
-export const MIGRATIONS = [{ name: '0001_init', version: 1 }] as const;
+export const MIGRATIONS = [
+  { name: '0001_init', version: 1 },
+  { name: '0002_grooming', version: 2 },
+] as const;
 
 export type Migration = (typeof MIGRATIONS)[number];
 

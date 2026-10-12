@@ -53,7 +53,11 @@ lane('upgradeSchema builds the schema from empty, and the gate then passes', asy
     try {
       expect(await readSchemaVersion(handle.db)).toBeNull();
       const report = await upgradeSchema(handle.db);
-      expect(report).toEqual({ applied: ['0001_init'], from: 0, to: SCHEMA_VERSION });
+      expect(report).toEqual({
+        applied: ['0001_init', '0002_grooming'],
+        from: 0,
+        to: SCHEMA_VERSION,
+      });
       // The gate is the thing the whole schema posture rests on: it must accept
       // exactly what the migrator just produced.
       await assertSchemaCurrent(handle.db);

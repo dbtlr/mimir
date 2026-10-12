@@ -1,5 +1,6 @@
 import type {
   ExecutionHandles,
+  Grooming,
   Hold,
   Lifecycle,
   NodeType,
@@ -85,6 +86,8 @@ export type NewNodeRecord = {
   summary?: string | null;
   // task-only
   lifecycle?: Lifecycle;
+  /** Born `not_groomed` for a task when absent (ADR 0033); a container carries none. */
+  grooming?: Grooming;
   hold?: Hold;
   priority?: Priority | null;
   size?: Size | null;
@@ -111,6 +114,7 @@ export type NodePatch = {
   summary?: string | null;
   parent_id?: string | null;
   lifecycle?: Lifecycle;
+  grooming?: Grooming;
   hold?: Hold;
   hold_reason?: string | null;
   priority?: Priority | null;

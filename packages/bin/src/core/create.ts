@@ -137,6 +137,8 @@ export type CreateTaskInput = {
    * pre-seeding one is legitimate, since absence is never a signal.
    */
   handles?: HandleFields;
+  /** Born `groomed` (ADR 0033) — for tasks carved from a finished design. */
+  groomed?: boolean;
   tags?: string[];
 };
 
@@ -160,6 +162,7 @@ export async function createTask(store: Store, input: CreateTaskInput): Promise<
       ...handles,
       description: input.description ?? null,
       external_ref: input.externalRef ?? null,
+      grooming: input.groomed === true ? 'groomed' : 'not_groomed',
       hold: 'none',
       lifecycle: 'todo',
       parent_id: parent.id,
@@ -201,6 +204,8 @@ export type CreateNodeProjectInput = {
   name: string;
   description?: string;
   openEnded?: boolean;
+  /** Task-only (ADR 0033) — accepted so a transport can pass it through; refused. */
+  groomed?: boolean;
   tags?: string[];
 };
 
@@ -225,6 +230,8 @@ export type CreateNodeInitiativeInput = {
   description?: string;
   summary?: string;
   openEnded?: boolean;
+  /** Task-only (ADR 0033) — accepted so a transport can pass it through; refused. */
+  groomed?: boolean;
   tags?: string[];
 };
 
@@ -238,6 +245,8 @@ export type CreateNodePhaseInput = {
   summary?: string;
   target?: string;
   openEnded?: boolean;
+  /** Task-only (ADR 0033) — accepted so a transport can pass it through; refused. */
+  groomed?: boolean;
   tags?: string[];
 };
 
@@ -259,6 +268,8 @@ export type CreateNodeTaskInput = {
   /** The resume handles (ADR 0026 Decision 3, MMR-320) — normally stamped by
    * `start`, accepted here for parity with every other spec field. */
   handles?: HandleFields;
+  /** Born `groomed` (ADR 0033) — task-only, refused on any other type. */
+  groomed?: boolean;
   openEnded?: boolean;
   tags?: string[];
 };
@@ -279,6 +290,10 @@ export async function createNode(store: Store, input: CreateNodeInput): Promise<
   // `update`, which throws for the same; MMR-204). Only initiative/phase consume it.
   if ((input.type === 'task' || input.type === 'project') && input.openEnded !== undefined) {
     throw validation('open_ended applies only to phases and initiatives');
+  }
+  // `groomed` is the mirror image: a stored grooming state is task-only (ADR 0033).
+  if (input.type !== 'task' && input.groomed !== undefined) {
+    throw validation('groomed applies only to tasks');
   }
   // An if-chain, not a switch: the discriminated union is exhaustive, so the
   // final `task` return needs no unreachable default (keeps consistent-return
@@ -319,6 +334,7 @@ export async function createNode(store: Store, input: CreateNodeInput): Promise<
   return createTask(store, {
     description: input.description,
     externalRef: input.externalRef,
+    groomed: input.groomed,
     handles: input.handles,
     parentId: await resolveNodeParent(store, input.parent, {
       expected: 'phase or initiative',

@@ -34,6 +34,8 @@ function newNodeRow(
     created_at: timestamp,
     description: row.description,
     external_ref: row.external_ref ?? null,
+    // A task is born ungroomed; a container carries no grooming state (ADR 0033).
+    grooming: row.grooming ?? (row.type === 'task' ? ('not_groomed' as const) : null),
     harness: row.harness ?? null,
     // A task is born unheld; a container carries no hold axis at all.
     hold: row.hold ?? (row.type === 'task' ? ('none' as const) : null),

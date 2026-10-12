@@ -27,8 +27,17 @@ test('a v0.20 Norn export imports into the SQLite store and re-exports unchanged
     const report = await target.store.import(document, { dryRun: false, mode: 'fresh' });
     expect(report.applied).toBe(true);
 
+    // The fixture predates the grooming state (ADR 0033), so the re-export is the
+    // same document with each node carrying the default a fresh node is born with.
+    const withGrooming: StoreExport = {
+      ...document,
+      nodes: document.nodes.map((node) => ({
+        ...node,
+        grooming: node.type === 'task' ? 'not_groomed' : null,
+      })),
+    };
     const reexported = await target.store.export();
-    expect(canonicalJson(withoutStamp(reexported))).toBe(canonicalJson(withoutStamp(document)));
+    expect(canonicalJson(withoutStamp(reexported))).toBe(canonicalJson(withoutStamp(withGrooming)));
 
     // The store now holds exactly the document, so a resume finds nothing to do.
     const resumed = await target.store.import(document, { dryRun: false, mode: 'resume' });
