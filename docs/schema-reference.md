@@ -104,7 +104,7 @@ One table absorbs the semi-regular hierarchy (a monorepo sub-project, a phaseles
 | `lifecycle`    | text    | **task**; set by the writer   | `todo` \| `in_progress` \| `under_review` \| `done` \| `abandoned`                                  |
 | `hold`         | text    | **task**, optional            | `none` \| `blocked` \| `parked`; null reads as `none`                                               |
 | `hold_reason`  | text    | **task**, optional            | context for the current hold (the transition reason itself rides `transition_log`)                  |
-| `grooming`     | text    | **task**; default `not_groomed` | `not_groomed` \| `needs_answers` \| `groomed`; null on a container ([ADR 0033](decisions/0033-task-grooming-state.md)) |
+| `grooming`     | text    | **task**; set by the writer | `not_groomed` on create, then `needs_answers` \| `groomed`; null on a container ([ADR 0033](decisions/0033-task-grooming-state.md)) |
 | `priority`     | text    | **task**, optional            | `p0` \| `p1` \| `p2` \| `p3`; null = **untriaged**                                                  |
 | `size`         | text    | **task**, optional            | `small` \| `medium` \| `large`; null = **unsized**                                                  |
 | `rank`         | integer | **task**, optional            | relative order, core-owned & never surfaced; null outside the rankable set                          |
@@ -271,7 +271,7 @@ The store keeps **only the string**: there is **no per-tag note and no per-tag t
 
 ## Closed vocabularies
 
-Each is a `CHECK` on its column, built from the enum arrays in `@mimir/contract`. A value outside the set cannot be written. Widening a vocabulary is a migration.
+Each is a `CHECK` on its column, built from the enum arrays in `@mimir/contract`. A value outside the set cannot be written. Widening a vocabulary is a migration. Migration `0002_grooming` is the exception to "built from the enum arrays": it freezes its `grooming` values as literals, because a migration is a historical fact that a later change to the live enum must not alter.
 
 | Column                                  | Values                                                     |
 | --------------------------------------- | ---------------------------------------------------------- |

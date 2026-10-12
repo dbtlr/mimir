@@ -791,12 +791,13 @@ export async function cmdGroom(c: Ctx): Promise<number> {
   }
   const state = tail[stateAt] ?? '';
   if (!isMember(state, GROOMING_VALUES)) {
-    const last = ids.at(-1) ?? '';
-    // A tail of ids only forgot the state; any other last token is a misspelled state.
+    // A tail of ids only forgot the state; otherwise the first token that is
+    // not a well-formed id is the misspelled state, whatever note follows it.
+    const unknown = ids.find((token) => parseIdentity(token) === null);
     throw usage(
-      parseIdentity(last) !== null
+      unknown === undefined
         ? `groom requires a state (${GROOMING_VALUES.join('|')})`
-        : `unknown grooming state '${last}' (expected ${GROOMING_VALUES.join('|')})`,
+        : `unknown grooming state '${unknown}' (expected ${GROOMING_VALUES.join('|')})`,
       'groom MMR-12 needs_answers "which store owns the lock?"',
     );
   }

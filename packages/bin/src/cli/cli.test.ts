@@ -1056,6 +1056,9 @@ describe('groom', () => {
     const unknown = fakeIo(false);
     expect(await runCli(['groom', ref, 'ready'], () => store, unknown)).toBe(2);
     expect(unknown.err.join('')).toContain("unknown grooming state 'ready'");
+    const typo = fakeIo(false);
+    expect(await runCli(['groom', ref, 'groomd', 'looks fine'], () => store, typo)).toBe(2);
+    expect(typo.err.join('')).toContain("unknown grooming state 'groomd'");
   });
 
   test('a container id is a behavioral error and changes nothing', async () => {

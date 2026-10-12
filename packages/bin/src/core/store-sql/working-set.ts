@@ -22,7 +22,10 @@ export function toNode(row: NodeRow, dialect: StoreDialect): Node {
     // prose is read on demand through `bodySections.readDescription`.
     description: null,
     external_ref: row.external_ref,
-    grooming: row.grooming,
+    // A task row can carry NULL grooming when a binary that predates migration
+    // 0002 inserted it after the upgrade (a shared Postgres store); it reads as
+    // `not_groomed`, the same default a new task is born with. Containers stay null.
+    grooming: row.grooming ?? (row.type === 'task' ? 'not_groomed' : null),
     harness: row.harness,
     hold: row.hold,
     hold_reason: row.hold_reason,

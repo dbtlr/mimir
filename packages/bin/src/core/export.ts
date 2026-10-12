@@ -35,7 +35,11 @@ import type { NewAnnotationRecord, NewTagRecord, NewTransitionRecord } from './s
  * record carries the fact, and is commented where it does.
  */
 
-/** The transfer document's own schema version — bumped on any shape change. */
+/**
+ * The transfer document's own schema version. An additive key that import
+ * defaults when absent (`grooming`, ADR 0033) does not bump it; a removed,
+ * renamed, or newly required key does.
+ */
 export const STORE_EXPORT_SCHEMA_VERSION = 1;
 
 /**
