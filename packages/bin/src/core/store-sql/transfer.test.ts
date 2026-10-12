@@ -124,6 +124,7 @@ async function errorText(action: Promise<unknown>): Promise<string> {
 /** One task node of project `MMR`, with whatever the case needs overridden. */
 function task(seq: number, overrides: Partial<Node> = {}): Node {
   return {
+    block_owner: null,
     branch: null,
     completed_at: null,
     created_at: STAMP,
@@ -248,6 +249,7 @@ function wideDocument(count: number): StoreExport {
   const nodes: Node[] = [];
   for (let seq = 1; seq <= count; seq += 1) {
     nodes.push({
+      block_owner: null,
       branch: null,
       completed_at: null,
       created_at: STAMP,

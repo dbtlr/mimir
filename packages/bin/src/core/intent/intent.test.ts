@@ -499,6 +499,29 @@ test('grooming filters list and next, and the node view carries it for tasks onl
   expect((await getNode(store, phaseId)).grooming).toBeUndefined();
 });
 
+test('block_owner filters list, and the node view carries it only for a blocked task (MMR-465)', async () => {
+  const mine = await createTask(store, { parentId: phaseId, title: 'mine' });
+  const theirs = await createTask(store, { parentId: phaseId, title: 'theirs' });
+  const open = await createTask(store, { parentId: phaseId, title: 'open' });
+  await blockTask(store, idOf(mine), 'need a call', 'you');
+  await blockTask(store, idOf(theirs), 'vendor', 'others');
+
+  const owned = async (value: string) => {
+    const res = await listNodes(store, {
+      filters: [{ field: 'block_owner', op: 'eq' as const, value }],
+      scope: key,
+    });
+    return res.items.map((n) => n.id);
+  };
+  expect(await owned('you')).toEqual([idOf(mine)]);
+  expect(await owned('others')).toEqual([idOf(theirs)]);
+
+  expect((await getNode(store, idOf(mine))).blockOwner).toBe('you');
+  expect((await getNode(store, idOf(theirs))).blockOwner).toBe('others');
+  expect((await getNode(store, idOf(open))).blockOwner).toBeNull();
+  expect((await getNode(store, phaseId)).blockOwner).toBeUndefined();
+});
+
 test('upstream filters at parity with external_ref (MMR-265)', async () => {
   const a = await createTask(store, { parentId: phaseId, title: 'a', upstream: 'MMR-s6' });
   await createTask(store, { parentId: phaseId, title: 'b' });

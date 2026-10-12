@@ -487,6 +487,51 @@ test('block then unblock', async () => {
   expect(JSON.parse(textOf(unblocked)).status).toBe('ready');
 });
 
+test('block records its owner: stated with on, else you, else others when the task has an upstream (MMR-465)', async () => {
+  const stated = await toolUniform(store, 'block', { id: taskRef, on: 'others' });
+  expect(stated.isError).toBeUndefined();
+  expect(JSON.parse(textOf(stated)).block_owner).toBe('others');
+  const released = await toolUniform(store, 'unblock', { id: taskRef });
+  expect(JSON.parse(textOf(released)).block_owner).toBeNull();
+
+  const defaulted = await toolUniform(store, 'block', { id: taskRef });
+  expect(JSON.parse(textOf(defaulted)).block_owner).toBe('you');
+  await toolUniform(store, 'unblock', { id: taskRef });
+
+  await toolUpdate(store, { id: taskRef, upstream: 'OPS-s4' });
+  const asked = await toolUniform(store, 'block', { id: taskRef });
+  expect(JSON.parse(textOf(asked)).block_owner).toBe('others');
+});
+
+test('block advertises on as a closed enum, and refuses any other value or a stray on', async () => {
+  const { client, close } = await connectClient(store);
+  try {
+    const tools = await client.listTools();
+    const schema = tools.tools.find((tool) => tool.name === 'block')?.inputSchema;
+    expect(schema?.properties?.on).toMatchObject({ enum: ['you', 'others'] });
+
+    const bad = (await client.callTool({
+      arguments: { id: taskRef, on: 'maybe' },
+      name: 'block',
+    })) as ToolCall;
+    expect(bad.isError).toBe(true);
+    // Refused before dispatch: the task was never blocked.
+    const status = (await client.callTool({ arguments: { id: taskRef }, name: 'get' })) as ToolCall;
+    expect(parseJson<{ status: string }>(callText(status)).status).toBe('ready');
+
+    const stray = (await client.callTool({
+      arguments: { id: taskRef, on: 'you' },
+      name: 'park',
+    })) as ToolCall;
+    expect(stray.isError).toBe(true);
+    expect(parseJson<{ error: { message: string } }>(callText(stray)).error.message).toBe(
+      "on isn't an argument",
+    );
+  } finally {
+    await close();
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Dependency mutation tools
 // ---------------------------------------------------------------------------

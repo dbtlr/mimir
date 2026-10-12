@@ -1,5 +1,6 @@
-import type { Hold } from '@mimir/contract';
+import type { BlockOwner, Hold } from '@mimir/contract';
 
+import { defaultBlockOwner } from '../block-owner';
 import { validation } from '../errors';
 import type { Node } from '../model';
 import { appendRank, isRankable } from '../rank';
@@ -15,6 +16,12 @@ import { clearHandles } from './handles';
  * natural re-triage point) — but only if the underlying lifecycle is rankable.
  * A held `under_review` task stays non-rankable on release (it's not actionable
  * until the human verdict lands), so it gets no rank back.
+ *
+ * A `blocked` hold also records its **owner** (ADR 0001, MMR-438): who can clear
+ * it. `block` sets it (stated, else derived from the task's `upstream`), and
+ * every other hold write — `park`, `unpark`, `unblock` — writes it back to NULL,
+ * so the column is non-null exactly while the hold is `blocked`. Changing an
+ * owner is `unblock` then `block`; `block` still refuses an already-held task.
  *
  * Entering a hold also CLEARS the resume handles (ADR 0026 Decision 3, MMR-320):
  * held work is not in flight, and a stale host/session pointer is worse than an
@@ -33,6 +40,7 @@ async function enterHold(
   id: string,
   to: Exclude<Hold, 'none'>,
   reason?: string,
+  owner?: BlockOwner,
 ): Promise<Node> {
   return store.transact(async (w) => {
     const task = await requireTask(w, id);
@@ -40,7 +48,12 @@ async function enterHold(
     if (task.hold !== 'none') {
       throw validation(`task is already ${task.hold}`);
     }
-    const patch: NodePatch = { hold: to, hold_reason: reason ?? null, rank: null };
+    const patch: NodePatch = {
+      block_owner: to === 'blocked' ? (owner ?? defaultBlockOwner(task.upstream)) : null,
+      hold: to,
+      hold_reason: reason ?? null,
+      rank: null,
+    };
     const handles = clearHandles(patch, task);
     await w.updateNode(id, patch);
     await logTransition(w, {
@@ -66,7 +79,7 @@ async function releaseHold(store: Store, id: string, from: Exclude<Hold, 'none'>
     // rankable once un-held (todo/in_progress). A held `under_review` task
     // stays non-rankable on release (not actionable until the verdict lands).
     const rank = isRankable(task.lifecycle, 'none') ? await appendRank(w, task.project_id) : null;
-    await w.updateNode(id, { hold: 'none', hold_reason: null, rank });
+    await w.updateNode(id, { block_owner: null, hold: 'none', hold_reason: null, rank });
     await logTransition(w, { from_value: from, kind: 'hold', node_id: id, to_value: 'none' });
     await stamp(w, id);
     return reloadNode(w, id);
@@ -79,8 +92,15 @@ export const parkTask = (store: Store, id: string, reason?: string): Promise<Nod
 export const unparkTask = (store: Store, id: string): Promise<Node> =>
   releaseHold(store, id, 'parked');
 
-export const blockTask = (store: Store, id: string, reason?: string): Promise<Node> =>
-  enterHold(store, id, 'blocked', reason);
+/** Block a task. `owner` states who can clear it; omitted, it is `others` when
+ * the task has an `upstream` seed and `you` otherwise (evaluated now, in the same
+ * transaction that enters the hold). */
+export const blockTask = (
+  store: Store,
+  id: string,
+  reason?: string,
+  owner?: BlockOwner,
+): Promise<Node> => enterHold(store, id, 'blocked', reason, owner);
 
 export const unblockTask = (store: Store, id: string): Promise<Node> =>
   releaseHold(store, id, 'blocked');

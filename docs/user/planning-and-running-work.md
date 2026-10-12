@@ -60,7 +60,7 @@ design.
 `next` keeps its rank order and shows each todo task's grooming state in its
 rows. `--eq grooming:groomed` narrows the queue to work that is ready to pick
 up. Grooming never gates `start`. If a task you already started hits a
-question, `block` it with the question as the reason. Editing a description
+question, block it with `mimir block <id> --on you "the question"`. Editing a description
 leaves the state alone, so re-groom a task whose edit changed what it asks.
 
 ## Record dependencies
@@ -88,7 +88,7 @@ terminal decision was wrong, not when new follow-up work appears.
 Holds answer a different question:
 
 ```sh
-mimir block AUR-8 "waiting for vendor credentials"
+mimir block AUR-8 --on others "waiting for vendor credentials"
 mimir unblock AUR-8
 mimir park AUR-9 "deferred until the next release"
 mimir unpark AUR-9
@@ -96,6 +96,20 @@ mimir unpark AUR-9
 
 Block for an external obstruction. Park for a deliberate deferral. Both keep
 the underlying lifecycle intact.
+
+A block records who can clear it. `--on you` means you must answer or act.
+`--on others` means someone outside the board must, such as another team, another
+project's board, or a vendor. Without `--on`, a task that has an `upstream` seed
+blocks as `others` and any other task blocks as `you`, so set `--upstream` before
+you block a task that waits on another board. Another task is never an owner:
+waiting on a dependency stays the derived `awaiting` status.
+
+To change an owner, `unblock` the task and `block` it again; `block` refuses a
+task that already has a hold. `mimir get` shows a `block owner` line while a task
+is blocked, and `--eq block_owner:you` lists the blocks waiting on you. In the
+console, only blocks you own count under "for you". A stale block of either
+owner still shows as going cold, so an old external block nudges you to chase
+the other party.
 
 ## Record direction and context
 

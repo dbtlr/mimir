@@ -8,6 +8,7 @@ import {
   annotate,
   archiveProject,
   attachArtifact,
+  blockTask,
   depend,
   groomTasks,
   startTask,
@@ -152,6 +153,11 @@ export async function seedWorkingSet(store: Store): Promise<void> {
   // its shape (the sandbox rehearsal pins two projects and four nodes):
   // `prereq` is born `groomed`, `dependent` is set `needs_answers`.
   await groomTasks(store, [dependent.id], 'needs_answers', 'which backend owns the retry?');
+
+  // The block owner (ADR 0001, MMR-438) rides `dependent` too: blocked with the
+  // owner stated as `others`, which differs from the `you` its lack of an
+  // upstream would default to, so a round trip that re-derived it would show.
+  await blockTask(store, dependent.id, 'waiting on the vendor', 'others');
 
   await depend(store, dependent.id, [prereq.id]);
   await tagEntities(

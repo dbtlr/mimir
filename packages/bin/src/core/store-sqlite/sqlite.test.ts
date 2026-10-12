@@ -11,6 +11,7 @@ import { SCHEMA_VERSION } from '../store-sql/migrator';
 import { openSqlite, SQLITE_FILE } from './client';
 import { createSqliteStore, readSchemaVersion } from './dialect';
 import { statements as initStatements } from './migrations/0001-init';
+import { statements as groomingStatements } from './migrations/0002-grooming';
 
 /**
  * The SQLite store's file-backed behavior (ADR 0032 Decision 3): what opening
@@ -46,7 +47,7 @@ test('opening a new file creates it, migrates it, and puts it in WAL mode', asyn
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0001_init', '0002_grooming'],
+      applied: ['0001_init', '0002_grooming', '0003_block_owner'],
       from: 0,
       to: SCHEMA_VERSION,
     });
@@ -84,7 +85,11 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
 
   const handle = await openSqlite(path);
   try {
-    expect(handle.upgrade).toEqual({ applied: ['0002_grooming'], from: 1, to: SCHEMA_VERSION });
+    expect(handle.upgrade).toEqual({
+      applied: ['0002_grooming', '0003_block_owner'],
+      from: 1,
+      to: SCHEMA_VERSION,
+    });
     const rows = await sql<{ id: string; grooming: string | null }>`
       select id, grooming from node order by seq
     `.execute(handle.db);
@@ -95,6 +100,53 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
     ]);
     expect(
       await refusal(sql`update node set grooming = 'bogus' where id = 'MMR-3'`.execute(handle.db)),
+    ).toContain('CHECK');
+  } finally {
+    await handle.close();
+  }
+});
+
+test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by their upstream, everything else NULL, bogus values rejected', async () => {
+  // The store as the previous binary left it: 0001 + 0002, with live rows.
+  const old = new Database(path, { create: true });
+  for (const statement of [...initStatements, ...groomingStatements]) {
+    old.run(statement);
+  }
+  old.run(
+    `INSERT INTO schema_version (version, applied_at) VALUES (1, '2026-09-01T00:00:00.000Z'), (2, '2026-09-02T00:00:00.000Z')`,
+  );
+  old.run(
+    `INSERT INTO project (key, name, created_at, updated_at) VALUES ('MMR', 'Mimir', 't', 't')`,
+  );
+  const node = (seq: number, type: string, hold: string | null, upstream: string | null) =>
+    old.run(
+      `INSERT INTO node (id, project_key, type, seq, title, lifecycle, hold, upstream, created_at, updated_at)
+       VALUES ('MMR-${String(seq)}', 'MMR', '${type}', ${String(seq)}, 't', ${type === 'task' ? "'todo'" : 'NULL'}, ${hold === null ? 'NULL' : `'${hold}'`}, ${upstream === null ? 'NULL' : `'${upstream}'`}, 't', 't')`,
+    );
+  node(1, 'initiative', null, null);
+  node(2, 'task', 'blocked', 'OPS-s4');
+  node(3, 'task', 'blocked', null);
+  node(4, 'task', 'parked', 'OPS-s5');
+  node(5, 'task', 'none', 'OPS-s6');
+  old.close();
+
+  const handle = await openSqlite(path);
+  try {
+    expect(handle.upgrade).toEqual({ applied: ['0003_block_owner'], from: 2, to: SCHEMA_VERSION });
+    const rows = await sql<{ id: string; block_owner: string | null }>`
+      select id, block_owner from node order by seq
+    `.execute(handle.db);
+    expect(rows.rows).toEqual([
+      { block_owner: null, id: 'MMR-1' },
+      { block_owner: 'others', id: 'MMR-2' },
+      { block_owner: 'you', id: 'MMR-3' },
+      { block_owner: null, id: 'MMR-4' },
+      { block_owner: null, id: 'MMR-5' },
+    ]);
+    expect(
+      await refusal(
+        sql`update node set block_owner = 'bogus' where id = 'MMR-3'`.execute(handle.db),
+      ),
     ).toContain('CHECK');
   } finally {
     await handle.close();

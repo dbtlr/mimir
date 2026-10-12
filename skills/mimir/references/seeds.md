@@ -94,8 +94,9 @@ mimir update  NRN-s2 --title "…" --kind idea      # patch a LIVE seed; termina
 
 ## Cross-board asks: `upstream`
 
-When your task waits on another board's seed, record the edge as data beside
-the block reason, so triage can follow it:
+When your task waits on another board's seed, record the edge as data before
+you block, so triage can follow it and the block defaults to `others` (the
+other board owns it):
 
 ```sh
 SID=$(mimir seed "accept plans without vault_root" -k feature -p NRN -f ids)
@@ -103,8 +104,9 @@ mimir update MMR-157 --upstream "$SID"
 mimir block MMR-157 "waiting on $SID"
 ```
 
-The triage pass annotates your task when the upstream settles and suggests
-`unblock`. Reference-only: no dependency rollup crosses boards.
+Set `--upstream` first: a task with an upstream blocks as `others` without
+`--on` (`block --on others` says the same thing outright). The triage pass
+annotates your task when the upstream settles and suggests `unblock`. Reference-only: no dependency rollup crosses boards.
 
 Clearing the pointer takes the literal `none` sentinel — nothing else clears:
 

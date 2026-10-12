@@ -11,10 +11,38 @@ A **task** stores exactly two orthogonal status axes; nothing else stores status
 - **hold** — why it is set aside: `none | blocked | parked`, each with a reason.
   `blocked` = involuntary/external; `parked` = deliberate deferral. A hold coexists
   with `in_progress` — releasing it resumes in place.
+- **block owner** — who can clear a `blocked` hold: `you` (the operator must answer or
+  act) or `others` (someone outside the board must). It is set only while the hold is
+  `blocked` and empty otherwise; `parked` has none. See "Who can clear a block" below.
 
 There is no editable status field. Verbs: `start` `submit` `return` `done` `abandon`
 `reopen` · `block`/`unblock` · `park`/`unpark`. Every transition is logged (same
 transaction) with its reason — `get <id> --col history` shows the trail.
+
+### Who can clear a block
+
+`block` records an owner beside the reason:
+
+```sh
+mimir block KEY-9 --on you "need a decision on the retry policy"   # the operator must act
+mimir block KEY-9 --on others "waiting on the vendor's fix"        # someone outside the board
+mimir block KEY-9 "waiting on the vendor's fix"                    # no --on: the default
+```
+
+- **The default follows `upstream`.** Without `--on`, a task whose `upstream` seed
+  is set blocks as `others` (the reference names the board it asked for help), and
+  any other task blocks as `you`. The default is evaluated when you block, so set
+  `--upstream` before `block`.
+- **Another task is never an owner.** Waiting on a dependency is the derived
+  `awaiting` status; the owner only splits the manually-set block.
+- **Changing an owner is `unblock`, then `block`.** `block` still refuses a task
+  that is already held, and `unblock` clears the owner. `get` shows a `block owner`
+  line while a task is blocked; `--eq block_owner:you` filters.
+- **Hygiene is unchanged.** `stale` chases blocks of either owner: an old `others`
+  block is the nudge to chase the other party. In the console, only blocks owned by
+  `you` count as needing the operator.
+- `--on` belongs to `block` (and `depend`/`undepend` and the date filters); other
+  verbs refuse it.
 
 ### The `under_review` gate (optional)
 

@@ -22,6 +22,11 @@ export type AttentionItem = {
  * stay excluded when healthy: active, un-awaited work is not an alert. A stale
  * one is kept but surfaced as **going cold** — the nudge, not its status word
  * (MMR-111); see the "Attention" glossary entry.
+ *
+ * Only blocks the operator owns need them (ADR 0019, MMR-438): a `blocked` node
+ * counts when its `block_owner` is `you`. A block waiting on `others` keeps its
+ * blocked status word elsewhere but leaves this set — unless it is stale, when
+ * the going-cold arm below still lists it.
  */
 export function attentionItems(
   underReview: WireNode[],
@@ -42,11 +47,14 @@ export function attentionItems(
     push(node, 'under_review');
   }
   for (const node of blocked) {
-    push(node, 'blocked');
+    if (node.block_owner === 'you') {
+      push(node, 'blocked');
+    }
   }
   for (const node of stale) {
     // Stale-only: surfaced by staleness, not by an under_review/blocked status —
-    // its status word is a healthy in_progress/ready, so label it going cold.
+    // its status word is a healthy in_progress/ready, or a block someone else
+    // owns, so label it going cold.
     push(node, 'going_cold');
   }
   return items;

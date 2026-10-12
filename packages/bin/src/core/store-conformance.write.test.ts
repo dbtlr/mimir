@@ -7,12 +7,15 @@ import type { Node, Project } from './model';
 import {
   annotate,
   archiveProject,
+  blockTask,
   depend,
   groomTasks,
   reorder,
   startTask,
   submitTask,
+  parkTask,
   tagEntities,
+  unblockTask,
   untagEntities,
   updateNode,
   updateProject,
@@ -158,6 +161,22 @@ for (const backend of backends) {
     const notes = await store.bodySections.readAnnotations(first.id);
     expect(notes.map((n) => n.content)).toEqual(['who owns the cutover?']);
     expect((await store.transitions.list()).items.length).toBe(logged);
+  });
+
+  it('a block stores its owner, and unblock, park, and a fresh task store none', async () => {
+    const store = await fresh();
+    const { first, second, phase } = await base(store);
+    expect((await reloadNode(store, first.id)).block_owner).toBeNull();
+    expect((await reloadNode(store, phase.id)).block_owner).toBeNull();
+    // No upstream, so the default is `you`; a stated owner wins.
+    expect((await blockTask(store, first.id)).block_owner).toBe('you');
+    expect((await reloadNode(store, first.id)).block_owner).toBe('you');
+    await unblockTask(store, first.id);
+    expect((await blockTask(store, first.id, 'vendor', 'others')).block_owner).toBe('others');
+    expect((await reloadNode(store, first.id)).block_owner).toBe('others');
+    expect((await unblockTask(store, first.id)).block_owner).toBeNull();
+    expect((await reloadNode(store, first.id)).block_owner).toBeNull();
+    expect((await parkTask(store, second.id)).block_owner).toBeNull();
   });
 
   it('insertNode stamps created_at and updated_at to the same instant', async () => {

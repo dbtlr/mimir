@@ -69,7 +69,8 @@ mimir groom KEY-11 not_groomed                     # back to the default
 - `update` never touches the state, and editing a description never resets it.
   When you rewrite a groomed task enough to change what it asks, re-groom it.
 - The state gates nothing: `start` never checks it. A task that hits a question
-  after you started it is `block`ed, not moved back to `needs_answers`.
+  after you started it is blocked with `block --on you`, not moved back to
+  `needs_answers`.
 - This is not `groom-next` (the `## Next` direction rewrite in
   `references/finishing.md`) and not the seeds grooming queue
   (`references/seeds.md`), which triages requests that are not yet work.

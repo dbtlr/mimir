@@ -90,3 +90,19 @@ MMR-315 (transport derivation for fields), MMR-316 (operation registry).
 
 Glossary updated: **field planes** (data vs. structure), **field kind**,
 **operation registry**, **uniform verb**, **view template**.
+
+## Refinement (2026-10-12, MMR-465): a uniform verb may take one choice argument
+
+Decision 3's uniform shape was "subject id + optional reason". `block --on
+you|others` (ADR 0001, block ownership refinement) adds a closed-vocabulary
+option to a uniform verb. The verb stays uniform: its registry entry gains an
+optional **choice** fact (`name`, `values`, `summary`), and every transport
+derives the option from it, the same way it derives the reason. The name is
+the one spelling on every surface (CLI `--on`, MCP `on`, HTTP body `on`),
+every transport validates against `values`, and the core mutation owns the
+default when the option is omitted.
+
+A choice is not a data field: it has no `update` marker and is not stored
+under its own name. That separates it from the existing `fields` hook, which
+only carries update-marked spec fields. A verb takes at most one choice; a
+second option is the signal that the verb has stopped being uniform.

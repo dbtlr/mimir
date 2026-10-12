@@ -31,6 +31,7 @@ import {
   moveNode,
   OPS,
   parseIdentity,
+  parseOpChoice,
   parseSeedRef,
   parseUpstreamField,
   parseWireField,
@@ -173,11 +174,16 @@ function echoTransitionSuffix(t: OpTransition, plain: boolean): string {
  * A verb that declares extra data-plane fields ({@link OpFact.fields} — only
  * `start`'s resume handles) reads them through the SAME flag template and wire
  * parser the generic `update` uses, so nothing about the arm is verb-special.
+ * A declared choice argument ({@link OpFact.choice} — only `block --on`) is read
+ * the way `depend` reads its multi-valued `--on` (the last occurrence wins) and
+ * validated against the fact's vocabulary.
  */
 export async function cmdUniform(c: Ctx, verb: UniformVerb): Promise<number> {
   const op = OPS[verb];
   const reason = op.reason === 'optional' ? reasonTail(c) : undefined;
   const fields = readUniformFields(c, op.fields ?? []);
+  const choice =
+    op.choice === undefined ? undefined : parseOpChoice(verb, op, lastFlag(c, op.choice.name));
   const word = pastParticiple(verb);
   if (op.subject === 'project') {
     const key = requirePos(c, 1, verb, 'a project KEY');
@@ -210,7 +216,7 @@ export async function cmdUniform(c: Ctx, verb: UniformVerb): Promise<number> {
     return 0;
   }
   const id = await resolveNode(c.store, requirePos(c, 1, verb), 'task');
-  await op.run(c.store, id, reason, fields);
+  await op.run(c.store, id, reason, fields, choice);
   const suffix = echoTransitionSuffix(op.transition, c.io.plain);
   await echoNodeWith(c.store, id, c.format, c.io, (rid) =>
     withReason(`${word} ${rid}${suffix}`, reason),

@@ -1,5 +1,6 @@
 import {
   AGENDA_ITEM_STATE_VALUES,
+  BLOCK_OWNER_VALUES,
   GROOMING_VALUES,
   HOLD_VALUES,
   LIFECYCLE_VALUES,
@@ -12,6 +13,7 @@ import {
 } from '@mimir/contract';
 import { z } from 'zod';
 
+import { defaultBlockOwner } from './block-owner';
 import type { StoreExport } from './export';
 import { STORE_EXPORT_SCHEMA_VERSION } from './export';
 import { isScratchpadId } from './scratchpads/store';
@@ -68,6 +70,9 @@ export const transferSchema = z.object({
   nodes: z.array(
     z
       .object({
+        // Absent in a document written before the field existed (MMR-438); the
+        // transform below derives it.
+        block_owner: z.enum(BLOCK_OWNER_VALUES).nullable().optional(),
         branch: nullableText,
         completed_at: nullableText,
         created_at: text,
@@ -99,8 +104,13 @@ export const transferSchema = z.object({
       })
       // A document written before `grooming` existed imports with the default a
       // fresh node is born with: `not_groomed` for a task, none for a container.
+      // A document written before `block_owner` existed (or one that left a
+      // blocked task's owner null) takes the owner its `upstream` implies; the
+      // owner is empty unless the hold is `blocked`, which the validator checks.
       .transform((node) => ({
         ...node,
+        block_owner:
+          node.block_owner ?? (node.hold === 'blocked' ? defaultBlockOwner(node.upstream) : null),
         grooming: node.grooming ?? (node.type === 'task' ? ('not_groomed' as const) : null),
       })),
   ),
@@ -115,10 +125,10 @@ export const transferSchema = z.object({
       updated_at: text,
     }),
   ),
-  // A version-1 document parses into the current shape: its nodes' missing
-  // `grooming` is defaulted above, so the version normalizes too.
+  // A version-1 or -2 document parses into the current shape: its nodes' missing
+  // `grooming` and `block_owner` are defaulted above, so the version normalizes too.
   schema_version: z
-    .union([z.literal(1), z.literal(STORE_EXPORT_SCHEMA_VERSION)])
+    .union([z.literal(1), z.literal(2), z.literal(STORE_EXPORT_SCHEMA_VERSION)])
     .transform((): typeof STORE_EXPORT_SCHEMA_VERSION => STORE_EXPORT_SCHEMA_VERSION),
   scratchpads: z.array(
     z.object({

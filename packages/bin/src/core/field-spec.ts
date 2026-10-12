@@ -1,4 +1,5 @@
 import {
+  BLOCK_OWNER_VALUES,
   FIELD_FACTS,
   GROOMING_VALUES,
   HOLD_VALUES,
@@ -116,6 +117,11 @@ const FIELD_KINDS: Record<FieldKindName, FieldKind> = {
     query: null,
     // A bool arrives already typed on every transport (the CLI flag pair, the MCP
     // boolean arg, the HTTP boolean body field), so it is read natively, not here.
+    wire: null,
+  },
+  'enum:block_owner': {
+    query: { kind: 'enum', values: BLOCK_OWNER_VALUES },
+    // Set only by `block --on` (ADR 0001, MMR-438) — no generic `update` plane.
     wire: null,
   },
   'enum:grooming': {

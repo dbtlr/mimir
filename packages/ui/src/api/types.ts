@@ -1,5 +1,6 @@
 import type {
   AwaitingRef,
+  BlockOwner,
   Distribution,
   Hold,
   Lane,
@@ -163,6 +164,8 @@ export type WireNode = {
   lifecycle?: Lifecycle;
   hold?: Hold;
   hold_reason?: string | null;
+  /** Who can clear a block (ADR 0001, MMR-438) — `you` or `others`; set only while `hold` is `blocked`. */
+  block_owner?: BlockOwner | null;
   external_ref?: string | null;
   /** The in-flight resume handles (MMR-320) — task-only; cleared at terminal
    * transitions and holds, kept through the under-review gate. */

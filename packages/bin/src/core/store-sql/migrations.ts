@@ -15,6 +15,7 @@
 export const MIGRATIONS = [
   { name: '0001_init', version: 1 },
   { name: '0002_grooming', version: 2 },
+  { name: '0003_block_owner', version: 3 },
 ] as const;
 
 export type Migration = (typeof MIGRATIONS)[number];

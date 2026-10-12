@@ -1,7 +1,8 @@
-import { OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
-import type { OpFact, UniformVerb } from '@mimir/contract';
+import { BLOCK_OWNER_VALUES, OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
+import type { BlockOwner, OpFact, UniformVerb } from '@mimir/contract';
+import { isMember } from '@mimir/helpers';
 
-import { invariant } from './errors';
+import { invariant, validation } from './errors';
 import type { Node, Project } from './model';
 import {
   abandonTask,
@@ -48,13 +49,63 @@ export type OpResult = Node | Project;
  * `task` subject, a project id for a `project` subject — each transport does its
  * own subject-kind resolution), the optional reason, and the extra data-plane
  * fields the verb's {@link OpFact.fields} declares (only `start`'s resume
- * handles), and delegates to the core mutation fn. A binding drops the arguments
+ * handles), the verb's already-validated {@link OpFact.choice} value (only
+ * `block --on`), and delegates to the core mutation fn. A binding drops the arguments
  * its verb doesn't take (e.g. `unarchiveProject` has no reason slot at all —
  * absorbed here), so the widened signature costs the other eleven nothing.
  */
 export type OpSpec = OpFact & {
-  run: (store: Store, id: string, reason?: string, fields?: HandleFields) => Promise<OpResult>;
+  run: (
+    store: Store,
+    id: string,
+    reason?: string,
+    fields?: HandleFields,
+    choice?: string,
+  ) => Promise<OpResult>;
 };
+
+/**
+ * Validate a raw choice-argument token against its verb's declared vocabulary —
+ * the one parse every transport shares (CLI `--on`, HTTP body `on`; MCP checks
+ * the same list through its zod enum), so the accepted values and the error
+ * wording can't drift. `undefined` passes through (the mutation applies its
+ * default). Reaching it for a verb with no choice is a transport wiring bug.
+ */
+export function parseOpChoice(
+  verb: string,
+  fact: OpFact,
+  raw: string | undefined,
+): string | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  const { choice } = fact;
+  if (choice === undefined) {
+    throw invariant(
+      `${verb} declares no choice argument`,
+      'a transport may only read a choice the operation fact declares',
+    );
+  }
+  if (!choice.values.includes(raw)) {
+    throw validation(
+      `invalid ${choice.name}: ${raw}`,
+      `${verb} ${choice.name} takes one of: ${choice.values.join(', ')}`,
+    );
+  }
+  return raw;
+}
+
+/** Narrow `block`'s validated choice token to the owner enum. The transports
+ * validate before dispatch, so a miss here is a wiring bug, not a value fault. */
+function blockOwnerOf(choice: string | undefined): BlockOwner | undefined {
+  if (choice === undefined) {
+    return undefined;
+  }
+  if (!isMember(choice, BLOCK_OWNER_VALUES)) {
+    throw invariant(`block owner ${choice} was not validated`, 'run it through parseOpChoice');
+  }
+  return choice;
+}
 
 /** The per-verb `run` bindings — the one place code pairs with a fact. Keyed by
  * the full {@link UniformVerb} union, so a new verb is a compile error here until
@@ -62,7 +113,7 @@ export type OpSpec = OpFact & {
 const OP_RUN: Record<UniformVerb, OpSpec['run']> = {
   abandon: (store, id, reason) => abandonTask(store, id, reason),
   archive: (store, id, reason) => archiveProject(store, id, reason),
-  block: (store, id, reason) => blockTask(store, id, reason),
+  block: (store, id, reason, _fields, choice) => blockTask(store, id, reason, blockOwnerOf(choice)),
   done: (store, id) => completeTask(store, id),
   park: (store, id, reason) => parkTask(store, id, reason),
   reopen: (store, id, reason) => reopenTask(store, id, reason),
@@ -94,6 +145,15 @@ export function assertOpFields(verb: string, fact: OpFact): void {
     throw invariant(
       `${verb} declares data-plane fields on a project subject`,
       'only a task-subject verb can record fields at its transition',
+    );
+  }
+  // The same reasoning covers the choice argument: the project arms of all three
+  // transports read neither fields nor a choice, so one declared there would be
+  // advertised and silently dropped.
+  if (fact.subject === 'project' && fact.choice !== undefined) {
+    throw invariant(
+      `${verb} declares a choice argument on a project subject`,
+      'only a task-subject verb can take a choice argument',
     );
   }
 }

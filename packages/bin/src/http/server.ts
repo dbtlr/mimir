@@ -83,6 +83,7 @@ import {
   parseDateFilterTokens,
   parseFilterToken,
   parseIdentity,
+  parseOpChoice,
   requireTimeZone,
   SEED_DATE_FIELD,
   parsePriorityValue,
@@ -340,7 +341,8 @@ function uniformReason(spec: UniformRouteSpec, body: Record<string, unknown>): s
   return spec.reason === 'optional' ? strField(body, 'reason') : undefined;
 }
 
-/** The body keys a uniform verb accepts: its reason (per policy) plus the
+/** The body keys a uniform verb accepts: its reason (per policy), its choice
+ * argument when it declares one (MMR-465 — only `block`'s `on`), plus the
  * snake_case keys of the extra data-plane fields it declares (ADR 0026 — only
  * `start`'s resume handles). An empty allow-list still rejects any other key.
  * The node route only: a project-subject verb can declare no fields at all (the
@@ -348,6 +350,7 @@ function uniformReason(spec: UniformRouteSpec, body: Record<string, unknown>): s
 function uniformBodyFields(spec: UniformRouteSpec): string[] {
   return [
     ...(spec.reason === 'optional' ? ['reason'] : []),
+    ...(spec.choice === undefined ? [] : [spec.choice.name]),
     ...nodeBodyFields(specUpdateFields(spec.fields ?? [])),
   ];
 }
@@ -368,6 +371,15 @@ function uniformFields(spec: UniformRouteSpec, body: Record<string, unknown>): U
   return fields;
 }
 
+/** The verb's choice argument, read off the body by the name its fact gives it
+ * and validated by the shared {@link parseOpChoice} (a bad value is a 400 before
+ * the id is resolved). `undefined` for a verb that declares none. */
+function uniformChoice(spec: UniformRouteSpec, body: Record<string, unknown>): string | undefined {
+  return spec.choice === undefined
+    ? undefined
+    : parseOpChoice(spec.verb, spec, strField(body, spec.choice.name));
+}
+
 /** A matched route param under the generic `BunRequest` (params typed as an index
  * signature): Bun always populates the `:id`/`:key` segment a route matched on,
  * so the coalesce only keeps the type a `string` — the empty fallback is
@@ -383,12 +395,14 @@ function uniformNodeRoute(store: Store, spec: UniformRouteSpec): UniformRoute {
     POST: (req) =>
       guarded(req, async () => {
         const body = await readBody(req, uniformBodyFields(spec));
+        const choice = uniformChoice(spec, body);
         const id = await nodeRef(store, routeParam(req, 'id'), 'task');
         const node = await spec.run(
           store,
           id,
           uniformReason(spec, body),
           uniformFields(spec, body),
+          choice,
         );
         // The task subject guarantees a Node row from `run`.
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion

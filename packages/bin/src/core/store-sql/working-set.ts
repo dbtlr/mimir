@@ -1,3 +1,4 @@
+import { readBlockOwner } from '../block-owner';
 import type { Dependency, Node, Project } from '../model';
 import type { NodeTag, WorkingSet } from '../store';
 import type { StoreDialect } from './dialect';
@@ -15,6 +16,11 @@ import type { Executor, NodeRow, ProjectRow } from './schema';
 /** The node columns the working set projects; `description` rides bodySections. */
 export function toNode(row: NodeRow, dialect: StoreDialect): Node {
   return {
+    // Empty unless the hold is `blocked`. A blocked row with NULL here comes
+    // from a process that started before migration 0003 ran (the schema gate
+    // runs once per process), so the owner derives by the same rule the
+    // migration backfilled with (ADR 0001, MMR-438).
+    block_owner: readBlockOwner(row.hold, row.block_owner, row.upstream),
     branch: row.branch,
     completed_at: row.completed_at,
     created_at: row.created_at,

@@ -141,6 +141,11 @@ function assertReferences(document: StoreExport): void {
     if (node.type === 'task' && node.hold === null) {
       faults.push(`node ${node.id}.hold is required`);
     }
+    // The owner is meaningful only while the hold is `blocked` (MMR-438); the
+    // parse has already derived a blocked task's missing owner.
+    if (node.block_owner !== null && node.hold !== 'blocked') {
+      faults.push(`node ${node.id}.block_owner is set only while the hold is blocked`);
+    }
     if (node.upstream !== null && !isSeedRef(node.upstream)) {
       faults.push(`node ${node.id}.upstream must be a seed identity`);
     }

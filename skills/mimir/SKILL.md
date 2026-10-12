@@ -61,6 +61,12 @@ later is a guess about the past, and the next agent reads it as fact.
 - `block <id> "reason"` when something external stops you, and
   `park <id> "reason"` when you defer the task on purpose. The reason is the
   next agent's context. `unblock` or `unpark` when you resume.
+- `block --on you|others` says who can clear the block: `you` when the
+  operator must answer or act, `others` when someone outside the board must
+  (another team, another board, a vendor). Without `--on`, a task that has an
+  `upstream` seed is `others` and any other task is `you`. To change an owner,
+  `unblock` and `block` again. Only blocks owned by `you` count as needing the
+  operator in the console.
 - `abandon <id> "reason"` when a task or an approach dies. Abandoned tasks stay
   on the record with their reason.
 - `reopen <id> "reason"` when a terminal call was wrong: a `done` that later
@@ -73,8 +79,8 @@ later is a guess about the past, and the next agent reads it as fact.
 `not_groomed`, `needs_answers`, or `groomed`. Choose groomed tasks from `next`
 (`mimir next --eq grooming:groomed`). When grooming a task finds gaps, record
 them with `mimir groom <id> needs_answers "the questions"`. A task you already
-started that hits a question is `block`ed with the question as the reason, not
-re-groomed (`references/status-model.md`).
+started that hits a question is blocked with `mimir block <id> --on you
+"the question"`, not re-groomed (`references/status-model.md`).
 
 **Route new work by whose board it is** (`references/seeds.md`):
 
@@ -87,8 +93,10 @@ re-groomed (`references/status-model.md`).
 - Anything for **another board** is a seed on that board, however well you
   can state the fix: `mimir seed "title" -k <kind> -p KEY`. The owning board
   decides what work to commit, so you create tasks only on boards you own.
-  When that seed blocks your task, `block` the task and record the edge with
-  `mimir update <id> --upstream KEY-sN`, so triage can tell you when it resolves.
+  When that seed blocks your task, record the edge with
+  `mimir update <id> --upstream KEY-sN` first and then `block` the task: the
+  upstream makes the block `others` by default, and triage can tell you when the
+  seed resolves.
 - An own-board idea that is not a follow-up of your current task and has no
   statable fix ("should we…?") is a seed too. Work you set aside to keep the
   current task in scope is a task, even when the user says "park that".

@@ -1,4 +1,12 @@
-import type { Grooming, Hold, Lifecycle, NodeType, Priority, Size } from '@mimir/contract';
+import type {
+  BlockOwner,
+  Grooming,
+  Hold,
+  Lifecycle,
+  NodeType,
+  Priority,
+  Size,
+} from '@mimir/contract';
 
 /**
  * The backend-neutral domain model (ADR 0016 Phase 0) — the record shapes the
@@ -37,6 +45,8 @@ export type Node = {
   grooming: Grooming | null;
   hold: Hold | null;
   hold_reason: string | null;
+  /** Who can clear the block (ADR 0001, MMR-438) — set only while `hold` is `blocked`, else null. */
+  block_owner: BlockOwner | null;
   priority: Priority | null;
   size: Size | null;
   rank: number | null;

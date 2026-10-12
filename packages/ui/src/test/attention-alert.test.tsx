@@ -40,7 +40,7 @@ describe('attentionAlert (MMR-103/226)', () => {
         return Promise.resolve({ items: [{ id: 'MMR-2' }, { id: 'MMR-3' }], total: 2 });
       }
       if (path.includes('status=blocked')) {
-        return Promise.resolve({ items: [{ id: 'MMR-5' }], total: 1 });
+        return Promise.resolve({ items: [{ block_owner: 'you', id: 'MMR-5' }], total: 1 });
       }
       if (path.includes('is=stale')) {
         return Promise.resolve({ items: [{ id: 'MMR-9', status: 'ready' }], total: 1 });
@@ -50,6 +50,26 @@ describe('attentionAlert (MMR-103/226)', () => {
     renderApp();
     // 2 + 1 + 1 = 4 distinct items
     await expect(screen.findByRole('button', { name: /4 for you/ })).resolves.toBeDefined();
+  });
+
+  it('counts only the blocks you own; a block waiting on others is not in the pill (MMR-438)', async () => {
+    apiGet.mockImplementation((path: string) => {
+      if (path.includes('status=blocked')) {
+        return Promise.resolve({
+          items: [
+            { block_owner: 'you', id: 'MMR-5', title: 'mine' },
+            { block_owner: 'others', id: 'MMR-6', title: 'theirs' },
+          ],
+          total: 2,
+        });
+      }
+      return Promise.resolve({ items: [], total: 0 });
+    });
+    renderApp();
+    await userEvent.click(await screen.findByRole('button', { name: /1 for you/ }));
+    await expect(screen.findByText('Needs you · 1')).resolves.toBeDefined();
+    expect(screen.getByText('mine')).toBeDefined();
+    expect(screen.queryByText('theirs')).toBeNull();
   });
 
   it('renders no pill when nothing needs the operator', async () => {

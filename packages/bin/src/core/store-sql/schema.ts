@@ -1,4 +1,5 @@
 import type {
+  BlockOwner,
   ExecutionHandles,
   Grooming,
   Hold,
@@ -112,6 +113,7 @@ export type NodeTable = {
   grooming: Grooming | null;
   hold: Hold | null;
   hold_reason: string | null;
+  block_owner: BlockOwner | null;
   priority: Priority | null;
   size: Size | null;
   rank: number | null;
