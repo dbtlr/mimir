@@ -7,16 +7,7 @@ import { AuthoringSheet } from './authoring-sheet';
  * (MMR-227) — task / phase / initiative behind a type selector — pre-filled to
  * the current project. Replaces the retired `TaskForm mode="create"` path.
  */
-export function NewTaskButton({
-  projectKey,
-  offline,
-  onOpenNode,
-}: {
-  projectKey: string;
-  offline?: boolean;
-  /** "Create & open" routes the fresh node here (its record page). */
-  onOpenNode?: (id: string) => void;
-}) {
+export function NewTaskButton({ projectKey, offline }: { projectKey: string; offline?: boolean }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -37,7 +28,6 @@ export function NewTaskButton({
         onOpenChange={setOpen}
         projectKey={projectKey}
         offline={offline}
-        onOpenNode={onOpenNode}
       />
     </>
   );

@@ -164,7 +164,7 @@ export const projectQuery = (key: string) =>
     queryKey: ['project', key],
   });
 
-/** Drawer: the full node record (deps, tags, verdicts, artifact titles). */
+/** The full node record (deps, tags, verdicts, artifact titles) its page reads. */
 export const nodeQuery = (id: string) =>
   queryOptions({
     queryFn: () => apiGet<WireNode>(`/api/nodes/${encodeURIComponent(id)}`),
@@ -179,7 +179,7 @@ export const scratchpadsQuery = (key: string) =>
     queryKey: ['scratchpads', key],
   });
 
-/** Drawer: the node's freeform annotations (their own sub-resource). */
+/** The node's freeform annotations (their own sub-resource), for its timeline. */
 export const annotationsQuery = (id: string) =>
   queryOptions({
     queryFn: () =>

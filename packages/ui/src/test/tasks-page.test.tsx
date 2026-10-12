@@ -77,7 +77,7 @@ function mockApi() {
       return Promise.resolve({ items: [], total: 0 });
     }
     if (path.startsWith('/api/nodes/')) {
-      // the dossier's detail fetch after a row click
+      // the task page's detail fetch after a row click
       return Promise.resolve(rows[0]);
     }
     return Promise.reject(new Error(`unexpected ${path}`));
@@ -293,13 +293,17 @@ describe('tasksPage (17a, MMR-228)', () => {
     expect(headerGroup?.className).not.toContain('max-md:hidden');
   });
 
-  it("a row click opens the task's page", async () => {
+  it("a row is a real link to the task's page", async () => {
     mockApi();
     const testRouter = renderTasks();
     const user = userEvent.setup();
     await screen.findByText('Doctor the wire');
 
-    await user.click(screen.getByRole('row', { name: /MMR-10/ }));
+    const row = screen.getByRole('row', { name: /MMR-10/ });
+    // A real link, so Cmd/middle-click and copy-link work (MMR-453).
+    expect(row.tagName).toBe('A');
+    expect(row).toHaveAttribute('href', '/p/MMR/10');
+    await user.click(row);
     await waitFor(() => {
       expect(testRouter.state.location.pathname).toBe('/p/MMR/10');
     });

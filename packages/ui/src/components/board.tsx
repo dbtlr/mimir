@@ -11,6 +11,7 @@ import type { DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Distribution, StatusWord } from '@mimir/contract';
+import { Link } from '@tanstack/react-router';
 import { useRef, useState } from 'react';
 
 import { useReorder } from '../api/mutations';
@@ -20,29 +21,28 @@ import type { Band, BandMode, SwimlaneColumn } from '../lib/bands';
 import { BOARD_COLUMNS } from '../lib/board';
 import type { Board, BoardColumn } from '../lib/board';
 import { cn } from '../lib/cn';
+import { nodeLink } from '../lib/record-url';
 import { reorderArgs } from '../lib/reorder';
 import type { ReorderArgs } from '../lib/reorder';
 import { STATUS_META, STATUS_ORDER } from '../lib/status';
 import { BoardCard } from './board-card';
 import { DistributionBar } from './distribution-bar';
-import { QuickShelf, QuickViewPanel } from './node-quick-view';
 import { StatusDot } from './status-dot';
 import { statusChipVariants } from './ui/badge';
 
 type BoardViewProps = {
+  /** The board's project — scopes the Done drill-through into `/tasks`. */
+  projectKey: string;
   board: Board;
   /** The swimlane grouping (`?bands=`); `off` drops the spine to a flat grid. */
   bands: BandMode;
   /** The whole-project tree — feeds phase-mode ancestry; absent degrades to flat. */
   tree?: WireTreeNode;
-  onOpenNode: (id: string) => void;
   offline?: boolean;
   /** All-nine status tally (the project rollup) — the mobile sheet's `new`/`abandoned` counts. */
   distribution?: Distribution;
   /** Total completed tasks fetched (before the Done window) — the `m` in "n of m". */
   doneTotal: number;
-  /** Drill from Done into the `/tasks` browser (kept a callback so the board stays router-free). */
-  onViewDone: () => void;
 };
 
 /** The rankable set (ADR 0007) as board columns — drag-to-reorder lives here only. */
@@ -146,9 +146,10 @@ function bandContainerId(band: Band): string | undefined {
 
 /**
  * The band spine (leftmost 170px cell) — name, mono id + kind, and the mini
- * bar. A band backed by a container names it as a way to its page (MMR-450).
+ * bar. A band backed by a container links its name to the container's page
+ * (MMR-450).
  */
-function BandSpine({ band, onOpenNode }: { band: Band; onOpenNode: (id: string) => void }) {
+function BandSpine({ band }: { band: Band }) {
   const node = band.node;
   const containerId = bandContainerId(band);
   const kind = band.openEnded ? 'standing' : (node?.type ?? '');
@@ -167,18 +168,15 @@ function BandSpine({ band, onOpenNode }: { band: Band; onOpenNode: (id: string) 
       {containerId === undefined ? (
         <div className={nameClass}>{name}</div>
       ) : (
-        <button
-          type="button"
-          onClick={() => {
-            onOpenNode(containerId);
-          }}
+        <Link
+          {...nodeLink(containerId)}
           className={cn(
             nameClass,
             'rounded-sm text-left transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent',
           )}
         >
           {name}
-        </button>
+        </Link>
       )}
       {node !== undefined && (
         <div className="font-mono text-mono-id text-ink-faint">
@@ -196,26 +194,26 @@ function BandSpine({ band, onOpenNode }: { band: Band; onOpenNode: (id: string) 
 
 /** Done's drill-through — one slim row under the whole grid, right-aligned to Done. */
 function SwimlaneDoneFooter({
+  projectKey,
   shown,
   total,
-  onViewDone,
   spine,
 }: {
+  projectKey: string;
   shown: number;
   total: number;
-  onViewDone: () => void;
   spine: boolean;
 }) {
   return (
     <div className="grid gap-3 pt-2" style={{ gridTemplateColumns: gridTemplate(spine) }}>
       <div className="text-right" style={{ gridColumn: '-2 / -1' }}>
-        <button
-          type="button"
-          onClick={onViewDone}
+        <Link
+          to="/tasks"
+          search={{ project: projectKey, status: 'done' }}
           className="text-micro text-ink-ghost transition-colors hover:text-ink-dim focus-visible:outline-2 focus-visible:outline-accent"
         >
           {total > shown ? `${shown} of ${total} recent · all →` : `${total} done · all →`}
-        </button>
+        </Link>
       </div>
     </div>
   );
@@ -232,15 +230,11 @@ function gridTemplate(spine: boolean): string {
 function SortableBoardCard({
   node,
   column,
-  onQuickOpen,
   offline,
-  selected,
 }: {
   node: WireNode;
   column: SwimlaneColumn;
-  onQuickOpen: (id: string) => void;
   offline?: boolean;
-  selected?: boolean;
 }) {
   const { setNodeRef, transform, transition, attributes, listeners, isDragging } = useSortable({
     disabled: offline,
@@ -250,9 +244,7 @@ function SortableBoardCard({
     <BoardCard
       node={node}
       column={column}
-      onOpen={onQuickOpen}
       offline={offline}
-      selected={selected}
       sortable={{
         handleProps: { ...attributes, ...listeners },
         isDragging,
@@ -272,15 +264,11 @@ function SortableBoardCard({
 function SwimlaneColumnCell({
   band,
   column,
-  onQuickOpen,
   offline,
-  quickId,
 }: {
   band: Band;
   column: SwimlaneColumn;
-  onQuickOpen: (id: string) => void;
   offline?: boolean;
-  quickId: string | null;
 }) {
   const items = band.columns[column];
   if (items.length === 0) {
@@ -292,21 +280,9 @@ function SwimlaneColumnCell({
       {items.map((node) => (
         <li key={node.id}>
           {rankable ? (
-            <SortableBoardCard
-              node={node}
-              column={column}
-              onQuickOpen={onQuickOpen}
-              offline={offline}
-              selected={node.id === quickId}
-            />
+            <SortableBoardCard node={node} column={column} offline={offline} />
           ) : (
-            <BoardCard
-              node={node}
-              column={column}
-              onOpen={onQuickOpen}
-              offline={offline}
-              selected={node.id === quickId}
-            />
+            <BoardCard node={node} column={column} offline={offline} />
           )}
         </li>
       ))}
@@ -319,20 +295,6 @@ function SwimlaneColumnCell({
   ) : (
     list
   );
-}
-
-/** The selected quick-view node if it lives in this band — the drop-panel anchor. */
-function quickNodeInBand(band: Band, quickId: string | null): WireNode | undefined {
-  if (quickId === null) {
-    return undefined;
-  }
-  for (const column of SWIMLANE_COLUMNS) {
-    const found = band.columns[column].find((n) => n.id === quickId);
-    if (found !== undefined) {
-      return found;
-    }
-  }
-  return undefined;
 }
 
 /**
@@ -351,19 +313,11 @@ function hasSwimlaneCards(band: Band): boolean {
 function SwimlaneGrid({
   bands,
   spine,
-  onOpenNode,
-  onQuickOpen,
-  onQuickClose,
-  quickId,
   offline,
   headerCount,
 }: {
   bands: Band[];
   spine: boolean;
-  onOpenNode: (id: string) => void;
-  onQuickOpen: (id: string) => void;
-  onQuickClose: () => void;
-  quickId: string | null;
   offline?: boolean;
   headerCount: Record<SwimlaneColumn, number>;
 }) {
@@ -382,44 +336,21 @@ function SwimlaneGrid({
       {bands.length === 0 && (
         <p className="py-6 text-center text-tag text-ink-faint">Nothing on the board yet</p>
       )}
-      {bands.map((band, i) => {
-        const quickNode = quickNodeInBand(band, quickId);
-        return (
-          <div
-            key={band.key}
-            className={cn(
-              'grid items-start gap-3 py-3.5',
-              i < bands.length - 1 && 'border-b border-line',
-            )}
-            style={{ gridTemplateColumns: template }}
-          >
-            {spine && <BandSpine band={band} onOpenNode={onOpenNode} />}
-            {SWIMLANE_COLUMNS.map((column) => (
-              <SwimlaneColumnCell
-                key={column}
-                band={band}
-                column={column}
-                onQuickOpen={onQuickOpen}
-                offline={offline}
-                quickId={quickId}
-              />
-            ))}
-            {quickNode !== undefined && (
-              // The panel owns its 14px top gap (mt-3.5); `-mt-3` cancels the
-              // band grid's own 12px row-gap so the two don't stack to ~26px.
-              <div className="-mt-3" style={{ gridColumn: '1 / -1' }}>
-                <QuickViewPanel
-                  key={quickNode.id}
-                  node={quickNode}
-                  onClose={onQuickClose}
-                  onOpenNode={onOpenNode}
-                  offline={offline}
-                />
-              </div>
-            )}
-          </div>
-        );
-      })}
+      {bands.map((band, i) => (
+        <div
+          key={band.key}
+          className={cn(
+            'grid items-start gap-3 py-3.5',
+            i < bands.length - 1 && 'border-b border-line',
+          )}
+          style={{ gridTemplateColumns: template }}
+        >
+          {spine && <BandSpine band={band} />}
+          {SWIMLANE_COLUMNS.map((column) => (
+            <SwimlaneColumnCell key={column} band={band} column={column} offline={offline} />
+          ))}
+        </div>
+      ))}
     </div>
   );
 }
@@ -457,8 +388,8 @@ const BOARD_STATUS_ORDER: readonly BoardColumn[] = STATUS_ORDER.filter(isBoardCo
 /**
  * One inline band header above a status's card group (MMR-224). A lighter
  * anatomy than the desktop BandSpine: name + (∞ for standing bands) + hairline +
- * this status's count. No collapse affordance; a container band's name opens
- * the container's page (MMR-450).
+ * this status's count. No collapse affordance; a container band's name links
+ * to the container's page (MMR-450).
  */
 function MobileBandHeader({
   name,
@@ -466,7 +397,6 @@ function MobileBandHeader({
   count,
   first,
   containerId,
-  onOpenNode,
 }: {
   name: string;
   openEnded: boolean;
@@ -474,22 +404,18 @@ function MobileBandHeader({
   first: boolean;
   /** The container backing the band; absent for release and untagged bands. */
   containerId?: string;
-  onOpenNode: (id: string) => void;
 }) {
   return (
     <div className={cn('flex items-center gap-2 px-4 pb-2', first ? 'pt-0.5' : 'pt-3.5')}>
       {containerId === undefined ? (
         <span className="text-tag font-semibold text-ink-dim">{name}</span>
       ) : (
-        <button
-          type="button"
-          onClick={() => {
-            onOpenNode(containerId);
-          }}
+        <Link
+          {...nodeLink(containerId)}
           className="rounded-sm text-left text-tag font-semibold text-ink-dim transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
         >
           {name}
-        </button>
+        </Link>
       )}
       {openEnded && <span className="font-mono text-mono-id text-ink-faint">∞</span>}
       <span className="h-px flex-1 bg-line" />
@@ -606,9 +532,8 @@ function StatusSheetRow({
 }
 
 /**
- * The nine-word bottom sheet (mock 9a). A bespoke bottom-anchored dialog (not the
- * shared node drawer, whose `sm:` switch to a right rail would fire mid-range):
- * this stays bottom-anchored up to the `md` swimlane breakpoint. Dismiss on
+ * The nine-word bottom sheet (mock 9a). A bespoke bottom-anchored dialog that
+ * stays bottom-anchored up to the `md` swimlane breakpoint. Dismiss on
  * backdrop tap / Esc (Base UI defaults) or a downward swipe.
  */
 function StatusSheet({
@@ -671,47 +596,22 @@ function StatusSheet({
 }
 
 /**
- * The shelf's node, looked up across every board column (not just the selected
- * status). A transition that keeps the node on the board — start, submit,
- * return, park, block, even done within the 7-day window — keeps the shelf
- * open and live on the new status: act and see the result. The shelf closes
- * only when the node leaves the board data entirely (transitioned to
- * new/abandoned, done aged out of the window, or gone on refetch).
- */
-function boardNode(board: Board, id: string | null): WireNode | undefined {
-  if (id === null) {
-    return undefined;
-  }
-  for (const column of BOARD_COLUMNS) {
-    const found = board[column].find((n) => n.id === id);
-    if (found !== undefined) {
-      return found;
-    }
-  }
-  return undefined;
-}
-
-/**
  * The mobile board body (mock 9a): a single status control + nine-word sheet +
  * swipe paging, replacing the old six-tab switcher. The selected status's cards
  * are grouped by band (the shared buildBands model) under inline band headers;
  * swipe left/right pages across the board-status order; the control opens the
- * sheet. A card tap opens the mobile **shelf** (MMR-223/258) — a local
- * selection, not a page — whose own Open page ↗ routes through
- * onOpenNode; changing status (swipe or sheet) closes it. No drag-to-reorder
- * here — the surface is swipe-first.
+ * sheet. A card title links to the task's page. No drag-to-reorder here — the
+ * surface is swipe-first.
  */
 function MobileBoard({
   bandList,
   board,
   distribution,
-  onOpenNode,
   offline,
 }: {
   bandList: Band[];
   board: Board;
   distribution?: Distribution;
-  onOpenNode: (id: string) => void;
   offline?: boolean;
 }) {
   // Open on the first populated status in canonical order rather than a fixed
@@ -721,23 +621,12 @@ function MobileBoard({
     () => BOARD_STATUS_ORDER.find((column) => board[column].length > 0) ?? 'in_progress',
   );
   const [sheetOpen, setSheetOpen] = useState(false);
-  // The open shelf (MMR-258) — a local selection mirroring the desktop `quickId`
-  // idiom, deliberately not the `?node=` dossier address (see BoardView).
-  const [shelfId, setShelfId] = useState<string | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   const statusCount = (status: StatusWord): number =>
     isBoardColumn(status) ? board[status].length : (distribution?.[status] ?? 0);
 
   const bandsForStatus = bandList.filter((band) => band.columns[selected].length > 0);
-  const shelfNode = boardNode(board, shelfId);
-
-  // Changing the visible status page — by swipe or by the sheet — retires the
-  // shelf rather than leaving it pointing at a card that's no longer on screen.
-  function changeStatus(status: BoardColumn) {
-    setSelected(status);
-    setShelfId(null);
-  }
 
   function onTouchStart(e: React.TouchEvent) {
     const t = e.touches[0];
@@ -757,7 +646,7 @@ function MobileBoard({
       BOARD_STATUS_ORDER,
     );
     if (target !== null && isBoardColumn(target)) {
-      changeStatus(target);
+      setSelected(target);
     }
   }
 
@@ -789,35 +678,17 @@ function MobileBoard({
                   count={band.columns[selected].length}
                   first={i === 0}
                   containerId={bandContainerId(band)}
-                  onOpenNode={onOpenNode}
                 />
               )}
               <ol className="flex flex-col gap-2 px-4">
                 {band.columns[selected].map((node) => (
                   <li key={node.id}>
-                    <BoardCard
-                      node={node}
-                      column={selected}
-                      onOpen={setShelfId}
-                      offline={offline}
-                      mobile
-                    />
+                    <BoardCard node={node} column={selected} offline={offline} mobile />
                   </li>
                 ))}
               </ol>
             </section>
           ))
-        )}
-        {shelfNode !== undefined && (
-          <QuickShelf
-            key={shelfNode.id}
-            node={shelfNode}
-            onClose={() => {
-              setShelfId(null);
-            }}
-            onOpenNode={onOpenNode}
-            offline={offline}
-          />
         )}
       </div>
       <StatusSheet
@@ -825,7 +696,7 @@ function MobileBoard({
         onOpenChange={setSheetOpen}
         selected={selected}
         statusCount={statusCount}
-        onSelect={changeStatus}
+        onSelect={setSelected}
       />
     </div>
   );
@@ -834,18 +705,17 @@ function MobileBoard({
 /**
  * The board — the status lens. Drag-to-reorder (rankable columns, grip handle
  * only) runs `reorder`; status never changes by drag — transitions stay
- * explicit (the dossier's labeled verb chips). One DndContext spans the
+ * explicit (the record page's labeled actions). One DndContext spans the
  * board; a drop resolves within its source column.
  */
 export function BoardView({
+  projectKey,
   board,
   bands,
   tree,
-  onOpenNode,
   offline,
   distribution,
   doneTotal,
-  onViewDone,
 }: BoardViewProps) {
   const sensors = useSensors(useSensor(PointerSensor), useSensor(TouchSensor));
   const reorder = useReorder();
@@ -862,15 +732,6 @@ export function BoardView({
     in_progress: board.in_progress.length,
     ready: board.ready.length,
     under_review: board.under_review.length,
-  };
-
-  // The open quick view (MMR-223) — a single in-surface selection, not the
-  // `?node=` dossier address. Desktop renders it as a drop panel below the
-  // card's band row via this quickId; mobile owns an equivalent local shelfId
-  // inside MobileBoard (MMR-258) — the two surfaces never share selection.
-  const [quickId, setQuickId] = useState<string | null>(null);
-  const closeQuick = () => {
-    setQuickId(null);
   };
 
   function onDragEnd(event: DragEndEvent) {
@@ -905,17 +766,13 @@ export function BoardView({
           <SwimlaneGrid
             bands={swimlaneBands}
             spine={spine}
-            onOpenNode={onOpenNode}
-            onQuickOpen={setQuickId}
-            onQuickClose={closeQuick}
-            quickId={quickId}
             offline={offline}
             headerCount={headerCount}
           />
           <SwimlaneDoneFooter
+            projectKey={projectKey}
             shown={board.done.length}
             total={doneTotal}
-            onViewDone={onViewDone}
             spine={spine}
           />
         </div>
@@ -926,7 +783,6 @@ export function BoardView({
         bandList={bandList}
         board={board}
         distribution={distribution}
-        onOpenNode={onOpenNode}
         offline={offline}
       />
     </div>

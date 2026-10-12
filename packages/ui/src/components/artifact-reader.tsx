@@ -4,7 +4,7 @@ import { Link } from '@tanstack/react-router';
 import { artifactQuery, projectsQuery } from '../api/queries';
 import type { WireArtifactLink } from '../api/types';
 import { splitKindTags } from '../lib/artifacts';
-import { artifactLink } from '../lib/record-url';
+import { artifactLink, nodeLink } from '../lib/record-url';
 import { STATUS_META } from '../lib/status';
 import { calendarDate, shortDate } from '../lib/time';
 import { MarkdownBody } from './markdown-body';
@@ -31,17 +31,7 @@ function linkName(link: WireArtifactLink): string {
  * end). It is the artifacts browser's reading pane; Back returns to the list,
  * and the id opens the artifact's own page (MMR-452).
  */
-export function ArtifactReader({
-  id,
-  onBack,
-  onOpenNode,
-  onOpenProject,
-}: {
-  id: string;
-  onBack: () => void;
-  onOpenNode: (nodeId: string) => void;
-  onOpenProject: (key: string) => void;
-}) {
+export function ArtifactReader({ id, onBack }: { id: string; onBack: () => void }) {
   const artifact = useQuery(artifactQuery(id));
   const projects = useQuery(projectsQuery);
 
@@ -94,7 +84,7 @@ export function ArtifactReader({
         </div>
 
         {/* h2, not h1: the reader sits inline beside the master pane's page
-            h1 (same demotion the dossier uses for its on-screen title). */}
+            h1. */}
         <h2 className="max-w-[620px] text-[1.1875rem] leading-[1.35] font-bold text-ink-bright">
           {data?.title ?? id}
         </h2>
@@ -106,25 +96,20 @@ export function ArtifactReader({
             className="flex flex-wrap items-center gap-1.5 md:hidden"
             data-testid="provenance-chips"
           >
-            <button
-              type="button"
-              onClick={() => {
-                onOpenProject(data.project);
-              }}
+            <Link
+              to="/p/$key"
+              params={{ key: data.project }}
               aria-label={`Open project ${data.project}`}
               className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-accent/9 px-3.5 text-tag font-semibold text-accent-foreground inset-ring inset-ring-accent/20 transition-colors hover:bg-accent/15 focus-visible:outline-2 focus-visible:outline-accent"
             >
               <span className="font-mono">{data.project}</span>
               {projectTitle !== undefined && <span>{projectTitle}</span>}
               <span aria-hidden>→</span>
-            </button>
+            </Link>
             {links.map((link) => (
-              <button
+              <Link
                 key={link.id}
-                type="button"
-                onClick={() => {
-                  onOpenNode(link.id);
-                }}
+                {...nodeLink(link.id)}
                 aria-label={linkName(link)}
                 className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3.5 font-mono text-tag text-ink-dim inset-ring inset-ring-line-bright transition-colors hover:bg-well-800 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
               >
@@ -132,7 +117,7 @@ export function ArtifactReader({
                   <StatusDot status={link.status} className="size-1.5" />
                 )}
                 {link.id}
-              </button>
+              </Link>
             ))}
           </div>
         )}
@@ -155,12 +140,9 @@ export function ArtifactReader({
           <section className="flex flex-col gap-1.5">
             <h3 className="microlabel text-ink-faint">Linked nodes</h3>
             {links.map((link) => (
-              <button
+              <Link
                 key={link.id}
-                type="button"
-                onClick={() => {
-                  onOpenNode(link.id);
-                }}
+                {...nodeLink(link.id)}
                 aria-label={linkName(link)}
                 className="flex items-center gap-2 rounded-lg px-2.5 py-[7px] text-left inset-ring inset-ring-line-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
               >
@@ -171,7 +153,7 @@ export function ArtifactReader({
                 {link.title !== undefined && (
                   <span className="truncate text-[0.78125rem] text-ink">{link.title}</span>
                 )}
-              </button>
+              </Link>
             ))}
           </section>
         )}
@@ -179,11 +161,9 @@ export function ArtifactReader({
         {data !== undefined && (
           <section className="flex flex-col gap-1.5">
             <h3 className="microlabel text-ink-faint">Project</h3>
-            <button
-              type="button"
-              onClick={() => {
-                onOpenProject(data.project);
-              }}
+            <Link
+              to="/p/$key"
+              params={{ key: data.project }}
               aria-label={`Open project ${data.project}`}
               className="flex items-center gap-2 rounded-lg px-2.5 py-[7px] text-left inset-ring inset-ring-line-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
             >
@@ -194,7 +174,7 @@ export function ArtifactReader({
               <span aria-hidden className="ml-auto text-ink-faint">
                 →
               </span>
-            </button>
+            </Link>
           </section>
         )}
 

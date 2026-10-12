@@ -21,14 +21,10 @@ import { ActionButton } from './ui/action-button';
 import { Badge } from './ui/badge';
 
 /*
- * The pieces of a work node's record that the record pages and the dossier
- * overlay share: links to other records, the verdict block, the hold callout,
- * detail rows, a container's contents, and the edit and transition wiring.
+ * The pieces of a work node's record page: links to other records, the verdict
+ * block, the hold callout, detail rows, a container's contents, and the edit
+ * and transition wiring.
  */
-
-export function Microlabel({ children }: { children: ReactNode }) {
-  return <h3 className="microlabel text-ink-faint">{children}</h3>;
-}
 
 /** A link to another work node's page: status dot, id, and title. */
 export function RefRow({ refNode }: { refNode: NodeRef }) {
@@ -162,11 +158,6 @@ function dedupe(...lists: (readonly NodeRef[] | undefined)[]): NodeRef[] {
  */
 export function prerequisiteRows(deps: WireDeps): NodeRef[] {
   return dedupe(deps.depends_on, deps.awaiting_on);
-}
-
-/** The dossier's merged Blocking section: prerequisites, then the nodes waiting on this one. */
-export function blockingRows(deps: WireDeps): NodeRef[] {
-  return dedupe(deps.depends_on, deps.awaiting_on, deps.blocking);
 }
 
 /** Does the node carry any signal: open-ended, priority, size, staleness, or tags? */

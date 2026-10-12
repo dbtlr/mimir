@@ -14,7 +14,7 @@ says otherwise. For access from another device, pick a
 [network mode](../guides/port-and-proxy.md): `tailscale serve` keeps HTTPS and
 the installable PWA, and a reverse proxy does too.
 
-![Mimir project board with an active task dossier](../assets/console-project.png)
+![Mimir project board grouped into phase bands](../assets/console-project.png)
 
 ## Route attention from the overview
 
@@ -63,8 +63,9 @@ The board lives at `/p/MMR/board` and offers two views:
 - **Board** groups tasks into status lanes. Rank within Ready is the queue.
 - **Tree** preserves the initiative and phase hierarchy.
 
-Container names in the board's bands and the tree's headers open the
-container's page.
+Card titles, tree rows, and the container names in the board's bands and the
+tree's headers are links to their pages, so they open in a new tab or copy as
+links like any other link.
 
 ## Browse portfolio records
 

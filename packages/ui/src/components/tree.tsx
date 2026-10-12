@@ -1,10 +1,12 @@
 import type { Distribution, StatusWord } from '@mimir/contract';
+import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useTransition } from '../api/mutations';
 import type { WireTreeNode } from '../api/types';
 import { cn } from '../lib/cn';
+import { nodeLink } from '../lib/record-url';
 import { STATUS_META } from '../lib/status';
 import { transitionLabel } from '../lib/transitions';
 import { DistributionBar } from './distribution-bar';
@@ -16,21 +18,13 @@ import { Card } from './ui/card';
 /**
  * The tree lens — Meridian grouped panels (option 11a). Three flat visual
  * levels: initiative/standing section headers, phase panels, and leaf rows.
- * The `root` contract and `onOpenNode` callback are unchanged; `offline` inerts
+ * Container titles and leaf rows link to their record pages; `offline` inerts
  * the inline verdict buttons the same way every other write surface is gated.
  * Containers always read a distribution + interpreted word (never a bare
  * status); done phases fold to one recessed row and parked leaves fold to one
  * trailing row, both expandable in place (the note-expand height transition).
  */
-export function TreeView({
-  root,
-  onOpenNode,
-  offline,
-}: {
-  root: WireTreeNode;
-  onOpenNode: (id: string) => void;
-  offline?: boolean;
-}) {
+export function TreeView({ root, offline }: { root: WireTreeNode; offline?: boolean }) {
   if (root.children.length === 0) {
     return <p className="px-3 py-6 text-center text-xs text-ink-faint">An empty project.</p>;
   }
@@ -49,7 +43,7 @@ export function TreeView({
         <BareLeafPanel
           key={`t${String(key++)}`}
           tasks={run}
-          onOpenNode={onOpenNode}
+
           offline={offline}
         />,
       );
@@ -60,7 +54,7 @@ export function TreeView({
       taskRun.push(child);
     } else {
       flushTasks();
-      groups.push(<Group key={child.id} node={child} onOpenNode={onOpenNode} offline={offline} />);
+      groups.push(<Group key={child.id} node={child} offline={offline} />);
     }
   }
   flushTasks();
@@ -107,7 +101,7 @@ function leafCountSummary(dist: Distribution): string {
 
 /**
  * A container header's fold control: just the caret, so the title beside it
- * can open the container's page without nesting one button in another.
+ * can link to the container's page without nesting the link in a button.
  */
 function FoldButton({
   open,
@@ -137,27 +131,26 @@ function FoldButton({
   );
 }
 
-/** A container's title as the way to its page (MMR-450). */
-function TitleButton({
-  onOpen,
+/** A container's title as a link to its page (MMR-450). */
+function TitleLink({
+  id,
   className,
   children,
 }: {
-  onOpen: () => void;
+  id: string;
   className?: string;
   children: ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onOpen}
+    <Link
+      {...nodeLink(id)}
       className={cn(
         'flex min-w-0 items-center gap-2.5 rounded-sm text-left transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent',
         className,
       )}
     >
       {children}
-    </button>
+    </Link>
   );
 }
 
@@ -197,15 +190,7 @@ function Collapsible({ open, children }: { open: boolean; children: ReactNode })
  * ∞ / OPEN FOR FILING, neutral spine). Structurally identical — only the
  * header copy and spine hue differ; children render the same either way.
  */
-function Group({
-  node,
-  onOpenNode,
-  offline,
-}: {
-  node: WireTreeNode;
-  onOpenNode: (id: string) => void;
-  offline?: boolean;
-}) {
+function Group({ node, offline }: { node: WireTreeNode; offline?: boolean }) {
   const [open, setOpen] = useState(true);
   const standing = node.open_ended === true;
   const summary = leafCountSummary(node.distribution ?? {});
@@ -220,11 +205,7 @@ function Group({
             setOpen((v) => !v);
           }}
         />
-        <TitleButton
-          onOpen={() => {
-            onOpenNode(node.id);
-          }}
-        >
+        <TitleLink id={node.id}>
           <span
             className={cn('microlabel', standing ? 'text-ink-faint' : 'text-accent-foreground')}
           >
@@ -237,7 +218,7 @@ function Group({
             <span className="shrink-0 font-mono text-[12px] text-accent-foreground">∞</span>
           )}
           <span className="shrink-0 font-mono text-mono-id text-ink-faint">{node.id}</span>
-        </TitleButton>
+        </TitleLink>
         <span className="ml-auto flex shrink-0 items-center gap-2.5">
           {standing ? (
             <span className="microlabel text-accent-foreground">OPEN FOR FILING</span>
@@ -254,7 +235,7 @@ function Group({
             standing ? 'border-l border-line' : 'border-l-2 border-accent/20',
           )}
         >
-          <GroupChildren nodes={node.children} onOpenNode={onOpenNode} offline={offline} />
+          <GroupChildren nodes={node.children} offline={offline} />
         </div>
       )}
     </section>
@@ -266,15 +247,7 @@ function Group({
  * consecutive done phases fold into one recessed row, and runs of bare task
  * children collect into a headerless leaf panel.
  */
-function GroupChildren({
-  nodes,
-  onOpenNode,
-  offline,
-}: {
-  nodes: WireTreeNode[];
-  onOpenNode: (id: string) => void;
-  offline?: boolean;
-}) {
+function GroupChildren({ nodes, offline }: { nodes: WireTreeNode[]; offline?: boolean }) {
   const out: ReactNode[] = [];
   let taskRun: WireTreeNode[] = [];
   let doneRun: { node: WireTreeNode; ordinal: number }[] = [];
@@ -289,7 +262,7 @@ function GroupChildren({
         <BareLeafPanel
           key={`t${String(key++)}`}
           tasks={run}
-          onOpenNode={onOpenNode}
+
           offline={offline}
         />,
       );
@@ -303,7 +276,7 @@ function GroupChildren({
         <FoldedDonePhases
           key={`d${String(key++)}`}
           phases={run}
-          onOpenNode={onOpenNode}
+
           offline={offline}
         />,
       );
@@ -321,9 +294,7 @@ function GroupChildren({
         doneRun.push({ node: child, ordinal });
       } else {
         flushDone();
-        out.push(
-          <PhasePanel key={child.id} node={child} onOpenNode={onOpenNode} offline={offline} />,
-        );
+        out.push(<PhasePanel key={child.id} node={child} offline={offline} />);
       }
     }
   }
@@ -334,15 +305,7 @@ function GroupChildren({
 }
 
 /** A phase panel: health-readout header + its leaf rows (open by default). */
-function PhasePanel({
-  node,
-  onOpenNode,
-  offline,
-}: {
-  node: WireTreeNode;
-  onOpenNode: (id: string) => void;
-  offline?: boolean;
-}) {
+function PhasePanel({ node, offline }: { node: WireTreeNode; offline?: boolean }) {
   const [open, setOpen] = useState(true);
   const meta = STATUS_META[node.status];
 
@@ -358,93 +321,60 @@ function PhasePanel({
             setOpen((v) => !v);
           }}
         />
-        <TitleButton
-          onOpen={() => {
-            onOpenNode(node.id);
-          }}
-        >
+        <TitleLink id={node.id}>
           <span className="min-w-0 truncate text-body font-semibold text-ink-bright">
             {node.title}
           </span>
           <span className="shrink-0 font-mono text-mono-id text-ink-faint">{node.id}</span>
-        </TitleButton>
+        </TitleLink>
         <DistributionBar distribution={node.distribution ?? {}} className="ml-1.5 w-[120px]" />
         <span className={cn('microlabel ml-auto shrink-0', meta.text)}>
           {interpretedWord(node.status)}
         </span>
       </div>
-      {open && <LeafList tasks={node.children} onOpenNode={onOpenNode} offline={offline} />}
+      {open && <LeafList tasks={node.children} offline={offline} />}
     </Card>
   );
 }
 
 /** A headerless panel of leaf rows — a group whose children are tasks directly. */
-function BareLeafPanel({
-  tasks,
-  onOpenNode,
-  offline,
-}: {
-  tasks: WireTreeNode[];
-  onOpenNode: (id: string) => void;
-  offline?: boolean;
-}) {
+function BareLeafPanel({ tasks, offline }: { tasks: WireTreeNode[]; offline?: boolean }) {
   return (
     <Card className="overflow-hidden rounded-[12px]">
-      <LeafList tasks={tasks} onOpenNode={onOpenNode} offline={offline} />
+      <LeafList tasks={tasks} offline={offline} />
     </Card>
   );
 }
 
 /** Leaf rows with the panel's own parked children folded to one trailing row. */
-function LeafList({
-  tasks,
-  onOpenNode,
-  offline,
-}: {
-  tasks: WireTreeNode[];
-  onOpenNode: (id: string) => void;
-  offline?: boolean;
-}) {
+function LeafList({ tasks, offline }: { tasks: WireTreeNode[]; offline?: boolean }) {
   const parked = tasks.filter((t) => t.status === 'parked');
   const shown = tasks.filter((t) => t.status !== 'parked');
   return (
     <div>
       {shown.map((t) => (
-        <LeafRow key={t.id} node={t} onOpenNode={onOpenNode} offline={offline} />
+        <LeafRow key={t.id} node={t} offline={offline} />
       ))}
-      {parked.length > 0 && (
-        <FoldedParked tasks={parked} onOpenNode={onOpenNode} offline={offline} />
-      )}
+      {parked.length > 0 && <FoldedParked tasks={parked} offline={offline} />}
     </div>
   );
 }
 
 /**
- * A leaf task row. Clicking anywhere on the row (outside the inline verdict
- * buttons) opens the node. Under-review rows route to `UnderReviewLeafRow`,
+ * A leaf task row, a link to the task's page. Clicking anywhere on the row
+ * (outside the inline verdict buttons) opens it. Under-review rows route to `UnderReviewLeafRow`,
  * which layers the inline Approve/Return verdicts and the violet wash; keeping
  * the mutation hook there means the react-query observer only mounts on the
  * handful of rows that can actually mutate, not on every leaf in the tree.
  */
-function LeafRow({
-  node,
-  onOpenNode,
-  offline,
-}: {
-  node: WireTreeNode;
-  onOpenNode: (id: string) => void;
-  offline?: boolean;
-}) {
+function LeafRow({ node, offline }: { node: WireTreeNode; offline?: boolean }) {
   if (node.status === 'under_review') {
-    return <UnderReviewLeafRow node={node} onOpenNode={onOpenNode} offline={offline} />;
+    return <UnderReviewLeafRow node={node} offline={offline} />;
   }
   const meta = STATUS_META[node.status];
   return (
-    <button
-      type="button"
-      onClick={() => {
-        onOpenNode(node.id);
-      }}
+    <Link
+      {...nodeLink(node.id)}
       className="flex w-full items-center gap-2.5 border-b border-line px-4 py-[9px] text-left last:border-b-0 focus-visible:outline-2 focus-visible:outline-accent"
     >
       <StatusDot status={node.status} />
@@ -453,7 +383,7 @@ function LeafRow({
       </span>
       <span className="min-w-0 truncate text-body font-medium text-ink-bright">{node.title}</span>
       <span className={cn('microlabel ml-auto shrink-0', meta.text)}>{meta.label}</span>
-    </button>
+    </Link>
   );
 }
 
@@ -461,29 +391,18 @@ function LeafRow({
  * An under-review leaf row: the faint violet wash plus inline Approve (`done`)
  * / Request changes… (`return`, via the shared reason dialog), still showing the trailing
  * UNDER REVIEW word. The title cluster and the trailing status-word region are
- * each their own open target, so every part of the row outside the two verdict
- * buttons fires `onOpenNode`.
+ * each their own link to the task's page, so every part of the row outside the
+ * two verdict buttons opens it.
  */
-function UnderReviewLeafRow({
-  node,
-  onOpenNode,
-  offline,
-}: {
-  node: WireTreeNode;
-  onOpenNode: (id: string) => void;
-  offline?: boolean;
-}) {
+function UnderReviewLeafRow({ node, offline }: { node: WireTreeNode; offline?: boolean }) {
   const meta = STATUS_META[node.status];
   const { mutate } = useTransition(node.id);
   const [returning, setReturning] = useState(false);
 
   return (
     <div className="flex items-center gap-2.5 border-b border-line bg-attention/5 px-4 py-[9px] last:border-b-0">
-      <button
-        type="button"
-        onClick={() => {
-          onOpenNode(node.id);
-        }}
+      <Link
+        {...nodeLink(node.id)}
         className="flex min-w-0 items-center gap-2.5 text-left focus-visible:outline-2 focus-visible:outline-accent"
       >
         <StatusDot status={node.status} />
@@ -491,7 +410,7 @@ function UnderReviewLeafRow({
           {node.id}
         </span>
         <span className="min-w-0 truncate text-body font-medium text-ink-bright">{node.title}</span>
-      </button>
+      </Link>
       <div className="flex shrink-0 items-center gap-2">
         <ActionButton
           variant="attention"
@@ -514,16 +433,13 @@ function UnderReviewLeafRow({
           {transitionLabel('return')}…
         </ActionButton>
       </div>
-      <button
-        type="button"
+      <Link
+        {...nodeLink(node.id)}
         aria-label={`Open ${node.id}`}
-        onClick={() => {
-          onOpenNode(node.id);
-        }}
         className="ml-auto flex flex-1 items-center justify-end focus-visible:outline-2 focus-visible:outline-accent"
       >
         <span className={cn('microlabel shrink-0', meta.text)}>{meta.label}</span>
-      </button>
+      </Link>
       <ReasonDialog
         verb="return"
         open={returning}
@@ -545,11 +461,9 @@ function UnderReviewLeafRow({
  */
 function FoldedDonePhases({
   phases,
-  onOpenNode,
   offline,
 }: {
   phases: { node: WireTreeNode; ordinal: number }[];
-  onOpenNode: (id: string) => void;
   offline?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -579,7 +493,7 @@ function FoldedDonePhases({
       <Collapsible open={open}>
         <div className="flex flex-col gap-2.5 pt-2.5">
           {phases.map((p) => (
-            <PhasePanel key={p.node.id} node={p.node} onOpenNode={onOpenNode} offline={offline} />
+            <PhasePanel key={p.node.id} node={p.node} offline={offline} />
           ))}
         </div>
       </Collapsible>
@@ -588,15 +502,7 @@ function FoldedDonePhases({
 }
 
 /** A panel's parked leaves folded to one trailing `N parked · expand` row. */
-function FoldedParked({
-  tasks,
-  onOpenNode,
-  offline,
-}: {
-  tasks: WireTreeNode[];
-  onOpenNode: (id: string) => void;
-  offline?: boolean;
-}) {
+function FoldedParked({ tasks, offline }: { tasks: WireTreeNode[]; offline?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="border-b border-line last:border-b-0">
@@ -622,7 +528,7 @@ function FoldedParked({
       <Collapsible open={open}>
         <div className="border-t border-line">
           {tasks.map((t) => (
-            <LeafRow key={t.id} node={t} onOpenNode={onOpenNode} offline={offline} />
+            <LeafRow key={t.id} node={t} offline={offline} />
           ))}
         </div>
       </Collapsible>

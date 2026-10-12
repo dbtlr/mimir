@@ -1,5 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, vi } from 'vitest';
 
@@ -7,6 +7,7 @@ import type { WireTreeNode } from '../api/types';
 import { AuthoringSheet } from '../components/authoring-sheet';
 import type { AuthoringSheetProps } from '../components/authoring-sheet';
 import { project, task } from './fixtures';
+import { renderInRouter } from './router';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
@@ -67,25 +68,17 @@ function mockReads() {
   });
 }
 
-function renderSheet(props: Partial<AuthoringSheetProps> = {}) {
+async function renderSheet(props: Partial<AuthoringSheetProps> = {}) {
   mockReads();
   const onOpenChange = vi.fn();
-  const onOpenNode = vi.fn();
   const client = new QueryClient({
     defaultOptions: { queries: { refetchInterval: false, retry: false } },
   });
-  render(
-    <QueryClientProvider client={client}>
-      <AuthoringSheet
-        open
-        onOpenChange={onOpenChange}
-        projectKey="MMR"
-        onOpenNode={onOpenNode}
-        {...props}
-      />
-    </QueryClientProvider>,
+  const { router } = await renderInRouter(
+    <AuthoringSheet open onOpenChange={onOpenChange} projectKey="MMR" {...props} />,
+    client,
   );
-  return { onOpenChange, onOpenNode };
+  return { onOpenChange, router };
 }
 
 /** The sheet is interactable once the tree resolved into the HOME row. */
@@ -100,7 +93,7 @@ async function promoteReady() {
 
 describe('authoringSheet', () => {
   it('renders the 19a sheet: type selector, autofocused title, HOME, description, deps, signals, footer', async () => {
-    renderSheet();
+    await renderSheet();
     await sheetReady();
 
     expect(screen.getByText('New')).toBeInTheDocument();
@@ -128,7 +121,7 @@ describe('authoringSheet', () => {
 
   it('type governs legal homes: task → initiative+phase, phase → initiative, initiative → project', async () => {
     const user = userEvent.setup();
-    renderSheet();
+    await renderSheet();
     await sheetReady();
 
     // task: initiatives and phases
@@ -156,7 +149,7 @@ describe('authoringSheet', () => {
   it('creates a task, then applies DEPENDS-ON via /depend, and closes', async () => {
     const user = userEvent.setup();
     apiSend.mockResolvedValue({ id: 'MMR-99' });
-    const { onOpenChange } = renderSheet();
+    const { onOpenChange } = await renderSheet();
     await sheetReady();
 
     await user.type(screen.getByLabelText('Title'), 'Wire auth');
@@ -182,7 +175,7 @@ describe('authoringSheet', () => {
   it('a removed dep chip is not applied', async () => {
     const user = userEvent.setup();
     apiSend.mockResolvedValue({ id: 'MMR-99' });
-    renderSheet();
+    await renderSheet();
     await sheetReady();
 
     await user.type(screen.getByLabelText('Title'), 'Solo');
@@ -206,7 +199,7 @@ describe('authoringSheet', () => {
         ? Promise.resolve({ id: 'MMR-99' })
         : Promise.reject(new Error('would create a cycle')),
     );
-    const { onOpenChange } = renderSheet();
+    const { onOpenChange } = await renderSheet();
     await sheetReady();
 
     await user.type(screen.getByLabelText('Title'), 'Wire auth');
@@ -228,7 +221,7 @@ describe('authoringSheet', () => {
         ? Promise.resolve({ id: 'MMR-99' })
         : Promise.reject(new Error('would create a cycle')),
     );
-    const { onOpenChange, onOpenNode } = renderSheet();
+    const { onOpenChange, router } = await renderSheet();
     await sheetReady();
 
     await user.type(screen.getByLabelText('Title'), 'Wire auth');
@@ -248,9 +241,11 @@ describe('authoringSheet', () => {
     // …while the dep chips stay editable for the retry.
     expect(screen.getByLabelText('Remove dependency MMR-40')).toBeEnabled();
 
-    // "open it" routes to the created node without any further write.
-    await user.click(screen.getByRole('button', { name: 'open it' }));
-    expect(onOpenNode).toHaveBeenCalledWith('MMR-99');
+    // "open it" links to the created node's page without any further write.
+    const openIt = screen.getByRole('link', { name: 'open it' });
+    expect(openIt).toHaveAttribute('href', '/p/MMR/99');
+    await user.click(openIt);
+    await waitFor(() => expect(router.state.location.pathname).toBe('/p/MMR/99'));
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
@@ -266,7 +261,7 @@ describe('authoringSheet', () => {
         ? Promise.reject(new Error('would create a cycle'))
         : Promise.resolve({ id: 'MMR-99' });
     });
-    const { onOpenChange } = renderSheet();
+    const { onOpenChange } = await renderSheet();
     await sheetReady();
 
     await user.type(screen.getByLabelText('Title'), 'Wire auth');
@@ -288,7 +283,7 @@ describe('authoringSheet', () => {
 
   it('esc closes the innermost popup first — the HOME dropdown — not the sheet', async () => {
     const user = userEvent.setup();
-    const { onOpenChange } = renderSheet();
+    const { onOpenChange } = await renderSheet();
     await sheetReady();
 
     await user.type(screen.getByLabelText('Title'), 'Precious typing');
@@ -307,7 +302,7 @@ describe('authoringSheet', () => {
 
   it('links the HOME trigger to its listbox via aria-controls', async () => {
     const user = userEvent.setup();
-    renderSheet();
+    await renderSheet();
     await sheetReady();
 
     const trigger = screen.getByRole('button', { expanded: false, name: /home/i });
@@ -319,7 +314,7 @@ describe('authoringSheet', () => {
 
   it('esc closes the open DEPENDS-ON results list before the sheet', async () => {
     const user = userEvent.setup();
-    const { onOpenChange } = renderSheet();
+    const { onOpenChange } = await renderSheet();
     await sheetReady();
 
     await user.type(screen.getByRole('combobox'), 'auth');
@@ -332,7 +327,7 @@ describe('authoringSheet', () => {
 
   it('type segments follow the radiogroup pattern: arrows move selection, one tab stop', async () => {
     const user = userEvent.setup();
-    renderSheet();
+    await renderSheet();
     await sheetReady();
 
     const taskSegment = screen.getByRole('radio', { name: 'Task' });
@@ -356,7 +351,7 @@ describe('authoringSheet', () => {
 
   it('exposes the arrow-highlighted dep option to AT via aria-activedescendant', async () => {
     const user = userEvent.setup();
-    renderSheet();
+    await renderSheet();
     await sheetReady();
 
     const box = screen.getByRole('combobox');
@@ -376,7 +371,7 @@ describe('authoringSheet', () => {
   it('create another resets the form, refocuses the title, and stays open', async () => {
     const user = userEvent.setup();
     apiSend.mockResolvedValue({ id: 'MMR-99' });
-    const { onOpenChange } = renderSheet();
+    const { onOpenChange } = await renderSheet();
     await sheetReady();
 
     await user.click(screen.getByLabelText('create another'));
@@ -388,23 +383,23 @@ describe('authoringSheet', () => {
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 
-  it('create & open routes to the fresh node and closes', async () => {
+  it("create & open lands on the fresh node's page and closes", async () => {
     const user = userEvent.setup();
     apiSend.mockResolvedValue({ id: 'MMR-99' });
-    const { onOpenChange, onOpenNode } = renderSheet();
+    const { onOpenChange, router } = await renderSheet();
     await sheetReady();
 
     await user.type(screen.getByLabelText('Title'), 'Open me');
     await user.click(screen.getByRole('button', { name: 'Create & open' }));
 
-    await waitFor(() => expect(onOpenNode).toHaveBeenCalledWith('MMR-99'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/p/MMR/99'));
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it('creates a phase with type=phase and no task-only signal fields', async () => {
     const user = userEvent.setup();
     apiSend.mockResolvedValue({ id: 'MMR-50' });
-    renderSheet();
+    await renderSheet();
     await sheetReady();
 
     await user.click(screen.getByRole('radio', { name: 'Phase' }));
@@ -425,7 +420,7 @@ describe('authoringSheet', () => {
   it('creates an initiative homed on the bare project KEY', async () => {
     const user = userEvent.setup();
     apiSend.mockResolvedValue({ id: 'MMR-51' });
-    renderSheet();
+    await renderSheet();
     await sheetReady();
 
     await user.click(screen.getByRole('radio', { name: 'Initiative' }));
@@ -444,7 +439,7 @@ describe('authoringSheet', () => {
   it('signals expand to priority/size pills and tags; the picks ride the POST', async () => {
     const user = userEvent.setup();
     apiSend.mockResolvedValue({ id: 'MMR-99' });
-    renderSheet();
+    await renderSheet();
     await sheetReady();
 
     await user.type(screen.getByLabelText('Title'), 'Signal-rich');
@@ -469,20 +464,20 @@ describe('authoringSheet', () => {
   });
 
   it('offline disables both create buttons', async () => {
-    renderSheet({ offline: true });
+    await renderSheet({ offline: true });
     await sheetReady();
     expect(screen.getByRole('button', { name: 'Create ↵' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Create & open' })).toBeDisabled();
   });
 
   it('blocks create while the title is empty', async () => {
-    renderSheet();
+    await renderSheet();
     await sheetReady();
     expect(screen.getByRole('button', { name: 'Create ↵' })).toBeDisabled();
   });
 
   it('pre-fills title, description, and home for the promote seam (MMR-248)', async () => {
-    renderSheet({
+    await renderSheet({
       headerSlot: <span>Promote seed</span>,
       prefill: { description: 'From a seed.', home: 'MMR-7', title: 'Promoted' },
     });
@@ -495,7 +490,7 @@ describe('authoringSheet', () => {
 
   describe('promote mode (24a, MMR-248)', () => {
     it('locks the type, shows the provenance strip, and swaps the footer', async () => {
-      renderSheet({
+      await renderSheet({
         headerSlot: <span>Promote seed</span>,
         prefill: { title: 'Tree lens scroll' },
         promote: { kind: 'bug', seedId: 'MMR-s1' },
@@ -523,7 +518,7 @@ describe('authoringSheet', () => {
     it('submits to the promote endpoint with the edited body, never the create route', async () => {
       const user = userEvent.setup();
       apiSend.mockResolvedValue({ created: 'MMR-42', id: 'MMR-s1', lifecycle: 'promoted' });
-      const { onOpenChange } = renderSheet({
+      const { onOpenChange } = await renderSheet({
         headerSlot: <span>Promote seed</span>,
         prefill: { description: 'Repro steps.', title: 'Tree lens scroll' },
         promote: { kind: 'bug', seedId: 'MMR-s1' },
@@ -545,10 +540,10 @@ describe('authoringSheet', () => {
       await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
     });
 
-    it('promote & open routes to the spawned task and closes', async () => {
+    it("promote & open lands on the spawned task's page and closes", async () => {
       const user = userEvent.setup();
       apiSend.mockResolvedValue({ created: 'MMR-42', id: 'MMR-s1', lifecycle: 'promoted' });
-      const { onOpenChange, onOpenNode } = renderSheet({
+      const { onOpenChange, router } = await renderSheet({
         headerSlot: <span>Promote seed</span>,
         prefill: { title: 'Tree lens scroll' },
         promote: { kind: 'bug', seedId: 'MMR-s1' },
@@ -556,12 +551,12 @@ describe('authoringSheet', () => {
       await promoteReady();
 
       await user.click(screen.getByRole('button', { name: 'Promote & open' }));
-      await waitFor(() => expect(onOpenNode).toHaveBeenCalledWith('MMR-42'));
+      await waitFor(() => expect(router.state.location.pathname).toBe('/p/MMR/42'));
       expect(onOpenChange).toHaveBeenCalledWith(false);
     });
 
     it('suggests the lone standing home for a bug and labels it', async () => {
-      renderSheet({
+      await renderSheet({
         headerSlot: <span>Promote seed</span>,
         prefill: { title: 'x' },
         promote: { kind: 'bug', seedId: 'MMR-s1' },
@@ -573,7 +568,7 @@ describe('authoringSheet', () => {
     });
 
     it('offers no suggestion for a non-bug kind — silent first-home fallback', async () => {
-      renderSheet({
+      await renderSheet({
         headerSlot: <span>Promote seed</span>,
         prefill: { title: 'x' },
         promote: { kind: 'idea', seedId: 'MMR-s2' },
@@ -585,7 +580,7 @@ describe('authoringSheet', () => {
     });
 
     it('offers no suggestion when the project has no standing home, even for a bug', async () => {
-      renderSheet({
+      await renderSheet({
         headerSlot: <span>Promote seed</span>,
         prefill: { title: 'x' },
         projectKey: 'WEB',
@@ -603,7 +598,7 @@ describe('authoringSheet', () => {
           ? Promise.resolve({ created: 'MMR-42', id: 'MMR-s1', lifecycle: 'promoted' })
           : Promise.resolve({ id: 'MMR-42' }),
       );
-      const { onOpenChange } = renderSheet({
+      const { onOpenChange } = await renderSheet({
         headerSlot: <span>Promote seed</span>,
         prefill: { title: 'Tree lens scroll' },
         promote: { kind: 'bug', seedId: 'MMR-s1' },
@@ -638,7 +633,7 @@ describe('authoringSheet', () => {
           ? Promise.resolve({ created: 'MMR-42', id: 'MMR-s1', lifecycle: 'promoted' })
           : Promise.reject(new Error('would create a cycle')),
       );
-      const { onOpenChange } = renderSheet({
+      const { onOpenChange } = await renderSheet({
         headerSlot: <span>Promote seed</span>,
         prefill: { title: 'Tree lens scroll' },
         promote: { kind: 'bug', seedId: 'MMR-s1' },

@@ -250,7 +250,7 @@ export function TaskForm({
             </form.Field>
           </div>
 
-          {/* Tags — create and edit (MMR-257: the dossier's edit form is the
+          {/* Tags — create and edit (MMR-257: the task page's edit form is the
               tag-edit surface; the retired standalone TagEditor is gone) */}
           <div className="flex flex-col gap-1">
             <label htmlFor="task-form-tags" className="text-xs font-medium text-ink-dim">

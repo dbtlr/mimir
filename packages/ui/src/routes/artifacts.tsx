@@ -11,7 +11,6 @@ import { OfflineBanner } from '../components/offline-banner';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
-import { nodeLink } from '../lib/record-url';
 import { artifactsRoute } from '../router';
 
 const FILTER_KEYS = ['project', 'tag', 'q', 'atOrAfter', 'atOrBefore'] as const;
@@ -70,10 +69,6 @@ export function ArtifactsPage() {
   const back = () =>
     void navigate({ search: (prev) => ({ ...prev, a: undefined }), to: '/artifacts' });
 
-  const openNode = (nodeId: string) => void navigate(nodeLink(nodeId));
-
-  const openProject = (key: string) => void navigate({ params: { key }, to: '/p/$key' });
-
   const selected = search.a;
 
   return (
@@ -128,12 +123,7 @@ export function ArtifactsPage() {
           )}
         >
           {selected !== undefined ? (
-            <ArtifactReader
-              id={selected}
-              onBack={back}
-              onOpenNode={openNode}
-              onOpenProject={openProject}
-            />
+            <ArtifactReader id={selected} onBack={back} />
           ) : (
             <p className="hidden w-full items-center justify-center p-8 text-xs text-ink-faint md:flex">
               Select an artifact to read.

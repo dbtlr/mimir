@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router';
 import type { CSSProperties, ReactNode } from 'react';
 import { useState } from 'react';
 
@@ -5,6 +6,7 @@ import { useTransition } from '../api/mutations';
 import type { WireNode } from '../api/types';
 import type { BoardColumn } from '../lib/board';
 import { cn } from '../lib/cn';
+import { nodeLink } from '../lib/record-url';
 import { STATUS_META } from '../lib/status';
 import { transitionLabel } from '../lib/transitions';
 import { ReasonDialog } from './reason-dialog';
@@ -42,9 +44,9 @@ function ReleaseTag({ value }: { value: string }) {
  * One swimlane card (MMR-221 §2.5). Four treatments over one anatomy: the
  * default live card, the under-review verdict card (violet ring + Approve/
  * Return, wired to the real `done`/`return` verbs), the recessed Done card, and
- * the inline cold marker on a stale non-terminal card. The title opens the
- * drawer; a grip (rankable columns) is the sole drag source. Offline inerts the
- * verb buttons but never the open/drag affordances.
+ * the inline cold marker on a stale non-terminal card. The title links to the
+ * task's page; a grip (rankable columns) is the sole drag source. Offline inerts
+ * the verb buttons but never the link or drag affordances.
  *
  * `mobile` scales the anatomy up to the phone board's touch sizing (MMR-224):
  * 13×14 padding, radius 10, a 15px title, and a 44px min hit target — otherwise
@@ -53,19 +55,14 @@ function ReleaseTag({ value }: { value: string }) {
 export function BoardCard({
   node,
   column,
-  onOpen,
   offline,
   sortable,
-  selected,
   mobile,
 }: {
   node: WireNode;
   column: BoardColumn;
-  onOpen: (id: string) => void;
   offline?: boolean;
   sortable?: CardSortable;
-  /** The quick-view selection mark (MMR-223): a ring + a caret tying it to the drop panel below. */
-  selected?: boolean;
   /** The mobile board's touch sizing (MMR-224): >=44px targets, larger padding/radius. */
   mobile?: boolean;
 }) {
@@ -97,7 +94,7 @@ export function BoardCard({
       style={sortable?.style}
       className={cn(
         cardVariants({ variant: isDone ? 'recessed' : 'default' }),
-        'group relative flex flex-col gap-1.5 rounded-[9px] px-[13px] py-[11px] transition-colors',
+        'group flex flex-col gap-1.5 rounded-[9px] px-[13px] py-[11px] transition-colors',
         mobile && 'min-h-11 rounded-[10px] px-[14px] py-[13px]',
         !isDone && `border-l-2 ${STATUS_META[node.status].border}`,
         // The neutral hover border must not win over the verdict card's violet
@@ -105,25 +102,10 @@ export function BoardCard({
         !isDone && !isUnderReview && 'hover:border-line-bright',
         isUnderReview &&
           'border-attention/40 dark:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-attention)_10%,transparent)]',
-        // The quick-view selection ring (MMR-223): teal wash for any non-under-review
-        // status; under-review already carries its violet ring, so it's not restacked.
-        selected === true &&
-          !isUnderReview &&
-          'border-accent/40 dark:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-accent)_10%,transparent)]',
         isDone && 'opacity-80',
         sortable?.isDragging === true && 'opacity-50',
       )}
     >
-      {selected === true && (
-        <span
-          aria-hidden
-          style={{ bottom: '-15px' }}
-          className={cn(
-            'absolute left-1/2 h-0 w-0 -translate-x-1/2 border-x-8 border-x-transparent border-b-8',
-            isUnderReview ? 'border-b-attention/40' : 'border-b-accent/40',
-          )}
-        />
-      )}
       <div className="flex items-center justify-between gap-2">
         <span
           className={cn('font-mono text-mono-id', isDone ? 'text-ink-ghost' : 'text-ink-faint')}
@@ -142,11 +124,8 @@ export function BoardCard({
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={() => {
-          onOpen(node.id);
-        }}
+      <Link
+        {...nodeLink(node.id)}
         className="block w-full text-left focus-visible:outline-2 focus-visible:outline-accent"
       >
         <p
@@ -158,7 +137,7 @@ export function BoardCard({
         >
           {node.title}
         </p>
-      </button>
+      </Link>
 
       {(node.priority != null || node.size != null || tags.length > 0) && (
         <div className="flex flex-wrap items-center gap-1.5">

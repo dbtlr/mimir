@@ -1,7 +1,7 @@
 import type { StatusSelector, TaskStatusWord } from '@mimir/contract';
 import { STATUS_SELECTOR_VALUES } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 
 import { projectsQuery, taskCensusQuery, tasksQuery } from '../api/queries';
@@ -9,7 +9,6 @@ import type { TaskFilters } from '../api/queries';
 import type { WireNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { AuthoringSheet } from '../components/authoring-sheet';
-import { NodeDossier } from '../components/node-dossier';
 import { OfflineBanner } from '../components/offline-banner';
 import { PriorityBadge, SizeBadge } from '../components/signal-badges';
 import { StatusDot } from '../components/status-dot';
@@ -105,8 +104,8 @@ function HomeCell({ node }: { node: WireNode }) {
  * `/tasks` — the flat portfolio task browser (mock 17a, MMR-228): every task,
  * ever, across all projects, as a dense six-column table with terminal-word
  * filters, sorted by last activity (rank deliberately absent — order means
- * nothing across projects). Rows open the canonical dossier; the filter set
- * (`q`, `project`, `status`, `node`) is URL-addressable and echoed verbatim in
+ * nothing across projects). Rows link to each task's page; the filter set
+ * (`q`, `project`, `status`) is URL-addressable and echoed verbatim in
  * the footer. The escape hatch from every windowed/collapsed view (G15).
  */
 export function TasksPage() {
@@ -143,10 +142,6 @@ export function TasksPage() {
       },
       to: '/tasks',
     });
-
-  const openNode = (id: string) => void navigate(nodeLink(id));
-  const closeNode = () =>
-    void navigate({ search: (prev) => ({ ...prev, node: undefined }), to: '/tasks' });
 
   // Controlled + debounced search (the MMR-63 pattern): the box updates now, the
   // URL/query trails by the debounce; an external q change (Back/clear) re-syncs
@@ -435,25 +430,21 @@ export function TasksPage() {
                   const demoted = node.status === 'done' || node.status === 'abandoned';
                   const meta = STATUS_META[node.status];
                   return (
-                    <button
+                    <Link
                       key={node.id}
-                      type="button"
+                      {...nodeLink(node.id)}
                       // The whole row is the hit target AND the grid row: a native
-                      // button keeps focus/keyboard semantics while role="row" keeps
-                      // the columnheader↔cell association (the 17a a11y contract).
+                      // link keeps focus/keyboard semantics (and Cmd/middle-click,
+                      // copy-link) while role="row" keeps the columnheader↔cell
+                      // association (the 17a a11y contract).
                       // oxlint-disable-next-line jsx-a11y/no-interactive-element-to-noninteractive-role
                       role="row"
                       aria-label={`${meta.label} ${node.id} ${node.title}`}
-                      aria-current={search.node === node.id ? 'true' : undefined}
-                      onClick={() => {
-                        openNode(node.id);
-                      }}
                       className={cn(
                         'flex min-h-11 w-full flex-wrap items-center gap-x-3 gap-y-1 border-b border-line/50 px-5 py-[11px] text-left transition-colors md:min-h-0',
                         ROW_GRID,
                         'hover:bg-well-850 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
                         node.status === 'under_review' && 'bg-attention/3',
-                        search.node === node.id && 'bg-well-800 inset-ring inset-ring-line-bright',
                       )}
                     >
                       <span role="cell" className="flex items-center gap-2">
@@ -503,7 +494,7 @@ export function TasksPage() {
                       <span role="cell" className="text-mono-id text-ink-faint md:text-right">
                         {relativeTime(node.updated_at)}
                       </span>
-                    </button>
+                    </Link>
                   );
                 })}
               </div>
@@ -523,13 +514,7 @@ export function TasksPage() {
         </footer>
       </main>
 
-      <AuthoringSheet
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onOpenNode={openNode}
-        offline={conn.offline}
-      />
-      <NodeDossier nodeId={search.node} onClose={closeNode} offline={conn.offline} />
+      <AuthoringSheet open={createOpen} onOpenChange={setCreateOpen} offline={conn.offline} />
     </>
   );
 }

@@ -80,7 +80,7 @@ describe('attentionAlert (MMR-103/226)', () => {
     expect(screen.getByText('MMR-140')).toBeDefined();
   });
 
-  it("opens a task's page from its row", async () => {
+  it("a row is a real link to its task's page", async () => {
     apiGet.mockImplementation((path: string) => {
       if (path.includes('status=under_review')) {
         return Promise.resolve({
@@ -94,7 +94,10 @@ describe('attentionAlert (MMR-103/226)', () => {
     });
     const testRouter = renderApp();
     await userEvent.click(await screen.findByRole('button', { name: /1 for you/ }));
-    await userEvent.click(await screen.findByText('Doctor read-surface'));
+    const row = await screen.findByRole('menuitem', { name: /Doctor read-surface/ });
+    // A real link, so Cmd/middle-click and copy-link work (MMR-453).
+    expect(row).toHaveAttribute('href', '/p/MMR/140');
+    await userEvent.click(row);
     expect(testRouter.state.location.pathname).toBe('/p/MMR/140');
   });
 

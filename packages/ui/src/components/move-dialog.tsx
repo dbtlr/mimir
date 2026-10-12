@@ -9,7 +9,7 @@ import { parentOptions } from '../lib/parent-options';
 import { ActionButton } from './ui/action-button';
 
 /**
- * The reparent picker behind the dossier's "Move…" verb chip (gap 3). A minimal
+ * The reparent picker behind the task page's "Move…" action (gap 3). A minimal
  * dialog over `parentOptions()` + `useMoveNode` — the same plumbing the drawer's
  * inline edit-mode `<select>` used, promoted to a standalone verb. Confirming
  * fires the `move` verb (invalidate + refetch); no optimistic write.

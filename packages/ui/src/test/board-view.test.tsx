@@ -1,35 +1,17 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ReactNode } from 'react';
 import { describe, expect, vi } from 'vitest';
 
 import type { WireTreeNode } from '../api/types';
 import { BoardView, swipeTarget } from '../components/board';
 import { buildBoard } from '../lib/board';
 import { NOW, daysAgo, task } from './fixtures';
+import { renderInRouter } from './router';
 
 vi.mock('../api/mutations', () => ({
   useReorder: () => ({ mutate: vi.fn() }),
   useTransition: () => ({ mutate: vi.fn() }),
 }));
-
-// The quick view fetches the node's detail facet on open; resolve it so the
-// panel/shelf mount cleanly (the shell renders from the in-memory node anyway).
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend: vi.fn() }));
-apiGet.mockImplementation((path: string) =>
-  path.endsWith('/annotations')
-    ? Promise.resolve({ items: [], total: 0 })
-    : Promise.resolve({ description: null }),
-);
-
-function wrapper({ children }: { children: ReactNode }) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { refetchInterval: false, retry: false } },
-  });
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
-}
 
 /** The desktop swimlane container — the surface under test (mobile is a separate branch). */
 function swimlane(): HTMLElement {
@@ -37,7 +19,7 @@ function swimlane(): HTMLElement {
 }
 
 describe('boardView — swimlane', () => {
-  it('cards land in their status column, Ready in the given order', () => {
+  it('cards land in their status column, Ready in the given order', async () => {
     const board = buildBoard(
       [
         task({ id: 'MMR-9', status: 'ready', title: 'queued first' }),
@@ -48,16 +30,7 @@ describe('boardView — swimlane', () => {
       [task({ completed_at: daysAgo(2), id: 'MMR-50', status: 'done', title: 'shipped' })],
       NOW,
     );
-    render(
-      <BoardView
-        board={board}
-        bands="off"
-        onOpenNode={vi.fn()}
-        doneTotal={1}
-        onViewDone={vi.fn()}
-      />,
-      { wrapper },
-    );
+    await renderInRouter(<BoardView board={board} bands="off" doneTotal={1} projectKey="MMR" />);
 
     const ready = within(swimlane()).getByRole('list', { name: 'Ready' });
     const readyIds = within(ready)
@@ -78,7 +51,7 @@ describe('boardView — swimlane', () => {
     ).toBeDefined();
   });
 
-  it('groups band rows by nearest phase/initiative in Phase mode', () => {
+  it('groups band rows by nearest phase/initiative in Phase mode', async () => {
     const tree = {
       children: [
         {
@@ -100,22 +73,14 @@ describe('boardView — swimlane', () => {
       type: 'project',
     } as unknown as WireTreeNode;
     const board = buildBoard([task({ id: 'MMR-9', status: 'ready', title: 'phased' })], [], NOW);
-    render(
-      <BoardView
-        board={board}
-        bands="phase"
-        tree={tree}
-        onOpenNode={vi.fn()}
-        doneTotal={0}
-        onViewDone={vi.fn()}
-      />,
-      { wrapper },
+    await renderInRouter(
+      <BoardView board={board} bands="phase" tree={tree} doneTotal={0} projectKey="MMR" />,
     );
     // The band spine names the phase container.
     expect(within(swimlane()).getByText('Phase A')).toBeDefined();
   });
 
-  it("opens a phase band's container page from its spine and phone header (MMR-450)", async () => {
+  it("links a phase band's spine and phone header to the container's page (MMR-450)", async () => {
     const tree = {
       children: [
         {
@@ -130,27 +95,20 @@ describe('boardView — swimlane', () => {
       type: 'project',
     } as unknown as WireTreeNode;
     const board = buildBoard([task({ id: 'MMR-9', status: 'ready', title: 'phased' })], [], NOW);
-    const onOpen = vi.fn();
-    render(
-      <BoardView
-        board={board}
-        bands="phase"
-        tree={tree}
-        onOpenNode={onOpen}
-        doneTotal={0}
-        onViewDone={vi.fn()}
-      />,
-      { wrapper },
+    await renderInRouter(
+      <BoardView board={board} bands="phase" tree={tree} doneTotal={0} projectKey="MMR" />,
     );
 
-    await userEvent.click(within(swimlane()).getByRole('button', { name: /Phase A/ }));
-    await userEvent.click(
-      within(screen.getByTestId('mobile-board')).getByRole('button', { name: /Phase A/ }),
+    expect(within(swimlane()).getByRole('link', { name: /Phase A/ })).toHaveAttribute(
+      'href',
+      '/p/MMR/2',
     );
-    expect(onOpen.mock.calls).toStrictEqual([['MMR-2'], ['MMR-2']]);
+    expect(
+      within(screen.getByTestId('mobile-board')).getByRole('link', { name: /Phase A/ }),
+    ).toHaveAttribute('href', '/p/MMR/2');
   });
 
-  it('the HELD ledge counts parked/blocked/awaiting project-wide', () => {
+  it('the HELD ledge counts parked/blocked/awaiting project-wide', async () => {
     const board = buildBoard(
       [
         task({ id: 'MMR-1', status: 'parked' }),
@@ -161,16 +119,7 @@ describe('boardView — swimlane', () => {
       [],
       NOW,
     );
-    render(
-      <BoardView
-        board={board}
-        bands="off"
-        onOpenNode={vi.fn()}
-        doneTotal={0}
-        onViewDone={vi.fn()}
-      />,
-      { wrapper },
-    );
+    await renderInRouter(<BoardView board={board} bands="off" doneTotal={0} projectKey="MMR" />);
     const held = within(swimlane()).getByText('HELD').parentElement as HTMLElement;
     expect(within(held).getByText('Parked').parentElement?.textContent).toContain('1');
     // Blocked carries the red wash when it holds work.
@@ -179,27 +128,18 @@ describe('boardView — swimlane', () => {
     expect(blocked.parentElement?.textContent).toContain('2');
   });
 
-  it('an under-review card exposes the verdict affordance', () => {
+  it('an under-review card exposes the verdict affordance', async () => {
     const board = buildBoard(
       [task({ id: 'MMR-3', status: 'under_review', title: 'awaiting sign-off' })],
       [],
       NOW,
     );
-    render(
-      <BoardView
-        board={board}
-        bands="off"
-        onOpenNode={vi.fn()}
-        doneTotal={0}
-        onViewDone={vi.fn()}
-      />,
-      { wrapper },
-    );
+    await renderInRouter(<BoardView board={board} bands="off" doneTotal={0} projectKey="MMR" />);
     expect(within(swimlane()).getByText('NEEDS VERDICT')).toBeDefined();
     expect(within(swimlane()).getByText('Approve')).toBeDefined();
   });
 
-  it('swipeTarget pages the full board-status order; ends and weak/vertical swipes are no-ops', () => {
+  it('swipeTarget pages the full board-status order; ends and weak/vertical swipes are no-ops', async () => {
     // The mobile board pages this canonical order (STATUS_ORDER minus new/abandoned).
     const order = ['in_progress', 'under_review', 'ready', 'awaiting', 'blocked', 'parked', 'done'];
     expect(swipeTarget('in_progress', -150, 10, order)).toBe('under_review'); // left → next
@@ -211,43 +151,30 @@ describe('boardView — swimlane', () => {
     expect(swipeTarget('ready', -150, 200, order)).toBeNull(); // vertical-dominant
   });
 
-  it('clicking a card opens the quick view, not the dossier (MMR-223)', async () => {
-    const onOpen = vi.fn();
+  it("a card's title is a real link to the task's page (MMR-453)", async () => {
     const board = buildBoard([task({ id: 'MMR-8', status: 'ready', title: 'open me' })], [], NOW);
-    render(
-      <BoardView
-        board={board}
-        bands="off"
-        onOpenNode={onOpen}
-        doneTotal={0}
-        onViewDone={vi.fn()}
-      />,
-      { wrapper },
+    const { router } = await renderInRouter(
+      <BoardView board={board} bands="off" doneTotal={0} projectKey="MMR" />,
     );
-    const title = within(swimlane()).getByText('open me').closest('button');
-    await userEvent.click(title as HTMLElement);
-    // The card selects into the drop panel — it does not route to `?node=`.
-    expect(onOpen).not.toHaveBeenCalled();
-    expect(within(swimlane()).getByTestId('quick-panel')).toBeDefined();
+    const link = within(swimlane()).getByRole('link', { name: 'open me' });
+    expect(link).toHaveAttribute('href', '/p/MMR/8');
+    await userEvent.click(link);
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/p/MMR/8');
+    });
   });
 
-  it("the drop panel's Open page link routes via onOpenNode (MMR-223)", async () => {
-    const onOpen = vi.fn();
-    const board = buildBoard([task({ id: 'MMR-8', status: 'ready', title: 'open me' })], [], NOW);
-    render(
-      <BoardView
-        board={board}
-        bands="off"
-        onOpenNode={onOpen}
-        doneTotal={0}
-        onViewDone={vi.fn()}
-      />,
-      { wrapper },
+  it("Done's drill-through links to the project's done tasks", async () => {
+    const board = buildBoard(
+      [],
+      [task({ completed_at: daysAgo(1), id: 'MMR-50', status: 'done', title: 'shipped' })],
+      NOW,
     );
-    const title = within(swimlane()).getByText('open me').closest('button');
-    await userEvent.click(title as HTMLElement);
-    await userEvent.click(within(swimlane()).getByText('Open page ↗'));
-    expect(onOpen).toHaveBeenCalledWith('MMR-8');
+    await renderInRouter(<BoardView board={board} bands="off" doneTotal={3} projectKey="MMR" />);
+    expect(within(swimlane()).getByRole('link', { name: '1 of 3 recent · all →' })).toHaveAttribute(
+      'href',
+      '/tasks?project=MMR&status=done',
+    );
   });
 });
 
@@ -257,7 +184,7 @@ function mobile(): HTMLElement {
 }
 
 describe('boardView — mobile board (mock 9a)', () => {
-  it('the status control opens the nine-word sheet with Done·7d and census-only new/abandoned', () => {
+  it('the status control opens the nine-word sheet with Done·7d and census-only new/abandoned', async () => {
     const board = buildBoard(
       [
         task({ id: 'MMR-2', status: 'in_progress', title: 'building' }),
@@ -266,16 +193,14 @@ describe('boardView — mobile board (mock 9a)', () => {
       [],
       NOW,
     );
-    render(
+    await renderInRouter(
       <BoardView
         board={board}
         bands="off"
-        onOpenNode={vi.fn()}
         doneTotal={0}
-        onViewDone={vi.fn()}
+        projectKey="MMR"
         distribution={{ abandoned: 2, in_progress: 1, new: 5, ready: 1 }}
       />,
-      { wrapper },
     );
     // The control names the default status + its live count.
     const control = within(mobile()).getByRole('button', { name: /In progress/ });
@@ -292,7 +217,7 @@ describe('boardView — mobile board (mock 9a)', () => {
     expect(newRow?.textContent).toContain('5');
   });
 
-  it('selecting a sheet row re-renders the body for that status', () => {
+  it('selecting a sheet row re-renders the body for that status', async () => {
     const board = buildBoard(
       [
         task({ id: 'MMR-2', status: 'in_progress', title: 'building' }),
@@ -301,16 +226,7 @@ describe('boardView — mobile board (mock 9a)', () => {
       [],
       NOW,
     );
-    render(
-      <BoardView
-        board={board}
-        bands="off"
-        onOpenNode={vi.fn()}
-        doneTotal={0}
-        onViewDone={vi.fn()}
-      />,
-      { wrapper },
-    );
+    await renderInRouter(<BoardView board={board} bands="off" doneTotal={0} projectKey="MMR" />);
     fireEvent.click(within(mobile()).getByRole('button', { name: /In progress/ }));
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /Ready/ }));
     // The body swapped: the Ready card shows, the In-progress card is gone.
@@ -318,7 +234,7 @@ describe('boardView — mobile board (mock 9a)', () => {
     expect(within(mobile()).queryByText('building')).toBeNull();
   });
 
-  it('renders an inline band header per band: name, ∞ for standing bands, and the card', () => {
+  it('renders an inline band header per band: name, ∞ for standing bands, and the card', async () => {
     const tree = {
       children: [
         {
@@ -338,16 +254,8 @@ describe('boardView — mobile board (mock 9a)', () => {
       [],
       NOW,
     );
-    render(
-      <BoardView
-        board={board}
-        bands="phase"
-        tree={tree}
-        onOpenNode={vi.fn()}
-        doneTotal={0}
-        onViewDone={vi.fn()}
-      />,
-      { wrapper },
+    await renderInRouter(
+      <BoardView board={board} bands="phase" tree={tree} doneTotal={0} projectKey="MMR" />,
     );
     const body = mobile();
     expect(within(body).getByText('Phase A')).toBeDefined();
@@ -355,61 +263,34 @@ describe('boardView — mobile board (mock 9a)', () => {
     expect(within(body).getByText('phased')).toBeDefined();
   });
 
-  it('falls back to the empty state on an empty board', () => {
+  it('falls back to the empty state on an empty board', async () => {
     const board = buildBoard([], [], NOW);
-    render(
-      <BoardView
-        board={board}
-        bands="off"
-        onOpenNode={vi.fn()}
-        doneTotal={0}
-        onViewDone={vi.fn()}
-      />,
-      { wrapper },
-    );
+    await renderInRouter(<BoardView board={board} bands="off" doneTotal={0} projectKey="MMR" />);
     // No cards anywhere: selection falls back to In progress and shows its empty copy.
     expect(within(mobile()).getByText(/Nothing in progress/i)).toBeDefined();
   });
 
-  it('opens on the first populated status when in-progress is empty', () => {
+  it('opens on the first populated status when in-progress is empty', async () => {
     // Delta Records shape: work exists only in held/terminal columns, not in-progress.
     const board = buildBoard(
       [task({ id: 'MMR-3', status: 'parked', title: 'shelved for now' })],
       [task({ completed_at: daysAgo(1), id: 'MMR-4', status: 'done', title: 'shipped' })],
       NOW,
     );
-    render(
-      <BoardView
-        board={board}
-        bands="off"
-        onOpenNode={vi.fn()}
-        doneTotal={1}
-        onViewDone={vi.fn()}
-      />,
-      { wrapper },
-    );
+    await renderInRouter(<BoardView board={board} bands="off" doneTotal={1} projectKey="MMR" />);
     // Lands on Parked (first populated in canonical order), not an empty In progress.
     expect(within(mobile()).getByRole('button', { name: /Parked/ })).toBeDefined();
     expect(within(mobile()).getByText('shelved for now')).toBeDefined();
     expect(within(mobile()).queryByText(/Nothing/i)).toBeNull();
   });
 
-  it('the status control announces itself as a dialog trigger to assistive tech', () => {
+  it('the status control announces itself as a dialog trigger to assistive tech', async () => {
     const board = buildBoard(
       [task({ id: 'MMR-2', status: 'in_progress', title: 'building' })],
       [],
       NOW,
     );
-    render(
-      <BoardView
-        board={board}
-        bands="off"
-        onOpenNode={vi.fn()}
-        doneTotal={0}
-        onViewDone={vi.fn()}
-      />,
-      { wrapper },
-    );
+    await renderInRouter(<BoardView board={board} bands="off" doneTotal={0} projectKey="MMR" />);
     const control = within(mobile()).getByRole('button', { name: /In progress/ });
     expect(control.getAttribute('aria-haspopup')).toBe('dialog');
     expect(control.getAttribute('aria-expanded')).toBe('false');
@@ -417,133 +298,20 @@ describe('boardView — mobile board (mock 9a)', () => {
     expect(control.getAttribute('aria-expanded')).toBe('true');
   });
 
-  it('a card tap opens the mobile shelf, not the dossier (MMR-258)', () => {
-    const onOpen = vi.fn();
+  it("a card's title links to the task's page on the phone board (MMR-453)", async () => {
     const board = buildBoard(
       [task({ id: 'MMR-8', status: 'in_progress', title: 'open me mobile' })],
       [],
       NOW,
     );
-    render(
-      <BoardView
-        board={board}
-        bands="off"
-        onOpenNode={onOpen}
-        doneTotal={0}
-        onViewDone={vi.fn()}
-      />,
-      { wrapper },
+    await renderInRouter(<BoardView board={board} bands="off" doneTotal={0} projectKey="MMR" />);
+    expect(within(mobile()).getByRole('link', { name: 'open me mobile' })).toHaveAttribute(
+      'href',
+      '/p/MMR/8',
     );
-    fireEvent.click(within(mobile()).getByText('open me mobile').closest('button') as HTMLElement);
-    expect(onOpen).not.toHaveBeenCalled();
-    expect(within(mobile()).getByTestId('quick-shelf')).toBeDefined();
   });
 
-  it("the shelf's Open page ↗ routes via onOpenNode (MMR-258)", async () => {
-    const onOpen = vi.fn();
-    const board = buildBoard(
-      [task({ id: 'MMR-8', status: 'in_progress', title: 'open me mobile' })],
-      [],
-      NOW,
-    );
-    render(
-      <BoardView
-        board={board}
-        bands="off"
-        onOpenNode={onOpen}
-        doneTotal={0}
-        onViewDone={vi.fn()}
-      />,
-      { wrapper },
-    );
-    fireEvent.click(within(mobile()).getByText('open me mobile').closest('button') as HTMLElement);
-    await userEvent.click(within(screen.getByTestId('quick-shelf')).getByText('Open page ↗'));
-    expect(onOpen).toHaveBeenCalledWith('MMR-8');
-  });
-
-  it('the shelf closes when the status page changes (MMR-258)', () => {
-    const board = buildBoard(
-      [
-        task({ id: 'MMR-8', status: 'in_progress', title: 'open me mobile' }),
-        task({ id: 'MMR-9', status: 'ready', title: 'queued' }),
-      ],
-      [],
-      NOW,
-    );
-    render(
-      <BoardView
-        board={board}
-        bands="off"
-        onOpenNode={vi.fn()}
-        doneTotal={0}
-        onViewDone={vi.fn()}
-      />,
-      { wrapper },
-    );
-    fireEvent.click(within(mobile()).getByText('open me mobile').closest('button') as HTMLElement);
-    expect(within(mobile()).getByTestId('quick-shelf')).toBeDefined();
-    fireEvent.click(within(mobile()).getByRole('button', { name: /In progress/ }));
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /Ready/ }));
-    expect(within(mobile()).queryByTestId('quick-shelf')).toBeNull();
-  });
-
-  it('a swipe to another status page also closes the shelf (MMR-258)', () => {
-    const board = buildBoard(
-      [task({ id: 'MMR-8', status: 'in_progress', title: 'open me mobile' })],
-      [],
-      NOW,
-    );
-    render(
-      <BoardView
-        board={board}
-        bands="off"
-        onOpenNode={vi.fn()}
-        doneTotal={0}
-        onViewDone={vi.fn()}
-      />,
-      { wrapper },
-    );
-    const card = within(mobile()).getByText('open me mobile').closest('button') as HTMLElement;
-    fireEvent.click(card);
-    expect(within(mobile()).getByTestId('quick-shelf')).toBeDefined();
-    // A left swipe on the card list (bubbling to the board's swipe handler)
-    // pages in_progress → under_review; the page change retires the shelf.
-    fireEvent.touchStart(card, { touches: [{ clientX: 220, clientY: 100 }] });
-    fireEvent.touchEnd(card, { changedTouches: [{ clientX: 60, clientY: 108 }] });
-    expect(within(mobile()).getByRole('button', { name: /Under review/ })).toBeDefined();
-    expect(within(mobile()).queryByTestId('quick-shelf')).toBeNull();
-  });
-
-  it('the shelf unmounts when its node vanishes from the board data (MMR-258)', () => {
-    const props = {
-      bands: 'off',
-      doneTotal: 0,
-      onOpenNode: vi.fn(),
-      onViewDone: vi.fn(),
-    } as const;
-    const board = buildBoard(
-      [
-        task({ id: 'MMR-8', status: 'in_progress', title: 'open me mobile' }),
-        task({ id: 'MMR-9', status: 'in_progress', title: 'stays behind' }),
-      ],
-      [],
-      NOW,
-    );
-    const { rerender } = render(<BoardView board={board} {...props} />, { wrapper });
-    fireEvent.click(within(mobile()).getByText('open me mobile').closest('button') as HTMLElement);
-    expect(within(mobile()).getByTestId('quick-shelf')).toBeDefined();
-    // The node leaves the board data entirely (e.g. abandoned on refetch):
-    // boardNode resolves nothing and the shelf unmounts.
-    const withoutNode = buildBoard(
-      [task({ id: 'MMR-9', status: 'in_progress', title: 'stays behind' })],
-      [],
-      NOW,
-    );
-    rerender(<BoardView board={withoutNode} {...props} />);
-    expect(within(mobile()).queryByTestId('quick-shelf')).toBeNull();
-  });
-
-  it('names the band of loose tasks without a way to a page (MMR-450)', () => {
+  it('names the band of loose tasks without a way to a page (MMR-450)', async () => {
     const tree = {
       children: [{ children: [], id: 'MMR-9', title: 't', type: 'task' }],
       id: 'MMR',
@@ -551,22 +319,14 @@ describe('boardView — mobile board (mock 9a)', () => {
       type: 'project',
     } as unknown as WireTreeNode;
     const board = buildBoard([task({ id: 'MMR-9', status: 'ready', title: 'loose' })], [], NOW);
-    render(
-      <BoardView
-        board={board}
-        bands="phase"
-        tree={tree}
-        onOpenNode={vi.fn()}
-        doneTotal={0}
-        onViewDone={vi.fn()}
-      />,
-      { wrapper },
+    await renderInRouter(
+      <BoardView board={board} bands="phase" tree={tree} doneTotal={0} projectKey="MMR" />,
     );
 
     expect(within(swimlane()).getByText('Mimir')).toBeDefined();
-    expect(within(swimlane()).queryByRole('button', { name: 'Mimir' })).toBeNull();
+    expect(within(swimlane()).queryByRole('link', { name: 'Mimir' })).toBeNull();
     expect(
-      within(screen.getByTestId('mobile-board')).queryByRole('button', { name: 'Mimir' }),
+      within(screen.getByTestId('mobile-board')).queryByRole('link', { name: 'Mimir' }),
     ).toBeNull();
   });
 });
