@@ -179,6 +179,21 @@ const notFoundRoute = createRoute({
   path: '$',
 });
 
+/**
+ * One URL search value as text: a non-empty string stays, a finite number
+ * (the router JSON-parses `?q=2026`) means the text it was typed as, and
+ * anything else — including an empty value — is absent. The router lays the
+ * validated object over the raw params, so every `validateSearch` assigns each
+ * of its keys through this (an explicit `undefined` overwrites the raw value;
+ * leaving the key out would let it leak through).
+ */
+function textParam(value: unknown): string | undefined {
+  if (typeof value === 'string' && value !== '') {
+    return value;
+  }
+  return typeof value === 'number' && Number.isFinite(value) ? String(value) : undefined;
+}
+
 export type ArtifactsSearch = {
   project?: string;
   tag?: string;
@@ -191,16 +206,13 @@ export const artifactsRoute = createRoute({
   component: ArtifactsPage,
   getParentRoute: () => rootRoute,
   path: '/artifacts',
-  validateSearch: (search: Record<string, unknown>): ArtifactsSearch => {
-    const out: ArtifactsSearch = {};
-    for (const k of ['project', 'tag', 'q', 'atOrAfter', 'atOrBefore'] as const) {
-      const v = search[k];
-      if (typeof v === 'string' && v !== '') {
-        out[k] = v;
-      }
-    }
-    return out;
-  },
+  validateSearch: (search: Record<string, unknown>): ArtifactsSearch => ({
+    atOrAfter: textParam(search.atOrAfter),
+    atOrBefore: textParam(search.atOrBefore),
+    project: textParam(search.project),
+    q: textParam(search.q),
+    tag: textParam(search.tag),
+  }),
 });
 
 export type TasksSearch = {
@@ -215,20 +227,13 @@ export const tasksRoute = createRoute({
   component: TasksPage,
   getParentRoute: () => rootRoute,
   path: '/tasks',
-  validateSearch: (search: Record<string, unknown>): TasksSearch => {
-    const out: TasksSearch = {};
-    for (const k of ['project', 'status', 'q'] as const) {
-      const v = search[k];
-      if (typeof v === 'string' && v !== '') {
-        out[k] = v;
-      }
-    }
+  validateSearch: (search: Record<string, unknown>): TasksSearch => ({
     // `status` grouping is the default and stays out of the URL; any other value drops.
-    if (search.group === 'project') {
-      out.group = 'project';
-    }
-    return out;
-  },
+    group: search.group === 'project' ? 'project' : undefined,
+    project: textParam(search.project),
+    q: textParam(search.q),
+    status: textParam(search.status),
+  }),
 });
 
 export type DoctorSearch = {
@@ -258,19 +263,11 @@ export const seedsRoute = createRoute({
   component: SeedsPage,
   getParentRoute: () => rootRoute,
   path: '/seeds',
-  validateSearch: (search: Record<string, unknown>): SeedsSearch => {
-    const out: SeedsSearch = {};
-    for (const k of ['project', 'q'] as const) {
-      const v = search[k];
-      if (typeof v === 'string' && v !== '') {
-        out[k] = v;
-      }
-    }
-    // Router search is merged over the raw params, so an invalid kind must be
-    // overwritten with an explicit `undefined`, not just left out.
-    out.kind = isSeedKind(search.kind) ? search.kind : undefined;
-    return out;
-  },
+  validateSearch: (search: Record<string, unknown>): SeedsSearch => ({
+    kind: isSeedKind(search.kind) ? search.kind : undefined,
+    project: textParam(search.project),
+    q: textParam(search.q),
+  }),
 });
 
 /**

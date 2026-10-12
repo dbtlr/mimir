@@ -300,7 +300,7 @@ export const seedsQuery = (f: SeedFilters = {}) =>
     queryKey: ['seeds', 'list', f],
   });
 
-/** One seed with its body prose — the reading pane / detail source (content read). */
+/** One seed with its body prose — the seed page's detail source (content read). */
 export const seedQuery = (id: string) =>
   queryOptions({
     queryFn: () => apiGet<WireSeed>(`/api/seeds/${encodeURIComponent(id)}`),

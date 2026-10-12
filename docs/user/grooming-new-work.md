@@ -25,7 +25,7 @@ mimir get AUR-s4
 ```
 
 The grouped view separates untriaged, promoted, ready-to-resolve, and settled
-Seeds. The console provides the same grooming lanes with a reading pane.
+Seeds. The console provides the same grooming lanes; each Seed opens on its own page.
 
 ## Settle the question
 

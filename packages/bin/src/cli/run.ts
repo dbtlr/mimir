@@ -767,7 +767,7 @@ export async function runCli(
         // store. Inside the call's argument list they were evaluated after
         // `getStore()` had already resolved.
         const nextQuery = {
-          facets: parseFacets(values.col),
+          facets: parseFacets(values.col, 'next'),
           filters: parseFilters(values, callerTimeZone(values.tz)),
           limit: parseLimit(values.limit),
           priority: parsePriority(values.priority),
@@ -788,7 +788,7 @@ export async function runCli(
         // Same pre-store parse as `next` above (MMR-39) — hoisted out of the
         // call's argument list, where it ran only after the store had opened.
         const listQuery = {
-          facets: parseFacets(values.col),
+          facets: parseFacets(values.col, 'list'),
           filters: parseFilters(values, callerTimeZone(values.tz)),
           limit: parseLimit(values.limit),
           priority: parsePriority(values.priority),
@@ -870,7 +870,7 @@ export async function runCli(
           );
           return 0;
         }
-        const facets = parseFacets(values.col);
+        const facets = parseFacets(values.col, 'get');
         const node = await getNode(await getStore(), id, {
           facets: facets.length > 0 ? [...new Set([...CHEAP_FACETS, ...facets])] : undefined,
         });
@@ -1543,9 +1543,11 @@ const BASE_COLUMN_NAMES = [
 /**
  * The flat `--col` vocabulary (MMR-38) — the dot prefix is gone (it fenced a
  * dynamic namespace Mimir doesn't have). One closed list; `content` is
- * artifact-only and handled by the `get KEY-aN` path.
+ * artifact-only and handled by the `get KEY-aN` path. `lede` is a list
+ * column (only `list` and `next` attach it), so `get` rejects it rather than
+ * accepting it and showing nothing.
  */
-function parseFacets(cols: string[] | undefined): FacetName[] {
+function parseFacets(cols: string[] | undefined, verb: 'list' | 'next' | 'get'): FacetName[] {
   const facets: FacetName[] = [];
   // Accept a comma-separated list (`--col history,annotations`) as well as the
   // repeated `--col` form (MMR-212); tolerate surrounding spaces and empties.
@@ -1568,6 +1570,12 @@ function parseFacets(cols: string[] | undefined): FacetName[] {
         );
       }
       throw usage(`unknown column: ${col}`, `columns: ${[...FACET_NAMES, 'content'].join(', ')}`);
+    }
+    if (col === 'lede' && verb === 'get') {
+      throw usage(
+        "'lede' is a list column; 'get' shows the full record",
+        "try 'mimir list --col lede' or 'mimir next --col lede'",
+      );
     }
     facets.push(col);
   }

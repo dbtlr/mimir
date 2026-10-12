@@ -2,7 +2,7 @@ import type { StatusSelector, TaskStatusWord } from '@mimir/contract';
 import { STATUS_SELECTOR_VALUES } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { useEffect, useEffectEvent, useMemo, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
 import { projectsQuery, tasksQuery } from '../api/queries';
 import type { TaskFilters } from '../api/queries';
@@ -167,6 +167,7 @@ export function TasksPage() {
   const tasks = useQuery(tasksQuery(filters));
   const conn = connectivity([tasks]);
   const [createOpen, setCreateOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   const setFilter = (partial: Partial<TasksSearch>) =>
     void navigate({
@@ -256,12 +257,14 @@ export function TasksPage() {
           }
         >
           <FilterRow>
-            <BrowserSearch
-              value={q}
-              onChange={setQ}
-              label="Search tasks"
-              placeholder="Search titles and IDs…"
-            />
+            <div ref={searchRef} className="flex min-w-0 flex-[1_1_260px]">
+              <BrowserSearch
+                value={q}
+                onChange={setQ}
+                label="Search tasks"
+                placeholder="Search titles and IDs…"
+              />
+            </div>
             <MenuChip
               label={search.project ?? 'All projects'}
               on={search.project !== undefined}
@@ -293,6 +296,7 @@ export function TasksPage() {
                 label={statusFilterLabel(search.status)}
                 removeLabel={`Remove status filter ${statusFilterLabel(search.status)}`}
                 onRemove={() => {
+                  searchRef.current?.querySelector('input')?.focus();
                   setFilter({ status: '' });
                 }}
               />
@@ -327,7 +331,12 @@ export function TasksPage() {
                   to={nodeLink(node.id)}
                   id={node.id}
                   title={node.title}
-                  leading={<StatusDot status={node.status} />}
+                  leading={
+                    <>
+                      <StatusDot status={node.status} />
+                      <span className="sr-only">{STATUS_META[node.status].label}</span>
+                    </>
+                  }
                   lede={node.lede ?? node.summary}
                   meta={<TaskMeta node={node} />}
                   // Terminal rows demote by ink tier alone — never by opacity

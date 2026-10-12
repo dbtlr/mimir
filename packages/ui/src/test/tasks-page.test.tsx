@@ -317,6 +317,39 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
     expect(screen.queryByRole('button', { name: /Remove status filter/ })).toBeNull();
   });
 
+  it('treats an empty status in the URL as the Live view with no removable chip', async () => {
+    mockApi();
+    renderTasks('/tasks?status=');
+    await screen.findByText('Doctor the wire');
+    expect(live().getAttribute('aria-pressed')).toBe('true');
+    expect(screen.queryByRole('button', { name: /Remove status filter/ })).toBeNull();
+    expect(nodeReads().some((p) => p.get('status') === 'live')).toBe(true);
+  });
+
+  it('survives a numeric status in the URL', async () => {
+    mockApi();
+    renderTasks('/tasks?status=1');
+    await screen.findByText('Doctor the wire');
+    expect(screen.getByRole('heading', { level: 1, name: 'Tasks' })).toBeDefined();
+  });
+
+  it('removing the status chip hands keyboard focus to the search box', async () => {
+    mockApi();
+    renderTasks('/tasks?status=ready');
+    const user = userEvent.setup();
+    await screen.findByText('Doctor the wire');
+    await user.click(screen.getByRole('button', { name: 'Remove status filter Ready' }));
+    expect(screen.getByRole('searchbox', { name: 'Search tasks' })).toHaveFocus();
+  });
+
+  it('says each row status in text, not only by the dot colour', async () => {
+    mockApi();
+    renderTasks();
+    await screen.findByText('Doctor the wire');
+    expect(within(rowOf('Review the cutover')).getByText('Under review')).toBeInTheDocument();
+    expect(within(rowOf('Doctor the wire')).getByText('Ready')).toBeInTheDocument();
+  });
+
   it('labels a deep-linked union and the all selector', async () => {
     mockApi();
     renderTasks('/tasks?status=ready,blocked');

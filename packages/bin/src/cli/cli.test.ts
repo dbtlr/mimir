@@ -71,6 +71,17 @@ test('list --col lede carries the lede in json and as a dim line in the table (M
   expect(plain.out.join('')).not.toContain('lede');
 });
 
+test('get --col lede is a usage error that points at the list verbs (MMR-454)', async () => {
+  const task = await createTask(store, { description: 'prose', parentId: phaseId, title: 'x' });
+  const io = fakeIo(false);
+  expect(await runCli(['get', `MMR-${String(task.seq)}`, '--col', 'lede'], () => store, io)).toBe(
+    2,
+  );
+  const err = io.err.join('');
+  expect(err).toContain("'lede' is a list column");
+  expect(err).toContain('mimir list --col lede');
+});
+
 test('unknown command exits 2 with an error', async () => {
   const io = fakeIo(true);
   expect(await runCli(['frobnicate'], () => store, io)).toBe(2);

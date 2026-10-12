@@ -135,6 +135,13 @@ describe('artifactsPage', () => {
     expect(lastArtifactsParams().has('a')).toBe(false);
   });
 
+  it('a numeric q in the URL is the text it was typed as', async () => {
+    serveRows([summary(8)]);
+    renderArtifactsPage('/artifacts?q=2026');
+    await screen.findByText('Artifact 8');
+    expect(lastArtifactsParams().get('q')).toBe('2026');
+  });
+
   it('date filters in the URL render as removable chips and reach the query', async () => {
     serveRows([summary(8)]);
     renderArtifactsPage('/artifacts?atOrAfter=2026-06-01');

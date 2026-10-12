@@ -2,7 +2,7 @@ import { SEED_KIND_VALUES } from '@mimir/contract';
 import type { SeedKind } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { useEffect, useEffectEvent, useMemo, useState } from 'react';
+import { useEffect, useEffectEvent, useId, useMemo, useState } from 'react';
 
 import { projectsQuery, seedsQuery } from '../api/queries';
 import type { SeedFilters } from '../api/queries';
@@ -72,6 +72,7 @@ function SeedBrowserRow({ seed, demoted = false }: { seed: WireSeed; demoted?: b
 /** The folded SETTLED group: its rows stay hidden until the reader asks. */
 function SettledGroup({ seeds }: { seeds: readonly WireSeed[] }) {
   const [shown, setShown] = useState(false);
+  const rowsId = useId();
   return (
     <BrowserGroup
       label={SEED_LANE_LABEL.settled}
@@ -80,6 +81,8 @@ function SettledGroup({ seeds }: { seeds: readonly WireSeed[] }) {
     >
       <button
         type="button"
+        aria-expanded={shown}
+        aria-controls={rowsId}
         onClick={() => {
           setShown((s) => !s);
         }}
@@ -87,7 +90,13 @@ function SettledGroup({ seeds }: { seeds: readonly WireSeed[] }) {
       >
         {shown ? 'Hide settled seeds' : 'Show settled seeds'}
       </button>
-      {shown && seeds.map((seed) => <SeedBrowserRow key={seed.id} seed={seed} demoted />)}
+      {shown && (
+        <div id={rowsId}>
+          {seeds.map((seed) => (
+            <SeedBrowserRow key={seed.id} seed={seed} demoted />
+          ))}
+        </div>
+      )}
     </BrowserGroup>
   );
 }

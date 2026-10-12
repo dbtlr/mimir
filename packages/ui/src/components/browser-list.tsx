@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router';
+import { useId } from 'react';
 import type { ReactNode } from 'react';
 
 import { cn } from '../lib/cn';
@@ -209,7 +210,8 @@ type RecordTarget =
  * One row of a browser: an optional leading mark (a status dot), then the id
  * and title with optional chips before or after the title, a one-line lede,
  * and a meta line. The title link stretches over the whole row, so the row is
- * the hit target while staying a single real link. The lede hides on a phone
+ * the hit target while staying a single real link. The link's name is the
+ * title; the id is its description. The lede hides on a phone
  * (the mock's "groups stay, ledes drop").
  */
 export function BrowserRow({
@@ -237,15 +239,19 @@ export function BrowserRow({
   /** Strike the title through — an abandoned task. */
   struck?: boolean;
 }) {
+  const idLabel = useId();
   return (
     <div className="relative flex gap-2.5 rounded-md px-1 py-[7px] transition-colors hover:bg-well-850 has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-accent">
       {leading !== undefined && <span className="flex h-5 shrink-0 items-center">{leading}</span>}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <span className="font-mono text-mono-id text-ink-faint">{id}</span>
+          <span id={idLabel} className="font-mono text-mono-id text-ink-faint">
+            {id}
+          </span>
           {beforeTitle}
           <Link
             {...to}
+            aria-describedby={idLabel}
             className={cn(
               'min-w-0 text-body outline-none after:absolute after:inset-0',
               demoted ? 'text-ink-dim' : 'text-ink-bright',

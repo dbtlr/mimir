@@ -31,12 +31,13 @@ export function SeedPromoteSheet({
   onOpenChange: (open: boolean) => void;
   offline?: boolean;
 }) {
-  // Same key the row/reading-pane already fetched on select, so the body is
-  // typically warm — but the sheet opens on the list row regardless of it.
+  // Same key the seed page already fetched, so the body is typically warm —
+  // but the sheet can open before that read lands.
   const detail = useQuery({ ...seedQuery(seed.id), enabled: open });
   const body = detail.data;
-  // The body prose may already ride the row (the reading pane hands its detail
-  // seed straight through); only a genuinely missing description is "pending".
+  // The body prose may already ride the seed the caller passes (the seed page
+  // hands its detail straight through); only a genuinely missing description
+  // is "pending".
   const descriptionPending = detail.isPending && seed.description == null;
 
   // A failed body read can't silently swallow the click: toast and reset the

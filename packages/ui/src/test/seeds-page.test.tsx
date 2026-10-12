@@ -125,6 +125,13 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
     ).toBeDefined();
   });
 
+  it('gives each row link the seed id as its accessible description', async () => {
+    mockApi();
+    renderSeeds();
+    const link = await screen.findByRole('link', { name: 'Scroll snaps to top' });
+    expect(link).toHaveAccessibleDescription('MMR-s1');
+  });
+
   it('names the requester project only when the seed was filed from another project', async () => {
     mockApi();
     renderSeeds();
@@ -140,7 +147,18 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
     await screen.findByText('Settled · 2');
     expect(screen.queryByText('Old resolved thing')).toBeNull();
 
-    await user.click(screen.getByRole('button', { name: 'Show settled seeds' }));
+    const toggle = screen.getByRole('button', { name: 'Show settled seeds' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await user.click(toggle);
+    expect(screen.getByRole('button', { name: 'Hide settled seeds' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    const controlled = document.getElementById(
+      screen.getByRole('button', { name: 'Hide settled seeds' }).getAttribute('aria-controls') ??
+        '',
+    );
+    expect(controlled).toContainElement(screen.getByText('Old rejected thing'));
     expect(screen.getByRole('link', { name: 'Old resolved thing' })).toHaveAttribute(
       'href',
       '/p/MMR/s4',
@@ -148,6 +166,10 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
     expect(screen.getByText('Old rejected thing')).toBeDefined();
 
     await user.click(screen.getByRole('button', { name: 'Hide settled seeds' }));
+    expect(screen.getByRole('button', { name: 'Show settled seeds' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
     expect(screen.queryByText('Old resolved thing')).toBeNull();
   });
 
@@ -166,6 +188,17 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
     await user.type(search, 'mmr-s1');
     expect(screen.getByText('Scroll snaps to top')).toBeDefined();
     expect(screen.queryByText('Offline banner flicker')).toBeNull();
+  });
+
+  it('treats a numeric q in the URL as text instead of throwing', async () => {
+    mockApi([
+      seed({ id: 'MMR-s1', lane: 'untriaged', title: 'Scroll snaps to top' }),
+      seed({ id: 'MMR-s2', lane: 'untriaged', title: 'Retry 45 times' }),
+    ]);
+    renderSeeds('/seeds?q=45');
+    await screen.findByText('Retry 45 times');
+    expect(screen.queryByText('Scroll snaps to top')).toBeNull();
+    expect(screen.getByRole('searchbox', { name: 'Search seeds' })).toHaveValue('45');
   });
 
   it('reflects the search in the q URL param after the debounce', async () => {
