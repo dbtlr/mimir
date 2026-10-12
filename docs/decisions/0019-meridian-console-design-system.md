@@ -175,3 +175,21 @@ light panel.
 
 Code inside a fenced block keeps the machine ink and never takes the inline
 colour.
+
+## Refinement (2026-10-12, MMR-438): only blocks you own need you
+
+§9 put every `blocked` task in the attention set. A block waiting on another
+team or board is not something the operator can move, so counting it as
+needing the operator dilutes the set. With block ownership (ADR 0001, block
+ownership refinement), the set's `blocked` member narrows to blocks owned by
+`you`.
+
+- A block owned by `others` keeps the `blocked` status word and its red hue
+  everywhere; it leaves only the needs-you set.
+- _Going cold_ is unchanged and still applies to blocks of either owner, so a
+  stale external block returns to the set as going cold.
+- The narrowed set applies wherever the console counts what needs the
+  operator: the top-bar alert today, and the cross-project review page
+  (MMR-440) when it lands.
+- Lanes are out of scope here. The review page revisits the Overview, and
+  until then any blocked leaf still reads `needs_unsticking`.

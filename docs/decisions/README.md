@@ -55,6 +55,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0030](0030-postgres-store-backend-shared-store-bridge.md)        | A Postgres store backend, per install, bridges to multi-machine work |
 | [0031](0031-installation-authority-and-disposable-development.md) | Installation authority and scripted disposable development |
 | [0032](0032-sqlite-local-tier-shared-sql-store.md)                | SQLite is the local tier, beside Postgres, on one shared SQL store |
+| [0033](0033-task-grooming-state.md)                               | Tasks carry a stored grooming state                                |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model
