@@ -2102,6 +2102,97 @@ describe('artifacts (MMR-322)', () => {
   });
 });
 
+// block owner (ADR 0001, MMR-438)
+
+const blockOwnerOf = async (ref: string): Promise<string | null> => {
+  const io = fakeIo(false);
+  await runCli(['get', ref, '-f', 'json'], () => store, io);
+  return parseJson<{ block_owner: string | null }>(io.out.join('')).block_owner;
+};
+
+describe('block --on', () => {
+  test('--on states the owner, and --on others overrides the default', async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+    const io = fakeIo(false);
+    expect(
+      await runCli(['block', ref, '--on', 'others', 'vendor', 'is', 'late'], () => store, io),
+    ).toBe(0);
+    expect(io.out.join('')).toContain(`[ok] blocked ${ref} · vendor is late`);
+    expect(await blockOwnerOf(ref)).toBe('others');
+    await runCli(['unblock', ref], () => store, fakeIo(false));
+    expect(await blockOwnerOf(ref)).toBeNull();
+    // The last occurrence wins, like depend's multi-valued flag.
+    await runCli(['block', ref, '--on', 'others', '--on', 'you'], () => store, fakeIo(false));
+    expect(await blockOwnerOf(ref)).toBe('you');
+  });
+
+  test('without --on the owner follows the upstream: you, or others once one is set', async () => {
+    const plain = await createTask(store, { parentId: phaseId, title: 'plain' });
+    const asked = await createTask(store, {
+      parentId: phaseId,
+      title: 'asked',
+      upstream: 'OPS-s4',
+    });
+    const [rp, ra] = [plain, asked].map((t) => `MMR-${String(t.seq)}`);
+    await runCli(['block', rp ?? ''], () => store, fakeIo(false));
+    await runCli(['block', ra ?? ''], () => store, fakeIo(false));
+    expect(await blockOwnerOf(rp ?? '')).toBe('you');
+    expect(await blockOwnerOf(ra ?? '')).toBe('others');
+  });
+
+  test('get shows a block owner line beside the hold, and only while blocked', async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+    await runCli(['block', ref, '--on', 'you', 'need a call'], () => store, fakeIo(false));
+    const blocked = fakeIo(false);
+    await runCli(['get', ref], () => store, blocked);
+    expect(blocked.out.join('')).toMatch(
+      /hold +blocked\n\s*hold reason +need a call\n\s*block owner +you/,
+    );
+    await runCli(['unblock', ref], () => store, fakeIo(false));
+    const open = fakeIo(false);
+    await runCli(['get', ref], () => store, open);
+    expect(open.out.join('')).not.toContain('block owner');
+  });
+
+  test('an owner outside you|others is a validation error naming the choices, and writes nothing', async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+    const io = fakeIo(false);
+    expect(await runCli(['block', ref, '--on', 'maybe'], () => store, io)).toBe(1);
+    expect(io.err.join('')).toContain('invalid on: maybe');
+    expect(io.err.join('')).toContain('block on takes one of: you, others');
+    expect(await blockOwnerOf(ref)).toBeNull();
+  });
+
+  test('a held task is still refused: changing an owner is unblock, then block', async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+    await runCli(['block', ref, '--on', 'you'], () => store, fakeIo(false));
+    const io = fakeIo(false);
+    expect(await runCli(['block', ref, '--on', 'others'], () => store, io)).toBe(1);
+    expect(io.err.join('')).toContain('task is already blocked');
+    expect(await blockOwnerOf(ref)).toBe('you');
+  });
+
+  test('--on is refused on a verb that cannot use it, never silently dropped', async () => {
+    for (const verb of ['park', 'start', 'unblock', 'get', 'update', 'groom']) {
+      const io = fakeIo(true);
+      expect(await runCli([verb, 'MMR-1', '--on', 'you'], neverStore, io)).toBe(2);
+      expect(io.err.join('')).toContain(`doesn't apply to ${verb}`);
+      expect(io.out).toHaveLength(0);
+    }
+  });
+
+  test('the help shows the flag and its values', async () => {
+    const io = fakeIo(true);
+    await runCli(['block', '--help'], neverStore, io);
+    expect(io.out.join('')).toContain('mimir block <id> [reason] [--on <you|others>]');
+    expect(io.out.join('')).toContain('--on <you|others>');
+  });
+});
+
 // The artifact feed's flags live in the ONE global options table, so without a
 // verb-owned guard `mimir list --since 2026-07-01` would exit 0 with the
 // UNFILTERED board — a silently-wrong answer where the invocation was previously

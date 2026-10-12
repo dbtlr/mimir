@@ -297,9 +297,14 @@ const COMMANDS: ReadonlySet<string> = new Set(
  *   first half to offer. `mimir get MMR-1 --tz Asia/Tokyo` would otherwise
  *   exit 0 having read a record the flag half-applied to, and the zone is
  *   exactly the argument a caller expects to have changed the answer. Their
- *   three siblings — `--on`, `--before`, `--after` — stay shared: `depend`
- *   takes `--on`, `reorder` takes `--before`/`--after`, and one options table
- *   cannot scope a spelling two verbs both mean.
+ *   siblings `--before` and `--after` stay shared: `reorder` takes them, and
+ *   one options table cannot scope a spelling two verbs both mean.
+ *
+ * - `--on` is read by `depend`/`undepend` (the prerequisites), `block` (who can
+ *   clear the block, MMR-465), and the date grammar of the four query verbs
+ *   (`--on FIELD:DATE`). On any other verb it would be silently dropped, and the
+ *   caller who typed `park --on you` believes they recorded an owner — so it is
+ *   refused there.
  *
  * The same guard carries the **tombstones** for spellings ADR 0029 removed —
  * `--not-before`, `--not-after`, and the artifact feed's `--since`. An empty
@@ -322,6 +327,7 @@ type OwnedFlagValues = {
   'at-or-before'?: string[];
   'at-or-after'?: string[];
   tz?: string;
+  on?: string[];
   offset?: string;
   query?: string;
   reason?: string;
@@ -426,6 +432,12 @@ const VERB_OWNED_FLAGS: readonly {
     given: (values) => (values['at-or-after'] ?? []).length > 0,
     hint: `'--at-or-after FIELD:VALUE' filters a query; use it with ${DATE_QUERY_VERBS.join(', ')}`,
     owner: DATE_QUERY_VERBS,
+  },
+  {
+    flag: '--on',
+    given: (values) => (values.on ?? []).length > 0,
+    hint: `'--on' names the owner at block (you|others), the prerequisites at depend/undepend, and a date filter at ${DATE_QUERY_VERBS.join(', ')}`,
+    owner: ['block', 'depend', 'undepend', ...DATE_QUERY_VERBS],
   },
   {
     flag: '--offset',

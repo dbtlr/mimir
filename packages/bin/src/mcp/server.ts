@@ -1,4 +1,5 @@
 import {
+  BLOCK_OWNER_VALUES,
   GROOMING_VALUES,
   HOLD_VALUES,
   isTerminalLifecycle,
@@ -141,6 +142,7 @@ const LIMIT = z.number().int().positive();
  */
 const KIND_ZOD: Record<FieldKindName, z.ZodType> = {
   bool: z.boolean(),
+  'enum:block_owner': z.enum(BLOCK_OWNER_VALUES),
   'enum:grooming': z.enum(GROOMING_VALUES),
   'enum:hold': z.enum(HOLD_VALUES),
   'enum:lifecycle': z.enum(LIFECYCLE_VALUES),
@@ -171,7 +173,8 @@ export function fieldInputShape(
  * for a task, `key` for a project), an optional `reason` when the verb's policy
  * accepts one, and the extra data-plane fields the verb declares (ADR 0026 —
  * only `start`'s resume handles), typed by the SAME kind fragment the `update`
- * tool derives. Pure over the operation fact, so a new registry entry registers
+ * tool derives, and the verb's choice argument when it declares one (MMR-465 — only
+ * `block`'s `on`), advertised as a closed enum. Pure over the operation fact, so a new registry entry registers
  * its tool with no edit here; a verb declaring no extra fields advertises exactly
  * what it did before.
  */
@@ -179,10 +182,13 @@ export function uniformToolSchema(spec: OpFact): ZodRawShape {
   const subject: ZodRawShape =
     spec.subject === 'project' ? { key: z.string() } : { id: z.string() };
   const reason: ZodRawShape = spec.reason === 'optional' ? { reason: z.string().optional() } : {};
+  const choice: ZodRawShape =
+    spec.choice === undefined ? {} : { [spec.choice.name]: z.enum(spec.choice.values).optional() };
   return sortedShape({
     ...subject,
     ...reason,
     ...fieldInputShape(specUpdateFields(spec.fields ?? [])),
+    ...choice,
   });
 }
 
@@ -200,8 +206,12 @@ export function uniformToolDescription(spec: OpFact): string {
   const head = `${spec.summary.charAt(0).toUpperCase()}${spec.summary.slice(1)}`;
   const reason =
     spec.reason === 'optional' ? ' Optionally records a reason on the transition.' : '';
+  const choice =
+    spec.choice === undefined
+      ? ''
+      : ` Optional ${spec.choice.name} (${spec.choice.values.join('|')}): ${spec.choice.summary}.`;
   const echo = spec.subject === 'project' ? 'Echoes the project.' : 'Echoes the updated node.';
-  return `${head}${arrow}.${reason} ${echo}`;
+  return `${head}${arrow}.${reason}${choice} ${echo}`;
 }
 
 /** Reorder a raw shape's keys alphabetically — the tool schemas keep their

@@ -1,5 +1,6 @@
 import type {
   AgendaItemState,
+  BlockOwner,
   Grooming,
   Hold,
   Lifecycle,
@@ -403,6 +404,8 @@ export type NodeView = {
   grooming?: Grooming;
   hold?: Hold;
   holdReason?: string | null;
+  /** Who can clear the block (ADR 0001, MMR-438) — set only while `hold` is `blocked`. */
+  blockOwner?: BlockOwner | null;
   externalRef?: string | null;
   /** The requester-side seed pointer (`KEY-sN`, MMR-244/245) — reference-only. */
   upstream?: string | null;

@@ -224,6 +224,7 @@ function toQueryRow(
   needed: ReadonlySet<string>,
 ): QueryRow {
   const values: Record<string, string | null> = {
+    block_owner: node.block_owner,
     // The resume handles (branch/harness/host/session, MMR-320) are ordinary
     // queryable strings — `--eq session:…` / `--has branch` is how a caller finds
     // the work a given session or machine still holds.

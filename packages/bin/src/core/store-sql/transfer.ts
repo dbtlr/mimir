@@ -691,6 +691,7 @@ async function raiseCounters(
 /** One exported node as its row — `description` and `next` ride the sections. */
 function nodeValues(node: Node, dialect: StoreDialect): Insertable<NodeTable> {
   return {
+    block_owner: node.block_owner,
     branch: node.branch,
     completed_at: node.completed_at,
     created_at: node.created_at,

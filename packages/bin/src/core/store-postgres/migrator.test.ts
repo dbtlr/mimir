@@ -7,6 +7,7 @@ import { MimirError } from '../errors';
 import { assertSchemaCurrent, readSchemaVersion, SCHEMA_VERSION, upgradeSchema } from './index';
 import type { DB } from './index';
 import { statements as initStatements } from './migrations/0001-init';
+import { statements as groomingStatements } from './migrations/0002-grooming';
 import { createPgliteDialect } from './pglite';
 
 function freshDb(): Kysely<DB> {
@@ -40,7 +41,7 @@ test('an upgrade names the migrations it applied and lands the current version',
   const db = freshDb();
   try {
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0001_init', '0002_grooming'],
+      applied: ['0001_init', '0002_grooming', '0003_block_owner'],
       from: 0,
       to: SCHEMA_VERSION,
     });
@@ -78,7 +79,7 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
     `.execute(db);
 
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0002_grooming'],
+      applied: ['0002_grooming', '0003_block_owner'],
       from: 1,
       to: SCHEMA_VERSION,
     });
@@ -97,6 +98,55 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
         (reason: unknown) => String(reason),
       );
     expect(rejection).toContain('node_grooming_check');
+  } finally {
+    await db.destroy();
+  }
+});
+
+test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by their upstream, everything else NULL, bogus values rejected', async () => {
+  const db = freshDb();
+  try {
+    // The store as the previous binary left it: 0001 + 0002, with live rows.
+    for (const statement of [...initStatements, ...groomingStatements]) {
+      await sql.raw(statement).execute(db);
+    }
+    await sql`insert into schema_version (version, applied_at) values (1, '2026-09-01T00:00:00.000Z'), (2, '2026-09-02T00:00:00.000Z')`.execute(
+      db,
+    );
+    await sql`insert into project (key, name, created_at, updated_at) values ('MMR', 'Mimir', 't', 't')`.execute(
+      db,
+    );
+    await sql`
+      insert into node (id, project_key, type, seq, title, lifecycle, hold, upstream, created_at, updated_at)
+      values ('MMR-1', 'MMR', 'initiative', 1, 't', null, null, null, 't', 't'),
+             ('MMR-2', 'MMR', 'task', 2, 't', 'todo', 'blocked', 'OPS-s4', 't', 't'),
+             ('MMR-3', 'MMR', 'task', 3, 't', 'todo', 'blocked', null, 't', 't'),
+             ('MMR-4', 'MMR', 'task', 4, 't', 'todo', 'parked', 'OPS-s5', 't', 't'),
+             ('MMR-5', 'MMR', 'task', 5, 't', 'todo', 'none', 'OPS-s6', 't', 't')
+    `.execute(db);
+
+    expect(await upgradeSchema(db)).toEqual({
+      applied: ['0003_block_owner'],
+      from: 2,
+      to: SCHEMA_VERSION,
+    });
+    const rows = await sql<{ id: string; block_owner: string | null }>`
+      select id, block_owner from node order by seq
+    `.execute(db);
+    expect(rows.rows).toEqual([
+      { block_owner: null, id: 'MMR-1' },
+      { block_owner: 'others', id: 'MMR-2' },
+      { block_owner: 'you', id: 'MMR-3' },
+      { block_owner: null, id: 'MMR-4' },
+      { block_owner: null, id: 'MMR-5' },
+    ]);
+    const rejection = await sql`update node set block_owner = 'bogus' where id = 'MMR-3'`
+      .execute(db)
+      .then(
+        () => 'accepted',
+        (reason: unknown) => String(reason),
+      );
+    expect(rejection).toContain('node_block_owner_check');
   } finally {
     await db.destroy();
   }

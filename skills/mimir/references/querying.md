@@ -87,6 +87,7 @@ both axes (`lifecycle` / `hold`), so use it when the single word isn't enough.
 ```sh
 mimir list --is stale              # live tasks gone quiet — the nudge list
 mimir list --status blocked       # manually stuck; reasons shown
+mimir list --status blocked --eq block_owner:you   # only the blocks waiting on you
 mimir list --status awaiting      # dep-gated; self-clears when prereqs finish
 mimir list --is orphaned           # live stragglers whose siblings all finished
 ```

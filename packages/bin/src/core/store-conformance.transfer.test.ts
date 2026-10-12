@@ -88,6 +88,31 @@ const invalidCases: InvalidCase[] = [
     name: 'off-enum grooming',
   },
   {
+    change: (d) => ({ ...d, nodes: patchFirst(d.nodes, { block_owner: 'you' }) }),
+    field: 'block_owner',
+    name: 'block owner on container',
+  },
+  {
+    change: (d) => ({
+      ...d,
+      nodes: d.nodes.map((n) =>
+        n.type === 'task' && n.hold === 'none' ? { ...n, block_owner: 'you' } : n,
+      ),
+    }),
+    field: 'block_owner',
+    name: 'block owner on a task that is not blocked',
+  },
+  {
+    change: (d) => ({
+      ...d,
+      nodes: d.nodes.map((n) =>
+        n.type === 'task' && n.hold === 'blocked' ? { ...n, block_owner: 'everyone' } : n,
+      ),
+    }),
+    field: 'block_owner',
+    name: 'off-enum block owner',
+  },
+  {
     change: (d) => ({ ...d, nodes: patchFirst(d.nodes, { lifecycle: 'done' }) }),
     field: 'lifecycle',
     name: 'task field on container',
@@ -361,6 +386,13 @@ const invalidCases: InvalidCase[] = [
 ];
 
 // Each backend receives the same faults in preview, apply, and resume.
+/** A node as a version-2 document wrote it: no `block_owner` key, and optionally
+ * an upstream on the blocked task (so the derivation rule has something to read). */
+function legacyNode(node: StoreExport['nodes'][number], withUpstream: boolean) {
+  const { block_owner: _owner, ...rest } = node;
+  return withUpstream && rest.hold === 'blocked' ? { ...rest, upstream: 'OPS-s1' } : rest;
+}
+
 describe.each(backends)('$name', (backend) => {
   test('malformed transfer documents refuse without changing the target', async () => {
     const source = await backend.make();
@@ -439,14 +471,61 @@ describe.each(backends)('$name', (backend) => {
       try {
         const refusal = await refusalOf(
           futureTarget.store.import(
-            { ...document, schema_version: 3 },
+            { ...document, schema_version: 4 },
             { dryRun: false, mode: 'fresh' },
           ),
         );
-        expect(refusal).toContain('unsupported transfer document schema version 3');
-        expect(refusal).toContain('this binary reads schema versions 1, 2');
+        expect(refusal).toContain('unsupported transfer document schema version 4');
+        expect(refusal).toContain('this binary reads schema versions 1, 2, 3');
       } finally {
         await futureTarget.close();
+      }
+    } finally {
+      await source.close();
+    }
+  });
+  test('block owner round-trips through export and import, and a pre-version-3 document derives it', async () => {
+    const source = await backend.make();
+    try {
+      await seedWorkingSet(source.store);
+      const document = await source.store.export();
+      expect(document.schema_version).toBe(3);
+
+      // Only the blocked task carries an owner; the fixture states `others`, which
+      // the derivation rule (no upstream, so `you`) would not produce.
+      const owners = document.nodes.map((n) => [n.hold, n.block_owner]);
+      expect(owners.filter(([, owner]) => owner !== null)).toEqual([['blocked', 'others']]);
+
+      const target = await backend.make();
+      try {
+        await target.store.import(document, { dryRun: false, mode: 'fresh' });
+        expect(withoutStamp(await target.store.export())).toEqual(withoutStamp(document));
+      } finally {
+        await target.close();
+      }
+
+      // A version-2 document carries no `block_owner` key. A blocked task takes
+      // the owner its upstream implies; every other task and container stays null.
+      for (const [upstream, expected] of [
+        [false, 'you'],
+        [true, 'others'],
+      ] as const) {
+        const legacyTarget = await backend.make();
+        try {
+          const legacy = {
+            ...document,
+            nodes: document.nodes.map((node) => legacyNode(node, upstream)),
+            schema_version: 2,
+          };
+          await legacyTarget.store.import(legacy, { dryRun: false, mode: 'fresh' });
+          const imported = await legacyTarget.store.export();
+          expect(imported.schema_version).toBe(3);
+          for (const node of imported.nodes) {
+            expect(node.block_owner, node.id).toBe(node.hold === 'blocked' ? expected : null);
+          }
+        } finally {
+          await legacyTarget.close();
+        }
       }
     } finally {
       await source.close();

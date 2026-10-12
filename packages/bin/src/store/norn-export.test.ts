@@ -21,25 +21,38 @@ import fixture from './fixtures/v0.20-norn-export.json';
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the import below parses it; a malformed fixture fails the case there.
 const document = fixture as unknown as StoreExport;
 
+/** The owner a blocked node gets by the rule (upstream means `others`, else `you`); null when not blocked. */
+function impliedOwner(node: {
+  hold: string | null;
+  upstream: string | null;
+}): 'you' | 'others' | null {
+  if (node.hold !== 'blocked') {
+    return null;
+  }
+  return node.upstream === null ? 'you' : 'others';
+}
+
 test('a v0.20 Norn export imports into the SQLite store and re-exports unchanged', async () => {
   const target = await createSqliteTestStore();
   try {
     const report = await target.store.import(document, { dryRun: false, mode: 'fresh' });
     expect(report.applied).toBe(true);
 
-    // The fixture predates the grooming state (ADR 0033), so the re-export is the
-    // same document at transfer version 2, with each node carrying the default a
-    // fresh node is born with.
-    const withGrooming: StoreExport = {
+    // The fixture predates the grooming state (ADR 0033) and the block owner
+    // (MMR-438), so the re-export is the same document at transfer version 3, with
+    // each node carrying the defaults a fresh node is born with: `not_groomed`
+    // for a task, and for a blocked task the owner its upstream implies.
+    const withDefaults: StoreExport = {
       ...document,
       nodes: document.nodes.map((node) => ({
         ...node,
+        block_owner: impliedOwner(node),
         grooming: node.type === 'task' ? 'not_groomed' : null,
       })),
-      schema_version: 2,
+      schema_version: 3,
     };
     const reexported = await target.store.export();
-    expect(canonicalJson(withoutStamp(reexported))).toBe(canonicalJson(withoutStamp(withGrooming)));
+    expect(canonicalJson(withoutStamp(reexported))).toBe(canonicalJson(withoutStamp(withDefaults)));
 
     // The store now holds exactly the document, so a resume finds nothing to do.
     const resumed = await target.store.import(document, { dryRun: false, mode: 'resume' });

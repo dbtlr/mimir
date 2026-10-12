@@ -1,6 +1,6 @@
 /** Two help tiers: `-h` terse (synopsis + flags), `--help` fuller with examples. */
 import { isTerminalLifecycle, OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
-import type { DataFieldKey, OpFact, UniformVerb } from '@mimir/contract';
+import type { DataFieldKey, OpChoice, OpFact, UniformVerb } from '@mimir/contract';
 
 import { specUpdateFields } from '../core';
 import { DEFAULT_PORT, IS_PRODUCTION } from '../env';
@@ -41,20 +41,31 @@ export function uniformArgSpec(spec: OpFact): string {
  * terse rows are byte-identical to before.
  */
 export function uniformFlagSpec(spec: OpFact): string {
-  return uniformFlagRows(spec)
-    .map(([flag]) => ` [${flag} <text>]`)
-    .join('');
+  const fields = specUpdateFields(spec.fields ?? []).flatMap((field) =>
+    updateFieldFlags(field.update).map(([, flag]) => ` [${flag} <text>]`),
+  );
+  return [...fields, ...(spec.choice === undefined ? [] : [` [${choiceFlag(spec.choice)}]`])].join(
+    '',
+  );
+}
+
+/** The flag spelling of a verb's choice argument: `--on <you|others>`. */
+function choiceFlag(choice: OpChoice): string {
+  return `--${choice.name} <${choice.values.join('|')}>`;
 }
 
 /** The `[flag, description]` arg rows for a uniform verb's extra data-plane
  * fields — the flag spelled by the shared template, described by its field. */
 export function uniformFlagRows(spec: OpFact): Row[] {
-  return specUpdateFields(spec.fields ?? []).flatMap((field) =>
+  const fields = specUpdateFields(spec.fields ?? []).flatMap((field) =>
     updateFieldFlags(field.update).map(([, flag]): Row => [
       flag,
       FIELD_ARG_HELP[field.key] ?? `${field.key} recorded on the row`,
     ]),
   );
+  const choice: Row[] =
+    spec.choice === undefined ? [] : [[choiceFlag(spec.choice), spec.choice.summary]];
+  return [...fields, ...choice];
 }
 
 /** The one-line gloss per extra field a uniform verb records (ADR 0026 Decision
@@ -341,7 +352,11 @@ const UNIFORM_EXAMPLES: Record<UniformVerb, readonly string[]> = {
     'mimir archive SAGA "superseded by SAGA2"',
     'mimir projects --status archived    # the archived projects (the one door)',
   ],
-  block: ['mimir block MMR-3 "upstream API down"'],
+  block: [
+    'mimir block MMR-3 --on you "need a decision from me"',
+    'mimir block MMR-3 --on others "upstream API down"',
+    'mimir block MMR-3 "upstream API down"   # no --on: others if MMR-3 has an upstream, else you',
+  ],
   done: ['mimir done MMR-3'],
   park: ['mimir park MMR-3 "waiting on design"'],
   reopen: ['mimir reopen MMR-3'],
@@ -371,7 +386,9 @@ function uniformCommandHelp(): Record<string, CommandHelp> {
       // Extra data-plane fields (ADR 0026) surface as flags, not positionals —
       // an empty list for the eleven verbs that declare none, so their
       // descriptors keep no `flags` key at all.
-      ...(spec.fields === undefined ? {} : { flags: uniformFlagRows(spec) }),
+      ...(spec.fields === undefined && spec.choice === undefined
+        ? {}
+        : { flags: uniformFlagRows(spec) }),
       summary: uniformSummary(spec),
       usage: `mimir ${spec.verb} ${uniformArgSpec(spec)}${uniformFlagSpec(spec)}`,
     };

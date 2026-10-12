@@ -33,6 +33,15 @@ export const HOLD_VALUES = ['none', 'blocked', 'parked'] as const;
 export type Hold = (typeof HOLD_VALUES)[number];
 
 /**
+ * Who can clear a `blocked` hold (ADR 0001, MMR-438): `you` (the operator must
+ * answer or act) or `others` (someone outside the board must). Stored on the
+ * task while the hold is `blocked` and empty otherwise — `parked` has no owner,
+ * and another task is never one (a dependency stays the derived `awaiting`).
+ */
+export const BLOCK_OWNER_VALUES = ['you', 'others'] as const;
+export type BlockOwner = (typeof BLOCK_OWNER_VALUES)[number];
+
+/**
  * Grooming state (ADR 0033) — a stored, task-only judgment of whether a task is
  * understood well enough to run. Set only by the `groom` verb (or `create
  * --groomed`), never inferred and never a gate on `start`.

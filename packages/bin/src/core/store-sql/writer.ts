@@ -29,6 +29,7 @@ function newNodeRow(
   const { bool } = dialect.codecs;
   const openEnded = row.open_ended ?? null;
   return {
+    block_owner: null,
     branch: row.branch ?? null,
     completed_at: null,
     created_at: timestamp,

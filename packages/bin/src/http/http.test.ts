@@ -515,6 +515,34 @@ test('hold actions set and clear the overlay', async () => {
   expect(unblocked.status).toBe('ready');
 });
 
+test('block records its owner: on states it, the default follows the upstream, and the echo carries it (MMR-465)', async () => {
+  const stated = await parse(await send('POST', `/api/nodes/${task1}/block`, { on: 'others' }));
+  expect(stated.block_owner).toBe('others');
+  const released = await parse(await send('POST', `/api/nodes/${task1}/unblock`));
+  expect(released.block_owner).toBeNull();
+
+  const defaulted = await parse(await send('POST', `/api/nodes/${task1}/block`, { reason: 'x' }));
+  expect(defaulted.block_owner).toBe('you');
+  await send('POST', `/api/nodes/${task1}/unblock`);
+
+  await send('PATCH', `/api/nodes/${task1}`, { upstream: 'NRN-s3' });
+  const asked = await parse(await send('POST', `/api/nodes/${task1}/block`));
+  expect(asked.block_owner).toBe('others');
+});
+
+test('block refuses an owner outside you|others before touching the task, and only block takes on', async () => {
+  const bad = await send('POST', `/api/nodes/${task1}/block`, { on: 'maybe' });
+  expect(bad.status).toBe(400);
+  const error = (await parse(bad)).error as Rec;
+  expect(error.message).toBe('invalid on: maybe');
+  expect(error.hint).toBe('block on takes one of: you, others');
+  expect((await parse(await get(`/api/nodes/${task1}`))).status).toBe('ready');
+
+  expect((await send('POST', `/api/nodes/${task1}/block`, { on: 3 })).status).toBe(400);
+  // `on` is not a body key of any other verb.
+  expect((await send('POST', `/api/nodes/${task1}/park`, { on: 'you' })).status).toBe(400);
+});
+
 test('depend/undepend wire the graph and flip the derived word; a cycle is refused', async () => {
   const awaiting = await parse(await send('POST', `/api/nodes/${task2}/depend`, { on: task1 }));
   expect(awaiting.status).toBe('awaiting');

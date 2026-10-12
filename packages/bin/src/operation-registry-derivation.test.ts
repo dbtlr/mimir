@@ -108,7 +108,7 @@ test('golden: the derived rendered text is pinned exactly (CLI + MCP)', () => {
     'Reopen a terminal task (done/abandoned → in_progress). Optionally records a reason on the transition. Echoes the updated node.',
     'Put a task on hold. Optionally records a reason on the transition. Echoes the updated node.',
     'Clear the parked hold. Echoes the updated node.',
-    'Mark as externally blocked. Optionally records a reason on the transition. Echoes the updated node.',
+    'Mark as externally blocked. Optionally records a reason on the transition. Optional on (you|others): who can clear the block (default: others when the task has an upstream, else you). Echoes the updated node.',
     'Clear the blocked hold. Echoes the updated node.',
     'Archive a project — freeze + hide it and its subtree (reversible). Optionally records a reason on the transition. Echoes the project.',
     'Restore an archived project. Echoes the project.',
@@ -149,6 +149,12 @@ test('golden: the per-command arg rows are pinned exactly', () => {
 // optional, so the OTHER eleven must render byte-identically to before it
 // existed — these pins are the regression fence around that claim.
 
+test('golden: only block declares a choice argument, and only start declares data-plane fields', () => {
+  expect(OP_SPECS.flatMap((s) => (s.choice === undefined ? [] : [s.verb]))).toEqual(['block']);
+  expect(OP_FACTS.block.choice.name).toBe('on');
+  expect(OP_FACTS.block.choice.values).toEqual(['you', 'others']);
+});
+
 test('golden: only start declares extra data-plane fields', () => {
   expect(OP_SPECS.flatMap((s) => (s.fields === undefined ? [] : [s.verb]))).toEqual(['start']);
   expect(OP_FACTS.start.fields).toEqual(['branch', 'harness', 'host', 'session']);
@@ -166,7 +172,7 @@ test('golden: the advertised MCP arg names are pinned per verb', () => {
     'reopen|id,reason',
     'park|id,reason',
     'unpark|id',
-    'block|id,reason',
+    'block|id,on,reason',
     'unblock|id',
     'archive|key,reason',
     'unarchive|key',
@@ -185,20 +191,59 @@ test('golden: the CLI usage lines and flag rows are pinned per verb', () => {
     'reopen|mimir reopen <id> [reason]',
     'park|mimir park <id> [reason]',
     'unpark|mimir unpark <id>',
-    'block|mimir block <id> [reason]',
+    'block|mimir block <id> [reason] [--on <you|others>]',
     'unblock|mimir unblock <id>',
     'archive|mimir archive <KEY> [reason]',
     'unarchive|mimir unarchive <KEY>',
   ]);
   for (const spec of OP_SPECS) {
-    expect(COMMAND_HELP[spec.verb]?.flags === undefined).toBe(spec.verb !== 'start');
+    expect(COMMAND_HELP[spec.verb]?.flags === undefined).toBe(
+      spec.verb !== 'start' && spec.verb !== 'block',
+    );
   }
+  expect(COMMAND_HELP.block?.flags).toEqual([
+    [
+      '--on <you|others>',
+      'who can clear the block (default: others when the task has an upstream, else you)',
+    ],
+  ]);
   expect(COMMAND_HELP.start?.flags).toEqual([
     ['--branch', 'the branch the work lives on'],
     ['--harness', 'the agent harness running it'],
     ['--host', 'the machine the work is happening on'],
     ['--session', 'the session id to resume from'],
   ]);
+});
+
+test('the registry refuses a choice argument on a project subject', () => {
+  const projectFact: OpFact = {
+    choice: { name: 'on', summary: 'who', values: ['you', 'others'] },
+    reason: 'none',
+    subject: 'project',
+    summary: 'freeze a project',
+    transition: { axis: 'archive', from: 'active', to: 'archived' },
+  };
+  expect(() => assertOpFields('freeze', projectFact)).toThrow(
+    /declares a choice argument on a project subject/,
+  );
+  expect(() => assertOpFields('claim', { ...projectFact, subject: 'task' })).not.toThrow();
+});
+
+test('a choice argument surfaces as a closed enum on MCP and a body key on HTTP, from the fact alone', () => {
+  const fact: OpFact = {
+    choice: { name: 'who', summary: 'whose move it is', values: ['me', 'them'] },
+    reason: 'none',
+    subject: 'task',
+    summary: 'hand off a task',
+    transition: { axis: 'lifecycle', from: ['todo'], to: 'in_progress' },
+  };
+  expect(uniformFlagSpec(fact)).toBe(' [--who <me|them>]');
+  expect(Object.keys(uniformToolSchema(fact)).toSorted()).toEqual(['id', 'who']);
+  expect(uniformToolDescription(fact)).toBe(
+    'Hand off a task (todo → in_progress). Optional who (me|them): whose move it is. Echoes the updated node.',
+  );
+  const json = z.toJSONSchema(z.object(uniformToolSchema(fact)));
+  expect(json.properties?.who).toMatchObject({ enum: ['me', 'them'] });
 });
 
 test('the registry refuses extra data-plane fields on a project subject', () => {

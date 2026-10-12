@@ -129,6 +129,9 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
   if (node.holdReason !== undefined) {
     wire.hold_reason = node.holdReason;
   }
+  if (node.blockOwner !== undefined) {
+    wire.block_owner = node.blockOwner;
+  }
   if (node.externalRef !== undefined) {
     wire.external_ref = node.externalRef;
   }

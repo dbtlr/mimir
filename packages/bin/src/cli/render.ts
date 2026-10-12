@@ -288,6 +288,10 @@ export function renderRecords(node: NodeView, io: Io, expandAnnotations = false)
   if (node.holdReason != null) {
     pairs.push(['hold reason', node.holdReason]);
   }
+  // Who can clear the block (ADR 0001, MMR-438) — present only while blocked.
+  if (node.blockOwner != null) {
+    pairs.push(['block owner', node.blockOwner]);
+  }
   if (node.target != null) {
     pairs.push(['target', node.target]);
   }

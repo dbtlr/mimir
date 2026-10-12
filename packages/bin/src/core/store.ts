@@ -1,4 +1,5 @@
 import type {
+  BlockOwner,
   ExecutionHandles,
   Grooming,
   Hold,
@@ -117,6 +118,8 @@ export type NodePatch = {
   grooming?: Grooming;
   hold?: Hold;
   hold_reason?: string | null;
+  /** Set with `hold: 'blocked'`, cleared (null) with any other hold (MMR-438). */
+  block_owner?: BlockOwner | null;
   priority?: Priority | null;
   size?: Size | null;
   rank?: number | null;

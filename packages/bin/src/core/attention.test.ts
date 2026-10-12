@@ -41,6 +41,7 @@ function project(overrides: Partial<Project> = {}): Project {
 function task(projectId: string, overrides: Partial<Node> = {}): Node {
   const nodeSeq = nextSeq();
   return {
+    block_owner: null,
     branch: null,
     completed_at: null,
     created_at: AT,

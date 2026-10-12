@@ -1,3 +1,4 @@
+import { BLOCK_OWNER_VALUES } from './enums';
 import type { Hold, Lifecycle } from './enums';
 import { HANDLE_FIELD_KEYS } from './fields';
 import type { DataFieldKey } from './fields';
@@ -65,6 +66,21 @@ export type OpTransition =
   | { axis: 'hold'; from: Hold; to: Hold }
   | { axis: 'archive'; from: ArchiveState; to: ArchiveState };
 
+/**
+ * A uniform verb's optional **choice argument** (ADR 0025 Decision 3, MMR-465):
+ * one enum-valued option the verb takes beyond its reason, such as `block --on
+ * you|others`. `name` is the argument's one spelling on every surface (CLI flag
+ * `--on`, MCP arg `on`, HTTP body key `on`), and `values` is the closed
+ * vocabulary every transport validates against. The verb's mutation owns the
+ * default when the argument is omitted.
+ */
+export type OpChoice = {
+  name: string;
+  values: readonly [string, ...string[]];
+  /** The one-line gloss the CLI help renders beside the flag. */
+  summary: string;
+};
+
 /** One uniform verb's pure dispatch facts (ADR 0025 Decision 3). */
 export type OpFact = {
   /** The id-kind the verb resolves and acts on (drives the transport grammar). */
@@ -91,6 +107,14 @@ export type OpFact = {
    * per-transport `start` overrides (ADR 0025 Decision 4).
    */
   fields?: readonly DataFieldKey[];
+  /**
+   * An optional enum-valued argument the verb takes beyond its reason (MMR-465 —
+   * only `block --on`). Like {@link OpFact.fields} it is one fact three consumers
+   * read (CLI flag, MCP zod enum, HTTP body allow-list), so it lives here rather
+   * than as per-transport `block` overrides (ADR 0025 Decision 4). Task subjects
+   * only. Absent for the other eleven verbs, whose surfaces render as before.
+   */
+  choice?: OpChoice;
 };
 
 /**
@@ -120,6 +144,13 @@ export const OP_FACTS = {
     transition: { axis: 'archive', from: 'active', to: 'archived' },
   },
   block: {
+    // The block's owner (ADR 0001, MMR-438). Omitted, the mutation derives it:
+    // `others` when the task has an upstream seed, else `you`.
+    choice: {
+      name: 'on',
+      summary: 'who can clear the block (default: others when the task has an upstream, else you)',
+      values: BLOCK_OWNER_VALUES,
+    },
     reason: 'optional',
     subject: 'task',
     summary: 'mark as externally blocked',

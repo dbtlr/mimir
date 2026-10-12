@@ -42,6 +42,7 @@ import {
   listSeeds,
   OPS,
   parseDateFilterTokens,
+  parseOpChoice,
   parsePriorityValue,
   parseSizeValue,
   requireTimeZone,
@@ -628,6 +629,9 @@ export function toolSearch(store: Store, args: SearchToolArgs): Promise<ToolResu
  * A verb declaring extra data-plane fields (ADR 0026 — only `start`'s resume
  * handles) reads them by their camelCase update-arg names through the shared
  * {@link applyUpdateFields} loop, so acceptance and application can't drift apart.
+ * A declared choice argument (MMR-465 — only `block`'s `on`) is read by the
+ * name the fact gives it and validated by the same {@link parseOpChoice} the CLI
+ * and HTTP use.
  */
 export type UniformToolArgs = {
   id?: string;
@@ -660,7 +664,15 @@ export function toolUniform(
       },
       specUpdateFields(op.fields ?? []),
     );
-    const node = await op.run(store, await nodeId(store, args.id ?? '', 'task'), reason, fields);
+    const rawChoice = op.choice === undefined ? undefined : args[op.choice.name];
+    const choice = parseOpChoice(verb, op, typeof rawChoice === 'string' ? rawChoice : undefined);
+    const node = await op.run(
+      store,
+      await nodeId(store, args.id ?? '', 'task'),
+      reason,
+      fields,
+      choice,
+    );
     // The task subject guarantees a Node row from `run`.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     return echoNode(store, node as Parameters<typeof echoNode>[1]);

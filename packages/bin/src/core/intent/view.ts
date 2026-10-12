@@ -77,6 +77,7 @@ export async function buildNodeView(
     view.grooming = node.grooming ?? undefined;
     view.hold = node.hold ?? undefined;
     view.holdReason = node.hold_reason;
+    view.blockOwner = node.block_owner;
     view.externalRef = node.external_ref;
     view.upstream = node.upstream;
     // The resume handles (MMR-320) ride like every other task scalar — present
