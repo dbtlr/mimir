@@ -600,6 +600,14 @@ function parseNodesQuery(url: URL): { opts: ListOptions; badStatus?: string } {
     }
     opts.limit = n;
   }
+  const offset = q.get('offset');
+  if (offset !== null) {
+    const n = Number(offset);
+    if (!Number.isInteger(n) || n < 0) {
+      throw validation(`invalid offset ${offset}`);
+    }
+    opts.offset = n;
+  }
   // `status` accepts one selector or a comma-separated union (MMR-228 — the
   // tasks browser's multi-status filter); a single value keeps its exact
   // pre-union semantics. Any bad token voids the whole selection (warning path).

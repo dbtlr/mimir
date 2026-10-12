@@ -100,27 +100,63 @@ export type TaskFilters = {
   lede?: boolean;
 };
 
-/** The `/tasks` browser read (MMR-78): portfolio task list with filter + search. */
+/** The `type=task` list params shared by the picker's and the browser's reads. */
+function taskParams(f: TaskFilters): URLSearchParams {
+  const p = new URLSearchParams({ type: 'task' });
+  if (f.lede === true) {
+    p.set('col', 'lede');
+  }
+  if (f.project !== undefined && f.project !== '') {
+    p.set('project', f.project);
+  }
+  if (f.status !== undefined && f.status !== '') {
+    p.set('status', f.status);
+  }
+  if (f.q !== undefined && f.q !== '') {
+    p.set('q', f.q);
+  }
+  return p;
+}
+
+/** A task-list read with filter + search (MMR-78) — the dependency picker's lookup. */
 export const tasksQuery = (f: TaskFilters) =>
   queryOptions({
+    queryFn: () => apiGet<Collection<WireNode>>(`/api/nodes?${taskParams(f).toString()}`),
+    queryKey: ['nodes', 'tasks', f],
+  });
+
+/**
+ * The tasks browser's Finished window (MMR-460): the newest this many finished
+ * tasks load first and each "Show more" asks for this many more, so history
+ * growth costs neither the request, the server's lede reads, nor the
+ * persisted cache.
+ */
+export const FINISHED_PAGE_SIZE = 50;
+
+/**
+ * The `/tasks` browser read (MMR-78, MMR-454, MMR-460). A `terminal` selection
+ * asks for the newest `FINISHED_PAGE_SIZE * windows` rows; "Show more" grows
+ * `windows` and refetches that larger prefix, so a task that finishes or
+ * reopens between loads can never skip or repeat a row the way offset paging
+ * would. Every other view sends no limit. While the larger prefix loads the
+ * previous rows stay (same filters only — a filter change must not show the
+ * old selection). Keyed under `nodes`, so every write invalidates it.
+ */
+export const tasksBrowserQuery = (f: TaskFilters, windows = 1) => {
+  const limit = f.status === 'terminal' ? FINISHED_PAGE_SIZE * windows : undefined;
+  return queryOptions({
+    placeholderData: (previous, previousQuery) =>
+      JSON.stringify(previousQuery?.queryKey[2]) === JSON.stringify(f) ? previous : undefined,
     queryFn: () => {
-      const p = new URLSearchParams({ type: 'task' });
-      if (f.lede === true) {
-        p.set('col', 'lede');
-      }
-      if (f.project !== undefined && f.project !== '') {
-        p.set('project', f.project);
-      }
-      if (f.status !== undefined && f.status !== '') {
-        p.set('status', f.status);
-      }
-      if (f.q !== undefined && f.q !== '') {
-        p.set('q', f.q);
+      const p = taskParams(f);
+      if (limit !== undefined) {
+        p.set('limit', String(limit));
       }
       return apiGet<Collection<WireNode>>(`/api/nodes?${p.toString()}`);
     },
-    queryKey: ['nodes', 'tasks', f],
+    queryKey: ['nodes', 'tasks-browser', f, limit],
   });
+};
 
 /**
  * The board's live half: every non-terminal task in the project, in rank

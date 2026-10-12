@@ -4,9 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
-import { projectsQuery, tasksQuery } from '../api/queries';
+import { projectsQuery, tasksBrowserQuery } from '../api/queries';
 import type { TaskFilters } from '../api/queries';
-import type { WireNode } from '../api/types';
+import type { Collection, WireNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { AuthoringSheet } from '../components/authoring-sheet';
 import {
@@ -15,6 +15,7 @@ import {
   BrowserPage,
   BrowserRow,
   BrowserSearch,
+  BrowserShowMore,
   FilterChip,
   FilterRow,
   MenuChip,
@@ -87,27 +88,58 @@ type TaskGroup = { key: string; label: string; items: WireNode[] };
 const newestFirst = (a: WireNode, b: WireNode) =>
   Date.parse(b.updated_at) - Date.parse(a.updated_at);
 
+const projectKeyOfNode = (n: WireNode) => n.home?.project_key ?? projectKeyOf(n.id);
+
+/**
+ * The Finished view's row order: the server's own paging order (MMR-460) —
+ * `completed_at` descending, unset last, ties by project key then seq — so a
+ * "Show more" window appends to each group and never lands among shown rows.
+ */
+const byCompletion = (a: WireNode, b: WireNode) => {
+  const aDone = a.completed_at ?? '';
+  const bDone = b.completed_at ?? '';
+  if (aDone !== bDone) {
+    if (aDone === '' || bDone === '') {
+      return aDone === '' ? 1 : -1;
+    }
+    return aDone < bDone ? 1 : -1;
+  }
+  const aKey = projectKeyOfNode(a);
+  const bKey = projectKeyOfNode(b);
+  if (aKey !== bKey) {
+    return aKey < bKey ? -1 : 1;
+  }
+  return seqOf(a.id) - seqOf(b.id);
+};
+
+const seqOf = (id: string) => Number(id.slice(id.lastIndexOf('-') + 1));
+
 /**
  * Bucket tasks into the browser's groups: one per status word present, in
- * display order, or one per project key, alphabetical. Rows within a group are
- * newest-activity first; empty groups never appear.
+ * display order, or one per project key, alphabetical. Rows within a group
+ * follow `order` (newest activity first unless a view says otherwise); empty
+ * groups never appear.
  */
-function groupTasks(items: readonly WireNode[], by: 'status' | 'project'): TaskGroup[] {
+function groupTasks(
+  items: readonly WireNode[],
+  by: 'status' | 'project',
+  order: (a: WireNode, b: WireNode) => number,
+): TaskGroup[] {
   if (by === 'status') {
     return TASK_STATUS_ORDER.map((word) => ({
-      items: items.filter((n) => n.status === word).toSorted(newestFirst),
+      items: items.filter((n) => n.status === word).toSorted(order),
       key: word,
       label: STATUS_META[word].label,
     })).filter((g) => g.items.length > 0);
   }
   const buckets = new Map<string, WireNode[]>();
   for (const node of items) {
-    const key = node.home?.project_key ?? projectKeyOf(node.id);
+    const key = projectKeyOfNode(node);
     buckets.set(key, [...(buckets.get(key) ?? []), node]);
   }
   return [...buckets.entries()]
     .toSorted(([a], [b]) => a.localeCompare(b))
-    .map(([key, group]) => ({ items: group.toSorted(newestFirst), key, label: key }));
+    .map(([key, group]) => ({ items: group.toSorted(order), key, label: key }));
 }
 
 /** The meta line: mono project key › parent title, ∞ on a standing home, then the age. */
@@ -134,6 +166,53 @@ function TaskMeta({ node }: { node: WireNode }) {
       {relativeTime(node.updated_at)}
     </>
   );
+}
+
+/**
+ * The browser's task read with its Show more window (MMR-460). `windows`
+ * grows on each "Show more" and resets whenever the filters change; the
+ * query refetches the larger prefix, keeping the shown rows meanwhile. If
+ * that larger read fails the last good rows stay on screen and the failure
+ * is reported beside the button, which retries it.
+ */
+function useTaskWindow(filters: TaskFilters) {
+  const scope = JSON.stringify(filters);
+  const [grown, setGrown] = useState({ scope, windows: 1 });
+  // A filter change starts over at one window (reset during render, so the
+  // stale window count never reaches a query).
+  if (grown.scope !== scope) {
+    setGrown({ scope, windows: 1 });
+  }
+  const windows = grown.scope === scope ? grown.windows : 1;
+  const tasks = useQuery(tasksBrowserQuery(filters, windows));
+
+  // The last settled result for these filters, so a failed larger read does
+  // not blank the list (an errored query without data has none of its own).
+  const [kept, setKept] = useState<{ scope: string; data: Collection<WireNode> }>();
+  if (
+    tasks.data !== undefined &&
+    !tasks.isPlaceholderData &&
+    (kept?.scope !== scope || kept.data !== tasks.data)
+  ) {
+    setKept({ data: tasks.data, scope });
+  }
+  const shown = tasks.data ?? (kept?.scope === scope ? kept.data : undefined);
+
+  return {
+    hasMore: shown !== undefined && shown.items.length < shown.total,
+    loadMore: () => {
+      if (tasks.isError) {
+        void tasks.refetch();
+      } else {
+        setGrown({ scope, windows: windows + 1 });
+      }
+    },
+    loadMoreFailed: tasks.isError && tasks.data === undefined && shown !== undefined,
+    loadedTasks: shown?.items,
+    loadingMore: tasks.isPlaceholderData,
+    tasks,
+    totalTasks: shown?.total,
+  };
 }
 
 /**
@@ -164,7 +243,8 @@ export function TasksPage() {
   }
 
   const projects = useQuery(projectsQuery);
-  const tasks = useQuery(tasksQuery(filters));
+  const { tasks, loadedTasks, totalTasks, hasMore, loadingMore, loadMoreFailed, loadMore } =
+    useTaskWindow(filters);
   const conn = connectivity([tasks]);
   const [createOpen, setCreateOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -208,7 +288,10 @@ export function TasksPage() {
     };
   }, [q, search.q]);
 
-  const groups = useMemo(() => groupTasks(tasks.data?.items ?? [], groupBy), [tasks.data, groupBy]);
+  const groups = useMemo(
+    () => groupTasks(loadedTasks ?? [], groupBy, finishedView ? byCompletion : newestFirst),
+    [loadedTasks, groupBy, finishedView],
+  );
 
   const projectOptions = [
     { label: 'All projects', value: '' },
@@ -239,7 +322,12 @@ export function TasksPage() {
       >
         <BrowserPage
           title="Tasks"
-          count={tasks.data !== undefined && `${tasks.data.total} ${countWord}`}
+          count={
+            loadedTasks !== undefined &&
+            totalTasks !== undefined &&
+            // A windowed view says how much of the whole it shows (MMR-460).
+            `${loadedTasks.length < totalTasks ? `${loadedTasks.length} of ` : ''}${totalTasks} ${countWord}`
+          }
           action={
             // Create opens the shared authoring sheet (MMR-227), whose own
             // project-spanning HOME picker chooses where the node lands — the
@@ -314,13 +402,13 @@ export function TasksPage() {
             />
           </FilterRow>
 
-          {tasks.isPending && <Skeleton className="mt-4 h-40" />}
-          {tasks.isError && tasks.data === undefined && (
+          {tasks.isPending && loadedTasks === undefined && <Skeleton className="mt-4 h-40" />}
+          {tasks.isError && loadedTasks === undefined && (
             <p className="py-4 text-xs text-status-blocked">
               Unreachable — is `mimir serve` running?
             </p>
           )}
-          {tasks.data !== undefined && groups.length === 0 && (
+          {loadedTasks !== undefined && groups.length === 0 && (
             <BrowserEmpty>No tasks match.</BrowserEmpty>
           )}
           {groups.map((group) => (
@@ -347,6 +435,16 @@ export function TasksPage() {
               ))}
             </BrowserGroup>
           ))}
+          {hasMore && (
+            <>
+              {loadMoreFailed && (
+                <p role="alert" className="mt-4 text-center text-xs text-status-blocked">
+                  Couldn't load more finished tasks.
+                </p>
+              )}
+              <BrowserShowMore loading={loadingMore} onClick={loadMore} />
+            </>
+          )}
         </BrowserPage>
       </main>
 

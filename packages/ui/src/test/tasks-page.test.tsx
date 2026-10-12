@@ -4,6 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, vi } from 'vitest';
 
+import { FINISHED_PAGE_SIZE } from '../api/queries';
 import type { WireHome, WireNode } from '../api/types';
 import { router } from '../router';
 import { task } from './fixtures';
@@ -415,5 +416,186 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
       screen.findByText(/Unreachable — is `mimir serve` running\?/),
     ).resolves.toBeDefined();
     expect(screen.getByRole('button', { name: '+ New task' })).toHaveProperty('disabled', true);
+  });
+});
+
+const rowCount = () => screen.queryAllByRole('link', { name: /^Finished \d+$/ }).length;
+const showMore = () => screen.queryByRole('button', { name: 'Show more' });
+
+/** The `limit` of every terminal list read so far, in request order. */
+const terminalLimits = () =>
+  nodeReads()
+    .filter((p) => p.get('status') === 'terminal')
+    .map((p) => p.get('limit'));
+
+/** Finished tasks, newest completion first: hour by hour, so the order is unambiguous. */
+const finishedTasks = (count: number) =>
+  Array.from({ length: count }, (_, i) => {
+    const at = new Date(Date.UTC(2026, 5, 20, 23, 0, 0) - i * 3_600_000).toISOString();
+    return task({
+      completed_at: at,
+      id: `MMR-${String(1000 + i)}`,
+      status: 'done',
+      title: `Finished ${String(i)}`,
+      updated_at: at,
+    });
+  });
+
+/**
+ * Serves `/api/nodes` terminal reads honoring `limit` like the server (the
+ * newest `limit` of `all`, whole `total`); other reads get `rows`. `gate`
+ * lets a test hold or fail a read by its limit.
+ */
+function mockTerminalApi(
+  all: WireNode[],
+  gate: (limit: number) => Promise<void> | undefined = () => undefined,
+) {
+  apiGet.mockImplementation(async (path: string) => {
+    if (path.startsWith('/api/projects')) {
+      return { items: [{ id: 'MMR', status: 'in_progress', title: 'Mimir' }], total: 1 };
+    }
+    if (path.startsWith('/api/nodes?')) {
+      const p = new URLSearchParams(path.slice('/api/nodes?'.length));
+      if (p.get('status') !== 'terminal') {
+        return { items: rows, total: rows.length };
+      }
+      const limit = p.has('limit') ? Number(p.get('limit')) : all.length;
+      await gate(limit);
+      return { items: all.slice(0, limit), total: all.length };
+    }
+    throw new Error(`unexpected ${path}`);
+  });
+}
+
+describe('tasksPage Finished view windows (MMR-460)', () => {
+  // Two full windows and a partial third.
+  const finishedCount = FINISHED_PAGE_SIZE * 2 + 10;
+
+  it('asks for one bounded window first and offers Show more', async () => {
+    mockTerminalApi(finishedTasks(finishedCount));
+    renderTasks('/tasks?status=terminal');
+    await screen.findByText('Finished 0');
+
+    expect(rowCount()).toBe(FINISHED_PAGE_SIZE);
+    expect(terminalLimits()).toStrictEqual([String(FINISHED_PAGE_SIZE)]);
+    const first = nodeReads().find((p) => p.get('status') === 'terminal');
+    expect(first?.has('offset')).toBe(false);
+    expect(first?.get('col')).toBe('lede');
+    expect(
+      screen.getByText(`${String(FINISHED_PAGE_SIZE)} of ${String(finishedCount)} finished`),
+    ).toBeDefined();
+    expect(showMore()).not.toBeNull();
+  });
+
+  it('Show more asks for a larger limit, keeps the rows meanwhile, and goes once all are loaded', async () => {
+    const held = Promise.withResolvers<void>();
+    mockTerminalApi(finishedTasks(finishedCount), (limit) =>
+      limit === FINISHED_PAGE_SIZE * 2 ? held.promise : undefined,
+    );
+    renderTasks('/tasks?status=terminal');
+    const user = userEvent.setup();
+    await screen.findByText('Finished 0');
+
+    await user.click(showMore() as HTMLElement);
+    // The larger read is in flight: the shown rows stay, the button is inert.
+    await waitFor(() => {
+      expect(terminalLimits()).toContain(String(FINISHED_PAGE_SIZE * 2));
+    });
+    expect(rowCount()).toBe(FINISHED_PAGE_SIZE);
+    expect(showMore()).toBeDisabled();
+
+    held.resolve();
+    await waitFor(() => {
+      expect(rowCount()).toBe(FINISHED_PAGE_SIZE * 2);
+    });
+    expect(showMore()).not.toBeDisabled();
+
+    await user.click(showMore() as HTMLElement);
+    await waitFor(() => {
+      expect(rowCount()).toBe(finishedCount);
+    });
+    expect(terminalLimits()).toContain(String(FINISHED_PAGE_SIZE * 3));
+    expect(showMore()).toBeNull();
+    expect(screen.getByText(`${String(finishedCount)} finished`)).toBeDefined();
+  });
+
+  it('has no Show more when every finished task fits one window', async () => {
+    mockTerminalApi(finishedTasks(3));
+    renderTasks('/tasks?status=terminal');
+    await screen.findByText('Finished 0');
+    expect(showMore()).toBeNull();
+  });
+
+  it('keeps the shown rows, says so, and retries when the larger window fails', async () => {
+    let fail = true;
+    mockTerminalApi(finishedTasks(finishedCount), (limit) =>
+      limit === FINISHED_PAGE_SIZE * 2 && fail ? Promise.reject(new Error('down')) : undefined,
+    );
+    renderTasks('/tasks?status=terminal');
+    const user = userEvent.setup();
+    await screen.findByText('Finished 0');
+
+    await user.click(showMore() as HTMLElement);
+    await expect(screen.findByRole('alert')).resolves.toHaveTextContent(/more finished tasks/i);
+    expect(rowCount()).toBe(FINISHED_PAGE_SIZE);
+    expect(showMore()).not.toBeDisabled();
+
+    fail = false;
+    await user.click(showMore() as HTMLElement);
+    await waitFor(() => {
+      expect(rowCount()).toBe(FINISHED_PAGE_SIZE * 2);
+    });
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('starts over at one window when the view changes', async () => {
+    mockTerminalApi(finishedTasks(finishedCount));
+    renderTasks('/tasks?status=terminal');
+    const user = userEvent.setup();
+    await screen.findByText('Finished 0');
+    await user.click(showMore() as HTMLElement);
+    await waitFor(() => {
+      expect(rowCount()).toBe(FINISHED_PAGE_SIZE * 2);
+    });
+
+    await user.click(live());
+    await screen.findByText('Doctor the wire');
+    await user.click(finished());
+    await waitFor(() => {
+      expect(rowCount()).toBe(FINISHED_PAGE_SIZE);
+    });
+    expect(showMore()).not.toBeNull();
+  });
+
+  it('orders Finished rows by completion, not by last edit', async () => {
+    const edited = task({
+      completed_at: '2026-05-01T00:00:00.000Z',
+      id: 'MMR-3000',
+      status: 'done',
+      title: 'Late edit',
+      updated_at: '2026-06-25T00:00:00.000Z',
+    });
+    mockTerminalApi([...finishedTasks(3), edited]);
+    renderTasks('/tasks?status=terminal');
+    await screen.findByText('Late edit');
+    expect(titlesIn('Done · 4')).toStrictEqual([
+      'Finished 0',
+      'Finished 1',
+      'Finished 2',
+      'Late edit',
+    ]);
+  });
+
+  it('leaves the other views unbounded', async () => {
+    mockTerminalApi(finishedTasks(finishedCount));
+    renderTasks();
+    await screen.findByText('Doctor the wire');
+    const reads = nodeReads();
+    expect(reads.length).toBeGreaterThan(0);
+    for (const read of reads) {
+      expect(read.has('limit')).toBe(false);
+      expect(read.has('offset')).toBe(false);
+    }
+    expect(showMore()).toBeNull();
   });
 });
