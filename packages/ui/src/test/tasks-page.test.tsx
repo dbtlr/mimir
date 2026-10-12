@@ -599,3 +599,35 @@ describe('tasksPage Finished view windows (MMR-460)', () => {
     expect(showMore()).toBeNull();
   });
 });
+
+describe('tasksPage grooming chips (MMR-466)', () => {
+  it('shows the grooming state on todo rows only', async () => {
+    const groomRows: WireNode[] = [
+      task({ grooming: 'groomed', id: 'MMR-20', status: 'ready', title: 'Ready and groomed' }),
+      task({
+        grooming: 'needs_answers',
+        id: 'MMR-21',
+        status: 'ready',
+        title: 'Waiting on answers',
+      }),
+      task({
+        grooming: 'groomed',
+        id: 'MMR-22',
+        lifecycle: 'in_progress',
+        status: 'in_progress',
+        title: 'Already started',
+      }),
+    ];
+    apiGet.mockImplementation((path: string) =>
+      path.startsWith('/api/projects')
+        ? Promise.resolve({ items: [], total: 0 })
+        : Promise.resolve({ items: groomRows, total: groomRows.length }),
+    );
+    renderTasks();
+
+    await screen.findByRole('link', { name: 'Ready and groomed' });
+    expect(within(rowOf('Ready and groomed')).getByText('groomed')).toBeDefined();
+    expect(within(rowOf('Waiting on answers')).getByText('needs answers')).toBeDefined();
+    expect(within(rowOf('Already started')).queryByText('groomed')).toBeNull();
+  });
+});

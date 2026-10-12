@@ -21,6 +21,7 @@ import {
   MenuChip,
   RemovableChip,
 } from '../components/browser-list';
+import { GroomingChip } from '../components/grooming-chip';
 import { OfflineBanner } from '../components/offline-banner';
 import { StatusDot } from '../components/status-dot';
 import { Skeleton } from '../components/ui/skeleton';
@@ -425,6 +426,7 @@ export function TasksPage() {
                       <span className="sr-only">{STATUS_META[node.status].label}</span>
                     </>
                   }
+                  afterTitle={<GroomingChip node={node} />}
                   lede={node.lede ?? node.summary}
                   meta={<TaskMeta node={node} />}
                   // Terminal rows demote by ink tier alone — never by opacity

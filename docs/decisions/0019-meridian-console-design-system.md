@@ -193,3 +193,17 @@ ownership refinement), the set's `blocked` member narrows to blocks owned by
   (MMR-440) when it lands.
 - Lanes are out of scope here. The review page revisits the Overview, and
   until then any blocked leaf still reads `needs_unsticking`.
+
+## Refinement (2026-10-12, MMR-466): grooming chips stay out of the attention hue
+
+Grooming state (ADR 0033) is a pre-start judgment, not part of the needs-you
+set, so its chips never take the attention violet.
+
+- Needs answers borrows the amber that record damage uses: an unresolved
+  concern while the system is behaving, not a request for the operator.
+- Groomed and not groomed stay neutral. Groomed is brighter and carries a
+  check, so the two differ at a glance and in greyscale. A green chip is not
+  used, because on a ready card it would read as done.
+- Whether needs-answers tasks join the needs-you set is the review page's
+  decision (MMR-440). If they do, that page's rows take the attention hue, and
+  the chip keeps its amber.

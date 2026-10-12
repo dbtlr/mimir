@@ -77,4 +77,48 @@ describe('boardCard', () => {
     );
     expect(screen.getByText('Approve')).toHaveProperty('disabled', true);
   });
+
+  it('a todo card shows its grooming state: needs answers amber, groomed settled, not groomed quiet', async () => {
+    await renderInRouter(
+      <>
+        <BoardCard
+          node={task({ grooming: 'groomed', id: 'MMR-35', status: 'ready', title: 'one' })}
+          column="ready"
+        />
+        <BoardCard
+          node={task({ grooming: 'needs_answers', id: 'MMR-36', status: 'ready', title: 'two' })}
+          column="ready"
+        />
+        <BoardCard
+          node={task({ grooming: 'not_groomed', id: 'MMR-37', status: 'ready', title: 'three' })}
+          column="ready"
+        />
+      </>,
+    );
+    // Violet is the needs-you set's (ADR 0019); needs answers borrows the amber of record damage.
+    expect(screen.getByText('groomed').className).toContain('text-ink');
+    expect(screen.getByText('groomed').className).not.toContain('status-done');
+    expect(screen.getByText('groomed').textContent).toContain('✓');
+    expect(screen.getByText('not groomed').textContent).not.toContain('✓');
+    expect(screen.getByText('needs answers').className).toContain(
+      'text-status-in-progress-foreground',
+    );
+    expect(screen.getByText('needs answers').className).not.toContain('attention');
+    expect(screen.getByText('not groomed').className).toContain('text-ink-dim');
+  });
+
+  it('a started card carries no grooming chip', async () => {
+    await renderInRouter(
+      <BoardCard
+        node={task({
+          grooming: 'groomed',
+          id: 'MMR-38',
+          lifecycle: 'in_progress',
+          status: 'in_progress',
+        })}
+        column="in_progress"
+      />,
+    );
+    expect(screen.queryByText('groomed')).toBeNull();
+  });
 });
