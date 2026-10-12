@@ -1,21 +1,16 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { WireNode, WireTreeNode } from '../api/types';
 import { TreeView } from '../components/tree';
 import { task } from './fixtures';
+import { renderInRouter } from './router';
 
 const { mutate } = vi.hoisted(() => ({ mutate: vi.fn() }));
 vi.mock('../api/mutations', () => ({
   useTransition: () => ({ mutate }),
 }));
-
-function wrapper({ children }: { children: ReactNode }) {
-  return <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>;
-}
 
 /** A leaf task tree node (no children). */
 function leaf(overrides: Partial<WireNode> & { status: WireNode['status'] }): WireTreeNode {
@@ -49,12 +44,12 @@ function underReviewTree(): WireTreeNode {
 }
 
 describe('treeView', () => {
-  it('renders the empty state verbatim for a childless project', () => {
-    render(<TreeView root={project([])} onOpenNode={vi.fn()} />, { wrapper });
+  it('renders the empty state verbatim for a childless project', async () => {
+    await renderInRouter(<TreeView root={project([])} />);
     expect(screen.getByText('An empty project.')).toBeDefined();
   });
 
-  it('renders an initiative header, a phase panel, and its leaf rows', () => {
+  it('renders an initiative header, a phase panel, and its leaf rows', async () => {
     const root = project([
       branch({ id: 'MMR-2', status: 'in_progress', title: 'Build the thing', type: 'initiative' }, [
         branch(
@@ -69,7 +64,7 @@ describe('treeView', () => {
         ),
       ]),
     ]);
-    render(<TreeView root={root} onOpenNode={vi.fn()} />, { wrapper });
+    await renderInRouter(<TreeView root={root} />);
 
     expect(screen.getByText('INITIATIVE')).toBeDefined();
     expect(screen.getByText('Build the thing')).toBeDefined();
@@ -80,7 +75,7 @@ describe('treeView', () => {
     expect(screen.getByText('Ready')).toBeDefined();
   });
 
-  it('derives the initiative leaf-count summary from the distribution', () => {
+  it('derives the initiative leaf-count summary from the distribution', async () => {
     const root = project([
       branch(
         {
@@ -93,11 +88,11 @@ describe('treeView', () => {
         [branch({ id: 'MMR-3', status: 'in_progress', title: 'P', type: 'phase' }, [])],
       ),
     ]);
-    render(<TreeView root={root} onOpenNode={vi.fn()} />, { wrapper });
+    await renderInRouter(<TreeView root={root} />);
     expect(screen.getByText('3 done · 2 live · 1 review')).toBeDefined();
   });
 
-  it('reads a standing home as STANDING / OPEN FOR FILING with ∞, never a leaf-count summary', () => {
+  it('reads a standing home as STANDING / OPEN FOR FILING with ∞, never a leaf-count summary', async () => {
     const root = project([
       branch(
         {
@@ -111,7 +106,7 @@ describe('treeView', () => {
         [leaf({ id: 'MMR-30', status: 'ready', title: 'file me' })],
       ),
     ]);
-    render(<TreeView root={root} onOpenNode={vi.fn()} />, { wrapper });
+    await renderInRouter(<TreeView root={root} />);
     expect(screen.getByText('STANDING')).toBeDefined();
     expect(screen.getByText('OPEN FOR FILING')).toBeDefined();
     expect(screen.getByText('∞')).toBeDefined();
@@ -119,7 +114,7 @@ describe('treeView', () => {
     expect(screen.queryByText('2 live')).toBeNull();
   });
 
-  it('rewrites the phase interpreted word for in_progress to IN MOTION', () => {
+  it('rewrites the phase interpreted word for in_progress to IN MOTION', async () => {
     const root = project([
       branch({ id: 'MMR-2', status: 'in_progress', title: 'I', type: 'initiative' }, [
         branch({ id: 'MMR-3', status: 'in_progress', title: 'Live phase', type: 'phase' }, [
@@ -127,12 +122,11 @@ describe('treeView', () => {
         ]),
       ]),
     ]);
-    render(<TreeView root={root} onOpenNode={vi.fn()} />, { wrapper });
+    await renderInRouter(<TreeView root={root} />);
     expect(screen.getByText('IN MOTION')).toBeDefined();
   });
 
-  it('opens the node when a leaf row is clicked', async () => {
-    const onOpen = vi.fn();
+  it("a leaf row is a real link to the task's page", async () => {
     const root = project([
       branch({ id: 'MMR-2', status: 'in_progress', title: 'I', type: 'initiative' }, [
         branch({ id: 'MMR-3', status: 'in_progress', title: 'P', type: 'phase' }, [
@@ -140,34 +134,38 @@ describe('treeView', () => {
         ]),
       ]),
     ]);
-    render(<TreeView root={root} onOpenNode={onOpen} />, { wrapper });
-    await userEvent.click(screen.getByText('open me'));
-    expect(onOpen).toHaveBeenCalledWith('MMR-10');
+    const { router } = await renderInRouter(<TreeView root={root} />);
+    const row = screen.getByRole('link', { name: /open me/ });
+    expect(row).toHaveAttribute('href', '/p/MMR/10');
+    await userEvent.click(row);
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/p/MMR/10');
+    });
   });
 
-  it('an under-review leaf carries inline Approve / Return and its status word', () => {
-    render(<TreeView root={underReviewTree()} onOpenNode={vi.fn()} />, { wrapper });
+  it('an under-review leaf carries inline Approve / Return and its status word', async () => {
+    await renderInRouter(<TreeView root={underReviewTree()} />);
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDefined();
     expect(screen.getByRole('button', { name: 'Request changes…' })).toBeDefined();
     expect(screen.getByText('Under review')).toBeDefined();
   });
 
   it('inline Approve fires the done verb', async () => {
-    render(<TreeView root={underReviewTree()} onOpenNode={vi.fn()} />, { wrapper });
+    await renderInRouter(<TreeView root={underReviewTree()} />);
     await userEvent.click(screen.getByRole('button', { name: 'Approve' }));
     expect(mutate).toHaveBeenCalledWith({ verb: 'done' });
   });
 
   it('inline Return opens the reason dialog and mutates with the return verb', async () => {
-    render(<TreeView root={underReviewTree()} onOpenNode={vi.fn()} />, { wrapper });
+    await renderInRouter(<TreeView root={underReviewTree()} />);
     await userEvent.click(screen.getByRole('button', { name: 'Request changes…' }));
     await userEvent.type(await screen.findByRole('textbox'), 'needs tests');
     await userEvent.click(screen.getByRole('button', { name: /confirm/i }));
     expect(mutate).toHaveBeenCalledWith({ reason: 'needs tests', verb: 'return' });
   });
 
-  it('offline inerts the inline verdict buttons', () => {
-    render(<TreeView root={underReviewTree()} onOpenNode={vi.fn()} offline />, { wrapper });
+  it('offline inerts the inline verdict buttons', async () => {
+    await renderInRouter(<TreeView root={underReviewTree()} offline />);
     expect(screen.getByRole('button', { name: 'Approve' })).toHaveProperty('disabled', true);
     expect(screen.getByRole('button', { name: 'Request changes…' })).toHaveProperty(
       'disabled',
@@ -175,7 +173,7 @@ describe('treeView', () => {
     );
   });
 
-  it('folds consecutive done phases into one recessed row with an ordinal range and count', () => {
+  it('folds consecutive done phases into one recessed row with an ordinal range and count', async () => {
     const root = project([
       branch({ id: 'MMR-2', status: 'in_progress', title: 'I', type: 'initiative' }, [
         branch(
@@ -188,12 +186,12 @@ describe('treeView', () => {
         ),
       ]),
     ]);
-    render(<TreeView root={root} onOpenNode={vi.fn()} />, { wrapper });
+    await renderInRouter(<TreeView root={root} />);
     expect(screen.getByText('Phases 0–1')).toBeDefined();
     expect(screen.getByText('DONE · 8')).toBeDefined();
   });
 
-  it('folds a panel’s parked leaves into one trailing row', () => {
+  it('folds a panel’s parked leaves into one trailing row', async () => {
     const root = project([
       branch({ id: 'MMR-2', status: 'in_progress', title: 'I', type: 'initiative' }, [
         branch({ id: 'MMR-3', status: 'in_progress', title: 'P', type: 'phase' }, [
@@ -203,7 +201,7 @@ describe('treeView', () => {
         ]),
       ]),
     ]);
-    render(<TreeView root={root} onOpenNode={vi.fn()} />, { wrapper });
+    await renderInRouter(<TreeView root={root} />);
     expect(screen.getByText('2 parked · expand')).toBeDefined();
   });
 
@@ -216,7 +214,7 @@ describe('treeView', () => {
         ]),
       ]),
     ]);
-    render(<TreeView root={root} onOpenNode={vi.fn()} />, { wrapper });
+    await renderInRouter(<TreeView root={root} />);
     const toggle = screen.getByText('1 parked · expand');
     expect(toggle.closest('button')).toHaveProperty('ariaExpanded', 'false');
     await userEvent.click(toggle);
@@ -227,7 +225,7 @@ describe('treeView', () => {
     );
   });
 
-  it('marks disclosure headers with aria-expanded', () => {
+  it('marks disclosure headers with aria-expanded', async () => {
     const root = project([
       branch({ id: 'MMR-2', status: 'in_progress', title: 'Init', type: 'initiative' }, [
         branch({ id: 'MMR-3', status: 'in_progress', title: 'Phase', type: 'phase' }, [
@@ -235,7 +233,7 @@ describe('treeView', () => {
         ]),
       ]),
     ]);
-    render(<TreeView root={root} onOpenNode={vi.fn()} />, { wrapper });
+    await renderInRouter(<TreeView root={root} />);
     // both the initiative header and the (default-open) phase header expose state
     for (const name of ['Init', 'Phase']) {
       expect(screen.getByRole('button', { name: `Toggle ${name}` })).toHaveProperty(
@@ -245,8 +243,7 @@ describe('treeView', () => {
     }
   });
 
-  it("opens a container's page from its header title (MMR-450)", async () => {
-    const onOpen = vi.fn();
+  it("links a container's header title to its page (MMR-450)", async () => {
     const root = project([
       branch({ id: 'MMR-2', status: 'in_progress', title: 'Init', type: 'initiative' }, [
         branch({ id: 'MMR-3', status: 'in_progress', title: 'Phase', type: 'phase' }, [
@@ -254,21 +251,22 @@ describe('treeView', () => {
         ]),
       ]),
     ]);
-    render(<TreeView root={root} onOpenNode={onOpen} />, { wrapper });
+    const { router } = await renderInRouter(<TreeView root={root} />);
 
-    await userEvent.click(screen.getByText('Init'));
-    await userEvent.click(screen.getByText('Phase'));
-    expect(onOpen.mock.calls).toStrictEqual([['MMR-2'], ['MMR-3']]);
-    // Opening a page leaves the fold alone; only the caret folds.
+    expect(screen.getByRole('link', { name: /Init/ })).toHaveAttribute('href', '/p/MMR/2');
+    // The title is the link; only the caret folds.
     expect(screen.getByText('a')).toBeDefined();
     await userEvent.click(screen.getByRole('button', { name: 'Toggle Phase' }));
     expect(screen.queryByText('a')).toBeNull();
+    await userEvent.click(screen.getByRole('link', { name: /Phase/ }));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/p/MMR/3');
+    });
   });
 
-  it('opens the node when the trailing status word of an under-review row is clicked', async () => {
-    const onOpen = vi.fn();
-    render(<TreeView root={underReviewTree()} onOpenNode={onOpen} />, { wrapper });
-    await userEvent.click(screen.getByText('Under review'));
-    expect(onOpen).toHaveBeenCalledWith('MMR-10');
+  it("an under-review row's title and trailing status word both link to the task's page", async () => {
+    await renderInRouter(<TreeView root={underReviewTree()} />);
+    expect(screen.getByRole('link', { name: /needs a look/ })).toHaveAttribute('href', '/p/MMR/10');
+    expect(screen.getByRole('link', { name: 'Open MMR-10' })).toHaveAttribute('href', '/p/MMR/10');
   });
 });

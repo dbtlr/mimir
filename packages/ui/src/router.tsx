@@ -36,8 +36,7 @@ import { TasksPage } from './routes/tasks';
  * and records — `/` the overview, `/p/KEY` the project's page, `/p/KEY/board`
  * its board, `/p/KEY/417` a work node's page, `/p/KEY/s41` a seed's page,
  * `/p/KEY/a219` an artifact's page. On the board, `view` picks the
- * lens (board or tree) until the work page retires the tree (MMR-439). `node`
- * still opens the dossier overlay until the overlay retires (MMR-453). Typed
+ * lens (board or tree) until the work page retires the tree (MMR-439). Typed
  * search params carry that contract in the type system.
  */
 export type BoardLens = 'board' | 'tree';
@@ -45,15 +44,10 @@ export type BoardLens = 'board' | 'tree';
 const isBandMode = (value: unknown): value is BandMode =>
   typeof value === 'string' && (BAND_MODES as readonly string[]).includes(value);
 
-export type OverviewSearch = {
-  node?: string;
-};
-
 export type BoardSearch = {
   view: BoardLens;
   /** The board's swimlane grouping (MMR-221) — addressable, `phase` defaulted-out. */
   bands: BandMode;
-  node?: string;
 };
 
 const rootRoute = createRootRoute({ component: Shell });
@@ -62,8 +56,6 @@ export const overviewRoute = createRoute({
   component: OverviewPage,
   getParentRoute: () => rootRoute,
   path: '/',
-  validateSearch: (search: Record<string, unknown>): OverviewSearch =>
-    typeof search.node === 'string' ? { node: search.node } : {},
 });
 
 /**
@@ -109,7 +101,7 @@ export const boardRoute = createRoute({
   validateSearch: (search: Record<string, unknown> & SearchSchemaInput): BoardSearch => {
     const view: BoardLens = search.view === 'tree' ? 'tree' : 'board';
     const bands: BandMode = isBandMode(search.bands) ? search.bands : 'phase';
-    return typeof search.node === 'string' ? { bands, node: search.node, view } : { bands, view };
+    return { bands, view };
   },
 });
 
@@ -214,8 +206,6 @@ export type TasksSearch = {
   project?: string;
   status?: string;
   q?: string;
-  /** The node opened in the drawer overlay (same param the board uses). */
-  node?: string;
 };
 
 export const tasksRoute = createRoute({
@@ -224,7 +214,7 @@ export const tasksRoute = createRoute({
   path: '/tasks',
   validateSearch: (search: Record<string, unknown>): TasksSearch => {
     const out: TasksSearch = {};
-    for (const k of ['project', 'status', 'q', 'node'] as const) {
+    for (const k of ['project', 'status', 'q'] as const) {
       const v = search[k];
       if (typeof v === 'string' && v !== '') {
         out[k] = v;

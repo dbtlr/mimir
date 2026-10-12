@@ -159,11 +159,10 @@ class Board {
   /**
    * Submit-for-review metadata (MMR-256): `submitTask` itself takes only an id
    * (ADR 0001/0007) — a summary/ref rides two separate surfaces instead. The
-   * `summary` field is set directly (the quick-view verdict line reads
-   * `node.summary`); a matching annotation lands right after so the dossier's
-   * verdict block — which derives its summary from the latest annotation
-   * authored at/after the submit transition — has one to find. `externalRef`
-   * is the real `external_ref` field, read by both surfaces as-is. Call after
+   * `summary` field is set directly; a matching annotation lands right after
+   * so the task page's verdict block — which derives its summary from the
+   * latest annotation authored at/after the submit transition — has one to
+   * find. `externalRef` is the real `external_ref` field, read as-is. Call after
    * `drive(stem, 'under_review')`.
    */
   async submitWith(stem: string, input: { summary: string; externalRef: string }): Promise<void> {

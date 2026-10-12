@@ -14,7 +14,7 @@ export function ago(iso: string | number, now = Date.now()): string {
   return agoIn(iso, now);
 }
 
-/** Full local timestamp for the drawer's meta rows, with its zone label — an
+/** Full local timestamp for a record page's meta rows, with its zone label — an
  * absolute reading is ambiguous without one. The locale is pinned to `en-US`
  * like the CLI helpers': the zone read from the machine, the spelling never, so
  * two operators reading the same record read the same string. */

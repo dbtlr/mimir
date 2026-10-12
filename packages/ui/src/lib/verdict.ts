@@ -3,7 +3,7 @@ import type { WireAnnotation, WireHistoryEntry } from '../api/types';
 /**
  * The verdict-block summary (MMR-262) — the latest annotation authored at/after
  * the most recent submit-into-review transition. This is the single source for
- * both the dossier and quick-view verdict blocks; the wire's generic `summary`
+ * the task page's verdict block; the wire's generic `summary`
  * field is an unrelated board-card lede (MMR-162), not this. No summary text is
  * fabricated when neither a submit transition nor a post-submit annotation exists.
  */

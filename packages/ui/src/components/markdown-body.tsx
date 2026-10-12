@@ -61,7 +61,7 @@ const INK_PROSE = cn(
  * Body headings sit in a modest ladder below the host's own title, sized in
  * `em` so they follow the text scale: h3 1.2em bold → h4 1.1em → h5 body size
  * → h6 a small dim label. Even the largest (~16px at the default scale) stays
- * under the 17px dossier title. Margins are em too, so a heading's spacing
+ * under the 17px record title. Margins are em too, so a heading's spacing
  * tracks its size.
  */
 const HEADING_PROSE = cn(
@@ -146,7 +146,7 @@ const DOCUMENT_COMPONENTS = { ...BODY_HEADINGS, table: ScrollingTable };
 /**
  * The two text scales a host can ask for. `default` is the reading scale;
  * `compact` is the secondary-text scale (`text-meta`) for dense surfaces — a
- * timeline note, the quick view — with the block margins tightened to match.
+ * timeline note — with the block margins tightened to match.
  */
 export type MarkdownSize = 'default' | 'compact';
 

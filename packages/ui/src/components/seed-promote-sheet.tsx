@@ -1,11 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
 
 import { seedQuery } from '../api/queries';
 import type { WireSeed } from '../api/types';
-import { nodeLink } from '../lib/record-url';
 import { AuthoringSheet } from './authoring-sheet';
 import { SeedKindChip } from './seed-kind-chip';
 
@@ -33,7 +31,6 @@ export function SeedPromoteSheet({
   onOpenChange: (open: boolean) => void;
   offline?: boolean;
 }) {
-  const navigate = useNavigate();
   // Same key the row/reading-pane already fetched on select, so the body is
   // typically warm — but the sheet opens on the list row regardless of it.
   const detail = useQuery({ ...seedQuery(seed.id), enabled: open });
@@ -57,7 +54,6 @@ export function SeedPromoteSheet({
       onOpenChange={onOpenChange}
       projectKey={seed.project}
       offline={offline}
-      onOpenNode={(id) => void navigate(nodeLink(id))}
       prefill={{
         description: body?.description ?? seed.description ?? undefined,
         title: body?.title ?? seed.title,

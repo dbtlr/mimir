@@ -1,6 +1,7 @@
 import { PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
 import type { Priority, SeedKind, Size } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode, RefObject } from 'react';
 import { toast } from 'sonner';
@@ -13,6 +14,7 @@ import { projectKeyOf } from '../api/types';
 import { cn } from '../lib/cn';
 import { homeOptions } from '../lib/parent-options';
 import type { AuthoringType } from '../lib/parent-options';
+import { nodeLink } from '../lib/record-url';
 import { StatusDot } from './status-dot';
 import { ActionButton } from './ui/action-button';
 import { SegmentedControl } from './ui/segmented-control';
@@ -72,8 +74,6 @@ export type AuthoringSheetProps = {
   /** The scope's project — the board pre-fills it; omitted, the first project wins. */
   projectKey?: string;
   offline?: boolean;
-  /** "Create & open" routes the fresh node here (its record page). */
-  onOpenNode?: (id: string) => void;
   prefill?: AuthoringPrefill;
   /**
    * MMR-248: the prefill description is still loading (the promote body read is
@@ -98,6 +98,7 @@ type DismissGuard = () => boolean;
  * task / phase / initiative behind a type selector, with a project-spanning
  * HOME picker, always-visible markdown description, and a DEPENDS-ON chip
  * field. Nodes are born `new`; no status control exists here (ADR 0019 §5).
+ * "Create & open" lands on the new node's page.
  * Deps apply post-create (`/depend`) — accepted non-atomicity: on a depend
  * failure the node survives, the error toasts, and the sheet holds a
  * retry-deps posture pinned to the created node (never a duplicate create).
@@ -127,7 +128,6 @@ function AuthoringSheetBody({
   onOpenChange,
   projectKey,
   offline,
-  onOpenNode,
   prefill,
   descriptionPending,
   headerSlot,
@@ -157,6 +157,7 @@ function AuthoringSheetBody({
   // Partial-failure marker: the node a prior submit created whose depend
   // failed — the next submit retries the attach instead of re-creating.
   const [created, setCreated] = useState<WireNode | null>(null);
+  const navigate = useNavigate();
   const titleRef = useRef<HTMLInputElement>(null);
   // The description auto-fills from the (late) promote body only until the user
   // types — this guards the sync effect from clobbering an in-progress edit.
@@ -300,7 +301,7 @@ function AuthoringSheetBody({
 
   // MMR-248 promote submit: one POST to the promote endpoint (never the create
   // route). Success toasts the spawned task id, invalidates seeds + node keys via
-  // the hook, and closes; "& open" routes to the created task's dossier.
+  // the hook, and closes; "& open" lands on the created task's page.
   async function handlePromote(openAfter: boolean) {
     if (!canCreate || promote === undefined) {
       return;
@@ -337,7 +338,7 @@ function AuthoringSheetBody({
       );
     }
     if (openAfter && spawnedId !== undefined) {
-      onOpenNode?.(spawnedId);
+      void navigate(nodeLink(spawnedId));
     }
     onOpenChange(false);
   }
@@ -398,7 +399,7 @@ function AuthoringSheetBody({
     }
     setCreated(null);
     if (openAfter) {
-      onOpenNode?.(node.id);
+      void navigate(nodeLink(node.id));
       onOpenChange(false);
       return;
     }
@@ -885,22 +886,19 @@ function AuthoringSheetBody({
         {created !== null && (
           <p role="status" className={cn(FIELD_SHELL, 'px-3 py-2 text-xs text-ink')}>
             <span className="font-mono text-tag text-ink-faint">{created.id}</span> created —
-            dependencies not yet attached.
-            {onOpenNode !== undefined && (
-              <>
-                {' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    onOpenNode(created.id);
-                    onOpenChange(false);
-                  }}
-                  className="rounded text-accent-foreground underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
-                >
-                  open it
-                </button>
-              </>
-            )}
+            dependencies not yet attached.{' '}
+            <Link
+              {...nodeLink(created.id)}
+              onClick={(e) => {
+                // A modified click opens a new tab; keep the retry posture here.
+                if (!(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)) {
+                  onOpenChange(false);
+                }
+              }}
+              className="rounded text-accent-foreground underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              open it
+            </Link>
           </p>
         )}
 

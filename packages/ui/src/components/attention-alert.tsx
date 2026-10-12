@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 
 import { blockedQuery, doctorQuery, staleQuery, underReviewQuery } from '../api/queries';
 import type { AttentionReason } from '../lib/attention';
@@ -35,7 +35,6 @@ const REASON_META: Record<AttentionReason, { label: string; meta: string }> = {
 };
 
 export function AttentionAlert() {
-  const navigate = useNavigate();
   const underReview = useQuery(underReviewQuery);
   const blocked = useQuery(blockedQuery);
   const stale = useQuery(staleQuery);
@@ -89,7 +88,7 @@ export function AttentionAlert() {
             <MenuItem
               key={node.id}
               className="items-start"
-              onClick={() => void navigate(nodeLink(node.id))}
+              render={<Link {...nodeLink(node.id)} />}
             >
               {reason === 'going_cold' ? (
                 <span
@@ -116,7 +115,7 @@ export function AttentionAlert() {
           <MenuItem
             key={group.project}
             className={cn('items-center', count > 0 && 'border-t border-status-in-progress/15')}
-            onClick={() => void navigate({ search: healthSearch(group.project), to: '/doctor' })}
+            render={<Link to="/doctor" search={healthSearch(group.project)} />}
           >
             <span
               aria-hidden

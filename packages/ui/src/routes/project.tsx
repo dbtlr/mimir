@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 
 import { isNotFound } from '../api/errors';
 import { doctorQuery, projectQuery, treeQuery } from '../api/queries';
@@ -23,21 +23,12 @@ import { Badge } from '../components/ui/badge';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { useRememberRecord } from '../lib/recent-records';
-import { nodeLink } from '../lib/record-url';
 import { absoluteTime } from '../lib/time';
 import { projectRoute } from '../router';
 import { ProjectUnavailablePage } from './not-found';
 
 /** The project's verbs: open its board, file new work, change its settings. */
-function ActionsPanel({
-  project,
-  offline,
-  onOpenNode,
-}: {
-  project: WireNode;
-  offline: boolean;
-  onOpenNode: (id: string) => void;
-}) {
+function ActionsPanel({ project, offline }: { project: WireNode; offline: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <Link
@@ -47,7 +38,7 @@ function ActionsPanel({
       >
         Open board
       </Link>
-      <NewTaskButton projectKey={project.id} offline={offline} onOpenNode={onOpenNode} />
+      <NewTaskButton projectKey={project.id} offline={offline} />
       <ProjectSettingsButton project={project} offline={offline} />
     </div>
   );
@@ -83,7 +74,6 @@ function DetailsPanel({ project }: { project: WireNode }) {
  * page's body with the six operator questions.
  */
 export function ProjectPage() {
-  const navigate = useNavigate();
   const { key } = projectRoute.useParams();
   const project = useQuery(projectQuery(key));
   // The tree lists the contents and the doctor read counts findings; a miss on
@@ -114,7 +104,6 @@ export function ProjectPage() {
     );
   }
 
-  const openNode = (id: string) => void navigate(nodeLink(id));
   const artifactCount = data.artifacts?.length ?? 0;
 
   const direction = (
@@ -125,7 +114,7 @@ export function ProjectPage() {
       offline={offline}
     />
   );
-  const actions = <ActionsPanel project={data} offline={offline} onOpenNode={openNode} />;
+  const actions = <ActionsPanel project={data} offline={offline} />;
   const artifacts = <ArtifactLinks artifacts={data.artifacts} />;
   const details = <DetailsPanel project={data} />;
 

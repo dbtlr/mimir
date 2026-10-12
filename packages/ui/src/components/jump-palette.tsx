@@ -10,7 +10,7 @@ import { cn } from '../lib/cn';
 import { LINK_LABEL, groupHits, highlightTerms, hitStatus } from '../lib/jump';
 import { readRecentRecords, rememberRecord } from '../lib/recent-records';
 import type { RecentRecord } from '../lib/recent-records';
-import { nodeLink, recordLink } from '../lib/record-url';
+import { recordLink } from '../lib/record-url';
 import { useDebouncedValue } from '../lib/use-debounced-value';
 import { IS_APPLE, useCommandHotkey } from '../lib/use-hotkey';
 import { AuthoringSheet } from './authoring-sheet';
@@ -56,7 +56,6 @@ export function JumpPalette() {
   // Only a project that exists scopes the search: the server rejects an
   // unknown one, which would fail every search on a mistyped URL.
   const project = projects.data?.items.some((p) => p.id === key) === true ? key : undefined;
-  const navigate = useNavigate();
   useCommandHotkey('KeyK', openPalette, { enabled: !open });
 
   function openPalette() {
@@ -121,12 +120,7 @@ export function JumpPalette() {
           </Dialog.Popup>
         </Dialog.Portal>
       </Dialog.Root>
-      <AuthoringSheet
-        open={authoring}
-        onOpenChange={setAuthoring}
-        projectKey={project}
-        onOpenNode={(id) => void navigate(nodeLink(id))}
-      />
+      <AuthoringSheet open={authoring} onOpenChange={setAuthoring} projectKey={project} />
     </>
   );
 }

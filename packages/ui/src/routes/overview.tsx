@@ -6,7 +6,6 @@ import { archivedProjectsQuery, doctorQuery, projectsQuery } from '../api/querie
 import { ArchivedShelf } from '../components/archived-shelf';
 import { LaneSection } from '../components/lane-section';
 import { NewProjectSheet } from '../components/new-project-sheet';
-import { NodeDossier } from '../components/node-dossier';
 import { OfflineBanner } from '../components/offline-banner';
 import { ProjectCard } from '../components/project-card';
 import { ActionButton } from '../components/ui/action-button';
@@ -15,7 +14,6 @@ import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { findingsByProject } from '../lib/health';
 import { groupIntoLanes } from '../lib/lanes';
-import { overviewRoute } from '../router';
 
 /**
  * `/` — the overview as an attention-router (MMR-102): projects grouped into the
@@ -27,7 +25,6 @@ import { overviewRoute } from '../router';
  */
 export function OverviewPage() {
   const navigate = useNavigate();
-  const { node } = overviewRoute.useSearch();
   const [creating, setCreating] = useState(false);
 
   const projects = useQuery(projectsQuery);
@@ -38,7 +35,6 @@ export function OverviewPage() {
   const findingsByKey = findingsByProject(health.data);
   const archivedProjects = archived.data?.items ?? [];
   const conn = connectivity([projects, archived]);
-  const closeNode = () => void navigate({ search: {}, to: '.' });
   const onOpen = (key: string) => void navigate({ params: { key }, to: '/p/$key' });
 
   return (
@@ -154,7 +150,6 @@ export function OverviewPage() {
         <ArchivedShelf projects={archivedProjects} offline={conn.offline} />
       </main>
       <NewProjectSheet open={creating} onOpenChange={setCreating} />
-      <NodeDossier nodeId={node} onClose={closeNode} offline={conn.offline} />
     </>
   );
 }

@@ -1,15 +1,21 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
 import type { WireNode, WireTreeNode } from '../api/types';
 import { router } from '../router';
 import { task } from './fixtures';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend: vi.fn() }));
+const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet, apiSend }));
+vi.mock('sonner', async (orig) => ({
+  // oxlint-disable-next-line typescript/consistent-type-imports
+  ...(await orig<typeof import('sonner')>()),
+  toast: { error: vi.fn(), success: vi.fn() },
+}));
 
 function container(
   id: string,
@@ -87,7 +93,34 @@ const sqlite = task({
 
 beforeEach(() => {
   apiGet.mockReset();
+  apiSend.mockReset();
 });
+
+/** Markdown with a list, inline and fenced code, and a link — one body for every surface. */
+const MARKDOWN_BODY = [
+  '- first item',
+  '- second with `inline_code`',
+  '',
+  '[the docs](https://example.com/docs)',
+  '',
+  '```ts',
+  'const fenced = 1;',
+  '```',
+].join('\n');
+
+/** The tag write requests for one node (apiSend accumulates calls across a test). */
+function tagWrites(id: string) {
+  return apiSend.mock.calls.filter(
+    ([, path]) => typeof path === 'string' && path.includes(`/${id}/tags/`),
+  );
+}
+
+/** Render the task page for `node` and wait for its desktop rail. */
+async function openTask(node: WireNode, extra: Record<string, unknown> = {}) {
+  serve(node, extra);
+  renderAt(`/p/MMR/${node.id.replace('MMR-', '')}`);
+  return screen.findByRole('complementary', { name: 'Record details' });
+}
 
 describe('task page (MMR-449)', () => {
   it('opens a task directly at its URL', async () => {
@@ -415,5 +448,330 @@ describe('container page (MMR-450)', () => {
     renderAt('/p/MMR/5');
 
     await expect(screen.findByText(/nothing here yet/i)).resolves.toBeDefined();
+  });
+});
+
+/** Open the edit form for `node` and return its Tags field. */
+async function openEdit(node: WireNode) {
+  const rail = await openTask(node);
+  await userEvent.click(within(rail).getByRole('button', { name: 'Edit' }));
+  return screen.findByLabelText(/tags/i);
+}
+
+/** Open a task page whose only timeline note carries `content`. */
+async function openWithNote(content: string) {
+  await openTask(task({ id: 'MMR-83', status: 'in_progress' }), {
+    '/api/nodes/MMR-83/annotations': {
+      items: [{ content, created_at: '2026-06-02T00:00:00.000Z' }],
+      total: 1,
+    },
+  });
+}
+
+describe('task page edit (MMR-453)', () => {
+  const stamp = '2026-06-01T00:00:00.000Z';
+
+  it('pre-populates the existing tags in the edit form', async () => {
+    const tags = await openEdit(
+      task({
+        id: 'MMR-90',
+        status: 'ready',
+        tags: [
+          { created_at: stamp, tag: 'ui' },
+          { created_at: stamp, tag: 'release:v0.5' },
+        ],
+      }),
+    );
+    expect(tags).toHaveValue('ui, release:v0.5');
+  });
+
+  it('saving with an added tag adds exactly that tag', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-91' });
+    await userEvent.type(await openEdit(task({ id: 'MMR-91', status: 'ready', tags: [] })), 'feat');
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('PUT', '/api/nodes/MMR-91/tags/feat', undefined);
+    });
+    expect(tagWrites('MMR-91')).toHaveLength(1);
+  });
+
+  it('saving with a removed tag removes exactly that tag', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-92' });
+    await userEvent.clear(
+      await openEdit(
+        task({ id: 'MMR-92', status: 'ready', tags: [{ created_at: stamp, tag: 'ui' }] }),
+      ),
+    );
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('DELETE', '/api/nodes/MMR-92/tags/ui', undefined);
+    });
+    expect(tagWrites('MMR-92')).toHaveLength(1);
+  });
+
+  it('saving with unchanged tags fires no tag request, but the scalars still update', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-93' });
+    await openEdit(
+      task({ id: 'MMR-93', status: 'ready', tags: [{ created_at: stamp, tag: 'ui' }] }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/nodes/MMR-93', expect.anything());
+    });
+    expect(tagWrites('MMR-93')).toStrictEqual([]);
+  });
+
+  it('appending a tag by typing keeps the existing tag intact', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-94' });
+    // Keystroke-by-keystroke append: a trailing comma must survive mid-typing,
+    // or "ui" and "feat" merge into one tag.
+    await userEvent.type(
+      await openEdit(
+        task({ id: 'MMR-94', status: 'ready', tags: [{ created_at: stamp, tag: 'ui' }] }),
+      ),
+      ', feat',
+    );
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => {
+      expect(tagWrites('MMR-94')).toStrictEqual([
+        ['PUT', '/api/nodes/MMR-94/tags/feat', undefined],
+      ]);
+    });
+  });
+
+  it('one save adds and removes the changed tags and leaves the kept one alone', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-95' });
+    const tags = await openEdit(
+      task({
+        id: 'MMR-95',
+        status: 'ready',
+        tags: [
+          { created_at: stamp, tag: 'keep' },
+          { created_at: stamp, tag: 'drop' },
+        ],
+      }),
+    );
+    await userEvent.clear(tags);
+    await userEvent.type(tags, 'keep, fresh');
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => {
+      expect(tagWrites('MMR-95')).toHaveLength(2);
+    });
+    expect(apiSend).toHaveBeenCalledWith('PUT', '/api/nodes/MMR-95/tags/fresh', undefined);
+    expect(apiSend).toHaveBeenCalledWith('DELETE', '/api/nodes/MMR-95/tags/drop', undefined);
+  });
+
+  it('a failed tag save keeps the edit form open', async () => {
+    apiSend.mockImplementation((method: string) =>
+      method === 'PUT'
+        ? Promise.reject(new Error('tag write failed'))
+        : Promise.resolve({ id: 'MMR-96' }),
+    );
+    await userEvent.type(await openEdit(task({ id: 'MMR-96', status: 'ready', tags: [] })), 'feat');
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('PUT', '/api/nodes/MMR-96/tags/feat', undefined);
+    });
+    // The partial failure must not close the form back to the record view.
+    expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/tags/i)).toBeInTheDocument();
+  });
+
+  it('omits empty optional fields from the PATCH instead of sending nulls', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-65' });
+    await openEdit(task({ description: null, external_ref: null, id: 'MMR-65', status: 'ready' }));
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/nodes/MMR-65', expect.anything());
+    });
+    // A null would be sent as JSON null; an absent (undefined) field is dropped.
+    const body = apiSend.mock.calls.find(
+      ([method]) => method === 'PATCH',
+    )?.[2] as Partial<WireNode>;
+    expect(body.description).toBeUndefined();
+    expect(body.external_ref).toBeUndefined();
+  });
+});
+
+describe('task page verbs (MMR-453)', () => {
+  it('a plain verb fires immediately', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-51' });
+    const rail = await openTask(task({ id: 'MMR-51', status: 'ready' }));
+
+    await userEvent.click(within(rail).getByRole('button', { name: 'Start' }));
+
+    expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-51/start', undefined);
+  });
+
+  it('a verb that needs a reason asks for it first, then fires with it', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-51' });
+    const rail = await openTask(task({ id: 'MMR-51', status: 'ready' }));
+
+    await userEvent.click(within(rail).getByRole('button', { name: 'Park for later…' }));
+    expect(apiSend).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByRole('textbox'), 'later');
+    await userEvent.click(screen.getByRole('button', { name: /confirm/i }));
+
+    expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-51/park', { reason: 'later' });
+  });
+
+  it('Approve in the verdict block fires done', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-70' });
+    await openTask(
+      task({
+        external_ref: 'https://example.test/pr/41',
+        id: 'MMR-70',
+        status: 'under_review',
+      }),
+    );
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Approve' }));
+
+    expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-70/done', undefined);
+  });
+
+  it('offline disables Edit, Move…, and the verbs', async () => {
+    const node = task({ id: 'MMR-51', status: 'ready' });
+    serve(node, { '/api/nodes/MMR-51/annotations': undefined });
+    // An errored read over loaded data is the console's offline signal.
+    const base = apiGet.getMockImplementation();
+    apiGet.mockImplementation((path: string) =>
+      path === '/api/nodes/MMR-51/annotations'
+        ? Promise.reject(new Error('unreachable'))
+        : base?.(path),
+    );
+    renderAt('/p/MMR/51');
+
+    const rail = await screen.findByRole('complementary', { name: 'Record details' });
+    await waitFor(() => {
+      expect(within(rail).getByRole('button', { name: 'Start' })).toBeDisabled();
+    });
+    expect(within(rail).getByRole('button', { name: 'Edit' })).toBeDisabled();
+    expect(within(rail).getByRole('button', { name: 'Move…' })).toBeDisabled();
+  });
+});
+
+describe('task page move (MMR-453)', () => {
+  it('Move… picks a new parent and moves the task there', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-417' });
+    const rail = await openTask(sqlite);
+
+    await userEvent.click(within(rail).getByRole('button', { name: 'Move…' }));
+    // Options render once the tree loads (which also enables the select).
+    await screen.findByRole('option', { name: /Hosted and external backends/ });
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'New parent' }), 'MMR-1');
+    await userEvent.click(screen.getByRole('button', { name: 'Move' }));
+
+    expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-417/move', { to: 'MMR-1' });
+  });
+});
+
+describe('task page content (MMR-453)', () => {
+  it('renders the description as markdown', async () => {
+    await openTask(
+      task({ description: MARKDOWN_BODY, id: 'MMR-81', status: 'in_progress', title: 'md task' }),
+    );
+
+    // The record layout is itself an article; the markdown body is the one holding the code.
+    const article = (await screen.findByText('const fenced = 1;')).closest('article');
+    expect(article).not.toBeNull();
+    if (article === null) {
+      return;
+    }
+    expect(within(article).getByText('const fenced = 1;').closest('pre')).not.toBeNull();
+    expect(within(article).getByRole('link', { name: 'the docs' })).toHaveAttribute(
+      'href',
+      'https://example.com/docs',
+    );
+    expect(within(article).getByText('inline_code').tagName).toBe('CODE');
+    expect(within(article).getAllByRole('listitem')).toHaveLength(2);
+  });
+
+  it('renders a dependency in both depends_on and awaiting_on as one row, with the awaiting reading', async () => {
+    const rail = await openTask(
+      task({
+        deps: {
+          awaiting_on: [{ id: 'MMR-20', status: 'blocked', title: 'still gating' }],
+          blocking: [],
+          depends_on: [{ id: 'MMR-20', status: 'done', title: 'still gating (stale)' }],
+        },
+        id: 'MMR-21',
+        status: 'in_progress',
+      }),
+    );
+
+    expect(within(rail).getAllByText('MMR-20')).toHaveLength(1);
+    expect(within(rail).getByText('still gating')).toBeDefined();
+    expect(within(rail).queryByText('still gating (stale)')).toBeNull();
+  });
+
+  describe('note clamp toggle', () => {
+    const proto = HTMLElement.prototype;
+    const original = {
+      client: Object.getOwnPropertyDescriptor(proto, 'clientHeight'),
+      scroll: Object.getOwnPropertyDescriptor(proto, 'scrollHeight'),
+    };
+
+    /** jsdom has no layout; stub the two heights the note measures. */
+    function stubHeights(scrollHeight: number, clientHeight: number) {
+      Object.defineProperty(proto, 'scrollHeight', { configurable: true, get: () => scrollHeight });
+      Object.defineProperty(proto, 'clientHeight', { configurable: true, get: () => clientHeight });
+    }
+
+    beforeEach(() => {
+      // jsdom has no computed line-height; the clamp reads it off the article.
+      const real = globalThis.getComputedStyle.bind(globalThis);
+      vi.spyOn(globalThis, 'getComputedStyle').mockImplementation((el, pseudo) =>
+        el.tagName === 'ARTICLE'
+          ? ({ lineHeight: '20px' } as CSSStyleDeclaration)
+          : real(el, pseudo),
+      );
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      for (const [name, descriptor] of [
+        ['clientHeight', original.client],
+        ['scrollHeight', original.scroll],
+      ] as const) {
+        if (descriptor === undefined) {
+          Reflect.deleteProperty(proto, name);
+        } else {
+          Object.defineProperty(proto, name, descriptor);
+        }
+      }
+    });
+
+    it('offers "Show all" with the rendered line count when the note overflows, and toggles the clamp', async () => {
+      stubHeights(200, 60);
+      await openWithNote('- one\n- two\n- three');
+
+      // 200px of content at a 20px line-height: ten rendered lines.
+      const toggle = await screen.findByRole('button', { name: 'Show all · 10 lines ⌄' });
+      const article = screen.getByText('three').closest('article');
+      expect(article).toHaveAttribute('data-clamped');
+      await userEvent.click(toggle);
+      expect(screen.getByRole('button', { name: 'Show less ⌃' })).toBeInTheDocument();
+      expect(article).not.toHaveAttribute('data-clamped');
+      await userEvent.click(screen.getByRole('button', { name: 'Show less ⌃' }));
+      expect(screen.getByRole('button', { name: 'Show all · 10 lines ⌄' })).toBeInTheDocument();
+      expect(article).toHaveAttribute('data-clamped');
+    });
+
+    it('offers no toggle when the note fits its clamp', async () => {
+      stubHeights(60, 60);
+      await openWithNote('- one\n- two\n- three');
+
+      await screen.findByText('three');
+      expect(screen.queryByRole('button', { name: /show (all|less)/i })).toBeNull();
+    });
   });
 });

@@ -1,8 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, vi } from 'vitest';
 
 import { BoardCard } from '../components/board-card';
 import { task } from './fixtures';
+import { renderInRouter } from './router';
 
 const mutate = vi.fn();
 vi.mock('../api/mutations', () => ({
@@ -10,13 +12,12 @@ vi.mock('../api/mutations', () => ({
 }));
 
 describe('boardCard', () => {
-  it('an under-review card shows the verdict tag and wires Approve to the done verb', () => {
+  it('an under-review card shows the verdict tag and wires Approve to the done verb', async () => {
     mutate.mockClear();
-    render(
+    await renderInRouter(
       <BoardCard
         node={task({ id: 'MMR-30', status: 'under_review', title: 'awaiting sign-off' })}
         column="under_review"
-        onOpen={vi.fn()}
       />,
     );
     expect(screen.getByText('NEEDS VERDICT')).toBeDefined();
@@ -24,8 +25,8 @@ describe('boardCard', () => {
     expect(mutate).toHaveBeenCalledWith({ verb: 'done' });
   });
 
-  it('a stale non-terminal card carries the inline cold marker and dims its title', () => {
-    render(
+  it('a stale non-terminal card carries the inline cold marker and dims its title', async () => {
+    await renderInRouter(
       <BoardCard
         node={task({
           id: 'MMR-31',
@@ -34,27 +35,25 @@ describe('boardCard', () => {
           verdicts: { blocking: false, orphaned: false, stale: true },
         })}
         column="ready"
-        onOpen={vi.fn()}
       />,
     );
     expect(screen.getByText('⧗ cold')).toBeDefined();
   });
 
-  it('clicking the title opens the node', () => {
-    const onOpen = vi.fn();
-    render(
-      <BoardCard
-        node={task({ id: 'MMR-32', status: 'ready', title: 'open me' })}
-        column="ready"
-        onOpen={onOpen}
-      />,
+  it("the title is a real link to the task's page", async () => {
+    const { router } = await renderInRouter(
+      <BoardCard node={task({ id: 'MMR-32', status: 'ready', title: 'open me' })} column="ready" />,
     );
-    screen.getByText('open me').closest('button')?.click();
-    expect(onOpen).toHaveBeenCalledWith('MMR-32');
+    const link = screen.getByRole('link', { name: 'open me' });
+    expect(link).toHaveAttribute('href', '/p/MMR/32');
+    await userEvent.setup().click(link);
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/p/MMR/32');
+    });
   });
 
-  it('renders a release:* tag as the accent wash, not a neutral chip', () => {
-    render(
+  it('renders a release:* tag as the accent wash, not a neutral chip', async () => {
+    await renderInRouter(
       <BoardCard
         node={task({
           id: 'MMR-33',
@@ -62,19 +61,17 @@ describe('boardCard', () => {
           tags: [{ created_at: '', tag: 'release:v0.13' }],
         })}
         column="ready"
-        onOpen={vi.fn()}
       />,
     );
     const chip = screen.getByText('v0.13');
     expect(chip.className).toContain('bg-accent/12');
   });
 
-  it('offline inerts the verdict buttons', () => {
-    render(
+  it('offline inerts the verdict buttons', async () => {
+    await renderInRouter(
       <BoardCard
         node={task({ id: 'MMR-34', status: 'under_review' })}
         column="under_review"
-        onOpen={vi.fn()}
         offline
       />,
     );

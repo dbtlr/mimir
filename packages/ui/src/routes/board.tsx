@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 
 import { isNotFound } from '../api/errors';
 import {
@@ -14,7 +14,6 @@ import { DirectionLine } from '../components/direction-line';
 import { DistributionBar } from '../components/distribution-bar';
 import { FindingsChip } from '../components/findings-chip';
 import { NewTaskButton } from '../components/new-task-button';
-import { NodeDossier } from '../components/node-dossier';
 import { OfflineBanner } from '../components/offline-banner';
 import { ProjectSettingsButton } from '../components/project-settings-button';
 import { StatusBadge } from '../components/status-badge';
@@ -25,7 +24,6 @@ import type { BandMode } from '../lib/bands';
 import { buildBoard } from '../lib/board';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
-import { nodeLink } from '../lib/record-url';
 import { boardRoute } from '../router';
 import type { BoardLens } from '../router';
 import { ProjectUnavailablePage } from './not-found';
@@ -72,13 +70,12 @@ function BandsToggle({ bands }: { bands: BandMode }) {
 /**
  * `/p/$key/board` — the project's board, a view beside its records (ADR 0013,
  * v0.23 refinement). The lens (`?view=board|tree`), the band grouping
- * (`?bands=phase|release|off`), and the drawer (`?node=KEY-seq`) are search
- * params (ADR 0013 §3 / MMR-221). The title links back to the project's page.
+ * (`?bands=phase|release|off`) are search params (ADR 0013 §3 /
+ * MMR-221). The title links back to the project's page.
  */
 export function BoardPage() {
-  const navigate = useNavigate();
   const { key } = boardRoute.useParams();
-  const { view, bands, node } = boardRoute.useSearch();
+  const { view, bands } = boardRoute.useSearch();
 
   const project = useQuery(projectQuery(key));
   // Record-health finding count for this board (MMR-185) — the amber header
@@ -93,10 +90,6 @@ export function BoardPage() {
   const tree = useQuery(treeQuery(key));
 
   const conn = connectivity(view === 'board' ? [project, live, done] : [project, tree]);
-
-  const openNode = (id: string) => void navigate(nodeLink(id));
-  const closeNode = () =>
-    void navigate({ search: (prev) => ({ bands: prev.bands, view: prev.view }), to: '.' });
 
   const boardReady = live.data !== undefined && done.data !== undefined;
 
@@ -146,7 +139,7 @@ export function BoardPage() {
             {project.data !== undefined && (
               <ProjectSettingsButton project={project.data} offline={conn.offline} />
             )}
-            <NewTaskButton projectKey={key} offline={conn.offline} onOpenNode={openNode} />
+            <NewTaskButton projectKey={key} offline={conn.offline} />
           </div>
         </header>
 
@@ -172,23 +165,20 @@ export function BoardPage() {
         )}
         {view === 'board' && boardReady && (
           <BoardView
+            projectKey={key}
             board={buildBoard(live.data.items, done.data.items)}
             bands={bands}
             tree={tree.data}
-            onOpenNode={openNode}
             offline={conn.offline}
             distribution={project.data?.distribution}
             doneTotal={done.data.items.length}
-            onViewDone={() =>
-              void navigate({ search: { project: key, status: 'done' }, to: '/tasks' })
-            }
           />
         )}
 
         {view === 'tree' && tree.isPending && <Skeleton className="mx-5 h-64" />}
         {view === 'tree' && tree.data !== undefined && (
           <div className="px-5">
-            <TreeView root={tree.data} onOpenNode={openNode} offline={conn.offline} />
+            <TreeView root={tree.data} offline={conn.offline} />
           </div>
         )}
 
@@ -199,7 +189,6 @@ export function BoardPage() {
           </p>
         )}
       </main>
-      <NodeDossier nodeId={node} onClose={closeNode} offline={conn.offline} />
     </>
   );
 }

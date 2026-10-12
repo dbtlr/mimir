@@ -40,7 +40,7 @@ export const statusChipVariants = cva(
     variants: {
       // `chip` is the board-card idiom (rounded-sm, mixed-case, no tracking);
       // `pill` is the header idiom (rounded-full, uppercase, tracked) the
-      // dossier header, project header, and overview attention pill share.
+      // record page headers and the overview attention pill share.
       shape: {
         chip: 'rounded-sm px-1.5 py-0.5 text-tag',
         pill: 'rounded-full px-2.5 py-1 text-micro tracking-[0.06em] uppercase',

@@ -238,7 +238,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
   const offline = conn.offline;
 
   // Edit, Move…, and the transitions are task verbs; a container has none
-  // yet. They step aside while the edit form is open, as in the dossier: a
+  // yet. They step aside while the edit form is open: a
   // second Edit would re-snapshot the tag baseline under a form that kept the
   // first one, and a transition would land mid-edit.
   const actions =

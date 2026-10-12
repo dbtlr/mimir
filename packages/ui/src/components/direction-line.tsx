@@ -58,9 +58,9 @@ export function foldDirection(next: string | undefined): string | undefined {
 
 /**
  * The folded direction row (MMR-390) — the owned `## Next` prose (ADR 0026
- * Decision 2) stated in one line under the board header and in the
- * initiative/phase dossier. It is a control, not a card: clicking opens the
- * reading dialog, where Edit replaces the whole text. Deliberately one visual
+ * Decision 2) stated in one line under the board header. It is a control, not
+ * a card: clicking opens the reading dialog, where Edit replaces the whole
+ * text. Deliberately one visual
  * line — direction is a pointer to the full record, not the record itself.
  */
 export function DirectionLine({
@@ -273,8 +273,8 @@ function DirectionDialog({
 
 /**
  * The direction in full (MMR-450): the owned `## Next` prose rendered as
- * markdown, with Edit opening the whole-text rewrite. Record pages show it
- * where the dossier showed the folded {@link DirectionLine}.
+ * markdown, with Edit opening the whole-text rewrite. Record pages show it in
+ * place of the folded {@link DirectionLine}.
  */
 export function DirectionPanel({
   subject,

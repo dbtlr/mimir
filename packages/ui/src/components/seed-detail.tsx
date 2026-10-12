@@ -32,7 +32,7 @@ function RailField({ label, children }: { label: string; children: ReactNode }) 
  * The wide reading pane (Meridian 14a, MMR-247) — verbs pinned at the top, the
  * title at a ~640px measure, the body prose, and a right meta rail
  * (requester / filed / project / spawned). The description is editable while
- * the seed is live (the dossier Edit idiom) and frozen once terminal. The seed
+ * the seed is live (the task page's Edit idiom) and frozen once terminal. The seed
  * id opens the seed's page and each spawned id its task's page (MMR-451).
  */
 export function SeedDetail({

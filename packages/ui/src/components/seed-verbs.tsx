@@ -15,7 +15,7 @@ const PRIMARY_INK = {
     'bg-attention/14 text-attention inset-ring inset-ring-attention/30 hover:bg-attention/20',
 };
 
-/** A quiet hairline verb chip (the node-dossier VerbChip idiom, seed-local). */
+/** A quiet hairline verb chip. */
 function VerbChip({
   children,
   onClick,

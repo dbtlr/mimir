@@ -34,10 +34,6 @@ export function MenuContent({
   );
 }
 
-export function MenuLabel({ children }: { children: ReactNode }) {
-  return <div className="microlabel px-2 py-1 text-ink-faint">{children}</div>;
-}
-
 export function MenuItem({ className, ...props }: ComponentProps<typeof Menu.Item>) {
   return (
     <Menu.Item

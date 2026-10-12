@@ -109,7 +109,7 @@ function ShellContent() {
         <PwaUpdateBanner />
         <Outlet />
         <VersionFooter />
-        {/* Desktop: bottom-LEFT — the sheet/dossier rail owns the bottom-right
+        {/* Desktop: bottom-LEFT — a sheet's rail owns the bottom-right
           corner, and a toast there sits on top of (and intercepts clicks meant
           for) the rail's footer actions — exactly the error-retry path toasts
           announce. Mobile: top-center — sonner goes full-width at the bottom

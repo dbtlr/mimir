@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, vi } from 'vitest';
 
@@ -110,7 +110,9 @@ describe('artifactsPage', () => {
     serveLinkedArtifact();
     const testRouter = renderArtifactsPage('/artifacts?a=MMR-a8');
     const rail = await screen.findByRole('complementary', { name: 'Provenance' });
-    await userEvent.click(await within(rail).findByRole('button', { name: /MMR-140/ }));
-    expect(testRouter.state.location.pathname).toBe('/p/MMR/140');
+    await userEvent.click(await within(rail).findByRole('link', { name: /MMR-140/ }));
+    await waitFor(() => {
+      expect(testRouter.state.location.pathname).toBe('/p/MMR/140');
+    });
   });
 });

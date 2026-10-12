@@ -8,7 +8,7 @@ import { statusChipVariants } from './ui/badge';
 /**
  * A status word as a wash chip — the CVA kit variant, dot + label inside.
  * `pill` swaps the board-card chip shape for the header pill idiom
- * (rounded-full, uppercase, tracked) used on the dossier header.
+ * (rounded-full, uppercase, tracked) used on page headers.
  */
 export function StatusBadge({
   status,

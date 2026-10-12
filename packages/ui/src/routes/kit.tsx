@@ -44,7 +44,7 @@ const HUES = [
 const TYPE_SCALE = [
   { cls: 'text-page', note: '28 · page title · 700' },
   { cls: 'text-header', note: '21 · section header · 700' },
-  { cls: 'text-dossier', note: '17 · dossier title · 600' },
+  { cls: 'text-dossier', note: '17 · record title · 600' },
   { cls: 'text-card-mobile', note: '15 · card title (mobile) · 500' },
   { cls: 'text-body', note: '14 · body · 400' },
   { cls: 'text-meta', note: '13 · meta' },
