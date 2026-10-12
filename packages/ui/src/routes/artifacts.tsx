@@ -69,7 +69,7 @@ export function ArtifactsPage() {
       <OfflineBanner {...conn} />
       <main
         className={cn(
-          'min-h-0 flex-1 overflow-y-auto bg-well-950',
+          'min-h-0 w-full flex-1 overflow-y-auto',
           conn.offline && 'offline-demoted',
         )}
         data-testid="artifact-scroll"
