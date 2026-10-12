@@ -17,6 +17,47 @@ and are compiled into a new release section at each cut
 ([ADR 0022](docs/decisions/0022-changelog-fragments-compiled-at-cut.md));
 `bun run changelog:compile` previews the pending section.
 
+## v0.23.0 - 2026-10-12
+
+### Added
+
+- **Every task opens as its own page** (MMR-449). A task, initiative, or phase lives at `/p/KEY/<seq>` (for example `/p/MMR/417`), the same page on desktop and phone. The page shows the path above the task as links, its status and title, the verdict block while it is under review, the full description, and a timeline with a note field. A rail holds actions, the agent context (harness, branch, external ref, and linked Scratchpads), what it depends on and blocks, artifacts, and details; on a phone the rail folds into chips that open bottom sheets. Typing a bare ID or project key (`/MMR-417`, `/mmr`) redirects to its page. The tasks browser, the tree, the attention menu, artifact links, seed promotion, and the board quick view now open the page.
+- **Scratchpad list rows carry `linked_work`** (MMR-449). `GET /api/scratchpads`, MCP `scratch_list`, and `mimir scratch list` in its structured formats now return the Overview's active-Scratchpad row, which names the work each Scratchpad is anchored to.
+- **Projects, initiatives, and phases open as their own pages** (MMR-450). `/p/KEY` is now the project's page: its title and status, the description, its top-level work as links, and a rail with the direction in full (with Edit), Open board, New task, settings, artifacts, and details. An initiative or phase at `/p/KEY/<seq>` shows its description, its contents as links, and its own direction in full at the head of the rail. On a phone the rail folds into chips, as on the task page. Container titles in the tree headers and the board's band spines (desktop and phone) open the container's page.
+- **Search finds any record** (MMR-447). `mimir search <query>`, the MCP `search` tool, and `GET /api/search` find a task, phase, initiative, project, seed, or artifact by ID, title, or description; an ID query also returns the records linked to it.
+- **A jump palette finds any record from any page** (MMR-455). ⌘K (Ctrl-K off a Mac), or the top-bar search button, opens a search across every project. Typing an ID opens that record and lists the records linked to it; other text finds records by title, then by whole words in their descriptions, grouped so the reason each record appears is visible. The arrow keys move, Enter opens, and ⌘Enter opens in a new tab. With nothing typed, it lists recently opened records and two actions: New task and File a seed. On a phone it opens full screen.
+- **Seeds open as their own pages** (MMR-451). A seed lives at `/p/KEY/s<seq>`, and a bare seed ID such as `/MMR-s41` redirects there. The page reads as a request, then asks for a decision: which board asks which, the description, what came of it (the tasks promoted from the seed and the tasks on any board that name it as upstream, each linked to its page with its state), and a decision block with the verbs the seed's lane offers. The rail holds Edit (title, kind, and description, while the seed is open), Copy link, and details; on a phone it folds into chips. The jump palette opens seeds at their pages, and the seeds browser links each seed and its spawned tasks to their pages.
+- **Artifacts open as their own pages** (MMR-452). An artifact lives at `/p/KEY/a<seq>`, and a bare artifact ID such as `/MMR-a219` redirects there. The page reads under the work the artifact is attached to: the path runs through that task, a card for the task sits above the frozen body, and the rail lists the task's other artifacts. An artifact attached to several records lists each in the card, and its path stops at the nearest container that holds them all. The rail holds Copy link, Download .md, and details; on a phone it folds into chips. Task pages, the jump palette, and the artifacts browser open artifacts at their pages.
+- **Task list rows can carry a one-line preview** (MMR-454). `mimir list --col lede` and `col=lede` on `GET /api/nodes` add each task's stored summary, or, when it has none, the first 240 characters of its description as plain text. Seeds already derive their preview this way ([ADR 0021](docs/decisions/0021-seed-lede-derived-and-capture-grammar.md)).
+- **Artifact lists name the records each artifact is attached to** (MMR-454). Every artifact list item now carries `links`, the sorted IDs of its records.
+
+### Changed
+
+- **Console actions use plain labels** (MMR-446). Done is now "Mark done", Park is "Park for later", Unpark is "Resume", and Block is "Mark blocked"; the review verdict buttons read "Request changes…" instead of "Return…" or "Return with notes…"; the overflow menu on the mobile quick view reads "More actions…" instead of "Verbs…", the reason dialog is titled with the action's label rather than its raw name, and the task timeline records a resumed task as "Resumed" instead of "Unparked".
+- **Console renders descriptions, notes, and seed bodies as markdown** (MMR-445). Node descriptions, notes, seed bodies, and the quick-view preview now show lists, code, links, and tables like artifacts and direction do, with a heading hierarchy and theme-aware styling in light and dark. These fields keep single line breaks, inline code is coloured monospace text, fenced code blocks keep the dark well, and images in these fields show as links rather than loading remote URLs.
+- **The board moves to `/p/KEY/board`** (MMR-450). The tree lens stays at `/p/KEY/board?view=tree`. The board's title links back to the project's page, and the project picker, Overview cards, and artifact project links open the project's page.
+- **Seed verbs use plain labels** (MMR-451). Promote → task… becomes Promote to task… on a new seed and Promote again… once it has been promoted, and Resolve — done becomes Resolve….
+- **Updated dependencies to their current releases** (MMR-459). The binary now
+  builds on Bun 1.4.3. The CLI and MCP server move to MCP SDK 1.32 and zod
+  4.6.6. The console moves to the current TanStack Query and Router patch
+  releases. The build and test toolchains move to vite-plus 1.1, which runs
+  oxlint 1.87, oxfmt 0.72, and Vitest 5.0.3, plus Vite 8.3.4, vite-plugin-pwa 2,
+  and Playwright 1.64. The sandbox moves to loom 0.10.
+- **Console openers are real links** (MMR-453). Board card titles, band names, tree rows and headers, tasks-browser rows, the attention menu, the artifact reader's provenance chips, and the board's Done drill-through are now links to their pages. Cmd-click and middle-click open them in a new tab, and they can be copied as links.
+- **The tasks, artifacts, and seeds browsers are grouped reading lists** (MMR-454). Each is one centred column of rows with a preview line under every title and filter chips above. Tasks group by status, or by project, with Live and Finished views. Artifacts group by day, and seeds group by lane, with settled seeds folded behind a link. Every row opens the record's own page.
+- **Task search matches IDs as well as titles** (MMR-454). `mimir list -q`, the MCP list tool, and the tasks browser's search box find `MMR-45` by its ID.
+
+### Removed
+
+- **The artifacts browser's "back to task" link** (MMR-452). Opening an artifact from a task now goes to the artifact's page, whose links lead back to the task, so the browser no longer carries a `from` parameter.
+- **The task overlay and the board quick view** (MMR-453). Every task, initiative, and phase has its own page, so the console no longer opens a record in an overlay. A board card's title goes straight to the task's page instead of opening the in-board preview panel (desktop) or bottom shelf (phone). The `?node=` parameter on the overview, board, and tasks browser is gone and gets no redirect.
+- **The artifact reader and seed pane inside the browsers** (MMR-454). Artifacts and seeds open on their own pages, so `/artifacts?a=` and `/seeds?seed=` are gone and get no redirect. The artifacts browser's date and tag filters remain available through the URL.
+
+### Fixed
+
+- **Seed previews show plain prose** (MMR-457). The collapsed seed row in the console queue, the CLI seed queue and the triage report now render a seed's preview as plain text instead of raw markdown, so headings, emphasis, links, list markers and code fences no longer appear in it.
+- **A container under review no longer offers a verdict or task actions** (MMR-449). An initiative or phase whose rollup reads under review showed Approve, Park, Block, and Abandon, which only apply to tasks.
+
 ## v0.22.1 - 2026-10-06
 
 ### Added
