@@ -422,6 +422,7 @@ describe.each(backends)('$name', (backend) => {
         const legacy = {
           ...document,
           nodes: document.nodes.map(({ grooming: _grooming, ...node }) => node),
+          schema_version: 1,
         };
         await legacyTarget.store.import(legacy, { dryRun: false, mode: 'fresh' });
         const imported = await legacyTarget.store.export();
@@ -430,6 +431,22 @@ describe.each(backends)('$name', (backend) => {
         }
       } finally {
         await legacyTarget.close();
+      }
+
+      // A version this binary does not know is refused before any write, never
+      // read lossily.
+      const futureTarget = await backend.make();
+      try {
+        const refusal = await refusalOf(
+          futureTarget.store.import(
+            { ...document, schema_version: 3 },
+            { dryRun: false, mode: 'fresh' },
+          ),
+        );
+        expect(refusal).toContain('unsupported transfer document schema version 3');
+        expect(refusal).toContain('this binary reads schema versions 1, 2');
+      } finally {
+        await futureTarget.close();
       }
     } finally {
       await source.close();

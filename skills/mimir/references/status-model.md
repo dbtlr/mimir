@@ -2,7 +2,8 @@
 
 ## Two stored axes — tasks only
 
-A **task** stores exactly two orthogonal things; nothing else stores status at all:
+A **task** stores exactly two orthogonal status axes; nothing else stores status at all
+(the grooming state below is a separate stored judgment, not a status axis):
 
 - **lifecycle** — pure progress, moved by verbs: `todo → in_progress → done`, plus
   `abandoned`. (`done`/`abandoned` are **terminal**.) An **optional** `under_review`

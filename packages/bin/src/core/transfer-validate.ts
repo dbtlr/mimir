@@ -5,7 +5,7 @@ import { FIELD_FACTS } from '@mimir/contract';
 import { cycleEdges } from './cycles';
 import { validation } from './errors';
 import type { StoreExport } from './export';
-import { STORE_EXPORT_SCHEMA_VERSION } from './export';
+import { READABLE_STORE_EXPORT_SCHEMA_VERSIONS } from './export';
 import { isSeedRef, parseId, renderId, renderArtifactRef, renderSeedRef } from './ids';
 import {
   lintScratchpadValue,
@@ -85,11 +85,11 @@ export function parseTransferDocument(input: unknown): StoreExport {
     typeof input === 'object' &&
     input !== null &&
     'schema_version' in input &&
-    input.schema_version !== STORE_EXPORT_SCHEMA_VERSION
+    !READABLE_STORE_EXPORT_SCHEMA_VERSIONS.some((version) => version === input.schema_version)
   ) {
     throw validation(
       `unsupported transfer document schema version ${String(input.schema_version)}`,
-      `this binary reads schema version ${String(STORE_EXPORT_SCHEMA_VERSION)}`,
+      `this binary reads schema versions ${READABLE_STORE_EXPORT_SCHEMA_VERSIONS.join(', ')}`,
     );
   }
   const parsed = transferSchema.safeParse(input);

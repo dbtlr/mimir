@@ -28,13 +28,15 @@ test('a v0.20 Norn export imports into the SQLite store and re-exports unchanged
     expect(report.applied).toBe(true);
 
     // The fixture predates the grooming state (ADR 0033), so the re-export is the
-    // same document with each node carrying the default a fresh node is born with.
+    // same document at transfer version 2, with each node carrying the default a
+    // fresh node is born with.
     const withGrooming: StoreExport = {
       ...document,
       nodes: document.nodes.map((node) => ({
         ...node,
         grooming: node.type === 'task' ? 'not_groomed' : null,
       })),
+      schema_version: 2,
     };
     const reexported = await target.store.export();
     expect(canonicalJson(withoutStamp(reexported))).toBe(canonicalJson(withoutStamp(withGrooming)));

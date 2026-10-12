@@ -126,7 +126,7 @@ Indexes cover `parent_id` and `project_key`.
 
 **Status is two stored axes, and only on tasks** ([ADR 0001](decisions/0001-task-status-two-axes-derived-rollup.md)): `lifecycle` (pure progress) and `hold` (the `none|blocked|parked` overlay). Phases and initiatives store **no** status — their truth is the live distribution over children, derived, never a column.
 
-**`grooming` is a stored judgment beside the status axes, not part of them** ([ADR 0033](decisions/0033-task-grooming-state.md)). It records whether a task is understood well enough to run, set only by `mimir groom` (or `create --groomed`), never inferred from the description and never a gate on `start`. It is not derived into the status word, a change writes no `transition_log` row (the verb's optional note is an ordinary annotation), and views read it only for `todo` tasks.
+**`grooming` is a stored judgment beside the status axes, not part of them** ([ADR 0033](decisions/0033-task-grooming-state.md)). It records whether a task is understood well enough to run, set only by `mimir groom` (or `create --groomed`), never inferred from the description and never a gate on `start`. It is not derived into the status word, a change writes no `transition_log` row (the verb's optional note is an ordinary annotation), and task table rows show it only for `todo` tasks; `get` and JSON carry it at any lifecycle.
 
 **`rank`** is the relative order ([ADR 0007](decisions/0007-rank-is-primary-order-priority-is-signal.md)), an integer-with-gaps that is **never returned to consumers** — re-spreading preserves order while changing integers. It is set only for a task in the **rankable set** (`lifecycle ∈ {todo, in_progress} ∧ hold = none`); the lifecycle/hold verbs set it on entry (append-to-bottom) and clear it on exit, and `reorder` moves it.
 
@@ -316,7 +316,7 @@ Migrations are a static, ordered list carried in the binary (`core/store-sql/mig
 
 `mimir store export <file>` writes the whole store as one JSON document, and `mimir store import <file>` reads it. It is the **portable form** of the store: backend-neutral, so it moves facts between SQLite and PostgreSQL, and it is the backup for either ([ADR 0030](decisions/0030-postgres-store-backend-shared-store-bridge.md) Decision 4, [ADR 0032](decisions/0032-sqlite-local-tier-shared-sql-store.md) Decisions 5 and 6). A store from a Norn vault enters the same way: export it with mimir v0.20, then import the document (see [Moving from a Norn vault](guides/postgres-store.md#moving-from-a-norn-vault)).
 
-The document carries every **stored fact** and nothing derived. Its top level holds `schema_version` (the document's own version, separate from the database schema version), `exported_at` (the only field a re-export may differ in), and these collections:
+The document carries every **stored fact** and nothing derived. Its top level holds `schema_version` (the document's own version, separate from the database schema version: `2` since the `grooming` key; import also reads `1`, defaulting each task to `not_groomed`, and refuses any other), `exported_at` (the only field a re-export may differ in), and these collections:
 
 | Collection     | Holds                                                                                     |
 | -------------- | ----------------------------------------------------------------------------------------- |

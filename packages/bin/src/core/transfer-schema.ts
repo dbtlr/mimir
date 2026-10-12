@@ -115,7 +115,11 @@ export const transferSchema = z.object({
       updated_at: text,
     }),
   ),
-  schema_version: z.literal(STORE_EXPORT_SCHEMA_VERSION),
+  // A version-1 document parses into the current shape: its nodes' missing
+  // `grooming` is defaulted above, so the version normalizes too.
+  schema_version: z
+    .union([z.literal(1), z.literal(STORE_EXPORT_SCHEMA_VERSION)])
+    .transform((): typeof STORE_EXPORT_SCHEMA_VERSION => STORE_EXPORT_SCHEMA_VERSION),
   scratchpads: z.array(
     z.object({
       agenda: z.array(

@@ -36,11 +36,20 @@ import type { NewAnnotationRecord, NewTagRecord, NewTransitionRecord } from './s
  */
 
 /**
- * The transfer document's own schema version. An additive key that import
- * defaults when absent (`grooming`, ADR 0033) does not bump it; a removed,
- * renamed, or newly required key does.
+ * The transfer document's own schema version, bumped on any shape change so an
+ * older binary refuses a document it would read lossily. Version 2 adds the
+ * node `grooming` key (ADR 0033).
  */
-export const STORE_EXPORT_SCHEMA_VERSION = 1;
+export const STORE_EXPORT_SCHEMA_VERSION = 2;
+
+/**
+ * Every version this binary imports. A version-1 document predates `grooming`
+ * and imports with each task `not_groomed`.
+ */
+export const READABLE_STORE_EXPORT_SCHEMA_VERSIONS: readonly number[] = [
+  1,
+  STORE_EXPORT_SCHEMA_VERSION,
+];
 
 /**
  * One project's sequence-allocation state (ADR 0006): the highest sequence
