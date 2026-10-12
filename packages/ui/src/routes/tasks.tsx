@@ -88,10 +88,13 @@ function HomeCell({ node }: { node: WireNode }) {
         // role="img" + aria-label: `title` alone is unreliable AT — the glyph's
         // meaning must survive without a mouse (the OpenEndedBadge idiom, sized
         // down to table density where the literal-text badge doesn't fit).
+        // relative z-10 lifts the glyph above the row's stretched link, so its
+        // tooltip still shows on hover.
         <span
           role="img"
           aria-label="open-ended — a standing home"
           title="open-ended — a standing home"
+          className="relative z-10"
         >
           {' ∞'}
         </span>
