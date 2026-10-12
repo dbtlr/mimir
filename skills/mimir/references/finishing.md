@@ -5,6 +5,8 @@ boundary needs; when completing a task, compose all three in this order:
 
 1. **Transition** — make the task state true.
 2. **Groom-next** — re-author owned `## Next` prose against the now-current board.
+   This is the direction rewrite, not the `groom` verb, which sets a task's
+   grooming state (`references/status-model.md`).
 3. **Summarize** — freeze the session retrospective with a lede and task anchors.
 
 ## Transition

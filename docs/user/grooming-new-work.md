@@ -6,6 +6,10 @@ own-project observations whose solution is not yet clear.
 
 If the fix is already known on a board you own, create a task instead.
 
+This page is about triaging Seeds. Whether a task is understood well enough to
+run is a separate judgment, set with `mimir groom` (see
+[Plan and run work](planning-and-running-work.md#groom-tasks)).
+
 ## File without interrupting current work
 
 ```sh

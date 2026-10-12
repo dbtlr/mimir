@@ -93,18 +93,30 @@ function statusCell(status: StatusWord, width: number, plain: boolean): string {
 }
 
 /**
- * The lean task rows — one task per line, `id`, state cell, `priority`, `parent`,
- * `title`, aligned over the given items (MMR-87). The single row grammar shared by
- * `table` (the set view) and the `overview` composite (MMR-278) — never a second
- * spelling. Callers guard emptiness (the width `Math.max` needs ≥1 item).
+ * The grooming word a row shows (ADR 0033). The state is a pre-start judgment,
+ * so only a `todo` task reads it — a started or settled task, and every
+ * container, shows nothing.
+ */
+const groomingCell = (n: NodeView): string =>
+  n.lifecycle === 'todo' && n.grooming !== undefined ? n.grooming : '';
+
+/**
+ * The lean task rows — one task per line, `id`, state cell, `priority`,
+ * `grooming`, `parent`, `title`, aligned over the given items (MMR-87, MMR-464).
+ * The single row grammar shared by `table` (the set view) and the `overview`
+ * composite (MMR-278) — never a second spelling. The grooming column appears
+ * only when some row has a state to show. Callers guard emptiness (the width
+ * `Math.max` needs ≥1 item).
  */
 export function taskRows(items: readonly NodeView[], io: Io): string[] {
   const idW = Math.max(...items.map((n) => n.id.length));
   const stW = Math.max(...items.map((n) => n.status.length));
   // Parent id — the row's hierarchy anchor (MMR-87). A top-level node has none.
   const parentW = Math.max(...items.map((n) => (n.parent ?? '').length));
+  const groomW = Math.max(...items.map((n) => groomingCell(n).length));
   return items.map((n) => {
-    const head = `${pad(n.id, idW)}   ${statusCell(n.status, stW, io.plain)}   ${pad(n.priority ?? '', 2)}   ${pad(n.parent ?? '', parentW)}   ${n.title}`;
+    const grooming = groomW === 0 ? '' : `${pad(groomingCell(n), groomW)}   `;
+    const head = `${pad(n.id, idW)}   ${statusCell(n.status, stW, io.plain)}   ${pad(n.priority ?? '', 2)}   ${grooming}${pad(n.parent ?? '', parentW)}   ${n.title}`;
     // The `--col lede` preview (MMR-454) — a dim second line, as the artifact feed shows its summary.
     return n.lede == null || n.lede === ''
       ? head
@@ -265,6 +277,10 @@ export function renderRecords(node: NodeView, io: Io, expandAnnotations = false)
   }
   if (node.lifecycle !== undefined) {
     pairs.push(['lifecycle', node.lifecycle]);
+  }
+  // The stored grooming judgment (ADR 0033) — task-only, so a container has none.
+  if (node.grooming !== undefined) {
+    pairs.push(['grooming', node.grooming]);
   }
   if (node.hold !== undefined) {
     pairs.push(['hold', node.hold]);

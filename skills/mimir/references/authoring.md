@@ -1,6 +1,7 @@
 # Authoring: create, structure, record
 
 Contents: [Creating work](#creating-work) · [A task vs. a step](#a-task-vs-a-step) ·
+[Grooming tasks](#grooming-tasks) ·
 [Dependencies and structure](#dependencies-and-structure) ·
 [Patching vs annotating](#patching-vs-annotating) ·
 [The direction narrative](#the-direction-narrative--next) ·
@@ -13,7 +14,7 @@ Contents: [Creating work](#creating-work) · [A task vs. a step](#a-task-vs-a-st
 mimir create initiative "Goal-level body of work" --parent KEY [--desc "…"] [--tag t]...
 mimir create phase "A testable increment / baseline" --parent KEY-3 [--target "v1.0"]
 mimir create task "A discrete, verifiable outcome" --parent KEY-4 \
-    [--priority p0..p3] [--size small|medium|large] [--desc "…"] [--ref JIRA-123] [--tag t]...
+    [--priority p0..p3] [--size small|medium|large] [--desc "…"] [--ref JIRA-123] [--groomed] [--tag t]...
 ```
 
 - An initiative's parent is the bare project `KEY`; phases parent to initiatives;
@@ -21,6 +22,8 @@ mimir create task "A discrete, verifiable outcome" --parent KEY-4 \
   doesn't need).
 - `priority`/`size` are optional **signals** — they filter and advise; they never
   reorder the queue. Leave them off rather than guessing.
+- `--groomed` creates a task already `groomed`, for tasks carved from a finished
+  design. Without it a task starts `not_groomed`. It applies to tasks only.
 - A title that begins with a dash needs the `--` terminator so it isn't read as
   a flag: flags first, then `-- <title>` —
   `mimir create task --parent KEY-4 -- "--flag-name is misparsed"`.
@@ -45,6 +48,31 @@ Before `create task`, check — any "no" means it's a step, not a node:
    agree on? Too big to answer → it's a phase; split it.
 3. **Stands alone** — reorderable or deferrable without dragging a sibling? Only
    makes sense as "step N toward one outcome" → it's a step.
+
+## Grooming tasks
+
+```sh
+mimir groom KEY-9 groomed                          # understood well enough to run
+mimir groom KEY-9,KEY-10 groomed "scoped in KEY-3's design"
+mimir groom KEY-11 needs_answers "which store owns the lock? is v1 data migrated?"
+mimir groom KEY-11 not_groomed                     # back to the default
+```
+
+- Grooming state is a judgment you make, never inferred from the description.
+  Set `groomed` when a reader could start the task without asking anything.
+  Set `needs_answers` when grooming finds gaps; the note is required and names
+  the open questions.
+- Ids come first, space- or comma-separated, up to the state word. Everything
+  after the state is the note, written as an ordinary annotation on every listed
+  task. Add a note to `groomed` or `not_groomed` when the reasoning helps the
+  next reader.
+- `update` never touches the state, and editing a description never resets it.
+  When you rewrite a groomed task enough to change what it asks, re-groom it.
+- The state gates nothing: `start` never checks it. A task that hits a question
+  after you started it is `block`ed, not moved back to `needs_answers`.
+- This is not `groom-next` (the `## Next` direction rewrite in
+  `references/finishing.md`) and not the seeds grooming queue
+  (`references/seeds.md`), which triages requests that are not yet work.
 
 ## Dependencies and structure
 

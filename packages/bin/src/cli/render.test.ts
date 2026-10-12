@@ -52,6 +52,45 @@ test('a top-level node (no parent) renders an empty parent cell, not a crash (MM
   expect(text).toContain('child');
 });
 
+// MMR-464: a todo task's grooming state is a word column between priority and parent.
+test('table rows show a todo task grooming state as a word column (MMR-464)', () => {
+  const items = [
+    task({ grooming: 'groomed', id: 'MMR-5', lifecycle: 'todo' }),
+    task({ grooming: 'needs_answers', id: 'MMR-6', lifecycle: 'todo' }),
+    task({ grooming: 'not_groomed', id: 'MMR-7', lifecycle: 'todo' }),
+  ];
+  const lines = renderTable({ items, returned: 3, startsAt: 0, total: 3 }, fakeIo(false)).split(
+    '\n',
+  );
+  expect(lines[2]).toMatch(/^MMR-5 .*p1 {3}groomed {9}MMR-2 {3}child$/);
+  expect(lines[3]).toMatch(/p1 {3}needs_answers {3}MMR-2/);
+  expect(lines[4]).toMatch(/p1 {3}not_groomed {5}MMR-2/);
+});
+
+test('table rows read grooming only for todo tasks, and drop the column when none shows (MMR-464)', () => {
+  const started = task({ grooming: 'groomed', lifecycle: 'in_progress', status: 'in_progress' });
+  const mixed = renderTable(
+    {
+      items: [started, task({ grooming: 'groomed', id: 'MMR-6', lifecycle: 'todo' })],
+      returned: 2,
+      startsAt: 0,
+      total: 2,
+    },
+    fakeIo(false),
+  ).split('\n');
+  expect(mixed[2]).not.toContain('groomed');
+  expect(mixed[3]).toContain('groomed');
+
+  const none = renderTable({ items: [started], returned: 1, startsAt: 0, total: 1 }, fakeIo(false));
+  expect(none).not.toContain('groomed');
+  expect(none.split('\n')[2]).toMatch(/p1 {3}MMR-2 {3}child$/);
+});
+
+test('records detail view shows a grooming line for a task (MMR-464)', () => {
+  const text = renderRecords(task({ grooming: 'needs_answers', lifecycle: 'todo' }), fakeIo(false));
+  expect(text).toMatch(/grooming\s+needs_answers/);
+});
+
 // MMR-95: empty set views print a clear no-results line on a TTY
 test('renderTable: empty set on a TTY prints a no-results line (MMR-95)', () => {
   const text = renderTable(

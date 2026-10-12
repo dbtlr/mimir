@@ -106,11 +106,19 @@ the HTTP API's records).
 mimir next -p p0                   # only the urgent ready work
 mimir next -q vault                # ready titles containing vault (case-insensitive)
 mimir next --eq size:small         # quick wins
+mimir next --eq grooming:groomed   # ready work that is understood well enough to run
 mimir list --query health          # live titles containing health
 mimir list -t release:v0.3 --status all     # everything in a release tag
 mimir list --eq priority:p1 --missing size  # grooming: p1 tasks nobody sized
 mimir list -s all --is stale       # cross-project hygiene sweep
 ```
+
+`next`, `list`, and `overview` rows show each `todo` task's grooming state
+(`not_groomed`, `needs_answers`, `groomed`) between priority and parent.
+`--eq grooming:groomed` narrows to groomed work. `next` keeps its rank order
+and membership, so prefer groomed tasks when you choose, and read an
+ungroomed task's notes before you start it. `mimir get` shows a task's
+`grooming` line (`references/status-model.md`).
 
 `-q`/`--query` case-insensitively matches a title substring and AND-composes with
 the other selectors. Operators take `FIELD:VALUE` tokens: `--eq/--not-eq`, `--in/--not-in` (csv any-of),

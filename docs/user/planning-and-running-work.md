@@ -37,6 +37,32 @@ AUR-11` holds every task under AUR-12 out of `next` until AUR-11 settles.
 
 This keeps one answer to “what is next?” without maintaining a separate queue.
 
+## Groom tasks
+
+Ready answers whether anything stops a task from running. Grooming answers a
+different question: is the task understood well enough to run? A task is
+`not_groomed` until someone says otherwise, then `needs_answers` or `groomed`.
+You set it with a verb. Mimir never infers it from the description.
+
+```sh
+mimir groom AUR-8 groomed
+mimir groom AUR-8,AUR-9 groomed "scoped in the sign-in design"
+mimir groom AUR-10 needs_answers "which store owns the lock?"
+mimir create task "Add the retry wrapper" --parent AUR-4 --groomed
+mimir next --eq grooming:groomed
+```
+
+List the ids first, then the state, then an optional note. A note becomes an
+annotation on each task, and `needs_answers` requires one so the open questions
+live beside the task. `create --groomed` is for tasks carved from a finished
+design.
+
+`next` keeps its rank order and shows each todo task's grooming state in its
+rows. `--eq grooming:groomed` narrows the queue to work that is ready to pick
+up. Grooming never gates `start`. If a task you already started hits a
+question, `block` it with the question as the reason. Editing a description
+leaves the state alone, so re-groom a task whose edit changed what it asks.
+
 ## Record dependencies
 
 ```sh

@@ -8,6 +8,7 @@ import type {
   DateOp,
   FacetName,
   FieldFilter,
+  Grooming,
   Priority,
   ProjectStatusSelector,
   QueryOp,
@@ -69,6 +70,7 @@ import {
   scratchpadToWire,
   getArtifact,
   getNode,
+  groomTasks,
   listArtifacts,
   searchRecords,
   listNodes,
@@ -917,6 +919,22 @@ export function toolAnnotate(
 }
 
 // ---------------------------------------------------------------------------
+// Groom tool (ADR 0033)
+// ---------------------------------------------------------------------------
+
+export function toolGroom(
+  store: Store,
+  args: { ids: string[]; state: Grooming; note?: string },
+): Promise<ToolResult> {
+  return guard(async () => {
+    const set = deriveSet(await store.loadWorkingSet());
+    const targets = args.ids.map((t) => nodeIdIn(set, t));
+    await groomTasks(store, targets, args.state, args.note);
+    return ok(JSON.stringify({ groomed: { ids: args.ids, state: args.state } }));
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Tag tools (MMR-31)
 // ---------------------------------------------------------------------------
 
@@ -973,6 +991,8 @@ export type CreateToolArgs = {
   size?: string;
   externalRef?: string;
   upstream?: string;
+  /** Born `groomed` (ADR 0033) — task-only; core refuses it on any other type. */
+  groomed?: boolean;
   /** The resume handles (MMR-320) — task-only, normally set by `start`. */
   host?: string;
   harness?: string;
@@ -994,6 +1014,7 @@ export function toolCreate(store: Store, args: CreateToolArgs): Promise<ToolResu
         }
         const project = await createNode(store, {
           description: args.description,
+          groomed: args.groomed,
           key: args.key,
           name: args.name,
           openEnded: args.openEnded,
@@ -1011,6 +1032,7 @@ export function toolCreate(store: Store, args: CreateToolArgs): Promise<ToolResu
         }
         const node = await createNode(store, {
           description: args.description,
+          groomed: args.groomed,
           openEnded: args.openEnded,
           parent: args.parent,
           summary: args.summary,
@@ -1029,6 +1051,7 @@ export function toolCreate(store: Store, args: CreateToolArgs): Promise<ToolResu
         }
         const node = await createNode(store, {
           description: args.description,
+          groomed: args.groomed,
           openEnded: args.openEnded,
           parent: args.parent,
           summary: args.summary,
@@ -1049,6 +1072,7 @@ export function toolCreate(store: Store, args: CreateToolArgs): Promise<ToolResu
         const node = await createNode(store, {
           description: args.description,
           externalRef: args.externalRef,
+          groomed: args.groomed,
           // The resume handles (MMR-320) — accepted at create like every other
           // generic-`update` spec field; `start` is where they usually land.
           handles: {

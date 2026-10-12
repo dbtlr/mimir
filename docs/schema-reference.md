@@ -104,6 +104,7 @@ One table absorbs the semi-regular hierarchy (a monorepo sub-project, a phaseles
 | `lifecycle`    | text    | **task**; set by the writer   | `todo` \| `in_progress` \| `under_review` \| `done` \| `abandoned`                                  |
 | `hold`         | text    | **task**, optional            | `none` \| `blocked` \| `parked`; null reads as `none`                                               |
 | `hold_reason`  | text    | **task**, optional            | context for the current hold (the transition reason itself rides `transition_log`)                  |
+| `grooming`     | text    | **task**; default `not_groomed` | `not_groomed` \| `needs_answers` \| `groomed`; null on a container ([ADR 0033](decisions/0033-task-grooming-state.md)) |
 | `priority`     | text    | **task**, optional            | `p0` \| `p1` \| `p2` \| `p3`; null = **untriaged**                                                  |
 | `size`         | text    | **task**, optional            | `small` \| `medium` \| `large`; null = **unsized**                                                  |
 | `rank`         | integer | **task**, optional            | relative order, core-owned & never surfaced; null outside the rankable set                          |
@@ -124,6 +125,8 @@ One table absorbs the semi-regular hierarchy (a monorepo sub-project, a phaseles
 Indexes cover `parent_id` and `project_key`.
 
 **Status is two stored axes, and only on tasks** ([ADR 0001](decisions/0001-task-status-two-axes-derived-rollup.md)): `lifecycle` (pure progress) and `hold` (the `none|blocked|parked` overlay). Phases and initiatives store **no** status — their truth is the live distribution over children, derived, never a column.
+
+**`grooming` is a stored judgment beside the status axes, not part of them** ([ADR 0033](decisions/0033-task-grooming-state.md)). It records whether a task is understood well enough to run, set only by `mimir groom` (or `create --groomed`), never inferred from the description and never a gate on `start`. It is not derived into the status word, a change writes no `transition_log` row (the verb's optional note is an ordinary annotation), and views read it only for `todo` tasks.
 
 **`rank`** is the relative order ([ADR 0007](decisions/0007-rank-is-primary-order-priority-is-signal.md)), an integer-with-gaps that is **never returned to consumers** — re-spreading preserves order while changing integers. It is set only for a task in the **rankable set** (`lifecycle ∈ {todo, in_progress} ∧ hold = none`); the lifecycle/hold verbs set it on entry (append-to-bottom) and clear it on exit, and `reorder` moves it.
 
@@ -275,6 +278,7 @@ Each is a `CHECK` on its column, built from the enum arrays in `@mimir/contract`
 | `node.type`                             | `initiative`, `phase`, `task`                              |
 | `node.lifecycle`                        | `todo`, `in_progress`, `under_review`, `done`, `abandoned` |
 | `node.hold`                             | `none`, `blocked`, `parked`                                |
+| `node.grooming`                         | `not_groomed`, `needs_answers`, `groomed`                  |
 | `node.priority`                         | `p0`, `p1`, `p2`, `p3`                                     |
 | `node.size`                             | `small`, `medium`, `large`                                 |
 | `transition_log.kind`, `seed_history.kind` | `lifecycle`, `hold`, `dependency`, `move`, `archive`    |
@@ -300,7 +304,7 @@ Query-layer outputs, intentionally **absent** from every table ([ADR 0001](decis
 
 `schema_version` holds `(version, applied_at)`, one row per applied migration. The store's version is the highest `version` present. A fresh database has no `schema_version` table.
 
-Migrations are a static, ordered list carried in the binary (`core/store-sql/migrations.ts`), forward-only: append, never edit, because a migration that has run on any store is a historical fact. Each migration's DDL is written as literal statements once per dialect, so a migration cannot be added for one backend alone. The first migration is `0001_init`, which creates every table above. Each migration runs in its own transaction, so a failed step leaves the old schema intact.
+Migrations are a static, ordered list carried in the binary (`core/store-sql/migrations.ts`), forward-only: append, never edit, because a migration that has run on any store is a historical fact. Each migration's DDL is written as literal statements once per dialect, so a migration cannot be added for one backend alone. The first migration is `0001_init`, which creates every table above. `0002_grooming` adds the task-only `node.grooming` column with its `CHECK` and sets every existing task to `not_groomed`. Each migration runs in its own transaction, so a failed step leaves the old schema intact.
 
 - **Newer schema than the binary.** Every normal command refuses it, on both backends. A newer schema is never downgraded; update the binary.
 - **SQLite migrates on open.** The store is one file, `store.sqlite`, in the installation's data directory. Opening creates it when absent, runs it in WAL mode with foreign keys enforced, and applies every pending migration. A file that holds tables but no schema version is refused as not a Mimir store, and the file is left as found.
@@ -317,7 +321,7 @@ The document carries every **stored fact** and nothing derived. Its top level ho
 | Collection     | Holds                                                                                     |
 | -------------- | ----------------------------------------------------------------------------------------- |
 | `projects`     | every project, archived included, with its three sequence `counters`                      |
-| `nodes`        | every node                                                                                |
+| `nodes`        | every node (a document written before `grooming` existed imports its tasks as `not_groomed`) |
 | `edges`        | the dependency edges                                                                      |
 | `tags`         | project and node tag applications (an artifact's tags ride its own record)                |
 | `annotations`  | node annotations                                                                          |

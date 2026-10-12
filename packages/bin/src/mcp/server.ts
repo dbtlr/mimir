@@ -11,7 +11,13 @@ import {
   STATUS_SELECTOR_VALUES,
   VERDICT_VALUES,
 } from '@mimir/contract';
-import type { FacetName, FieldKindName, OpFact, ProjectStatusSelector } from '@mimir/contract';
+import type {
+  FacetName,
+  FieldKindName,
+  Grooming,
+  OpFact,
+  ProjectStatusSelector,
+} from '@mimir/contract';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
@@ -28,6 +34,7 @@ import {
   toolCreate,
   toolDepend,
   toolGet,
+  toolGroom,
   toolList,
   toolMove,
   toolGetSeed,
@@ -792,6 +799,22 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   );
 
   // ---------------------------------------------------------------------------
+  // Groom tool (ADR 0033)
+  // ---------------------------------------------------------------------------
+
+  register(
+    server,
+    'groom',
+    'Set the grooming state of one or more tasks in one transaction: not_groomed (the default), needs_answers, or groomed. It is a judgment of whether a task is understood well enough to run — set it explicitly, never inferred, and never a gate on `start` (a started task that hits an open question is blocked on the operator instead). needs_answers requires a note naming the open questions; any state may carry one. The note is written as an annotation on every listed task. Tasks only; a bad id in the batch changes nothing. Not transition-logged. Prefer groomed tasks from `next` (filter with eq ["grooming:groomed"]).',
+    {
+      ids: z.array(z.string()).min(1),
+      note: z.string().optional(),
+      state: z.enum(GROOMING_VALUES),
+    },
+    (args: { ids: string[]; state: Grooming; note?: string }) => toolGroom(store, args),
+  );
+
+  // ---------------------------------------------------------------------------
   // Tag tools (MMR-31)
   // ---------------------------------------------------------------------------
 
@@ -821,12 +844,13 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'create',
-    'Create a node of the given type. project: requires key+name, echoes {project:{key,name}}. initiative: requires title+parent (project KEY). phase/task: requires title+parent (KEY-seq node ref). Echoes the created node.',
+    'Create a node of the given type. project: requires key+name, echoes {project:{key,name}}. initiative: requires title+parent (project KEY). phase/task: requires title+parent (KEY-seq node ref). groomed (task only) creates the task already groomed — for tasks carved from a finished design. Echoes the created node.',
     // Scalar-field args derive from the field spec (ADR 0025); the identity/topology
     // args (type/key/name/parent/title/tags) stay hand-listed. Sorted to keep order.
     sortedShape({
       ...fieldInputShape(),
       description: z.string().optional(),
+      groomed: z.boolean().optional(),
       key: z.string().optional(),
       name: z.string().optional(),
       parent: z.string().optional(),
@@ -847,6 +871,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       size?: string;
       externalRef?: string;
       upstream?: string;
+      groomed?: boolean;
       host?: string;
       harness?: string;
       session?: string;

@@ -74,6 +74,7 @@ import {
   cmdAttach,
   cmdCreate,
   cmdDepend,
+  cmdGroom,
   cmdMove,
   cmdReorder,
   cmdTag,
@@ -185,6 +186,8 @@ const OPTIONS = {
   // setup wizard (MMR-145)
   'install-service': { type: 'boolean' },
   upstream: { type: 'string' },
+  // `create task --groomed` (ADR 0033): born groomed, for tasks carved from a finished design
+  groomed: { type: 'boolean' },
   // the resume handles (ADR 0026 Decision 3, MMR-320) — set at `start`,
   // overwritten by `update` on resume or takeover
   host: { type: 'string' },
@@ -328,6 +331,7 @@ type OwnedFlagValues = {
   target?: string;
   ref?: string;
   upstream?: string;
+  groomed?: boolean;
   host?: string;
   harness?: string;
   session?: string;
@@ -472,6 +476,14 @@ const VERB_OWNED_FLAGS: readonly {
     given: (values) => values.upstream !== undefined,
     hint: `'--upstream' sets the requester-side seed pointer at create/update; list/next filter the task field with '--eq upstream:KEY'`,
     owner: ['create', 'update'],
+  },
+  // A boolean, and `grooming` is a queryable field: on `list`/`next` a stray
+  // `--groomed` would read as a filter and silently narrow nothing (ADR 0033).
+  {
+    flag: '--groomed',
+    given: (values) => values.groomed === true,
+    hint: `'--groomed' creates a task already groomed; list/next filter with '--eq grooming:groomed', and 'mimir groom <ids> <state>' sets it later`,
+    owner: 'create',
   },
   {
     flag: '--host',
@@ -647,6 +659,7 @@ export async function runCli(
     'no-hunt'?: boolean;
     'install-service'?: boolean;
     upstream?: string;
+    groomed?: boolean;
     kind?: string;
     requester?: string;
     sort?: string;
@@ -1055,6 +1068,9 @@ export async function runCli(
         // `report` format (MMR-59 split): human prose in a terminal, json when piped.
         const c = await mkCtx();
         return await cmdTriage({ ...c, format: pickFormat(values.format, 'report', ctx) });
+      }
+      case 'groom': {
+        return await cmdGroom(await mkCtx());
       }
       case 'tag': {
         return await cmdTag(await mkCtx());
