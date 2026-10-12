@@ -4,7 +4,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
-import { projectsQuery, tasksBrowserQuery } from '../api/queries';
+import { flattenTaskPages, projectsQuery, tasksBrowserQuery } from '../api/queries';
 import type { TaskFilters } from '../api/queries';
 import type { WireNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
@@ -88,27 +88,58 @@ type TaskGroup = { key: string; label: string; items: WireNode[] };
 const newestFirst = (a: WireNode, b: WireNode) =>
   Date.parse(b.updated_at) - Date.parse(a.updated_at);
 
+const projectKeyOfNode = (n: WireNode) => n.home?.project_key ?? projectKeyOf(n.id);
+
+/**
+ * The Finished view's row order: the server's own paging order (MMR-460) —
+ * `completed_at` descending, unset last, ties by project key then seq — so a
+ * "Show more" window appends to each group and never lands among shown rows.
+ */
+const byCompletion = (a: WireNode, b: WireNode) => {
+  const aDone = a.completed_at ?? '';
+  const bDone = b.completed_at ?? '';
+  if (aDone !== bDone) {
+    if (aDone === '' || bDone === '') {
+      return aDone === '' ? 1 : -1;
+    }
+    return aDone < bDone ? 1 : -1;
+  }
+  const aKey = projectKeyOfNode(a);
+  const bKey = projectKeyOfNode(b);
+  if (aKey !== bKey) {
+    return aKey < bKey ? -1 : 1;
+  }
+  return seqOf(a.id) - seqOf(b.id);
+};
+
+const seqOf = (id: string) => Number(id.slice(id.lastIndexOf('-') + 1));
+
 /**
  * Bucket tasks into the browser's groups: one per status word present, in
- * display order, or one per project key, alphabetical. Rows within a group are
- * newest-activity first; empty groups never appear.
+ * display order, or one per project key, alphabetical. Rows within a group
+ * follow `order` (newest activity first unless a view says otherwise); empty
+ * groups never appear.
  */
-function groupTasks(items: readonly WireNode[], by: 'status' | 'project'): TaskGroup[] {
+function groupTasks(
+  items: readonly WireNode[],
+  by: 'status' | 'project',
+  order: (a: WireNode, b: WireNode) => number,
+): TaskGroup[] {
   if (by === 'status') {
     return TASK_STATUS_ORDER.map((word) => ({
-      items: items.filter((n) => n.status === word).toSorted(newestFirst),
+      items: items.filter((n) => n.status === word).toSorted(order),
       key: word,
       label: STATUS_META[word].label,
     })).filter((g) => g.items.length > 0);
   }
   const buckets = new Map<string, WireNode[]>();
   for (const node of items) {
-    const key = node.home?.project_key ?? projectKeyOf(node.id);
+    const key = projectKeyOfNode(node);
     buckets.set(key, [...(buckets.get(key) ?? []), node]);
   }
   return [...buckets.entries()]
     .toSorted(([a], [b]) => a.localeCompare(b))
-    .map(([key, group]) => ({ items: group.toSorted(newestFirst), key, label: key }));
+    .map(([key, group]) => ({ items: group.toSorted(order), key, label: key }));
 }
 
 /** The meta line: mono project key › parent title, ∞ on a standing home, then the age. */
@@ -166,7 +197,10 @@ export function TasksPage() {
 
   const projects = useQuery(projectsQuery);
   const tasks = useInfiniteQuery(tasksBrowserQuery(filters));
-  const loadedTasks = useMemo(() => tasks.data?.pages.flatMap((page) => page.items), [tasks.data]);
+  const loadedTasks = useMemo(
+    () => (tasks.data === undefined ? undefined : flattenTaskPages(tasks.data.pages)),
+    [tasks.data],
+  );
   const totalTasks = tasks.data?.pages.at(-1)?.total;
   const conn = connectivity([tasks]);
   const [createOpen, setCreateOpen] = useState(false);
@@ -211,7 +245,10 @@ export function TasksPage() {
     };
   }, [q, search.q]);
 
-  const groups = useMemo(() => groupTasks(loadedTasks ?? [], groupBy), [loadedTasks, groupBy]);
+  const groups = useMemo(
+    () => groupTasks(loadedTasks ?? [], groupBy, finishedView ? byCompletion : newestFirst),
+    [loadedTasks, groupBy, finishedView],
+  );
 
   const projectOptions = [
     { label: 'All projects', value: '' },

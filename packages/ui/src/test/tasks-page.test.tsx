@@ -513,3 +513,78 @@ describe('tasksPage Finished view windows (MMR-460)', () => {
     expect(showMore()).toBeNull();
   });
 });
+
+/** Serves terminal windows by offset: a read at `n * FINISHED_PAGE_SIZE` gets `windows[n]`. */
+function mockTerminalWindows(windows: WireNode[][], total: number) {
+  apiGet.mockImplementation((path: string) => {
+    if (path.startsWith('/api/projects')) {
+      return Promise.resolve({
+        items: [{ id: 'MMR', status: 'in_progress', title: 'Mimir' }],
+        total: 1,
+      });
+    }
+    const p = new URLSearchParams(path.slice(path.indexOf('?') + 1));
+    const at = Math.floor(Number(p.get('offset') ?? 0) / FINISHED_PAGE_SIZE);
+    return Promise.resolve({ items: windows[at] ?? [], total });
+  });
+}
+
+describe('tasksPage Finished view paging stays consistent (MMR-460)', () => {
+  /** A full first window, newest completion first, two tasks per hour from 23:00 down. */
+  const firstWindow = Array.from({ length: FINISHED_PAGE_SIZE }, (_, i) => {
+    const at = new Date(Date.UTC(2026, 5, 20, 23 - Math.floor(i / 2), 0, 0)).toISOString();
+    return task({
+      completed_at: at,
+      id: `MMR-${String(2000 + i)}`,
+      status: 'done',
+      title: `Finished ${String(i)}`,
+      updated_at: at,
+    });
+  });
+
+  it('orders Finished rows by completion, so a later window appends and never jumps above', async () => {
+    // Completed long ago, edited just now: the server pages it last; the list must too.
+    const lateEdit = task({
+      completed_at: '2026-05-01T00:00:00.000Z',
+      id: 'MMR-3000',
+      status: 'done',
+      title: 'Late edit',
+      updated_at: '2026-06-25T00:00:00.000Z',
+    });
+    mockTerminalWindows([firstWindow, [lateEdit]], FINISHED_PAGE_SIZE + 1);
+    renderTasks('/tasks?status=terminal');
+    const user = userEvent.setup();
+    await screen.findByText('Finished 0');
+
+    await user.click(showMore() as HTMLElement);
+    await screen.findByText('Late edit');
+    const titles = titlesIn(`Done · ${String(FINISHED_PAGE_SIZE + 1)}`);
+    expect(titles).toHaveLength(FINISHED_PAGE_SIZE + 1);
+    expect(titles[0]).toBe('Finished 0');
+    expect(titles.at(-1)).toBe('Late edit');
+  });
+
+  it('shows a row once when a task finishing between loads repeats it in the next window', async () => {
+    const error = vi.spyOn(console, 'error').mockReturnValue(undefined);
+    const fresh = task({
+      completed_at: '2026-05-01T00:00:00.000Z',
+      id: 'MMR-3001',
+      status: 'done',
+      title: 'Fresh tail',
+    });
+    // A new completion shifted the first window's top row into the second window.
+    const repeated = firstWindow[0] as WireNode;
+    mockTerminalWindows([firstWindow, [repeated, fresh]], FINISHED_PAGE_SIZE + 1);
+    renderTasks('/tasks?status=terminal');
+    const user = userEvent.setup();
+    await screen.findByText('Finished 0');
+
+    await user.click(showMore() as HTMLElement);
+    await screen.findByText('Fresh tail');
+    expect(screen.getAllByRole('link', { name: 'Finished 0' })).toHaveLength(1);
+    expect(rowCount()).toBe(FINISHED_PAGE_SIZE);
+    expect(showMore()).toBeNull();
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
+  });
+});

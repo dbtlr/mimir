@@ -133,6 +133,24 @@ export const tasksQuery = (f: TaskFilters) =>
 export const FINISHED_PAGE_SIZE = 50;
 
 /**
+ * The browser's loaded rows, one per task. Windows page by offset, so a task
+ * that finishes between loads shifts a row into the next window; the first
+ * occurrence wins.
+ */
+export function flattenTaskPages(pages: readonly Collection<WireNode>[]): WireNode[] {
+  const seen = new Set<string>();
+  return pages
+    .flatMap((page) => page.items)
+    .filter((node) => {
+      if (seen.has(node.id)) {
+        return false;
+      }
+      seen.add(node.id);
+      return true;
+    });
+}
+
+/**
  * The `/tasks` browser read (MMR-78, MMR-454, MMR-460). Infinite so the
  * Finished view can window: a `terminal` selection asks for
  * {@link FINISHED_PAGE_SIZE} rows at an explicit offset, the next offset being
