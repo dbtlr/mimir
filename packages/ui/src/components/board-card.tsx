@@ -6,9 +6,11 @@ import { useTransition } from '../api/mutations';
 import type { WireNode } from '../api/types';
 import type { BoardColumn } from '../lib/board';
 import { cn } from '../lib/cn';
+import { visibleGrooming } from '../lib/grooming';
 import { nodeLink } from '../lib/record-url';
 import { STATUS_META } from '../lib/status';
 import { transitionLabel } from '../lib/transitions';
+import { GroomingBadge } from './grooming-chip';
 import { ReasonDialog } from './reason-dialog';
 import { PriorityBadge, SizeBadge } from './signal-badges';
 import { ActionButton } from './ui/action-button';
@@ -73,6 +75,7 @@ export function BoardCard({
   const isUnderReview = column === 'under_review';
   const isCold = !isDone && !isUnderReview && node.verdicts?.stale === true;
 
+  const grooming = visibleGrooming(node);
   const tags = node.tags ?? [];
   const overflow = tags.length - SHOWN_TAGS;
 
@@ -139,10 +142,14 @@ export function BoardCard({
         </p>
       </Link>
 
-      {(node.priority != null || node.size != null || tags.length > 0) && (
+      {(node.priority != null ||
+        node.size != null ||
+        grooming !== undefined ||
+        tags.length > 0) && (
         <div className="flex flex-wrap items-center gap-1.5">
           {node.priority != null && <PriorityBadge priority={node.priority} />}
           {node.size != null && <SizeBadge size={node.size} />}
+          {grooming !== undefined && <GroomingBadge state={grooming} />}
           {tags.slice(0, SHOWN_TAGS).map((t) =>
             t.tag.startsWith(RELEASE_PREFIX) ? (
               <ReleaseTag key={t.tag} value={t.tag.slice(RELEASE_PREFIX.length)} />

@@ -77,4 +77,41 @@ describe('boardCard', () => {
     );
     expect(screen.getByText('Approve')).toHaveProperty('disabled', true);
   });
+
+  it('a todo card shows its grooming state; needs answers reads as attention, not groomed stays quiet', async () => {
+    await renderInRouter(
+      <>
+        <BoardCard
+          node={task({ grooming: 'groomed', id: 'MMR-35', status: 'ready', title: 'one' })}
+          column="ready"
+        />
+        <BoardCard
+          node={task({ grooming: 'needs_answers', id: 'MMR-36', status: 'ready', title: 'two' })}
+          column="ready"
+        />
+        <BoardCard
+          node={task({ grooming: 'not_groomed', id: 'MMR-37', status: 'ready', title: 'three' })}
+          column="ready"
+        />
+      </>,
+    );
+    expect(screen.getByText('groomed')).toBeDefined();
+    expect(screen.getByText('needs answers').className).toContain('text-attention-foreground');
+    expect(screen.getByText('not groomed').className).toContain('text-ink-dim');
+  });
+
+  it('a started card carries no grooming chip', async () => {
+    await renderInRouter(
+      <BoardCard
+        node={task({
+          grooming: 'groomed',
+          id: 'MMR-38',
+          lifecycle: 'in_progress',
+          status: 'in_progress',
+        })}
+        column="in_progress"
+      />,
+    );
+    expect(screen.queryByText('groomed')).toBeNull();
+  });
 });

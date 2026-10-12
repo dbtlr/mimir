@@ -1,3 +1,4 @@
+import type { Grooming } from '@mimir/contract';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
@@ -46,6 +47,30 @@ export function useTransition(id: string) {
   return useMutation({
     mutationFn: ({ verb, reason }: TransitionInput) =>
       apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/${verb}`, reasonBody(reason)),
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+    onSettled: () => void invalidate(),
+  });
+}
+
+export type GroomInput = {
+  state: Grooming;
+  /** The server requires one for `needs_answers` and writes it as an ordinary note. */
+  note?: string;
+};
+
+/** Set a task's grooming state (ADR 0033) through its own route, not the plain update. */
+export function useGroom(id: string) {
+  const invalidate = useInvalidateOnWrite();
+  return useMutation({
+    mutationFn: ({ state, note }: GroomInput) => {
+      const trimmed = note?.trim() ?? '';
+      return apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/groom`, {
+        state,
+        ...(trimmed === '' ? {} : { note: trimmed }),
+      });
+    },
     onError: (err: Error) => {
       toast.error(err.message);
     },

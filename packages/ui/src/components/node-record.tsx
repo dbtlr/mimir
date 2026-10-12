@@ -236,7 +236,12 @@ const HOLD_CALLOUT: Record<'blocked' | 'parked', { box: string; label: string }>
   },
 };
 
-/** The reason a held task gives, when it gives one. */
+/** The callout's lead: a block names who can clear it; a park, a legacy block without an owner, just the hold. */
+function holdLabel(hold: 'blocked' | 'parked', owner: WireNode['block_owner']): string {
+  return hold === 'blocked' && owner != null ? `Blocked on ${owner}` : hold;
+}
+
+/** The reason a held task gives, and for a block, who can clear it. */
 export function HoldCallout({ node }: { node: WireNode }) {
   if (
     (node.hold !== 'parked' && node.hold !== 'blocked') ||
@@ -249,7 +254,9 @@ export function HoldCallout({ node }: { node: WireNode }) {
     <div
       className={cn('rounded-lg p-2.5 text-xs text-ink inset-ring', HOLD_CALLOUT[node.hold].box)}
     >
-      <span className={cn('microlabel mr-2', HOLD_CALLOUT[node.hold].label)}>{node.hold}</span>
+      <span className={cn('microlabel mr-2', HOLD_CALLOUT[node.hold].label)}>
+        {holdLabel(node.hold, node.block_owner)}
+      </span>
       {node.hold_reason}
     </div>
   );

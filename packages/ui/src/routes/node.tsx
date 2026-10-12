@@ -8,6 +8,8 @@ import type { WireNode, WireScratchpadRow, WireTreeNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { AnnotationComposer } from '../components/annotation-composer';
 import { DirectionPanel } from '../components/direction-line';
+import { GroomingBadge, GroomingChip } from '../components/grooming-chip';
+import { GroomingDialog } from '../components/grooming-dialog';
 import { MoveDialog } from '../components/move-dialog';
 import {
   ArtifactLinks,
@@ -36,6 +38,7 @@ import { ActionButton } from '../components/ui/action-button';
 import { ancestorsOf, subtreeOf } from '../lib/ancestry';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
+import { visibleGrooming } from '../lib/grooming';
 import { useRememberRecord } from '../lib/recent-records';
 import { nodeIdOf, nodeLink } from '../lib/record-url';
 import { absoluteTime } from '../lib/time';
@@ -96,18 +99,20 @@ function Crumbs({
   );
 }
 
-/** A task's Edit, Move…, and the transition verbs it offers outside its verdict block. */
+/** A task's Edit, Move…, grooming setter, and the transition verbs it offers outside its verdict block. */
 function ActionsPanel({
   node,
   offline,
   onEdit,
   onMove,
+  onGroom,
   onVerb,
 }: {
   node: WireNode;
   offline: boolean;
   onEdit: () => void;
   onMove: () => void;
+  onGroom: () => void;
   onVerb: (v: VerbSpec) => void;
 }) {
   return (
@@ -119,6 +124,11 @@ function ActionsPanel({
         <ActionButton size="sm" variant="outline" disabled={offline} onClick={onMove}>
           Move…
         </ActionButton>
+        {visibleGrooming(node) !== undefined && (
+          <ActionButton size="sm" variant="outline" disabled={offline} onClick={onGroom}>
+            Set grooming…
+          </ActionButton>
+        )}
         {recordVerbs(node).map((v) => (
           <ActionButton
             key={v.verb}
@@ -180,10 +190,16 @@ function hasAgentContext(node: WireNode, scratchpads: readonly WireScratchpadRow
 }
 
 function DetailsPanel({ node }: { node: WireNode }) {
+  const grooming = visibleGrooming(node);
   return (
     <div className="flex flex-col gap-2.5">
       {hasSignals(node) && <SignalBadges node={node} />}
       <dl className="flex flex-col gap-1">
+        {grooming !== undefined && (
+          <MetaRow label="grooming">
+            <GroomingBadge state={grooming} />
+          </MetaRow>
+        )}
         {node.target != null && <MetaRow label="target">{node.target}</MetaRow>}
         <MetaRow label="created">{absoluteTime(node.created_at)}</MetaRow>
         <MetaRow label="updated">{absoluteTime(node.updated_at)}</MetaRow>
@@ -209,6 +225,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
   const edit = useNodeEdit(nodeId);
   const verbs = useNodeVerbs(nodeId);
   const [moving, setMoving] = useState(false);
+  const [grooming, setGrooming] = useState(false);
   const conn = connectivity([node, annotations]);
   useRememberRecord(
     node.data && { id: nodeId, kind: node.data.type, project: projectKey, title: node.data.title },
@@ -236,6 +253,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
   const artifactCount = data.artifacts?.length ?? 0;
   const feed = buildFeed(data.created_at, data.history, annotations.data?.items);
   const offline = conn.offline;
+  const groomingState = visibleGrooming(data);
 
   // Edit, Move…, and the transitions are task verbs; a container has none
   // yet. They step aside while the edit form is open: a
@@ -248,6 +266,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
         offline={offline}
         onEdit={() => edit.begin(data)}
         onMove={() => setMoving(true)}
+        onGroom={() => setGrooming(true)}
         onVerb={verbs.handleVerb}
       />
     ) : null;
@@ -334,6 +353,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
           {nodeId} · {data.type}
         </span>
         <StatusBadge status={data.status} pill />
+        <GroomingChip node={data} />
       </div>
       <h1 className="text-dossier leading-[1.35] font-bold tracking-[-0.01em] text-ink-bright md:text-header">
         {data.title}
@@ -390,6 +410,14 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
         )}
       </RecordLayout>
       {verbs.dialog}
+      {grooming && groomingState !== undefined && (
+        <GroomingDialog
+          nodeId={nodeId}
+          current={groomingState}
+          open
+          onClose={() => setGrooming(false)}
+        />
+      )}
       <MoveDialog
         nodeId={nodeId}
         currentParent={data.parent}

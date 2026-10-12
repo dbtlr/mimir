@@ -2,6 +2,7 @@ import type {
   AwaitingRef,
   BlockOwner,
   Distribution,
+  Grooming,
   Hold,
   Lane,
   Lifecycle,
@@ -162,6 +163,8 @@ export type WireNode = {
   priority?: Priority | null;
   size?: Size | null;
   lifecycle?: Lifecycle;
+  /** The stored grooming judgment (ADR 0033) — task-only; views read it for todo tasks only. */
+  grooming?: Grooming;
   hold?: Hold;
   hold_reason?: string | null;
   /** Who can clear a block (ADR 0001, MMR-438) — `you` or `others`; set only while `hold` is `blocked`. */
