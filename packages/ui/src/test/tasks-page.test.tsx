@@ -4,6 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, vi } from 'vitest';
 
+import { FINISHED_PAGE_SIZE } from '../api/queries';
 import type { WireHome, WireNode } from '../api/types';
 import { router } from '../router';
 import { task } from './fixtures';
@@ -415,5 +416,100 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
       screen.findByText(/Unreachable — is `mimir serve` running\?/),
     ).resolves.toBeDefined();
     expect(screen.getByRole('button', { name: '+ New task' })).toHaveProperty('disabled', true);
+  });
+});
+
+const rowCount = () => screen.queryAllByRole('link', { name: /^Finished \d+$/ }).length;
+const showMore = () => screen.queryByRole('button', { name: 'Show more' });
+
+describe('tasksPage Finished view windows (MMR-460)', () => {
+  // Two full windows and a partial third, newest first like the server's order.
+  const finishedCount = FINISHED_PAGE_SIZE * 2 + 10;
+  const finishedRows = Array.from({ length: finishedCount }, (_, i) =>
+    task({ id: `MMR-${String(1000 + i)}`, status: 'done', title: `Finished ${String(i)}` }),
+  );
+
+  /** Serves terminal reads honoring limit/offset like the server; any other read gets `rows`. */
+  function mockWindowedApi() {
+    apiGet.mockImplementation((path: string) => {
+      if (path.startsWith('/api/projects')) {
+        return Promise.resolve({
+          items: [{ id: 'MMR', status: 'in_progress', title: 'Mimir' }],
+          total: 1,
+        });
+      }
+      if (path.startsWith('/api/nodes?')) {
+        const p = new URLSearchParams(path.slice('/api/nodes?'.length));
+        if (p.get('status') !== 'terminal') {
+          return Promise.resolve({ items: rows, total: rows.length });
+        }
+        const offset = Number(p.get('offset') ?? 0);
+        const limit = p.has('limit') ? Number(p.get('limit')) : finishedRows.length;
+        return Promise.resolve({
+          items: finishedRows.slice(offset, offset + limit),
+          total: finishedRows.length,
+        });
+      }
+      return Promise.reject(new Error(`unexpected ${path}`));
+    });
+  }
+
+  it('asks for one bounded window first and offers Show more', async () => {
+    mockWindowedApi();
+    renderTasks('/tasks?status=terminal');
+    await screen.findByText('Finished 0');
+
+    expect(rowCount()).toBe(FINISHED_PAGE_SIZE);
+    const first = nodeReads().filter((p) => p.get('status') === 'terminal');
+    expect(first).toHaveLength(1);
+    expect(first[0]?.get('limit')).toBe(String(FINISHED_PAGE_SIZE));
+    expect(first[0]?.has('offset')).toBe(false);
+    expect(first[0]?.get('col')).toBe('lede');
+    expect(
+      screen.getByText(`${String(FINISHED_PAGE_SIZE)} of ${String(finishedCount)} finished`),
+    ).toBeDefined();
+    expect(showMore()).not.toBeNull();
+  });
+
+  it('Show more loads the next window by offset and disappears once everything is loaded', async () => {
+    mockWindowedApi();
+    renderTasks('/tasks?status=terminal');
+    const user = userEvent.setup();
+    await screen.findByText('Finished 0');
+
+    await user.click(showMore() as HTMLElement);
+    await waitFor(() => {
+      expect(rowCount()).toBe(FINISHED_PAGE_SIZE * 2);
+    });
+    const second = nodeReads().find((p) => p.get('offset') === String(FINISHED_PAGE_SIZE));
+    expect(second?.get('limit')).toBe(String(FINISHED_PAGE_SIZE));
+    expect(showMore()).not.toBeNull();
+
+    await user.click(showMore() as HTMLElement);
+    await waitFor(() => {
+      expect(rowCount()).toBe(finishedCount);
+    });
+    expect(showMore()).toBeNull();
+    expect(screen.getByText(`${String(finishedCount)} finished`)).toBeDefined();
+  });
+
+  it('has no Show more when every finished task fits one window', async () => {
+    mockApi();
+    renderTasks('/tasks?status=terminal');
+    await screen.findByText('Doctor the wire');
+    expect(showMore()).toBeNull();
+  });
+
+  it('leaves the other views unbounded', async () => {
+    mockWindowedApi();
+    renderTasks();
+    await screen.findByText('Doctor the wire');
+    const reads = nodeReads();
+    expect(reads.length).toBeGreaterThan(0);
+    for (const read of reads) {
+      expect(read.has('limit')).toBe(false);
+      expect(read.has('offset')).toBe(false);
+    }
+    expect(showMore()).toBeNull();
   });
 });

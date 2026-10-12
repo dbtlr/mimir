@@ -285,6 +285,27 @@ test('list selects by status universe (MMR-33)', async () => {
   expect(all.total).toBe(2);
 });
 
+/** One `limit`/`offset` window of the project's terminal list: its ids and the whole total. */
+async function terminalWindow(limit: number | undefined, offset: number | undefined) {
+  const res = await listNodes(store, { limit, offset, scope: key, status: 'terminal' });
+  return { ids: res.items.map((n) => n.id), total: res.total };
+}
+
+test('list windows the matched set with limit and offset, total staying whole (MMR-460)', async () => {
+  for (const title of ['a', 'b', 'c']) {
+    const t = await createTask(store, { parentId: phaseId, title });
+    await completeTask(store, await nodeIdOf(store, idOf(t)));
+  }
+  const whole = await listNodes(store, { scope: key, status: 'terminal' });
+  const wholeIds = whole.items.map((n) => n.id);
+  expect(wholeIds).toHaveLength(3);
+
+  expect(await terminalWindow(2, undefined)).toEqual({ ids: wholeIds.slice(0, 2), total: 3 });
+  expect(await terminalWindow(2, 2)).toEqual({ ids: wholeIds.slice(2), total: 3 });
+  expect(await terminalWindow(undefined, 1)).toEqual({ ids: wholeIds.slice(1), total: 3 });
+  expect(await terminalWindow(2, 3)).toEqual({ ids: [], total: 3 });
+});
+
 test('list filters by q — case-insensitive substring over title (MMR-78)', async () => {
   const auth = await createTask(store, { parentId: phaseId, title: 'Wire up AUTH gate' });
   await createTask(store, { parentId: phaseId, title: 'Polish the board' });

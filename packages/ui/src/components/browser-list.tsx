@@ -275,3 +275,22 @@ export function BrowserRow({
 export function BrowserEmpty({ children }: { children: ReactNode }) {
   return <p className="px-4 py-10 text-center text-xs text-ink-faint">{children}</p>;
 }
+
+/**
+ * The "Show more" control closing a windowed browser list (MMR-460): rendered
+ * only while more rows remain, inert while the next window is loading.
+ */
+export function BrowserShowMore({ onClick, loading }: { onClick: () => void; loading: boolean }) {
+  return (
+    <div className="mt-4 flex justify-center">
+      <button
+        type="button"
+        disabled={loading}
+        onClick={onClick}
+        className="rounded-lg px-3 py-1.5 text-xs font-semibold text-ink inset-ring inset-ring-line-bright transition-colors hover:bg-line/50 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40"
+      >
+        Show more
+      </button>
+    </div>
+  );
+}

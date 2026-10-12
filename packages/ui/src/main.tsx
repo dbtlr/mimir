@@ -30,7 +30,7 @@ createRoot(root).render(
         // bump this. A stale-shape warm cache restored into the new code
         // crashes the route before app code runs; bumping drops the old cache
         // on restore. See persist.ts for the shape guard behind this.
-        buster: 'mimir-ui-v4',
+        buster: 'mimir-ui-v5',
         // see shouldPersistQuery — the default would erase the offline
         // cache exactly as the server dies
         dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },

@@ -421,6 +421,26 @@ test('an unknown verdict and a bad limit are structural 400s; limit truncates', 
   expect(limited.total as number).toBeGreaterThan(1);
 });
 
+test('GET /api/nodes pages a terminal list with limit and offset (MMR-460)', async () => {
+  await send('POST', `/api/nodes/${task1}/done`);
+  await send('POST', `/api/nodes/${task2}/done`);
+
+  const read = async (query: string) => {
+    const body = await parse(await get(`/api/nodes?type=task&status=terminal&col=lede&${query}`));
+    return { ids: (body.items as Rec[]).map((n) => n.id), total: body.total };
+  };
+  const whole = await read('');
+  expect(whole.ids).toHaveLength(2);
+
+  expect(await read('limit=1')).toEqual({ ids: [whole.ids[0]], total: 2 });
+  expect(await read('limit=1&offset=1')).toEqual({ ids: [whole.ids[1]], total: 2 });
+  expect(await read('limit=1&offset=2')).toEqual({ ids: [], total: 2 });
+  expect(await read('offset=1')).toEqual({ ids: [whole.ids[1]], total: 2 });
+
+  expect((await get('/api/nodes?offset=-1')).status).toBe(400);
+  expect((await get('/api/nodes?offset=one')).status).toBe(400);
+});
+
 // ---------------------------------------------------------------------------
 // Nodes — detail
 // ---------------------------------------------------------------------------

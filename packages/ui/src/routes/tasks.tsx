@@ -1,10 +1,10 @@
 import type { StatusSelector, TaskStatusWord } from '@mimir/contract';
 import { STATUS_SELECTOR_VALUES } from '@mimir/contract';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
-import { projectsQuery, tasksQuery } from '../api/queries';
+import { projectsQuery, tasksBrowserQuery } from '../api/queries';
 import type { TaskFilters } from '../api/queries';
 import type { WireNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
@@ -15,6 +15,7 @@ import {
   BrowserPage,
   BrowserRow,
   BrowserSearch,
+  BrowserShowMore,
   FilterChip,
   FilterRow,
   MenuChip,
@@ -164,7 +165,9 @@ export function TasksPage() {
   }
 
   const projects = useQuery(projectsQuery);
-  const tasks = useQuery(tasksQuery(filters));
+  const tasks = useInfiniteQuery(tasksBrowserQuery(filters));
+  const loadedTasks = useMemo(() => tasks.data?.pages.flatMap((page) => page.items), [tasks.data]);
+  const totalTasks = tasks.data?.pages.at(-1)?.total;
   const conn = connectivity([tasks]);
   const [createOpen, setCreateOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -208,7 +211,7 @@ export function TasksPage() {
     };
   }, [q, search.q]);
 
-  const groups = useMemo(() => groupTasks(tasks.data?.items ?? [], groupBy), [tasks.data, groupBy]);
+  const groups = useMemo(() => groupTasks(loadedTasks ?? [], groupBy), [loadedTasks, groupBy]);
 
   const projectOptions = [
     { label: 'All projects', value: '' },
@@ -239,7 +242,12 @@ export function TasksPage() {
       >
         <BrowserPage
           title="Tasks"
-          count={tasks.data !== undefined && `${tasks.data.total} ${countWord}`}
+          count={
+            loadedTasks !== undefined &&
+            totalTasks !== undefined &&
+            // A windowed view says how much of the whole it shows (MMR-460).
+            `${loadedTasks.length < totalTasks ? `${loadedTasks.length} of ` : ''}${totalTasks} ${countWord}`
+          }
           action={
             // Create opens the shared authoring sheet (MMR-227), whose own
             // project-spanning HOME picker chooses where the node lands — the
@@ -320,7 +328,7 @@ export function TasksPage() {
               Unreachable — is `mimir serve` running?
             </p>
           )}
-          {tasks.data !== undefined && groups.length === 0 && (
+          {loadedTasks !== undefined && groups.length === 0 && (
             <BrowserEmpty>No tasks match.</BrowserEmpty>
           )}
           {groups.map((group) => (
@@ -347,6 +355,14 @@ export function TasksPage() {
               ))}
             </BrowserGroup>
           ))}
+          {tasks.hasNextPage && (
+            <BrowserShowMore
+              loading={tasks.isFetchingNextPage}
+              onClick={() => {
+                void tasks.fetchNextPage();
+              }}
+            />
+          )}
         </BrowserPage>
       </main>
 

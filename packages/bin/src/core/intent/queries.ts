@@ -361,6 +361,8 @@ export type ListOptions = {
   /** The caller's IANA timezone — how every bare date in `filters` resolves (ADR 0029). */
   timeZone?: string;
   limit?: number;
+  /** Matched rows to skip before the `limit` window — pages the ordered list (MMR-460). */
+  offset?: number;
   facets?: readonly FacetName[];
 };
 
@@ -446,17 +448,20 @@ export async function listNodes(
     }
     matched.push({ node: row, word });
   }
-  const limited = opts.limit !== undefined ? matched.slice(0, opts.limit) : matched;
+  // The window is cut before views and ledes are built, so those cost only the
+  // returned rows; `total` stays the whole matched count.
+  const start = opts.offset ?? 0;
+  const windowed = matched.slice(start, opts.limit === undefined ? undefined : start + opts.limit);
   const facets = new Set(opts.facets);
   const items = await Promise.all(
-    limited.map(({ node }) =>
+    windowed.map(({ node }) =>
       buildNodeView(store.bodySections, store.artifacts, set, node, facets),
     ),
   );
   if (facets.has('lede')) {
     await attachNodeLedes(store, items);
   }
-  return setResult(items, matched.length);
+  return setResult(items, matched.length, start);
 }
 
 /**

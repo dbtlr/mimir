@@ -100,26 +100,63 @@ export type TaskFilters = {
   lede?: boolean;
 };
 
-/** The `/tasks` browser read (MMR-78): portfolio task list with filter + search. */
+/** The `type=task` list params shared by the picker's and the browser's reads. */
+function taskParams(f: TaskFilters): URLSearchParams {
+  const p = new URLSearchParams({ type: 'task' });
+  if (f.lede === true) {
+    p.set('col', 'lede');
+  }
+  if (f.project !== undefined && f.project !== '') {
+    p.set('project', f.project);
+  }
+  if (f.status !== undefined && f.status !== '') {
+    p.set('status', f.status);
+  }
+  if (f.q !== undefined && f.q !== '') {
+    p.set('q', f.q);
+  }
+  return p;
+}
+
+/** A task-list read with filter + search (MMR-78) — the dependency picker's lookup. */
 export const tasksQuery = (f: TaskFilters) =>
   queryOptions({
-    queryFn: () => {
-      const p = new URLSearchParams({ type: 'task' });
-      if (f.lede === true) {
-        p.set('col', 'lede');
-      }
-      if (f.project !== undefined && f.project !== '') {
-        p.set('project', f.project);
-      }
-      if (f.status !== undefined && f.status !== '') {
-        p.set('status', f.status);
-      }
-      if (f.q !== undefined && f.q !== '') {
-        p.set('q', f.q);
+    queryFn: () => apiGet<Collection<WireNode>>(`/api/nodes?${taskParams(f).toString()}`),
+    queryKey: ['nodes', 'tasks', f],
+  });
+
+/**
+ * The tasks browser's Finished window (MMR-460): the newest this many finished
+ * tasks load first and "Show more" pulls the next window, so history growth
+ * costs neither the request, the server's lede reads, nor the persisted cache.
+ */
+export const FINISHED_PAGE_SIZE = 50;
+
+/**
+ * The `/tasks` browser read (MMR-78, MMR-454, MMR-460). Infinite so the
+ * Finished view can window: a `terminal` selection asks for
+ * {@link FINISHED_PAGE_SIZE} rows at an explicit offset, the next offset being
+ * however many rows are already on screen; every other view sends no limit,
+ * so its one page already holds `total` rows and there is no next one.
+ */
+export const tasksBrowserQuery = (f: TaskFilters) =>
+  infiniteQueryOptions({
+    getNextPageParam: (last: Collection<WireNode>, pages) => {
+      const fetched = pages.reduce((n, page) => n + page.items.length, 0);
+      return fetched < last.total && last.items.length > 0 ? fetched : undefined;
+    },
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) => {
+      const p = taskParams(f);
+      if (f.status === 'terminal') {
+        p.set('limit', String(FINISHED_PAGE_SIZE));
+        if (pageParam > 0) {
+          p.set('offset', String(pageParam));
+        }
       }
       return apiGet<Collection<WireNode>>(`/api/nodes?${p.toString()}`);
     },
-    queryKey: ['nodes', 'tasks', f],
+    queryKey: ['tasks', 'browser', f],
   });
 
 /**
@@ -244,7 +281,7 @@ export const ARTIFACT_PAGE_SIZE = 100;
  * query became infinite, or any shape drift a missed persister-buster bump let
  * through. Add an infinite query's root here when you add the query.
  */
-export const INFINITE_QUERY_KEY_ROOTS: ReadonlySet<string> = new Set(['artifacts']);
+export const INFINITE_QUERY_KEY_ROOTS: ReadonlySet<string> = new Set(['artifacts', 'tasks']);
 
 /**
  * Portfolio artifact search — re-runs as filters change. Windowed (the list
