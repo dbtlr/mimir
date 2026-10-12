@@ -17,7 +17,8 @@ export function GroomingBadge({ state }: { state: Grooming }) {
   return (
     <Badge
       variant="outline"
-      className={cn(GROOMING_STYLE[state])}
+      // font-sans: a Details row sits in a monospace value cell, but the chip reads the same everywhere.
+      className={cn('font-sans', GROOMING_STYLE[state])}
       title={GROOMING_META[state].hint}
     >
       {GROOMING_META[state].label}

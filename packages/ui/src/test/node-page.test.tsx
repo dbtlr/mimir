@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
@@ -815,6 +816,36 @@ describe('task page grooming state (MMR-466)', () => {
     expect(within(rail).getByText('groomed')).toBeDefined();
   });
 
+  it.each([
+    ['blocked', 'blocked'],
+    ['parked', 'parked'],
+  ] as const)('still shows the state on a todo task that is %s', async (hold, status) => {
+    await openTask(task({ grooming: 'groomed', hold, hold_reason: 'why', id: 'MMR-51', status }));
+
+    expect(within(screen.getByRole('article')).getByText('groomed')).toBeDefined();
+  });
+
+  it('wears the same font in Details as in the header', async () => {
+    const rail = await openTask(groomed());
+
+    expect(within(rail).getByText('groomed').className).toContain('font-sans');
+  });
+
+  it('keeps the dialog open and toasts the error when the request fails', async () => {
+    apiSend.mockRejectedValue(new Error('needs_answers requires a note'));
+    const rail = await openTask(groomed());
+
+    await userEvent.click(within(rail).getByRole('button', { name: 'Set grooming…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Grooming state' });
+    await userEvent.click(within(dialog).getByRole('radio', { name: /^not groomed/ }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Set grooming' }));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('needs_answers requires a note');
+    });
+    expect(screen.getByRole('dialog', { name: 'Grooming state' })).toBeDefined();
+  });
+
   it('shows no state once the task has started', async () => {
     const rail = await openTask(
       task({
@@ -939,6 +970,32 @@ describe('task page hold callout (MMR-466)', () => {
     const article = screen.getByRole('article');
     expect(within(article).getByText(label)).toBeDefined();
     expect(within(article).getByText('Needs an API token')).toBeDefined();
+  });
+
+  it.each([
+    ['you', 'Blocked on you'],
+    ['others', 'Blocked on others'],
+  ] as const)(
+    'names the owner of a block owned by %s even with no reason',
+    async (owner, label) => {
+      await openTask(
+        task({
+          block_owner: owner,
+          hold: 'blocked',
+          hold_reason: null,
+          id: 'MMR-51',
+          status: 'blocked',
+        }),
+      );
+
+      expect(within(screen.getByRole('article')).getByText(label)).toBeDefined();
+    },
+  );
+
+  it('shows no callout for a parked task with no reason', async () => {
+    await openTask(task({ hold: 'parked', hold_reason: null, id: 'MMR-51', status: 'parked' }));
+
+    expect(within(screen.getByRole('article')).queryByText('parked')).toBeNull();
   });
 
   it('keeps the plain hold name for a parked task, which has no owner', async () => {

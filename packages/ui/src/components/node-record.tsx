@@ -241,13 +241,17 @@ function holdLabel(hold: 'blocked' | 'parked', owner: WireNode['block_owner']): 
   return hold === 'blocked' && owner != null ? `Blocked on ${owner}` : hold;
 }
 
-/** The reason a held task gives, and for a block, who can clear it. */
+/**
+ * A held task's callout: its reason when it gives one, and for a block, who can
+ * clear it. A block always shows, so its owner is never hidden by a missing
+ * reason; a park with no reason has nothing to say.
+ */
 export function HoldCallout({ node }: { node: WireNode }) {
-  if (
-    (node.hold !== 'parked' && node.hold !== 'blocked') ||
-    node.hold_reason == null ||
-    node.hold_reason.trim() === ''
-  ) {
+  if (node.hold !== 'parked' && node.hold !== 'blocked') {
+    return null;
+  }
+  const reason = node.hold_reason?.trim() ?? '';
+  if (node.hold === 'parked' && reason === '') {
     return null;
   }
   return (
@@ -257,7 +261,7 @@ export function HoldCallout({ node }: { node: WireNode }) {
       <span className={cn('microlabel mr-2', HOLD_CALLOUT[node.hold].label)}>
         {holdLabel(node.hold, node.block_owner)}
       </span>
-      {node.hold_reason}
+      {reason}
     </div>
   );
 }
