@@ -18,7 +18,7 @@
  * Flat wells carry depth by tone alone (no drop shadows in dark); accent,
  * attention, and status hues render as washes, never solid backgrounds. One
  * status color system, declared once here and consumed identically by
- * distribution bars, board column headers, tree badges, and the drawer.
+ * distribution bars, board column headers, tree badges, and record pages.
  */
 @theme {
   --font-sans: 'Instrument Sans Variable', 'Instrument Sans', system-ui, sans-serif;
@@ -32,7 +32,7 @@
    */
   --text-page: 1.75rem; /* 28px — page title, weight 700 */
   --text-header: 1.3125rem; /* 21px — section header, 700, tracking -0.01em */
-  --text-dossier: 1.0625rem; /* 17px — dossier / drawer title, 600 */
+  --text-dossier: 1.0625rem; /* 17px — record title, 600 */
   --text-card-mobile: 0.9375rem; /* 15px — card titles on mobile, 500 */
   --text-body: 0.875rem; /* 14px — card title 500 / body 400 at lh 1.65 */
   --text-meta: 0.8125rem; /* 13px — secondary / meta */

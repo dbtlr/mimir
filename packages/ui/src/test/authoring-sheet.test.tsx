@@ -244,6 +244,12 @@ describe('authoringSheet', () => {
     // "open it" links to the created node's page without any further write.
     const openIt = screen.getByRole('link', { name: 'open it' });
     expect(openIt).toHaveAttribute('href', '/p/MMR/99');
+    // A modified click opens a new tab and leaves the retry posture alone.
+    await user.keyboard('{Meta>}');
+    await user.click(openIt);
+    await user.keyboard('{/Meta}');
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Retry deps ↵' })).toBeDefined();
     await user.click(openIt);
     await waitFor(() => expect(router.state.location.pathname).toBe('/p/MMR/99'));
     expect(onOpenChange).toHaveBeenCalledWith(false);

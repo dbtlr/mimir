@@ -10,9 +10,8 @@ import { ActionButton } from './ui/action-button';
 
 /**
  * The reparent picker behind the task page's "Move…" action (gap 3). A minimal
- * dialog over `parentOptions()` + `useMoveNode` — the same plumbing the drawer's
- * inline edit-mode `<select>` used, promoted to a standalone verb. Confirming
- * fires the `move` verb (invalidate + refetch); no optimistic write.
+ * dialog over `parentOptions()` + `useMoveNode`. Confirming fires the `move`
+ * verb (invalidate + refetch); no optimistic write.
  */
 export function MoveDialog({
   nodeId,

@@ -58,8 +58,9 @@ export function foldDirection(next: string | undefined): string | undefined {
 
 /**
  * The folded direction row (MMR-390) — the owned `## Next` prose (ADR 0026
- * Decision 2) stated in one line under the board header. It is a control, not a card: clicking opens the
- * reading dialog, where Edit replaces the whole text. Deliberately one visual
+ * Decision 2) stated in one line under the board header. It is a control, not
+ * a card: clicking opens the reading dialog, where Edit replaces the whole
+ * text. Deliberately one visual
  * line — direction is a pointer to the full record, not the record itself.
  */
 export function DirectionLine({

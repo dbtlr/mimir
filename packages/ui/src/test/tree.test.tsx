@@ -251,14 +251,17 @@ describe('treeView', () => {
         ]),
       ]),
     ]);
-    await renderInRouter(<TreeView root={root} />);
+    const { router } = await renderInRouter(<TreeView root={root} />);
 
     expect(screen.getByRole('link', { name: /Init/ })).toHaveAttribute('href', '/p/MMR/2');
-    expect(screen.getByRole('link', { name: /Phase/ })).toHaveAttribute('href', '/p/MMR/3');
     // The title is the link; only the caret folds.
     expect(screen.getByText('a')).toBeDefined();
     await userEvent.click(screen.getByRole('button', { name: 'Toggle Phase' }));
     expect(screen.queryByText('a')).toBeNull();
+    await userEvent.click(screen.getByRole('link', { name: /Phase/ }));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/p/MMR/3');
+    });
   });
 
   it("an under-review row's title and trailing status word both link to the task's page", async () => {

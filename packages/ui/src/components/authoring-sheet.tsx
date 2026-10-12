@@ -889,8 +889,11 @@ function AuthoringSheetBody({
             dependencies not yet attached.{' '}
             <Link
               {...nodeLink(created.id)}
-              onClick={() => {
-                onOpenChange(false);
+              onClick={(e) => {
+                // A modified click opens a new tab; keep the retry posture here.
+                if (!(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)) {
+                  onOpenChange(false);
+                }
               }}
               className="rounded text-accent-foreground underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
             >

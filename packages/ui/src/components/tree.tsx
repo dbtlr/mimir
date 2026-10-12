@@ -39,14 +39,7 @@ export function TreeView({ root, offline }: { root: WireTreeNode; offline?: bool
     if (taskRun.length > 0) {
       const run = taskRun;
       taskRun = [];
-      groups.push(
-        <BareLeafPanel
-          key={`t${String(key++)}`}
-          tasks={run}
-
-          offline={offline}
-        />,
-      );
+      groups.push(<BareLeafPanel key={`t${String(key++)}`} tasks={run} offline={offline} />);
     }
   };
   for (const child of root.children) {
@@ -258,28 +251,14 @@ function GroupChildren({ nodes, offline }: { nodes: WireTreeNode[]; offline?: bo
     if (taskRun.length > 0) {
       const run = taskRun;
       taskRun = [];
-      out.push(
-        <BareLeafPanel
-          key={`t${String(key++)}`}
-          tasks={run}
-
-          offline={offline}
-        />,
-      );
+      out.push(<BareLeafPanel key={`t${String(key++)}`} tasks={run} offline={offline} />);
     }
   };
   const flushDone = () => {
     if (doneRun.length > 0) {
       const run = doneRun;
       doneRun = [];
-      out.push(
-        <FoldedDonePhases
-          key={`d${String(key++)}`}
-          phases={run}
-
-          offline={offline}
-        />,
-      );
+      out.push(<FoldedDonePhases key={`d${String(key++)}`} phases={run} offline={offline} />);
     }
   };
 
