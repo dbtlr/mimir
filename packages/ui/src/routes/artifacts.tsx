@@ -6,7 +6,7 @@ import { artifactsQuery, projectsQuery } from '../api/queries';
 import type { ArtifactFilters as Filters } from '../api/queries';
 import { ArtifactFilters } from '../components/artifact-filters';
 import { ArtifactList } from '../components/artifact-list';
-import { ArtifactReader } from '../components/artifact-reader';
+import { BrowserPage } from '../components/browser-list';
 import { OfflineBanner } from '../components/offline-banner';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
@@ -16,9 +16,10 @@ import { artifactsRoute } from '../router';
 const FILTER_KEYS = ['project', 'tag', 'q', 'atOrAfter', 'atOrBefore'] as const;
 
 /**
- * `/artifacts` — the portfolio artifact browser (Meridian 16a/16b): a 360px
- * master column (search, filter chips, date-grouped rows) beside the frozen
- * reader; below `md` the two panes are mutually exclusive.
+ * `/artifacts` — the portfolio artifact browser (MMR-454, "Browsers C"): one
+ * centred column of frozen artifacts grouped by day, newest first. Every row
+ * links to the artifact's own page; the page scrolls within the shell and
+ * nearing the bottom pulls the next window.
  */
 export function ArtifactsPage() {
   const navigate = useNavigate();
@@ -37,8 +38,8 @@ export function ArtifactsPage() {
   const rows = artifacts.data?.pages.flatMap((page) => page.items);
   const total = artifacts.data?.pages.at(-1)?.total;
 
-  // The footer's "scroll for more": nearing the bottom pulls the next window.
-  const onListScroll = (e: UIEvent<HTMLDivElement>) => {
+  // Nearing the bottom pulls the next window.
+  const onScroll = (e: UIEvent<HTMLElement>) => {
     const el = e.currentTarget;
     const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 200;
     if (nearBottom && artifacts.hasNextPage && !artifacts.isFetchingNextPage) {
@@ -63,73 +64,33 @@ export function ArtifactsPage() {
       to: '/artifacts',
     });
 
-  const select = (id: string) =>
-    void navigate({ search: (prev) => ({ ...prev, a: id }), to: '/artifacts' });
-
-  const back = () =>
-    void navigate({ search: (prev) => ({ ...prev, a: undefined }), to: '/artifacts' });
-
-  const selected = search.a;
-
   return (
     <>
       <OfflineBanner {...conn} />
-      <main className={cn('flex min-h-0 flex-1', conn.offline && 'offline-demoted')}>
-        <div
-          className={cn(
-            'min-h-0 w-full flex-col border-line bg-well-950 md:flex md:w-90 md:shrink-0 md:border-r',
-            selected !== undefined ? 'hidden' : 'flex',
-          )}
-        >
-          <header className="flex items-center gap-2.5 px-4 pt-4 pb-2.5">
-            <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">Artifacts</h1>
-            {total !== undefined && (
-              <span className="ml-auto text-tag text-ink-faint">{total} frozen</span>
-            )}
-          </header>
-
+      <main
+        className={cn(
+          'min-h-0 flex-1 overflow-y-auto bg-well-950',
+          conn.offline && 'offline-demoted',
+        )}
+        data-testid="artifact-scroll"
+        onScroll={onScroll}
+      >
+        <BrowserPage title="Artifacts" count={total === undefined ? undefined : `${total} frozen`}>
           <ArtifactFilters
             filters={filters}
             projects={(projects.data?.items ?? []).map((p) => p.id)}
+            rowTags={(rows ?? []).map((a) => a.tags)}
             onChange={setFilter}
           />
-
-          <div
-            className="min-h-0 flex-1 overflow-auto"
-            data-testid="artifact-scroll"
-            onScroll={onListScroll}
-          >
-            {artifacts.isPending && <Skeleton className="m-2 h-40" />}
-            {rows !== undefined && (
-              <ArtifactList items={rows} selectedId={selected} onSelect={select} />
-            )}
-            {artifacts.isFetchingNextPage && <Skeleton className="m-2 h-10" />}
-            {artifacts.isError && artifacts.data === undefined && (
-              <p className="p-4 text-xs text-status-blocked">
-                Unreachable — is `mimir serve` running?
-              </p>
-            )}
-          </div>
-
-          <footer className="border-t border-line px-4 py-2 text-tag text-ink-ghost">
-            newest first · windowed, scroll for more
-          </footer>
-        </div>
-
-        <div
-          className={cn(
-            'min-h-0 flex-1 flex-col bg-well-900',
-            selected !== undefined ? 'flex' : 'hidden md:flex',
-          )}
-        >
-          {selected !== undefined ? (
-            <ArtifactReader id={selected} onBack={back} />
-          ) : (
-            <p className="hidden w-full items-center justify-center p-8 text-xs text-ink-faint md:flex">
-              Select an artifact to read.
+          {artifacts.isPending && <Skeleton className="mt-4 h-40" />}
+          {rows !== undefined && <ArtifactList items={rows} />}
+          {artifacts.isFetchingNextPage && <Skeleton className="mt-2 h-10" />}
+          {artifacts.isError && artifacts.data === undefined && (
+            <p className="py-4 text-xs text-status-blocked">
+              Unreachable — is `mimir serve` running?
             </p>
           )}
-        </div>
+        </BrowserPage>
       </main>
     </>
   );

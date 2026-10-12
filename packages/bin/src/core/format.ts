@@ -212,6 +212,10 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
   if (node.verdicts !== undefined) {
     wire.verdicts = node.verdicts;
   }
+  // The list preview (MMR-454) — present exactly when the `lede` facet was asked for.
+  if (node.lede !== undefined) {
+    wire.lede = node.lede;
+  }
   if (node.home !== undefined) {
     wire.home = {
       parent_id: node.home.parentId,
@@ -533,6 +537,7 @@ export function artifactSummaryToWire(a: ArtifactSummary): Record<string, unknow
   const wire: Record<string, unknown> = {
     created_at: a.createdAt,
     id: a.id,
+    links: a.links,
     project: a.project,
     tags: a.tags,
     title: a.title,

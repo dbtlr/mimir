@@ -50,6 +50,27 @@ test('no command prints help and exits 0', async () => {
   expect(io.out.join('')).toContain('usage: mimir');
 });
 
+test('list --col lede carries the lede in json and as a dim line in the table (MMR-454)', async () => {
+  await createTask(store, { description: 'prose preview', parentId: phaseId, title: 'previewed' });
+
+  const json = fakeIo(false);
+  expect(
+    await runCli(['list', '-s', 'MMR', '--col', 'lede', '-f', 'json'], () => store, json),
+  ).toBe(0);
+  const env = parseJson<{ tasks: { lede: string | null }[] }>(json.out.join(''));
+  expect(env.tasks.map((t) => t.lede)).toEqual(['prose preview']);
+
+  const table = fakeIo(false);
+  expect(
+    await runCli(['list', '-s', 'MMR', '--col', 'lede', '-f', 'table'], () => store, table),
+  ).toBe(0);
+  expect(table.out.join('')).toContain('      prose preview');
+
+  const plain = fakeIo(false);
+  expect(await runCli(['list', '-s', 'MMR', '-f', 'json'], () => store, plain)).toBe(0);
+  expect(plain.out.join('')).not.toContain('lede');
+});
+
 test('unknown command exits 2 with an error', async () => {
   const io = fakeIo(true);
   expect(await runCli(['frobnicate'], () => store, io)).toBe(2);
@@ -1645,6 +1666,27 @@ describe('artifacts (MMR-322)', () => {
     expect(env.starts_at).toBe(0);
     expect(env.artifacts[0]?.project).toBe('MMR');
     expect(env.artifacts[0]?.summary).toBe('a lede');
+  });
+
+  test("-f json carries each artifact's sorted `links` (MMR-454)", async () => {
+    const refs: string[] = [];
+    const ids: string[] = [];
+    for (const title of ['one', 'two', 'three']) {
+      const t = await createTask(store, { parentId: phaseId, title });
+      refs.push(`MMR-${String(t.seq)}`);
+      ids.push(await nodeIdOf(store, `MMR-${String(t.seq)}`));
+    }
+    await attachArtifact(store, {
+      content: '# linked',
+      linkNodeIds: ids.toReversed(),
+      projectId: await projectIdOf(store, 'MMR'),
+      tags: [],
+      title: 'linked',
+    });
+    const io = fakeIo(false);
+    expect(await runCli(['artifacts', '-s', 'MMR', '-f', 'json'], () => store, io)).toBe(0);
+    const env = parseJson<{ artifacts: { links: string[] }[] }>(io.out.join(''));
+    expect(env.artifacts[0]?.links).toEqual(refs.toSorted());
   });
 
   test('a well-formed empty query exits 0 with a stderr note', async () => {

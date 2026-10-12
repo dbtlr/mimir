@@ -1,3 +1,4 @@
+import type { SeedKind } from '@mimir/contract';
 import {
   createRootRoute,
   createRoute,
@@ -18,6 +19,7 @@ import {
   seedLink,
   seedPath,
 } from './lib/record-url';
+import { isSeedKind } from './lib/seed-lanes';
 import { ArtifactPage } from './routes/artifact';
 import { ArtifactsPage } from './routes/artifacts';
 import { BoardPage } from './routes/board';
@@ -183,7 +185,6 @@ export type ArtifactsSearch = {
   q?: string;
   atOrAfter?: string;
   atOrBefore?: string;
-  a?: string;
 };
 
 export const artifactsRoute = createRoute({
@@ -192,7 +193,7 @@ export const artifactsRoute = createRoute({
   path: '/artifacts',
   validateSearch: (search: Record<string, unknown>): ArtifactsSearch => {
     const out: ArtifactsSearch = {};
-    for (const k of ['project', 'tag', 'q', 'atOrAfter', 'atOrBefore', 'a'] as const) {
+    for (const k of ['project', 'tag', 'q', 'atOrAfter', 'atOrBefore'] as const) {
       const v = search[k];
       if (typeof v === 'string' && v !== '') {
         out[k] = v;
@@ -206,6 +207,8 @@ export type TasksSearch = {
   project?: string;
   status?: string;
   q?: string;
+  /** How the browser groups its rows; absent = by status (the default). */
+  group?: 'project';
 };
 
 export const tasksRoute = createRoute({
@@ -219,6 +222,10 @@ export const tasksRoute = createRoute({
       if (typeof v === 'string' && v !== '') {
         out[k] = v;
       }
+    }
+    // `status` grouping is the default and stays out of the URL; any other value drops.
+    if (search.group === 'project') {
+      out.group = 'project';
     }
     return out;
   },
@@ -241,8 +248,10 @@ export const doctorRoute = createRoute({
 export type SeedsSearch = {
   /** The filter to one project's board (`all`/absent = every board). */
   project?: string;
-  /** The selected seed — deep-linkable; drives the reading pane (wide) or in-place expand (narrow). */
-  seed?: string;
+  /** Client-side text filter over id, title, and lede. */
+  q?: string;
+  /** Client-side kind filter. */
+  kind?: SeedKind;
 };
 
 export const seedsRoute = createRoute({
@@ -251,12 +260,15 @@ export const seedsRoute = createRoute({
   path: '/seeds',
   validateSearch: (search: Record<string, unknown>): SeedsSearch => {
     const out: SeedsSearch = {};
-    for (const k of ['project', 'seed'] as const) {
+    for (const k of ['project', 'q'] as const) {
       const v = search[k];
       if (typeof v === 'string' && v !== '') {
         out[k] = v;
       }
     }
+    // Router search is merged over the raw params, so an invalid kind must be
+    // overwritten with an explicit `undefined`, not just left out.
+    out.kind = isSeedKind(search.kind) ? search.kind : undefined;
     return out;
   },
 });

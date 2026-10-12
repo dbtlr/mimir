@@ -1,19 +1,27 @@
 import type { StatusSelector, TaskStatusWord } from '@mimir/contract';
 import { STATUS_SELECTOR_VALUES } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 
-import { projectsQuery, taskCensusQuery, tasksQuery } from '../api/queries';
+import { projectsQuery, tasksQuery } from '../api/queries';
 import type { TaskFilters } from '../api/queries';
 import type { WireNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { AuthoringSheet } from '../components/authoring-sheet';
+import {
+  BrowserEmpty,
+  BrowserGroup,
+  BrowserPage,
+  BrowserRow,
+  BrowserSearch,
+  FilterChip,
+  FilterRow,
+  MenuChip,
+  RemovableChip,
+} from '../components/browser-list';
 import { OfflineBanner } from '../components/offline-banner';
-import { PriorityBadge, SizeBadge } from '../components/signal-badges';
 import { StatusDot } from '../components/status-dot';
-import { statusChipVariants } from '../components/ui/badge';
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../components/ui/menu';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
@@ -21,14 +29,9 @@ import { nodeLink } from '../lib/record-url';
 import { STATUS_META, TASK_STATUS_ORDER } from '../lib/status';
 import { relativeTime } from '../lib/time';
 import { tasksRoute } from '../router';
+import type { TasksSearch } from '../router';
 
 const SEARCH_DEBOUNCE_MS = 250;
-
-/** The 17a table geometry — one grid, shared by the column-header row and every data row. */
-const ROW_GRID = 'md:grid md:grid-cols-[140px_84px_minmax(0,1fr)_220px_120px_90px] md:gap-3';
-
-/** Chip-track words shown when no status is selected; the rest fold into `+N ▾`. */
-const DEFAULT_TRACK = TASK_STATUS_ORDER.slice(0, 3);
 
 // The chip vocabulary is the task-closed set (TASK_STATUS_ORDER, 8 words) —
 // `new` is container-only, a task never carries it, and the status selector
@@ -36,23 +39,23 @@ const DEFAULT_TRACK = TASK_STATUS_ORDER.slice(0, 3);
 const isTaskStatusWord = (v: string): v is TaskStatusWord =>
   (TASK_STATUS_ORDER as readonly string[]).includes(v);
 
-/** The union universe selectors (`live`, `terminal`, `all`) — never
- * offered by the chips, but a deep link (or an old `/tasks` bookmark) can carry
- * one, and the server filters on it, so the UI must show and preserve it. */
+/** The union universe selectors (`live`, `terminal`, `all`). `live` and
+ * `terminal` back the Live and Finished chips; a deep link can carry any of
+ * them (or a word), and the server filters on it, so the UI must show it. */
 type UnionSelector = Exclude<StatusSelector, TaskStatusWord>;
 
 const UNION_LABEL: Record<UnionSelector, string> = {
   all: 'All',
   live: 'Live',
-  terminal: 'Terminal',
+  terminal: 'Finished',
 };
 
 const isUnionSelector = (v: string): v is UnionSelector =>
   (STATUS_SELECTOR_VALUES as readonly string[]).includes(v) && !isTaskStatusWord(v);
 
 /** Every valid selector in a (possibly comma-separated) `status` param, split
- * into concrete task words and union selectors. Both filter server-side and
- * both must render as active chips; invalid tokens (e.g. `new`) drop. */
+ * into concrete task words and union selectors. Both filter server-side;
+ * invalid tokens (e.g. `new`) drop. */
 function parseStatusSelectors(status: string | undefined): {
   words: TaskStatusWord[];
   unions: UnionSelector[];
@@ -69,27 +72,55 @@ function parseStatusSelectors(status: string | undefined): {
   return { unions, words };
 }
 
-/** The canonical `status` param: words in display order, then union selectors. */
-const composeStatus = (words: readonly TaskStatusWord[], unions: readonly UnionSelector[]) =>
-  [...TASK_STATUS_ORDER.filter((w) => words.includes(w)), ...unions].join(',');
+/** The removable chip's label for a status the Live/Finished chips don't own. */
+function statusFilterLabel(status: string): string {
+  const { unions, words } = parseStatusSelectors(status);
+  const labels = [...words.map((w) => STATUS_META[w].label), ...unions.map((u) => UNION_LABEL[u])];
+  return labels.length > 0 ? labels.join(', ') : status;
+}
 
-/** HOME cell: mono project key › parent title, ∞ on standing (open-ended) homes. */
-function HomeCell({ node }: { node: WireNode }) {
-  const home = node.home;
-  if (home === undefined) {
-    // Facet missing (older cached payload) — the documented degraded form.
-    return <span className="font-mono">{projectKeyOf(node.id)}</span>;
+/** Live is the default view: no `status` param, or `live` spelled out. */
+const isLiveView = (status: string | undefined) => status === undefined || status === 'live';
+
+type TaskGroup = { key: string; label: string; items: WireNode[] };
+
+const newestFirst = (a: WireNode, b: WireNode) =>
+  Date.parse(b.updated_at) - Date.parse(a.updated_at);
+
+/**
+ * Bucket tasks into the browser's groups: one per status word present, in
+ * display order, or one per project key, alphabetical. Rows within a group are
+ * newest-activity first; empty groups never appear.
+ */
+function groupTasks(items: readonly WireNode[], by: 'status' | 'project'): TaskGroup[] {
+  if (by === 'status') {
+    return TASK_STATUS_ORDER.map((word) => ({
+      items: items.filter((n) => n.status === word).toSorted(newestFirst),
+      key: word,
+      label: STATUS_META[word].label,
+    })).filter((g) => g.items.length > 0);
   }
+  const buckets = new Map<string, WireNode[]>();
+  for (const node of items) {
+    const key = node.home?.project_key ?? projectKeyOf(node.id);
+    buckets.set(key, [...(buckets.get(key) ?? []), node]);
+  }
+  return [...buckets.entries()]
+    .toSorted(([a], [b]) => a.localeCompare(b))
+    .map(([key, group]) => ({ items: group.toSorted(newestFirst), key, label: key }));
+}
+
+/** The meta line: mono project key › parent title, ∞ on a standing home, then the age. */
+function TaskMeta({ node }: { node: WireNode }) {
+  const home = node.home;
   return (
     <>
-      <span className="font-mono">{home.project_key}</span>
-      {home.parent_title !== null && <> › {home.parent_title}</>}
-      {home.parent_open_ended === true && (
+      <span className="font-mono">{home?.project_key ?? projectKeyOf(node.id)}</span>
+      {home?.parent_title != null && <> › {home.parent_title}</>}
+      {home?.parent_open_ended === true && (
         // role="img" + aria-label: `title` alone is unreliable AT — the glyph's
-        // meaning must survive without a mouse (the OpenEndedBadge idiom, sized
-        // down to table density where the literal-text badge doesn't fit).
-        // relative z-10 lifts the glyph above the row's stretched link, so its
-        // tooltip still shows on hover.
+        // meaning must survive without a mouse. relative z-10 lifts it above the
+        // row's stretched link, so its tooltip still shows on hover.
         <span
           role="img"
           aria-label="open-ended — a standing home"
@@ -99,39 +130,45 @@ function HomeCell({ node }: { node: WireNode }) {
           {' ∞'}
         </span>
       )}
+      {' · '}
+      {relativeTime(node.updated_at)}
     </>
   );
 }
 
 /**
- * `/tasks` — the flat portfolio task browser (mock 17a, MMR-228): every task,
- * ever, across all projects, as a dense six-column table with terminal-word
- * filters, sorted by last activity (rank deliberately absent — order means
- * nothing across projects). Rows link to each task's page; the filter set
- * (`q`, `project`, `status`) is URL-addressable and echoed verbatim in
- * the footer. The escape hatch from every windowed/collapsed view (G15).
+ * `/tasks` — the grouped reading list (MMR-454, mock "Browsers C"): every task
+ * across all projects, grouped by status or project, each row a real link with
+ * its lede and where it lives. Live is the default view; the filter set
+ * (`q`, `project`, `status`, `group`) is URL-addressable, so /tasks stays the
+ * complete view (ADR 0013) — any status a deep link carries still filters and
+ * shows as a removable chip.
  */
 export function TasksPage() {
   const navigate = useNavigate();
   const search = tasksRoute.useSearch();
-  const filters: TaskFilters = {};
+  // validateSearch drops invalid values, but the router merges the raw URL back
+  // in for unvalidated parents, so the page re-checks rather than trusting the type.
+  const groupBy = search.group === 'project' ? 'project' : 'status';
+  const liveView = isLiveView(search.status);
+  const finishedView = search.status === 'terminal';
+  const filters: TaskFilters = { lede: true };
   if (search.project !== undefined) {
     filters.project = search.project;
   }
-  if (search.status !== undefined) {
-    filters.status = search.status;
-  }
+  // Live is the default view, so a bare /tasks asks for it explicitly rather
+  // than leaning on the server's default.
+  filters.status = search.status ?? 'live';
   if (search.q !== undefined) {
     filters.q = search.q;
   }
 
   const projects = useQuery(projectsQuery);
-  const census = useQuery(taskCensusQuery);
   const tasks = useQuery(tasksQuery(filters));
   const conn = connectivity([tasks]);
   const [createOpen, setCreateOpen] = useState(false);
 
-  const setFilter = (partial: Partial<TaskFilters>) =>
+  const setFilter = (partial: Partial<TasksSearch>) =>
     void navigate({
       replace: true,
       search: (prev) => {
@@ -170,354 +207,138 @@ export function TasksPage() {
     };
   }, [q, search.q]);
 
-  // The status chip-group state: concrete selected words plus any deep-linked
-  // union selectors. Toggling a word rebuilds the param from BOTH sets, so a
-  // union arriving by URL is never silently discarded by a chip click.
-  const { unions: statusUnions, words: statusWords } = useMemo(
-    () => parseStatusSelectors(search.status),
-    [search.status],
-  );
-  const toggleStatus = (word: TaskStatusWord) => {
-    const next = statusWords.includes(word)
-      ? statusWords.filter((w) => w !== word)
-      : [...statusWords, word];
-    setFilter({ status: composeStatus(next, statusUnions) });
-  };
-  const removeUnion = (union: UnionSelector) => {
-    setFilter({
-      status: composeStatus(
-        statusWords,
-        statusUnions.filter((u) => u !== union),
-      ),
-    });
-  };
-  const trackWords =
-    statusWords.length > 0
-      ? TASK_STATUS_ORDER.filter((w) => statusWords.includes(w))
-      : DEFAULT_TRACK;
-  const overflowWords = TASK_STATUS_ORDER.filter((w) => !trackWords.includes(w));
+  const groups = useMemo(() => groupTasks(tasks.data?.items ?? [], groupBy), [tasks.data, groupBy]);
 
-  // Last activity, newest first — the API's rank/completion order is
-  // deliberately not this surface's order.
-  const items = useMemo(
-    () =>
-      (tasks.data?.items ?? []).toSorted(
-        (a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at),
+  const projectOptions = [
+    { label: 'All projects', value: '' },
+    ...(projects.data?.items ?? []).map((p) => ({
+      label: (
+        <>
+          <StatusDot status={p.status} />
+          <span className="font-mono text-xs font-semibold text-ink-bright">{p.id}</span>
+          <span className="truncate">{p.title}</span>
+        </>
       ),
-    [tasks.data],
-  );
+      value: p.id,
+    })),
+  ];
 
-  // The canonical URL the footer echoes — the same state the URL already carries.
-  const canonicalUrl = useMemo(() => {
-    const p = new URLSearchParams();
-    if (search.q !== undefined) {
-      p.set('q', search.q);
-    }
-    if (search.project !== undefined) {
-      p.set('project', search.project);
-    }
-    if (search.status !== undefined) {
-      p.set('status', search.status);
-    }
-    const qs = p.toString().replaceAll('%2C', ',');
-    return `/tasks${qs === '' ? '' : `?${qs}`}`;
-  }, [search.q, search.project, search.status]);
+  let countWord = 'match';
+  if (liveView) {
+    countWord = 'live';
+  } else if (finishedView) {
+    countWord = 'finished';
+  }
 
   return (
     <>
       <OfflineBanner {...conn} />
       <main
-        className={cn(
-          'flex min-h-0 w-full flex-1 flex-col overflow-hidden',
-          conn.offline && 'offline-demoted',
-        )}
+        className={cn('min-h-0 w-full flex-1 overflow-y-auto', conn.offline && 'offline-demoted')}
       >
-        <header className="flex flex-col gap-3 px-5 pt-[18px] pb-3">
-          <div className="flex items-center gap-3">
-            <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">Tasks</h1>
-            {census.data !== undefined &&
-              projects.data !== undefined &&
-              tasks.data !== undefined && (
-                <span className="text-tag text-ink-faint">
-                  {census.data.total} across {projects.data.total} projects · {tasks.data.total}{' '}
-                  match
-                </span>
-              )}
-            {/* Create opens the shared authoring sheet (MMR-227), whose own
-                project-spanning HOME picker chooses where the node lands — the
-                cross-project browser has no single active project to pre-fill. */}
+        <BrowserPage
+          title="Tasks"
+          count={tasks.data !== undefined && `${tasks.data.total} ${countWord}`}
+          action={
+            // Create opens the shared authoring sheet (MMR-227), whose own
+            // project-spanning HOME picker chooses where the node lands — the
+            // cross-project browser has no single active project to pre-fill.
             <button
               type="button"
               disabled={conn.offline}
               onClick={() => {
                 setCreateOpen(true);
               }}
-              className="ml-auto inline-flex items-center rounded-lg bg-action px-[13px] py-1.5 text-tag font-bold text-action-foreground transition-colors hover:bg-action/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40"
+              className="inline-flex items-center rounded-lg bg-action px-[13px] py-1.5 text-tag font-bold text-action-foreground transition-colors hover:bg-action/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40"
             >
               + New task
             </button>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5">
-            <label className="flex w-[280px] max-w-full items-center gap-2 rounded-[9px] border border-line-bright bg-well-950 px-3 py-2 transition-colors focus-within:border-accent">
-              <span aria-hidden className="text-ink-faint">
-                ⌕
-              </span>
-              <input
-                type="search"
-                value={q}
-                onChange={(e) => {
-                  setQ(e.target.value);
-                }}
-                aria-label="Search tasks"
-                aria-describedby="tasks-search-hint"
-                placeholder="Search titles…"
-                className="min-w-0 flex-1 bg-transparent text-[0.78125rem] text-ink-bright caret-accent outline-none placeholder:text-ink-ghost"
-              />
-              <span
-                id="tasks-search-hint"
-                className="text-[0.625rem] whitespace-nowrap text-ink-ghost"
-              >
-                title substring
-              </span>
-            </label>
-
-            {search.project !== undefined && (
-              <button
-                type="button"
-                aria-label={`Remove project filter ${search.project}`}
-                onClick={() => setFilter({ project: '' })}
-                className="inline-flex items-center gap-1.5 rounded-full bg-accent/9 px-2.5 py-1 text-tag font-semibold text-accent-foreground inset-ring inset-ring-accent/20 transition-colors hover:bg-accent/15"
-              >
-                <span className="font-mono">{search.project}</span>
-                <span aria-hidden>✕</span>
-              </button>
-            )}
-            <MenuRoot>
-              <MenuTrigger className="rounded-full px-2 py-1 text-tag font-semibold text-ink-faint transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-accent">
-                + project
-              </MenuTrigger>
-              <MenuContent className="w-56">
-                {(projects.data?.items ?? []).map((p) => (
-                  <MenuItem key={p.id} onClick={() => setFilter({ project: p.id })}>
-                    <StatusDot status={p.status} />
-                    <span className="font-mono text-xs font-semibold text-ink-bright">{p.id}</span>
-                    <span className="truncate">{p.title}</span>
-                  </MenuItem>
-                ))}
-              </MenuContent>
-            </MenuRoot>
-
-            <div
-              role="group"
-              aria-label="Status filter"
-              className="flex flex-wrap items-center gap-1 rounded-full border border-line-bright p-[3px]"
+          }
+        >
+          <FilterRow>
+            <BrowserSearch
+              value={q}
+              onChange={setQ}
+              label="Search tasks"
+              placeholder="Search titles and IDs…"
+            />
+            <MenuChip
+              label={search.project ?? 'All projects'}
+              on={search.project !== undefined}
+              options={projectOptions}
+              onSelect={(project) => {
+                setFilter({ project });
+              }}
+            />
+            <FilterChip
+              on={liveView}
+              onClick={() => {
+                setFilter({ status: '' });
+              }}
             >
-              {/* Deep-linked union selectors (live/terminal/all) render as
-                  active, removable chips — accent wash, not a status wash, because
-                  they name a universe, not a word. */}
-              {statusUnions.map((union) => (
-                <button
-                  key={union}
-                  type="button"
-                  aria-pressed
-                  title={`${union} — a status union from the URL; click to remove`}
-                  onClick={() => {
-                    removeUnion(union);
-                  }}
-                  className="inline-flex items-center rounded-full bg-accent/9 px-2 py-0.5 text-tag font-semibold text-accent-foreground inset-ring inset-ring-accent/20 transition-colors hover:bg-accent/15"
-                >
-                  {UNION_LABEL[union]}
-                </button>
-              ))}
-              {trackWords.map((word) => {
-                const selected = statusWords.includes(word);
-                return (
-                  <button
-                    key={word}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => {
-                      toggleStatus(word);
-                    }}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-tag font-semibold transition-colors',
-                      selected
-                        ? cn(statusChipVariants({ status: word }), 'rounded-full')
-                        : 'text-ink-dim hover:text-ink',
-                    )}
-                  >
-                    <span
-                      aria-hidden
-                      className={cn(
-                        'size-[5px] rounded-full',
-                        selected ? STATUS_META[word].dot : 'bg-ink-ghost',
-                      )}
-                    />
-                    {STATUS_META[word].label}
-                  </button>
-                );
-              })}
-              {overflowWords.length > 0 && (
-                <MenuRoot>
-                  <MenuTrigger className="rounded-full px-2 py-0.5 text-tag text-ink-faint transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-accent">
-                    +{overflowWords.length} ▾
-                  </MenuTrigger>
-                  <MenuContent>
-                    {overflowWords.map((word) => (
-                      <MenuItem
-                        key={word}
-                        onClick={() => {
-                          toggleStatus(word);
-                        }}
-                      >
-                        <StatusDot status={word} />
-                        {STATUS_META[word].label}
-                      </MenuItem>
-                    ))}
-                  </MenuContent>
-                </MenuRoot>
-              )}
-            </div>
+              Live
+            </FilterChip>
+            <FilterChip
+              on={finishedView}
+              onClick={() => {
+                setFilter({ status: 'terminal' });
+              }}
+            >
+              Finished
+            </FilterChip>
+            {/* Any other status a deep link carries (a word, a union, `all`)
+                still filters; it shows as an accent chip that removes it. */}
+            {!liveView && !finishedView && search.status !== undefined && (
+              <RemovableChip
+                label={statusFilterLabel(search.status)}
+                removeLabel={`Remove status filter ${statusFilterLabel(search.status)}`}
+                onRemove={() => {
+                  setFilter({ status: '' });
+                }}
+              />
+            )}
+            <MenuChip
+              label={`Group: ${groupBy}`}
+              on={groupBy !== 'status'}
+              options={[
+                { label: 'Status', value: 'status' },
+                { label: 'Project', value: 'project' },
+              ]}
+              onSelect={(group) => {
+                setFilter({ group: group === 'project' ? 'project' : undefined });
+              }}
+            />
+          </FilterRow>
 
-            <span className="ml-auto hidden text-tag text-ink-ghost lg:block">
-              sorted by last activity · URL-addressable
-            </span>
-          </div>
-        </header>
-
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {tasks.isPending && <Skeleton className="m-4 h-40" />}
+          {tasks.isPending && <Skeleton className="mt-4 h-40" />}
           {tasks.isError && tasks.data === undefined && (
-            <p className="p-4 text-xs text-status-blocked">
+            <p className="py-4 text-xs text-status-blocked">
               Unreachable — is `mimir serve` running?
             </p>
           )}
-          {tasks.data !== undefined && items.length === 0 && (
-            <p className="px-4 py-10 text-center text-xs text-ink-faint">No tasks match.</p>
+          {tasks.data !== undefined && groups.length === 0 && (
+            <BrowserEmpty>No tasks match.</BrowserEmpty>
           )}
-          {items.length > 0 && (
-            <div role="table" aria-label="Tasks">
-              {/* Below md the header row hides *visually only* (sr-only, not
-                  display:none) so the columnheader↔cell association survives
-                  in the accessibility tree at every width. */}
-              <div role="rowgroup" className="max-md:sr-only">
-                <div
-                  role="row"
-                  className={cn(
-                    'sticky top-0 z-10 border-b border-line bg-well-900 px-5 py-2',
-                    ROW_GRID,
-                  )}
-                >
-                  {(['STATUS', 'ID', 'TITLE', 'HOME', 'SIGNALS', 'ACTIVITY'] as const).map((h) => (
-                    <span
-                      key={h}
-                      role="columnheader"
-                      className={cn(
-                        'font-mono text-[0.625rem] tracking-[0.12em] text-ink-ghost',
-                        h === 'ACTIVITY' && 'text-right',
-                      )}
-                    >
-                      {h}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div role="rowgroup">
-                {items.map((node) => {
+          {groups.map((group) => (
+            <BrowserGroup key={group.key} label={group.label} count={group.items.length}>
+              {group.items.map((node) => (
+                <BrowserRow
+                  key={node.id}
+                  to={nodeLink(node.id)}
+                  id={node.id}
+                  title={node.title}
+                  leading={<StatusDot status={node.status} />}
+                  lede={node.lede ?? node.summary}
+                  meta={<TaskMeta node={node} />}
                   // Terminal rows demote by ink tier alone — never by opacity
-                  // (ADR 0019 §7; opacity is offline's), and never by a row
-                  // ground: rows sit on the page well, where `well-recessed`
-                  // (defined against the card ground) reads RAISED in both
-                  // themes (the trap skeleton.tsx documents).
-                  const demoted = node.status === 'done' || node.status === 'abandoned';
-                  const meta = STATUS_META[node.status];
-                  return (
-                    // role="row" keeps the columnheader↔cell association (the 17a
-                    // a11y contract); the title cell's link stretches over the
-                    // whole row, so the row is the hit target while the link
-                    // stays a link (Cmd/middle-click, copy-link, announced as one).
-                    <div
-                      key={node.id}
-                      role="row"
-                      aria-label={`${meta.label} ${node.id} ${node.title}`}
-                      className={cn(
-                        'relative flex min-h-11 w-full flex-wrap items-center gap-x-3 gap-y-1 border-b border-line/50 px-5 py-[11px] text-left transition-colors md:min-h-0',
-                        ROW_GRID,
-                        'hover:bg-well-850 has-[a:focus-visible]:outline-2 has-[a:focus-visible]:-outline-offset-2 has-[a:focus-visible]:outline-accent',
-                        node.status === 'under_review' && 'bg-attention/3',
-                      )}
-                    >
-                      <span role="cell" className="flex items-center gap-2">
-                        <StatusDot status={node.status} className="size-1.5" />
-                        <span
-                          className={cn(
-                            'font-mono text-micro tracking-[0.08em] whitespace-nowrap uppercase',
-                            // The abandoned foreground token fails AA as text at
-                            // this size in both themes (~1.9:1 dark / ~3.4:1
-                            // light on the page well); the word must stay
-                            // legible — it is the status carrier for the
-                            // color-blind case. ink-dim passes in both themes;
-                            // the dot keeps the status hue.
-                            node.status === 'abandoned' ? 'text-ink-dim' : meta.foreground,
-                          )}
-                        >
-                          {meta.label}
-                        </span>
-                      </span>
-                      {/* Metadata cells stay at the ink-faint baseline even when
-                          demoted — the ghost tier drops below ~2.6:1 on the page
-                          well; the demotion reads from the title + STATUS word. */}
-                      <span role="cell" className="font-mono text-mono-id text-ink-faint">
-                        {node.id}
-                      </span>
-                      <span
-                        role="cell"
-                        className={cn(
-                          'truncate text-body font-medium max-md:w-full',
-                          demoted ? 'text-ink-dim' : 'text-ink-bright',
-                          node.status === 'abandoned' && 'line-through decoration-ink-ghost',
-                        )}
-                      >
-                        <Link
-                          {...nodeLink(node.id)}
-                          className="outline-none after:absolute after:inset-0"
-                        >
-                          {node.title}
-                        </Link>
-                      </span>
-                      <span role="cell" className="truncate text-mono-id text-ink-faint">
-                        <HomeCell node={node} />
-                      </span>
-                      <span role="cell" className="flex items-center gap-1">
-                        {node.priority !== undefined && node.priority !== null && (
-                          <PriorityBadge priority={node.priority} />
-                        )}
-                        {node.size !== undefined && node.size !== null && (
-                          <SizeBadge size={node.size} />
-                        )}
-                      </span>
-                      <span role="cell" className="text-mono-id text-ink-faint md:text-right">
-                        {relativeTime(node.updated_at)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <footer className="flex flex-wrap items-center gap-3 border-t border-line px-5 py-3">
-          {tasks.data !== undefined && (
-            <span className="text-tag text-ink-ghost">
-              {tasks.data.total} matches · {items.length} shown
-            </span>
-          )}
-          <span className="ml-auto truncate font-mono text-micro text-ink-ghost">
-            {canonicalUrl}
-          </span>
-        </footer>
+                  // (ADR 0019 §7; opacity is offline's).
+                  demoted={node.status === 'done' || node.status === 'abandoned'}
+                  struck={node.status === 'abandoned'}
+                />
+              ))}
+            </BrowserGroup>
+          ))}
+        </BrowserPage>
       </main>
 
       <AuthoringSheet open={createOpen} onOpenChange={setCreateOpen} offline={conn.offline} />

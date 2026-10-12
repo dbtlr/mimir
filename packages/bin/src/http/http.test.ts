@@ -280,6 +280,53 @@ test('GET /api/nodes?q= filters by title substring, case-insensitive (MMR-78)', 
   expect((miss.items as Rec[]).length).toBe(0);
 });
 
+test('GET /api/nodes?q= also matches the rendered id (MMR-454)', async () => {
+  const hit = await parse(await get(`/api/nodes?q=${task1.toLowerCase()}`));
+  const ids = (hit.items as Rec[]).map((n) => n.id);
+  expect(ids).toContain(task1);
+  expect(ids).not.toContain(otherTask);
+});
+
+test('GET /api/nodes?col=lede adds the list lede; without it no lede key rides (MMR-454)', async () => {
+  const phaseId = await nodeIdOf(store, phaseRef);
+  const described = await createTask(store, {
+    description: 'Prose that **previews** the task.',
+    parentId: phaseId,
+    title: 'described',
+  });
+  const summarised = await createTask(store, {
+    description: 'ignored',
+    parentId: phaseId,
+    summary: 'stored lede',
+    title: 'summarised',
+  });
+  const describedRef = `MMR-${String(described.seq)}`;
+  const summarisedRef = `MMR-${String(summarised.seq)}`;
+
+  const plain = await parse(await get('/api/nodes?type=task'));
+  for (const row of plain.items as Rec[]) {
+    expect('lede' in row).toBe(false);
+  }
+
+  const withLede = await parse(await get('/api/nodes?type=task&col=lede'));
+  const byId = new Map((withLede.items as Rec[]).map((n) => [n.id, n.lede] as const));
+  expect(byId.get(describedRef)).toBe('Prose that previews the task.');
+  expect(byId.get(summarisedRef)).toBe('stored lede');
+  expect(byId.get(task1)).toBeNull();
+
+  // Repeatable and comma-separated forms are both accepted.
+  expect((await get('/api/nodes?col=lede&col=lede')).status).toBe(200);
+  expect((await get('/api/nodes?col=lede,lede')).status).toBe(200);
+});
+
+test('GET /api/nodes?col= rejects a column outside the allowlist, naming the allowed ones (MMR-454)', async () => {
+  const res = await get('/api/nodes?col=bogus');
+  expect(res.status).toBe(400);
+  const body = await parse(res);
+  expect(errorCode(body)).toBe('validation');
+  expect(JSON.stringify(body)).toContain('lede');
+});
+
 test('GET /api/nodes?status= selects the universe; terminal tasks appear under all', async () => {
   await send('POST', `/api/nodes/${task1}/done`);
 

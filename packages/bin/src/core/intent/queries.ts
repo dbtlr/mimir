@@ -37,6 +37,7 @@ import {
   statusOfProject,
 } from '../derive';
 import { notFound, projectNotFound, validation } from '../errors';
+import { canonicalSetOrder } from '../export';
 import { parseIdentity, renderArtifactRef, renderSeedRef } from '../ids';
 import type { Node } from '../model';
 import { isAwaiting, isBlocking, isOrphaned, isReady, isStale } from '../predicates';
@@ -81,13 +82,26 @@ const asciiLower = (s: string): string => s.replace(/[A-Z]/g, (c) => c.toLowerCa
  * The `u` flag makes `[\s\S]` consume a full code point, matching LIKE's
  * `_`-is-one-character semantics for astral characters (emoji).
  */
-function likeMatcher(loweredQ: string): (title: string) => boolean {
+function likeMatcher(loweredQ: string): (text: string) => boolean {
   // `%`/`_` are not regex specials, so they survive escaping and substitute cleanly.
   const pattern = escapeRegExp(loweredQ)
     .replaceAll('%', String.raw`[\s\S]*`)
     .replaceAll('_', String.raw`[\s\S]`);
   const re = new RegExp(pattern, 'u');
-  return (title) => re.test(asciiLower(title));
+  return (text) => re.test(asciiLower(text));
+}
+
+/**
+ * The `q` selection over a node list (MMR-78, MMR-454): the LIKE-equivalent
+ * substring over the title OR the rendered id, so `q=mmr-45` finds `MMR-45` and
+ * `MMR-450` as well as titles naming them. `undefined` when `q` is absent/empty.
+ */
+function nodeQueryMatcher(q: string | undefined): ((node: Node) => boolean) | undefined {
+  if (q === undefined || q === '') {
+    return undefined;
+  }
+  const matches = likeMatcher(q.toLowerCase());
+  return (node) => matches(node.title) || matches(node.id);
 }
 
 function cmpStr(a: string, b: string): number {
@@ -259,7 +273,7 @@ const emptyResult = (warnings: ValueWarning[]): SetResult<NodeView> => ({
 });
 
 export type NextOptions = {
-  /** Case-insensitive substring over title (MMR-78; LIKE, FTS5 deferred). */
+  /** Case-insensitive substring over the title or the rendered id (MMR-78, MMR-454; LIKE, FTS5 deferred). */
   q?: string;
   scope?: string;
   priority?: Priority;
@@ -288,8 +302,7 @@ export async function nextTasks(
   }
   const set = deriveSet(await store.loadWorkingSet());
   const scopeId = opts.scope === undefined ? undefined : resolveScope(set, opts.scope);
-  const matchesQ =
-    opts.q === undefined || opts.q === '' ? undefined : likeMatcher(opts.q.toLowerCase());
+  const matchesQ = nodeQueryMatcher(opts.q);
   const candidates = set.ws.nodes
     .filter(
       (n) =>
@@ -299,7 +312,7 @@ export async function nextTasks(
         n.rank !== null &&
         !set.archivedProjects.has(n.project_id) &&
         (scopeId === undefined || n.project_id === scopeId) &&
-        (matchesQ === undefined || matchesQ(n.title.toLowerCase())) &&
+        (matchesQ === undefined || matchesQ(n)) &&
         (opts.priority === undefined || n.priority === opts.priority) &&
         (opts.size === undefined || n.size === opts.size),
     )
@@ -324,6 +337,9 @@ export async function nextTasks(
   const items = await Promise.all(
     limited.map((node) => buildNodeView(store.bodySections, store.artifacts, set, node, facets)),
   );
+  if (facets.has('lede')) {
+    await attachNodeLedes(store, items);
+  }
   return setResult(items, ready.length);
 }
 
@@ -338,7 +354,7 @@ export type ListOptions = {
   priority?: Priority;
   size?: Size;
   tag?: string;
-  /** Case-insensitive substring over title (MMR-78; LIKE, FTS5 deferred). */
+  /** Case-insensitive substring over the title or the rendered id (MMR-78, MMR-454; LIKE, FTS5 deferred). */
   q?: string;
   /** The caller's IANA timezone — how every bare date in `filters` resolves (ADR 0029). */
   timeZone?: string;
@@ -375,8 +391,7 @@ export async function listNodes(
 
   const set = deriveSet(await store.loadWorkingSet());
   const scopeId = opts.scope === undefined ? undefined : resolveScope(set, opts.scope);
-  const matchesQ =
-    opts.q === undefined || opts.q === '' ? undefined : likeMatcher(opts.q.toLowerCase());
+  const matchesQ = nodeQueryMatcher(opts.q);
   const rows = set.ws.nodes
     .filter((n) => {
       if (!widened) {
@@ -405,7 +420,7 @@ export async function listNodes(
       ) {
         return false;
       }
-      if (matchesQ !== undefined && !matchesQ(n.title)) {
+      if (matchesQ !== undefined && !matchesQ(n)) {
         return false;
       }
       // Hide archived projects' subtrees (ADR 0015). Archived projects are
@@ -436,7 +451,48 @@ export async function listNodes(
       buildNodeView(store.bodySections, store.artifacts, set, node, facets),
     ),
   );
+  if (facets.has('lede')) {
+    await attachNodeLedes(store, items);
+  }
   return setResult(items, matched.length);
+}
+
+/**
+ * Attach the list `lede` facet (MMR-454, ADR 0021 Refinement) to `items`, in
+ * place: the stored `summary` when non-empty, else the lede derived from the
+ * node's description, else `null`. The descriptions of the rows without a
+ * summary ride ONE batched section read.
+ *
+ * The lede is decorative, so a rejected batch read never fails the list: the
+ * rows needing a derivation degrade to `lede: null` and the fault is noted on
+ * stderr (ADR 0017's diagnosability rule — degraded, never silent), matching
+ * the seeds queue.
+ */
+async function attachNodeLedes(store: Store, items: NodeView[]): Promise<void> {
+  const needing: NodeView[] = [];
+  for (const item of items) {
+    if (item.summary != null && item.summary !== '') {
+      item.lede = item.summary;
+    } else {
+      item.lede = null;
+      needing.push(item);
+    }
+  }
+  if (needing.length === 0) {
+    return;
+  }
+  try {
+    const sections = await store.bodySections.readSectionsMany(
+      needing.map((item) => item.id),
+      { description: true },
+    );
+    for (const item of needing) {
+      item.lede = deriveLede(sections.get(item.id)?.description ?? null);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`mimir: node lede read failed — listing without previews (${message})`);
+  }
 }
 
 export type GetOptions = {
@@ -950,6 +1006,7 @@ export async function listArtifacts(
     const summary: ArtifactSummary = {
       createdAt: record.created_at,
       id: renderArtifactRef({ key: record.key, seq: record.seq }),
+      links: canonicalSetOrder(record.links),
       project: record.key,
       tags: record.tags,
       title: record.title,

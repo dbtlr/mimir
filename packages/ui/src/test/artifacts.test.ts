@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest';
 
-import { groupByRecency, splitKindTags } from '../lib/artifacts';
+import { groupByDay, kindTagLabel, kindTagOptions, kindsOf, splitKindTags } from '../lib/artifacts';
 
 describe('splitKindTags', () => {
   it('lifts the kind: tag out and keeps the rest as tags', () => {
@@ -33,56 +33,114 @@ describe('splitKindTags', () => {
   });
 });
 
+describe('kindsOf', () => {
+  it('reads kind: tags with the prefix stripped, in order', () => {
+    expect(kindsOf(['kind:spec', 'doctor', 'kind:session'])).toStrictEqual(['spec', 'session']);
+  });
+
+  it('counts the bare session_summary tag as a kind', () => {
+    expect(kindsOf(['session_summary', 'mimir'])).toStrictEqual(['session_summary']);
+  });
+
+  it('no kind tags → no kinds', () => {
+    expect(kindsOf(['doctor'])).toStrictEqual([]);
+  });
+});
+
+describe('kind tags as filter values', () => {
+  it('names a kind tag by its kind, and a plain tag not at all', () => {
+    expect(kindTagLabel('kind:spec')).toBe('spec');
+    expect(kindTagLabel('session_summary')).toBe('session_summary');
+    expect(kindTagLabel('doctor')).toBeUndefined();
+  });
+
+  it('offers the well-known kinds plus any seen in rows or chosen, once each', () => {
+    const options = kindTagOptions([['kind:spec', 'kind:review'], ['kind:review']], 'kind:other');
+    const values = options.map((o) => o.tag);
+    expect(values).toContain('session_summary');
+    expect(values).toContain('kind:spec');
+    expect(values).toContain('kind:review');
+    expect(values).toContain('kind:other');
+    expect(new Set(values).size).toBe(values.length);
+  });
+
+  it('does not offer a plain tag as a kind', () => {
+    const values = kindTagOptions([['doctor']], 'doctor').map((o) => o.tag);
+    expect(values).not.toContain('doctor');
+  });
+});
+
 const row = (id: string, created: Date) => ({
   created_at: created.toISOString(),
   id,
 });
 
-describe('groupByRecency', () => {
-  // A fixed "now": Friday 2026-06-19 local — this week starts Mon 06-15.
-  const now = new Date(2026, 5, 19, 12, 0, 0).getTime();
+describe('groupByDay', () => {
+  // Local-time fixtures throughout: "now" is Fri 2026-10-09 12:00 local.
+  const now = new Date(2026, 9, 9, 12, 0, 0).getTime();
 
-  it('buckets THIS WEEK / LAST WEEK / month, preserving input order', () => {
-    const groups = groupByRecency(
+  it('labels Today, Yesterday, then "Oct 6" in the current year, newest first', () => {
+    const groups = groupByDay(
       [
-        row('a', new Date(2026, 5, 18)), // Thu this week
-        row('b', new Date(2026, 5, 15)), // Mon this week
-        row('c', new Date(2026, 5, 12)), // Fri last week
-        row('d', new Date(2026, 4, 28)), // May
-        row('e', new Date(2025, 11, 3)), // December, prior year
+        row('a', new Date(2026, 9, 9, 8)),
+        row('b', new Date(2026, 9, 8, 22)),
+        row('c', new Date(2026, 9, 6, 1)),
+        row('d', new Date(2026, 2, 3)),
       ],
       now,
+    );
+    expect(groups.map((g) => g.label)).toStrictEqual(['Today', 'Yesterday', 'Oct 6', 'Mar 3']);
+  });
+
+  it('puts rows of one local day together, preserving input order', () => {
+    const groups = groupByDay(
+      [
+        row('a', new Date(2026, 9, 9, 23, 59)),
+        row('b', new Date(2026, 9, 9, 0, 0)),
+        row('c', new Date(2026, 9, 8, 23, 59)),
+      ],
+      now,
+    );
+    expect(groups.map((g) => g.items.map((i) => i.id))).toStrictEqual([['a', 'b'], ['c']]);
+  });
+
+  it('breaks the day at local midnight, not UTC', () => {
+    const late = new Date(2026, 9, 9, 0, 0, 1);
+    const early = new Date(2026, 9, 8, 23, 59, 59);
+    const groups = groupByDay([row('a', late), row('b', early)], now);
+    expect(groups.map((g) => g.label)).toStrictEqual(['Today', 'Yesterday']);
+  });
+
+  it('spells the year for another year, and rolls Yesterday over New Year', () => {
+    const newYear = new Date(2027, 0, 1, 9).getTime();
+    const groups = groupByDay(
+      [
+        row('a', new Date(2027, 0, 1, 1)),
+        row('b', new Date(2026, 11, 31, 23)),
+        row('c', new Date(2026, 11, 30)),
+        row('d', new Date(2025, 9, 6)),
+      ],
+      newYear,
     );
     expect(groups.map((g) => g.label)).toStrictEqual([
-      'THIS WEEK',
-      'LAST WEEK',
-      'MAY 2026',
-      'DECEMBER 2025',
+      'Today',
+      'Yesterday',
+      'Dec 30, 2026',
+      'Oct 6, 2025',
     ]);
-    expect(groups[0]?.items.map((i) => i.id)).toStrictEqual(['a', 'b']);
-    expect(groups[1]?.items.map((i) => i.id)).toStrictEqual(['c']);
   });
 
-  it('marks only THIS WEEK / LAST WEEK as recent (older rows demote)', () => {
-    const groups = groupByRecency(
-      [
-        row('a', new Date(2026, 5, 18)),
-        row('c', new Date(2026, 5, 12)),
-        row('d', new Date(2026, 4, 28)),
-      ],
-      now,
-    );
-    expect(groups.map((g) => g.recent)).toStrictEqual([true, true, false]);
+  it('does not call a future-dated row Today', () => {
+    const groups = groupByDay([row('a', new Date(2026, 9, 10, 9))], now);
+    expect(groups.map((g) => g.label)).toStrictEqual(['Oct 10']);
   });
 
-  it('undatable rows land in EARLIER', () => {
-    const groups = groupByRecency([{ created_at: 'not-a-date', id: 'x' }], now);
-    expect(groups).toStrictEqual([
-      { items: [{ created_at: 'not-a-date', id: 'x' }], label: 'EARLIER', recent: false },
-    ]);
+  it('puts undatable rows under Earlier', () => {
+    const groups = groupByDay([{ created_at: 'not-a-date', id: 'x' }], now);
+    expect(groups.map((g) => g.label)).toStrictEqual(['Earlier']);
   });
 
   it('empty input → no groups', () => {
-    expect(groupByRecency([], now)).toStrictEqual([]);
+    expect(groupByDay([], now)).toStrictEqual([]);
   });
 });

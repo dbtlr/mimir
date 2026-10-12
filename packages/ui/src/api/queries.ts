@@ -95,23 +95,19 @@ export type TaskFilters = {
   project?: string;
   status?: string;
   q?: string;
+  /** Ask for each row's one-line preview (`col=lede`, MMR-454) — the browser
+   * shows it; a picker that only needs titles leaves it off. */
+  lede?: boolean;
 };
-
-/**
- * The all-time task census (MMR-228): every task, ever, across all projects —
- * fetched at `limit=1` because only the envelope's `total` is consumed (the
- * tasks-browser header's "{n} across {m} projects" count).
- */
-export const taskCensusQuery = queryOptions({
-  queryFn: () => apiGet<Collection<WireNode>>('/api/nodes?type=task&status=all&limit=1'),
-  queryKey: ['nodes', 'tasks', 'census'],
-});
 
 /** The `/tasks` browser read (MMR-78): portfolio task list with filter + search. */
 export const tasksQuery = (f: TaskFilters) =>
   queryOptions({
     queryFn: () => {
       const p = new URLSearchParams({ type: 'task' });
+      if (f.lede === true) {
+        p.set('col', 'lede');
+      }
       if (f.project !== undefined && f.project !== '') {
         p.set('project', f.project);
       }

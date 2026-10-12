@@ -191,6 +191,7 @@ test('artifact rows: the trailing date is relative, never a raw instant (MMR-350
   const summary: ArtifactSummary = {
     createdAt: new Date(Date.now() - 6 * 86_400_000).toISOString(),
     id: 'MMR-a1',
+    links: [],
     project: 'MMR',
     tags: [],
     title: 'an artifact',

@@ -92,3 +92,22 @@ seen, so all prose migrated there.
 - Capture and `update --title` share one core validation for the first-newline
   split and the title cap, so CLI, MCP, HTTP, and the console popover cannot
   drift. This settles the visibility and capture halves of the seeds body work.
+
+## Refinement (2026-10-11, MMR-454): task list rows gain an opt-in `lede`
+
+The console's task browser shows a one-line preview under each task title, so
+the same derive-don't-store rule now serves node list rows.
+
+- **Opt-in facet.** `lede` is a list facet (`list`/`next --col lede`; HTTP
+  `GET /api/nodes?col=lede`). Without it no `lede` key appears on any
+  transport.
+- **Stored summary wins.** A task's `summary` is already a short authored lede.
+  The row's `lede` is that summary when non-empty; otherwise the lede derived
+  from its description by the rule above (plain text, 240-character budget);
+  otherwise `null`. Nothing new is stored.
+- **Live and terminal rows alike.** Unlike seeds, a settled task keeps its
+  preview, because the browser lists done work.
+- **Same degradation.** The descriptions of the returned rows that need them
+  are read in one batch. A rejected read leaves those rows at `lede: null` and
+  notes the fault on stderr; the list still returns
+  ([ADR 0017](0017-runtime-data-tolerance.md)).

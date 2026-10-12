@@ -170,7 +170,7 @@ options:
       --offset <n>        rows to skip — pages the newest-first feed
 
   selection (list/next — AND-composed):
-  -q, --query <text>      case-insensitive substring over the title
+  -q, --query <text>      case-insensitive substring over the title or id
       --status <word>     list: the universe — ready|awaiting|in_progress|
                           under_review|blocked|parked|done|abandoned, or
                           unions live (default) | terminal | all
@@ -303,7 +303,7 @@ const F_SCOPE: Row = [
 ];
 const F_FORMAT: Row = ['-f, --format <fmt>', 'table|records|ids|json|jsonl'];
 const F_LIMIT: Row = ['-n, --limit <n>', 'cap the result count'];
-const F_QUERY: Row = ['-q, --query <text>', 'case-insensitive substring over the title'];
+const F_QUERY: Row = ['-q, --query <text>', 'case-insensitive substring over the title or id'];
 const F_COL: Row = ['--col <col>', 'add a column (deps tags children distribution …)'];
 const F_PRIORITY: Row = ['-p, --priority <p0..p3>', 'filter by priority (signal, not sort)'];
 const F_SIZE: Row = ['--size <s|m|l>', 'filter by size'];
@@ -596,7 +596,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
   list: {
     examples: [
       'mimir list --is stale                       # tasks that have gone quiet',
-      'mimir list -q auth                          # title substring',
+      'mimir list -q auth                          # title or id substring',
       'mimir list --status done --after completed_at:2026-06-01',
       'mimir list --on created_at:2026-06-10 --tz UTC   # a UTC calendar day',
       'mimir list --eq type:phase                  # filter to phases',

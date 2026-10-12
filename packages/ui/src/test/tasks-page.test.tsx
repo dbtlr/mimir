@@ -21,13 +21,12 @@ function home(parentTitle: string, open = false): WireHome {
   };
 }
 
-/** Four tasks spanning the row treatments, deliberately NOT in activity order. */
+/** Five tasks across two projects, deliberately NOT in activity order. */
 const rows: WireNode[] = [
   task({
     home: home('Wire hardening'),
     id: 'MMR-10',
-    priority: 'p1',
-    size: 'small',
+    lede: 'Make the wire honest.',
     status: 'ready',
     title: 'Doctor the wire',
     updated_at: '2026-06-11T10:00:00.000Z',
@@ -36,13 +35,16 @@ const rows: WireNode[] = [
     home: home('Storage cutover', true),
     id: 'MMR-12',
     status: 'done',
+    summary: 'The schema landed.',
     title: 'Land the schema',
     updated_at: '2026-06-10T12:00:00.000Z',
   }),
   task({
     home: home('Storage cutover', true),
     id: 'MMR-11',
+    lede: 'The lede wins.',
     status: 'under_review',
+    summary: 'The summary loses.',
     title: 'Review the cutover',
     updated_at: '2026-06-11T11:00:00.000Z',
   }),
@@ -52,6 +54,13 @@ const rows: WireNode[] = [
     status: 'abandoned',
     title: 'Old dead end',
     updated_at: '2026-06-05T12:00:00.000Z',
+  }),
+  task({
+    home: { ...home('Layer 4'), project_key: 'NRN' },
+    id: 'NRN-4',
+    status: 'ready',
+    title: 'Hoist the lookup',
+    updated_at: '2026-06-11T12:00:00.000Z',
   }),
 ];
 
@@ -65,10 +74,6 @@ function mockApi() {
         ],
         total: 2,
       });
-    }
-    if (path.includes('limit=1')) {
-      // the all-time census — only `total` is consumed
-      return Promise.resolve({ items: [], total: 318 });
     }
     if (path.startsWith('/api/nodes?')) {
       return Promise.resolve({ items: rows, total: rows.length });
@@ -102,216 +107,272 @@ function renderTasks(initial = '/tasks') {
 }
 
 const search = (r: ReturnType<typeof renderTasks>) =>
-  r.state.location.search as { project?: string; status?: string; q?: string; node?: string };
+  r.state.location.search as { project?: string; status?: string; q?: string; group?: string };
 
-describe('tasksPage (17a, MMR-228)', () => {
-  it('renders the header counts, the six column headers, and the footer echo', async () => {
-    mockApi();
-    renderTasks();
-    await expect(screen.findByText('Doctor the wire')).resolves.toBeDefined();
-    expect(screen.getByText('318 across 2 projects · 4 match')).toBeDefined();
-    for (const h of ['STATUS', 'ID', 'TITLE', 'HOME', 'SIGNALS', 'ACTIVITY']) {
-      expect(screen.getByRole('columnheader', { name: h })).toBeDefined();
-    }
-    expect(screen.getByText('sorted by last activity · URL-addressable')).toBeDefined();
-    expect(screen.getByText('4 matches · 4 shown')).toBeDefined();
-    expect(screen.getByText('/tasks')).toBeDefined();
-    // the list read is the portfolio task selection
-    const nodeCall = apiGet.mock.calls
-      .map((c) => c[0] as string)
-      .find((p) => p.startsWith('/api/nodes?') && !p.includes('limit=1'));
-    expect(nodeCall).toContain('type=task');
-  });
+/** The `/api/nodes?` list reads issued so far, as query-string objects. */
+const nodeReads = () =>
+  apiGet.mock.calls
+    .map((c) => c[0] as string)
+    .filter((p) => p.startsWith('/api/nodes?'))
+    .map((p) => new URLSearchParams(p.slice('/api/nodes?'.length)));
 
-  it('sorts by last activity (newest first) and renders HOME with the ∞ marker', async () => {
+/** The group headings on the page, in order (e.g. `Ready · 2`). */
+const groupHeadings = () =>
+  screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent ?? '');
+
+/** The titles inside one group, top to bottom. */
+const titlesIn = (heading: string) =>
+  within(screen.getByRole('region', { name: heading }))
+    .getAllByRole('link')
+    .map((l) => l.textContent);
+
+const live = () => screen.getByRole('button', { name: 'Live' });
+const finished = () => screen.getByRole('button', { name: 'Finished' });
+
+/** A task row's container, found from its title link. */
+const rowOf = (title: string) => {
+  const row = screen.getByRole('link', { name: title }).closest('.relative');
+  if (row === null) {
+    throw new Error(`no row for ${title}`);
+  }
+  return row as HTMLElement;
+};
+
+describe('tasksPage (grouped reading list, MMR-454)', () => {
+  it('groups by status in the stated order with counts, hiding empty groups', async () => {
     mockApi();
     renderTasks();
     await screen.findByText('Doctor the wire');
-    const dataRows = screen.getAllByRole('row').slice(1); // [0] is the column-header row
-    expect(dataRows.map((r) => r.getAttribute('aria-label'))).toStrictEqual([
-      'Under review MMR-11 Review the cutover',
-      'Ready MMR-10 Doctor the wire',
-      'Done MMR-12 Land the schema',
-      'Abandoned MMR-13 Old dead end',
+    expect(groupHeadings()).toStrictEqual([
+      'Under review · 1',
+      'Ready · 2',
+      'Done · 1',
+      'Abandoned · 1',
     ]);
-    const reviewRow = screen.getByRole('row', { name: /MMR-11/ });
-    expect(within(reviewRow).getByText('MMR')).toBeDefined();
-    expect(reviewRow.textContent).toContain('› Storage cutover');
-    // the ∞ glyph carries its meaning without a mouse (role=img + aria-label,
-    // not a bare title attribute)
-    expect(
-      within(reviewRow).getByRole('img', { name: 'open-ended — a standing home' }).textContent,
-    ).toContain('∞');
+    // newest activity first inside a group
+    expect(titlesIn('Ready · 2')).toStrictEqual(['Hoist the lookup', 'Doctor the wire']);
   });
 
-  it('demotes terminal rows by ink tier (never opacity or a row ground) and tints under_review', async () => {
+  it('the header names the live count and reads the portfolio task selection with the lede', async () => {
     mockApi();
     renderTasks();
     await screen.findByText('Doctor the wire');
-    const review = screen.getByRole('row', { name: /MMR-11/ });
-    expect(review.className).toContain('bg-attention/3');
-
-    const done = screen.getByRole('row', { name: /MMR-12/ });
-    // well-recessed is defined against the card ground — on the page well it
-    // reads RAISED in both themes, inverting the demotion (skeleton.tsx trap)
-    expect(done.className).not.toContain('bg-well-recessed');
-    expect(done.className).not.toContain('opacity');
-    expect(within(done).getByText('Land the schema').closest('[role="cell"]')?.className).toContain(
-      'text-ink-dim',
-    );
-
-    const abandoned = screen.getByRole('row', { name: /MMR-13/ });
-    expect(
-      within(abandoned).getByText('Old dead end').closest('[role="cell"]')?.className,
-    ).toContain('line-through');
-    // the ABANDONED word stays legible (the abandoned foreground token fails AA
-    // as text at microlabel size) — ink-dim, never the illegible status tone
-    const label = within(abandoned).getByText('Abandoned');
-    expect(label.className).toContain('text-ink-dim');
-    expect(label.className).not.toContain('text-status-abandoned-foreground');
-    // metadata cells hold the ink-faint baseline rather than dropping to ghost
-    expect(within(abandoned).getByText('MMR-13').className).toContain('text-ink-faint');
+    expect(screen.getByText('5 live')).toBeDefined();
+    const read = nodeReads().find((p) => p.get('col') === 'lede');
+    expect(read?.get('type')).toBe('task');
+    expect(read?.get('col')).toBe('lede');
   });
 
-  it('status chips toggle in and out of the URL (filter → URL round trip)', async () => {
+  it('group=project groups by project key, alphabetically, newest first', async () => {
+    mockApi();
+    renderTasks('/tasks?group=project');
+    await screen.findByText('Doctor the wire');
+    expect(groupHeadings()).toStrictEqual(['MMR · 4', 'NRN · 1']);
+    expect(titlesIn('MMR · 4')).toStrictEqual([
+      'Review the cutover',
+      'Doctor the wire',
+      'Land the schema',
+      'Old dead end',
+    ]);
+  });
+
+  it('the group menu switches the grouping and keeps it in the URL', async () => {
     mockApi();
     const testRouter = renderTasks();
     const user = userEvent.setup();
     await screen.findByText('Doctor the wire');
 
-    await user.click(screen.getByRole('button', { name: 'Ready' }));
+    await user.click(screen.getByRole('button', { name: /Group: status/ }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Project' }));
     await waitFor(() => {
-      expect(search(testRouter).status).toBe('ready');
+      expect(search(testRouter).group).toBe('project');
     });
-    expect(screen.getByRole('button', { name: 'Ready' }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByText('/tasks?status=ready')).toBeDefined();
+    expect(groupHeadings()).toStrictEqual(['MMR · 4', 'NRN · 1']);
 
-    await user.click(screen.getByRole('button', { name: 'Ready' }));
+    await user.click(screen.getByRole('button', { name: /Group: project/ }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Status' }));
     await waitFor(() => {
-      expect(search(testRouter).status).toBeUndefined();
+      expect(search(testRouter).group).toBeUndefined();
     });
   });
 
-  it('restores a deep-linked filter set exactly (G19) and threads the comma union', async () => {
+  it('drops an invalid group value', async () => {
     mockApi();
-    renderTasks('/tasks?status=under_review,ready,done&project=MMR&q=cutover');
+    renderTasks('/tasks?group=nonsense');
     await screen.findByText('Doctor the wire');
-
-    expect(screen.getByRole('searchbox')).toHaveProperty('value', 'cutover');
-    expect(screen.getByRole('button', { name: 'Remove project filter MMR' })).toBeDefined();
-    for (const chip of ['Under review', 'Ready', 'Done']) {
-      expect(screen.getByRole('button', { name: chip }).getAttribute('aria-pressed')).toBe('true');
-    }
-    expect(
-      screen.getByText('/tasks?q=cutover&project=MMR&status=under_review,ready,done'),
-    ).toBeDefined();
-    const nodeCall = apiGet.mock.calls
-      .map((c) => c[0] as string)
-      .find((p) => p.startsWith('/api/nodes?') && p.includes('q=cutover'));
-    expect(nodeCall).toContain('project=MMR');
-    expect(nodeCall).toContain('status=under_review%2Cready%2Cdone');
+    expect(screen.getByRole('button', { name: /Group: status/ })).toBeDefined();
+    expect(groupHeadings()[0]).toBe('Under review · 1');
   });
 
-  it('the overflow discloses the rest of the vocabulary, terminal words first-class', async () => {
+  it('every row is a link to the task page', async () => {
     mockApi();
     const testRouter = renderTasks();
     const user = userEvent.setup();
     await screen.findByText('Doctor the wire');
 
-    // default track = first three task words; the other five fold away
-    await user.click(screen.getByRole('button', { name: '+5 ▾' }));
-    await expect(screen.findByRole('menuitem', { name: 'Done' })).resolves.toBeDefined();
-    expect(screen.getByRole('menuitem', { name: 'Abandoned' })).toBeDefined();
-    // `new` is container-only (the selector rejects it) — never offered here
-    expect(screen.queryByRole('menuitem', { name: 'New' })).toBeNull();
-
-    await user.click(screen.getByRole('menuitem', { name: 'Abandoned' }));
-    await waitFor(() => {
-      expect(search(testRouter).status).toBe('abandoned');
-    });
-  });
-
-  it('shows a deep-linked union selector as an active chip and preserves it on toggle', async () => {
-    mockApi();
-    const testRouter = renderTasks('/tasks?status=terminal');
-    const user = userEvent.setup();
-    await screen.findByText('Doctor the wire');
-
-    // the active union is visible — never an invisible filter (old /tasks
-    // bookmarks carry status=terminal/all)
-    const union = screen.getByRole('button', { name: 'Terminal' });
-    expect(union.getAttribute('aria-pressed')).toBe('true');
-
-    // toggling a word keeps the union rather than silently discarding it
-    await user.click(screen.getByRole('button', { name: 'Ready' }));
-    await waitFor(() => {
-      expect(search(testRouter).status).toBe('ready,terminal');
-    });
-
-    // the union chip is removable on its own
-    await user.click(screen.getByRole('button', { name: 'Terminal' }));
-    await waitFor(() => {
-      expect(search(testRouter).status).toBe('ready');
-    });
-  });
-
-  it('toggling a word off keeps a live union (status=done,live → live)', async () => {
-    mockApi();
-    const testRouter = renderTasks('/tasks?status=done,live');
-    const user = userEvent.setup();
-    await screen.findByText('Doctor the wire');
-
-    expect(screen.getByRole('button', { name: 'Live' }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByRole('button', { name: 'Done' }).getAttribute('aria-pressed')).toBe('true');
-
-    await user.click(screen.getByRole('button', { name: 'Done' }));
-    await waitFor(() => {
-      expect(search(testRouter).status).toBe('live');
-    });
-    expect(screen.getByText('/tasks?status=live')).toBeDefined();
-  });
-
-  it('never renders a pressed chip for the container-only `new` on a deep link', async () => {
-    mockApi();
-    renderTasks('/tasks?status=new');
-    await screen.findByText('Doctor the wire');
-
-    // `new` is not a task status word: no chip claims it, nothing is pressed
-    expect(screen.queryByRole('button', { name: 'New' })).toBeNull();
-    for (const chip of ['In progress', 'Under review', 'Ready']) {
-      expect(screen.getByRole('button', { name: chip }).getAttribute('aria-pressed')).toBe('false');
-    }
-  });
-
-  it('keeps the column-header row in the accessibility tree at every width', async () => {
-    mockApi();
-    renderTasks();
-    await screen.findByText('Doctor the wire');
-
-    // Below md the header row must hide visually (sr-only), never display:none —
-    // otherwise mobile screen readers get cells with no columnheader to associate.
-    const headerGroup = screen
-      .getByRole('columnheader', { name: 'STATUS' })
-      .closest('[role="rowgroup"]');
-    expect(headerGroup?.className).toContain('max-md:sr-only');
-    expect(headerGroup?.className).not.toContain('max-md:hidden');
-  });
-
-  it("a row carries a real link to the task's page", async () => {
-    mockApi();
-    const testRouter = renderTasks();
-    const user = userEvent.setup();
-    await screen.findByText('Doctor the wire');
-
-    // The row keeps its row role for the column association; the title inside
-    // it is announced as a link, and stretches over the row as the hit target.
-    const row = screen.getByRole('row', { name: /MMR-10/ });
-    const link = within(row).getByRole('link', { name: 'Doctor the wire' });
+    const link = screen.getByRole('link', { name: 'Doctor the wire' });
     expect(link).toHaveAttribute('href', '/p/MMR/10');
+    expect(screen.getByRole('link', { name: 'Hoist the lookup' })).toHaveAttribute(
+      'href',
+      '/p/NRN/4',
+    );
     await user.click(link);
     await waitFor(() => {
       expect(testRouter.state.location.pathname).toBe('/p/MMR/10');
     });
+  });
+
+  it('shows the lede, preferring it over the summary', async () => {
+    mockApi();
+    renderTasks();
+    await screen.findByText('Doctor the wire');
+    expect(within(rowOf('Review the cutover')).getByText('The lede wins.')).toBeDefined();
+    expect(screen.queryByText('The summary loses.')).toBeNull();
+    // no lede on the wire falls back to the summary
+    expect(within(rowOf('Land the schema')).getByText('The schema landed.')).toBeDefined();
+  });
+
+  it('the meta line reads key › parent, with ∞ on a standing home, then the age', async () => {
+    mockApi();
+    renderTasks();
+    await screen.findByText('Doctor the wire');
+    const review = rowOf('Review the cutover');
+    expect(within(review).getByText('MMR').className).toContain('font-mono');
+    expect(review.textContent).toContain('› Storage cutover');
+    expect(review.textContent).toContain(' · ');
+    expect(
+      within(review).getByRole('img', { name: 'open-ended — a standing home' }).textContent,
+    ).toContain('∞');
+    expect(within(rowOf('Doctor the wire')).queryByRole('img')).toBeNull();
+  });
+
+  it('demotes finished rows by ink tier, never opacity', async () => {
+    mockApi();
+    renderTasks();
+    await screen.findByText('Doctor the wire');
+    expect(screen.getByRole('link', { name: 'Land the schema' }).className).toContain(
+      'text-ink-dim',
+    );
+    expect(rowOf('Land the schema').className).not.toContain('opacity');
+    expect(screen.getByRole('link', { name: 'Doctor the wire' }).className).toContain(
+      'text-ink-bright',
+    );
+  });
+
+  it('strikes through abandoned titles only', async () => {
+    mockApi();
+    renderTasks();
+    await screen.findByText('Old dead end');
+    expect(screen.getByRole('link', { name: 'Old dead end' }).className).toContain('line-through');
+    expect(screen.getByRole('link', { name: 'Land the schema' }).className).not.toContain(
+      'line-through',
+    );
+  });
+
+  it('Live is pressed by default; Finished sets status=terminal in the URL and the request', async () => {
+    mockApi();
+    const testRouter = renderTasks();
+    const user = userEvent.setup();
+    await screen.findByText('Doctor the wire');
+
+    expect(live().getAttribute('aria-pressed')).toBe('true');
+    expect(finished().getAttribute('aria-pressed')).toBe('false');
+
+    await user.click(finished());
+    await waitFor(() => {
+      expect(search(testRouter).status).toBe('terminal');
+    });
+    await waitFor(() => {
+      expect(nodeReads().some((p) => p.get('status') === 'terminal')).toBe(true);
+    });
+    expect(finished().getAttribute('aria-pressed')).toBe('true');
+    expect(live().getAttribute('aria-pressed')).toBe('false');
+    await expect(screen.findByText('5 finished')).resolves.toBeDefined();
+
+    await user.click(live());
+    await waitFor(() => {
+      expect(search(testRouter).status).toBeUndefined();
+    });
+    expect(live().getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('a deep-linked status shows a removable chip, presses neither view, and removing returns to Live', async () => {
+    mockApi();
+    const testRouter = renderTasks('/tasks?status=ready');
+    const user = userEvent.setup();
+    await screen.findByText('Doctor the wire');
+
+    expect(screen.getByRole('button', { name: 'Live' }).getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByRole('button', { name: 'Finished' }).getAttribute('aria-pressed')).toBe(
+      'false',
+    );
+    expect(nodeReads().some((p) => p.get('status') === 'ready')).toBe(true);
+    expect(screen.getByText('5 match')).toBeDefined();
+
+    await user.click(screen.getByRole('button', { name: 'Remove status filter Ready' }));
+    await waitFor(() => {
+      expect(search(testRouter).status).toBeUndefined();
+    });
+    expect(screen.getByRole('button', { name: 'Live' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.queryByRole('button', { name: /Remove status filter/ })).toBeNull();
+  });
+
+  it('labels a deep-linked union and the all selector', async () => {
+    mockApi();
+    renderTasks('/tasks?status=ready,blocked');
+    await screen.findByText('Doctor the wire');
+    expect(
+      screen.getByRole('button', { name: 'Remove status filter Ready, Blocked' }),
+    ).toBeDefined();
+  });
+
+  it('restores a deep-linked project and search, and the project menu sets project', async () => {
+    mockApi();
+    const testRouter = renderTasks('/tasks?project=MMR&q=cutover');
+    const user = userEvent.setup();
+    await screen.findByText('Doctor the wire');
+
+    expect(screen.getByRole('searchbox')).toHaveProperty('value', 'cutover');
+    const read = nodeReads().find((p) => p.get('q') === 'cutover');
+    expect(read?.get('project')).toBe('MMR');
+
+    await user.click(screen.getByRole('button', { name: /^MMR/ }));
+    await user.click(await screen.findByRole('menuitem', { name: 'All projects' }));
+    await waitFor(() => {
+      expect(search(testRouter).project).toBeUndefined();
+    });
+    await user.click(screen.getByRole('button', { name: /All projects/ }));
+    await user.click(await screen.findByRole('menuitem', { name: /NRN/ }));
+    await waitFor(() => {
+      expect(search(testRouter).project).toBe('NRN');
+    });
+  });
+
+  it('typing in the search box updates q after the debounce', async () => {
+    mockApi();
+    const testRouter = renderTasks();
+    const user = userEvent.setup();
+    await screen.findByText('Doctor the wire');
+
+    const box = screen.getByRole('searchbox', { name: 'Search tasks' });
+    expect(box).toHaveAttribute('placeholder', 'Search titles and IDs…');
+    await user.type(box, 'wire');
+    await waitFor(() => {
+      expect(search(testRouter).q).toBe('wire');
+    });
+    await waitFor(() => {
+      expect(nodeReads().some((p) => p.get('q') === 'wire')).toBe(true);
+    });
+  });
+
+  it('says so when nothing matches', async () => {
+    apiGet.mockImplementation((path: string) =>
+      path.startsWith('/api/projects')
+        ? Promise.resolve({ items: [], total: 0 })
+        : Promise.resolve({ items: [], total: 0 }),
+    );
+    renderTasks();
+    await expect(screen.findByText('No tasks match.')).resolves.toBeDefined();
   });
 
   it('unreachable with nothing cached keeps the honest error and disables + New task', async () => {

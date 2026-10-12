@@ -178,7 +178,7 @@ test('artifacts tool returns the artifacts-unit set wrapper', async () => {
     total: number;
     returned: number;
     starts_at: number;
-    artifacts: { id: string; project: string; tags: string[]; summary?: string }[];
+    artifacts: { id: string; links: string[]; project: string; tags: string[]; summary?: string }[];
   }>(textOf(result));
   expect(parsed.total).toBe(1);
   expect(parsed.returned).toBe(1);
@@ -186,6 +186,8 @@ test('artifacts tool returns the artifacts-unit set wrapper', async () => {
   expect(parsed.artifacts[0]?.project).toBe('MMR');
   expect(parsed.artifacts[0]?.tags).toEqual(['session_summary']);
   expect(parsed.artifacts[0]?.summary).toBe('closed out the codec work');
+  // The attached record rides as a rendered id (MMR-454).
+  expect(parsed.artifacts[0]?.links).toEqual([taskRef]);
 });
 
 test('artifacts tool AND-composes its filters', async () => {
