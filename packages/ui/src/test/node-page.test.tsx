@@ -5,6 +5,8 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
+import { POLL_MS } from '../api/queries';
+import { createQueryClient } from '../api/query-client';
 import type { WireNode, WireTreeNode } from '../api/types';
 import { router } from '../router';
 import { task } from './fixtures';
@@ -68,15 +70,16 @@ function serve(node: WireNode, extra: Record<string, unknown> = {}) {
   });
 }
 
-function renderAt(url: string) {
+function renderAt(
+  url: string,
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   const testRouter = createRouter({
     history: createMemoryHistory({ initialEntries: [url] }),
     routeTree: router.routeTree,
   });
   render(
-    <QueryClientProvider
-      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-    >
+    <QueryClientProvider client={client}>
       <RouterProvider router={testRouter} />
     </QueryClientProvider>,
   );
@@ -773,5 +776,26 @@ describe('task page content (MMR-453)', () => {
       await screen.findByText('three');
       expect(screen.queryByRole('button', { name: /show (all|less)/i })).toBeNull();
     });
+  });
+});
+
+describe('live refresh (MMR-458)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('shows a note added outside the console within one poll', async () => {
+    // Real time keeps ticking so findBy can still poll under the fake clock.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    serve(sqlite);
+    renderAt('/p/MMR/417', createQueryClient());
+    await screen.findByRole('heading', { level: 1, name: 'Add the SQLite dialect' });
+
+    const note = { content: 'Annotated from the CLI', created_at: '2026-06-02T10:00:00.000Z' };
+    serve(sqlite, { '/api/nodes/MMR-417/annotations': { items: [note], total: 1 } });
+    expect(screen.queryByText('Annotated from the CLI')).toBeNull();
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+
+    await expect(screen.findByText('Annotated from the CLI')).resolves.toBeDefined();
   });
 });
