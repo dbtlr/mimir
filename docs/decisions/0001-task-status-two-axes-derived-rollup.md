@@ -141,3 +141,29 @@ Authored via `create --open-ended` and toggled via `update --open-ended` /
 `--not-open-ended` (container-only; rejected on a task/project/artifact). Stored
 backend-neutral (SQLite column; Norn frontmatter as the strings `'true'`/`'false'`
 on an undeclared field); a foreign value nulls the field on read (MMR-177 tiering).
+
+## Refinement (2026-10-12, MMR-438): a block records who can clear it
+
+A `blocked` hold gains a stored **block owner**: `you` (the operator must
+answer or act) or `others` (someone outside the board must: another team,
+another project's board, a vendor). The owner is set while the hold is
+`blocked` and is empty otherwise; `parked` has no owner, because a deliberate
+deferral is always the operator's own.
+
+- **Another task is never an owner.** Waiting on a dependency stays the
+  derived `awaiting` status, so ownership only splits the stored,
+  manually-set block.
+- **`block --on you|others` sets it, with a default from the record.** When
+  the task has an `upstream` seed (ADR 0020), the default is `others`: the
+  edge already names the board it waits on. Otherwise the default is `you`.
+  Existing blocks are migrated by the same rule.
+- **Changing an owner is `unblock`, then `block`.** `block` still refuses a
+  task that is already held, so each `blocked` entry in the transition log has
+  one owner for its whole span. The column holds the current owner only; the
+  log row does not carry it, so history shows that a task was blocked, not
+  who owned each past block.
+- **Hygiene is unchanged.** `stale` chases `blocked` of either owner: an
+  external block untouched for weeks is the nudge to chase the other party.
+
+ADR 0019 §9 uses the owner to narrow the needs-you set. A started task that
+hits an open question is blocked with owner `you` (ADR 0033).
