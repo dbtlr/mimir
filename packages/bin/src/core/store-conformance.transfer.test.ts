@@ -403,7 +403,8 @@ describe.each(backends)('$name', (backend) => {
       const target = await backend.make();
       try {
         const states = document.nodes.filter((n) => n.type === 'task').map((n) => n.grooming);
-        expect(new Set(states)).toEqual(new Set(['not_groomed', 'needs_answers', 'groomed']));
+        // The default `not_groomed` is proven by the legacy import below.
+        expect(new Set(states)).toEqual(new Set(['needs_answers', 'groomed']));
         expect(document.nodes.filter((n) => n.type !== 'task').map((n) => n.grooming)).toEqual([
           null,
           null,

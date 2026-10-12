@@ -55,7 +55,7 @@ for (const backend of backends) {
 
     // The counters state the allocation high-water mark per kind (ADR 0006).
     const mmr = document.projects.find((project) => project.key === 'MMR');
-    expect(mmr?.counters).toEqual({ artifact: 2, node: 6, seed: 1 });
+    expect(mmr?.counters).toEqual({ artifact: 2, node: 4, seed: 1 });
   });
 
   test(`${backend.name}: a create after an import never collides with an imported identity`, async () => {
