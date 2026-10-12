@@ -46,6 +46,7 @@ function task(projectId: string, overrides: Partial<Node> = {}): Node {
     created_at: AT,
     description: null,
     external_ref: null,
+    grooming: 'not_groomed',
     harness: null,
     hold: 'none' satisfies Hold,
     hold_reason: null,

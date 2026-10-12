@@ -5,12 +5,13 @@
  */
 
 import {
+  GROOMING_VALUES,
   HANDLE_FIELD_KEYS,
   isTerminalLifecycle,
   SEED_KIND_VALUES,
   SEED_STATUS_SELECTOR_VALUES,
 } from '@mimir/contract';
-import type { DataFieldKey, OpTransition, SeedKind, UniformVerb } from '@mimir/contract';
+import type { DataFieldKey, Grooming, OpTransition, SeedKind, UniformVerb } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
 import {
@@ -23,6 +24,7 @@ import {
   deriveSet,
   fileSeed,
   getArtifact,
+  groomTasks,
   inapplicableUpdateFields,
   listSeeds,
   SEED_DATE_FIELD,
@@ -695,6 +697,14 @@ function seedUpstream(c: Ctx): string | null | undefined {
   return parsed;
 }
 
+/**
+ * `--groomed` on create (ADR 0033): `true` or `undefined`, never `false` — core
+ * refuses any `groomed` on a non-task, so an absent flag must stay absent.
+ */
+function groomedFlag(c: Ctx): true | undefined {
+  return c.values.groomed === true ? true : undefined;
+}
+
 /** The repeatable `--tag` values on create (MMR-31). */
 function tagFlags(c: Ctx): string[] | undefined {
   const v = c.values.tag;
@@ -719,6 +729,17 @@ function echoTagOp(c: Ctx, verb: 'tagged' | 'untagged', ids: string[], tags: str
   } else {
     const glyph = c.io.plain ? '[ok]' : '\x1b[32m✓\x1b[0m';
     c.io.write(`${glyph} ${verb} ${ids.join(', ')}: ${tags.join(', ')}`);
+  }
+}
+
+/** Echo a groom result — ids + the state they now hold, no node reload (the op is the news). */
+function echoGroomOp(c: Ctx, ids: string[], state: Grooming): void {
+  if (c.format === 'json' || c.format === 'jsonl') {
+    c.io.write(JSON.stringify({ groomed: { ids, state } }));
+  } else if (c.format === 'ids') {
+    c.io.write(ids.join('\n'));
+  } else {
+    c.io.write(`${c.io.plain ? '[ok]' : '\x1b[32m✓\x1b[0m'} groomed ${ids.join(', ')} · ${state}`);
   }
 }
 
@@ -751,6 +772,42 @@ export async function cmdUntag(c: Ctx): Promise<number> {
   const targets = ids.map((t) => resolveEntityTokenInSet(set, t));
   await untagEntities(c.store, targets, tags);
   echoTagOp(c, 'untagged', ids, tags);
+  return 0;
+}
+
+/**
+ * `groom <ids…> <state> [note…]` (ADR 0033): ids run up to the first positional
+ * that is a grooming state word (each may itself be comma-separated), and
+ * everything after the state is the note. The note requirement for
+ * `needs_answers` lives in core, so every transport shares it.
+ */
+export async function cmdGroom(c: Ctx): Promise<number> {
+  const tail = c.positionals.slice(1);
+  const stateAt = tail.findIndex((token) => isMember(token, GROOMING_VALUES));
+  const idTokens = stateAt === -1 ? tail : tail.slice(0, stateAt);
+  const ids = idTokens.flatMap(splitCsv);
+  if (ids.length === 0) {
+    throw usage('groom requires ids (KEY-seq)', 'groom MMR-12,MMR-13 groomed');
+  }
+  const state = tail[stateAt] ?? '';
+  if (!isMember(state, GROOMING_VALUES)) {
+    // A tail of ids only forgot the state; otherwise the first token that is
+    // not a well-formed id is the misspelled state, whatever note follows it.
+    const unknown = ids.find((token) => parseIdentity(token) === null);
+    throw usage(
+      unknown === undefined
+        ? `groom requires a state (${GROOMING_VALUES.join('|')})`
+        : `unknown grooming state '${unknown}' (expected ${GROOMING_VALUES.join('|')})`,
+      'groom MMR-12 needs_answers "which store owns the lock?"',
+    );
+  }
+  const note = tail.slice(stateAt + 1).join(' ');
+  const set = deriveSet(await c.store.loadWorkingSet());
+  const targets = ids.map((token) =>
+    resolveNodeTokenInSet(set, token, 'task', { notFound: 'see what exists: mimir list -f ids' }),
+  );
+  await groomTasks(c.store, targets, state, note === '' ? undefined : note);
+  echoGroomOp(c, targets, state);
   return 0;
 }
 
@@ -810,6 +867,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       }
       const project = await createNode(c.store, {
         description: optStr(c, 'desc'),
+        groomed: groomedFlag(c),
         key,
         name,
         openEnded: openEndedFlag(c),
@@ -829,6 +887,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       const title = requirePos(c, 2, 'create initiative', 'a title', CREATE_DASH_TITLE_HINT);
       const node = await createNode(c.store, {
         description: optStr(c, 'desc'),
+        groomed: groomedFlag(c),
         openEnded: openEndedFlag(c),
         parent: requireParentShape(
           c,
@@ -848,6 +907,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       const title = requirePos(c, 2, 'create phase', 'a title', CREATE_DASH_TITLE_HINT);
       const node = await createNode(c.store, {
         description: optStr(c, 'desc'),
+        groomed: groomedFlag(c),
         openEnded: openEndedFlag(c),
         parent: requireParentShape(
           c,
@@ -870,6 +930,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
       const node = await createNode(c.store, {
         description: optStr(c, 'desc'),
         externalRef: optStr(c, 'ref'),
+        groomed: groomedFlag(c),
         // The resume handles (MMR-320) — same flags `start`/`update` read.
         handles: readUniformFields(c, HANDLE_FIELD_KEYS),
         openEnded: openEndedFlag(c),

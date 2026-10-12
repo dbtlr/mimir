@@ -1,5 +1,6 @@
 import type {
   ExecutionHandles,
+  Grooming,
   Hold,
   Lifecycle,
   NodeType,
@@ -108,6 +109,7 @@ export type NodeTable = {
   description: string | null;
   summary: string | null;
   lifecycle: Lifecycle | null;
+  grooming: Grooming | null;
   hold: Hold | null;
   hold_reason: string | null;
   priority: Priority | null;

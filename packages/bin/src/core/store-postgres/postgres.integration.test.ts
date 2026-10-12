@@ -53,7 +53,11 @@ lane('upgradeSchema builds the schema from empty, and the gate then passes', asy
     try {
       expect(await readSchemaVersion(handle.db)).toBeNull();
       const report = await upgradeSchema(handle.db);
-      expect(report).toEqual({ applied: ['0001_init'], from: 0, to: SCHEMA_VERSION });
+      expect(report).toEqual({
+        applied: ['0001_init', '0002_grooming'],
+        from: 0,
+        to: SCHEMA_VERSION,
+      });
       // The gate is the thing the whole schema posture rests on: it must accept
       // exactly what the migrator just produced.
       await assertSchemaCurrent(handle.db);
@@ -100,9 +104,10 @@ lane('two concurrent upgrades from empty apply each migration exactly once', asy
     try {
       const reports = await Promise.all([upgradeSchema(first.db), upgradeSchema(second.db)]);
       // The advisory lock serializes them and the loser re-reads the version
-      // inside the lock, so exactly one run reports the migration as applied.
+      // inside the lock, so exactly one run applies every migration from empty.
       expect(reports.map((report) => report.applied.length).toSorted((x, y) => x - y)).toEqual([
-        0, 1,
+        0,
+        SCHEMA_VERSION,
       ]);
       expect(reports.map((report) => report.to)).toEqual([SCHEMA_VERSION, SCHEMA_VERSION]);
       // `count(*)` is a bigint: node-postgres hands it back as a string.

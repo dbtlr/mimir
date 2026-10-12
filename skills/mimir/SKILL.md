@@ -69,6 +69,13 @@ later is a guess about the past, and the next agent reads it as fact.
 - `annotate <id> "note"` when a decision, a surprise, or a scope change lands
   mid-task.
 
+**Prefer groomed work.** A task carries a grooming state beside its status:
+`not_groomed`, `needs_answers`, or `groomed`. Choose groomed tasks from `next`
+(`mimir next --eq grooming:groomed`). When grooming a task finds gaps, record
+them with `mimir groom <id> needs_answers "the questions"`. A task you already
+started that hits a question is `block`ed with the question as the reason, not
+re-groomed (`references/status-model.md`).
+
 **Route new work by whose board it is** (`references/seeds.md`):
 
 - Work for **your own board** that you find or defer is a new task, not an
@@ -92,7 +99,8 @@ or `park`, `block`, or `abandon` it. Settle the Scratchpads you drove the same
 way: freeze, checkpoint, or discard.
 
 **Finish in three pieces.** A work boundary may need a transition, a
-groom-next of the `## Next` direction, or a session summary. Completing a task
+groom-next (rewrite the `## Next` direction; it is not the `groom` verb), or a
+session summary. Completing a task
 takes all three, in that order. Run each when its trigger fires, rather than
 saving them for the end: transition when state changes, groom-next when the
 board's direction changes, and summarize while the session is fresh. Read

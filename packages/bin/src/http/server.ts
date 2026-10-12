@@ -9,6 +9,7 @@ import type {
   VerdictSelector,
 } from '@mimir/contract';
 import {
+  GROOMING_VALUES,
   NODE_TYPE_VALUES,
   QUERY_OP_VALUES,
   SEED_KIND_VALUES,
@@ -70,6 +71,7 @@ import {
   searchRecords,
   getArtifact,
   getNode,
+  groomTasks,
   listNodes,
   listProjects,
   moveNode,
@@ -227,6 +229,8 @@ const NODE_CREATE_FIELDS: readonly string[] = [
   'title',
   'description',
   'tags',
+  // Task-only (ADR 0033); core refuses it on any other type.
+  'groomed',
   ...NODE_BODY_FIELDS,
 ];
 /** `PATCH /api/nodes/:id` allow-list: the three structural update targets
@@ -893,9 +897,11 @@ function bindServer(
             const summary = strField(body, 'summary');
             const tags = strList(body, 'tags');
             const openEnded = boolField(body, 'open_ended');
+            const groomed = boolField(body, 'groomed');
             if (type === 'initiative') {
               const node = await createNode(store, {
                 description,
+                groomed,
                 openEnded,
                 parent,
                 summary,
@@ -910,6 +916,7 @@ function bindServer(
             if (type === 'phase') {
               const node = await createNode(store, {
                 description,
+                groomed,
                 openEnded,
                 parent,
                 parentHints,
@@ -925,6 +932,7 @@ function bindServer(
               const node = await createNode(store, {
                 description,
                 externalRef: strField(body, 'external_ref'),
+                groomed,
                 // The resume handles (MMR-320) — accepted at create like every
                 // other generic-`update` spec field; `start` usually sets them.
                 handles: {
@@ -1068,6 +1076,28 @@ function bindServer(
             const id = nodeRefIn(set, req.params.id);
             const onIds = on.map((t) => nodeRefIn(set, t));
             return echoNode(store, req, await depend(store, id, onIds));
+          }),
+      },
+
+      // ADR 0033: grooming is a per-task judgment with a verb of its own, not a
+      // `PATCH` field — the route sets the state and writes its note together.
+      '/api/nodes/:id/groom': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['state', 'note']);
+            const state = requiredStr(body, 'state', 'groom');
+            if (!isMember(state, GROOMING_VALUES)) {
+              throw validation(
+                `${state} is not a grooming state`,
+                `expected ${GROOMING_VALUES.join(', ')}`,
+              );
+            }
+            const id = await nodeRef(store, req.params.id, 'task');
+            const [node] = await groomTasks(store, [id], state, strField(body, 'note'));
+            if (node === undefined) {
+              throw notFound(`${req.params.id} doesn't exist`);
+            }
+            return echoNode(store, req, node);
           }),
       },
 

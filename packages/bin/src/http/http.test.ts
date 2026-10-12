@@ -621,6 +621,66 @@ test('tags: PUT applies (idempotently), DELETE removes', async () => {
   expect(untagged.tags).toEqual([]);
 });
 
+test('groom: POST /api/nodes/:id/groom sets the state, writes the note, echoes the node (ADR 0033)', async () => {
+  expect((await parse(await get(`/api/nodes/${task1}`))).grooming).toBe('not_groomed');
+
+  const asked = await send('POST', `/api/nodes/${task1}/groom`, {
+    note: 'which store owns the lock?',
+    state: 'needs_answers',
+  });
+  expect(asked.status).toBe(200);
+  expect((await parse(asked)).grooming).toBe('needs_answers');
+  const notes = await parse(await get(`/api/nodes/${task1}/annotations`));
+  expect((notes.items as Rec[]).map((n) => n.content)).toEqual(['which store owns the lock?']);
+
+  // Re-grooming without a note is allowed and writes no annotation.
+  const groomed = await send('POST', `/api/nodes/${task1}/groom`, { state: 'groomed' });
+  expect((await parse(groomed)).grooming).toBe('groomed');
+  expect((await parse(await get(`/api/nodes/${task1}/annotations`))).total).toBe(1);
+});
+
+test('groom: refuses needs_answers without a note, an unknown state, a container, and stray keys', async () => {
+  const noNote = await send('POST', `/api/nodes/${task1}/groom`, { state: 'needs_answers' });
+  expect(noNote.status).toBe(400);
+  expect(errorCode(await parse(noNote))).toBe('validation');
+
+  const noState = await send('POST', `/api/nodes/${task1}/groom`, {});
+  expect(noState.status).toBe(400);
+  const badState = await send('POST', `/api/nodes/${task1}/groom`, { state: 'ready' });
+  expect(badState.status).toBe(400);
+  const stray = await send('POST', `/api/nodes/${task1}/groom`, { nope: 1, state: 'groomed' });
+  expect(stray.status).toBe(400);
+
+  const container = await send('POST', `/api/nodes/${phaseRef}/groom`, { state: 'groomed' });
+  expect(container.status).toBe(400);
+  expect((await send('POST', '/api/nodes/MMR-999/groom', { state: 'groomed' })).status).toBe(404);
+  expect((await parse(await get(`/api/nodes/${task1}`))).grooming).toBe('not_groomed');
+});
+
+test('GET /api/nodes?eq=grooming:groomed narrows the set; POST /api/nodes accepts groomed on a task', async () => {
+  const born = await send('POST', '/api/nodes', {
+    groomed: true,
+    parent: phaseRef,
+    title: 'carved',
+    type: 'task',
+  });
+  expect(born.status).toBe(201);
+  const record = await parse(born);
+  expect(record.grooming).toBe('groomed');
+
+  const narrowed = await parse(await get('/api/nodes?scope=MMR&eq=grooming:groomed'));
+  expect((narrowed.items as Rec[]).map((n) => n.id)).toEqual([record.id as string]);
+
+  const onPhase = await send('POST', '/api/nodes', {
+    groomed: true,
+    parent: initiativeRef,
+    title: 'p',
+    type: 'phase',
+  });
+  expect(onPhase.status).toBe(400);
+  expect(errorCode(await parse(onPhase))).toBe('validation');
+});
+
 test('POST /api/nodes creates initiatives, phases, and tasks; bad types and parents are rejected', async () => {
   const init = await send('POST', '/api/nodes', {
     parent: 'NRN',

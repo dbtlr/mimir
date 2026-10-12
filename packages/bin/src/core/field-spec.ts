@@ -1,5 +1,6 @@
 import {
   FIELD_FACTS,
+  GROOMING_VALUES,
   HOLD_VALUES,
   LIFECYCLE_VALUES,
   PRIORITY_VALUES,
@@ -115,6 +116,11 @@ const FIELD_KINDS: Record<FieldKindName, FieldKind> = {
     query: null,
     // A bool arrives already typed on every transport (the CLI flag pair, the MCP
     // boolean arg, the HTTP boolean body field), so it is read natively, not here.
+    wire: null,
+  },
+  'enum:grooming': {
+    query: { kind: 'enum', values: GROOMING_VALUES },
+    // Set only by `groom` (ADR 0033) — no generic `update` plane.
     wire: null,
   },
   'enum:hold': {

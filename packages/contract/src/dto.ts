@@ -1,5 +1,6 @@
 import type {
   AgendaItemState,
+  Grooming,
   Hold,
   Lifecycle,
   NodeType,
@@ -398,6 +399,8 @@ export type NodeView = {
   priority?: Priority | null;
   size?: Size | null;
   lifecycle?: Lifecycle;
+  /** The stored grooming judgment (ADR 0033) — task-only. */
+  grooming?: Grooming;
   hold?: Hold;
   holdReason?: string | null;
   externalRef?: string | null;

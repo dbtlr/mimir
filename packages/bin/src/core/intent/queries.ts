@@ -234,6 +234,7 @@ function toQueryRow(
     // and `node.description` is null on the working set, so filtering it
     // would silently diverge. `summary` is the queryable field.
     external_ref: node.external_ref,
+    grooming: node.grooming,
     harness: node.harness,
     hold: node.hold,
     hold_reason: node.hold_reason,

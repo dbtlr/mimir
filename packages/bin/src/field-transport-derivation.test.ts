@@ -105,6 +105,7 @@ test('golden: the advertised update/create schemas are pinned exactly', () => {
       ...handles,
       description: { type: 'string' },
       externalRef: { type: 'string' },
+      groomed: { type: 'boolean' },
       key: { type: 'string' },
       name: { type: 'string' },
       openEnded: { type: 'boolean' },

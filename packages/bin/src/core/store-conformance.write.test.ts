@@ -8,6 +8,7 @@ import {
   annotate,
   archiveProject,
   depend,
+  groomTasks,
   reorder,
   startTask,
   submitTask,
@@ -134,6 +135,29 @@ for (const backend of backends) {
     await createProject(store, { description: null, key: 'OPS', name: 'Operations' });
     const other = await createInitiative(store, { projectId: 'OPS', title: 'Elsewhere' });
     expect(other.id).toBe('OPS-1');
+  });
+
+  it('insertNode stores grooming: not_groomed for a task by default, NULL for a container', async () => {
+    const store = await fresh();
+    const { first, initiative, phase } = await base(store);
+    expect((await reloadNode(store, first.id)).grooming).toBe('not_groomed');
+    expect((await reloadNode(store, initiative.id)).grooming).toBeNull();
+    expect((await reloadNode(store, phase.id)).grooming).toBeNull();
+    const groomed = await createTask(store, { groomed: true, parentId: phase.id, title: 'Carved' });
+    expect((await reloadNode(store, groomed.id)).grooming).toBe('groomed');
+  });
+
+  it('groomTasks persists each state, notes the change, and logs no transition', async () => {
+    const store = await fresh();
+    const { first, second } = await base(store);
+    const logged = (await store.transitions.list()).items.length;
+    await groomTasks(store, [first.id], 'needs_answers', 'who owns the cutover?');
+    await groomTasks(store, [second.id], 'groomed');
+    expect((await reloadNode(store, first.id)).grooming).toBe('needs_answers');
+    expect((await reloadNode(store, second.id)).grooming).toBe('groomed');
+    const notes = await store.bodySections.readAnnotations(first.id);
+    expect(notes.map((n) => n.content)).toEqual(['who owns the cutover?']);
+    expect((await store.transitions.list()).items.length).toBe(logged);
   });
 
   it('insertNode stamps created_at and updated_at to the same instant', async () => {

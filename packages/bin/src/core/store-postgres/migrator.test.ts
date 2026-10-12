@@ -6,6 +6,7 @@ import { Kysely, sql } from 'kysely';
 import { MimirError } from '../errors';
 import { assertSchemaCurrent, readSchemaVersion, SCHEMA_VERSION, upgradeSchema } from './index';
 import type { DB } from './index';
+import { statements as initStatements } from './migrations/0001-init';
 import { createPgliteDialect } from './pglite';
 
 function freshDb(): Kysely<DB> {
@@ -39,7 +40,7 @@ test('an upgrade names the migrations it applied and lands the current version',
   const db = freshDb();
   try {
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0001_init'],
+      applied: ['0001_init', '0002_grooming'],
       from: 0,
       to: SCHEMA_VERSION,
     });
@@ -51,6 +52,51 @@ test('an upgrade names the migrations it applied and lands the current version',
       from: SCHEMA_VERSION,
       to: SCHEMA_VERSION,
     });
+  } finally {
+    await db.destroy();
+  }
+});
+
+test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NULL, bogus values rejected', async () => {
+  const db = freshDb();
+  try {
+    // The store as the previous binary left it: only 0001, with live rows.
+    for (const statement of initStatements) {
+      await sql.raw(statement).execute(db);
+    }
+    await sql`insert into schema_version (version, applied_at) values (1, '2026-09-01T00:00:00.000Z')`.execute(
+      db,
+    );
+    await sql`insert into project (key, name, created_at, updated_at) values ('MMR', 'Mimir', 't', 't')`.execute(
+      db,
+    );
+    await sql`
+      insert into node (id, project_key, type, seq, title, lifecycle, hold, created_at, updated_at)
+      values ('MMR-1', 'MMR', 'initiative', 1, 't', null, null, 't', 't'),
+             ('MMR-2', 'MMR', 'phase', 2, 't', null, null, 't', 't'),
+             ('MMR-3', 'MMR', 'task', 3, 't', 'todo', 'none', 't', 't')
+    `.execute(db);
+
+    expect(await upgradeSchema(db)).toEqual({
+      applied: ['0002_grooming'],
+      from: 1,
+      to: SCHEMA_VERSION,
+    });
+    const rows = await sql<{ id: string; grooming: string | null }>`
+      select id, grooming from node order by seq
+    `.execute(db);
+    expect(rows.rows).toEqual([
+      { grooming: null, id: 'MMR-1' },
+      { grooming: null, id: 'MMR-2' },
+      { grooming: 'not_groomed', id: 'MMR-3' },
+    ]);
+    const rejection = await sql`update node set grooming = 'bogus' where id = 'MMR-3'`
+      .execute(db)
+      .then(
+        () => 'accepted',
+        (reason: unknown) => String(reason),
+      );
+    expect(rejection).toContain('node_grooming_check');
   } finally {
     await db.destroy();
   }
@@ -79,7 +125,7 @@ test('a schema older than the binary is refused, and points at the explicit upgr
   const db = freshDb();
   try {
     await upgradeSchema(db);
-    await db.deleteFrom('schema_version').where('version', '=', SCHEMA_VERSION).execute();
+    await db.deleteFrom('schema_version').execute();
     await db
       .insertInto('schema_version')
       .values({ applied_at: '2026-09-01T00:00:00.000Z', version: SCHEMA_VERSION - 1 })

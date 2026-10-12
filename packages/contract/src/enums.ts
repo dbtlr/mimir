@@ -32,6 +32,14 @@ export type Lifecycle = (typeof LIFECYCLE_VALUES)[number];
 export const HOLD_VALUES = ['none', 'blocked', 'parked'] as const;
 export type Hold = (typeof HOLD_VALUES)[number];
 
+/**
+ * Grooming state (ADR 0033) — a stored, task-only judgment of whether a task is
+ * understood well enough to run. Set only by the `groom` verb (or `create
+ * --groomed`), never inferred and never a gate on `start`.
+ */
+export const GROOMING_VALUES = ['not_groomed', 'needs_answers', 'groomed'] as const;
+export type Grooming = (typeof GROOMING_VALUES)[number];
+
 /** Priority signal (ADR 0007) — filters/advises, never the sort. Null = untriaged. */
 export const PRIORITY_VALUES = ['p0', 'p1', 'p2', 'p3'] as const;
 export type Priority = (typeof PRIORITY_VALUES)[number];

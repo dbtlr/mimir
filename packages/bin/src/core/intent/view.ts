@@ -74,6 +74,7 @@ export async function buildNodeView(
     view.priority = node.priority;
     view.size = node.size;
     view.lifecycle = node.lifecycle ?? undefined;
+    view.grooming = node.grooming ?? undefined;
     view.hold = node.hold ?? undefined;
     view.holdReason = node.hold_reason;
     view.externalRef = node.external_ref;

@@ -2,7 +2,8 @@
 
 ## Two stored axes — tasks only
 
-A **task** stores exactly two orthogonal things; nothing else stores status at all:
+A **task** stores exactly two orthogonal status axes; nothing else stores status at all
+(the grooming state below is a separate stored judgment, not a status axis):
 
 - **lifecycle** — pure progress, moved by verbs: `todo → in_progress → done`, plus
   `abandoned`. (`done`/`abandoned` are **terminal**.) An **optional** `under_review`
@@ -40,6 +41,20 @@ terminal transition stays in the log; reopening is append-only, not a rewrite. I
 the deliberate correction path for a call that was wrong (a premature `done`, a
 wrongly-abandoned approach) — never for new scope on genuinely finished work, which
 is a new task.
+
+### Grooming state — a third, separate judgment
+
+A task also stores a **grooming state**: `not_groomed` (the default),
+`needs_answers`, or `groomed`. It answers "is this task understood well enough
+to run?", where `ready` answers "is anything stopping it right now?". The two
+are independent: a `ready` task can be `not_groomed`, and a `groomed` task can
+be `awaiting` a dependency. `groom <id> <state> [note]` sets it
+(`references/authoring.md`); nothing infers it, and `start` never checks it.
+Views read it for `todo` tasks only. Containers store none.
+
+It is also separate from the seeds grooming queue (`references/seeds.md`), which
+triages requests that are not yet tasks. A seed promoted into a task produces a
+`not_groomed` task.
 
 ## The status word — derived, never stored
 

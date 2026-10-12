@@ -1,4 +1,4 @@
-import type { Hold, Lifecycle, NodeType, Priority, Size } from '@mimir/contract';
+import type { Grooming, Hold, Lifecycle, NodeType, Priority, Size } from '@mimir/contract';
 
 /**
  * The backend-neutral domain model (ADR 0016 Phase 0) — the record shapes the
@@ -33,6 +33,8 @@ export type Node = {
 
   // task-only (NULL for initiative/phase)
   lifecycle: Lifecycle | null;
+  /** The stored grooming judgment (ADR 0033) — task-only, set by `groom`, never inferred. */
+  grooming: Grooming | null;
   hold: Hold | null;
   hold_reason: string | null;
   priority: Priority | null;

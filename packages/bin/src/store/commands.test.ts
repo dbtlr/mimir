@@ -66,7 +66,7 @@ test('store upgrade on the default sqlite install opens the database and reports
       0,
     );
     expect(JSON.parse(io.out.join(''))).toEqual({
-      applied: ['0001_init'],
+      applied: ['0001_init', '0002_grooming'],
       from: 0,
       to: SCHEMA_VERSION,
     });
@@ -83,13 +83,15 @@ test('store upgrade creates the schema, then reports it already current', async 
     expect(
       await cmdStore(['store', 'upgrade'], {}, io, pg.deps(POSTGRES), 'records', noStore),
     ).toBe(0);
-    expect(io.out.join('\n')).toContain('store: schema upgraded from 0 to 1 (0001_init)');
+    expect(io.out.join('\n')).toContain(
+      'store: schema upgraded from 0 to 2 (0001_init, 0002_grooming)',
+    );
 
     const again = fakeIo();
     expect(
       await cmdStore(['store', 'upgrade'], {}, again, pg.deps(POSTGRES), 'records', noStore),
     ).toBe(0);
-    expect(again.out.join('\n')).toContain('store: schema at version 1 (already current)');
+    expect(again.out.join('\n')).toContain('store: schema at version 2 (already current)');
     expect(pg.opened).toEqual([POSTGRES.store.url ?? '', POSTGRES.store.url ?? '']);
   } finally {
     await pg.db.destroy();
@@ -104,7 +106,7 @@ test('json format emits the upgrade report', async () => {
       0,
     );
     const parsed = JSON.parse(io.out.join('')) as UpgradeReport;
-    expect(parsed).toEqual({ applied: ['0001_init'], from: 0, to: 1 });
+    expect(parsed).toEqual({ applied: ['0001_init', '0002_grooming'], from: 0, to: 2 });
   } finally {
     await pg.db.destroy();
   }
@@ -167,7 +169,7 @@ test('a schema newer than the binary is the migrator refusal, not a silent downg
       message = error instanceof Error ? error.message : String(error);
     }
     expect(message).toContain('the Postgres store schema is version 99');
-    expect(message).toContain('this binary reads version 1');
+    expect(message).toContain('this binary reads version 2');
     // Nothing moved: the store is still on 99.
     const rows = await sql<{
       version: number;

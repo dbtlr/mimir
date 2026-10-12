@@ -9,6 +9,7 @@ import {
   archiveProject,
   attachArtifact,
   depend,
+  groomTasks,
   startTask,
   submitTask,
   tagEntities,
@@ -135,6 +136,7 @@ export async function seedWorkingSet(store: Store): Promise<void> {
   });
   const prereq = await createTask(store, {
     description: 'export first',
+    groomed: true,
     parentId: phase.id,
     priority: 'p1',
     summary: 'the export',
@@ -145,6 +147,11 @@ export async function seedWorkingSet(store: Store): Promise<void> {
     size: 'medium',
     title: 'Import',
   });
+
+  // Grooming states (ADR 0033) ride the existing tasks, so the fixture keeps
+  // its shape (the sandbox rehearsal pins two projects and four nodes):
+  // `prereq` is born `groomed`, `dependent` is set `needs_answers`.
+  await groomTasks(store, [dependent.id], 'needs_answers', 'which backend owns the retry?');
 
   await depend(store, dependent.id, [prereq.id]);
   await tagEntities(

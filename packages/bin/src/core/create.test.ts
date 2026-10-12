@@ -322,3 +322,41 @@ test('createNode enforces the open_ended container-only rule (MMR-204)', async (
   });
   expect(phase.open_ended).toBe(true);
 });
+
+test('a task is born not_groomed, and a container carries no grooming state (ADR 0033)', async () => {
+  const { initRef, phaseRef } = await scaffold(store);
+  const task = await createNode(store, { parent: phaseRef, title: 'x', type: 'task' });
+  expect(task.grooming).toBe('not_groomed');
+  const phase = await createNode(store, { parent: initRef, title: 'p', type: 'phase' });
+  expect(phase.grooming).toBeNull();
+  const init = await createNode(store, { parent: 'MMR', title: 'i', type: 'initiative' });
+  expect(init.grooming).toBeNull();
+});
+
+test('create --groomed births a groomed task, and is refused on a non-task', async () => {
+  const { initRef, phaseRef } = await scaffold(store);
+  const task = await createNode(store, {
+    groomed: true,
+    parent: phaseRef,
+    title: 'carved from a design',
+    type: 'task',
+  });
+  expect(task.grooming).toBe('groomed');
+  const explicit = await createNode(store, {
+    groomed: false,
+    parent: phaseRef,
+    title: 'x',
+    type: 'task',
+  });
+  expect(explicit.grooming).toBe('not_groomed');
+
+  await expectMimirError('validation', () =>
+    createNode(store, { groomed: true, key: 'GRM', name: 'x', type: 'project' }),
+  );
+  await expectMimirError('validation', () =>
+    createNode(store, { groomed: true, parent: 'MMR', title: 'x', type: 'initiative' }),
+  );
+  await expectMimirError('validation', () =>
+    createNode(store, { groomed: true, parent: initRef, title: 'x', type: 'phase' }),
+  );
+});

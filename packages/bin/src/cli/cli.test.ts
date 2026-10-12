@@ -973,6 +973,177 @@ test('create task --tag applies creation-time tags', async () => {
   expect(view.tags.map((x) => x.tag)).toEqual(['spec', 'v2']);
 });
 
+// grooming state (ADR 0033, MMR-464)
+
+const groomingOf = async (ref: string): Promise<string> => {
+  const io = fakeIo(false);
+  await runCli(['get', ref, '-f', 'json'], () => store, io);
+  return parseJson<{ grooming: string }>(io.out.join('')).grooming;
+};
+
+describe('groom', () => {
+  test('sets several tasks, taking comma- or space-separated ids up to the state word', async () => {
+    const a = await createTask(store, { parentId: phaseId, title: 'a' });
+    const b = await createTask(store, { parentId: phaseId, title: 'b' });
+    const c = await createTask(store, { parentId: phaseId, title: 'c' });
+    const [ra, rb, rc] = [a, b, c].map((t) => `MMR-${String(t.seq)}`);
+    const io = fakeIo(false);
+    expect(
+      await runCli(['groom', `${ra},${rb}`, rc ?? '', 'groomed', '-f', 'json'], () => store, io),
+    ).toBe(0);
+    expect(JSON.parse(io.out.join(''))).toEqual({
+      groomed: { ids: [ra, rb, rc], state: 'groomed' },
+    });
+    for (const ref of [ra, rb, rc]) {
+      expect(await groomingOf(ref ?? '')).toBe('groomed');
+    }
+  });
+
+  test('joins everything after the state into one note on each task', async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+    expect(
+      await runCli(
+        ['groom', ref, 'needs_answers', 'which', 'store', 'owns', 'the', 'lock?'],
+        () => store,
+        fakeIo(false),
+      ),
+    ).toBe(0);
+    const io = fakeIo(false);
+    await runCli(['get', ref, '-f', 'json'], () => store, io);
+    const view = parseJson<{ grooming: string; annotations: { content: string }[] }>(
+      io.out.join(''),
+    );
+    expect(view.grooming).toBe('needs_answers');
+    expect(view.annotations.map((a) => a.content)).toEqual(['which store owns the lock?']);
+  });
+
+  test('echoes a confirmation line and the ids', async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+    const text = fakeIo(false);
+    await runCli(['groom', ref, 'groomed'], () => store, text);
+    expect(text.out.join('')).toBe(`[ok] groomed ${ref} · groomed`);
+    const ids = fakeIo(false);
+    await runCli(['groom', ref, 'not_groomed', '-f', 'ids'], () => store, ids);
+    expect(ids.out.join('')).toBe(ref);
+  });
+
+  test('needs_answers without a note surfaces the core message as a validation error', async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const io = fakeIo(false);
+    expect(await runCli(['groom', `MMR-${String(t.seq)}`, 'needs_answers'], () => store, io)).toBe(
+      1,
+    );
+    expect(io.err.join('')).toContain('needs_answers requires a note');
+  });
+
+  test('usage errors: no ids, no state, unknown state', async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+    const none = fakeIo(false);
+    expect(await runCli(['groom'], () => store, none)).toBe(2);
+    expect(none.err.join('')).toContain('groom requires ids');
+    const noIds = fakeIo(false);
+    expect(await runCli(['groom', 'groomed'], () => store, noIds)).toBe(2);
+    expect(noIds.err.join('')).toContain('groom requires ids');
+    const noState = fakeIo(false);
+    expect(await runCli(['groom', ref], () => store, noState)).toBe(2);
+    expect(noState.err.join('')).toContain('groom requires a state');
+    const idsOnly = fakeIo(false);
+    expect(await runCli(['groom', ref, 'MMR-9'], () => store, idsOnly)).toBe(2);
+    expect(idsOnly.err.join('')).toContain('groom requires a state');
+    const unknown = fakeIo(false);
+    expect(await runCli(['groom', ref, 'ready'], () => store, unknown)).toBe(2);
+    expect(unknown.err.join('')).toContain("unknown grooming state 'ready'");
+    const typo = fakeIo(false);
+    expect(await runCli(['groom', ref, 'groomd', 'looks fine'], () => store, typo)).toBe(2);
+    expect(typo.err.join('')).toContain("unknown grooming state 'groomd'");
+  });
+
+  test('a container id is a behavioral error and changes nothing', async () => {
+    const t = await createTask(store, { parentId: phaseId, title: 't' });
+    const ref = `MMR-${String(t.seq)}`;
+    const io = fakeIo(false);
+    expect(
+      await runCli(['groom', ref, `MMR-${String(phaseSeq)}`, 'groomed'], () => store, io),
+    ).toBe(1);
+    expect(await groomingOf(ref)).toBe('not_groomed');
+  });
+});
+
+test('create task --groomed is born groomed; a bare create is not', async () => {
+  const parent = `MMR-${String(phaseSeq)}`;
+  const born = fakeIo(false);
+  expect(
+    await runCli(
+      ['create', 'task', 'carved', '--parent', parent, '--groomed', '-f', 'json'],
+      () => store,
+      born,
+    ),
+  ).toBe(0);
+  expect(parseJson<{ grooming: string }>(born.out.join('')).grooming).toBe('groomed');
+  const plain = fakeIo(false);
+  await runCli(['create', 'task', 'plain', '--parent', parent, '-f', 'json'], () => store, plain);
+  expect(parseJson<{ grooming: string }>(plain.out.join('')).grooming).toBe('not_groomed');
+});
+
+test('create phase --groomed surfaces the core validation error', async () => {
+  const io = fakeIo(false);
+  const code = await runCli(
+    ['create', 'phase', 'p', '--parent', 'MMR-1', '--groomed'],
+    () => store,
+    io,
+  );
+  expect(code).toBe(1);
+  expect(io.err.join('')).toContain('groomed applies only to tasks');
+});
+
+test('--groomed is create-only: other verbs refuse it', async () => {
+  const io = fakeIo(false);
+  expect(await runCli(['list', '--groomed'], () => store, io)).toBe(2);
+  expect(io.err.join('')).toContain("'--groomed' doesn't apply to list");
+});
+
+test('next and list rows show the grooming state, and --eq grooming:groomed narrows next', async () => {
+  const a = await createTask(store, { groomed: true, parentId: phaseId, title: 'carved' });
+  const b = await createTask(store, { parentId: phaseId, title: 'vague' });
+  const ra = `MMR-${String(a.seq)}`;
+  const rb = `MMR-${String(b.seq)}`;
+
+  const rows = fakeIo(false);
+  expect(await runCli(['next', '-s', 'MMR'], () => store, rows)).toBe(0);
+  const text = rows.out.join('');
+  expect(text).toMatch(new RegExp(`${ra} .*groomed .*carved`));
+  expect(text).toMatch(new RegExp(`${rb} .*not_groomed .*vague`));
+
+  for (const verb of ['next', 'list']) {
+    const narrowed = fakeIo(false);
+    expect(
+      await runCli(
+        [verb, '-s', 'MMR', '--eq', 'grooming:groomed', '-f', 'ids'],
+        () => store,
+        narrowed,
+      ),
+    ).toBe(0);
+    expect(narrowed.out.join('')).toBe(ra);
+    const negated = fakeIo(false);
+    await runCli(
+      [verb, '-s', 'MMR', '--not-eq', 'grooming:groomed', '-f', 'ids'],
+      () => store,
+      negated,
+    );
+    expect(negated.out.join('')).toBe(rb);
+  }
+});
+
+test('get shows a grooming line for a task', async () => {
+  const t = await createTask(store, { groomed: true, parentId: phaseId, title: 't' });
+  const io = fakeIo(false);
+  await runCli(['get', `MMR-${String(t.seq)}`, '-f', 'records'], () => store, io);
+  expect(io.out.join('')).toMatch(/grooming\s+groomed/);
+});
+
 // query surface v2 (MMR-33)
 
 test('list and next filter by case-insensitive title substring', async () => {

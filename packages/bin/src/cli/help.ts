@@ -130,6 +130,7 @@ ${HOLD_ROWS}
   data:
     update <id> [--title …] [--priority …] [--size …] …   patch fields (KEY-aN: --title only)
     annotate <id> <text>                append a freeform note
+    groom <ids> <state> [note]          mark tasks groomed | needs_answers | not_groomed
     tag <ids> <tag>…                    tag entities (ids comma-separated)
     untag <ids> <tag>…                  remove tags (plain delete, unlogged)
 
@@ -226,6 +227,7 @@ options:
       --sort <asc|desc>   seeds: age order (default asc)
       --grouped           seeds: lane view (untriaged/ready/settled)
       --upstream <KEY-sN> create/update task: requester-side seed pointer
+      --groomed           create task: born groomed (carved from a finished design)
       --host <text>       create/start/update: the machine the work happens on
       --harness <text>    create/start/update: the agent harness running it
       --session <text>    create/start/update: the session id to resume from
@@ -735,6 +737,22 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     summary: 'append a freeform note (text positional, or piped on stdin)',
     usage: 'mimir annotate <id> <text>',
   },
+  groom: {
+    args: [
+      ['<ids>', 'task ids, space- or comma-separated, up to the state word'],
+      ['<state>', 'not_groomed | needs_answers | groomed'],
+      ['[note]', 'recorded as a note on each task (required for needs_answers)'],
+    ],
+    examples: [
+      'mimir groom MMR-12 groomed',
+      'mimir groom MMR-12,MMR-13 groomed "scoped in the design"',
+      'mimir groom MMR-14 needs_answers "which store owns the lock?"',
+      'mimir next --eq grooming:groomed   # only the groomed queue',
+    ],
+    summary:
+      'set whether tasks are understood well enough to run — a judgment you make, never inferred, never a gate on start',
+    usage: 'mimir groom <ids> <state> [note]',
+  },
   tag: {
     args: [
       ['<ids>', 'comma-separated entity ids (task/phase/initiative/project/artifact)'],
@@ -806,6 +824,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     args: [['<title>', 'task title']],
     examples: [
       'mimir create task "wire the API" --parent MMR-2 --priority p1',
+      'mimir create task "wire the API" --parent MMR-2 --groomed   # carved from a finished design',
       'mimir create task --parent MMR-2 -- --weird-title   # leading-dash title, after the -- terminator',
     ],
     flags: [
@@ -816,6 +835,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--summary <text>', 'summary (256 chars max)'],
       ['--ref <ref>', 'external reference'],
       ['--upstream <KEY-sN>', 'requester-side seed pointer (reference-only)'],
+      ['--groomed', 'born groomed — for tasks carved from a finished design'],
       [
         '--host/--harness/--session/--branch <text>',
         'the resume handles — accepted here, but normally stamped by `start`',
@@ -824,7 +844,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     summary: 'create a task under a phase or initiative',
     usage:
-      'mimir create task <title> --parent <id> [--priority …] [--size …] [--desc …] [--summary …] [--ref …] [--upstream <KEY-sN>] [--host …] [--harness …] [--session …] [--branch …] [--tag <t>…]',
+      'mimir create task <title> --parent <id> [--priority …] [--size …] [--desc …] [--summary …] [--ref …] [--upstream <KEY-sN>] [--groomed] [--host …] [--harness …] [--session …] [--branch …] [--tag <t>…]',
   },
   attach: {
     args: [['<id>', 'the primary node (KEY-seq) the artifact attaches to']],

@@ -24,6 +24,7 @@ import {
   toolCreate,
   toolDepend,
   toolGet,
+  toolGroom,
   toolList,
   toolMove,
   toolNext,
@@ -809,6 +810,69 @@ test('tag on an unknown id returns a structured not_found', async () => {
   expect(JSON.parse(textOf(res)).error.code).toBe('not_found');
 });
 
+test('groom sets several tasks and writes the note on each (ADR 0033)', async () => {
+  const other = await createTask(store, { parentId: phaseId, title: 'o' });
+  const otherRef = `MMR-${String(other.seq)}`;
+  const res = await toolGroom(store, {
+    ids: [taskRef, otherRef],
+    note: 'which store owns the lock?',
+    state: 'needs_answers',
+  });
+  expect(res.isError).toBeUndefined();
+  expect(JSON.parse(textOf(res))).toEqual({
+    groomed: { ids: [taskRef, otherRef], state: 'needs_answers' },
+  });
+  for (const ref of [taskRef, otherRef]) {
+    const view = parseJson<{ grooming: string; annotations: { content: string }[] }>(
+      textOf(await toolGet(store, { id: ref })),
+    );
+    expect(view.grooming).toBe('needs_answers');
+    expect(view.annotations.map((a) => a.content)).toEqual(['which store owns the lock?']);
+  }
+});
+
+test('groom needs_answers without a note is a structured validation error', async () => {
+  const res = await toolGroom(store, { ids: [taskRef], state: 'needs_answers' });
+  expect(res.isError).toBe(true);
+  expect(JSON.parse(textOf(res)).error.code).toBe('validation');
+});
+
+test('groom on a container or unknown id errors and changes nothing', async () => {
+  const container = await toolGroom(store, { ids: [taskRef, phaseRef], state: 'groomed' });
+  expect(container.isError).toBe(true);
+  const missing = await toolGroom(store, { ids: ['MMR-999'], state: 'groomed' });
+  expect(JSON.parse(textOf(missing)).error.code).toBe('not_found');
+  const view = parseJson<{ grooming: string }>(textOf(await toolGet(store, { id: taskRef })));
+  expect(view.grooming).toBe('not_groomed');
+});
+
+test('create task groomed is born groomed; groomed on a phase is refused', async () => {
+  const born = await toolCreate(store, {
+    groomed: true,
+    parent: phaseRef,
+    title: 'g',
+    type: 'task',
+  });
+  expect(parseJson<{ grooming: string }>(textOf(born)).grooming).toBe('groomed');
+  const refused = await toolCreate(store, {
+    groomed: true,
+    parent: phaseRef,
+    title: 'p',
+    type: 'phase',
+  });
+  expect(refused.isError).toBe(true);
+  expect(JSON.parse(textOf(refused)).error.code).toBe('validation');
+});
+
+test('next filters by grooming over MCP', async () => {
+  await toolGroom(store, { ids: [taskRef], state: 'groomed' });
+  await createTask(store, { parentId: phaseId, title: 'vague' });
+  const narrowed = parseJson<{ tasks: { id: string }[] }>(
+    textOf(await toolNext(store, { eq: ['grooming:groomed'], scope: 'MMR' })),
+  );
+  expect(narrowed.tasks.map((t) => t.id)).toEqual([taskRef]);
+});
+
 test('create task with tags applies them', async () => {
   const res = await toolCreate(store, {
     parent: phaseRef,
@@ -1207,6 +1271,7 @@ const WRITE_TOOL_CALLS: readonly [name: string, args: Record<string, unknown>][]
   ['reorder', { id: 'MMR-1', position: 'top' }],
   ['update', { id: 'MMR-1' }],
   ['annotate', { content: 'note', id: 'MMR-1' }],
+  ['groom', { ids: ['MMR-1'], state: 'groomed' }],
   ['tag', { ids: ['MMR-1'], tags: ['one'] }],
   ['untag', { ids: ['MMR-1'], tags: ['one'] }],
   ['create', { type: 'task' }],
