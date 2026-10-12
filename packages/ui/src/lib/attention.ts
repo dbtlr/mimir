@@ -53,7 +53,8 @@ export function attentionItems(
   }
   for (const node of stale) {
     // Stale-only: surfaced by staleness, not by an under_review/blocked status —
-    // its status word is a healthy in_progress/ready, so label it going cold.
+    // its status word is a healthy in_progress/ready, or a block someone else
+    // owns, so label it going cold.
     push(node, 'going_cold');
   }
   return items;

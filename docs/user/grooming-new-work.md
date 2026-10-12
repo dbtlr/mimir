@@ -63,9 +63,12 @@ deleted.
 When another board's Seed blocks your task, record both sides:
 
 ```sh
-mimir block AUR-8 "waiting for BCN-s3"
 mimir update AUR-8 --upstream BCN-s3
+mimir block AUR-8 "waiting for BCN-s3"
 ```
+
+Set the upstream first: a block with no `--on` is owned by `others` when the
+task has an upstream, so the wait stays out of your needs-you count.
 
 The explicit upstream pointer lets triage notice when the owning board settles
 the request.

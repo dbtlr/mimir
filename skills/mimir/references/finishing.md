@@ -17,7 +17,7 @@ Use the lifecycle or hold verb at the moment its claim becomes true:
 mimir submit KEY-9                 # shippable; awaiting human review
 mimir done KEY-9                   # verified complete; no review gate remains
 mimir park KEY-9 "reason"          # deliberately deferred
-mimir block KEY-9 --on you|others "reason"   # externally obstructed; --on names who can clear it
+mimir block KEY-9 --on you "reason"          # obstructed; --on you or --on others names who can clear it
 ```
 
 This piece stands alone: a state change does not wait for prose grooming or a

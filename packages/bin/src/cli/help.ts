@@ -209,7 +209,8 @@ options:
   -h, --help              -h terse, --help with examples
 
   write-verb flags:
-      --on <ids>          depend/undepend: comma-separated dependency ids
+      --on <ids>          depend/undepend: comma-separated dependency ids;
+                          block: you|others (who can clear it)
       --to <parent>       move: destination parent (KEY or KEY-seq)
       --before <id>       reorder: insert before this task
       --after <id>        reorder: insert after this task
