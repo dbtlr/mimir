@@ -430,20 +430,18 @@ export function TasksPage() {
                   const demoted = node.status === 'done' || node.status === 'abandoned';
                   const meta = STATUS_META[node.status];
                   return (
-                    <Link
+                    // role="row" keeps the columnheader↔cell association (the 17a
+                    // a11y contract); the title cell's link stretches over the
+                    // whole row, so the row is the hit target while the link
+                    // stays a link (Cmd/middle-click, copy-link, announced as one).
+                    <div
                       key={node.id}
-                      {...nodeLink(node.id)}
-                      // The whole row is the hit target AND the grid row: a native
-                      // link keeps focus/keyboard semantics (and Cmd/middle-click,
-                      // copy-link) while role="row" keeps the columnheader↔cell
-                      // association (the 17a a11y contract).
-                      // oxlint-disable-next-line jsx-a11y/no-interactive-element-to-noninteractive-role
                       role="row"
                       aria-label={`${meta.label} ${node.id} ${node.title}`}
                       className={cn(
-                        'flex min-h-11 w-full flex-wrap items-center gap-x-3 gap-y-1 border-b border-line/50 px-5 py-[11px] text-left transition-colors md:min-h-0',
+                        'relative flex min-h-11 w-full flex-wrap items-center gap-x-3 gap-y-1 border-b border-line/50 px-5 py-[11px] text-left transition-colors md:min-h-0',
                         ROW_GRID,
-                        'hover:bg-well-850 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
+                        'hover:bg-well-850 has-[a:focus-visible]:outline-2 has-[a:focus-visible]:-outline-offset-2 has-[a:focus-visible]:outline-accent',
                         node.status === 'under_review' && 'bg-attention/3',
                       )}
                     >
@@ -478,7 +476,12 @@ export function TasksPage() {
                           node.status === 'abandoned' && 'line-through decoration-ink-ghost',
                         )}
                       >
-                        {node.title}
+                        <Link
+                          {...nodeLink(node.id)}
+                          className="outline-none after:absolute after:inset-0"
+                        >
+                          {node.title}
+                        </Link>
                       </span>
                       <span role="cell" className="truncate text-mono-id text-ink-faint">
                         <HomeCell node={node} />
@@ -494,7 +497,7 @@ export function TasksPage() {
                       <span role="cell" className="text-mono-id text-ink-faint md:text-right">
                         {relativeTime(node.updated_at)}
                       </span>
-                    </Link>
+                    </div>
                   );
                 })}
               </div>

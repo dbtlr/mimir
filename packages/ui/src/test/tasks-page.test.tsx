@@ -156,10 +156,14 @@ describe('tasksPage (17a, MMR-228)', () => {
     // reads RAISED in both themes, inverting the demotion (skeleton.tsx trap)
     expect(done.className).not.toContain('bg-well-recessed');
     expect(done.className).not.toContain('opacity');
-    expect(within(done).getByText('Land the schema').className).toContain('text-ink-dim');
+    expect(within(done).getByText('Land the schema').closest('[role="cell"]')?.className).toContain(
+      'text-ink-dim',
+    );
 
     const abandoned = screen.getByRole('row', { name: /MMR-13/ });
-    expect(within(abandoned).getByText('Old dead end').className).toContain('line-through');
+    expect(
+      within(abandoned).getByText('Old dead end').closest('[role="cell"]')?.className,
+    ).toContain('line-through');
     // the ABANDONED word stays legible (the abandoned foreground token fails AA
     // as text at microlabel size) — ink-dim, never the illegible status tone
     const label = within(abandoned).getByText('Abandoned');
@@ -293,17 +297,18 @@ describe('tasksPage (17a, MMR-228)', () => {
     expect(headerGroup?.className).not.toContain('max-md:hidden');
   });
 
-  it("a row is a real link to the task's page", async () => {
+  it("a row carries a real link to the task's page", async () => {
     mockApi();
     const testRouter = renderTasks();
     const user = userEvent.setup();
     await screen.findByText('Doctor the wire');
 
+    // The row keeps its row role for the column association; the title inside
+    // it is announced as a link, and stretches over the row as the hit target.
     const row = screen.getByRole('row', { name: /MMR-10/ });
-    // A real link, so Cmd/middle-click and copy-link work (MMR-453).
-    expect(row.tagName).toBe('A');
-    expect(row).toHaveAttribute('href', '/p/MMR/10');
-    await user.click(row);
+    const link = within(row).getByRole('link', { name: 'Doctor the wire' });
+    expect(link).toHaveAttribute('href', '/p/MMR/10');
+    await user.click(link);
     await waitFor(() => {
       expect(testRouter.state.location.pathname).toBe('/p/MMR/10');
     });
