@@ -165,6 +165,7 @@ const SIZE_PROSE: Record<MarkdownSize, string> = {
 const CLAMP_PROSE: Record<MarkdownClamp, string> = {
   2: 'max-h-[2lh] overflow-hidden',
   3: 'max-h-[3lh] overflow-hidden',
+  6: 'max-h-[6lh] overflow-hidden',
 };
 const CLAMP_FADE =
   'data-[overflowing]:[mask-image:linear-gradient(to_bottom,black_calc(100%_-_1lh),transparent)]';
@@ -172,7 +173,7 @@ const CLAMP_FADE =
 /** What a clamped body measured: whether it overflows, and its approximate rendered line count. */
 export type ClampMeasure = { overflowing: boolean; lines: number };
 
-export type MarkdownClamp = 2 | 3;
+export type MarkdownClamp = 2 | 3 | 6;
 
 /**
  * The console's one markdown renderer — user prose on the Meridian prose

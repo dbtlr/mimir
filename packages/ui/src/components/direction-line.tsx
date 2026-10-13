@@ -5,6 +5,7 @@ import { useUpdateDirection } from '../api/mutations';
 import type { DirectionTarget } from '../api/mutations';
 import { cn } from '../lib/cn';
 import { MarkdownBody } from './markdown-body';
+import type { ClampMeasure } from './markdown-body';
 import { ActionButton } from './ui/action-button';
 
 /** The subject's on-screen handle — the project key or the node id. */
@@ -272,9 +273,10 @@ function DirectionDialog({
 }
 
 /**
- * The direction in full (MMR-450): the owned `## Next` prose rendered as
- * markdown, with Edit opening the whole-text rewrite. Record pages show it in
- * place of the folded {@link DirectionLine}.
+ * The direction in rail form (MMR-450, MMR-484): the owned `## Next` prose
+ * rendered as markdown, clamped to six lines so a long rewrite cannot push the
+ * rest of the rail off screen. "Read more" appears only when the text really
+ * overflows and opens the reading dialog; Edit opens the whole-text rewrite.
  */
 export function DirectionPanel({
   subject,
@@ -291,19 +293,22 @@ export function DirectionPanel({
   // Held as the subject it was opened FOR, as in DirectionLine: the project
   // page does not remount between projects, and a draft must never follow the
   // panel to another record's direction.
-  const [editingFor, setEditingFor] = useState<string | null>(null);
-  if (editingFor !== null && editingFor !== id) {
-    setEditingFor(null);
+  const [openFor, setOpenFor] = useState<{ id: string; mode: 'read' | 'edit' } | null>(null);
+  if (openFor !== null && openFor.id !== id) {
+    setOpenFor(null);
   }
+  const [measure, setMeasure] = useState<ClampMeasure>({ lines: 0, overflowing: false });
   const empty = next === undefined || next.trim() === '';
   return (
     <div className="flex flex-col gap-2">
       {empty ? (
         <p className="text-xs text-ink-ghost">No direction set</p>
       ) : (
-        <MarkdownBody className="max-w-none">{next}</MarkdownBody>
+        <MarkdownBody className="max-w-none" clamp={6} onClampMeasure={setMeasure}>
+          {next}
+        </MarkdownBody>
       )}
-      <div>
+      <div className="flex items-center gap-3">
         <ActionButton
           size="sm"
           variant="outline"
@@ -311,25 +316,37 @@ export function DirectionPanel({
           aria-haspopup="dialog"
           disabled={offline}
           onClick={() => {
-            setEditingFor(id);
+            setOpenFor({ id, mode: 'edit' });
           }}
         >
           Edit
         </ActionButton>
+        {!empty && measure.overflowing && (
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            onClick={() => {
+              setOpenFor({ id, mode: 'read' });
+            }}
+            className="text-micro text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            Read more
+          </button>
+        )}
       </div>
-      {/* Mounted only while editing, so each opening drafts from the current
-          text; keyed by subject so a draft never carries over. */}
-      {editingFor === id && (
+      {/* Mounted only while open, so each opening drafts from the current
+          text; keyed by subject and mode so a draft never carries over. */}
+      {openFor !== null && (
         <DirectionDialog
-          key={id}
+          key={`${id}:${openFor.mode}`}
           subject={subject}
           title={title}
           next={next}
           offline={offline}
           open
-          editOnly
+          editOnly={openFor.mode === 'edit'}
           onClose={() => {
-            setEditingFor(null);
+            setOpenFor(null);
           }}
         />
       )}
