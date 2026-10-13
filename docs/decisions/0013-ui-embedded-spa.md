@@ -354,9 +354,10 @@ the questions the operator asks. §4 is revised:
   at any distance, with each block's reason, oldest first. Blocks owned by
   `you` are in _Needs you_, so every blocked task has one home on the page.
 
-  A task that needs answers is in _Needs you_, not the frontier. An unheld
-  task two or more steps away, and a parked task, are not rows; the board
-  and the task browser list them.
+  An unheld task that needs answers is in _Needs you_, not the frontier; a
+  blocked task that needs answers keeps its block's home. An unheld task two
+  or more steps away, and a parked task, are not rows; the board and the
+  task browser list them.
 - **Shipped is the last seven calendar days**, today included, in the
   caller's time zone (ADR 0029). It lists tasks done or abandoned in that
   window, newest first, grouped by day. An abandoned row shows its reason.
