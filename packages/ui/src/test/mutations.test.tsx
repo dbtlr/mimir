@@ -87,6 +87,17 @@ describe('mutation hooks', () => {
     });
   });
 
+  it('invalidates the review page on settle', async () => {
+    apiSend.mockResolvedValue({ id: 'MMR-9' });
+    const client = new QueryClient();
+    const spy = vi.spyOn(client, 'invalidateQueries');
+    const { result } = renderHook(() => useTransition('MMR-9'), { wrapper: wrapper(client) });
+    result.current.mutate({ verb: 'done' });
+    await waitFor(() => {
+      expect(spy).toHaveBeenCalledWith({ queryKey: ['review'] });
+    });
+  });
+
   it('toasts the error message on failure', async () => {
     apiSend.mockRejectedValue(new Error('already done'));
     const client = new QueryClient();

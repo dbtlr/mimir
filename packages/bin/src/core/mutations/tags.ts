@@ -47,7 +47,7 @@ async function projectOfTarget(w: StoreWriter, ref: EntityRef): Promise<string |
  * `tags` field, which alone carries no CAS precondition — the stamp is the
  * co-written guard the write path's co-write invariant requires. An idempotent
  * re-tag adds nothing and writes nothing, so it never moves `updated_at` (the
- * stale clock and attention recency read it). `untag` needs no stamp: removing
+ * stale clock reads it). `untag` needs no stamp: removing
  * from a present `tags` field is always value-CAS-guarded by the field itself.
  */
 export async function tagEntities(

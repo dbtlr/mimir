@@ -122,16 +122,31 @@ export class PwaFixture {
         status: 200,
       };
     }
+    if (path === '/api/review') {
+      return {
+        body: JSON.stringify({
+          decisions: [],
+          last_finished: null,
+          projects: [
+            {
+              decisions: 0,
+              in_flight: 0,
+              key: 'PWA',
+              name: 'Offline-ready operator project',
+              triage: 0,
+            },
+          ],
+          queue: [],
+          triage: [],
+        }),
+        status: 200,
+      };
+    }
     if (path === '/api/projects') {
       return {
         body: JSON.stringify({
           items: [
             {
-              attention: {
-                lane: 'live',
-                last_activity: '2026-08-06T12:00:00.000Z',
-                stale: false,
-              },
               created_at: '2026-08-06T12:00:00.000Z',
               distribution: {},
               id: 'PWA',

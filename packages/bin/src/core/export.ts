@@ -21,8 +21,8 @@ import type { NewAnnotationRecord, NewTagRecord, NewTransitionRecord } from './s
  * "portable backup" claim holds.
  *
  * **Stored facts only.** Nothing derived crosses this boundary: no status word,
- * no rollup, no predicate, no attention state (ADR 0001 — the core recomputes
- * all of it on the target from these same inputs). A fact that a `Store` read
+ * no rollup, no predicate (ADR 0001 — the core
+ * recomputes all of it on the target from these same inputs). A fact that a `Store` read
  * synthesizes rather than persists (a tag's `created_at`, taken from its
  * owning entity's `created_at`) is likewise absent: the import restores the fact it was
  * synthesized from, and the target re-synthesizes it identically.

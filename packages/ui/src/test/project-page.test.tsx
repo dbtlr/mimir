@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
 import { router } from '../router';
-import { task, workReport } from './fixtures';
+import { emptyRead, task, workReport } from './fixtures';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
@@ -36,14 +36,14 @@ describe.each([
       if (path.startsWith('/api/projects/SR') || path.includes('project=SR')) {
         return Promise.reject(new ApiError(`GET ${path} → 404`, 404));
       }
-      return Promise.resolve({ items: [], total: 0 });
+      return Promise.resolve(emptyRead(path));
     });
     renderProject('SR', suffix);
 
     await expect(screen.findByText(/archived or no longer exists/i)).resolves.toBeDefined();
     // The server answered — the surface must not read as offline.
     expect(screen.queryByText(/offline — last synced/i)).toBeNull();
-    expect(screen.getByRole('link', { name: /back to overview/i })).toBeDefined();
+    expect(screen.getByRole('link', { name: /back to the review page/i })).toBeDefined();
   });
 
   it('an unreachable server still reads as offline, not as not-found', async () => {
@@ -72,7 +72,7 @@ describe('board direction (MMR-390)', () => {
           type: 'project',
         });
       }
-      return Promise.resolve({ items: [], total: 0 });
+      return Promise.resolve(emptyRead(path));
     });
     renderProject('MMR', '/board');
 
@@ -99,7 +99,7 @@ describe('tree retirement (MMR-472)', () => {
       if (path === '/api/projects/MMR') {
         return Promise.resolve({ id: 'MMR', status: 'ready', title: 'Mimir', type: 'project' });
       }
-      return Promise.resolve({ items: [], total: 0 });
+      return Promise.resolve(emptyRead(path));
     });
     renderProject('MMR', '/board?view=tree');
 
@@ -143,7 +143,7 @@ function serveProject() {
         type: 'project',
       });
     }
-    return Promise.resolve({ items: [], total: 0 });
+    return Promise.resolve(emptyRead(path));
   });
 }
 

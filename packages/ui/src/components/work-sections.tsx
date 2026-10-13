@@ -1,4 +1,3 @@
-import type { Grooming } from '@mimir/contract';
 import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -14,7 +13,6 @@ import type {
   WireWorkWaiting,
 } from '../api/types';
 import { cn } from '../lib/cn';
-import { visibleGrooming } from '../lib/grooming';
 import { nodeLink } from '../lib/record-url';
 import { ago, relativeTime } from '../lib/time';
 import { transitionLabel } from '../lib/transitions';
@@ -28,14 +26,14 @@ import {
   shippedTime,
 } from '../lib/work-page';
 import { BrowserGroup, BrowserRow } from './browser-list';
-import { GroomingBadge } from './grooming-chip';
 import { GroomingDialog } from './grooming-dialog';
 import { NewTaskButton } from './new-task-button';
 import { ReasonDialog } from './reason-dialog';
-import { SizeBadge, StaleBadge } from './signal-badges';
+import { StaleBadge } from './signal-badges';
 import { StatusDot } from './status-dot';
 import { ActionButton } from './ui/action-button';
 import { Badge } from './ui/badge';
+import { NeedsYouRow, RowTail } from './work-rows';
 
 /*
  * The work page's five sections (ADR 0013, MMR-467 refinement): Now, Needs you,
@@ -47,9 +45,6 @@ import { Badge } from './ui/badge';
  * the row moves to where it now belongs, and keyboard focus moves on to the
  * next row in its section (MMR-474). Offline disables them (ADR 0013 §5).
  */
-
-/** The attention violet is the Needs you section's alone (ADR 0019). */
-const ATTENTION_RULE = 'border-l-2 border-attention pl-2';
 
 /** Row buttons are touch-sized on a phone, where they wrap under the row. */
 const ROW_ACTION = 'max-md:min-h-11';
@@ -175,23 +170,6 @@ function Empty({ lead, children }: { lead: string; children?: ReactNode }) {
   );
 }
 
-/** A row's trailing chips: grooming (while it still reads one), size, and stale. */
-function RowTail({
-  row,
-  grooming = visibleGrooming(row),
-}: {
-  row: WireNode & { stale: boolean };
-  grooming?: Grooming;
-}) {
-  return (
-    <>
-      {grooming !== undefined && <GroomingBadge state={grooming} />}
-      {row.size != null && <SizeBadge size={row.size} />}
-      {row.stale && <StaleBadge />}
-    </>
-  );
-}
-
 /** One part of a Now row's agent context, set off from the one before by a middle dot. */
 function ContextPart({ children, mono = false }: { children: ReactNode; mono?: boolean }) {
   return (
@@ -245,18 +223,6 @@ function NowSection({ rows }: { rows: readonly WireWorkNow[] }) {
   );
 }
 
-/** Why a row needs the operator: in review, a block they can clear, or a question to answer. */
-function NeedsYouReason({ row }: { row: WireWorkNeedsYou }) {
-  const label = {
-    blocked: 'Blocked · yours',
-    needs_answers: undefined,
-    under_review: 'In review',
-  }[row.reason];
-  return label === undefined ? null : (
-    <span className="microlabel text-attention-foreground">{label}</span>
-  );
-}
-
 /** What a needs-you row offers: a verdict, an answer, or nothing for a block. */
 function needsYouActions(
   row: WireWorkNeedsYou,
@@ -270,51 +236,6 @@ function needsYouActions(
     return <AnswerAction id={row.id} question={row.question} offline={offline} handoff={handoff} />;
   }
   return undefined;
-}
-
-function NeedsYouRow({
-  row,
-  offline,
-  handoff,
-}: {
-  row: WireWorkNeedsYou;
-  offline: boolean;
-  handoff: RowFocusHandoff;
-}) {
-  const holdReason = row.reason === 'blocked' ? row.hold_reason?.trim() : undefined;
-  return (
-    <div className={ATTENTION_RULE}>
-      <BrowserRow
-        to={nodeLink(row.id)}
-        id={row.id}
-        title={row.title}
-        leading={<StatusDot status={row.status} />}
-        beforeTitle={<NeedsYouReason row={row} />}
-        actions={needsYouActions(row, offline, handoff)}
-        afterTitle={
-          <RowTail
-            row={row}
-            grooming={row.reason === 'needs_answers' ? 'needs_answers' : undefined}
-          />
-        }
-        meta={
-          <>
-            {holdReason !== undefined && holdReason !== '' && (
-              <p className="text-meta text-ink-dim">{holdReason}</p>
-            )}
-            {row.question !== null && (
-              <blockquote className="mt-1 max-w-prose rounded-sm border-l-2 border-attention bg-well-850 px-2.5 py-1.5">
-                <span className="microlabel block text-ink-faint">Latest question</span>
-                <span className="text-meta whitespace-pre-line text-attention-foreground">
-                  {row.question}
-                </span>
-              </blockquote>
-            )}
-          </>
-        }
-      />
-    </div>
-  );
 }
 
 function NeedsYouSection({
@@ -337,7 +258,7 @@ function NeedsYouSection({
         <Empty lead="Nothing needs you.">No reviews, blocks, or questions are waiting.</Empty>
       ) : (
         rows.map((row) => (
-          <NeedsYouRow key={row.id} row={row} offline={offline} handoff={handoff} />
+          <NeedsYouRow key={row.id} row={row} actions={needsYouActions(row, offline, handoff)} />
         ))
       )}
     </BrowserGroup>

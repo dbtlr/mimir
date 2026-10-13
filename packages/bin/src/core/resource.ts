@@ -14,8 +14,8 @@ import type { Store } from './store';
  * once, a project's full nested tree, and the cross-cutting transition feed.
  * Core capabilities like any other; the HTTP API is just their first renderer.
  * Each read derives over one working-set snapshot (ADR 0016 Phase 0) — the
- * portfolio list shares a single memoized set across every project's rollup,
- * leaf counts, and attention state.
+ * portfolio list shares a single memoized set across every project's rollup
+ * and leaf counts.
  */
 
 /**

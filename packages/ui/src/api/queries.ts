@@ -9,6 +9,7 @@ import type {
   WireDoctorFacet,
   WireHealth,
   WireNode,
+  WireReviewReport,
   WireScratchpadRow,
   WireSearchHit,
   WireSeed,
@@ -32,8 +33,8 @@ export const healthQuery = queryOptions({
 
 /**
  * The record-health facet (MMR-185): `mimir doctor` findings, optionally scoped
- * to one project. Unscoped feeds the always-on surfacing (overview vital, attention
- * findings line); the `key` form feeds the project header chip + the panel. Read-only
+ * to one project. Unscoped feeds the panel's every-project view; the `key` form
+ * feeds the project header chip and the scoped panel. Read-only
  * — no write ever invalidates it, so it rides the poll like every other read.
  */
 export const doctorQuery = (project?: string) =>
@@ -47,7 +48,7 @@ export const doctorQuery = (project?: string) =>
     queryKey: ['doctor', project ?? 'all'],
   });
 
-/** Overview: every project with its rollup distribution riding along. */
+/** Every active project with its rollup distribution riding along. */
 export const projectsQuery = queryOptions({
   queryFn: () => apiGet<Collection<WireNode>>('/api/projects'),
   queryKey: ['projects'],
@@ -55,36 +56,27 @@ export const projectsQuery = queryOptions({
 
 /**
  * The archived shelf (MMR-125): frozen projects behind the `?status=archived`
- * door (ADR 0015). Feeds both the archived shelf and the Overview header's
- * `· {m} archived` clause (MMR-230). Keyed under `['projects']` so every
- * write's invalidation refreshes the shelf alongside the live lanes.
+ * door (ADR 0015), under the review page's project list. Keyed under
+ * `['projects']` so every write's invalidation refreshes the shelf.
  */
 export const archivedProjectsQuery = queryOptions({
   queryFn: () => apiGet<Collection<WireNode>>('/api/projects?status=archived'),
   queryKey: ['projects', 'archived'],
 });
 
-/** Attention: tasks awaiting the operator's review, portfolio-wide (MMR-103). */
-export const underReviewQuery = queryOptions({
-  queryFn: () => apiGet<Collection<WireNode>>('/api/nodes?type=task&status=under_review'),
-  queryKey: ['nodes', 'attention', 'under_review'],
-});
-
-/** Attention strip: externally blocked tasks, portfolio-wide. */
-export const blockedQuery = queryOptions({
-  queryFn: () => apiGet<Collection<WireNode>>('/api/nodes?type=task&status=blocked'),
-  queryKey: ['nodes', 'attention', 'blocked'],
-});
-
-/** Attention strip: tasks the stale verdict flags, portfolio-wide. */
-export const staleQuery = queryOptions({
-  queryFn: () => apiGet<Collection<WireNode>>('/api/nodes?type=task&is=stale'),
-  queryKey: ['nodes', 'attention', 'stale'],
+/**
+ * The review page (MMR-477): what needs the operator across every active
+ * project, plus the project list. Its own key root, listed in the write keys,
+ * so every write refreshes it; the top-bar alert reads the same entry.
+ */
+export const reviewQuery = queryOptions({
+  queryFn: () => apiGet<WireReviewReport>('/api/review'),
+  queryKey: ['review'],
 });
 
 /**
- * Ready leaf tasks, portfolio-wide — the actionable count behind a project card
- * and a picker row (MMR-82). Leaf tasks, not the project rollup's `ready`
+ * Ready leaf tasks, portfolio-wide — the actionable count behind a picker row
+ * (MMR-82). Leaf tasks, not the project rollup's `ready`
  * bucket, which counts direct children and skews with tree depth.
  */
 export const readyQuery = queryOptions({

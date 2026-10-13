@@ -17,6 +17,7 @@ import type {
   UpstreamResolution,
   WorkFrontierTask,
   WorkReport,
+  WorkShippedTask,
 } from '@mimir/contract';
 
 import { overviewScratchpadOf } from './intent/queries';
@@ -233,13 +234,6 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
       project_key: node.home.projectKey,
     };
   }
-  if (node.attention !== undefined) {
-    wire.attention = {
-      lane: node.attention.lane,
-      last_activity: node.attention.lastActivity,
-      stale: node.attention.stale,
-    };
-  }
   return wire;
 }
 
@@ -434,12 +428,11 @@ export function formatTriageJsonl(report: TriageReport): string {
   return emitWire(triageToWire(report), false);
 }
 
-/** One needs-attention listing row (MMR-322) — the lean task with its lane word
- * and the `going cold` modifier folded onto the same object, exactly as an
- * awaiting row folds on `awaiting_on`. */
+/** One needs-attention listing row (MMR-322) — the lean task with the `going cold`
+ * modifier folded onto the same object, exactly as an awaiting row folds on
+ * `awaiting_on`. */
 function attentionTaskToWire(row: OverviewAttentionTask): Record<string, unknown> {
   const wire = nodeToWire(row.task);
-  wire.lane = row.lane;
   wire.stale = row.stale;
   return wire;
 }
@@ -593,12 +586,17 @@ export function workToWire(report: WorkReport): Record<string, unknown> {
       started_at: row.startedAt,
     })),
     scope: report.scope,
-    shipped: report.shipped.map((row) => ({
-      ...nodeToWire(row.task),
-      abandon_reason: row.abandonReason,
-      finished_at: row.finishedAt,
-      stale: row.stale,
-    })),
+    shipped: report.shipped.map(shippedToWire),
+  };
+}
+
+/** A finished task's wire row: the work page's Shipped rows and the review page's last finish. */
+function shippedToWire(row: WorkShippedTask): Record<string, unknown> {
+  return {
+    ...nodeToWire(row.task),
+    abandon_reason: row.abandonReason,
+    finished_at: row.finishedAt,
+    stale: row.stale,
   };
 }
 
@@ -618,6 +616,7 @@ export function reviewToWire(report: ReviewReport): Record<string, unknown> {
         stale: row.stale,
       })),
     })),
+    last_finished: report.lastFinished === null ? null : shippedToWire(report.lastFinished),
     projects: report.projects.map((p) => ({
       decisions: p.decisions,
       in_flight: p.inFlight,

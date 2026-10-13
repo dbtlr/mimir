@@ -6,9 +6,9 @@ import { calendarDate } from '../lib/time';
 import { ActionButton } from './ui/action-button';
 
 /**
- * The Archived shelf on the Overview (MMR-125, mock 20a): a separate section
- * below the At-rest lane — folded to a recessed count row by default, unfolding
- * (`aria-expanded`) to a grid of dashed-border frozen cards. Frozen cards are
+ * The Archived shelf under the review page's project list (MMR-125, mock 20a):
+ * folded to a recessed count row by default, unfolding (`aria-expanded`) to a
+ * column of dashed-border frozen cards. Frozen cards are
  * display + Unarchive only: archived projects 404 on get/tree (ADR 0015), so
  * the card is deliberately not a link — the only way back in is Unarchive, with
  * no confirmation (unarchive is the undo). Absent entirely at zero archived
@@ -117,7 +117,7 @@ export function ArchivedShelf({ projects, offline }: { projects: WireNode[]; off
         </span>
       </button>
       {expanded && (
-        <div className="grid gap-2.5 bg-well-950 px-4 pt-0.5 pb-3 sm:grid-cols-2">
+        <div className="grid gap-2.5 bg-well-950 px-4 pt-0.5 pb-3">
           {projects.map((project) => (
             <FrozenProjectCard key={project.id} project={project} offline={offline} />
           ))}

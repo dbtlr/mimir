@@ -186,17 +186,16 @@ const PROJECT_FACETS: readonly FacetName[] = [
   // The project doc's own `## Next` narrative (MMR-321).
   'next',
 ];
-/** The project-list projection — the attention facet (MMR-101) + per-project leaf counts (MMR-105) for the project card vitals (MMR-106). */
-const PROJECT_LIST_FACETS: readonly FacetName[] = [
-  'distribution',
-  'tags',
-  'attention',
+/** The project-list projection: distribution and tags. */
+const PROJECT_LIST_FACETS: readonly FacetName[] = ['distribution', 'tags'];
+/** The archived door adds the leaf counts (MMR-105) and the artifact tally
+ * (MMR-125) for the shelf's count line. Scoped to `?status=archived` only: the
+ * active list is polled every 10s by a UI that reads neither. */
+const ARCHIVED_LIST_FACETS: readonly FacetName[] = [
+  ...PROJECT_LIST_FACETS,
   'leafCounts',
+  'artifactCount',
 ];
-/** The archived door adds the artifact tally for the shelf's count line (MMR-125).
- * Scoped to `?status=archived` only: the facet costs an artifact-store read per
- * project, and the active list is polled every 10s by a UI that never reads it. */
-const ARCHIVED_LIST_FACETS: readonly FacetName[] = [...PROJECT_LIST_FACETS, 'artifactCount'];
 
 function scratchService(store: Store) {
   return createScratchpadService(store.scratchpads, store.artifacts, store);
@@ -887,8 +886,8 @@ function bindServer(
       // The record-health facet (MMR-185, ADR 0017): the console projection of the
       // same findings `mimir doctor` reports. Read-only. `?project` scopes to one
       // project's group (the project-header/panel case) — the backend narrows the
-      // findings itself; unscoped returns every project's group (the overview +
-      // attention surfacing).
+      // findings itself; unscoped returns every project's group (the panel's
+      // every-project view).
       '/api/doctor': {
         GET: (req) =>
           guarded(req, async () => {
@@ -1367,15 +1366,25 @@ function bindServer(
 
       // The console review page (MMR-477) across every active project — see
       // `reviewOf`. Core never runs doctor, so the per-project finding counts
-      // come from the doctor facet (empty when no provider is wired).
+      // come from the doctor facet (empty when no provider is wired). A failed
+      // scan counts no findings rather than failing the read: the page and the
+      // top-bar alert carry the decisions, and `/api/doctor` reports the failure.
       '/api/review': {
         GET: (req) =>
           guarded(req, async () => {
             // The scan runs alongside reviewOf's store load rather than before it.
-            const findings = (async () => {
-              const facet =
-                opts.doctor === undefined ? emptyDoctorFacet() : await opts.doctor(undefined);
-              return new Map(facet.groups.map((g) => [g.project, g.finding_count]));
+            const findings = (async (): Promise<ReadonlyMap<string, number>> => {
+              try {
+                const facet =
+                  opts.doctor === undefined ? emptyDoctorFacet() : await opts.doctor(undefined);
+                return new Map(facet.groups.map((g) => [g.project, g.finding_count]));
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                console.error(
+                  `⚠ serve: doctor scan failed; the review page counts no findings — ${message}`,
+                );
+                return new Map();
+              }
             })();
             return json(reviewToWire(await reviewOf(store, findings)));
           }),

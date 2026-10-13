@@ -118,7 +118,7 @@ describe('projectSettings lifecycle (MMR-230)', () => {
     expect(screen.getByRole('button', { name: 'Archive project' })).toBeEnabled();
   });
 
-  it('archiving POSTs the archive route with no confirm, closes, toasts undo, and returns to the Overview', async () => {
+  it('archiving POSTs the archive route with no confirm, closes, toasts undo, and returns to the review page', async () => {
     apiSend.mockResolvedValue({ id: 'MMR' });
     wrap(<ProjectSettingsButton project={baseProject} />);
     openSheet();

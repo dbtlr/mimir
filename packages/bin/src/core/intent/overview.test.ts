@@ -350,7 +350,7 @@ test('a review-only session leaves no mechanical trace (MMR-320 echo policy)', a
 
 // ─── Needs-attention listings (MMR-322) ─────────────────────────────────────
 
-test('the blocked listing carries the lane word and the hold reason', async () => {
+test('the blocked listing carries the hold reason', async () => {
   const stuck = await createTask(store, { parentId: phaseId, title: 'stuck' });
   await blockTask(store, idOf(stuck), 'upstream API down');
 
@@ -359,8 +359,6 @@ test('the blocked listing carries the lane word and the hold reason', async () =
   const [row] = report.hygiene.listings.blocked;
   expect(row?.task.id).toBe(idOf(stuck));
   expect(row?.task.holdReason).toBe('upstream API down');
-  // `blocked` is the needs-unsticking lane (MMR-101 vocabulary, shared mapping).
-  expect(row?.lane).toBe('needs_unsticking');
   expect(row?.stale).toBe(false);
 });
 
@@ -372,7 +370,6 @@ test('the stale listing rides the same asOf the count does', async () => {
   expect(report.hygiene.stale).toBeGreaterThanOrEqual(1);
   const row = report.hygiene.listings.stale.find((r) => r.task.id === idOf(started));
   expect(row?.stale).toBe(true);
-  expect(row?.lane).toBe('live');
 });
 
 test('listings cap at 5 while the counts stay true', async () => {

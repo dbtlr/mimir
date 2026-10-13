@@ -10,7 +10,6 @@ import type {
 } from '@mimir/contract';
 
 import type { ArtifactRecord, ArtifactStore } from '../artifacts/store';
-import { attentionOf } from '../attention';
 import type { BodySectionStore } from '../body-sections/store';
 import type { DerivationSet } from '../derive';
 import {
@@ -314,9 +313,6 @@ export async function buildProjectView(
     // (MMR-125); archived projects 404 on the detail get, so the list facet is
     // the only address for it.
     view.artifactCount = (await artifacts.listForProject(project.key)).length;
-  }
-  if (facets.has('attention')) {
-    view.attention = attentionOf(set, project);
   }
   if (facets.has('tags')) {
     const records = set.ws.projectTags.get(project.key) ?? [];

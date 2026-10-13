@@ -6,7 +6,7 @@ import { calendarDate } from './time';
 
 /**
  * The status color system — one lookup, used identically everywhere a status
- * word shows (overview distribution bars, board column headers, tree badges,
+ * word shows (distribution bars, board column headers, tree badges,
  * record pages). Class strings are literal so Tailwind extracts them.
  */
 export type StatusMeta = {

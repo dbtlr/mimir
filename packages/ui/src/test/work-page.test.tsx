@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../api/errors';
 import type { WireNode, WireTreeNode, WireWorkReport } from '../api/types';
 import { router } from '../router';
-import { task, workReport } from './fixtures';
+import { emptyRead, task, workReport } from './fixtures';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
@@ -129,7 +129,7 @@ function serve(scope: Scope, report: WireWorkReport | Error = workReport(), tree
     if (path === '/api/projects/MMR/tree') {
       return Promise.resolve(tree);
     }
-    return Promise.resolve({ items: [], total: 0 });
+    return Promise.resolve(emptyRead(path));
   });
 }
 

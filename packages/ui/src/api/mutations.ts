@@ -14,6 +14,7 @@ const WRITE_KEYS: readonly (readonly string[])[] = [
   ['nodes'],
   ['projects'],
   ['project'],
+  ['review'],
   ['seeds'],
   ['tree'],
 ];

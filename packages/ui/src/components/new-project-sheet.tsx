@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetTitle } from './ui/sheet';
 
 /**
  * The create-project sheet (21a / MMR-230), shared by every "+ New project"
- * trigger (Overview header, mobile end-of-list row, project picker). KEY
+ * trigger (the review page's project list and the project picker). KEY
  * auto-derives from TITLE as an editable suggestion until the user touches
  * it; it is editable *here only* — after create the key is permanent, since
  * it names every ID. The server owns key uniqueness/validity: a rejection
@@ -157,7 +157,7 @@ function NewProjectForm({ onDone }: { onDone: () => void }) {
       {/* Footer */}
       <div className="flex items-center gap-2.5 border-t border-line pt-3.5">
         {/* ink-dim over the mock's ink-ghost — same WCAG AA bump as the KEY helper. */}
-        <span className="text-tag text-ink-dim">lands in At rest until work starts moving</span>
+        <span className="text-tag text-ink-dim">joins the project list on the review page</span>
         <form.Subscribe selector={(state) => [state.values.title, state.values.key] as const}>
           {([title, key]) => (
             <ActionButton

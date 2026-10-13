@@ -327,32 +327,6 @@ export type Verdicts = {
 };
 
 /**
- * The Lanes (MMR-101) — the four exclusive, highest-wins standings the Overview
- * groups a project into, ordered by *how much the operator's action moves it*:
- * `awaiting_you` (a review only you can clear) over `live` (work in motion) over
- * `needs_unsticking` (blocked/awaiting, often on something external) over
- * `at_rest` (nothing actionable). The operator-facing sibling of the container
- * rollup word: projects store no status, so the Overview derives a coarse
- * standing over their leaves the way `interpret()` derives a word over a
- * container's children — same spine, a 4-value vocabulary instead of the status
- * words. `going cold` (stale) is a modifier that rides a lane, not a lane.
- */
-export type Lane = 'awaiting_you' | 'live' | 'needs_unsticking' | 'at_rest';
-
-/**
- * `attention` — a project's derived attention-state (MMR-101): its highest-wins
- * {@link Lane}, the recency of its most-recent task touch (`lastActivity` =
- * `max(updated_at)` over leaf tasks; the project's own `updatedAt` when empty),
- * and the `going cold` modifier (`stale` = ≥1 leaf task is stale). Project-only;
- * intra-lane recency ordering is the consumer's (MMR-102), never cross-lane.
- */
-export type AttentionState = {
-  lane: Lane;
-  lastActivity: string;
-  stale: boolean;
-};
-
-/**
  * `home` — where a row lives (MMR-228): the owning project's KEY plus the
  * parent container's rendered id, title, and open-endedness, resolved
  * server-side so portfolio list surfaces can render `project › parent ∞`
@@ -465,7 +439,6 @@ export type NodeView = {
    * list-facet address for a count the archived-404 detail route can't serve. */
   artifactCount?: number;
   verdicts?: Verdicts;
-  attention?: AttentionState;
   /** Where the row lives (MMR-228) — project KEY + parent container ref. */
   home?: HomeFacet;
   /**
@@ -536,15 +509,12 @@ export type OverviewAwaitingTask = {
 };
 
 /**
- * One needs-attention row (MMR-322): a lean task plus the derived standing the
- * Overview's project cards already speak — the {@link Lane} its Status word falls
- * in, and the `going cold` modifier. Same vocabulary as {@link AttentionState},
- * one rung down: a lane over ONE leaf rather than the highest-wins lane over a
- * project's leaves.
+ * One needs-attention row (MMR-322): a lean task plus the `going cold` modifier.
+ * The task's own Status word and hold reason already say why it is listed; the
+ * row adds only what the word cannot — whether it is past the stale threshold.
  */
 export type OverviewAttentionTask = {
   task: NodeView;
-  lane: Lane;
   /** The `going cold` modifier — this task is past the stale threshold. */
   stale: boolean;
 };
@@ -559,7 +529,7 @@ export type OverviewSeed = {
 };
 
 /** The capped listings behind the hygiene counts (MMR-322) — the head of each
- * attention lane, 5 rows apiece against the TRUE counts alongside them. */
+ * hygiene count, 5 rows apiece against the TRUE counts alongside them. */
 export type OverviewHygieneListings = {
   blocked: OverviewAttentionTask[];
   stale: OverviewAttentionTask[];
@@ -877,6 +847,8 @@ export type ReviewReport = {
   triage: ReviewTriageGroup[];
   /** Every active project: decisions first, then by triage count. */
   projects: ReviewProject[];
+  /** The newest done or abandoned task across active projects, for the all-clear state; null when none has finished. */
+  lastFinished: WorkShippedTask | null;
 };
 
 /** The set-valued column names (flat, MMR-38), for `--col` parsing and the cheap-vs-heavy default sets. */
@@ -893,7 +865,6 @@ export const FACET_NAMES = [
   'leafCounts',
   'artifactCount',
   'verdicts',
-  'attention',
   'home',
   'lede',
 ] as const;

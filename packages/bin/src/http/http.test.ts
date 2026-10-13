@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 
 import { parseJson } from '@mimir/helpers';
 import type { Server } from 'bun';
@@ -114,23 +114,19 @@ test('GET /api/projects lists every project with its rollup', async () => {
   expect(items[0]?.distribution).toBeDefined();
 });
 
-test('GET /api/projects carries the attention facet in snake_case (MMR-101)', async () => {
+test('GET /api/projects rows carry no attention facet (Lanes retired, MMR-476)', async () => {
   const res = await get('/api/projects');
   const items = (await parse(res)).items as Rec[];
-  // both seeded projects have only fresh (ready) leaf tasks → the live lane
-  const attention = items[0]?.attention as Rec;
-  expect(attention).toBeDefined();
-  expect(attention.lane).toBe('live');
-  expect(typeof attention.last_activity).toBe('string');
-  expect(attention.stale).toBe(false);
+  expect(items.length).toBeGreaterThan(0);
+  for (const item of items) {
+    expect('attention' in item).toBe(false);
+  }
 });
 
-test('GET /api/projects carries the leaf_counts facet for the card vitals (MMR-105)', async () => {
-  const res = await get('/api/projects');
-  const items = (await parse(res)).items as Rec[];
-  // MMR's two seeded leaf tasks are both fresh → ready: 2 (snake_case wire key)
+test('GET /api/projects leaves leaf_counts to the archived door, the only list that reads it', async () => {
+  const items = (await parse(await get('/api/projects'))).items as Rec[];
   expect(items[0]?.id).toBe('MMR');
-  expect(items[0]?.leaf_counts).toEqual({ ready: 2 });
+  expect(items[0]?.leaf_counts).toBeUndefined();
 });
 
 test('POST /api/projects creates and echoes the project record; duplicate keys conflict', async () => {
@@ -314,7 +310,14 @@ test('GET /api/review serves the snake_case review envelope', async () => {
   const res = await get('/api/review');
   expect(res.status).toBe(200);
   const body = await parse(res);
-  expect(Object.keys(body).toSorted()).toEqual(['decisions', 'projects', 'queue', 'triage']);
+  expect(Object.keys(body).toSorted()).toEqual([
+    'decisions',
+    'last_finished',
+    'projects',
+    'queue',
+    'triage',
+  ]);
+  expect(body.last_finished).toBeNull();
   expect(body.queue).toEqual([task1, otherTask]);
   const decisions = body.decisions as Rec[];
   expect(decisions.map((g) => g.project)).toEqual([
@@ -328,6 +331,34 @@ test('GET /api/review serves the snake_case review envelope', async () => {
     { decisions: 1, in_flight: 0, key: 'MMR', name: 'Mimir', triage: 0 },
     { decisions: 1, in_flight: 0, key: 'NRN', name: 'Norn', triage: 0 },
   ]);
+});
+
+test('GET /api/review names the last finish with its finish time', async () => {
+  await completeTask(store, task1);
+  const body = await parse(await get('/api/review'));
+  expect(body.last_finished).toMatchObject({ abandon_reason: null, id: task1, stale: false });
+  expect(typeof (body.last_finished as Rec).finished_at).toBe('string');
+});
+
+test('GET /api/review still answers when the doctor scan fails, counting no findings', async () => {
+  const logged = spyOn(console, 'error').mockImplementation(() => {});
+  await send('POST', '/api/seeds', { kind: 'idea', project: 'NRN', title: 'an idea' });
+  const failingServer = createServer(store, {
+    doctor: () => Promise.reject(new Error('doctor scan failed')),
+    port: 0,
+    version: '0.0.0-test',
+  });
+  try {
+    const res = await fetch(`http://127.0.0.1:${String(failingServer.port)}/api/review`);
+    expect(res.status).toBe(200);
+    const triage = (await parse(res)).triage as Rec[];
+    expect(triage.map((g) => [(g.project as Rec).key, g.findings])).toEqual([['NRN', 0]]);
+    // The operator still learns the scan failed: the serve log says so.
+    expect(logged).toHaveBeenCalledWith(expect.stringContaining('doctor scan failed'));
+  } finally {
+    logged.mockRestore();
+    await failingServer.stop(true);
+  }
 });
 
 test('GET /api/review counts the injected doctor findings per active project', async () => {

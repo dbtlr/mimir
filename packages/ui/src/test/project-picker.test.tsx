@@ -53,7 +53,7 @@ describe('projectPicker "+ New project" row (MMR-230)', () => {
     await userEvent.click(screen.getByRole('button', { name: /projects/i }));
     await userEvent.click(await screen.findByRole('menuitem', { name: /new project/i }));
     await expect(screen.findByLabelText(/title/i)).resolves.toBeInTheDocument();
-    expect(screen.getByText(/lands in At rest until work starts moving/)).toBeInTheDocument();
+    expect(screen.getByText(/joins the project list on the review page/)).toBeInTheDocument();
   });
 
   it('the row disables when the projects query errors (offline)', async () => {

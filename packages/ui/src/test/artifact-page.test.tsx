@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../api/errors';
 import type { WireArtifactDetail, WireNode, WireTreeNode } from '../api/types';
 import { router } from '../router';
-import { task } from './fixtures';
+import { emptyRead, task } from './fixtures';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
@@ -111,7 +111,7 @@ function serve(record: WireArtifactDetail, nodes: WireNode[] = []) {
     if (node !== undefined) {
       return Promise.resolve(node);
     }
-    return Promise.resolve({ items: [], total: 0 });
+    return Promise.resolve(emptyRead(path));
   });
 }
 
@@ -205,7 +205,7 @@ describe('artifact page (MMR-452)', () => {
         }
         return p === '/api/nodes/MMR-432'
           ? Promise.resolve(hostTask)
-          : Promise.resolve({ items: [], total: 0 });
+          : Promise.resolve(emptyRead(p));
       });
       renderAt('/p/MMR/a232');
 
@@ -391,7 +391,7 @@ describe('artifact page (MMR-452)', () => {
       apiGet.mockImplementation((p: string) =>
         p === '/api/artifacts/MMR-a999'
           ? Promise.reject(new ApiError(`GET ${p} → 404`, 404))
-          : Promise.resolve({ items: [], total: 0 }),
+          : Promise.resolve(emptyRead(p)),
       );
       renderAt('/p/MMR/a999');
 

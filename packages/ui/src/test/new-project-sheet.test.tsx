@@ -29,7 +29,7 @@ describe('newProjectSheet (MMR-230)', () => {
     expect(screen.getByLabelText(/title/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/key/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
-    expect(screen.getByText(/lands in At rest until work starts moving/)).toBeInTheDocument();
+    expect(screen.getByText(/joins the project list on the review page/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /create/i })).toBeInTheDocument();
   });
 

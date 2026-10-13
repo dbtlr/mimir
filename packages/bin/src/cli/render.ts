@@ -919,8 +919,8 @@ export function renderOverview(report: OverviewReport, io: Io): string {
 
   // hygiene — the counts, each nonzero one naming its follow-up command scoped to
   // the reported project so the pointer stays true under `-s KEY`, then the
-  // capped listing beneath it: the lane word first, so the row reads as a
-  // standing, then the task's own line.
+  // capped listing beneath it: the task's own line, then its hold reason and
+  // the going-cold modifier.
   const { untriaged, blocked, stale, listings, parkedSeeds } = report.hygiene;
   out.push('', 'hygiene');
   const hygiene: string[] = [];
@@ -928,7 +928,6 @@ export function renderOverview(report: OverviewReport, io: Io): string {
     if (rows.length === 0) {
       return;
     }
-    const laneW = Math.max(...rows.map((r) => r.lane.length));
     taskRows(
       rows.map((r) => r.task),
       io,
@@ -939,7 +938,7 @@ export function renderOverview(report: OverviewReport, io: Io): string {
       }
       const cold = entry.stale ? ' · going cold' : '';
       const reason = entry.task.holdReason == null ? '' : ` · ${entry.task.holdReason}`;
-      hygiene.push(`  ${pad(entry.lane, laneW)}   ${line}${reason}${cold}`);
+      hygiene.push(`  ${line}${reason}${cold}`);
     });
   };
   if (untriaged > 0) {

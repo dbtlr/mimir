@@ -4,15 +4,23 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { WireReviewReport } from '../api/types';
 import { router } from '../router';
+import { reviewReport, seed } from './fixtures';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet }));
 
-/** MMR-103/226 — the top-bar "N for you" pill counts under_review + blocked + stale. */
-function renderApp() {
+/**
+ * The top-bar alert (ADR 0019, MMR-476 refinement) counts decisions only and
+ * links to the review page at `/`.
+ */
+function renderAt(path: string, report: WireReviewReport) {
+  apiGet.mockImplementation((p: string) =>
+    Promise.resolve(p === '/api/review' ? report : { items: [], total: 0 }),
+  );
   const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: ['/'] }),
+    history: createMemoryHistory({ initialEntries: [path] }),
     routeTree: router.routeTree,
   });
   render(
@@ -23,123 +31,37 @@ function renderApp() {
   return testRouter;
 }
 
-/** A facet holding one finding in each named group. */
-function facetOf(...projects: string[]) {
-  return {
-    finding_total: projects.length,
-    groups: projects.map((project) => ({ finding_count: 1, project, records: [] })),
-    scanned_at: '2026-10-05T00:00:00.000Z',
-    scope: null,
-  };
-}
+const MMR = { key: 'MMR', name: 'Mimir' };
 
-describe('attentionAlert (MMR-103/226)', () => {
-  it("counts under_review + blocked + stale in the 'for you' pill", async () => {
-    apiGet.mockImplementation((path: string) => {
-      if (path.includes('status=under_review')) {
-        return Promise.resolve({ items: [{ id: 'MMR-2' }, { id: 'MMR-3' }], total: 2 });
-      }
-      if (path.includes('status=blocked')) {
-        return Promise.resolve({ items: [{ block_owner: 'you', id: 'MMR-5' }], total: 1 });
-      }
-      if (path.includes('is=stale')) {
-        return Promise.resolve({ items: [{ id: 'MMR-9', status: 'ready' }], total: 1 });
-      }
-      return Promise.resolve({ items: [], total: 0 }); // projects, ready, etc.
-    });
-    renderApp();
-    // 2 + 1 + 1 = 4 distinct items
-    await expect(screen.findByRole('button', { name: /4 for you/ })).resolves.toBeDefined();
-  });
-
-  it('counts only the blocks you own; a block waiting on others is not in the pill (MMR-438)', async () => {
-    apiGet.mockImplementation((path: string) => {
-      if (path.includes('status=blocked')) {
-        return Promise.resolve({
-          items: [
-            { block_owner: 'you', id: 'MMR-5', title: 'mine' },
-            { block_owner: 'others', id: 'MMR-6', title: 'theirs' },
-          ],
-          total: 2,
-        });
-      }
-      return Promise.resolve({ items: [], total: 0 });
-    });
-    renderApp();
-    await userEvent.click(await screen.findByRole('button', { name: /1 for you/ }));
-    await expect(screen.findByText('Needs you · 1')).resolves.toBeDefined();
-    expect(screen.getByText('mine')).toBeDefined();
-    expect(screen.queryByText('theirs')).toBeNull();
-  });
-
-  it('renders no pill when nothing needs the operator', async () => {
-    apiGet.mockResolvedValue({ items: [], total: 0 });
-    renderApp();
-    // let the queries settle, then assert the pill never appears
-    await screen.findByRole('link', { name: 'Mimir' });
-    expect(screen.queryByRole('button', { name: /for you/ })).toBeNull();
-  });
-
-  it('opens a menu whose header and rows carry the reason and age', async () => {
-    apiGet.mockImplementation((path: string) => {
-      if (path.includes('status=under_review')) {
-        return Promise.resolve({
-          items: [
-            { id: 'MMR-140', title: 'Doctor read-surface', updated_at: '2026-07-09T00:00:00.000Z' },
-          ],
-          total: 1,
-        });
-      }
-      return Promise.resolve({ items: [], total: 0 });
-    });
-    renderApp();
-    await userEvent.click(await screen.findByRole('button', { name: /1 for you/ }));
-    await expect(screen.findByText('Needs you · 1')).resolves.toBeDefined();
-    expect(screen.getByText('Doctor read-surface')).toBeDefined();
-    expect(screen.getByText(/Under review/)).toBeDefined();
-    expect(screen.getByText('MMR-140')).toBeDefined();
-  });
-
-  it("a row is a real link to its task's page", async () => {
-    apiGet.mockImplementation((path: string) => {
-      if (path.includes('status=under_review')) {
-        return Promise.resolve({
-          items: [
-            { id: 'MMR-140', title: 'Doctor read-surface', updated_at: '2026-07-09T00:00:00.000Z' },
-          ],
-          total: 1,
-        });
-      }
-      return Promise.resolve({ items: [], total: 0 });
-    });
-    const testRouter = renderApp();
-    await userEvent.click(await screen.findByRole('button', { name: /1 for you/ }));
-    const row = await screen.findByRole('menuitem', { name: /Doctor read-surface/ });
-    // A real link, so Cmd/middle-click and copy-link work (MMR-453).
-    expect(row).toHaveAttribute('href', '/p/MMR/140');
-    await userEvent.click(row);
-    expect(testRouter.state.location.pathname).toBe('/p/MMR/140');
-  });
-
-  it('opens a project health line on that project', async () => {
-    apiGet.mockImplementation((path: string) =>
-      Promise.resolve(path === '/api/doctor' ? facetOf('MMR') : { items: [], total: 0 }),
+describe('the attention alert', () => {
+  it('links to the review page with the count of decisions', async () => {
+    const testRouter = renderAt(
+      '/tasks',
+      reviewReport({ queue: ['LM-196', 'MMR-52', 'MMR-480', 'NORN-393'] }),
     );
-    const testRouter = renderApp();
-    await userEvent.click(await screen.findByRole('button', { name: /1 finding/ }));
-    await userEvent.click(await screen.findByText(/MMR/));
-    expect(testRouter.state.location.pathname).toBe('/doctor');
-    expect(testRouter.state.location.search).toEqual({ project: 'MMR' });
+    const alert = await screen.findByRole('link', { name: '4 need you' });
+    expect(alert.getAttribute('href')).toBe('/');
+    await userEvent.click(alert);
+    expect(testRouter.state.location.pathname).toBe('/');
   });
 
-  it('opens the store health line on the unscoped panel, where store findings show', async () => {
-    apiGet.mockImplementation((path: string) =>
-      Promise.resolve(path === '/api/doctor' ? facetOf('store') : { items: [], total: 0 }),
+  it('reads in the singular for one decision', async () => {
+    renderAt('/tasks', reviewReport({ queue: ['MMR-52'] }));
+    await expect(screen.findByRole('link', { name: '1 needs you' })).resolves.toBeDefined();
+  });
+
+  it('is absent when nothing needs a decision, however much waits in triage', async () => {
+    renderAt(
+      '/',
+      reviewReport({
+        projects: [{ ...MMR, decisions: 0, in_flight: 0, triage: 15 }],
+        triage: [
+          { findings: 12, going_cold: 2, project: MMR, seeds: [seed({ lane: 'untriaged' })] },
+        ],
+      }),
     );
-    const testRouter = renderApp();
-    await userEvent.click(await screen.findByRole('button', { name: /1 finding/ }));
-    await userEvent.click(await screen.findByText(/store/));
-    expect(testRouter.state.location.pathname).toBe('/doctor');
-    expect(testRouter.state.location.search).toEqual({});
+    // The page's own heading proves the review read has landed.
+    await screen.findByRole('heading', { level: 1, name: 'Nothing needs you' });
+    expect(screen.queryByRole('link', { name: /needs? you/ })).toBeNull();
   });
 });

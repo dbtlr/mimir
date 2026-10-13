@@ -10,8 +10,7 @@ import { Database } from 'bun:sqlite';
  * The store is built through the SAME core mutations the product uses (create
  * verbs, lifecycle/hold transitions, dependency edges, tags, the artifact seam,
  * the seed surface) over the SQLite store — never raw table writes — so every
- * derived reading (status words, rollups, attention lanes, stale, seed lanes)
- * is exactly what the app derives at runtime.
+ * derived reading (status words, rollups, stale, seed lanes) is exactly what the app derives at runtime.
  *
  * Backdating rides a frozen clock (`setSystemTime`, verified under plain
  * `bun run`): the "going cold" cohort is created ~20 days in the past so the
@@ -29,7 +28,7 @@ import { lstatSync, mkdirSync, rmSync } from 'node:fs';
 import type { Stats } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 
-import type { Lane, SeedLane, StatusWord, TaskStatusWord } from '@mimir/contract';
+import type { SeedLane, StatusWord, TaskStatusWord } from '@mimir/contract';
 
 import {
   abandonTask,
@@ -63,7 +62,6 @@ import {
   updateProject,
 } from '../src/core';
 import type { Store } from '../src/core';
-import { attentionOf } from '../src/core/attention';
 import { buildSqliteStore } from '../src/store-sqlite-backend';
 
 /** How far back the "going cold" cohort is stamped — comfortably past the 14-day
@@ -532,7 +530,7 @@ async function buildAuroraSeeds(store: Store, board: Board): Promise<void> {
 }
 
 /** Beacon (`BCN`) — the going-cold board, built under a frozen past clock so its
- * in_progress and ready leaves read as stale. Its top attention lane is `live`. */
+ * in_progress and ready leaves read as stale. */
 async function buildBeaconCold(store: Store): Promise<void> {
   await createProject(store, {
     description: 'Event ingestion and analytics platform.',
@@ -640,8 +638,6 @@ export type FixtureSummary = {
   archived: number;
   /** Every node's Status word (leaf + container rollup) → count across the store. */
   statusWords: Partial<Record<StatusWord, number>>;
-  /** Per-project attention lane → project count. */
-  lanes: Partial<Record<Lane, number>>;
   /** Seed lane → seed count. */
   seedLanes: Partial<Record<SeedLane, number>>;
   /** Leaf tasks whose Status word reads stale (going cold). */
@@ -774,12 +770,6 @@ async function summarize(store: Store, storePath: string): Promise<FixtureSummar
     }
   }
 
-  const lanes: Partial<Record<Lane, number>> = {};
-  for (const project of ws.projects) {
-    const { lane } = attentionOf(set, project);
-    lanes[lane] = (lanes[lane] ?? 0) + 1;
-  }
-
   const seedViews = await listSeeds(store, { status: 'all' });
   const seedLanes: Partial<Record<SeedLane, number>> = {};
   for (const view of seedViews) {
@@ -795,7 +785,6 @@ async function summarize(store: Store, storePath: string): Promise<FixtureSummar
   return {
     archived: set.archivedProjects.size,
     artifacts,
-    lanes,
     projects: ws.projects.map((p) => p.key).toSorted(),
     seedLanes,
     stale,
@@ -821,7 +810,6 @@ function formatSummary(s: FixtureSummary): string {
     `projects:     ${s.projects.join(', ')}`,
     `archived:     ${String(s.archived)}`,
     `status words: ${kvLine(s.statusWords)}`,
-    `attention:    ${kvLine(s.lanes)}`,
     `seed lanes:   ${kvLine(s.seedLanes)}`,
     `stale tasks:  ${String(s.stale)}`,
     `artifacts:    ${String(s.artifacts)}`,

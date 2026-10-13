@@ -26,8 +26,8 @@ import { BoardPage } from './routes/board';
 import { DoctorPage } from './routes/doctor';
 import { NodePage } from './routes/node';
 import { NotFoundPage } from './routes/not-found';
-import { OverviewPage } from './routes/overview';
 import { ProjectPage } from './routes/project';
+import { ReviewPage } from './routes/review';
 import { SeedPage } from './routes/seed';
 import { SeedsPage } from './routes/seeds';
 import { Shell } from './routes/shell';
@@ -35,7 +35,7 @@ import { TasksPage } from './routes/tasks';
 
 /**
  * Navigation (ADR 0013 §3 and its v0.23 refinement): URLs name scopes, views,
- * and records — `/` the overview, `/p/KEY` the project's page, `/p/KEY/board`
+ * and records — `/` the review page, `/p/KEY` the project's page, `/p/KEY/board`
  * its board, `/p/KEY/417` a work node's page, `/p/KEY/s41` a seed's page,
  * `/p/KEY/a219` an artifact's page. The board is an optional view with no
  * lenses (MMR-467 refinement). Typed search params carry that contract in the
@@ -52,8 +52,8 @@ export type BoardSearch = {
 
 const rootRoute = createRootRoute({ component: Shell });
 
-export const overviewRoute = createRoute({
-  component: OverviewPage,
+export const reviewRoute = createRoute({
+  component: ReviewPage,
   getParentRoute: () => rootRoute,
   path: '/',
 });
@@ -293,7 +293,7 @@ const devRoutes = import.meta.env.DEV
   : [];
 
 const routeTree = rootRoute.addChildren([
-  overviewRoute,
+  reviewRoute,
   projectRoute,
   boardRoute,
   nodeRoute,
