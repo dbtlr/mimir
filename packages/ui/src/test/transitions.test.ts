@@ -70,7 +70,7 @@ describe('transition labels', () => {
     expect(transitionLabel('park')).toBe('Park for later');
     expect(transitionLabel('unpark')).toBe('Resume');
     expect(transitionLabel('block')).toBe('Mark blocked');
-    expect(transitionLabel('return')).toBe('Request changes');
+    expect(transitionLabel('return')).toBe('Send back');
   });
 
   it('availableTransitions carries the same labels', () => {

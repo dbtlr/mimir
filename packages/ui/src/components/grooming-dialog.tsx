@@ -7,32 +7,77 @@ import { GROOMING_META, GROOMING_ORDER } from '../lib/grooming';
 import { ActionButton } from './ui/action-button';
 
 /**
- * The setter behind the task page's "Set grooming…" action (ADR 0033). Pick one
- * of the three states; "needs answers" also takes the open questions, which the
- * server writes as an ordinary note and requires. Any other state may carry a
- * note too. Offered for todo tasks only. The page mounts it only while open, so
- * each opening starts from the task's current state with an empty note.
+ * Setting a task's grooming state from the task page: the dialog opens on the
+ * task's current state.
+ */
+type SetMode = { mode?: 'set'; current: Grooming };
+
+/**
+ * Answering a needs-answers task from the work page: the operator's answer is
+ * required and becomes the note, and no state is chosen for them.
+ */
+type AnswerMode = { mode: 'answer'; question: string | null };
+
+/** The note field's label and placeholder: an answer, the open questions, or an optional why. */
+function noteCopy(answering: boolean, needsNote: boolean): { label: string; placeholder: string } {
+  if (answering) {
+    return {
+      label: 'Answer (required)',
+      placeholder: 'Answer (required) — saved as a note on the task',
+    };
+  }
+  if (needsNote) {
+    return {
+      label: 'Open questions (required)',
+      placeholder: 'Open questions (required) — what must be answered?',
+    };
+  }
+  return { label: 'Note (optional)', placeholder: 'Note (optional) — why this state' };
+}
+
+/**
+ * The setter behind the task page's "Set grooming…" action and the work page's
+ * Answer… (ADR 0033). Pick one of the three states; "needs answers" also takes
+ * the open questions, which the server writes as an ordinary note and requires.
+ * Any other state may carry a note too, and an answer always does. Offered for
+ * todo tasks only. Callers mount it only while open, so each opening starts
+ * fresh with an empty note.
  */
 export function GroomingDialog({
   nodeId,
-  current,
   open,
   onClose,
+  ...mode
 }: {
   nodeId: string;
-  current: Grooming;
   open: boolean;
   onClose: () => void;
-}) {
+} & (SetMode | AnswerMode)) {
   const groom = useGroom(nodeId);
-  const [chosen, setChosen] = useState<Grooming>(current);
+  const answering = mode.mode === 'answer';
+  const [chosen, setChosen] = useState<Grooming | null>(answering ? null : mode.current);
   const [note, setNote] = useState('');
-  const needsNote = chosen === 'needs_answers';
   const blank = note.trim() === '';
+  const needsNote = answering || chosen === 'needs_answers';
 
   function handleSet() {
-    groom.mutate({ note, state: chosen }, { onSuccess: onClose });
+    if (chosen !== null) {
+      groom.mutate({ note, state: chosen }, { onSuccess: onClose });
+    }
   }
+
+  const copy = noteCopy(answering, needsNote);
+
+  // An answer comes before the state it settles; a state comes before its note.
+  const noteField = (
+    <textarea
+      aria-label={copy.label}
+      value={note}
+      onChange={(e) => setNote(e.target.value)}
+      placeholder={copy.placeholder}
+      className="min-h-20 resize-y rounded border border-line bg-well-850 p-2 text-xs text-ink outline-none focus-visible:border-accent"
+    />
+  );
 
   return (
     <Dialog.Root
@@ -47,11 +92,19 @@ export function GroomingDialog({
         <Dialog.Backdrop className="fixed inset-0 z-[60] bg-well-950/70 backdrop-blur-[2px]" />
         <Dialog.Popup className="fixed top-1/2 left-1/2 z-[60] flex max-h-[90dvh] w-[min(92vw,380px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-y-auto rounded-lg border border-line bg-well-900 p-4 shadow-2xl outline-none light:shadow-overlay">
           <Dialog.Title className="text-sm font-semibold text-ink-bright">
-            Grooming state
+            {answering ? 'Answer' : 'Grooming state'}
           </Dialog.Title>
+          {answering && mode.question !== null && (
+            <blockquote className="rounded-sm border-l-2 border-attention bg-well-850 px-2.5 py-1.5 text-xs whitespace-pre-line text-attention-foreground">
+              {mode.question}
+            </blockquote>
+          )}
           <Dialog.Description className="text-xs text-ink-dim">
-            Whether this task is understood well enough to run. It never blocks starting it.
+            {answering
+              ? 'Your answer is saved as a note. Then say whether the task is understood well enough to run.'
+              : 'Whether this task is understood well enough to run. It never blocks starting it.'}
           </Dialog.Description>
+          {answering && noteField}
           <div role="radiogroup" aria-label="Grooming state" className="flex flex-col gap-1.5">
             {GROOMING_ORDER.map((state) => (
               <label
@@ -74,27 +127,17 @@ export function GroomingDialog({
               </label>
             ))}
           </div>
-          <textarea
-            aria-label={needsNote ? 'Open questions (required)' : 'Note (optional)'}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder={
-              needsNote
-                ? 'Open questions (required) — what must be answered?'
-                : 'Note (optional) — why this state'
-            }
-            className="min-h-20 resize-y rounded border border-line bg-well-850 p-2 text-xs text-ink outline-none focus-visible:border-accent"
-          />
+          {!answering && noteField}
           <div className="flex justify-end gap-2">
             <Dialog.Close className="min-h-9 rounded px-3 py-1.5 text-xs text-ink-dim hover:text-ink">
               Cancel
             </Dialog.Close>
             <ActionButton
               size="sm"
-              disabled={(needsNote && blank) || groom.isPending}
+              disabled={chosen === null || (needsNote && blank) || groom.isPending}
               onClick={handleSet}
             >
-              Set grooming
+              {answering ? 'Answer' : 'Set grooming'}
             </ActionButton>
           </div>
         </Dialog.Popup>

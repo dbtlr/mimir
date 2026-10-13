@@ -7,9 +7,10 @@ import { cn } from '../../lib/cn';
 /*
  * The one-solid-button-per-surface primitive (radius 8). `action` is THE teal
  * fill (slate on light, where teal reads wrong); `attention` is the violet
- * Approve verdict; `outline` is the quiet hairline alternate. Solid fills carry
- * `text-well-950`, which flips near-black in dark and near-white in light so the
- * label stays legible on either theme's fill.
+ * Approve verdict; `attentionOutline` is its hairline sibling for the other
+ * asks of the operator (a work page's Answer…); `outline` is the quiet hairline
+ * alternate. Solid fills carry `text-well-950`, which flips near-black in dark
+ * and near-white in light so the label stays legible on either theme's fill.
  */
 const actionButtonVariants = cva(
   'inline-flex items-center justify-center gap-1.5 font-semibold whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40',
@@ -25,6 +26,8 @@ const actionButtonVariants = cva(
       variant: {
         action: 'bg-action text-action-foreground hover:bg-action/90',
         attention: 'bg-attention-solid text-well-950 hover:bg-attention-solid/90',
+        attentionOutline:
+          'inset-ring inset-ring-attention/45 text-attention-foreground hover:bg-attention/10',
         outline:
           'inset-ring inset-ring-line-bright text-ink hover:bg-line/50 hover:text-ink-bright',
       },
