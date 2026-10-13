@@ -1,13 +1,11 @@
 // Shared test fixtures module, not a test body.
 // oxlint-disable vitest/require-hook
-import type { WireAttention, WireNode, WireSeed, WireWorkReport } from '../api/types';
+import type { WireNode, WireReviewReport, WireSeed, WireWorkReport } from '../api/types';
 
 let seq = 100;
 
-/** A project record as the overview list serves it; pass `attention` for lane tests. */
-export function project(
-  overrides: Partial<WireNode> & { attention?: WireAttention } = {},
-): WireNode {
+/** A project record as the project list serves it. */
+export function project(overrides: Partial<WireNode> = {}): WireNode {
   seq += 1;
   const id = overrides.id ?? `P${String(seq)}`;
   return {
@@ -88,4 +86,25 @@ export function workReport(overrides: Partial<WireWorkReport> = {}): WireWorkRep
     shipped: [],
     ...overrides,
   };
+}
+
+/** The review page's wire payload (MMR-477) with nothing in it; override the parts a case fills. */
+export function reviewReport(overrides: Partial<WireReviewReport> = {}): WireReviewReport {
+  return {
+    decisions: [],
+    last_finished: null,
+    projects: [],
+    queue: [],
+    triage: [],
+    ...overrides,
+  };
+}
+
+/**
+ * A catch-all read for a test's `apiGet` mock: an empty review payload for
+ * `/api/review`, which the shell's alert reads on every page, and an empty
+ * collection for any other path.
+ */
+export function emptyRead(path: string): WireReviewReport | { items: []; total: 0 } {
+  return path === '/api/review' ? reviewReport() : { items: [], total: 0 };
 }

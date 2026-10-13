@@ -16,15 +16,29 @@ the installable PWA, and a reverse proxy does too.
 
 ![Mimir project board grouped into phase bands](../assets/console-project.png)
 
-## Route attention from the overview
+## Review what needs you
 
-The overview groups projects by attention state and shows the signals behind
-each reading. Use it to find work awaiting review, active projects, blocked or
-stale work, and projects at rest. Archived projects remain available in a
-separate shelf.
+The console opens on the review page at `/`. It lists what waits on you
+across every active project, in two sections:
 
-From the overview you can create a project, open a project's page, or jump into
-a task's page.
+- **Decide** lists the decisions, grouped by project: tasks in review, blocks
+  only you can clear, and tasks that need answers. Decisions hold up agents, so
+  they come first. When nothing waits, the section says so and names how many
+  tasks are in progress and which task finished last.
+- **Triage when you have a minute** is a table with one row per project. Each
+  row counts untriaged seeds, the age of the oldest one, tasks going cold, and
+  `mimir doctor` findings. Open a row to list its untriaged seeds, oldest
+  first. The going-cold count opens the project's work page, and the findings
+  count opens its record health.
+
+The rail lists every active project with its decisions, its triage count, and
+its tasks in progress. Each entry opens the project's work page. Archived
+projects are on a shelf under the list, beside **New project**. On a phone, the
+list is behind the **Projects** chip.
+
+The top-bar alert shows how many decisions wait on you and opens this page. It
+is hidden when there are none. Seeds, findings, and tasks going cold never
+light it.
 
 ## Work within a project
 

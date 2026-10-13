@@ -14,7 +14,7 @@ import { doctorRoute } from '../router';
  * `/doctor` — the Record-health panel (MMR-185): the findings `mimir doctor`
  * reports, grouped by project, each with its cause, the row's table and key, and
  * the evidence behind it. `?project` scopes to one board (the header-chip deep
- * link); unscoped spans every project (the overview / attention surfacing).
+ * link); unscoped spans every project.
  * Strictly read-only — the only action anywhere is copying a location. Amber
  * throughout, never red. A finding is a record in an inconsistent state or an
  * unscoped scan's config warning, and each one's note names its own fix, so the

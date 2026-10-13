@@ -114,15 +114,13 @@ test('GET /api/projects lists every project with its rollup', async () => {
   expect(items[0]?.distribution).toBeDefined();
 });
 
-test('GET /api/projects carries the attention facet in snake_case (MMR-101)', async () => {
+test('GET /api/projects rows carry no attention facet (Lanes retired, MMR-476)', async () => {
   const res = await get('/api/projects');
   const items = (await parse(res)).items as Rec[];
-  // both seeded projects have only fresh (ready) leaf tasks → the live lane
-  const attention = items[0]?.attention as Rec;
-  expect(attention).toBeDefined();
-  expect(attention.lane).toBe('live');
-  expect(typeof attention.last_activity).toBe('string');
-  expect(attention.stale).toBe(false);
+  expect(items.length).toBeGreaterThan(0);
+  for (const item of items) {
+    expect('attention' in item).toBe(false);
+  }
 });
 
 test('GET /api/projects carries the leaf_counts facet for the card vitals (MMR-105)', async () => {
@@ -314,7 +312,14 @@ test('GET /api/review serves the snake_case review envelope', async () => {
   const res = await get('/api/review');
   expect(res.status).toBe(200);
   const body = await parse(res);
-  expect(Object.keys(body).toSorted()).toEqual(['decisions', 'projects', 'queue', 'triage']);
+  expect(Object.keys(body).toSorted()).toEqual([
+    'decisions',
+    'last_finished',
+    'projects',
+    'queue',
+    'triage',
+  ]);
+  expect(body.last_finished).toBeNull();
   expect(body.queue).toEqual([task1, otherTask]);
   const decisions = body.decisions as Rec[];
   expect(decisions.map((g) => g.project)).toEqual([
@@ -328,6 +333,13 @@ test('GET /api/review serves the snake_case review envelope', async () => {
     { decisions: 1, in_flight: 0, key: 'MMR', name: 'Mimir', triage: 0 },
     { decisions: 1, in_flight: 0, key: 'NRN', name: 'Norn', triage: 0 },
   ]);
+});
+
+test('GET /api/review names the last finish with its finish time', async () => {
+  await completeTask(store, task1);
+  const body = await parse(await get('/api/review'));
+  expect(body.last_finished).toMatchObject({ abandon_reason: null, id: task1 });
+  expect(typeof (body.last_finished as Rec).finished_at).toBe('string');
 });
 
 test('GET /api/review counts the injected doctor findings per active project', async () => {

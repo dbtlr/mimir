@@ -114,7 +114,7 @@ The document holds every stored fact: the projects with their sequence
 counters, the nodes, the dependency edges, the tags, the annotations, the
 artifacts with their frozen content, the seeds with their history, the
 scratchpads, the owned prose sections, and the transition log. It holds nothing
-derived — status, rollups, and attention are recomputed on read from these same
+derived — status and rollups are recomputed on read from these same
 facts. Identity is preserved: every `KEY-seq`, `KEY-aN`, and `KEY-sN`, every
 timestamp, and the counters. The document carries a `schema_version` of its own,
 separate from the database schema version, so a later binary knows what it

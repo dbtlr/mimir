@@ -1335,6 +1335,12 @@ test('--col takes flat column names; the dot form is a usage error', async () =>
   expect(unknown.err.join('')).toContain('unknown column: bogus');
 });
 
+test('--col attention is rejected: the attention facet retired with Lanes (MMR-476)', async () => {
+  const io = fakeIo(false);
+  expect(await runCli(['get', 'MMR', '--col', 'attention'], () => store, io)).toBe(2);
+  expect(io.err.join('')).toContain('unknown column: attention');
+});
+
 test('--col accepts a comma-separated list, not just repeats (MMR-212)', async () => {
   const t = await createTask(store, { parentId: phaseId, title: 't' });
   const ref = `MMR-${String(t.seq)}`;
@@ -1754,14 +1760,14 @@ describe('overview composition (MMR-322)', () => {
     expect(out).toContain('closed out the codec work');
   });
 
-  test('the blocked listing renders the lane word and the hold reason', async () => {
+  test('the blocked listing renders the hold reason without a lane word', async () => {
     const task = await createTask(store, { parentId: phaseId, title: 'stuck' });
     await blockTask(store, `MMR-${String(task.seq)}`, 'upstream API down');
     const io = fakeIo(true);
     expect(await runCli(['overview', '-s', 'MMR'], () => store, io)).toBe(0);
     const out = io.out.join('');
     expect(out).toContain("1 blocked — run 'mimir list -s MMR --status blocked'");
-    expect(out).toContain('needs_unsticking');
+    expect(out).not.toContain('needs_unsticking');
     expect(out).toContain('upstream API down');
   });
 
@@ -1778,11 +1784,11 @@ describe('overview composition (MMR-322)', () => {
         containers: { id: string; next: string }[];
       };
       sessions: { shown: number; entries: unknown[] };
-      hygiene: { listings: { blocked: { id: string; lane: string; stale: boolean }[] } };
+      hygiene: { listings: { blocked: { id: string; stale: boolean }[] } };
     }>(io.out.join(''));
     expect(env.direction.project).toBe('ship phase 3');
     expect(env.sessions).toEqual({ entries: [], shown: 0 });
-    expect(env.hygiene.listings.blocked[0]?.lane).toBe('needs_unsticking');
+    expect(Object.keys(env.hygiene.listings.blocked[0] ?? {})).not.toContain('lane');
     expect(env.hygiene.listings.blocked[0]?.stale).toBe(false);
   });
 });

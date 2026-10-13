@@ -3,8 +3,10 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { createTestStore, nodeIdOf, projectIdOf, rawPatchNode } from '../../testing/store';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import {
+  abandonTask,
   archiveProject,
   blockTask,
+  completeTask,
   groomTasks,
   parkTask,
   startTask,
@@ -322,12 +324,55 @@ test('inFlight counts the in-progress tasks of each project', async () => {
   ]);
 });
 
+test('lastFinished is the newest done task across projects, with its finish time', async () => {
+  await project('AAA');
+  await project('BBB');
+  const older = await task('AAA', 'older');
+  const newer = await task('BBB', 'newer');
+  await completeTask(store, older);
+  await completeTask(store, newer);
+  await rawPatchNode(store, older, { completed_at: '2026-01-01T00:00:00.000Z' });
+  await rawPatchNode(store, newer, { completed_at: '2026-01-02T00:00:00.000Z' });
+  const { lastFinished } = await review();
+  expect(lastFinished?.task.id).toBe(newer);
+  expect(lastFinished?.finishedAt).toBe('2026-01-02T00:00:00.000Z');
+  expect(lastFinished?.abandonReason).toBeNull();
+});
+
+test('an abandon newer than every done task is the last finish, timed by its transition', async () => {
+  await project('MMR');
+  const done = await task('MMR', 'done');
+  await completeTask(store, done);
+  await rawPatchNode(store, done, { completed_at: '2026-01-01T00:00:00.000Z' });
+  const dropped = await task('MMR', 'dropped');
+  await abandonTask(store, dropped, 'scope cut');
+  // A later touch moves updated_at, not the finish.
+  await rawPatchNode(store, dropped, { updated_at: '2099-01-01T00:00:00.000Z' });
+  const { lastFinished } = await review();
+  expect(lastFinished?.task.id).toBe(dropped);
+  expect(lastFinished?.abandonReason).toBe('scope cut');
+  expect(lastFinished?.finishedAt).not.toBe('2099-01-01T00:00:00.000Z');
+});
+
+test("an archived project's finish is not the last finish", async () => {
+  await project('MMR');
+  await project('OLD');
+  const kept = await task('MMR', 'kept');
+  await completeTask(store, kept);
+  await rawPatchNode(store, kept, { completed_at: '2026-01-01T00:00:00.000Z' });
+  const archived = await task('OLD', 'archived');
+  await completeTask(store, archived);
+  await archiveProject(store, 'OLD');
+  expect((await review()).lastFinished?.task.id).toBe(kept);
+});
+
 test('an all-clear store has no decisions, queue, or triage but still lists its projects', async () => {
   await project('BBB', 'Bravo');
   await project('AAA', 'Alpha');
   await task('AAA', 'plain');
   expect(await review()).toEqual({
     decisions: [],
+    lastFinished: null,
     projects: [
       { decisions: 0, inFlight: 0, key: 'AAA', name: 'Alpha', triage: 0 },
       { decisions: 0, inFlight: 0, key: 'BBB', name: 'Bravo', triage: 0 },

@@ -182,7 +182,7 @@ function startedAtOf(task: Node, history: readonly HistoryEntry[]): string {
 }
 
 /** The abandon transition's time and reason; falls back to the row's stamp when the log is silent. */
-function abandonedOf(
+export function abandonedOf(
   task: Node,
   history: readonly HistoryEntry[],
 ): { at: string; reason: string | null } {
@@ -398,7 +398,7 @@ export async function workPageOf(store: Store, id: string, opts: WorkOptions): P
   };
 }
 
-const seqOf = (id: string): number => Number(id.slice(id.lastIndexOf('-') + 1));
+export const seqOf = (id: string): number => Number(id.slice(id.lastIndexOf('-') + 1));
 
 /**
  * Group groomed-and-awaiting tasks by the prerequisite each waits on. A task

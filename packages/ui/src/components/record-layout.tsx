@@ -37,7 +37,8 @@ export function RailSection({
  * Close the open sheet once something inside it is chosen: a link navigates
  * away, and an action changes the record behind the sheet. A button that
  * opens a dialog of its own (`aria-haspopup="dialog"`) leaves the sheet open
- * beneath it, because that dialog lives inside the sheet's content. Clicks
+ * beneath it, because that dialog lives inside the sheet's content, and so
+ * does a disclosure (`aria-expanded`), which only reveals more of the sheet. Clicks
  * inside that dialog reach here only through React's portal bubbling, so a
  * target outside the sheet body is ignored.
  */
@@ -48,19 +49,23 @@ function closeOnChoice(close: () => void) {
       return;
     }
     const choice = target.closest('a, button');
-    if (choice !== null && choice.getAttribute('aria-haspopup') !== 'dialog') {
+    if (
+      choice !== null &&
+      choice.getAttribute('aria-haspopup') !== 'dialog' &&
+      !choice.hasAttribute('aria-expanded')
+    ) {
       close();
     }
   };
 }
 
 /** The phone rail: a row of chips under the page head, each opening a bottom sheet. */
-function RailChips({ chips }: { chips: readonly RailChip[] }) {
+function RailChips({ chips, label }: { chips: readonly RailChip[]; label: string }) {
   const [open, setOpen] = useState<string | null>(null);
   const active = chips.find((c) => c.label === open);
   return (
     <>
-      <div role="group" aria-label="Record details" className="flex flex-wrap gap-2 md:hidden">
+      <div role="group" aria-label={label} className="flex flex-wrap gap-2 md:hidden">
         {chips.map((chip) => (
           <button
             key={chip.label}
@@ -116,12 +121,14 @@ function RailChips({ chips }: { chips: readonly RailChip[] }) {
  * The record page shell (ADR 0013, v0.23 refinement): a main column beside a
  * rail, the same page on desktop and phone. Below `md` the rail folds into
  * chips under the page head, each opening its part of the rail in a bottom
- * sheet. Project, container, task, seed, and artifact pages share it.
+ * sheet. Project, container, task, seed, and artifact pages share it, and so
+ * does the review page at `/`, whose rail is the project list (`railLabel`).
  */
 export function RecordLayout({
   head,
   rail,
   chips,
+  railLabel = 'Record details',
   children,
   className,
 }: {
@@ -131,19 +138,23 @@ export function RecordLayout({
   rail: ReactNode;
   /** The same rail regrouped as phone chips. */
   chips: readonly RailChip[];
+  /** What the rail is, for assistive technology. */
+  railLabel?: string;
   children: ReactNode;
   className?: string;
 }) {
   return (
-    <main className={cn('min-h-0 flex-1 overflow-y-auto', className)}>
+    // tabIndex -1: a focus fallback for a control that unmounts itself, such
+    // as the archived shelf after the last project in it is unarchived.
+    <main tabIndex={-1} className={cn('min-h-0 flex-1 overflow-y-auto', className)}>
       <div className="mx-auto grid min-h-full w-full max-w-[1200px] grid-cols-1 md:grid-cols-[minmax(0,1fr)_300px]">
         <article className="flex min-w-0 flex-col gap-4 px-4 py-5 md:px-6">
           {head}
-          <RailChips chips={chips} />
+          <RailChips chips={chips} label={railLabel} />
           {children}
         </article>
         <aside
-          aria-label="Record details"
+          aria-label={railLabel}
           className="hidden flex-col gap-4 border-l border-line px-4 py-5 md:flex"
         >
           {rail}

@@ -186,13 +186,8 @@ const PROJECT_FACETS: readonly FacetName[] = [
   // The project doc's own `## Next` narrative (MMR-321).
   'next',
 ];
-/** The project-list projection — the attention facet (MMR-101) + per-project leaf counts (MMR-105) for the project card vitals (MMR-106). */
-const PROJECT_LIST_FACETS: readonly FacetName[] = [
-  'distribution',
-  'tags',
-  'attention',
-  'leafCounts',
-];
+/** The project-list projection — distribution, tags, and per-project leaf counts (MMR-105) for the project card vitals (MMR-106). */
+const PROJECT_LIST_FACETS: readonly FacetName[] = ['distribution', 'tags', 'leafCounts'];
 /** The archived door adds the artifact tally for the shelf's count line (MMR-125).
  * Scoped to `?status=archived` only: the facet costs an artifact-store read per
  * project, and the active list is polled every 10s by a UI that never reads it. */

@@ -4,7 +4,6 @@ import type {
   Distribution,
   Grooming,
   Hold,
-  Lane,
   Lifecycle,
   NodeRef,
   Priority,
@@ -123,13 +122,6 @@ export type WireArtifactDetail = {
   content?: string;
 };
 
-/** A project's derived attention-state (MMR-101) — the project-list facet, snake_case on the wire. */
-export type WireAttention = {
-  lane: Lane;
-  last_activity: string;
-  stale: boolean;
-};
-
 /**
  * Where a row lives (MMR-228) — the owning project's KEY plus the parent
  * container's rendered id, title, and open-endedness (`∞` on standing homes).
@@ -199,7 +191,6 @@ export type WireNode = {
   artifacts?: WireArtifact[];
   history?: WireHistoryEntry[];
   verdicts?: Verdicts;
-  attention?: WireAttention;
   /** Where the row lives (MMR-228) — rides node-list responses. */
   home?: WireHome;
 };
@@ -306,6 +297,39 @@ export type WireWorkReport = {
   };
   shipped: WireWorkShipped[];
   going_cold: WireNode[];
+};
+
+/** A project as the review page names it. */
+export type WireReviewProjectRef = { key: string; name: string };
+
+/** One row of the review page's project list. */
+export type WireReviewProject = WireReviewProjectRef & {
+  decisions: number;
+  /** Untriaged seeds, plus tasks going cold, plus `doctor` findings. */
+  triage: number;
+  in_flight: number;
+};
+
+/** One project's triage: untriaged seeds oldest first, and the going-cold and findings counts. */
+export type WireReviewTriage = {
+  project: WireReviewProjectRef;
+  seeds: WireSeed[];
+  going_cold: number;
+  findings: number;
+};
+
+/**
+ * The cross-project review page (`GET /api/review`, MMR-477). `decisions` and
+ * `projects` share one project order; `queue` is every decision's id in
+ * focus-queue order, so its length is the decision count.
+ */
+export type WireReviewReport = {
+  decisions: { project: WireReviewProjectRef; rows: WireWorkNeedsYou[] }[];
+  queue: string[];
+  triage: WireReviewTriage[];
+  projects: WireReviewProject[];
+  /** The newest done or abandoned task across active projects; null when none has finished. */
+  last_finished: WireWorkShipped | null;
 };
 
 /** The collection envelope with its count (ADR 0012 — never a bare array). */

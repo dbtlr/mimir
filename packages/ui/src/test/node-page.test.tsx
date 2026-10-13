@@ -10,7 +10,7 @@ import { POLL_MS } from '../api/queries';
 import { createQueryClient } from '../api/query-client';
 import type { WireNode, WireTreeNode } from '../api/types';
 import { router } from '../router';
-import { task, workReport } from './fixtures';
+import { emptyRead, task, workReport } from './fixtures';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
@@ -70,7 +70,7 @@ function serve(node: WireNode, extra: Record<string, unknown> = {}) {
     if (path === '/api/projects/MMR/tree') {
       return Promise.resolve(TREE);
     }
-    return Promise.resolve({ items: [], total: 0 });
+    return Promise.resolve(emptyRead(path));
   });
 }
 
@@ -184,7 +184,7 @@ describe('task page (MMR-449)', () => {
     apiGet.mockImplementation((path: string) =>
       path === '/api/nodes/MMR-999'
         ? Promise.reject(new ApiError(`GET ${path} → 404`, 404))
-        : Promise.resolve({ items: [], total: 0 }),
+        : Promise.resolve(emptyRead(path)),
     );
     renderAt('/p/MMR/999');
 

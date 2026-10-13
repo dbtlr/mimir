@@ -19,7 +19,7 @@ export type ProjectFormValues = {
  * the LIFECYCLE section (20b / MMR-230) — archive it. Archiving carries no
  * confirm: the undo toast's Unarchive is the safety (ADR 0015), and since the
  * archived project 404s, the sheet closes and navigation returns to the
- * Overview.
+ * review page at `/`.
  */
 export function ProjectSettingsButton({
   project,

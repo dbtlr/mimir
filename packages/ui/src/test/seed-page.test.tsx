@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../api/errors';
 import type { WireNode, WireSeed } from '../api/types';
 import { router } from '../router';
-import { seed, task } from './fixtures';
+import { emptyRead, seed, task } from './fixtures';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
@@ -70,7 +70,7 @@ function serve(
     if (node !== undefined) {
       return Promise.resolve(node);
     }
-    return Promise.resolve({ items: [], total: 0 });
+    return Promise.resolve(emptyRead(path));
   });
 }
 
@@ -164,7 +164,7 @@ describe('seed page (MMR-451)', () => {
     apiGet.mockImplementation((path: string) =>
       path === '/api/seeds/NRN-s99'
         ? Promise.reject(new ApiError(`GET ${path} → 404`, 404))
-        : Promise.resolve({ items: [], total: 0 }),
+        : Promise.resolve(emptyRead(path)),
     );
     renderAt('/p/NRN/s99');
 
@@ -191,7 +191,7 @@ describe('seed page (MMR-451)', () => {
         if (path === upstreamPath(crossBoardBug.id)) {
           return Promise.reject(new ApiError(`GET ${path} → 500`, 500));
         }
-        return Promise.resolve({ items: [], total: 0 });
+        return Promise.resolve(emptyRead(path));
       });
       renderAt('/p/NRN/s30');
 

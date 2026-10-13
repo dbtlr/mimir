@@ -5,8 +5,10 @@ import type {
   ReviewTriageGroup,
   SeedView,
   WorkNeedsYouReason,
+  WorkShippedTask,
 } from '@mimir/contract';
 
+import type { DerivationSet } from '../derive';
 import { nodeStatusWord } from '../derive';
 import type { Node, Project } from '../model';
 import { isStale } from '../predicates';
@@ -14,7 +16,15 @@ import { listSeedsResolved } from '../seeds/intent';
 import type { Store } from '../store';
 import { now } from '../time';
 import { buildNodeView } from './view';
-import { NEEDS_YOU_REASON_ORDER, byRecency, cmpStr, latestOf, needsYouReasonOf } from './work';
+import {
+  NEEDS_YOU_REASON_ORDER,
+  abandonedOf,
+  byRecency,
+  cmpStr,
+  latestOf,
+  needsYouReasonOf,
+  seqOf,
+} from './work';
 
 /**
  * The review page (MMR-477): the console's cross-project derivation of what
@@ -66,6 +76,56 @@ function byProjectOrder(a: ProjectFacts, b: ProjectFacts): number {
   return triageCount(b) - triageCount(a) || cmpKey(a, b);
 }
 
+/** A finish candidate: the finished task and when it finished. */
+type Finish = { node: Node; at: string };
+
+/** Newer finish first; the higher seq breaks a same-millisecond tie, as on the work page. */
+const newerFinish = (a: Finish, b: Finish): number =>
+  cmpStr(b.at, a.at) || seqOf(b.node.id) - seqOf(a.node.id);
+
+/**
+ * The newest done or abandoned task among `finished`, the work page's Shipped
+ * rule without its window. A done task finished at `completed_at`. An abandon
+ * finished at its transition, which only history records; `updated_at` is
+ * never earlier, so only the abandons that could beat the newest done task are
+ * read.
+ */
+async function lastFinishOf(
+  store: Store,
+  set: DerivationSet,
+  finished: readonly Node[],
+): Promise<WorkShippedTask | null> {
+  const [lastDone] = finished
+    .filter((n) => n.lifecycle === 'done')
+    .map((node) => ({ at: node.completed_at ?? node.updated_at, node }))
+    .toSorted(newerFinish);
+  const abandons = finished.filter(
+    (n) => n.lifecycle === 'abandoned' && (lastDone === undefined || n.updated_at >= lastDone.at),
+  );
+  const histories = await store.bodySections.readSectionsMany(
+    abandons.map((n) => n.id),
+    { history: true },
+  );
+  const reasons = new Map<string, string | null>();
+  const candidates: Finish[] = abandons.map((node) => {
+    const abandoned = abandonedOf(node, histories.get(node.id)?.history ?? []);
+    reasons.set(node.id, abandoned.reason);
+    return { at: abandoned.at, node };
+  });
+  if (lastDone !== undefined) {
+    candidates.push(lastDone);
+  }
+  const [last] = candidates.toSorted(newerFinish);
+  return last === undefined
+    ? null
+    : {
+        abandonReason: reasons.get(last.node.id) ?? null,
+        finishedAt: last.at,
+        stale: false,
+        task: await buildNodeView(store.bodySections, store.artifacts, set, last.node),
+      };
+}
+
 /**
  * The review page across every active (non-archived) project.
  *
@@ -76,6 +136,8 @@ function byProjectOrder(a: ProjectFacts, b: ProjectFacts): number {
  * - `triage`: per project with anything to triage, the untriaged seeds (oldest
  *   first), the tasks going cold, and the findings; most first, then key.
  * - `projects`: every active project in the decisions order, then by triage.
+ * - `lastFinished`: the newest done or abandoned task, for the page's all-clear
+ *   state; null when nothing has finished.
  *
  * `findings` is the `doctor` finding count per project key; a key that is not
  * an active project (`store`, an archived project) is ignored. Core never runs
@@ -94,6 +156,7 @@ export async function reviewOf(
     findings,
   ]);
   const seedsByProject = Map.groupBy(views, (v) => v.project);
+  const finished: Node[] = [];
 
   const facts: ProjectFacts[] = set.ws.projects
     .filter((p) => p.archived_at === null)
@@ -104,6 +167,9 @@ export async function reviewOf(
       for (const node of set.nodesByProject.get(project.key) ?? []) {
         if (node.type !== 'task') {
           continue;
+        }
+        if (node.lifecycle === 'done' || node.lifecycle === 'abandoned') {
+          finished.push(node);
         }
         const word = nodeStatusWord(set, node);
         const reason = needsYouReasonOf(node, word);
@@ -183,5 +249,11 @@ export async function reviewOf(
     triage: triageCount(f),
   }));
 
-  return { decisions, projects, queue, triage };
+  return {
+    decisions,
+    lastFinished: await lastFinishOf(store, set, finished),
+    projects,
+    queue,
+    triage,
+  };
 }

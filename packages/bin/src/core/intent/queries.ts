@@ -24,7 +24,6 @@ import type {
 } from '@mimir/contract';
 
 import type { ArtifactListQuery } from '../artifacts/store';
-import { laneOf } from '../attention';
 import { dateFilterWindows } from '../dates';
 import type { DateFilter } from '../dates';
 import type { DerivationSet } from '../derive';
@@ -773,8 +772,8 @@ async function directionOf(
   };
 }
 
-/** A needs-attention listing row (MMR-322) — the lean task plus its lane word and
- * the `going cold` modifier, both off the shared {@link laneOf} mapping. */
+/** A needs-attention listing row (MMR-322) — the lean task plus the `going cold`
+ * modifier. */
 async function attentionRows(
   store: Store,
   set: DerivationSet,
@@ -783,7 +782,6 @@ async function attentionRows(
 ): Promise<OverviewAttentionTask[]> {
   return Promise.all(
     nodes.slice(0, OVERVIEW_CAP).map(async (node) => ({
-      lane: laneOf(nodeStatusWord(set, node)),
       stale: isStale(set, node, { asOf }),
       task: await buildNodeView(store.bodySections, store.artifacts, set, node),
     })),
@@ -865,7 +863,7 @@ export async function overviewOf(
     })),
   );
 
-  // hygiene — the counts, each with the capped head of its own lane (MMR-322).
+  // hygiene — the counts, each with the capped head of its own listing (MMR-322).
   // Untriaged is the one seeds read (a `new` seed IS the untriaged lane); the same
   // read counts the parked seeds (MMR-473), a reminder that is never listed.
   const seeds = await store.seeds.listForProject(scopeId);

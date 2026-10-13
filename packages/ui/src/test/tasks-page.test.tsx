@@ -7,7 +7,7 @@ import { describe, expect, vi } from 'vitest';
 import { FINISHED_PAGE_SIZE } from '../api/queries';
 import type { WireHome, WireNode } from '../api/types';
 import { router } from '../router';
-import { task } from './fixtures';
+import { emptyRead, task } from './fixtures';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
@@ -80,7 +80,7 @@ function mockApi() {
       return Promise.resolve({ items: rows, total: rows.length });
     }
     if (path.includes('/annotations')) {
-      return Promise.resolve({ items: [], total: 0 });
+      return Promise.resolve(emptyRead(path));
     }
     if (path.startsWith('/api/nodes/')) {
       // the task page's detail fetch after a row click
@@ -402,8 +402,8 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
   it('says so when nothing matches', async () => {
     apiGet.mockImplementation((path: string) =>
       path.startsWith('/api/projects')
-        ? Promise.resolve({ items: [], total: 0 })
-        : Promise.resolve({ items: [], total: 0 }),
+        ? Promise.resolve(emptyRead(path))
+        : Promise.resolve(emptyRead(path)),
     );
     renderTasks();
     await expect(screen.findByText('No tasks match.')).resolves.toBeDefined();
@@ -619,9 +619,9 @@ describe('tasksPage grooming chips (MMR-466)', () => {
       }),
     ];
     apiGet.mockImplementation((path: string) =>
-      path.startsWith('/api/projects')
-        ? Promise.resolve({ items: [], total: 0 })
-        : Promise.resolve({ items: groomRows, total: groomRows.length }),
+      path.startsWith('/api/nodes')
+        ? Promise.resolve({ items: groomRows, total: groomRows.length })
+        : Promise.resolve(emptyRead(path)),
     );
     renderTasks();
 

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { WireDoctorFacet } from '../api/types';
 import { router } from '../router';
+import { emptyRead } from './fixtures';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
@@ -60,15 +61,17 @@ function renderAt(path: string) {
 describe('doctorPage record-health panel (MMR-185)', () => {
   it('renders a finding with its cause, row locator, and evidence', async () => {
     apiGet.mockImplementation((path: string) =>
-      Promise.resolve(path.startsWith('/api/doctor') ? damagedFacet() : { items: [], total: 0 }),
+      Promise.resolve(path.startsWith('/api/doctor') ? damagedFacet() : emptyRead(path)),
     );
     renderAt('/doctor?project=MMR');
 
     await expect(screen.findByText('Record health')).resolves.toBeDefined();
     // Scoped header names the project.
     expect(screen.getByText('MMR · mimir doctor')).toBeDefined();
-    // Amber summary banner + cause chip (await the facet-dependent banner first).
-    await expect(screen.findByText('1 finding')).resolves.toBeDefined();
+    // The amber summary banner and the project's group both count it (await the facet first).
+    await vi.waitFor(() => {
+      expect(screen.getAllByText('1 finding')).toHaveLength(2);
+    });
     // The banner defers the fix to each finding: a config warning is no database row.
     expect(screen.getByText('— each one names what is wrong and how to fix it.')).toBeDefined();
     expect(screen.queryByText(/at the database/)).toBeNull();
@@ -91,7 +94,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
     apiGet.mockImplementation((path: string) =>
-      Promise.resolve(path.startsWith('/api/doctor') ? damagedFacet() : { items: [], total: 0 }),
+      Promise.resolve(path.startsWith('/api/doctor') ? damagedFacet() : emptyRead(path)),
     );
     renderAt('/doctor?project=MMR');
 
@@ -107,7 +110,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
     const writeText = vi.fn().mockRejectedValue(new Error('denied'));
     Object.assign(navigator, { clipboard: { writeText } });
     apiGet.mockImplementation((path: string) =>
-      Promise.resolve(path.startsWith('/api/doctor') ? damagedFacet() : { items: [], total: 0 }),
+      Promise.resolve(path.startsWith('/api/doctor') ? damagedFacet() : emptyRead(path)),
     );
     renderAt('/doctor?project=MMR');
 
@@ -121,7 +124,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
   it('copy location toasts an error when the clipboard API is absent (insecure context)', async () => {
     Object.assign(navigator, { clipboard: undefined });
     apiGet.mockImplementation((path: string) =>
-      Promise.resolve(path.startsWith('/api/doctor') ? damagedFacet() : { items: [], total: 0 }),
+      Promise.resolve(path.startsWith('/api/doctor') ? damagedFacet() : emptyRead(path)),
     );
     renderAt('/doctor?project=MMR');
 
@@ -160,7 +163,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
       scope: null,
     };
     apiGet.mockImplementation((path: string) =>
-      Promise.resolve(path.startsWith('/api/doctor') ? twin : { items: [], total: 0 }),
+      Promise.resolve(path.startsWith('/api/doctor') ? twin : emptyRead(path)),
     );
     const consoleError = vi.spyOn(console, 'error');
     renderAt('/doctor?project=MMR');
@@ -177,7 +180,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
       Promise.resolve(
         path.startsWith('/api/doctor')
           ? { finding_total: 0, groups: [], scanned_at: new Date().toISOString(), scope: null }
-          : { items: [], total: 0 },
+          : emptyRead(path),
       ),
     );
     renderAt('/doctor');
@@ -200,7 +203,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
               scanned_at: new Date().toISOString(),
               scope: { key: 'MMR', matched_records: 4 },
             }
-          : { items: [], total: 0 },
+          : emptyRead(path),
       ),
     );
     renderAt('/doctor?project=MMR');
@@ -220,7 +223,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
               scanned_at: new Date().toISOString(),
               scope: { key: 'ZZZ', matched_records: 0 },
             }
-          : { items: [], total: 0 },
+          : emptyRead(path),
       ),
     );
     renderAt('/doctor?project=ZZZ');

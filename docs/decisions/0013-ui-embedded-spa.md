@@ -200,6 +200,8 @@ their ordering are unchanged.
   word (a misleading healthy dot). They now surface as _going cold_ — kept in the set
   (a rotted started task needs you), but labeled by the nudge, not the status.
 
+_Superseded by the MMR-476 refinement in ADR 0019: the Lanes and the `attention` facet retire._
+
 ## Refinement (2026-07-07): the attention model is recorded in ADR 0019
 
 The Overview/attention model this ADR accumulated as refinements (the v0.12

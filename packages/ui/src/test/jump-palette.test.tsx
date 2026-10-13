@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../api/errors';
 import type { WireSearchHit } from '../api/types';
 import { router } from '../router';
-import { project, task } from './fixtures';
+import { emptyRead, project, task } from './fixtures';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
@@ -90,7 +90,7 @@ function mockApi() {
         task({ id: 'MMR-417', status: 'ready', title: 'Add the SQLite dialect' }),
       );
     }
-    return Promise.resolve({ items: [], total: 0 });
+    return Promise.resolve(emptyRead(path));
   });
 }
 

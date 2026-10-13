@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 /**
  * A page with nothing to show: any path the console has no page for, or a
  * record address that names no record. `projectKey` points the way back at
- * the record's project instead of the Overview.
+ * the record's project instead of the review page at `/`.
  */
 export function NotFoundPage({
   children = 'The console has no page at this address.',
@@ -21,7 +21,7 @@ export function NotFoundPage({
       <p className="text-xs leading-relaxed text-ink-dim">{children}</p>
       {projectKey === undefined ? (
         <Link to="/" className={back}>
-          ← Back to Overview
+          ← Back to the review page
         </Link>
       ) : (
         <Link to="/p/$key" params={{ key: projectKey }} className={back}>
@@ -56,7 +56,7 @@ export function ProjectUnavailablePage({ projectKey }: { projectKey: string }) {
         to="/"
         className="text-xs font-semibold text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
       >
-        ← Back to Overview
+        ← Back to the review page
       </Link>
     </main>
   );

@@ -233,13 +233,6 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
       project_key: node.home.projectKey,
     };
   }
-  if (node.attention !== undefined) {
-    wire.attention = {
-      lane: node.attention.lane,
-      last_activity: node.attention.lastActivity,
-      stale: node.attention.stale,
-    };
-  }
   return wire;
 }
 
@@ -434,12 +427,11 @@ export function formatTriageJsonl(report: TriageReport): string {
   return emitWire(triageToWire(report), false);
 }
 
-/** One needs-attention listing row (MMR-322) — the lean task with its lane word
- * and the `going cold` modifier folded onto the same object, exactly as an
- * awaiting row folds on `awaiting_on`. */
+/** One needs-attention listing row (MMR-322) — the lean task with the `going cold`
+ * modifier folded onto the same object, exactly as an awaiting row folds on
+ * `awaiting_on`. */
 function attentionTaskToWire(row: OverviewAttentionTask): Record<string, unknown> {
   const wire = nodeToWire(row.task);
-  wire.lane = row.lane;
   wire.stale = row.stale;
   return wire;
 }
@@ -618,6 +610,14 @@ export function reviewToWire(report: ReviewReport): Record<string, unknown> {
         stale: row.stale,
       })),
     })),
+    last_finished:
+      report.lastFinished === null
+        ? null
+        : {
+            ...nodeToWire(report.lastFinished.task),
+            abandon_reason: report.lastFinished.abandonReason,
+            finished_at: report.lastFinished.finishedAt,
+          },
     projects: report.projects.map((p) => ({
       decisions: p.decisions,
       in_flight: p.inFlight,

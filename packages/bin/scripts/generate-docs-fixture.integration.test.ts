@@ -4,11 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { SEED_LANE_VALUES, STATUS_WORD_VALUES } from '@mimir/contract';
-import type { Lane } from '@mimir/contract';
 
 import { deriveSet, isStale, listSeeds, nodeStatusWord } from '../src/core';
 import type { Store } from '../src/core';
-import { attentionOf } from '../src/core/attention';
 import type { Node } from '../src/core/model';
 import { seedLane } from '../src/core/seeds';
 import type { BuiltStore } from '../src/store-backend';
@@ -67,15 +65,6 @@ test('the backdated cohort reads as stale', async () => {
   expect(isStale(set, partition)).toBe(true); // stale ready
   // And a fresh Aurora leaf is NOT stale — proving the freeze/restore boundary.
   expect(isStale(set, byTitle(ws.nodes, 'Cache the home feed locally'))).toBe(false);
-});
-
-test('every attention lane is populated across the projects', async () => {
-  const ws = await store.loadWorkingSet();
-  const set = deriveSet(ws);
-  const lanes = new Set<Lane>(ws.projects.map((p) => attentionOf(set, p).lane));
-  for (const lane of ['awaiting_you', 'live', 'needs_unsticking', 'at_rest'] as const) {
-    expect(lanes.has(lane)).toBe(true);
-  }
 });
 
 test('the documentation portfolio includes an archived project', async () => {

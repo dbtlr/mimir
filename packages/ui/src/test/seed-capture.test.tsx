@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, vi } from 'vitest';
 
 import { router } from '../router';
+import { emptyRead } from './fixtures';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
@@ -32,9 +33,9 @@ function mockApi() {
       });
     }
     if (path.startsWith('/api/seeds?')) {
-      return Promise.resolve({ items: [], total: 0 });
+      return Promise.resolve(emptyRead(path));
     }
-    return Promise.resolve({ items: [], total: 0 });
+    return Promise.resolve(emptyRead(path));
   });
 }
 

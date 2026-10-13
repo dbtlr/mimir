@@ -117,7 +117,7 @@ export type SeedLifecycle = (typeof SEED_LIFECYCLE_VALUES)[number];
 
 /**
  * Seed lane (MMR-245) — the exclusive, highest-wins standing a seed view groups
- * into, the seed sibling of the node attention {@link Lane}. `untriaged` (new,
+ * into, what the work view groups seeds into. `untriaged` (new,
  * awaiting a decision), `ready` (promoted + all spawned work settled — ready to
  * resolve), `promoted` (in flight, work outstanding), `parked` (set aside on
  * purpose, MMR-473), `settled` (resolved/rejected). `ready` wins over `promoted`
