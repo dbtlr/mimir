@@ -65,14 +65,11 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
 
 On a phone, the rail folds into chips that open bottom sheets.
 
-The board lives at `/p/MMR/board` and offers two views:
-
-- **Board** groups tasks into status lanes. Rank within Ready is the queue.
-- **Tree** preserves the initiative and phase hierarchy.
-
-Card titles, tree rows, and the container names in the board's bands and the
-tree's headers are links to their pages, so they open in a new tab or copy as
-links like any other link.
+The board is an optional view at `/p/MMR/board`, linked from the work page's
+rail. It groups tasks into status lanes, banded by phase or release, and rank
+within Ready is the queue. Card titles and the container names in its bands are
+links to their pages, so they open in a new tab or copy as links like any other
+link.
 
 ## Browse portfolio records
 

@@ -183,7 +183,7 @@ export const boardDoneQuery = (key: string) =>
     queryKey: ['board', key, 'done'],
   });
 
-/** The tree lens: the whole project hierarchy, nested, rank-ordered. */
+/** The whole project hierarchy, nested, rank-ordered: the work page's Structure and the board's Phase bands. */
 export const treeQuery = (key: string) =>
   queryOptions({
     queryFn: () => apiGet<WireTreeNode>(`/api/projects/${encodeURIComponent(key)}/tree`),

@@ -18,7 +18,7 @@
  * Flat wells carry depth by tone alone (no drop shadows in dark); accent,
  * attention, and status hues render as washes, never solid backgrounds. One
  * status color system, declared once here and consumed identically by
- * distribution bars, board column headers, tree badges, and record pages.
+ * distribution bars, board column headers, and record pages.
  */
 @theme {
   --font-sans: 'Instrument Sans Variable', 'Instrument Sans', system-ui, sans-serif;

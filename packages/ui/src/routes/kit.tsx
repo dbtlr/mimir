@@ -62,7 +62,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export function KitPage() {
-  const [lens, setLens] = useState<'board' | 'tree' | 'log'>('board');
+  const [lens, setLens] = useState<'work' | 'timeline'>('work');
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 overflow-y-auto px-5 py-8">
@@ -193,13 +193,12 @@ export function KitPage() {
 
       <Section title="Segmented control">
         <SegmentedControl
-          ariaLabel="Lens"
+          ariaLabel="View"
           value={lens}
           onChange={setLens}
           options={[
-            { label: 'Board', value: 'board' },
-            { label: 'Tree', value: 'tree' },
-            { label: 'Log', value: 'log' },
+            { label: 'Work', value: 'work' },
+            { label: 'Timeline', value: 'timeline' },
           ]}
         />
       </Section>

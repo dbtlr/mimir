@@ -37,17 +37,15 @@ import { TasksPage } from './routes/tasks';
  * Navigation (ADR 0013 §3 and its v0.23 refinement): URLs name scopes, views,
  * and records — `/` the overview, `/p/KEY` the project's page, `/p/KEY/board`
  * its board, `/p/KEY/417` a work node's page, `/p/KEY/s41` a seed's page,
- * `/p/KEY/a219` an artifact's page. On the board, `view` picks the
- * lens (board or tree) until the work page retires the tree (MMR-439). Typed
- * search params carry that contract in the type system.
+ * `/p/KEY/a219` an artifact's page. The board is an optional view with no
+ * lenses (MMR-467 refinement). Typed search params carry that contract in the
+ * type system.
  */
-export type BoardLens = 'board' | 'tree';
 
 const isBandMode = (value: unknown): value is BandMode =>
   typeof value === 'string' && (BAND_MODES as readonly string[]).includes(value);
 
 export type BoardSearch = {
-  view: BoardLens;
   /** The board's swimlane grouping (MMR-221) — addressable, `phase` defaulted-out. */
   bands: BandMode;
 };
@@ -96,14 +94,13 @@ export const boardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/p/$key/board',
   search: {
-    // board is the primary lens and phase the primary grouping — keep both defaults
-    // out of the URL, so a clean `/p/KEY/board` is the canonical board.
-    middlewares: [stripSearchParams<BoardSearch>({ bands: 'phase', view: 'board' })],
+    // phase is the primary grouping — keep the default out of the URL, so a
+    // clean `/p/KEY/board` is the canonical board.
+    middlewares: [stripSearchParams<BoardSearch>({ bands: 'phase' })],
   },
   validateSearch: (search: Record<string, unknown> & SearchSchemaInput): BoardSearch => {
-    const view: BoardLens = search.view === 'tree' ? 'tree' : 'board';
     const bands: BandMode = isBandMode(search.bands) ? search.bands : 'phase';
-    return { bands, view };
+    return { bands };
   },
 });
 
