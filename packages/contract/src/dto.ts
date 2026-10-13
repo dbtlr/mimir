@@ -712,6 +712,85 @@ export type OverviewReport = {
   hygiene: OverviewHygiene;
 };
 
+/** What a work page is scoped to: a whole project or one container's subtree. */
+export type WorkScope = {
+  kind: 'project' | 'initiative' | 'phase';
+  /** The project KEY, or the container's `KEY-seq`. */
+  id: string;
+  /** The project name, or the container title. */
+  title: string;
+};
+
+/** A Scratchpad linked to a work-page task (its id and title, for the agent context). */
+export type WorkScratchpad = { id: string; title: string };
+
+/** A task on the work page's "now" list: in progress, with when it started and its last note. */
+export type WorkNowTask = {
+  /** Carries the agent context fields (harness, branch, host, session, externalRef). */
+  task: NodeView;
+  /** When the task last entered in-progress. */
+  startedAt: string;
+  latestNote: AnnotationView | null;
+  /** Active Scratchpads anchored to the task. */
+  scratchpads: WorkScratchpad[];
+};
+
+export type WorkNeedsYouReason = 'under_review' | 'blocked' | 'needs_answers';
+
+/** A task waiting on the operator, and why. */
+export type WorkNeedsYouTask = {
+  task: NodeView;
+  reason: WorkNeedsYouReason;
+  /** The latest note's text for a needs-answers task (the open question); null otherwise. */
+  question: string | null;
+};
+
+/** A frontier task: ready, or awaiting only prerequisites that are one step from done. */
+export type WorkFrontierTask = {
+  task: NodeView;
+  /** The unsettled prerequisite ids it awaits (own or inherited); empty when ready. */
+  awaitingOn: string[];
+};
+
+/** The frontier tasks waiting on one prerequisite. */
+export type WorkUnlockGroup = {
+  prerequisite: NodeRef;
+  tasks: WorkFrontierTask[];
+};
+
+/** The frontier: work one step from startable, split by what the operator can do with it. */
+export type WorkFrontier = {
+  /** Groomed and ready, in `next` order. */
+  runnable: WorkFrontierTask[];
+  /** Groomed and awaiting, grouped by the prerequisite each waits on. */
+  nextToUnlock: WorkUnlockGroup[];
+  /** Not groomed, ready or awaiting within the frontier, in rank order. */
+  toGroom: WorkFrontierTask[];
+};
+
+/** A task that finished (done or abandoned) inside the shipped window. */
+export type WorkShippedTask = {
+  task: NodeView;
+  finishedAt: string;
+  /** The reason an abandoned task carries; null for a done task or an abandon without one. */
+  abandonReason: string | null;
+};
+
+/**
+ * The console work page for a project or one container's subtree. Tasks only —
+ * containers scope the page but never appear as rows. No section is capped.
+ */
+export type WorkReport = {
+  scope: WorkScope;
+  now: WorkNowTask[];
+  needsYou: WorkNeedsYouTask[];
+  frontier: WorkFrontier;
+  /** Done or abandoned in the last 7 days, newest first. */
+  shipped: WorkShippedTask[];
+  /** Tasks past the stale threshold, stalest first. */
+  goingStale: NodeView[];
+};
+
 /** The set-valued column names (flat, MMR-38), for `--col` parsing and the cheap-vs-heavy default sets. */
 export const FACET_NAMES = [
   'deps',

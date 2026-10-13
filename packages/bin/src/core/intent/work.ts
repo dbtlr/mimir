@@ -1,0 +1,377 @@
+import type {
+  AnnotationView,
+  HistoryEntry,
+  NodeRef,
+  NodeView,
+  WorkFrontierTask,
+  WorkNeedsYouReason,
+  WorkNeedsYouTask,
+  WorkNowTask,
+  WorkReport,
+  WorkScope,
+  WorkShippedTask,
+  WorkUnlockGroup,
+} from '@mimir/contract';
+
+import { recentDaysWindow, withinWindow } from '../dates';
+import type { DerivationSet } from '../derive';
+import { deriveSet, findNodeInSet, hasUnsettledPrereq, nodeStatusWord } from '../derive';
+import { notFound, projectNotFound, validation } from '../errors';
+import { parseIdentity } from '../ids';
+import type { Node } from '../model';
+import { isStale } from '../predicates';
+import type { Store } from '../store';
+import { now } from '../time';
+import { byRankOrder } from './queries';
+import { buildAwaitingOn, buildNodeView } from './view';
+
+/**
+ * The work page (MMR-469): the console's per-scope derivation. A scope is a
+ * project, or an initiative or phase and its whole subtree; a task has no work
+ * page. Rows are tasks only — containers scope the page and never appear as
+ * rows — and no section is capped (the page is a working surface, not the
+ * orientation digest {@link import('./queries').overviewOf} is).
+ */
+
+export type WorkOptions = {
+  /** Reference time (ISO-ms-Z) for the shipped window and staleness; defaults to now. */
+  asOf?: string;
+  /** The caller's IANA zone, which decides where the shipped days begin and end (ADR 0029). Defaults to UTC. */
+  timeZone?: string;
+};
+
+/** The shipped window spans this many caller-local calendar days, today included. */
+const SHIPPED_WINDOW_DAYS = 7;
+
+type ScopedTasks = { scope: WorkScope; projectKey: string; tasks: Node[] };
+
+/** Resolve the scope id to its identity and every task beneath it. */
+function resolveWorkScope(set: DerivationSet, id: string): ScopedTasks {
+  const identity = parseIdentity(id);
+  if (identity?.kind === 'artifact') {
+    throw validation(`${id} is an artifact, not a project, initiative, or phase`);
+  }
+  if (identity?.kind === 'seed') {
+    throw validation(`${id} is a seed, not a project, initiative, or phase`);
+  }
+  if (identity?.kind === 'project') {
+    const project = set.projectByKey.get(identity.key);
+    // An archived project reads as absent, like every other view (ADR 0015).
+    if (project === undefined || project.archived_at !== null) {
+      throw projectNotFound(identity.key);
+    }
+    return {
+      projectKey: project.key,
+      scope: { id: project.key, kind: 'project', title: project.name },
+      tasks: (set.nodesByProject.get(project.key) ?? []).filter((n) => n.type === 'task'),
+    };
+  }
+  const root = findNodeInSet(set, id);
+  if (root === undefined || set.archivedProjects.has(root.project_id)) {
+    throw notFound(`${id} doesn't exist`);
+  }
+  if (root.type === 'task') {
+    throw validation(
+      `${id} is a task, not a project, initiative, or phase`,
+      'a work page covers a project or a container',
+    );
+  }
+  const tasks: Node[] = [];
+  const pending: Node[] = [root];
+  for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
+    for (const child of set.childrenByParent.get(node.id) ?? []) {
+      if (child.type === 'task') {
+        tasks.push(child);
+      } else {
+        pending.push(child);
+      }
+    }
+  }
+  return {
+    projectKey: root.project_id,
+    scope: { id: root.id, kind: root.type, title: root.title },
+    tasks,
+  };
+}
+
+/** Newest `updated_at` first, then lowest seq — a deterministic recency order. */
+const byRecency = (a: Node, b: Node): number => cmpStr(b.updated_at, a.updated_at) || a.seq - b.seq;
+
+/** Ordinal string comparison — the canonical timestamps sort chronologically as text. */
+function cmpStr(a: string, b: string): number {
+  if (a < b) {
+    return -1;
+  }
+  return a > b ? 1 : 0;
+}
+
+/** The statuses a prerequisite can hold and still be "one step away" from done. */
+const ONE_STEP_STATUSES = new Set(['in_progress', 'under_review', 'ready']);
+
+/**
+ * Is this todo task on the frontier — ready, or awaiting only prerequisites that
+ * are themselves in flight or ready (at most one step from startable)? A
+ * prerequisite that is blocked, parked, or itself awaiting puts the task two or
+ * more steps away. Own and ancestor-inherited edges both count, and a
+ * prerequisite outside the scope still gates.
+ */
+function frontierPrereqs(set: DerivationSet, task: Node): NodeRef[] | undefined {
+  if (!hasUnsettledPrereq(set, task.id)) {
+    return [];
+  }
+  const awaitingOn = buildAwaitingOn(set, task.id);
+  return awaitingOn.every((ref) => ONE_STEP_STATUSES.has(ref.status ?? ''))
+    ? awaitingOn
+    : undefined;
+}
+
+const latestOf = <T>(items: readonly T[] | undefined): T | undefined => items?.at(-1);
+
+/** When the task last started: its latest todo to in_progress transition, else any move into in_progress. */
+function startedAtOf(task: Node, history: readonly HistoryEntry[]): string {
+  const intoProgress = history.filter((h) => h.kind === 'lifecycle' && h.to === 'in_progress');
+  const start = latestOf(intoProgress.filter((h) => h.from === 'todo')) ?? latestOf(intoProgress);
+  return start?.at ?? task.updated_at;
+}
+
+/** The abandon transition's time and reason; falls back to the row's stamp when the log is silent. */
+function abandonedOf(
+  task: Node,
+  history: readonly HistoryEntry[],
+): { at: string; reason: string | null } {
+  const entry = latestOf(history.filter((h) => h.kind === 'lifecycle' && h.to === 'abandoned'));
+  return { at: entry?.at ?? task.updated_at, reason: entry?.reason ?? null };
+}
+
+/**
+ * The work page for a project key, or an initiative/phase id (its whole subtree).
+ *
+ * Sections:
+ * - `now`: in-progress tasks, with when they started, the latest note, and any
+ *   linked Scratchpads (harness/branch/host/session/externalRef ride the task).
+ * - `needsYou`: under review, then blocked with an owner of `you`, then
+ *   needs-answers todos (the latest note is the question); newest first within each.
+ * - `frontier`: todo tasks at most one step from startable. Groomed and ready are
+ *   `runnable` (`next` order); groomed and awaiting are `nextToUnlock`; ungroomed
+ *   ones are `toGroom`. A needs-answers task is in `needsYou`, not here.
+ * - `shipped`: done or abandoned during the last 7 caller-local calendar days
+ *   (today included, in `timeZone`), newest first.
+ * - `goingStale`: stale tasks no earlier section shows (a task appears in one
+ *   section only, in page order), stalest first.
+ *
+ * Parked tasks, blocks owned by others, and empty containers have no row yet.
+ */
+export async function workPageOf(
+  store: Store,
+  id: string,
+  opts: WorkOptions = {},
+): Promise<WorkReport> {
+  const set = deriveSet(await store.loadWorkingSet());
+  const { scope, projectKey, tasks } = resolveWorkScope(set, id);
+  const asOf = opts.asOf ?? now();
+  const shippedWindow = recentDaysWindow(asOf, SHIPPED_WINDOW_DAYS, opts.timeZone ?? 'UTC');
+  const rankOrder = byRankOrder(set);
+
+  const nowNodes: Node[] = [];
+  const needsYou: { node: Node; reason: WorkNeedsYouReason }[] = [];
+  const frontier: { node: Node; awaitingOn: NodeRef[] }[] = [];
+  const shippedCandidates: Node[] = [];
+  const staleCandidates: Node[] = [];
+
+  for (const node of tasks.toSorted(rankOrder)) {
+    const word = nodeStatusWord(set, node);
+    if (word === 'in_progress') {
+      nowNodes.push(node);
+    } else if (word === 'under_review') {
+      needsYou.push({ node, reason: 'under_review' });
+    } else if (word === 'blocked' && node.block_owner === 'you') {
+      needsYou.push({ node, reason: 'blocked' });
+    } else if (node.lifecycle === 'todo' && node.hold === 'none') {
+      if (node.grooming === 'needs_answers') {
+        needsYou.push({ node, reason: 'needs_answers' });
+      } else {
+        const awaitingOn = frontierPrereqs(set, node);
+        if (awaitingOn !== undefined) {
+          frontier.push({ awaitingOn, node });
+        }
+      }
+    } else if (node.lifecycle === 'done' || node.lifecycle === 'abandoned') {
+      // Prefilter on the stamp that moves at (or after) the finish; the exact
+      // time is settled below. `completed_at` is the done stamp; an abandon
+      // only touches `updated_at`.
+      const stamp =
+        node.lifecycle === 'done' ? (node.completed_at ?? node.updated_at) : node.updated_at;
+      if (stamp >= (shippedWindow.from?.at ?? '')) {
+        shippedCandidates.push(node);
+      }
+    }
+    if (isStale(set, node, { asOf })) {
+      staleCandidates.push(node);
+    }
+  }
+
+  // One section per task, in page order: a stale task an earlier section
+  // already shows (in progress, awaiting review, ready on the frontier) is not
+  // repeated under going stale.
+  const claimed = new Set<string>([
+    ...nowNodes.map((n) => n.id),
+    ...needsYou.map((n) => n.node.id),
+    ...frontier.map((n) => n.node.id),
+    ...shippedCandidates.map((n) => n.id),
+  ]);
+  const staleNodes = staleCandidates.filter((n) => !claimed.has(n.id));
+
+  const needsAnswers = needsYou.filter((n) => n.reason === 'needs_answers').map((n) => n.node.id);
+  const abandonedStems = shippedCandidates
+    .filter((n) => n.lifecycle === 'abandoned')
+    .map((n) => n.id);
+  const [nowSections, questionSections, abandonSections, scratchpads] = await Promise.all([
+    store.bodySections.readSectionsMany(
+      nowNodes.map((n) => n.id),
+      { annotations: true, history: true },
+    ),
+    store.bodySections.readSectionsMany(needsAnswers, { annotations: true }),
+    store.bodySections.readSectionsMany(abandonedStems, { history: true }),
+    nowNodes.length === 0 ? Promise.resolve([]) : store.scratchpads.list(projectKey),
+  ]);
+
+  // One view per task, however many rows it appears in (a task can sit in
+  // several next-to-unlock groups).
+  const views = new Map<string, NodeView>();
+  const viewOf = async (node: Node): Promise<NodeView> => {
+    const cached = views.get(node.id);
+    if (cached !== undefined) {
+      return cached;
+    }
+    const view = await buildNodeView(store.bodySections, store.artifacts, set, node);
+    views.set(node.id, view);
+    return view;
+  };
+
+  const nowRows: WorkNowTask[] = await Promise.all(
+    nowNodes.map(async (node) => {
+      const sections = nowSections.get(node.id);
+      const note: AnnotationView | undefined = latestOf(sections?.annotations);
+      return {
+        latestNote: note ?? null,
+        scratchpads: scratchpads
+          .filter((pad) => pad.anchors.includes(node.id))
+          .map((pad) => ({ id: pad.id, title: pad.title })),
+        startedAt: startedAtOf(node, sections?.history ?? []),
+        task: await viewOf(node),
+      };
+    }),
+  );
+
+  const reasonOrder: WorkNeedsYouReason[] = ['under_review', 'blocked', 'needs_answers'];
+  const needsYouRows: WorkNeedsYouTask[] = await Promise.all(
+    needsYou
+      .toSorted(
+        (a, b) =>
+          reasonOrder.indexOf(a.reason) - reasonOrder.indexOf(b.reason) ||
+          byRecency(a.node, b.node),
+      )
+      .map(async ({ node, reason }) => ({
+        question:
+          reason === 'needs_answers'
+            ? (latestOf(questionSections.get(node.id)?.annotations)?.content ?? null)
+            : null,
+        reason,
+        task: await viewOf(node),
+      })),
+  );
+
+  const frontierRow = async (entry: {
+    node: Node;
+    awaitingOn: NodeRef[];
+  }): Promise<WorkFrontierTask> => ({
+    awaitingOn: entry.awaitingOn.map((ref) => ref.id),
+    task: await viewOf(entry.node),
+  });
+  const groomed = frontier.filter((e) => e.node.grooming === 'groomed');
+  const runnable = await Promise.all(
+    groomed.filter((e) => e.awaitingOn.length === 0).map(frontierRow),
+  );
+  const toGroom = await Promise.all(
+    frontier.filter((e) => e.node.grooming !== 'groomed').map(frontierRow),
+  );
+  const nextToUnlock = await groupByPrerequisite(
+    set,
+    groomed.filter((e) => e.awaitingOn.length > 0),
+    frontierRow,
+  );
+
+  const shipped: WorkShippedTask[] = [];
+  for (const node of shippedCandidates) {
+    const abandoned =
+      node.lifecycle === 'abandoned'
+        ? abandonedOf(node, abandonSections.get(node.id)?.history ?? [])
+        : undefined;
+    const finishedAt = abandoned?.at ?? node.completed_at ?? node.updated_at;
+    if (withinWindow(shippedWindow, finishedAt)) {
+      shipped.push({
+        abandonReason: abandoned?.reason ?? null,
+        finishedAt,
+        task: await viewOf(node),
+      });
+    }
+  }
+  // Newest first; the higher seq (created later, so most likely finished later)
+  // breaks a same-millisecond tie.
+  shipped.sort((a, b) => cmpStr(b.finishedAt, a.finishedAt) || seqOf(b.task.id) - seqOf(a.task.id));
+
+  const goingStale = await Promise.all(
+    staleNodes.toSorted((a, b) => cmpStr(a.updated_at, b.updated_at) || a.seq - b.seq).map(viewOf),
+  );
+
+  return {
+    frontier: { nextToUnlock, runnable, toGroom },
+    goingStale,
+    needsYou: needsYouRows,
+    now: nowRows,
+    scope,
+    shipped,
+  };
+}
+
+const seqOf = (id: string): number => Number(id.slice(id.lastIndexOf('-') + 1));
+
+/**
+ * Group groomed-and-awaiting tasks by the prerequisite each waits on. A task
+ * waiting on several in-frontier prerequisites appears under EACH of them, so
+ * whichever prerequisite lands first shows what it is holding up. Groups follow
+ * the prerequisites' board order; tasks inside a group keep rank order.
+ */
+async function groupByPrerequisite(
+  set: DerivationSet,
+  entries: readonly { node: Node; awaitingOn: NodeRef[] }[],
+  rowOf: (entry: { node: Node; awaitingOn: NodeRef[] }) => Promise<WorkFrontierTask>,
+): Promise<WorkUnlockGroup[]> {
+  const groups = new Map<string, { prerequisite: NodeRef; entries: (typeof entries)[number][] }>();
+  for (const entry of entries) {
+    for (const prerequisite of entry.awaitingOn) {
+      const group = groups.get(prerequisite.id);
+      if (group === undefined) {
+        groups.set(prerequisite.id, { entries: [entry], prerequisite });
+      } else {
+        group.entries.push(entry);
+      }
+    }
+  }
+  const rankOrder = byRankOrder(set);
+  const ordered = [...groups.values()].toSorted((a, b) => {
+    const left = set.nodeById.get(a.prerequisite.id);
+    const right = set.nodeById.get(b.prerequisite.id);
+    return left === undefined || right === undefined ? 0 : rankOrder(left, right);
+  });
+  return Promise.all(
+    ordered.map(async (group) => ({
+      prerequisite: {
+        id: group.prerequisite.id,
+        status: group.prerequisite.status,
+        title: group.prerequisite.title,
+      },
+      tasks: await Promise.all(group.entries.map(rowOf)),
+    })),
+  );
+}

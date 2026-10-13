@@ -98,6 +98,8 @@ import {
   treeToWire,
   undepend,
   untagEntities,
+  workPageOf,
+  workToWire,
   updateArtifact,
   updateNode,
   updateProject,
@@ -287,6 +289,12 @@ function optSeedKind(body: Record<string, unknown>): SeedKind | undefined {
     throw validation(`invalid kind: ${kind}`, `kinds: ${SEED_KIND_VALUES.join(', ')}`);
   }
   return narrowed;
+}
+
+/** The work page's options off the request: the caller's validated `?tz=` zone, if sent. */
+function workOptionsOf(req: Request): { timeZone?: string } {
+  const timeZone = requireTimeZone(new URL(req.url).searchParams.get('tz') ?? undefined);
+  return timeZone === undefined ? {} : { timeZone };
 }
 
 /** Map the `?status` param on the seed queue to the selector (MMR-245). */
@@ -1220,6 +1228,19 @@ function bindServer(
           }),
       },
 
+      // The work page for an initiative or phase subtree (MMR-469). A task has no
+      // work page; a project key belongs to /api/projects/:key/work.
+      '/api/nodes/:id/work': {
+        GET: (req) =>
+          guarded(req, async () => {
+            const id = req.params.id;
+            if (parseIdentity(id)?.kind === 'project') {
+              throw validation(`${id} is a project`, `use /api/projects/${id}/work`);
+            }
+            return json(workToWire(await workPageOf(store, id, workOptionsOf(req))));
+          }),
+      },
+
       '/api/projects': {
         GET: (req) =>
           guarded(req, async () => {
@@ -1309,6 +1330,20 @@ function bindServer(
               throw validation(`${key} is not a project key`);
             }
             return json(treeToWire(await projectTree(store, key)));
+          }),
+      },
+
+      // The console work page (MMR-469) for a whole project — see `workPageOf`.
+      // An unknown or archived project 404s in core. `?tz=` is the caller's IANA
+      // zone, which decides where the shipped days begin (ADR 0029).
+      '/api/projects/:key/work': {
+        GET: (req) =>
+          guarded(req, async () => {
+            const key = req.params.key;
+            if (parseIdentity(key)?.kind !== 'project') {
+              throw validation(`${key} is not a project key`, `use /api/nodes/${key}/work`);
+            }
+            return json(workToWire(await workPageOf(store, key, workOptionsOf(req))));
           }),
       },
 

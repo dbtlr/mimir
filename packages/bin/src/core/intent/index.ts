@@ -14,6 +14,7 @@ export {
   overviewScratchpadOf,
   statusOfNode,
 } from './queries';
+export { type WorkOptions, workPageOf } from './work';
 export {
   type SessionGroup,
   type SessionRow,

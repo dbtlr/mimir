@@ -244,6 +244,52 @@ test('GET /api/projects/:key/overview rejects a node ref key', async () => {
   expect(errorCode(await parse(res))).toBe('validation');
 });
 
+// The console work page (MMR-469): one derivation for a project or any container.
+test('GET /api/projects/:key/work serves the sections for the whole project', async () => {
+  const res = await get('/api/projects/MMR/work');
+  expect(res.status).toBe(200);
+  const body = await parse(res);
+  expect(body.scope).toEqual({ id: 'MMR', kind: 'project', title: 'Mimir' });
+  const frontier = body.frontier as Rec;
+  expect((frontier.to_groom as Rec[]).map((t) => t.id)).toEqual([task1, task2]);
+  expect(frontier.runnable).toEqual([]);
+  expect(frontier.next_to_unlock).toEqual([]);
+  expect(body.now).toEqual([]);
+  expect(body.needs_you).toEqual([]);
+  expect(body.shipped).toEqual([]);
+  expect(body.going_stale).toEqual([]);
+});
+
+test('GET /api/nodes/:id/work scopes the page to a container subtree', async () => {
+  const res = await get(`/api/nodes/${phaseRef}/work`);
+  expect(res.status).toBe(200);
+  const body = await parse(res);
+  expect(body.scope).toEqual({ id: phaseRef, kind: 'phase', title: 'phase 4' });
+  const ids = ((body.frontier as Rec).to_groom as Rec[]).map((t) => t.id);
+  expect(ids).toEqual([task1, task2]);
+  const other = await parse(await get(`/api/nodes/${initiativeRef}/work`));
+  expect((other.scope as Rec).kind).toBe('initiative');
+});
+
+test('GET /api/nodes/:id/work refuses a task id', async () => {
+  const res = await get(`/api/nodes/${task1}/work`);
+  expect(res.status).toBe(400);
+  expect(errorCode(await parse(res))).toBe('validation');
+});
+
+test('work routes 404 on an unknown id and send a project key to the other route', async () => {
+  expect((await get('/api/nodes/MMR-999/work')).status).toBe(404);
+  expect((await get('/api/projects/NOPE/work')).status).toBe(404);
+  expect((await get('/api/nodes/MMR/work')).status).toBe(400);
+  expect((await get(`/api/projects/${task1}/work`)).status).toBe(400);
+});
+
+test('work routes reject an unknown ?tz=', async () => {
+  const res = await get('/api/projects/MMR/work?tz=Mars/Olympus');
+  expect(res.status).toBe(400);
+  expect(errorCode(await parse(res))).toBe('validation');
+});
+
 // ---------------------------------------------------------------------------
 // Nodes — collection
 // ---------------------------------------------------------------------------

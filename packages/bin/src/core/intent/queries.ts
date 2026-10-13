@@ -118,7 +118,7 @@ function projectKey(_set: DerivationSet, n: Node): string {
 
 /** Board order: rank (nulls last), then (project KEY, numeric seq) — a portable,
  * numerically-correct tiebreak (seq is per-project, so KEY groups first). */
-function byRankOrder(set: DerivationSet) {
+export function byRankOrder(set: DerivationSet) {
   return (a: Node, b: Node): number =>
     (a.rank === null ? 1 : 0) - (b.rank === null ? 1 : 0) ||
     (a.rank ?? 0) - (b.rank ?? 0) ||
