@@ -216,8 +216,9 @@ operator's answer, and nothing else moves it, so the section includes it.
 
 - On a work page, _Needs you_ is tasks under review, blocks owned by `you`,
   and `todo` tasks with no hold whose grooming state is _needs answers_, in
-  that order. A parked or blocked task's grooming state does not put it in
-  the set (ADR 0033 reads grooming for unheld `todo` tasks only).
+  that order. Grooming state alone never puts a parked or blocked task in
+  the set: a parked task stays quiet, and a block owned by `you` is already
+  in the set as a block.
 - A needs-answers row takes the attention hue and shows its latest note,
   which is normally the question its grooming call wrote. Its grooming chip
   keeps its amber (MMR-466 refinement).

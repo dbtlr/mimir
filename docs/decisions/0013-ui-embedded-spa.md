@@ -341,19 +341,22 @@ the questions the operator asks. §4 is revised:
   status word is `in_progress`, `under_review`, or `ready`. Such a task is at
   most one step away. A container prerequisite counts by its rollup word,
   and inherited dependency edges count, as they do for `ready`. Grooming
-  state (ADR 0033) splits the frontier:
+  state (ADR 0033) splits these tasks into three groups:
   - _Runnable now_ is groomed and `ready`, in `next` order.
   - _Next to unlock_ is groomed and `awaiting`, grouped by prerequisite. A
     task waiting on several prerequisites appears under each.
   - _To groom_ is not groomed, `ready` or `awaiting`, in rank order. An
     initiative or phase that reads _to break down_ (ADR 0033 §6) follows
     the tasks, under the same one-step rule on its own dependencies.
-  - _Waiting on others_ is folded by default and lists blocks owned by
-    `others`, with each block's reason.
 
-  A task that needs answers is in _Needs you_, not the frontier. A task two
-  or more steps away, and a parked task, are not rows; the board and the
-  task browser list them.
+  The frontier ends with _Waiting on others_, a folded group outside that
+  rule. It lists every task blocked with owner `others`, started or not and
+  at any distance, with each block's reason, oldest first. Blocks owned by
+  `you` are in _Needs you_, so every blocked task has one home on the page.
+
+  A task that needs answers is in _Needs you_, not the frontier. An unheld
+  task two or more steps away, and a parked task, are not rows; the board
+  and the task browser list them.
 - **Shipped is the last seven calendar days**, today included, in the
   caller's time zone (ADR 0029). It lists tasks done or abandoned in that
   window, newest first, grouped by day. An abandoned row shows its reason.
