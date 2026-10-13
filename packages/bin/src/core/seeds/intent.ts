@@ -568,12 +568,7 @@ export async function parkSeed(store: Store, id: string, reason?: string): Promi
 
 /** `unpark KEY-sN` — return a parked seed to the untriaged queue (MMR-473). */
 export async function unparkSeed(store: Store, id: string): Promise<SeedView> {
-  const ref = requireSeedRef(id);
-  const rec = await store.seeds.load(ref.key, ref.seq);
-  if (rec !== undefined && rec.lifecycle !== 'parked') {
-    throw validation(`seed ${id} is not parked (is ${rec.lifecycle})`);
-  }
-  return moveSeed(store, id, 'new', null);
+  return moveSeed(store, id, 'new', null, 'parked');
 }
 
 /** Parse a seed id or refuse it with the one `not_found` every seed verb gives. */
@@ -586,18 +581,28 @@ function requireSeedRef(id: string): { key: string; seq: number } {
 }
 
 /** Move a seed along its lifecycle machine on an active board and echo it — the
- * shared body of the terminal and parking verbs. */
+ * shared body of the terminal and parking verbs. `from`, when given, names the one
+ * state the verb applies to, refused in the verb's own words rather than as a bare
+ * illegal edge — checked after the board guard, so an archived board never
+ * reveals a seed's state. */
 async function moveSeed(
   store: Store,
   id: string,
   to: SeedLifecycle,
   reason: string | null,
+  from?: SeedLifecycle,
 ): Promise<SeedView> {
   const ref = requireSeedRef(id);
   // One projects read serves the board-active guard AND the echo (MMR-251): no
   // whole-store load for either, and no second read for the echo.
   const projects = await store.loadProjects();
   assertSeedBoardActive(buildResolver(projects, []).set, ref.key);
+  if (from !== undefined) {
+    const rec = await store.seeds.load(ref.key, ref.seq);
+    if (rec !== undefined && rec.lifecycle !== from) {
+      throw validation(`seed ${id} is not ${from} (is ${rec.lifecycle})`);
+    }
+  }
   await store.seeds.transition(ref.key, ref.seq, to, reason);
   return echoSeed(store, ref, projects, { content: true });
 }

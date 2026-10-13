@@ -170,6 +170,14 @@ test('0004_seed_parked upgrades a version-3 store: seeds keep their lifecycle, p
       insert into seed (id, project_key, seq, title, kind, lifecycle, created_at, updated_at)
       values ('MMR-s1', 'MMR', 1, 't', 'idea', 'new', 't', 't')
     `.execute(db);
+    // The previous schema refuses the new word, so the upgrade is what admits it.
+    const before = await sql`update seed set lifecycle = 'parked' where id = 'MMR-s1'`
+      .execute(db)
+      .then(
+        () => 'accepted',
+        (reason: unknown) => String(reason),
+      );
+    expect(before).toContain('seed_lifecycle_check');
 
     expect(await upgradeSchema(db)).toEqual({
       applied: ['0004_seed_parked'],

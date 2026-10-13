@@ -6,9 +6,10 @@
  * one means.
  *
  * SQLite cannot alter a `CHECK`, so the seed table is rebuilt. Its history table
- * references it, so both are rebuilt as `_next` copies (keeping every row and
- * every history id), the originals are dropped child-first so no foreign key is
- * ever left dangling, and the copies are renamed into place. The rename rewrites
+ * references it, so both are rebuilt as `_next` copies (keeping every row, every
+ * history id, and the history's AUTOINCREMENT counter), the originals are dropped
+ * child-first so no foreign key is ever left dangling, and the copies are renamed
+ * into place. The rename rewrites
  * the history's reference from `seed_next` to `seed`.
  */
 export const statements: readonly string[] = [
@@ -44,6 +45,11 @@ export const statements: readonly string[] = [
    ) STRICT`,
   `INSERT INTO seed_history_next (id, seed_id, kind, from_value, to_value, reason, at)
    SELECT id, seed_id, kind, from_value, to_value, reason, at FROM seed_history`,
+  // Copying explicit ids sets the new counter to the highest SURVIVING id; carry
+  // the old counter instead, so no id ever handed out is handed out again.
+  `DELETE FROM sqlite_sequence WHERE name = 'seed_history_next'`,
+  `INSERT INTO sqlite_sequence (name, seq)
+   SELECT 'seed_history_next', seq FROM sqlite_sequence WHERE name = 'seed_history'`,
   `DROP TABLE seed_history`,
   `DROP TABLE seed`,
   `ALTER TABLE seed_next RENAME TO seed`,

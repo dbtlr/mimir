@@ -598,9 +598,11 @@ describe('parking a seed (MMR-473)', () => {
     await seedbed();
     await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title: 's' });
     await archiveProject(store, await pidOf('MMR'));
-    expect(await rejectCode(() => parkSeed(store, 'MMR-s1'))).toBe(
-      await rejectCode(() => transitionSeed(store, 'MMR-s1', 'rejected', 'x')),
-    );
+    const archived = await rejectCode(() => transitionSeed(store, 'MMR-s1', 'rejected', 'x'));
+    expect(await rejectCode(() => parkSeed(store, 'MMR-s1'))).toBe(archived);
+    // The board refusal comes first: an archived board never reveals a seed's state.
+    expect(await rejectCode(() => unparkSeed(store, 'MMR-s1'))).toBe(archived);
+    expect(await rejectMessage(() => unparkSeed(store, 'MMR-s1'))).toMatch(/archived/);
   });
 });
 

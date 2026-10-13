@@ -177,6 +177,13 @@ test('0004_seed_parked upgrades a version-3 store: seeds and their history survi
     `INSERT INTO seed_history (id, seed_id, kind, from_value, to_value, reason, at)
      VALUES (7, 'MMR-s1', 'lifecycle', 'new', 'promoted', 'promoted — spawned MMR-9', 'h')`,
   );
+  // History ids past the highest surviving row were handed out once; the counter
+  // must keep counting from there, never reuse them.
+  old.run(`UPDATE sqlite_sequence SET seq = 12 WHERE name = 'seed_history'`);
+  // The previous schema refuses the new word, so the upgrade is what admits it.
+  expect(() => old.run(`UPDATE seed SET lifecycle = 'parked' WHERE id = 'MMR-s2'`)).toThrow(
+    'CHECK',
+  );
   old.close();
 
   const handle = await openSqlite(path);
@@ -219,14 +226,14 @@ test('0004_seed_parked upgrades a version-3 store: seeds and their history survi
       select name from sqlite_master where type = 'index' and tbl_name = 'seed_history'
     `.execute(handle.db);
     expect(index.rows.map((row) => row.name)).toContain('idx_seed_history_seed');
-    // New history rows keep counting past the copied ids.
+    // New history rows keep counting past every id ever handed out.
     await sql`insert into seed_history (seed_id, kind, at) values ('MMR-s2', 'lifecycle', 'h')`.execute(
       handle.db,
     );
     const ids = await sql<{ id: number }>`select id from seed_history order by id`.execute(
       handle.db,
     );
-    expect(ids.rows.map((row) => row.id)).toEqual([7, 8]);
+    expect(ids.rows.map((row) => row.id)).toEqual([7, 13]);
   } finally {
     await handle.close();
   }

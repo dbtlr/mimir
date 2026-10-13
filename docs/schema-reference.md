@@ -274,7 +274,7 @@ The store keeps **only the string**: there is **no per-tag note and no per-tag t
 
 ## Closed vocabularies
 
-Each is a `CHECK` on its column, built from the enum arrays in `@mimir/contract`. A value outside the set cannot be written. Widening a vocabulary is a migration. Migrations `0002_grooming`, `0003_block_owner`, and `0004_seed_parked` are the exception to "built from the enum arrays": each freezes its values as literals, because a migration is a historical fact that a later change to the live enum must not alter.
+Each is a `CHECK` on its column, built from the enum arrays in `@mimir/contract`. A value outside the set cannot be written. Widening a vocabulary is a migration. Migrations `0002_grooming`, `0003_block_owner`, and `0004_seed_parked` are the exception to "built from the enum arrays", as is `0001_init`'s `seed.lifecycle` check, which `0004_seed_parked` widens: each freezes its values as literals, because a migration is a historical fact that a later change to the live enum must not alter.
 
 | Column                                  | Values                                                     |
 | --------------------------------------- | ---------------------------------------------------------- |

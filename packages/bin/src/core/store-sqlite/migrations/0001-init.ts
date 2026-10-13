@@ -4,7 +4,6 @@ import {
   NODE_TYPE_VALUES,
   PRIORITY_VALUES,
   SEED_KIND_VALUES,
-  SEED_LIFECYCLE_VALUES,
   SIZE_VALUES,
   TAG_ENTITY_TYPE_VALUES,
   TRANSITION_KIND_VALUES,
@@ -25,7 +24,8 @@ import {
  *   id, so a log's id order stays its append order.
  *
  * The project-key check is a `GLOB` with a length bound, because SQLite has no
- * built-in regular expression operator.
+ * built-in regular expression operator. `seed.lifecycle` is frozen as literals,
+ * as in the Postgres migration, because `0004_seed_parked` widens it.
  */
 
 /** A closed vocabulary as a SQL `IN (...)` list (see the Postgres migration). */
@@ -147,7 +147,8 @@ export const statements: readonly string[] = [
      seq         integer NOT NULL,
      title       text NOT NULL,
      kind        text NOT NULL CHECK (kind IN (${inList(SEED_KIND_VALUES)})),
-     lifecycle   text NOT NULL CHECK (lifecycle IN (${inList(SEED_LIFECYCLE_VALUES)})),
+     lifecycle   text NOT NULL
+                 CHECK (lifecycle IN ('new', 'promoted', 'resolved', 'rejected')),
      requester   text,
      description text,
      spawned     text NOT NULL DEFAULT '[]',

@@ -4,7 +4,6 @@ import {
   NODE_TYPE_VALUES,
   PRIORITY_VALUES,
   SEED_KIND_VALUES,
-  SEED_LIFECYCLE_VALUES,
   SIZE_VALUES,
   TAG_ENTITY_TYPE_VALUES,
   TRANSITION_KIND_VALUES,
@@ -18,7 +17,10 @@ import {
  * Every closed vocabulary is `CHECK`ed from the `@mimir/contract` enum arrays,
  * so a new lifecycle word is one edit away from a schema that admits it — and,
  * until the migration that widens the constraint runs, an older binary's value
- * set is enforced by the database rather than by hope.
+ * set is enforced by the database rather than by hope. A vocabulary that a later
+ * migration widens is frozen here as the literals 0001 shipped with
+ * (`seed.lifecycle`, widened by `0004_seed_parked`), so a fresh store climbs the
+ * same steps an old one did.
  */
 
 /** A closed vocabulary as a SQL `IN (...)` list. The values are compile-time
@@ -136,7 +138,8 @@ export const statements: readonly string[] = [
      seq         integer NOT NULL,
      title       text NOT NULL,
      kind        text NOT NULL CHECK (kind IN (${inList(SEED_KIND_VALUES)})),
-     lifecycle   text NOT NULL CHECK (lifecycle IN (${inList(SEED_LIFECYCLE_VALUES)})),
+     lifecycle   text NOT NULL
+                 CHECK (lifecycle IN ('new', 'promoted', 'resolved', 'rejected')),
      requester   text,
      description text,
      spawned     text[] NOT NULL DEFAULT '{}',

@@ -28,9 +28,10 @@ mimir seeds -p all --status live
 mimir get AUR-s4
 ```
 
-The grouped view separates untriaged, promoted, ready-to-resolve, parked, and
-settled Seeds. The console provides the same grooming lanes; each Seed opens on
-its own page.
+The grouped view separates untriaged, promoted, ready-to-resolve, and settled
+Seeds. Parked Seeds are left out of the default queue; add `--status all` to
+see them in their own lane. The console provides the same grooming lanes; each
+Seed opens on its own page.
 
 ## Park a Seed for later
 

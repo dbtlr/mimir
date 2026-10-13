@@ -60,7 +60,8 @@ mimir seed "should capture parse a title from the first line?" -k idea   # own b
 
 ```sh
 mimir seeds                       # the bound board: live seeds, oldest-first
-mimir seeds -p NRN --grouped      # lanes: UNTRIAGED · READY TO RESOLVE · PROMOTED · PARKED · SETTLED
+mimir seeds -p NRN --grouped      # lanes: UNTRIAGED · READY TO RESOLVE · PROMOTED · SETTLED
+mimir seeds --status all --grouped   # adds the PARKED lane
 mimir seeds --status parked       # the seeds set aside for later
 mimir seeds -p all --requester MMR   # everything my board has asked of others
 mimir get NRN-s3                  # one seed, resolved view
@@ -86,8 +87,8 @@ mimir unpark  NRN-s7                              # back to untriaged
 mimir update  NRN-s2 --title "…" --kind idea      # patch a LIVE seed; terminal seeds refuse
 ```
 
-- Lifecycle: `new → promoted → resolved | rejected` — and both terminals are
-  reachable straight from `new` ("already fixed" is a **resolve**, not a reject;
+- Lifecycle: `new → promoted → resolved | rejected`, with `new ⇄ parked` beside
+  it — and both terminals are reachable straight from `new` or `parked` ("already fixed" is a **resolve**, not a reject;
   the reason string carries the nuance).
 - **Park** an untriaged seed the board owner wants to keep but not decide on
   now. A parked seed leaves the untriaged count in `overview` and `triage`,

@@ -238,7 +238,7 @@ options:
       --requester <KEY>   seeds: filter to a requesting board
       --status <s>        seeds: new|parked|promoted|resolved|rejected|live|all
       --sort <asc|desc>   seeds: age order (default asc)
-      --grouped           seeds: lane view (untriaged/ready/settled)
+      --grouped           seeds: lane view (untriaged/ready/settled; parked with --status all)
       --upstream <KEY-sN> create/update task: requester-side seed pointer
       --groomed           create task: born groomed (carved from a finished design)
       --host <text>       create/start/update: the machine the work happens on
@@ -904,6 +904,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     examples: [
       "mimir seeds                          # the bound board's live queue, oldest-first",
       'mimir seeds --grouped                # the lane view (untriaged / ready to resolve / settled)',
+      'mimir seeds --status all --grouped   # every lane, parked included',
       'mimir seeds -p all                   # every active board',
       'mimir seeds --status all --sort desc # every seed, newest-first',
       'mimir seeds --status parked          # the seeds set aside for later',
