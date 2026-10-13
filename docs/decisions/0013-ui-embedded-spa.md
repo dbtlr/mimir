@@ -431,3 +431,62 @@ Considered and rejected (mocked as variants A–C beside the chosen D):
 - **The latest note under the head, with the timeline in a drawer.** It adds a
   drawer, a surface the console does not otherwise have, and a line to every
   page head.
+
+## Refinement (2026-10-13, MMR-476): `/` opens the review page, and the Overview retires
+
+§3 made `/` the Overview, a card per project grouped into Lanes. The Overview
+told the operator how each project stood but not where their action was
+needed, so it was skipped in practice. The console rebuild (MMR-356) replaces
+it with a review page that lists only what needs the operator across
+projects. §3 is revised, and the MMR-467 refinement's interim note (the
+Overview stays until the review page lands) is settled:
+
+- **`/` opens the review page.** Its head reads _Needs you_ with the count of
+  decisions (ADR 0019, review-page refinement) and a _Work through these_
+  control that opens the focus queue. When there are no decisions, _Decide_
+  says so and names the work in flight and the latest finish, and _Triage_
+  still renders when it has rows.
+- **The main column is two sections: _Decide_, then _Triage when you have a
+  minute_.**
+  - _Decide_ lists the decisions grouped by project, in ADR 0019's order.
+    Rows act in place as they do on a work page: _Approve_ and _Send back…_
+    on a verdict, _Answer…_ on a question. A block on you has no action, as
+    on the work page; it is cleared outside Mimir and unblocked from its task
+    page.
+  - _Triage_ is a table with one row per active (not archived, ADR 0015)
+    project that has anything to triage, ordered by its triage count. Its columns are untriaged seeds, the age of the oldest one, tasks
+    going cold, and `doctor` findings. A row opens in place to list the
+    project's untriaged seeds, oldest first, each with _Promote…_, _Park…_,
+    and _Reject…_. The going-cold count links to the project's work page,
+    and the findings count links to `/doctor?project=KEY`.
+- **`/` gains in-place seed triage.** Until now seeds were triaged only from
+  each seed's page. `/seeds` stays the browser for every seed in every lane,
+  and the seed page keeps the full set of seed actions.
+- **The rail is the project list.** Every active project, in ADR 0019's
+  project order, with its decisions in the
+  attention hue, its triage count in quiet ink, and its in-flight count. Each
+  links to its work page. The archived shelf and _New project_ sit under the
+  list. On a phone the list is a _Projects_ chip under the title that opens a
+  bottom sheet, as the work page's rail does.
+- **The focus queue is a mode of `/`, in the URL as `/?mode=focus`.** It is
+  a mode of the review page, not a page of its own, as `?tab=timeline` is a
+  mode of a container's page (MMR-470 refinement), so the MMR-444 rule that
+  a distinct page gets a path does not apply. The queue fixes its list when
+  it opens, in ADR 0019's queue order; decisions that arrive later wait for
+  the next pass. It shows one decision at a time with its path, description,
+  and question or verdict, and the same actions as its row; a block on you
+  shows a link to its task page. Acting advances to the next decision;
+  _Skip_ advances without acting and leaves the decision on the page. When
+  the list is exhausted, the queue returns to `/`. Seeds and findings stay
+  out of it.
+- **The Overview retires.** The project cards, the Lane grouping, and the
+  _At rest_ strip are removed.
+
+Considered and rejected (mocked as variants A and B beside the chosen C):
+
+- **An inbox grouped by project, with seeds and findings inline** (A). It
+  follows the phase description literally, but 33 seeds across nine projects
+  pushed later projects' decisions below the fold.
+- **Sections by kind with the project on each row** (B). Decisions read well,
+  but the page loses the per-project grouping the work page uses, and the
+  seed section is still the longest thing on the page.

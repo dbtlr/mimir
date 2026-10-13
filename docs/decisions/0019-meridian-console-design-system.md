@@ -230,3 +230,60 @@ operator's answer, and nothing else moves it, so the section includes it.
   _Needs you_ is its own set, so its count can differ from the top-bar alert.
   The alert keeps §9's set as narrowed by block ownership. The review page
   (MMR-440) still decides its own set, and whether the alert follows it.
+
+## Refinement (2026-10-13, MMR-476): the review page decides what needs you, and the alert counts its decisions
+
+The review page (ADR 0013, review-page refinement) replaces the Overview at
+`/`. It lists what needs the operator across projects in two tiers, and the
+top-bar alert follows its first tier. §9 and the refinements above are
+revised:
+
+- **Decisions** are the work page's needs-you set (MMR-467 refinement) taken
+  across every active project: tasks under review, blocks owned by `you`, and
+  `todo` tasks with no hold whose grooming state is _needs answers_. Each
+  waits on the operator, and nothing else moves it. Their rows take the
+  attention hue, and a verdict row leads with its verdict (§4). An active
+  project is one that is not archived; archived projects contribute nothing
+  (ADR 0015).
+- **Triage** is what needs the operator eventually but stops no agent:
+  untriaged seeds (a parked seed is not untriaged, MMR-473), `doctor`
+  findings, and tasks going cold. The review page counts them per project.
+  They never take the attention hue: seeds keep their kind hues, findings the
+  amber of record damage, and going cold its cold hue.
+- **Attention, the top-bar alert, counts decisions only.** It becomes a link
+  to `/` carrying the count, and it is absent when there are no decisions.
+  Its per-project `doctor` lines and its amber findings pill retire; findings
+  are counted in the review page's triage tier instead. Going cold leaves the
+  alert. `stale` includes `ready` tasks nobody has
+  started, so a board with a deep backlog keeps the alert lit permanently: on
+  2026-10-13, 90 tasks across projects were stale, and the alert carried no
+  signal. This reverses the v0.13 choice (MMR-111) to keep stale tasks in the
+  set. The cross-project view of stale work moves to the review page's
+  _Going cold_ count, and each work page keeps its _Going cold_ section.
+- **One set, one count.** The alert, the review page's title count, and the
+  project list's decision counts are the same set, so they never disagree.
+  A work page's _Needs you_ is that set within its scope.
+- **Lanes retire with the Overview.** §9's Lane is retired as a concept, not
+  only as the Overview's grouping: the `attention` facet that carries it
+  leaves the facet set (the projects read, `get --col attention`, and MCP
+  `get`), and `overview`'s hygiene rows drop their per-row lane word. A
+  blocked or stale row already carries its status word.
+- **Decisions are ordered for the agents they free.** On the page, decisions
+  group by project. A project's urgency is its leading decision kind: a
+  verdict, then a block on you, then a question. Projects order by urgency,
+  and ties go to the project whose leading-kind decision was updated most
+  recently. Inside a project, the work page's order applies. The review
+  page's project list uses the same order, then lists projects with no
+  decisions by their triage count (untriaged seeds, plus tasks going cold,
+  plus findings), most first, then by key. The
+  focus queue drops the grouping and walks every verdict first, then every
+  block on you, then every question, newest first within each kind, because
+  a verdict usually frees an agent that is waiting now.
+
+Considered and rejected:
+
+- **Keeping findings in the alert, or adding seeds.** 120 findings and 33
+  untriaged seeds across projects on 2026-10-13 would keep the alert lit for
+  the same reason going cold did.
+- **Going cold rows on the review page.** 90 rows bury the decisions; a count
+  per project that links to the work page keeps the signal without the list.
