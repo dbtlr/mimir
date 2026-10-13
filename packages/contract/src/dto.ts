@@ -758,7 +758,7 @@ export type WorkFrontierTask = {
   task: NodeView;
   /** The unsettled prerequisite ids it awaits (own or inherited); empty when ready. */
   awaitingOn: string[];
-  /** The row is a container with no open children (ADR 0033), not a task. */
+  /** The row is a container with no children (ADR 0033), not a task. */
   breakDown: boolean;
   /** This task is past the stale threshold (going cold lists it as well). */
   stale: boolean;
@@ -779,7 +779,11 @@ export type WorkWaitingTask = {
   stale: boolean;
 };
 
-/** The frontier: work one step from startable, split by what the operator can do with it. */
+/**
+ * The frontier: work one step from startable, split by what the operator can do
+ * with it, plus the tasks that wait on others. A groomed, ready task with no rank
+ * has no row, as `next` omits it.
+ */
 export type WorkFrontier = {
   /** Groomed and ready, in `next` order. */
   runnable: WorkFrontierTask[];
@@ -790,7 +794,7 @@ export type WorkFrontier = {
    * containers that read to break down, in board order.
    */
   toGroom: WorkFrontierTask[];
-  /** Blocked with an owner of `others`, started or not, in rank order. */
+  /** Blocked with an owner of `others`, started or not, oldest update first (blocking clears rank). */
   waitingOnOthers: WorkWaitingTask[];
 };
 

@@ -287,8 +287,8 @@ test('an empty phase is a break_down row in to_groom on the wire', async () => {
   const rows = (body.frontier as Rec).to_groom as Rec[];
   expect(rows.map((r) => r.id)).toEqual([task1, task2, emptyRef]);
   expect(rows.map((r) => [r.type, r.break_down])).toEqual([
-    ['task', undefined],
-    ['task', undefined],
+    ['task', false],
+    ['task', false],
     ['phase', true],
   ]);
   expect(rows[2]?.awaiting_on).toEqual([]);
@@ -307,7 +307,10 @@ test('work routes 404 on an unknown id and send a project key to the other route
 });
 
 test('the projects work route names a task as a task and a container as a container', async () => {
-  const task = await parse(await get(`/api/projects/${task1}/work?tz=UTC`));
+  const taskRes = await get(`/api/projects/${task1}/work?tz=UTC`);
+  expect(taskRes.status).toBe(400);
+  const task = await parse(taskRes);
+  expect(errorCode(task)).toBe('validation');
   expect((task.error as { message: string }).message).toContain('is a task');
   const container = await get(`/api/projects/${phaseRef}/work?tz=UTC`);
   expect(container.status).toBe(400);
@@ -401,8 +404,9 @@ test('the work page wire shape on a populated board', async () => {
   expect(frontier.waiting_on_others).toEqual([
     expect.objectContaining({ block_reason: 'vendor fix', id: blockedOthers, stale: false }),
   ]);
-  // No container reads to break down on this board, so no row carries break_down.
-  expect((frontier.to_groom as Rec[]).every((r) => r.break_down === undefined)).toBe(true);
+  // No container reads to break down on this board; task rows always say so.
+  expect((frontier.to_groom as Rec[]).every((r) => r.break_down === false)).toBe(true);
+  expect(runnable.every((r) => r.break_down === false)).toBe(true);
 
   const shipped = body.shipped as Rec[];
   expect(row(shipped, done).abandon_reason).toBeNull();

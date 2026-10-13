@@ -540,12 +540,10 @@ function frontierTaskToWire(row: WorkFrontierTask): Record<string, unknown> {
   const wire: Record<string, unknown> = {
     ...nodeToWire(row.task),
     awaiting_on: row.awaitingOn,
+    // True on a container row; `type` says which kind of container.
+    break_down: row.breakDown,
     stale: row.stale,
   };
-  // Present only on a container row; `type` already tells the UI which kind it is.
-  if (row.breakDown) {
-    wire.break_down = true;
-  }
   return wire;
 }
 

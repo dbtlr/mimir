@@ -24,7 +24,8 @@ import type { WorkOptions } from './work';
 
 /**
  * `workPageOf` (MMR-469) — the console work page's sections for a project or a
- * container subtree. Tasks only; containers never appear as rows.
+ * container subtree. Rows are tasks, plus initiatives and phases with no
+ * children as `breakDown` rows in `frontier.toGroom`.
  */
 
 let store: Store;
@@ -61,6 +62,10 @@ const page = (id: string, opts: Partial<WorkOptions> = {}) =>
 /** The task rows of a to_groom list (an empty phase also reads as a break-down row). */
 const taskRows = <T extends { task: { type: string } }>(rows: readonly T[]): T[] =>
   rows.filter((r) => r.task.type === 'task');
+
+/** The ids in the project page's to_groom list. */
+const groomListed = async (): Promise<string[]> =>
+  (await page('MMR')).frontier.toGroom.map((r) => r.task.id);
 
 const ids = (rows: readonly { task: { id: string } }[]): string[] => rows.map((r) => r.task.id);
 
@@ -400,8 +405,8 @@ test('going_cold lists every stale task, oldest first, even ones other sections 
   expect(report.now.map((r) => [r.task.id, r.stale])).toEqual([[workingStale, true]]);
   expect(taskRows(report.frontier.toGroom).find((r) => r.task.id === readyStale)?.stale).toBe(true);
   expect(report.frontier.waitingOnOthers.map((r) => [r.task.id, r.stale])).toEqual([
-    [stale, true],
     [staler, true],
+    [stale, true],
   ]);
   expect(viewIds((await page('MMR', { asOf: '2026-01-03T00:00:00.000Z' })).goingCold)).toEqual([]);
 });
@@ -501,6 +506,41 @@ test('a container whose subtree is all terminal or parked is not a break-down ro
   await parkTask(store, parked);
   const report = await page('MMR');
   expect(report.frontier.toGroom).toEqual([]);
+});
+
+test('an initiative whose only child is an open-ended home is not a break-down row', async () => {
+  const projectId = await projectIdOf(store, 'MMR');
+  const init = await createInitiative(store, { projectId, title: 'only a home' });
+  const initRef = `MMR-${String(init.seq)}`;
+  const home = await createPhase(store, {
+    openEnded: true,
+    parentId: await nodeIdOf(store, initRef),
+    title: 'Bugs',
+  });
+  const homeRef = `MMR-${String(home.seq)}`;
+
+  // The standing home is empty, and the initiative still has a child.
+  expect(await groomListed()).not.toContain(initRef);
+  expect(await groomListed()).not.toContain(homeRef);
+
+  // With only finished work inside, the home is transparent to rollups, but still a child.
+  const finished = await task(homeRef, 'fixed');
+  await completeTask(store, finished);
+  expect(await groomListed()).not.toContain(initRef);
+  expect(await groomListed()).not.toContain(homeRef);
+});
+
+test('waiting_on_others is ordered oldest update first, whatever the id order', async () => {
+  const a = await task(phaseA, 'a');
+  const b = await task(phaseA, 'b');
+  const c = await task(phaseA, 'c');
+  for (const id of [a, b, c]) {
+    await blockTask(store, id, 'waiting', 'others');
+  }
+  await rawPatchNode(store, a, { updated_at: '2026-02-02T00:00:00.000Z' });
+  await rawPatchNode(store, b, { updated_at: '2026-02-03T00:00:00.000Z' });
+  await rawPatchNode(store, c, { updated_at: '2026-02-01T00:00:00.000Z' });
+  expect(ids((await page('MMR')).frontier.waitingOnOthers)).toEqual([c, a, b]);
 });
 
 test('an empty open-ended phase (a standing home) is not a break-down row', async () => {

@@ -16,19 +16,12 @@ import type {
 
 import { recentDaysWindow, withinWindow } from '../dates';
 import type { DerivationSet } from '../derive';
-import {
-  childDistribution,
-  deriveSet,
-  findNodeInSet,
-  hasUnsettledPrereq,
-  nodeStatusWord,
-} from '../derive';
+import { deriveSet, findNodeInSet, hasUnsettledPrereq, nodeStatusWord } from '../derive';
 import { notFound, projectNotFound, validation } from '../errors';
 import { parseIdentity } from '../ids';
 import type { Node } from '../model';
 import { isStale } from '../predicates';
 import { boardOrder } from '../resource';
-import { distributionTotal } from '../status';
 import type { Store } from '../store';
 import { now } from '../time';
 import { byRankOrder } from './queries';
@@ -37,8 +30,8 @@ import { buildAwaitingOn, buildNodeView } from './view';
 /**
  * The work page (MMR-469): the console's per-scope derivation. A scope is a
  * project, or an initiative or phase and its whole subtree; a task has no work
- * page. Rows are tasks only — containers scope the page and never appear as
- * rows — and no section is capped (the page is a working surface, not the
+ * page. Rows are tasks, plus the initiatives and phases that read to break down
+ * (in `frontier.toGroom` only), and no section is capped (the page is a working surface, not the
  * orientation digest {@link import('./queries').overviewOf} is).
  */
 
@@ -177,9 +170,11 @@ function abandonedOf(
  * - `frontier`: todo tasks at most one step from startable. Groomed and ready are
  *   `runnable` (`next` order); groomed and awaiting are `nextToUnlock`; ungroomed
  *   ones are `toGroom`, followed by the initiatives and phases in scope that read
- *   to break down (no open children, ADR 0033), under the same one-step rule on
- *   their own and inherited edges. A needs-answers task is in `needsYou`, not
- *   here. `waitingOnOthers` holds the tasks blocked with an owner of `others`.
+ *   to break down (no children at all, ADR 0033), under the same one-step rule on
+ *   their own and inherited edges. A groomed, ready task with no rank has no
+ *   row, as `next` omits it. A needs-answers task is in `needsYou`, not
+ *   here. `waitingOnOthers` holds the tasks blocked with an owner of `others`,
+ *   oldest update first (blocking clears rank, so rank order is not available).
  * - `shipped`: done or abandoned during the last 7 caller-local calendar days
  *   (today included, in `timeZone`), newest first.
  * - `goingCold`: every stale task in scope, oldest first. It is the one section
@@ -237,10 +232,11 @@ export async function workPageOf(store: Store, id: string, opts: WorkOptions): P
   }
 
   // Initiatives and phases with no children at all read to break down (ADR 0033).
-  // Children that finished or are parked still count as children, and a standing
-  // open-ended home is meant to stay empty, so neither is a break-down row.
+  // Any child counts, finished, parked, or an open-ended home included (the
+  // rollup drops that last one, so the children list is tested, not the tally).
+  // A standing open-ended home is meant to stay empty, so it is not a row itself.
   const breakDown = containers
-    .filter((c) => c.open_ended !== true && distributionTotal(childDistribution(set, c.id)) === 0)
+    .filter((c) => c.open_ended !== true && (set.childrenByParent.get(c.id) ?? []).length === 0)
     .toSorted(boardOrder)
     .flatMap((node) => {
       const awaitingOn = frontierPrereqs(set, node);
@@ -326,10 +322,12 @@ export async function workPageOf(store: Store, id: string, opts: WorkOptions): P
     [...frontier.filter((e) => e.node.grooming !== 'groomed'), ...breakDown].map(frontierRow),
   );
   const waiting: WorkWaitingTask[] = await Promise.all(
-    waitingOnOthers.map(async (node) => {
-      const task = await viewOf(node);
-      return { blockReason: task.holdReason ?? null, stale: staleIds.has(node.id), task };
-    }),
+    waitingOnOthers
+      .toSorted((a, b) => cmpStr(a.updated_at, b.updated_at) || a.seq - b.seq)
+      .map(async (node) => {
+        const task = await viewOf(node);
+        return { blockReason: task.holdReason ?? null, stale: staleIds.has(node.id), task };
+      }),
   );
   const nextToUnlock = await groupByPrerequisite(
     set,
