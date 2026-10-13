@@ -460,7 +460,8 @@ Overview stays until the review page lands) is settled:
     and _Reject…_. The going-cold count links to the project's work page,
     and the findings count links to `/doctor?project=KEY`.
 - **`/` gains in-place seed triage.** Until now seeds were triaged only from
-  each seed's page. `/seeds` stays the browser for every seed in every lane,
+  each seed's page. `/seeds` stays the browser for every seed in every seed lane (ADR 0020;
+  unrelated to the retired project Lane),
   and the seed page keeps the full set of seed actions.
 - **The rail is the project list.** Every active project, in ADR 0019's
   project order, with its decisions in the
