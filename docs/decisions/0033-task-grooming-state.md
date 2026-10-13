@@ -109,3 +109,13 @@ it.
   seed promoted into a task produces a `not_groomed` task.
 - The work page's Frontier (MMR-439) and the review page (MMR-440) read this
   field. The console shows it as a chip and can set it from the task page.
+
+## Refinement (2026-10-12, MMR-467): a container reads to break down when it has no children
+
+§6 said an initiative or phase with no open children reads _to break down_.
+A container whose children are all finished rolls up to `done`, so "no open
+children" would also catch finished work. The rule is that a container reads
+_to break down_ when it has no children at all. An open-ended container
+(MMR-204) is a standing home and never reads _to break down_. An open-ended
+child still counts as a child of its parent. The work page lists these
+containers under _To groom_ (ADR 0013, work-page refinement).
