@@ -222,7 +222,8 @@ type RecordTarget =
  * the hit target while staying a single real link. The link's name is the
  * title; the id is its description. The lede hides on a phone
  * (the mock's "groups stay, ledes drop"). `actions` trail the row, above the
- * stretched link so they take their own clicks, and wrap under it on a phone.
+ * stretched link so they take their own clicks, and wrap under it on a phone,
+ * where the strip's empty width still lets a tap through to the link.
  */
 export function BrowserRow({
   to,
@@ -284,7 +285,7 @@ export function BrowserRow({
         <div
           role="group"
           aria-label={`Actions for ${id}`}
-          className="relative flex shrink-0 items-start gap-2 max-md:basis-full max-md:justify-end"
+          className="pointer-events-none relative flex shrink-0 items-start gap-2 *:pointer-events-auto max-md:basis-full max-md:justify-end"
         >
           {actions}
         </div>

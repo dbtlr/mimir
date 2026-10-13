@@ -18,15 +18,27 @@ type SetMode = { mode?: 'set'; current: Grooming };
  */
 type AnswerMode = { mode: 'answer'; question: string | null };
 
-/** The note field's label and placeholder: an answer, the open questions, or an optional why. */
-function noteCopy(answering: boolean, needsNote: boolean): { label: string; placeholder: string } {
+/**
+ * The note field's label and placeholder. An answer that keeps the task at
+ * needs answers becomes its latest question, so it asks for what is still open.
+ */
+function noteCopy(
+  answering: boolean,
+  chosen: Grooming | null,
+): { label: string; placeholder: string } {
+  if (answering && chosen === 'needs_answers') {
+    return {
+      label: 'Answer, and what is still open (required)',
+      placeholder: 'Answer, then the questions still open — shown as the latest question',
+    };
+  }
   if (answering) {
     return {
       label: 'Answer (required)',
       placeholder: 'Answer (required) — saved as a note on the task',
     };
   }
-  if (needsNote) {
+  if (chosen === 'needs_answers') {
     return {
       label: 'Open questions (required)',
       placeholder: 'Open questions (required) — what must be answered?',
@@ -66,7 +78,7 @@ export function GroomingDialog({
     }
   }
 
-  const copy = noteCopy(answering, needsNote);
+  const copy = noteCopy(answering, chosen);
 
   // An answer comes before the state it settles; a state comes before its note.
   const noteField = (

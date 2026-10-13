@@ -95,7 +95,6 @@ function VerdictActions({ id, offline }: { id: string; offline: boolean }) {
       </ActionButton>
       <ReasonDialog
         verb="return"
-        confirmLabel={transitionLabel('return')}
         open={sendingBack}
         onClose={() => setSendingBack(false)}
         onConfirm={(reason) => {

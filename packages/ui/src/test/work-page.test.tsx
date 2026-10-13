@@ -684,6 +684,17 @@ async function openForWrite(before: WireWorkReport, after: WireWorkReport) {
   await screen.findByRole('heading', { level: 1, name: PROJECT.title });
 }
 
+/** Accept writes, and hold the project's next work read until the test resolves it. */
+function holdRefresh() {
+  const refresh = Promise.withResolvers<WireWorkReport>();
+  const served = apiGet.getMockImplementation();
+  apiGet.mockImplementation((path: string) =>
+    path.startsWith(`${PROJECT_SCOPE.workPath}?`) ? refresh.promise : served?.(path),
+  );
+  apiSend.mockResolvedValue({});
+  return refresh;
+}
+
 const runningAs = (row: { id: string; title: string }) => ({
   ...nowRow,
   branch: null,
@@ -739,7 +750,7 @@ describe('work page row actions', () => {
     fireEvent.change(within(dialog).getByRole('textbox'), {
       target: { value: 'Cover the empty case' },
     });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Send back' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }));
 
     await waitFor(() => {
       expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-12/return', {
@@ -783,6 +794,75 @@ describe('work page row actions', () => {
       expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
     });
     await expect(section('Needs you')).resolves.toHaveTextContent('Nothing needs you.');
+  });
+
+  it('sends a task back with no body when no reason is given', async () => {
+    await openForWrite(
+      workReport({ needs_you: [reviewRow] }),
+      workReport({ now: [runningAs(reviewRow)] }),
+    );
+
+    fireEvent.click(within(await actionsOf('MMR-12')).getByRole('button', { name: 'Send back…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Send back' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-12/return', undefined);
+    });
+  });
+
+  it('keeps a row’s buttons off until the sections have refreshed, so one tap writes once', async () => {
+    await open(PROJECT_SCOPE, workReport({ needs_you: [reviewRow] }));
+    // The write lands, but the refreshed sections are still on their way.
+    const refresh = holdRefresh();
+
+    const approve = within(await actionsOf('MMR-12')).getByRole('button', { name: 'Approve' });
+    fireEvent.click(approve);
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledOnce();
+    });
+    expect(approve).toBeDisabled();
+    expect(
+      within(await actionsOf('MMR-12')).getByRole('button', { name: 'Send back…' }),
+    ).toBeDisabled();
+
+    refresh.resolve(workReport());
+    await expect(section('Needs you')).resolves.toHaveTextContent('Nothing needs you.');
+  });
+
+  it('keeps the answer dialog open until the sections have refreshed', async () => {
+    await open(PROJECT_SCOPE, workReport({ needs_you: [answersRow] }));
+    const refresh = holdRefresh();
+
+    fireEvent.click(within(await actionsOf('MMR-14')).getByRole('button', { name: 'Answer…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
+      target: { value: 'Refuse.' },
+    });
+    fireEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledOnce();
+    });
+    expect(within(dialog).getByRole('button', { name: 'Answer' })).toBeDisabled();
+
+    refresh.resolve(workReport());
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
+    });
+  });
+
+  it('asks for what is still open when the answer keeps the task at needs answers', async () => {
+    await open(PROJECT_SCOPE, workReport({ needs_you: [answersRow] }));
+
+    fireEvent.click(within(await actionsOf('MMR-14')).getByRole('button', { name: 'Answer…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
+    expect(within(dialog).getByRole('textbox', { name: 'Answer (required)' })).toBeDefined();
+
+    fireEvent.click(within(dialog).getByRole('radio', { name: /^needs answers/ }));
+    expect(
+      within(dialog).getByRole('textbox', { name: 'Answer, and what is still open (required)' }),
+    ).toBeDefined();
   });
 
   it('needs both an answer and a chosen state before it answers', async () => {

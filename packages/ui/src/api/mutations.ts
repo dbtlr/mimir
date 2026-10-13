@@ -42,6 +42,11 @@ export type TransitionInput = {
   reason?: string;
 };
 
+/**
+ * Fire a lifecycle or hold verb. It stays pending until the refetches land, so
+ * a button that disables on `isPending` stays off until its row has moved and
+ * cannot send the verb twice.
+ */
 export function useTransition(id: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
@@ -50,7 +55,7 @@ export function useTransition(id: string) {
     onError: (err: Error) => {
       toast.error(err.message);
     },
-    onSettled: () => void invalidate(),
+    onSettled: invalidate,
   });
 }
 
@@ -60,7 +65,11 @@ export type GroomInput = {
   note?: string;
 };
 
-/** Set a task's grooming state (ADR 0033) through its own route, not the plain update. */
+/**
+ * Set a task's grooming state (ADR 0033) through its own route, not the plain
+ * update. It stays pending until the refetches land, so the dialog closes on
+ * fresh data and cannot write the same note twice.
+ */
 export function useGroom(id: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
@@ -74,7 +83,7 @@ export function useGroom(id: string) {
     onError: (err: Error) => {
       toast.error(err.message);
     },
-    onSettled: () => void invalidate(),
+    onSettled: invalidate,
   });
 }
 
