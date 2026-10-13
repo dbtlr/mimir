@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Navigate } from '@tanstack/react-router';
 
 import { projectsQuery } from '../api/queries';
+import { RecordPending } from '../components/record-layout';
 import { useCurrentProjectKey } from '../lib/current-project';
 import type { ArtifactsSearch, SeedsSearch, TasksSearch } from '../router';
 
@@ -17,14 +18,16 @@ type Props =
  * no project to name — the store has none — there is no browser to show, so it
  * goes to `/`, the review page, which is where a first project gets created.
  * It waits for the project list, so a remembered project that has since gone
- * is not followed; offline, where the list never arrives, it trusts the
- * remembered one.
+ * is not followed, and while the list cannot be read it stays on the URL and
+ * says so; offline, where the list never arrives, it trusts the remembered one.
  */
 export function BrowserRedirect(props: Props) {
   const key = useCurrentProjectKey();
   const projects = useQuery(projectsQuery);
-  if (projects.isPending && projects.fetchStatus !== 'paused') {
-    return null;
+  // Until the list is in hand, show it loading or unreachable: an empty store
+  // is the only reason to leave for `/`, and a failed read says nothing of it.
+  if (projects.data === undefined && projects.fetchStatus !== 'paused') {
+    return <RecordPending unreachable={projects.isError} />;
   }
   if (key === undefined) {
     return <Navigate to="/" replace />;

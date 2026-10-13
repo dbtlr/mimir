@@ -199,7 +199,7 @@ describe('the top-level browsers redirect (MMR-495)', () => {
   });
 
   it('bare with no history goes to the first project in switcher order', async () => {
-    serve([MMR, { ...NRN, pinned: true } as WireNode]);
+    serve([MMR, { ...NRN, pinned: true }]);
     const testRouter = renderAt('/seeds');
     expect((await settledAt(testRouter, '/p/NRN/seeds')).pathname).toBe('/p/NRN/seeds');
   });
@@ -208,6 +208,14 @@ describe('the top-level browsers redirect (MMR-495)', () => {
     rememberProject('GONE');
     const testRouter = renderAt('/artifacts');
     expect((await settledAt(testRouter, '/p/MMR/artifacts')).pathname).toBe('/p/MMR/artifacts');
+  });
+
+  it('stays on the URL and says unreachable while the project list fails', async () => {
+    apiGet.mockRejectedValue(new Error('connection refused'));
+    const testRouter = renderAt('/tasks?status=ready');
+    await expect(screen.findByText(/Unreachable/)).resolves.toBeInTheDocument();
+    expect(testRouter.state.location.pathname).toBe('/tasks');
+    expect(testRouter.state.location.search).toEqual({ status: 'ready' });
   });
 
   it('with no projects at all, goes to the review page', async () => {
