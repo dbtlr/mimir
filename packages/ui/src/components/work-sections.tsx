@@ -2,7 +2,6 @@ import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { useTransition } from '../api/mutations';
 import type {
   WireNode,
   WireWorkFrontier,
@@ -15,9 +14,7 @@ import type {
 import { cn } from '../lib/cn';
 import { nodeLink } from '../lib/record-url';
 import { ago, relativeTime } from '../lib/time';
-import { transitionLabel } from '../lib/transitions';
-import { useDisarmWhenSettled, useRowFocusHandoff } from '../lib/use-row-focus-handoff';
-import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
+import { useRowFocusHandoff } from '../lib/use-row-focus-handoff';
 import {
   SHIPPED_DAY_CAP,
   capDay,
@@ -26,139 +23,20 @@ import {
   shippedTime,
 } from '../lib/work-page';
 import { BrowserGroup, BrowserRow } from './browser-list';
-import { GroomingDialog } from './grooming-dialog';
 import { NewTaskButton } from './new-task-button';
-import { ReasonDialog } from './reason-dialog';
 import { StaleBadge } from './signal-badges';
 import { StatusDot } from './status-dot';
-import { ActionButton } from './ui/action-button';
 import { Badge } from './ui/badge';
-import { NeedsYouRow, RowTail } from './work-rows';
+import { NeedsYouRow, RowTail, StartAction, needsYouActions } from './work-rows';
 
 /*
  * The work page's five sections (ADR 0013, MMR-467 refinement): Now, Needs you,
  * Frontier, Shipped, and Going cold. Every row is a BrowserRow, so each is one
  * real link to its record's page, and a stale row wears the stale chip wherever
- * it appears. A row the operator can move in place carries its action: Start on
- * a runnable task, Approve and Send back… on one in review, and Answer… on one
- * that needs answers. Each action's write refetches the page's sections, so
- * the row moves to where it now belongs, and keyboard focus moves on to the
- * next row in its section (MMR-474). Offline disables them (ADR 0013 §5).
+ * it appears. A row the operator can move in place carries its action from
+ * work-rows: Start in Frontier's runnable rows, and a verdict or an answer in
+ * Needs you.
  */
-
-/** Row buttons are touch-sized on a phone, where they wrap under the row. */
-const ROW_ACTION = 'max-md:min-h-11';
-
-/**
- * What every row action takes: its task, whether the console is offline, and
- * its section's focus handoff, armed as the operator commits to an action and
- * disarmed if the action ends with the row still in place.
- */
-type RowActionProps = { id: string; offline: boolean; handoff: RowFocusHandoff };
-
-/**
- * Each action owns its mutation, so only the rows that can act mount one.
- * Every write invalidates the work reads (useTransition, useGroom).
- */
-function StartAction({ id, offline, handoff }: RowActionProps) {
-  const { mutate, isPending, submittedAt } = useTransition(id);
-  useDisarmWhenSettled(handoff, id, isPending ? null : submittedAt);
-  return (
-    <ActionButton
-      size="sm"
-      className={ROW_ACTION}
-      disabled={offline || isPending}
-      onClick={() => {
-        handoff.arm(id);
-        mutate({ verb: 'start' });
-      }}
-    >
-      Start
-    </ActionButton>
-  );
-}
-
-/** Approve (`done`) and Send back… (`return`, with an optional reason), as on the task page. */
-function VerdictActions({ id, offline, handoff }: RowActionProps) {
-  const { mutate, isPending, submittedAt } = useTransition(id);
-  const [sendingBack, setSendingBack] = useState(false);
-  useDisarmWhenSettled(handoff, id, isPending ? null : submittedAt);
-  return (
-    <>
-      <ActionButton
-        size="sm"
-        variant="attention"
-        className={ROW_ACTION}
-        disabled={offline || isPending}
-        onClick={() => {
-          handoff.arm(id);
-          mutate({ verb: 'done' });
-        }}
-      >
-        Approve
-      </ActionButton>
-      <ActionButton
-        size="sm"
-        variant="outline"
-        className={ROW_ACTION}
-        disabled={offline || isPending}
-        onClick={() => setSendingBack(true)}
-      >
-        {transitionLabel('return')}…
-      </ActionButton>
-      <ReasonDialog
-        verb="return"
-        open={sendingBack}
-        onClose={() => setSendingBack(false)}
-        onConfirm={(reason) => {
-          handoff.arm(id);
-          mutate(reason === '' ? { verb: 'return' } : { reason, verb: 'return' });
-          setSendingBack(false);
-        }}
-      />
-    </>
-  );
-}
-
-/** Answer… writes the answer as a note and sets the grooming state the operator picks. */
-function AnswerAction({
-  id,
-  question,
-  offline,
-  handoff,
-}: RowActionProps & { question: string | null }) {
-  const [answering, setAnswering] = useState(false);
-  // Each opening counts, so every close reads as a newly settled action.
-  const [opened, setOpened] = useState(0);
-  useDisarmWhenSettled(handoff, id, answering ? null : opened);
-  return (
-    <>
-      <ActionButton
-        size="sm"
-        variant="attentionOutline"
-        className={ROW_ACTION}
-        disabled={offline}
-        onClick={() => {
-          // The answer is written from the dialog, which leaves with the row.
-          handoff.arm(id);
-          setOpened((n) => n + 1);
-          setAnswering(true);
-        }}
-      >
-        Answer…
-      </ActionButton>
-      {answering && (
-        <GroomingDialog
-          mode="answer"
-          nodeId={id}
-          question={question}
-          open
-          onClose={() => setAnswering(false)}
-        />
-      )}
-    </>
-  );
-}
 
 /** An empty section's line: a bold lead and what its emptiness means. */
 function Empty({ lead, children }: { lead: string; children?: ReactNode }) {
@@ -221,21 +99,6 @@ function NowSection({ rows }: { rows: readonly WireWorkNow[] }) {
       )}
     </BrowserGroup>
   );
-}
-
-/** What a needs-you row offers: a verdict, an answer, or nothing for a block. */
-function needsYouActions(
-  row: WireWorkNeedsYou,
-  offline: boolean,
-  handoff: RowFocusHandoff,
-): ReactNode {
-  if (row.reason === 'under_review') {
-    return <VerdictActions id={row.id} offline={offline} handoff={handoff} />;
-  }
-  if (row.reason === 'needs_answers') {
-    return <AnswerAction id={row.id} question={row.question} offline={offline} handoff={handoff} />;
-  }
-  return undefined;
 }
 
 function NeedsYouSection({

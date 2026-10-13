@@ -1,17 +1,29 @@
 import type { Grooming } from '@mimir/contract';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { useTransition } from '../api/mutations';
 import type { WireNode, WireWorkNeedsYou } from '../api/types';
 import { visibleGrooming } from '../lib/grooming';
 import { nodeLink } from '../lib/record-url';
+import { transitionLabel } from '../lib/transitions';
+import { useDisarmWhenSettled } from '../lib/use-row-focus-handoff';
+import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
 import { BrowserRow } from './browser-list';
 import { GroomingBadge } from './grooming-chip';
+import { GroomingDialog } from './grooming-dialog';
+import { ReasonDialog } from './reason-dialog';
 import { SizeBadge, StaleBadge } from './signal-badges';
 import { StatusDot } from './status-dot';
+import { ActionButton } from './ui/action-button';
 
 /*
- * Task rows shared by the work page and the review page at `/`, so a task
- * that needs the operator reads the same on both.
+ * Task rows and their in-place actions, shared by the work page and the review
+ * page at `/`, so a task that needs the operator reads and acts the same on
+ * both: Start on a runnable task, Approve and Send back… on one in review, and
+ * Answer… on one that needs answers. Each action's write refetches the page,
+ * so the row moves to where it now belongs, and keyboard focus moves on to the
+ * next row in its list (MMR-474). Offline disables them (ADR 0013 §5).
  */
 
 /** The attention violet belongs to the rows that need the operator (ADR 0019). */
@@ -86,4 +98,133 @@ export function NeedsYouRow({ row, actions }: { row: WireWorkNeedsYou; actions?:
       />
     </div>
   );
+}
+
+/** Row buttons are touch-sized on a phone, where they wrap under the row. */
+const ROW_ACTION = 'max-md:min-h-11';
+
+/**
+ * What every row action takes: its task, whether the console is offline, and
+ * its section's focus handoff, armed as the operator commits to an action and
+ * disarmed if the action ends with the row still in place.
+ */
+type RowActionProps = { id: string; offline: boolean; handoff: RowFocusHandoff };
+
+/**
+ * Each action owns its mutation, so only the rows that can act mount one.
+ * Every write invalidates the work reads (useTransition, useGroom).
+ */
+export function StartAction({ id, offline, handoff }: RowActionProps) {
+  const { mutate, isPending, submittedAt } = useTransition(id);
+  useDisarmWhenSettled(handoff, id, isPending ? null : submittedAt);
+  return (
+    <ActionButton
+      size="sm"
+      className={ROW_ACTION}
+      disabled={offline || isPending}
+      onClick={() => {
+        handoff.arm(id);
+        mutate({ verb: 'start' });
+      }}
+    >
+      Start
+    </ActionButton>
+  );
+}
+
+/** Approve (`done`) and Send back… (`return`, with an optional reason), as on the task page. */
+function VerdictActions({ id, offline, handoff }: RowActionProps) {
+  const { mutate, isPending, submittedAt } = useTransition(id);
+  const [sendingBack, setSendingBack] = useState(false);
+  useDisarmWhenSettled(handoff, id, isPending ? null : submittedAt);
+  return (
+    <>
+      <ActionButton
+        size="sm"
+        variant="attention"
+        className={ROW_ACTION}
+        disabled={offline || isPending}
+        onClick={() => {
+          handoff.arm(id);
+          mutate({ verb: 'done' });
+        }}
+      >
+        Approve
+      </ActionButton>
+      <ActionButton
+        size="sm"
+        variant="outline"
+        className={ROW_ACTION}
+        disabled={offline || isPending}
+        onClick={() => setSendingBack(true)}
+      >
+        {transitionLabel('return')}…
+      </ActionButton>
+      <ReasonDialog
+        verb="return"
+        open={sendingBack}
+        onClose={() => setSendingBack(false)}
+        onConfirm={(reason) => {
+          handoff.arm(id);
+          mutate(reason === '' ? { verb: 'return' } : { reason, verb: 'return' });
+          setSendingBack(false);
+        }}
+      />
+    </>
+  );
+}
+
+/** Answer… writes the answer as a note and sets the grooming state the operator picks. */
+function AnswerAction({
+  id,
+  question,
+  offline,
+  handoff,
+}: RowActionProps & { question: string | null }) {
+  const [answering, setAnswering] = useState(false);
+  // Each opening counts, so every close reads as a newly settled action.
+  const [opened, setOpened] = useState(0);
+  useDisarmWhenSettled(handoff, id, answering ? null : opened);
+  return (
+    <>
+      <ActionButton
+        size="sm"
+        variant="attentionOutline"
+        className={ROW_ACTION}
+        disabled={offline}
+        onClick={() => {
+          // The answer is written from the dialog, which leaves with the row.
+          handoff.arm(id);
+          setOpened((n) => n + 1);
+          setAnswering(true);
+        }}
+      >
+        Answer…
+      </ActionButton>
+      {answering && (
+        <GroomingDialog
+          mode="answer"
+          nodeId={id}
+          question={question}
+          open
+          onClose={() => setAnswering(false)}
+        />
+      )}
+    </>
+  );
+}
+
+/** What a needs-you row offers: a verdict, an answer, or nothing for a block. */
+export function needsYouActions(
+  row: WireWorkNeedsYou,
+  offline: boolean,
+  handoff: RowFocusHandoff,
+): ReactNode {
+  if (row.reason === 'under_review') {
+    return <VerdictActions id={row.id} offline={offline} handoff={handoff} />;
+  }
+  if (row.reason === 'needs_answers') {
+    return <AnswerAction id={row.id} question={row.question} offline={offline} handoff={handoff} />;
+  }
+  return undefined;
 }

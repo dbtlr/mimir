@@ -1,21 +1,31 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
 import { archivedProjectsQuery, reviewQuery } from '../api/queries';
-import type { WireNode, WireReviewProject, WireReviewReport, WireReviewTriage } from '../api/types';
+import type {
+  WireNode,
+  WireReviewProject,
+  WireReviewReport,
+  WireReviewTriage,
+  WireSeed,
+} from '../api/types';
 import { ArchivedShelf } from '../components/archived-shelf';
 import { BrowserGroup, BrowserRow } from '../components/browser-list';
 import { NewProjectSheet } from '../components/new-project-sheet';
 import { OfflineBanner } from '../components/offline-banner';
 import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
 import { SeedKindChip } from '../components/seed-kind-chip';
+import { SeedPromoteSheet } from '../components/seed-promote-sheet';
+import { SeedVerbs } from '../components/seed-verbs';
 import { ActionButton } from '../components/ui/action-button';
-import { NeedsYouRow } from '../components/work-rows';
+import { NeedsYouRow, needsYouActions } from '../components/work-rows';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { nodeLink, seedLink } from '../lib/record-url';
 import { ago, relativeTime } from '../lib/time';
+import { useRowFocusHandoff } from '../lib/use-row-focus-handoff';
+import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
 
 /*
  * `/` — the review page (ADR 0013 and ADR 0019, MMR-476 refinements): what
@@ -23,6 +33,11 @@ import { ago, relativeTime } from '../lib/time';
  * grouped by project; Triage tallies what can wait for a spare minute; the
  * rail is the project list. One read (`/api/review`) feeds all three, and the
  * top-bar alert reads the same entry, so their counts never disagree.
+ *
+ * Rows act in place (MMR-479): a decision carries the work page's verdict or
+ * answer, and a listed seed its triage verbs. When an acted-on row leaves,
+ * keyboard focus moves on to the next row in its section, across project
+ * groups, or to the section's heading when none follows.
  */
 
 /** `1 decision` / `2 decisions` — a count with its noun, singular at one. */
@@ -97,15 +112,19 @@ function AllClear({
   );
 }
 
-function DecideSection({ report }: { report: WireReviewReport }) {
+function DecideSection({ report, offline }: { report: WireReviewReport; offline: boolean }) {
   const count = report.queue.length;
   const inFlight = report.projects.reduce((n, p) => n + p.in_flight, 0);
+  const { handoff, headingRef } = useRowFocusHandoff(
+    report.decisions.flatMap((group) => group.rows.map((row) => row.id)),
+  );
   return (
     <BrowserGroup
       label="Decide"
       count={count > 0 ? count : undefined}
       hint="Only your action moves these."
       labelClassName="text-attention-foreground"
+      headingRef={headingRef}
     >
       {report.decisions.length === 0 ? (
         <AllClear inFlight={inFlight} last={report.last_finished} />
@@ -115,7 +134,11 @@ function DecideSection({ report }: { report: WireReviewReport }) {
             <section key={group.project.key} aria-label={group.project.name}>
               <ProjectHeading project={group.project} />
               {group.rows.map((row) => (
-                <NeedsYouRow key={row.id} row={row} />
+                <NeedsYouRow
+                  key={row.id}
+                  row={row}
+                  actions={needsYouActions(row, offline, handoff)}
+                />
               ))}
             </section>
           ))}
@@ -131,9 +154,75 @@ const NONE = <span className="text-ink-ghost">—</span>;
 const COUNT_LINK =
   'rounded-sm font-mono underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-accent';
 
+/** Whether a review read still lists a seed for triage. */
+const listsSeed = (report: WireReviewReport | undefined, id: string): boolean =>
+  report?.triage.some((group) => group.seeds.some((seed) => seed.id === id)) ?? false;
+
+/**
+ * A listed seed's triage verbs: Promote to task…, Reject…, and Park…. Promote
+ * arms the focus handoff as its sheet opens. The sheet closes itself after a
+ * promote, one render before the refreshed rows (a promote stays pending until
+ * the refetches land, but the query renders them on its next notify), so the
+ * close reads the cached review: a seed it no longer lists is leaving, and the
+ * handoff stays armed for it. A sheet closed without a promote disarms.
+ */
+function SeedTriageActions({
+  seed,
+  offline,
+  handoff,
+}: {
+  seed: WireSeed;
+  offline: boolean;
+  handoff: RowFocusHandoff;
+}) {
+  const queryClient = useQueryClient();
+  const [promoting, setPromoting] = useState(false);
+  return (
+    <>
+      <SeedVerbs
+        seed={seed}
+        offline={offline}
+        handoff={handoff}
+        withSpawned={false}
+        onPromote={() => {
+          handoff.arm(seed.id);
+          setPromoting(true);
+        }}
+      />
+      {promoting && (
+        <SeedPromoteSheet
+          seed={seed}
+          open
+          offline={offline}
+          onOpenChange={(next) => {
+            if (next) {
+              return;
+            }
+            setPromoting(false);
+            if (listsSeed(queryClient.getQueryData(reviewQuery.queryKey), seed.id)) {
+              handoff.disarm(seed.id);
+            }
+          }}
+        />
+      )}
+    </>
+  );
+}
+
 /** One project's triage row, which opens in place to list its untriaged seeds. */
-function TriageRow({ group }: { group: WireReviewTriage }) {
-  const [open, setOpen] = useState(false);
+function TriageRow({
+  group,
+  open,
+  onToggle,
+  offline,
+  handoff,
+}: {
+  group: WireReviewTriage;
+  open: boolean;
+  onToggle: () => void;
+  offline: boolean;
+  handoff: RowFocusHandoff;
+}) {
   const seedsId = useId();
   const { project, seeds } = group;
   const [oldest] = seeds;
@@ -152,7 +241,7 @@ function TriageRow({ group }: { group: WireReviewTriage }) {
               type="button"
               aria-expanded={open}
               aria-controls={open ? seedsId : undefined}
-              onClick={() => setOpen((o) => !o)}
+              onClick={onToggle}
               className={cn(PROJECT_LINK, 'flex min-h-9 items-center gap-2 text-left')}
             >
               <span aria-hidden className="w-2 text-micro text-ink-faint">
@@ -192,7 +281,7 @@ function TriageRow({ group }: { group: WireReviewTriage }) {
           )}
         </td>
       </tr>
-      {open && (
+      {open && seeds.length > 0 && (
         <tr id={seedsId} className="border-b border-line">
           <td colSpan={5} className="pb-2 pl-4">
             <section aria-label={`Untriaged seeds in ${project.name}`}>
@@ -205,6 +294,7 @@ function TriageRow({ group }: { group: WireReviewTriage }) {
                   beforeTitle={<SeedKindChip kind={seed.kind} />}
                   lede={seed.lede}
                   meta={`filed ${ago(seed.created_at)}`}
+                  actions={<SeedTriageActions seed={seed} offline={offline} handoff={handoff} />}
                 />
               ))}
             </section>
@@ -232,13 +322,41 @@ function triageSummary(triage: readonly WireReviewTriage[]): string {
 const COLUMN =
   'px-1.5 pb-1.5 text-right font-mono text-micro font-semibold tracking-[0.06em] whitespace-nowrap uppercase md:px-2 md:tracking-[0.13em]';
 
-/** Untriaged seeds, going cold, and findings per project: nothing here stops an agent. */
-function TriageSection({ triage }: { triage: readonly WireReviewTriage[] }) {
+/**
+ * Untriaged seeds, going cold, and findings per project: nothing here stops an
+ * agent. The opened rows are kept here, so focus can move from a seed that
+ * leaves to the next listed seed, in its project or the next opened one.
+ */
+function TriageSection({
+  triage,
+  offline,
+}: {
+  triage: readonly WireReviewTriage[];
+  offline: boolean;
+}) {
+  const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
+  const isOpen = (group: WireReviewTriage) => opened.has(group.project.key);
+  const { handoff, headingRef } = useRowFocusHandoff(
+    triage.filter(isOpen).flatMap((group) => group.seeds.map((seed) => seed.id)),
+  );
+  const toggle = (key: string) => {
+    setOpened((keys) => {
+      const next = new Set(keys);
+      if (!next.delete(key)) {
+        next.add(key);
+      }
+      return next;
+    });
+  };
   if (triage.length === 0) {
     return null;
   }
   return (
-    <BrowserGroup label="Triage when you have a minute" hint={triageSummary(triage)}>
+    <BrowserGroup
+      label="Triage when you have a minute"
+      hint={triageSummary(triage)}
+      headingRef={headingRef}
+    >
       <div className="overflow-x-auto">
         <table aria-label="Triage" className="w-full border-collapse">
           <thead className="text-ink-faint">
@@ -264,7 +382,14 @@ function TriageSection({ triage }: { triage: readonly WireReviewTriage[] }) {
           </thead>
           <tbody>
             {triage.map((group) => (
-              <TriageRow key={group.project.key} group={group} />
+              <TriageRow
+                key={group.project.key}
+                group={group}
+                open={isOpen(group)}
+                onToggle={() => toggle(group.project.key)}
+                offline={offline}
+                handoff={handoff}
+              />
             ))}
           </tbody>
         </table>
@@ -417,8 +542,8 @@ export function ReviewPage() {
         chips={[{ content: projectList, count: report.projects.length, label: 'Projects' }]}
         className={cn(conn.offline && 'offline-demoted')}
       >
-        <DecideSection report={report} />
-        <TriageSection triage={report.triage} />
+        <DecideSection report={report} offline={conn.offline} />
+        <TriageSection triage={report.triage} offline={conn.offline} />
       </RecordLayout>
       {sheet}
     </>
