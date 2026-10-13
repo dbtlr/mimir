@@ -1,4 +1,4 @@
-import type { WireTreeNode } from '../api/types';
+import type { WireArtifact, WireTreeNode } from '../api/types';
 
 /*
  * The pure derivations behind the work page (ADR 0013, MMR-467 refinement):
@@ -176,4 +176,12 @@ export function buildOutline(tree: WireTreeNode): StructureOutline {
     finished: { count: finishedTop.length, entries: finishedTop.flatMap((n) => flatten(n, 0)) },
     root: childTally(tree),
   };
+}
+
+/** How many artifacts the project rail lists before pointing at the full browser. */
+export const RAIL_ARTIFACT_CAP = 5;
+
+/** The `limit` most recently created artifacts, newest first. */
+export function newestArtifacts(artifacts: readonly WireArtifact[], limit: number): WireArtifact[] {
+  return artifacts.toSorted((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit);
 }
