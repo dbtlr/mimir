@@ -1,7 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
@@ -84,8 +83,8 @@ describe('board direction (MMR-390)', () => {
   });
 });
 
-describe('board record links (MMR-449)', () => {
-  it("a tree row opens the task's page", async () => {
+describe('tree retirement (MMR-472)', () => {
+  it('an old ?view=tree link opens the board, not the tree', async () => {
     apiGet.mockImplementation((path: string) => {
       if (path === '/api/projects/MMR/tree') {
         return Promise.resolve({
@@ -102,10 +101,12 @@ describe('board record links (MMR-449)', () => {
       }
       return Promise.resolve({ items: [], total: 0 });
     });
-    const testRouter = renderProject('MMR', '/board?view=tree');
+    renderProject('MMR', '/board?view=tree');
 
-    await userEvent.click(await screen.findByText('Leaf task'));
-    expect(testRouter.state.location.pathname).toBe('/p/MMR/7');
+    await expect(screen.findByTestId('board')).resolves.toBeDefined();
+    // The tree's only leaf is not on the board, so it shows nowhere.
+    expect(screen.queryByText('Leaf task')).toBeNull();
+    expect(screen.queryByRole('navigation', { name: 'Lens' })).toBeNull();
   });
 });
 
@@ -246,7 +247,7 @@ describe('project page (MMR-450, MMR-470)', () => {
 
   it.each([
     ['/p/mmr', '/p/MMR', ''],
-    ['/p/mmr/board?view=tree', '/p/MMR/board', '?view=tree'],
+    ['/p/mmr/board?bands=release', '/p/MMR/board', '?bands=release'],
   ])('moves %s to its canonical spelling', async (url, pathname, search) => {
     serveProject();
     const testRouter = createRouter({

@@ -17,7 +17,6 @@ import { NewTaskButton } from '../components/new-task-button';
 import { OfflineBanner } from '../components/offline-banner';
 import { ProjectSettingsButton } from '../components/project-settings-button';
 import { StatusBadge } from '../components/status-badge';
-import { TreeView } from '../components/tree';
 import { segmentVariants, segmentedTrackClass } from '../components/ui/segmented-control';
 import { Skeleton } from '../components/ui/skeleton';
 import type { BandMode } from '../lib/bands';
@@ -25,27 +24,7 @@ import { buildBoard } from '../lib/board';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { boardRoute } from '../router';
-import type { BoardLens } from '../router';
 import { ProjectUnavailablePage } from './not-found';
-
-/** The Board/Tree lens toggle — a routed segmented control on `?view`. */
-function LensToggle({ view }: { view: BoardLens }) {
-  const lens = (target: BoardLens, label: string) => (
-    <Link
-      from={boardRoute.fullPath}
-      search={(prev) => ({ ...prev, view: target })}
-      className={segmentVariants({ active: view === target })}
-    >
-      {label}
-    </Link>
-  );
-  return (
-    <nav aria-label="Lens" className={segmentedTrackClass}>
-      {lens('board', 'Board')}
-      {lens('tree', 'Tree')}
-    </nav>
-  );
-}
 
 /** The swimlane grouping toggle — a routed segmented control on `?bands` (MMR-221). */
 function BandsToggle({ bands }: { bands: BandMode }) {
@@ -69,27 +48,27 @@ function BandsToggle({ bands }: { bands: BandMode }) {
 
 /**
  * `/p/$key/board` — the project's board, a view beside its records (ADR 0013,
- * v0.23 refinement). The lens (`?view=board|tree`), the band grouping
- * (`?bands=phase|release|off`) are search params (ADR 0013 §3 /
- * MMR-221). The title links back to the project's page.
+ * MMR-467 refinement): an optional view, reached from the work page's Other
+ * views. The band grouping (`?bands=phase|release|off`) is a search param
+ * (ADR 0013 §3 / MMR-221). The title links back to the project's page.
  */
 export function BoardPage() {
   const { key } = boardRoute.useParams();
-  const { view, bands } = boardRoute.useSearch();
+  const { bands } = boardRoute.useSearch();
 
   const project = useQuery(projectQuery(key));
   // Record-health finding count for this board (MMR-185) — the amber header
   // chip; a miss just omits the chip.
   const health = useQuery(doctorQuery(key));
   const findings = health.data?.finding_total ?? 0;
-  const live = useQuery({ ...boardLiveQuery(key), enabled: view === 'board' });
-  const done = useQuery({ ...boardDoneQuery(key), enabled: view === 'board' });
-  // Fetched for both lenses: the tree view renders it, the board's Phase bands
-  // walk it, and cards degrade gracefully if it's missing. Excluded from the
-  // board's connectivity so a tree miss never demotes a cached board.
+  const live = useQuery(boardLiveQuery(key));
+  const done = useQuery(boardDoneQuery(key));
+  // The board's Phase bands walk the tree, and cards degrade gracefully if it's
+  // missing. Excluded from connectivity so a tree miss never demotes a cached
+  // board.
   const tree = useQuery(treeQuery(key));
 
-  const conn = connectivity(view === 'board' ? [project, live, done] : [project, tree]);
+  const conn = connectivity([project, live, done]);
 
   const boardReady = live.data !== undefined && done.data !== undefined;
 
@@ -135,7 +114,6 @@ export function BoardPage() {
           <div className="ml-auto flex flex-wrap items-center gap-2.5">
             <span className="hidden text-tag text-ink-faint sm:inline">Bands</span>
             <BandsToggle bands={bands} />
-            <LensToggle view={view} />
             {project.data !== undefined && (
               <ProjectSettingsButton project={project.data} offline={conn.offline} />
             )}
@@ -156,14 +134,14 @@ export function BoardPage() {
           </div>
         )}
 
-        {view === 'board' && !boardReady && (live.isPending || done.isPending) && (
+        {!boardReady && (live.isPending || done.isPending) && (
           <div className="grid grid-cols-2 gap-1.5 px-5 md:grid-cols-4">
             {Array.from({ length: 4 }, (_, i) => (
               <Skeleton key={i} className="h-48" />
             ))}
           </div>
         )}
-        {view === 'board' && boardReady && (
+        {boardReady && (
           <BoardView
             projectKey={key}
             board={buildBoard(live.data.items, done.data.items)}
@@ -175,15 +153,7 @@ export function BoardPage() {
           />
         )}
 
-        {view === 'tree' && tree.isPending && <Skeleton className="mx-5 h-64" />}
-        {view === 'tree' && tree.data !== undefined && (
-          <div className="px-5">
-            <TreeView root={tree.data} offline={conn.offline} />
-          </div>
-        )}
-
-        {((view === 'board' && live.isError && live.data === undefined) ||
-          (view === 'tree' && tree.isError && tree.data === undefined)) && (
+        {live.isError && live.data === undefined && (
           <p className="px-5 text-xs text-status-blocked">
             Unreachable, and nothing cached yet — is `mimir serve` running?
           </p>
