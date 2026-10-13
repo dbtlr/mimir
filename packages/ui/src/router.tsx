@@ -215,13 +215,9 @@ export const artifactsRoute = createRoute({
 export type TasksSearch = {
   status?: string;
   q?: string;
-  /** How the browser groups its rows; absent = by status (the default). */
-  group?: 'project';
 };
 
 const validateTasksSearch = (search: Record<string, unknown>): TasksSearch => ({
-  // `status` grouping is the default and stays out of the URL; any other value drops.
-  group: search.group === 'project' ? 'project' : undefined,
   q: textParam(search.q),
   status: textParam(search.status),
 });
@@ -280,6 +276,16 @@ export const seedsRoute = createRoute({
  * move keep working.
  */
 
+/**
+ * The project a legacy `?project=` names, in canonical spelling. `all` was the
+ * old "every project" value, so it means no project even though it reads as a
+ * key; anything else that is not a key is dropped too.
+ */
+const legacyProjectKey = (value: unknown) => {
+  const text = textParam(value);
+  return text?.toLowerCase() === 'all' ? undefined : canonicalProjectKey(text);
+};
+
 export type LegacyTasksSearch = TasksSearch & { project?: string };
 export type LegacySeedsSearch = SeedsSearch & { project?: string };
 export type LegacyArtifactsSearch = ArtifactsSearch & { project?: string };
@@ -296,7 +302,7 @@ export const legacyTasksRoute = createRoute({
   path: '/tasks',
   validateSearch: (search: Record<string, unknown>): LegacyTasksSearch => ({
     ...validateTasksSearch(search),
-    project: canonicalProjectKey(textParam(search.project)),
+    project: legacyProjectKey(search.project),
   }),
 });
 
@@ -312,7 +318,7 @@ export const legacySeedsRoute = createRoute({
   path: '/seeds',
   validateSearch: (search: Record<string, unknown>): LegacySeedsSearch => ({
     ...validateSeedsSearch(search),
-    project: canonicalProjectKey(textParam(search.project)),
+    project: legacyProjectKey(search.project),
   }),
 });
 
@@ -328,7 +334,7 @@ export const legacyArtifactsRoute = createRoute({
   path: '/artifacts',
   validateSearch: (search: Record<string, unknown>): LegacyArtifactsSearch => ({
     ...validateArtifactsSearch(search),
-    project: canonicalProjectKey(textParam(search.project)),
+    project: legacyProjectKey(search.project),
   }),
 });
 

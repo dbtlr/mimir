@@ -108,7 +108,7 @@ function renderTasks(initial = '/p/MMR/tasks') {
 }
 
 const search = (r: ReturnType<typeof renderTasks>) =>
-  r.state.location.search as { status?: string; q?: string; group?: string };
+  r.state.location.search as { status?: string; q?: string };
 
 /** The `/api/nodes?` list reads issued so far, as query-string objects. */
 const nodeReads = () =>
@@ -164,44 +164,11 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
     expect(read?.get('col')).toBe('lede');
   });
 
-  it('group=project groups by project key, alphabetically, newest first', async () => {
+  it('groups only by status: no group menu, and an old group=project link is harmless', async () => {
     mockApi();
     renderTasks('/p/MMR/tasks?group=project');
     await screen.findByText('Doctor the wire');
-    expect(groupHeadings()).toStrictEqual(['MMR · 4', 'NRN · 1']);
-    expect(titlesIn('MMR · 4')).toStrictEqual([
-      'Review the cutover',
-      'Doctor the wire',
-      'Land the schema',
-      'Old dead end',
-    ]);
-  });
-
-  it('the group menu switches the grouping and keeps it in the URL', async () => {
-    mockApi();
-    const testRouter = renderTasks();
-    const user = userEvent.setup();
-    await screen.findByText('Doctor the wire');
-
-    await user.click(screen.getByRole('button', { name: /Group: status/ }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Project' }));
-    await waitFor(() => {
-      expect(search(testRouter).group).toBe('project');
-    });
-    expect(groupHeadings()).toStrictEqual(['MMR · 4', 'NRN · 1']);
-
-    await user.click(screen.getByRole('button', { name: /Group: project/ }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Status' }));
-    await waitFor(() => {
-      expect(search(testRouter).group).toBeUndefined();
-    });
-  });
-
-  it('drops an invalid group value', async () => {
-    mockApi();
-    renderTasks('/p/MMR/tasks?group=nonsense');
-    await screen.findByText('Doctor the wire');
-    expect(screen.getByRole('button', { name: /Group: status/ })).toBeDefined();
+    expect(screen.queryByRole('button', { name: /Group:/ })).toBeNull();
     expect(groupHeadings()[0]).toBe('Under review · 1');
   });
 

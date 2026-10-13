@@ -108,7 +108,7 @@ project switcher. The old addresses `/tasks`, `/seeds`, and `/artifacts` still
 work: with `?project=KEY` they open that project's browser, and without it they
 open the current project's. With no projects at all they open the review page.
 
-- **Tasks** for the project's tasks, grouped by status (or by project), with
+- **Tasks** for the project's tasks, grouped by status, with
   **Live** and **Finished** views and a search over titles and IDs;
 - **Artifacts** for frozen work products, grouped by the day they were frozen,
   each showing the records it is attached to;

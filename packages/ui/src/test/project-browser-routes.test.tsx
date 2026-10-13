@@ -3,6 +3,7 @@ import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/rea
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ApiError } from '../api/errors';
 import type { WireNode } from '../api/types';
 import { readRememberedProject, rememberProject } from '../lib/current-project';
 import { router } from '../router';
@@ -16,11 +17,16 @@ const NRN = project({ id: 'NRN' });
 
 /** Serve `projects` as the project list and empty reads for everything else. */
 function serve(projects: WireNode[]) {
-  apiGet.mockImplementation((path: string) =>
-    Promise.resolve(
-      path === '/api/projects' ? { items: projects, total: projects.length } : emptyRead(path),
-    ),
-  );
+  apiGet.mockImplementation((path: string) => {
+    if (path === '/api/projects') {
+      return Promise.resolve({ items: projects, total: projects.length });
+    }
+    // A key that names no project: the project record, and its scoped lists, answer 404.
+    if (path.startsWith('/api/projects/ZZZ') || /[?&]project=ZZZ/.test(path)) {
+      return Promise.reject(new ApiError(`GET ${path} → 404`, 404));
+    }
+    return Promise.resolve(emptyRead(path));
+  });
 }
 
 function renderAt(initial: string) {
@@ -73,10 +79,10 @@ describe('the project browsers are routes under their project (MMR-495)', () => 
   });
 
   it('keeps typed filters on the scoped routes', async () => {
-    const testRouter = renderAt('/p/MMR/tasks?status=blocked&group=project');
+    const testRouter = renderAt('/p/MMR/tasks?status=blocked&q=wire');
     await screen.findByRole('heading', { level: 1, name: 'Tasks' });
     expect(testRouter.state.location.search).toEqual({
-      group: 'project',
+      q: 'wire',
       status: 'blocked',
     });
   });
@@ -85,6 +91,25 @@ describe('the project browsers are routes under their project (MMR-495)', () => 
     const testRouter = renderAt('/p/MMR/417');
     expect((await settledAt(testRouter, '/p/MMR/417')).pathname).toBe('/p/MMR/417');
     expect(screen.queryByRole('heading', { level: 1, name: 'Tasks' })).toBeNull();
+  });
+});
+
+describe('a browser under an unknown project (MMR-495)', () => {
+  it.each(['tasks', 'seeds', 'artifacts'])(
+    '/p/ZZZ/%s shows the project-unavailable page, as /p/ZZZ does',
+    async (view) => {
+      renderAt(`/p/ZZZ/${view}`);
+      await expect(
+        screen.findByRole('heading', { level: 1, name: 'Project unavailable' }),
+      ).resolves.toBeInTheDocument();
+      expect(screen.queryByText(/Unreachable/)).toBeNull();
+    },
+  );
+
+  it('does not remember the unknown project', async () => {
+    renderAt('/p/ZZZ/tasks');
+    await screen.findByRole('heading', { level: 1, name: 'Project unavailable' });
+    expect(readRememberedProject()).toBeUndefined();
   });
 });
 
@@ -117,9 +142,9 @@ describe('the top-level browsers redirect (MMR-495)', () => {
   );
 
   it('keeps the other params on /tasks', async () => {
-    const testRouter = renderAt('/tasks?project=MMR&status=blocked&q=wire&group=project');
+    const testRouter = renderAt('/tasks?project=MMR&status=blocked&q=wire');
     const location = await settledAt(testRouter, '/p/MMR/tasks');
-    expect(location.search).toEqual({ group: 'project', q: 'wire', status: 'blocked' });
+    expect(location.search).toEqual({ q: 'wire', status: 'blocked' });
   });
 
   it('keeps the other params on /seeds', async () => {
@@ -138,6 +163,17 @@ describe('the top-level browsers redirect (MMR-495)', () => {
     const testRouter = renderAt('/tasks?project=nrn');
     expect((await settledAt(testRouter, '/p/NRN/tasks')).pathname).toBe('/p/NRN/tasks');
   });
+
+  it.each(['tasks', 'seeds', 'artifacts'])(
+    '/%s?project=all (any case) is the bare redirect, not a project named ALL',
+    async (view) => {
+      rememberProject('NRN');
+      const testRouter = renderAt(`/${view}?project=All`);
+      const location = await settledAt(testRouter, `/p/NRN/${view}`);
+      expect(location.pathname).toBe(`/p/NRN/${view}`);
+      expect(location.search).toEqual({});
+    },
+  );
 
   it('treats a project value that is not a key as absent', async () => {
     rememberProject('NRN');
