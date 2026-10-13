@@ -176,6 +176,8 @@ export type WireNode = {
   completed_at?: string | null;
   /** Project-only (ADR 0015): present and non-null only when archived — the shelf's ❄ date. */
   archived_at?: string | null;
+  /** Project-only (MMR-493): the operator's pin, present (true or false) on every project. */
+  pinned?: boolean;
   created_at: string;
   updated_at: string;
   /** Project-only (MMR-494): the newest instant of anything in the project, never before `updated_at`. */

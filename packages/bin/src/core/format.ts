@@ -168,6 +168,9 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
   if (node.archivedAt !== undefined) {
     wire.archived_at = node.archivedAt;
   }
+  if (node.pinned !== undefined) {
+    wire.pinned = node.pinned;
+  }
   wire.created_at = node.createdAt;
   wire.updated_at = node.updatedAt;
   // Project-only (MMR-494) — present exactly when the view carries it.

@@ -121,6 +121,10 @@ mimir annotate KEY-9 "Realized the parser must be rewritten; filed KEY-12."
 - `update KEY-aN --title "…" --summary "…"` patches an artifact — title and
   summary are its two mutable fields (content is frozen; attach a new artifact
   to correct one).
+- `update KEY --pinned` pins a project (`--not-pinned` unpins it); the console
+  lists pinned projects first. Only a project takes it — a task, container,
+  seed, or artifact refuses the flag. MCP `update` takes `pinned: true|false`
+  and HTTP `PATCH /api/projects/KEY` takes `{"pinned": true|false}`.
 - Re-tagging is idempotent — an existing tag is kept as-is. A tag application
   carries no note; put one-off rationale in `annotate` instead.
 - `annotate` appends a timestamped freeform note — the in-flight record of

@@ -88,6 +88,8 @@ test('golden: the advertised update/create schemas are pinned exactly', () => {
       kind: { enum: ['idea', 'bug', 'feature'], type: 'string' },
       next: { type: 'string' },
       openEnded: { type: 'boolean' },
+      // The project pin (MMR-493) is hand-listed beside `next`, not a spec field.
+      pinned: { type: 'boolean' },
       ...enums,
       summary: { type: 'string' },
       target: { type: 'string' },

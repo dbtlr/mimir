@@ -93,6 +93,7 @@ import {
   updateNode,
   parseFilterToken,
   parseIdentity,
+  pinRefusal,
   updateProject,
   validation,
 } from '../core';
@@ -773,6 +774,9 @@ export type UpdateToolArgs = {
    * Body prose, not a data-plane spec field, so it is hand-listed like
    * `description` and never reaches the {@link SpecUpdateKey} guard above. */
   next?: string;
+  /** The operator's pin (MMR-493) — project-only. Hand-listed like `next`: it is
+   * not a node data field, so it never reaches the {@link SpecUpdateKey} guard. */
+  pinned?: boolean;
   summary?: string;
   priority?: string;
   size?: string;
@@ -790,6 +794,14 @@ export type UpdateToolArgs = {
 
 export function toolUpdate(store: Store, args: UpdateToolArgs): Promise<ToolResult> {
   return guard(async () => {
+    // Only a project can be pinned (MMR-493); refuse it before any write.
+    const identity = parseIdentity(args.id);
+    if (args.pinned !== undefined && identity !== null) {
+      const refusal = pinRefusal(identity.kind, 'pinned');
+      if (refusal !== null) {
+        throw validation(refusal);
+      }
+    }
     if (parseIdentity(args.id)?.kind === 'artifact') {
       return updateArtifactTool(store, args);
     }
@@ -831,8 +843,8 @@ export function toolUpdate(store: Store, args: UpdateToolArgs): Promise<ToolResu
   });
 }
 
-/** `update KEY` — patch a project's `name`, `description`, and/or the owned
- * `## Next` narrative (MMR-88, MMR-321). */
+/** `update KEY` — patch a project's `name`, `description`, `pinned`, and/or the
+ * owned `## Next` narrative (MMR-88, MMR-321, MMR-493). */
 async function updateProjectTool(
   store: Store,
   args: {
@@ -840,6 +852,7 @@ async function updateProjectTool(
     name?: string;
     description?: string;
     next?: string;
+    pinned?: boolean;
     summary?: string;
     title?: string;
     priority?: string;
@@ -871,6 +884,9 @@ async function updateProjectTool(
   }
   if (args.next !== undefined) {
     fields.next = args.next;
+  }
+  if (args.pinned !== undefined) {
+    fields.pinned = args.pinned;
   }
   await updateProject(store, pid, fields);
   // Echo the updated project through the same projection as getNode/get KEY

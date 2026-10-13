@@ -300,6 +300,10 @@ export function renderRecords(node: NodeView, io: Io, expandAnnotations = false)
   if (node.open_ended === true) {
     pairs.push(['open-ended', 'yes']);
   }
+  // Project-only (MMR-493) — shown only while pinned, like open-ended above.
+  if (node.pinned === true) {
+    pairs.push(['pinned', 'yes']);
+  }
   if (node.externalRef != null) {
     pairs.push(['external ref', node.externalRef]);
   }
