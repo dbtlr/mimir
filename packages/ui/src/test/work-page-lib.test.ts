@@ -223,4 +223,15 @@ describe('newestArtifacts', () => {
     expect(newestArtifacts(input, 2).map((a) => a.id)).toStrictEqual(['c', 'b']);
     expect(input.map((a) => a.id)).toStrictEqual(['a', 'c', 'b']);
   });
+
+  it('breaks equal timestamps on the higher artifact seq, as the server list does', () => {
+    const at = '2026-06-01T10:00:00.000Z';
+    const input = [artifact('MMR-a2', at), artifact('MMR-a10', at), artifact('MMR-a9', at)];
+
+    expect(newestArtifacts(input, 3).map((a) => a.id)).toStrictEqual([
+      'MMR-a10',
+      'MMR-a9',
+      'MMR-a2',
+    ]);
+  });
 });

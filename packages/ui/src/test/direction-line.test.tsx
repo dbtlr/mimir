@@ -161,6 +161,15 @@ const renderPanel = () =>
     { wrapper },
   );
 
+const panel = (next: string) => (
+  <DirectionPanel
+    subject={{ key: 'MMR', kind: 'project' }}
+    title="Mimir"
+    next={next}
+    offline={false}
+  />
+);
+
 describe('directionPanel clamp (MMR-484)', () => {
   const proto = HTMLElement.prototype;
   const original = {
@@ -169,8 +178,11 @@ describe('directionPanel clamp (MMR-484)', () => {
   };
 
   /** jsdom has no layout; stub the two heights the clamp measures. */
-  function stubHeights(scrollHeight: number, clientHeight: number) {
-    Object.defineProperty(proto, 'scrollHeight', { configurable: true, get: () => scrollHeight });
+  function stubHeights(scrollHeight: number | (() => number), clientHeight: number) {
+    Object.defineProperty(proto, 'scrollHeight', {
+      configurable: true,
+      get: () => (typeof scrollHeight === 'function' ? scrollHeight() : scrollHeight),
+    });
     Object.defineProperty(proto, 'clientHeight', { configurable: true, get: () => clientHeight });
   }
 
@@ -198,14 +210,16 @@ describe('directionPanel clamp (MMR-484)', () => {
   it('offers no Read more when the direction fits its clamp', () => {
     stubHeights(100, 100);
     renderPanel();
-    expect(screen.queryByRole('button', { name: 'Read more' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Read more of the direction' })).toBeNull();
   });
 
   it('offers Read more when it overflows, opening the reading dialog rather than the editor', async () => {
     stubHeights(400, 100);
     renderPanel();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Read more' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Read more of the direction' }),
+    );
 
     const dialog = await screen.findByRole('dialog');
     expect(dialog).toHaveTextContent('Direction');
@@ -213,5 +227,42 @@ describe('directionPanel clamp (MMR-484)', () => {
     // View mode keeps its own Edit, which switches to the editor in place.
     await userEvent.click(within(dialog).getByRole('button', { name: 'Edit' }));
     expect(screen.getByRole('textbox', { name: 'Direction text' })).toHaveValue(PROSE);
+  });
+
+  it('gives Read more a 24px hit area and a name that contains its visible text', () => {
+    stubHeights(400, 100);
+    renderPanel();
+
+    const readMore = screen.getByRole('button', { name: 'Read more of the direction' });
+    expect(readMore).toHaveTextContent('Read more');
+    expect(readMore.className).toContain('min-h-6');
+  });
+
+  it('returns focus to Edit when Read more unmounts under the open dialog', async () => {
+    let scrollHeight = 400;
+    stubHeights(() => scrollHeight, 100);
+    apiSend.mockResolvedValue({});
+    const view = render(panel(PROSE), { wrapper });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Read more of the direction' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Edit' }));
+    const box = screen.getByRole('textbox', { name: 'Direction text' });
+    await userEvent.clear(box);
+    await userEvent.type(box, 'Short.');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    // The refetch lands: the shorter text fits, so Read more unmounts.
+    scrollHeight = 100;
+    view.rerender(panel('Short.'));
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Read more of the direction' })).toBeNull();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(screen.getByRole('button', { name: 'Edit direction' })).toHaveFocus();
   });
 });

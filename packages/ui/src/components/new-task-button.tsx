@@ -3,8 +3,7 @@ import { useState } from 'react';
 import { AuthoringSheet } from './authoring-sheet';
 
 /**
- * The create affordance on the work page's head (project and container) and the
- * board. Opens the authoring sheet (MMR-227) pre-filled to the project, or to
+ * The create affordance on the work page's head (project and container). Opens the authoring sheet (MMR-227) pre-filled to the project, or to
  * `home` when the page is a container.
  */
 export function NewTaskButton({

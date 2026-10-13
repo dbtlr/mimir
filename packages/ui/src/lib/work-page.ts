@@ -181,7 +181,20 @@ export function buildOutline(tree: WireTreeNode): StructureOutline {
 /** How many artifacts the project rail lists before pointing at the full browser. */
 export const RAIL_ARTIFACT_CAP = 5;
 
-/** The `limit` most recently created artifacts, newest first. */
+/** The per-project sequence in an artifact id (`MMR-a12` is 12); 0 when the id has none. */
+function artifactSeq(id: string): number {
+  const match = /-a(\d+)$/.exec(id);
+  return match === null ? 0 : Number(match[1]);
+}
+
+/**
+ * The `limit` most recently created artifacts, newest first. Equal timestamps
+ * break on the higher seq, matching the server list's `created_at desc, seq desc`.
+ */
 export function newestArtifacts(artifacts: readonly WireArtifact[], limit: number): WireArtifact[] {
-  return artifacts.toSorted((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit);
+  return artifacts
+    .toSorted(
+      (a, b) => b.created_at.localeCompare(a.created_at) || artifactSeq(b.id) - artifactSeq(a.id),
+    )
+    .slice(0, limit);
 }

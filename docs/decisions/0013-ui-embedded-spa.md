@@ -498,9 +498,10 @@ Considered and rejected (mocked as variants A and B beside the chosen C):
 
 The MMR-467 refinement kept the board as an optional view one link away from
 the work page. The work page and the `/tasks` browser now cover the questions
-the board answered, so the console drops it. §4 and the v0.9 and v0.11
-refinements, which describe the board's tiers and its mobile layout, are
-retired with it, and the MMR-467 refinement is revised:
+the board answered, so the console drops it. §4, the v0.9 refinement's board
+half (the three-tier status lens), and the v0.11 refinement (the mobile board)
+are retired with it. The v0.9 refinement's `/tasks` browser and the node `q`
+search it added stay. The MMR-467 refinement is revised:
 
 - **`/p/KEY/board` is removed.** The route, its swimlane bands and `?bands=`
   parameter, drag-to-reorder, and the folded direction row (the work page's
@@ -510,7 +511,8 @@ retired with it, and the MMR-467 refinement is revised:
 - **The rail is Direction, Structure, About, Artifacts, then Other views.**
   Other views links to the project's tasks in the browser. Artifacts moves out
   of About into its own section when the scope has any: a project lists its
-  five newest and links to `/artifacts?project=KEY`, and a container lists the
+  five newest and, when it has more than five, links to all of them at
+  `/artifacts?project=KEY`, and a container lists the
   artifacts attached to it. The artifact browser has no per-record filter, so
   a container has no all-link. The direction is clamped to six lines with a
   _Read more_ that opens the reading pane.

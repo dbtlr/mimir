@@ -68,7 +68,7 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
   the section it now belongs in. Offline, these buttons are disabled. The rail
   holds the direction (clamped to a few lines, with Read more for the rest), the
   structure of initiatives and phases, About (the description and details),
-  Artifacts (a project's five newest, with a link to all of them), and a link to
+  Artifacts (a project's five newest, with a link to all of them when it has more than five), and a link to
   the project's tasks. New task is in the page head, and a project's settings sit
   beside it. An initiative or phase adds its path above the title and keeps its
   notes under a Timeline tab, at `?tab=timeline`.

@@ -38,8 +38,8 @@ export const statusChipVariants = cva(
   {
     defaultVariants: { shape: 'chip', status: 'new' },
     variants: {
-      // `chip` is the board-card idiom (rounded-sm, mixed-case, no tracking);
-      // `pill` is the header idiom (rounded-full, uppercase, tracked) the
+      // `chip` is the compact idiom (rounded-sm, mixed-case, no tracking); only the
+      // dev-only kit page renders it now; `pill` is the header idiom (rounded-full, uppercase, tracked) the
       // record page headers share.
       shape: {
         chip: 'rounded-sm px-1.5 py-0.5 text-tag',

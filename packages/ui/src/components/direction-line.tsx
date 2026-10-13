@@ -1,8 +1,10 @@
 import { Dialog } from '@base-ui-components/react/dialog';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { useUpdateDirection } from '../api/mutations';
 import type { DirectionTarget } from '../api/mutations';
+import { cn } from '../lib/cn';
+import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { MarkdownBody } from './markdown-body';
 import type { ClampMeasure } from './markdown-body';
 import { ActionButton } from './ui/action-button';
@@ -27,6 +29,7 @@ function DirectionDialog({
   offline,
   open,
   onClose,
+  finalFocus,
   editOnly = false,
 }: {
   subject: DirectionTarget;
@@ -35,6 +38,8 @@ function DirectionDialog({
   offline: boolean;
   open: boolean;
   onClose: () => void;
+  /** Where focus lands when the dialog closes; the opener may be gone by then. */
+  finalFocus: () => HTMLElement | null;
   /** Open straight into the editor, and close on Save or Cancel: the caller
    * already shows the text, so there is no reading view to return to. */
   editOnly?: boolean;
@@ -74,6 +79,7 @@ function DirectionDialog({
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-[60] bg-well-950/70 backdrop-blur-[2px]" />
         <Dialog.Popup
+          finalFocus={finalFocus}
           aria-describedby={undefined}
           className="fixed top-1/2 left-1/2 z-[60] flex max-h-[85dvh] w-[min(92vw,640px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-line-bright bg-well-850 shadow-2xl outline-none light:shadow-overlay"
         >
@@ -181,6 +187,12 @@ export function DirectionPanel({
   }
   const [measure, setMeasure] = useState<ClampMeasure>({ lines: 0, overflowing: false });
   const empty = next === undefined || next.trim() === '';
+  const editRef = useRef<HTMLButtonElement>(null);
+  const readMoreRef = useRef<HTMLButtonElement>(null);
+  // A rewrite can shorten the text until Read more unmounts under the open
+  // dialog; Edit is always mounted, so it is the stable place to land.
+  const settleFocus = () =>
+    readMoreRef.current?.isConnected === true ? readMoreRef.current : editRef.current;
   return (
     <div className="flex flex-col gap-2">
       {empty ? (
@@ -192,6 +204,7 @@ export function DirectionPanel({
       )}
       <div className="flex items-center gap-3">
         <ActionButton
+          ref={editRef}
           size="sm"
           variant="outline"
           aria-label="Edit direction"
@@ -205,12 +218,17 @@ export function DirectionPanel({
         </ActionButton>
         {!empty && measure.overflowing && (
           <button
+            ref={readMoreRef}
             type="button"
+            aria-label="Read more of the direction"
             aria-haspopup="dialog"
             onClick={() => {
               setOpenFor({ id, mode: 'read' });
             }}
-            className="text-micro text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+            className={cn(
+              'inline-flex min-h-6 items-center rounded-sm px-1.5 text-micro text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent',
+              PHONE_TOUCH_TARGET,
+            )}
           >
             Read more
           </button>
@@ -226,6 +244,7 @@ export function DirectionPanel({
           next={next}
           offline={offline}
           open
+          finalFocus={settleFocus}
           editOnly={openFor.mode === 'edit'}
           onClose={() => {
             setOpenFor(null);
