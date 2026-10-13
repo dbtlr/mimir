@@ -14,7 +14,7 @@ says otherwise. For access from another device, pick a
 [network mode](../guides/port-and-proxy.md): `tailscale serve` keeps HTTPS and
 the installable PWA, and a reverse proxy does too.
 
-![Mimir project board grouped into phase bands](../assets/console-project.png)
+![Mimir project work page with its rail of direction, structure, and details](../assets/console-project.png)
 
 ## Review what needs you
 
@@ -66,9 +66,10 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
   task in review, and Answer… on a task that needs answers, which saves your
   answer as a note and sets the task's grooming state. The row then moves to
   the section it now belongs in. Offline, these buttons are disabled. The rail
-  holds the direction in full, the structure of initiatives and phases, About
-  (the description, artifacts, and details), and links to the board and the
-  project's tasks. New task is in the page head, and a project's settings sit
+  holds the direction (clamped to a few lines, with Read more for the rest), the
+  structure of initiatives and phases, About (the description and details),
+  Artifacts (a project's five newest, with a link to all of them), and a link to
+  the project's tasks. New task is in the page head, and a project's settings sit
   beside it. An initiative or phase adds its path above the title and keeps its
   notes under a Timeline tab, at `?tab=timeline`.
 - **A task page** shows the path above the task, its description, a timeline
@@ -90,12 +91,6 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
   The rail holds Copy link, Download .md, and details.
 
 On a phone, the rail folds into chips that open bottom sheets.
-
-The board is an optional view at `/p/MMR/board`, linked from the work page's
-rail. It groups tasks into status lanes, banded by phase or release, and rank
-within Ready is the queue. Card titles and the container names in its bands are
-links to their pages, so they open in a new tab or copy as links like any other
-link.
 
 ## Browse portfolio records
 

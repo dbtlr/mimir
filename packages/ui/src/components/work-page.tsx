@@ -329,15 +329,12 @@ function ArtifactsPanel({
   );
 }
 
-/** The two other lenses on the scope: the board, and its tasks in the browser. */
+/** The other lens on the scope: its tasks in the browser. */
 function OtherViews({ projectKey }: { projectKey: string }) {
   const link =
     'rounded-sm px-1.5 py-1 text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent';
   return (
     <nav aria-label="Other views" className="flex flex-col gap-px">
-      <Link to="/p/$key/board" params={{ key: projectKey }} className={link}>
-        Board
-      </Link>
       <Link to="/tasks" search={{ project: projectKey }} className={link}>
         All tasks in {projectKey}
       </Link>

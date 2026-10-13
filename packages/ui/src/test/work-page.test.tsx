@@ -591,13 +591,11 @@ describe.each(SCOPES)('work page rail, $name', (scope) => {
     expect(panel.getByText('updated')).toBeDefined();
   });
 
-  it('links to the board and to the project’s tasks', async () => {
+  it('links to the project’s tasks, and to no board', async () => {
     await open(scope);
 
     const views = within(getRail()).getByRole('navigation', { name: 'Other views' });
-    expect(within(views).getByRole('link', { name: 'Board' }).getAttribute('href')).toBe(
-      '/p/MMR/board',
-    );
+    expect(within(views).queryByRole('link', { name: 'Board' })).toBeNull();
     expect(within(views).getByRole('link', { name: 'All tasks in MMR' }).getAttribute('href')).toBe(
       '/tasks?project=MMR',
     );
@@ -648,9 +646,7 @@ describe.each(SCOPES)('work page rail, $name', (scope) => {
 
     fireEvent.click(within(chips).getByRole('button', { name: 'Other views' }));
     const views = await screen.findByRole('dialog', { name: 'Other views' });
-    expect(within(views).getByRole('link', { name: 'Board' }).getAttribute('href')).toBe(
-      '/p/MMR/board',
-    );
+    expect(within(views).getByRole('link', { name: 'All tasks in MMR' })).toBeDefined();
   });
 });
 

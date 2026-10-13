@@ -2,14 +2,12 @@ import type { Grooming } from '@mimir/contract';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-import type { ReorderArgs } from '../lib/reorder';
 import type { TransitionVerb } from '../lib/transitions';
 import { apiSend } from './client';
 import type { WireNode, WireSeed } from './types';
 
 /** Every read key a write can stale. Broad invalidation is fine — the server is loopback. */
 const WRITE_KEYS: readonly (readonly string[])[] = [
-  ['board'],
   ['node'],
   ['nodes'],
   ['projects'],
@@ -85,23 +83,6 @@ export function useGroom(id: string) {
       toast.error(err.message);
     },
     onSettled: invalidate,
-  });
-}
-
-/** Reorder is board-level: the id isn't known until a drop, so it's given at mutate time. */
-export type ReorderInput = {
-  id: string;
-} & ReorderArgs;
-
-export function useReorder() {
-  const invalidate = useInvalidateOnWrite();
-  return useMutation({
-    mutationFn: ({ id, ...args }: ReorderInput) =>
-      apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/reorder`, args),
-    onError: (err: Error) => {
-      toast.error(err.message);
-    },
-    onSettled: () => void invalidate(),
   });
 }
 

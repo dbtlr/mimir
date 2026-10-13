@@ -3,7 +3,6 @@ import { useState } from 'react';
 
 import { useUpdateDirection } from '../api/mutations';
 import type { DirectionTarget } from '../api/mutations';
-import { cn } from '../lib/cn';
 import { MarkdownBody } from './markdown-body';
 import type { ClampMeasure } from './markdown-body';
 import { ActionButton } from './ui/action-button';
@@ -11,123 +10,6 @@ import { ActionButton } from './ui/action-button';
 /** The subject's on-screen handle — the project key or the node id. */
 function subjectId(subject: DirectionTarget): string {
   return subject.kind === 'project' ? subject.key : subject.id;
-}
-
-/** `[text](url)` → `text`, `![alt](url)` → `alt`. */
-const MARKDOWN_LINK = /!?\[([^\]]*)]\([^)]*\)/g;
-/** A paired star emphasis/strong run: `**x**`, `*x*`. */
-const STAR_EMPHASIS = /(\*\*|\*)(?=\S)([\s\S]*?\S)\1/g;
-/**
- * The underscore twin. CommonMark forbids intraword underscore emphasis, so
- * both delimiters must sit on a word boundary — otherwise `foo_service_v2`
- * reads as emphasis and folds to `fooservicev2`.
- */
-const UNDERSCORE_EMPHASIS = /(?<!\w)(__|_)(?=\S)([\s\S]*?\S)\1(?!\w)/g;
-/** Leading block syntax: blockquote marks, ATX hashes, and bullet or ordered markers. */
-const LEADING_BLOCK = /^(?:>\s*)*(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+)?/;
-
-/** Drop paired emphasis markers, twice: a nested `**_x_**` needs a second pass. */
-function stripEmphasis(line: string): string {
-  let out = line;
-  for (let pass = 0; pass < 2; pass += 1) {
-    out = out.replace(STAR_EMPHASIS, '$2').replace(UNDERSCORE_EMPHASIS, '$2');
-  }
-  return out;
-}
-
-/**
- * The fold: the first line that carries content, as plain text. The row is a
- * single line of UI chrome, not a markdown surface — an unstripped `**bold**`
- * or `- bullet` would read as literal syntax where the operator expects prose.
- * Returns undefined when there is no direction to fold.
- */
-export function foldDirection(next: string | undefined): string | undefined {
-  const line = next
-    ?.replace(/\r\n?/g, '\n')
-    .split('\n')
-    .map((l) => l.trim())
-    .find((l) => l !== '');
-  if (line === undefined) {
-    return undefined;
-  }
-  const plain = stripEmphasis(line.replace(LEADING_BLOCK, '').replace(MARKDOWN_LINK, '$1'))
-    .replaceAll('`', '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return plain === '' ? undefined : plain;
-}
-
-/**
- * The folded direction row (MMR-390) — the owned `## Next` prose (ADR 0026
- * Decision 2) stated in one line under the board header. It is a control, not
- * a card: clicking opens the reading dialog, where Edit replaces the whole
- * text. Deliberately one visual
- * line — direction is a pointer to the full record, not the record itself.
- */
-export function DirectionLine({
-  subject,
-  title,
-  next,
-  offline,
-}: {
-  subject: DirectionTarget;
-  title: string;
-  next: string | undefined;
-  offline: boolean;
-}) {
-  const id = subjectId(subject);
-  // Open state is held as the subject it was opened FOR, so a surface that
-  // swaps subjects under a mounted row (navigating between projects) closes
-  // the dialog instead of pointing it at the new record.
-  const [openFor, setOpenFor] = useState<string | null>(null);
-  // Adjusted during render, not in an effect: the board route is one
-  // non-remounting component, so a subject swap must forget the old open
-  // state immediately — an effect would let a return trip to the first
-  // subject reopen the dialog uninvited before it ran.
-  if (openFor !== null && openFor !== id) {
-    setOpenFor(null);
-  }
-  const fold = foldDirection(next);
-  return (
-    <>
-      <button
-        type="button"
-        aria-haspopup="dialog"
-        onClick={() => {
-          setOpenFor(id);
-        }}
-        className="flex w-full items-center gap-2.5 rounded-lg bg-well-850 px-2.5 py-1.5 text-left inset-ring inset-ring-line transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
-      >
-        {/* Not aria-hidden: the microlabel plus the fold IS the button's
-            accessible name, so two direction rows on one page are told apart. */}
-        <span className="microlabel shrink-0 text-ink-faint">Direction</span>
-        <span
-          className={cn(
-            'min-w-0 flex-1 truncate text-xs',
-            fold === undefined ? 'text-ink-ghost' : 'text-ink-dim',
-          )}
-        >
-          {fold ?? 'No direction set'}
-        </span>
-        <span aria-hidden className="shrink-0 text-ink-faint">
-          ›
-        </span>
-      </button>
-      {/* Keyed by subject: the draft belongs to the record it was typed
-          against and must never follow the row to another one. */}
-      <DirectionDialog
-        key={id}
-        subject={subject}
-        title={title}
-        next={next}
-        offline={offline}
-        open={openFor === id}
-        onClose={() => {
-          setOpenFor(null);
-        }}
-      />
-    </>
-  );
 }
 
 /**
@@ -290,7 +172,7 @@ export function DirectionPanel({
   offline: boolean;
 }) {
   const id = subjectId(subject);
-  // Held as the subject it was opened FOR, as in DirectionLine: the project
+  // Held as the subject it was opened FOR, like the open dialog: the project
   // page does not remount between projects, and a draft must never follow the
   // panel to another record's direction.
   const [openFor, setOpenFor] = useState<{ id: string; mode: 'read' | 'edit' } | null>(null);

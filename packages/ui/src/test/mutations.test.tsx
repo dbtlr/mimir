@@ -10,7 +10,6 @@ import {
   useCreateProject,
   useDepend,
   useMoveNode,
-  useReorder,
   useTag,
   useTransition,
   useUnarchiveProject,
@@ -56,16 +55,6 @@ describe('mutation hooks', () => {
     });
   });
 
-  it('useReorder POSTs the reorder route with the id given at mutate time', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-9' });
-    const client = new QueryClient();
-    const { result } = renderHook(() => useReorder(), { wrapper: wrapper(client) });
-    result.current.mutate({ after: 'MMR-3', id: 'MMR-9' });
-    await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-9/reorder', { after: 'MMR-3' });
-    });
-  });
-
   it('useMoveNode POSTs the move route with the new parent (MMR-73)', async () => {
     apiSend.mockResolvedValue({ id: 'MMR-9' });
     const client = new QueryClient();
@@ -73,17 +62,6 @@ describe('mutation hooks', () => {
     result.current.mutate('MMR-3');
     await waitFor(() => {
       expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-9/move', { to: 'MMR-3' });
-    });
-  });
-
-  it('invalidates board queries on settle', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-9' });
-    const client = new QueryClient();
-    const spy = vi.spyOn(client, 'invalidateQueries');
-    const { result } = renderHook(() => useTransition('MMR-9'), { wrapper: wrapper(client) });
-    result.current.mutate({ verb: 'done' });
-    await waitFor(() => {
-      expect(spy).toHaveBeenCalledWith({ queryKey: ['board'] });
     });
   });
 

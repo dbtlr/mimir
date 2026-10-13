@@ -493,3 +493,24 @@ Considered and rejected (mocked as variants A and B beside the chosen C):
 - **Sections by kind with the project on each row** (B). Decisions read well,
   but the page loses the per-project grouping the work page uses, and the
   seed section is still the longest thing on the page.
+
+## Refinement (2026-10-13, MMR-487): the board view retires
+
+The MMR-467 refinement kept the board as an optional view one link away from
+the work page. The work page and the `/tasks` browser now cover the questions
+the board answered, so the console drops it. §4 and the v0.9 and v0.11
+refinements, which describe the board's tiers and its mobile layout, are
+retired with it, and the MMR-467 refinement is revised:
+
+- **`/p/KEY/board` is removed.** The route, its swimlane bands and `?bands=`
+  parameter, drag-to-reorder, and the folded direction row (the work page
+  shows the direction in full) leave the console. An old board link reads as
+  no record, because `board` is not a record suffix. The server's rank
+  operations are unchanged; only the console stops offering them.
+- **The rail is Direction, Structure, About, Artifacts, then Other views.**
+  Other views links to the project's tasks in the browser. Artifacts moves out
+  of About into its own section when the scope has any: a project lists its
+  five newest and links to `/artifacts?project=KEY`, and a container lists the
+  artifacts attached to it. The artifact browser has no per-record filter, so
+  a container has no all-link. The direction is clamped to six lines with a
+  _Read more_ that opens the reading pane.
