@@ -4,9 +4,14 @@ import type { ReactNode } from 'react';
 import { useParkSeed, useRejectSeed, useResolveSeed, useUnparkSeed } from '../api/mutations';
 import type { WireSeed } from '../api/types';
 import { cn } from '../lib/cn';
+import { useDisarmWhenSettled } from '../lib/use-row-focus-handoff';
+import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
 import { ReasonDialog } from './reason-dialog';
 
 type PendingVerb = 'park' | 'reject' | 'resolve' | null;
+
+/** A surface whose seed stays put when acted on (the seed page) hands nothing on. */
+const NO_HANDOFF: RowFocusHandoff = { arm: () => undefined, disarm: () => undefined };
 
 /** A lead verb's wash: the accent, or the ready lane's violet. */
 const PRIMARY_INK = {
@@ -72,6 +77,11 @@ export function SpawnedRef({ seed }: { seed: WireSeed }) {
  * required-reason dialog. A surface that lists the spawned work itself (the seed
  * page) drops the reference.
  *
+ * In a list a verb can move the seed out of (the review page's triage, MMR-479),
+ * `handoff` is the list's focus handoff: a verb arms it as it commits and
+ * disarms it when it ends with the seed still listed. The chips stay off while
+ * a verb is pending.
+ *
  * Seam (MMR-248): one primary per lane. Promote leads (primary) on untriaged and
  * promoted; on the ready lane Resolve keeps the lead and Promote falls in behind
  * it as a secondary chip.
@@ -81,6 +91,7 @@ export function SeedVerbs({
   onPromote,
   offline,
   withSpawned = true,
+  handoff = NO_HANDOFF,
   className,
 }: {
   seed: WireSeed;
@@ -89,6 +100,8 @@ export function SeedVerbs({
   offline?: boolean;
   /** Show the spawned-work reference after the chips. */
   withSpawned?: boolean;
+  /** The list's focus handoff, when a verb can move the seed out of it. */
+  handoff?: RowFocusHandoff;
   className?: string;
 }) {
   const [pending, setPending] = useState<PendingVerb>(null);
@@ -96,6 +109,19 @@ export function SeedVerbs({
   const resolve = useResolveSeed(seed.id);
   const park = useParkSeed(seed.id);
   const unpark = useUnparkSeed(seed.id);
+  const verbs = [reject, resolve, park, unpark];
+  const busy = verbs.some((verb) => verb.isPending);
+  useDisarmWhenSettled(
+    handoff,
+    seed.id,
+    busy ? null : Math.max(...verbs.map((verb) => verb.submittedAt)),
+  );
+  const off = offline === true || busy;
+  /** Commit a verb: arm the handoff, since the seed may leave the list. */
+  const commit = (send: () => void) => {
+    handoff.arm(seed.id);
+    send();
+  };
 
   // A settled seed is frozen — no verbs (its rows render read-only).
   if (seed.lane === 'settled') {
@@ -109,7 +135,7 @@ export function SeedVerbs({
         key="resolve"
         primary
         attention
-        disabled={offline}
+        disabled={off}
         onClick={() => setPending('resolve')}
       >
         Resolve…
@@ -119,7 +145,7 @@ export function SeedVerbs({
     // it as a secondary chip — one primary per lane.
     if (onPromote !== undefined) {
       chips.push(
-        <VerbChip key="promote" disabled={offline} onClick={() => onPromote(seed)}>
+        <VerbChip key="promote" disabled={off} onClick={() => onPromote(seed)}>
           Promote again…
         </VerbChip>,
       );
@@ -127,19 +153,19 @@ export function SeedVerbs({
   }
   if (seed.lane === 'parked') {
     chips.push(
-      <VerbChip key="unpark" disabled={offline} onClick={() => unpark.mutate()}>
+      <VerbChip key="unpark" disabled={off} onClick={() => commit(() => unpark.mutate())}>
         Unpark
       </VerbChip>,
     );
   }
   chips.push(
-    <VerbChip key="reject" disabled={offline} onClick={() => setPending('reject')}>
+    <VerbChip key="reject" disabled={off} onClick={() => setPending('reject')}>
       Reject…
     </VerbChip>,
   );
   if (seed.lane === 'untriaged') {
     chips.push(
-      <VerbChip key="park" disabled={offline} onClick={() => setPending('park')}>
+      <VerbChip key="park" disabled={off} onClick={() => setPending('park')}>
         Park…
       </VerbChip>,
     );
@@ -149,7 +175,7 @@ export function SeedVerbs({
   // seed is live — a further promote appends another spawned link.
   if (onPromote !== undefined && seed.lane !== 'ready') {
     chips.unshift(
-      <VerbChip key="promote" primary disabled={offline} onClick={() => onPromote(seed)}>
+      <VerbChip key="promote" primary disabled={off} onClick={() => onPromote(seed)}>
         {seed.lane === 'untriaged' || seed.lane === 'parked'
           ? 'Promote to task…'
           : 'Promote again…'}
@@ -167,7 +193,7 @@ export function SeedVerbs({
         open={pending === 'park'}
         onClose={() => setPending(null)}
         onConfirm={(reason) => {
-          park.mutate(reason);
+          commit(() => park.mutate(reason));
           setPending(null);
         }}
       />
@@ -178,7 +204,7 @@ export function SeedVerbs({
         open={pending === 'reject'}
         onClose={() => setPending(null)}
         onConfirm={(reason) => {
-          reject.mutate(reason);
+          commit(() => reject.mutate(reason));
           setPending(null);
         }}
       />
@@ -189,7 +215,7 @@ export function SeedVerbs({
         open={pending === 'resolve'}
         onClose={() => setPending(null)}
         onConfirm={(reason) => {
-          resolve.mutate(reason);
+          commit(() => resolve.mutate(reason));
           setPending(null);
         }}
       />

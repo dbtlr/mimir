@@ -24,12 +24,19 @@ across every active project, in two sections:
 - **Decide** lists the decisions, grouped by project: tasks in review, blocks
   only you can clear, and tasks that need answers. Decisions hold up agents, so
   they come first. When nothing waits, the section says so and names how many
-  tasks are in progress and which task finished last.
+  tasks are in progress and which task finished last. Decisions act in place,
+  as on a work page: Approve and Send back… on a task in review, and Answer…
+  on a task that needs answers. A block has no action here. Clear it outside
+  Mimir, then unblock the task from its page.
 - **Triage when you have a minute** is a table with one row per project. Each
   row counts untriaged seeds, the age of the oldest one, tasks going cold, and
   `mimir doctor` findings. Open a row to list its untriaged seeds, oldest
-  first. The going-cold count opens the project's work page, and the findings
-  count opens its record health.
+  first, each with Promote to task…, Reject…, and Park…. The going-cold count
+  opens the project's work page, and the findings count opens its record
+  health.
+
+When a row you act on leaves the page, keyboard focus moves to the next row.
+Offline, the row actions are disabled.
 
 The rail lists every active project with its decisions, its triage count, and
 its tasks in progress. Each entry opens the project's work page. Archived

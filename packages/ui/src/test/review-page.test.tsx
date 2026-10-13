@@ -1,10 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { WireReviewReport, WireWorkNeedsYou } from '../api/types';
+import type { WireReviewReport, WireSeed, WireWorkNeedsYou } from '../api/types';
 import { router } from '../router';
 import { project, reviewReport, seed, task } from './fixtures';
 
@@ -55,12 +55,13 @@ function renderReview() {
     history: createMemoryHistory({ initialEntries: ['/'] }),
     routeTree: router.routeTree,
   });
+  const client = new QueryClient();
   render(
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={client}>
       <RouterProvider router={testRouter} />
     </QueryClientProvider>,
   );
-  return testRouter;
+  return client;
 }
 
 const LM = { key: 'LM', name: 'Loom CLI' };
@@ -285,5 +286,424 @@ describe('the review page at / (ADR 0013, MMR-476 refinement)', () => {
 
     await screen.findByRole('heading', { level: 1, name: 'Nothing needs you' });
     expect(screen.queryByText('No projects yet.')).toBeNull();
+  });
+});
+
+/**
+ * Serve `before` as the review read until a write lands, then `after`, with the
+ * reads the promote sheet makes for its home (MMR's tree, with one initiative).
+ */
+async function openForWrite(before: WireReviewReport, after: WireReviewReport) {
+  let report = before;
+  const serving = {
+    /** Serve `next` from the next review read, as a poll would. */
+    poll: (next: WireReviewReport) => {
+      report = next;
+      return client.invalidateQueries({ queryKey: ['review'] });
+    },
+  };
+  apiGet.mockImplementation((path: string) => {
+    if (path === '/api/review') {
+      return Promise.resolve(report);
+    }
+    if (path === '/api/projects') {
+      return Promise.resolve({ items: [{ id: 'MMR', title: 'Mimir' }], total: 1 });
+    }
+    if (path.startsWith('/api/projects/MMR/tree')) {
+      const home = { ...task({ id: 'MMR-1', status: 'in_progress', type: 'initiative' }) };
+      return Promise.resolve({ ...project({ id: 'MMR' }), children: [{ ...home, children: [] }] });
+    }
+    return Promise.resolve({ items: [], total: 0 });
+  });
+  apiSend.mockImplementation(() => {
+    report = after;
+    return Promise.resolve({});
+  });
+  const client = renderReview();
+  await screen.findByRole('heading', { level: 1 });
+  return serving;
+}
+
+/** A row's action buttons, grouped and named for the record they act on. */
+const actionsOf = (id: string) => screen.findByRole('group', { name: `Actions for ${id}` });
+
+/** Press a row's button the way a keyboard does: focused first, then activated. */
+const press = async (id: string, name: string) => {
+  const button = within(await actionsOf(id)).getByRole('button', { name });
+  button.focus();
+  fireEvent.click(button);
+};
+
+const verdict = decision('LM-196', 'under_review', { title: 'Ship the plugin' });
+const block = decision('MMR-52', 'blocked', { hold_reason: 'Needs an API token' });
+const question = decision('MMR-480', 'needs_answers', { question: 'Skip, or drop it?' });
+
+/** Decisions in two project groups: LM's verdict, then MMR's block and question. */
+function decisionsFor(rows: { lm?: WireWorkNeedsYou[]; mmr?: WireWorkNeedsYou[] }) {
+  const decisions = [
+    { project: LM, rows: rows.lm ?? [] },
+    { project: MMR, rows: rows.mmr ?? [] },
+  ].filter((group) => group.rows.length > 0);
+  return reviewReport({
+    decisions,
+    projects: TWO_PROJECTS,
+    queue: decisions.flatMap((group) => group.rows.map((row) => row.id)),
+  });
+}
+
+describe('review page decisions act in place (MMR-479)', () => {
+  it('approves a verdict, and the row leaves Decide', async () => {
+    await openForWrite(decisionsFor({ lm: [verdict] }), decisionsFor({}));
+
+    fireEvent.click(within(await actionsOf('LM-196')).getByRole('button', { name: 'Approve' }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/LM-196/done', undefined);
+    });
+    await expect(
+      screen.findByRole('heading', { level: 1, name: 'Nothing needs you' }),
+    ).resolves.toBeDefined();
+  });
+
+  it('sends a verdict back with a reason', async () => {
+    await openForWrite(decisionsFor({ lm: [verdict] }), decisionsFor({}));
+
+    fireEvent.click(within(await actionsOf('LM-196')).getByRole('button', { name: 'Send back…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Send back' });
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'Cover errors' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/LM-196/return', {
+        reason: 'Cover errors',
+      });
+    });
+  });
+
+  it('answers a question and sets the grooming state', async () => {
+    await openForWrite(decisionsFor({ mmr: [question] }), decisionsFor({}));
+
+    fireEvent.click(within(await actionsOf('MMR-480')).getByRole('button', { name: 'Answer…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
+    expect(dialog).toHaveTextContent('Skip, or drop it?');
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
+      target: { value: 'Drop it.' },
+    });
+    fireEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-480/groom', {
+        note: 'Drop it.',
+        state: 'groomed',
+      });
+    });
+  });
+
+  it('offers no action on a block on you, which is cleared outside Mimir', async () => {
+    serve(decisionsFor({ mmr: [block] }));
+    renderReview();
+
+    await screen.findByText('Needs an API token');
+    expect(screen.queryByRole('group', { name: 'Actions for MMR-52' })).toBeNull();
+  });
+
+  it('lands on the next project’s first action when a group’s last row leaves', async () => {
+    await openForWrite(
+      decisionsFor({ lm: [verdict], mmr: [question] }),
+      decisionsFor({ mmr: [question] }),
+    );
+
+    await press('LM-196', 'Approve');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('group', { name: 'Actions for LM-196' })).toBeNull();
+    });
+    expect(
+      within(await actionsOf('MMR-480')).getByRole('button', { name: 'Answer…' }),
+    ).toHaveFocus();
+  });
+
+  it('lands on a block’s link when the next decision has no action', async () => {
+    await openForWrite(
+      decisionsFor({ lm: [verdict], mmr: [block] }),
+      decisionsFor({ mmr: [block] }),
+    );
+
+    await press('LM-196', 'Approve');
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: block.title })).toHaveFocus();
+    });
+  });
+
+  it('lands on the Decide heading when no decision follows the row that left', async () => {
+    await openForWrite(
+      decisionsFor({ lm: [verdict], mmr: [question] }),
+      decisionsFor({ lm: [verdict] }),
+    );
+
+    await press('MMR-480', 'Answer…');
+    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
+      target: { value: 'Drop it.' },
+    });
+    fireEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /^Decide · 1/ })).toHaveFocus();
+    });
+  });
+});
+
+const lmSeed = seed({ id: 'LM-s4', lane: 'untriaged', project: 'LM', title: 'Plugin hooks' });
+const firstSeed = seed({ id: 'MMR-s25', lane: 'untriaged', title: 'Oldest idea' });
+const secondSeed = seed({ id: 'MMR-s30', lane: 'untriaged', title: 'Newer bug' });
+
+/** Triage rows for LM's and MMR's untriaged seeds; a project with none drops out. */
+function triage(rows: { lm?: WireSeed[]; mmr?: WireSeed[] }) {
+  return reviewReport({
+    projects: TWO_PROJECTS,
+    triage: [
+      { findings: 0, going_cold: 0, project: LM, seeds: rows.lm ?? [] },
+      { findings: 0, going_cold: 0, project: MMR, seeds: rows.mmr ?? [] },
+    ].filter((group) => group.seeds.length > 0),
+  });
+}
+
+/** Open each named project's triage row to list its seeds. */
+async function expand(...names: string[]) {
+  for (const name of names) {
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(name) }));
+  }
+}
+
+describe('review page seed triage acts in place (MMR-479)', () => {
+  it('offers Promote to task…, Reject…, and Park… on each untriaged seed', async () => {
+    await openForWrite(triage({ mmr: [firstSeed] }), triage({}));
+    await expand('Mimir');
+
+    const labels = within(await actionsOf('MMR-s25'))
+      .getAllByRole('button')
+      .map((b) => b.textContent);
+    expect(labels).toStrictEqual(['Promote to task…', 'Reject…', 'Park…']);
+  });
+
+  it('parks a seed with a reason, and it leaves the list', async () => {
+    await openForWrite(triage({ mmr: [firstSeed, secondSeed] }), triage({ mmr: [secondSeed] }));
+    await expand('Mimir');
+
+    fireEvent.click(within(await actionsOf('MMR-s25')).getByRole('button', { name: 'Park…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Park seed' });
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'after v1' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Park' }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s25/park', {
+        reason: 'after v1',
+      });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: 'Oldest idea' })).toBeNull();
+    });
+    expect(screen.getByRole('link', { name: 'Newer bug' })).toBeDefined();
+  });
+
+  it('rejects a seed with the reason it requires', async () => {
+    await openForWrite(triage({ mmr: [firstSeed] }), triage({}));
+    await expand('Mimir');
+
+    fireEvent.click(within(await actionsOf('MMR-s25')).getByRole('button', { name: 'Reject…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Reject seed' });
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'Out of scope' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Reject' }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s25/reject', {
+        reason: 'Out of scope',
+      });
+    });
+  });
+
+  it('opens the promote sheet with the seed’s title', async () => {
+    await openForWrite(triage({ mmr: [firstSeed] }), triage({}));
+    await expand('Mimir');
+
+    fireEvent.click(
+      within(await actionsOf('MMR-s25')).getByRole('button', { name: 'Promote to task…' }),
+    );
+
+    await expect(screen.findByDisplayValue('Oldest idea')).resolves.toBeDefined();
+  });
+
+  it('lands on the next project’s first seed when a project’s last seed is parked', async () => {
+    await openForWrite(
+      triage({ lm: [lmSeed], mmr: [firstSeed, secondSeed] }),
+      triage({ mmr: [firstSeed, secondSeed] }),
+    );
+    await expand('Loom CLI', 'Mimir');
+
+    await press('LM-s4', 'Park…');
+    const dialog = await screen.findByRole('dialog', { name: 'Park seed' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Park' }));
+
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole('group', { name: 'Actions for MMR-s25' })).getByRole('button', {
+          name: 'Promote to task…',
+        }),
+      ).toHaveFocus();
+    });
+  });
+
+  it('lands on the next seed after a promote moves its seed out of triage', async () => {
+    await openForWrite(triage({ mmr: [firstSeed, secondSeed] }), triage({ mmr: [secondSeed] }));
+    await expand('Mimir');
+
+    await press('MMR-s25', 'Promote to task…');
+    const promote = await screen.findByRole('button', { name: 'Promote ↵' });
+    await waitFor(() => {
+      expect(promote).toBeEnabled();
+    });
+    fireEvent.click(promote);
+
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole('group', { name: 'Actions for MMR-s30' })).getByRole('button', {
+          name: 'Promote to task…',
+        }),
+      ).toHaveFocus();
+    });
+  });
+
+  it('lands on the Triage heading when no seed follows the one that left', async () => {
+    await openForWrite(triage({ lm: [lmSeed], mmr: [firstSeed] }), triage({ lm: [lmSeed] }));
+    await expand('Loom CLI', 'Mimir');
+
+    await press('MMR-s25', 'Reject…');
+    const dialog = await screen.findByRole('dialog', { name: 'Reject seed' });
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'No' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Reject' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { level: 2, name: /^Triage when you have a minute/ }),
+      ).toHaveFocus();
+    });
+  });
+
+  it('keeps the Triage heading for focus when the last seed on the page leaves', async () => {
+    await openForWrite(triage({ mmr: [firstSeed] }), triage({}));
+    await expand('Mimir');
+
+    await press('MMR-s25', 'Reject…');
+    const dialog = await screen.findByRole('dialog', { name: 'Reject seed' });
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'No' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Reject' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { level: 2, name: /^Triage when you have a minute/ }),
+      ).toHaveFocus();
+    });
+    expect(screen.getByText('Nothing left to triage.')).toBeDefined();
+  });
+
+  it('moves nothing for a cancelled promote’s seed when it leaves later', async () => {
+    const serving = await openForWrite(triage({ mmr: [firstSeed, secondSeed] }), triage({}));
+    await expand('Mimir');
+
+    await press('MMR-s25', 'Promote to task…');
+    await screen.findByDisplayValue('Oldest idea');
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByDisplayValue('Oldest idea')).toBeNull();
+    });
+    // The seed was promoted elsewhere meanwhile.
+    await serving.poll(triage({ mmr: [secondSeed] }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: 'Oldest idea' })).toBeNull();
+    });
+    expect(document.body).toHaveFocus();
+  });
+
+  it('lands on the next seed when the promote sheet is closed before its promote lands', async () => {
+    const serving = await openForWrite(
+      triage({ mmr: [firstSeed, secondSeed] }),
+      triage({ mmr: [firstSeed, secondSeed] }),
+    );
+    const promoted = Promise.withResolvers<object>();
+    apiSend.mockReturnValue(promoted.promise);
+    await expand('Mimir');
+
+    await press('MMR-s25', 'Promote to task…');
+    const promote = await screen.findByRole('button', { name: 'Promote ↵' });
+    await waitFor(() => {
+      expect(promote).toBeEnabled();
+    });
+    fireEvent.click(promote);
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByDisplayValue('Oldest idea')).toBeNull();
+    });
+    void serving.poll(triage({ mmr: [secondSeed] }));
+    promoted.resolve({ created: 'MMR-500', id: 'MMR-s25', lifecycle: 'promoted' });
+
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole('group', { name: 'Actions for MMR-s30' })).getByRole('button', {
+          name: 'Promote to task…',
+        }),
+      ).toHaveFocus();
+    });
+  });
+
+  it('moves nothing later for a promote that fails after its sheet closed', async () => {
+    const serving = await openForWrite(
+      triage({ mmr: [firstSeed, secondSeed] }),
+      triage({ mmr: [firstSeed, secondSeed] }),
+    );
+    const promoted = Promise.withResolvers<object>();
+    apiSend.mockReturnValue(promoted.promise);
+    await expand('Mimir');
+
+    await press('MMR-s25', 'Promote to task…');
+    const promote = await screen.findByRole('button', { name: 'Promote ↵' });
+    await waitFor(() => {
+      expect(promote).toBeEnabled();
+    });
+    fireEvent.click(promote);
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByDisplayValue('Oldest idea')).toBeNull();
+    });
+    promoted.reject(new Error('promote failed'));
+    await screen.findByText('promote failed');
+    // The seed was triaged elsewhere meanwhile.
+    await serving.poll(triage({ mmr: [secondSeed] }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: 'Oldest idea' })).toBeNull();
+    });
+    expect(document.body).toHaveFocus();
+  });
+
+  it('lists a project afresh, closed, when it returns to triage', async () => {
+    const serving = await openForWrite(triage({ mmr: [firstSeed] }), triage({}));
+    await expand('Mimir');
+
+    fireEvent.click(within(await actionsOf('MMR-s25')).getByRole('button', { name: 'Park…' }));
+    fireEvent.click(
+      within(await screen.findByRole('dialog', { name: 'Park seed' })).getByRole('button', {
+        name: 'Park',
+      }),
+    );
+    await screen.findByText('Nothing left to triage.');
+    await serving.poll(triage({ mmr: [secondSeed] }));
+
+    const toggle = await screen.findByRole('button', { name: /Mimir/ });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
   });
 });

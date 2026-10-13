@@ -328,6 +328,13 @@ export function useFileSeed() {
   });
 }
 
+/*
+ * The seed triage verbs stay pending until the refetches land, as a task's
+ * transition does: a seed row on the review page leaves while its verb is
+ * still pending, so keyboard focus can follow it (MMR-479), and its chips stay
+ * off until then, so a verb cannot be sent twice.
+ */
+
 /**
  * Reject a seed (MMR-247) — `POST /api/seeds/:id/reject`. The server requires a
  * non-empty `reason`; the reason dialog gates confirm on it, so the body always
@@ -339,7 +346,7 @@ export function useRejectSeed(id: string) {
     mutationFn: (reason: string) =>
       apiSend<WireSeed>('POST', `/api/seeds/${encodeURIComponent(id)}/reject`, { reason }),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: () => void invalidate(),
+    onSettled: invalidate,
   });
 }
 
@@ -350,7 +357,7 @@ export function useResolveSeed(id: string) {
     mutationFn: (reason: string) =>
       apiSend<WireSeed>('POST', `/api/seeds/${encodeURIComponent(id)}/resolve`, { reason }),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: () => void invalidate(),
+    onSettled: invalidate,
   });
 }
 
@@ -361,7 +368,7 @@ export function useParkSeed(id: string) {
     mutationFn: (reason?: string) =>
       apiSend<WireSeed>('POST', `/api/seeds/${encodeURIComponent(id)}/park`, reasonBody(reason)),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: () => void invalidate(),
+    onSettled: invalidate,
   });
 }
 
@@ -371,7 +378,7 @@ export function useUnparkSeed(id: string) {
   return useMutation({
     mutationFn: () => apiSend<WireSeed>('POST', `/api/seeds/${encodeURIComponent(id)}/unpark`),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: () => void invalidate(),
+    onSettled: invalidate,
   });
 }
 
@@ -396,13 +403,19 @@ export type PromoteSeedInput = {
 /** The promote echo (MMR-245): the seed wire with the spawned task id as a sibling. */
 export type PromotedSeed = WireSeed & { created?: string };
 
+/** A seed's promote, so a surface can ask whether one is still in flight. */
+export const promoteSeedKey = (id: string) => ['promote-seed', id] as const;
+
 export function usePromoteSeed(id: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
     mutationFn: (input: PromoteSeedInput) =>
       apiSend<PromotedSeed>('POST', `/api/seeds/${encodeURIComponent(id)}/promote`, input),
+    mutationKey: promoteSeedKey(id),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: () => void invalidate(),
+    // Pending until the refetches land, so a review page row leaves while the
+    // sheet is still open and focus follows it (MMR-479).
+    onSettled: invalidate,
   });
 }
 
