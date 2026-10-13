@@ -505,8 +505,8 @@ retired with it, and the MMR-467 refinement is revised:
 - **`/p/KEY/board` is removed.** The route, its swimlane bands and `?bands=`
   parameter, drag-to-reorder, and the folded direction row (the work page
   shows the direction in full) leave the console. An old board link reads as
-  no record, because `board` is not a record suffix. The server's rank
-  operations are unchanged; only the console stops offering them.
+  no record, because `board` is not a record suffix. `mimir reorder` and
+  the reorder endpoint are unchanged; only the console stops offering them.
 - **The rail is Direction, Structure, About, Artifacts, then Other views.**
   Other views links to the project's tasks in the browser. Artifacts moves out
   of About into its own section when the scope has any: a project lists its
