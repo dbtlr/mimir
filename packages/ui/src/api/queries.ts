@@ -13,6 +13,7 @@ import type {
   WireSearchHit,
   WireSeed,
   WireTreeNode,
+  WireWorkReport,
 } from './types';
 
 /**
@@ -219,6 +220,32 @@ export const annotationsQuery = (id: string) =>
     queryKey: ['node', id, 'annotations'],
   });
 
+/** What a work page is scoped to: a project's key, or a container's node id. */
+export type WorkTarget = { kind: 'project'; key: string } | { kind: 'container'; id: string };
+
+/**
+ * The work page's sections (MMR-469) for a project or a container's subtree.
+ * `tz` is required by the server — it decides where the Shipped days begin and
+ * end — and the browser's zone is the one the page reads them in, so the zone is
+ * part of the key: a report cached under another zone is never regrouped. Keyed under
+ * `project`/`node` so every write's invalidation refreshes it.
+ */
+export const workQuery = (target: WorkTarget) => {
+  const zone = browserTimeZone();
+  const tz = encodeURIComponent(zone);
+  return target.kind === 'project'
+    ? queryOptions({
+        queryFn: () =>
+          apiGet<WireWorkReport>(`/api/projects/${encodeURIComponent(target.key)}/work?tz=${tz}`),
+        queryKey: ['projects', 'work', target.key, zone],
+      })
+    : queryOptions({
+        queryFn: () =>
+          apiGet<WireWorkReport>(`/api/nodes/${encodeURIComponent(target.id)}/work?tz=${tz}`),
+        queryKey: ['nodes', 'work', target.id, zone],
+      });
+};
+
 /** The artifact-browser filter set; every field is optional and composes AND.
  * The two date filters are bare `YYYY-MM-DD` calendar days, inclusive at both
  * edges — the days the person at the browser means (ADR 0029). */
@@ -239,7 +266,7 @@ const DATE_PARAMS = [
 /** This browser's IANA timezone — the calendar a bare date is read against.
  * `UTC` is the fallback for a runtime that reports none; the server refuses a
  * bare date with no zone rather than guessing one. */
-function browserTimeZone(): string {
+export function browserTimeZone(): string {
   return new Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 }
 

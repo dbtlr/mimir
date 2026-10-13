@@ -10,7 +10,7 @@ import { POLL_MS } from '../api/queries';
 import { createQueryClient } from '../api/query-client';
 import type { WireNode, WireTreeNode } from '../api/types';
 import { router } from '../router';
-import { task } from './fixtures';
+import { task, workReport } from './fixtures';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
@@ -63,6 +63,9 @@ function serve(node: WireNode, extra: Record<string, unknown> = {}) {
     }
     if (path === `/api/nodes/${node.id}`) {
       return Promise.resolve(node);
+    }
+    if (path.startsWith(`/api/nodes/${node.id}/work?`)) {
+      return Promise.resolve(workReport());
     }
     if (path === '/api/projects/MMR/tree') {
       return Promise.resolve(TREE);
@@ -413,21 +416,32 @@ describe('container page (MMR-450)', () => {
     );
   });
 
-  it('lists what it contains, each linked to its page', async () => {
+  it('opens as the work page, with its path, its sections, and no task actions', async () => {
     serve(phase);
     renderAt('/p/MMR/2');
 
-    const contents = await screen.findByRole('region', { name: /contents/i });
-    await waitFor(() => {
-      expect(
-        within(contents)
-          .getByRole('link', { name: /MMR-417/ })
-          .getAttribute('href'),
-      ).toBe('/p/MMR/417');
-    });
+    await expect(
+      screen.findByRole('heading', { level: 1, name: 'SQLite replaces Norn' }),
+    ).resolves.toBeDefined();
+    expect(screen.getByText('MMR-2 · phase')).toBeDefined();
+    expect(screen.getByRole('navigation', { name: 'Path' })).toBeDefined();
+    for (const name of ['Now', 'Needs you', 'Frontier', 'Shipped', 'Going cold']) {
+      // oxlint-disable-next-line no-await-in-loop -- one section at a time reads clearest
+      await expect(screen.findByRole('region', { name })).resolves.toBeDefined();
+    }
+    expect(screen.queryByRole('region', { name: /contents/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
   });
 
-  it('lists an initiative’s phases the same way', async () => {
+  it('asks for the work of its own subtree', async () => {
+    serve(phase);
+    renderAt('/p/MMR/2');
+
+    await screen.findByRole('region', { name: 'Now' });
+    expect(apiGet).toHaveBeenCalledWith('/api/nodes/MMR-2/work?tz=America%2FNew_York');
+  });
+
+  it('an initiative opens as the work page too, its phases in the structure', async () => {
     serve({
       ...phase,
       id: 'MMR-1',
@@ -437,21 +451,86 @@ describe('container page (MMR-450)', () => {
     });
     renderAt('/p/MMR/1');
 
-    const contents = await screen.findByRole('region', { name: /contents/i });
-    await waitFor(() => {
-      expect(
-        within(contents)
-          .getByRole('link', { name: /SQLite replaces Norn/ })
-          .getAttribute('href'),
-      ).toBe('/p/MMR/2');
-    });
+    const rail = await screen.findByRole('complementary', { name: 'Record details' });
+    const structure = await within(rail).findByRole('navigation', { name: 'Structure' });
+    expect(
+      within(structure)
+        .getByRole('link', { name: /SQLite replaces Norn/ })
+        .getAttribute('href'),
+    ).toBe('/p/MMR/2');
+    await expect(screen.findByRole('region', { name: 'Frontier' })).resolves.toBeDefined();
   });
 
-  it('says so when it contains nothing yet', async () => {
-    serve({ ...phase, id: 'MMR-5', title: 'Empty phase' });
-    renderAt('/p/MMR/5');
+  describe('Work | Timeline tabs', () => {
+    const note = { content: 'Settled the dialect seam', created_at: '2026-06-02T00:00:00.000Z' };
+    const withNote = { '/api/nodes/MMR-2/annotations': { items: [note], total: 1 } };
 
-    await expect(screen.findByText(/nothing here yet/i)).resolves.toBeDefined();
+    it('opens on Work, with the timeline a tab away', async () => {
+      serve(phase, withNote);
+      renderAt('/p/MMR/2');
+
+      const tabs = await screen.findByRole('tablist');
+      const work = within(tabs).getByRole('tab', { name: 'Work' });
+      expect(work.getAttribute('aria-selected')).toBe('true');
+      expect(within(tabs).getByRole('tab', { name: /Timeline/ })).toHaveTextContent('Timeline2');
+      expect(screen.getByRole('tabpanel')).toBeDefined();
+      await expect(screen.findByRole('region', { name: 'Now' })).resolves.toBeDefined();
+      expect(screen.queryByText('Settled the dialect seam')).toBeNull();
+    });
+
+    it('Timeline puts ?tab=timeline in the URL and shows the notes and the composer', async () => {
+      serve(phase, withNote);
+      const testRouter = renderAt('/p/MMR/2');
+
+      fireEvent.click(await screen.findByRole('tab', { name: /Timeline/ }));
+
+      await expect(screen.findByText('Settled the dialect seam')).resolves.toBeDefined();
+      expect(testRouter.state.location.searchStr).toBe('?tab=timeline');
+      expect(screen.getByRole('textbox', { name: /note/i })).toBeDefined();
+      expect(screen.getByRole('tab', { name: /Timeline/ }).getAttribute('aria-selected')).toBe(
+        'true',
+      );
+      expect(screen.queryByRole('region', { name: 'Now' })).toBeNull();
+    });
+
+    it('opens on Timeline at ?tab=timeline, and Work takes the parameter back out', async () => {
+      serve(phase, withNote);
+      const testRouter = renderAt('/p/MMR/2?tab=timeline');
+
+      await expect(screen.findByText('Settled the dialect seam')).resolves.toBeDefined();
+      fireEvent.click(screen.getByRole('tab', { name: 'Work' }));
+
+      await expect(screen.findByRole('region', { name: 'Now' })).resolves.toBeDefined();
+      expect(testRouter.state.location.searchStr).toBe('');
+    });
+
+    it('drops a tab value it does not know', async () => {
+      serve(phase, withNote);
+      const testRouter = renderAt('/p/MMR/2?tab=sections');
+
+      await expect(screen.findByRole('region', { name: 'Now' })).resolves.toBeDefined();
+      expect(testRouter.state.location.searchStr).toBe('');
+    });
+
+    it('arrow keys move between the tabs', async () => {
+      serve(phase, withNote);
+      renderAt('/p/MMR/2');
+
+      const work = await screen.findByRole('tab', { name: 'Work' });
+      fireEvent.keyDown(work, { key: 'ArrowRight' });
+
+      await expect(screen.findByText('Settled the dialect seam')).resolves.toBeDefined();
+      expect(document.activeElement).toBe(screen.getByRole('tab', { name: /Timeline/ }));
+    });
+
+    it('a task page has no tabs, and ignores the parameter', async () => {
+      serve(sqlite);
+      renderAt('/p/MMR/417?tab=timeline');
+
+      await screen.findByRole('heading', { level: 1, name: 'Add the SQLite dialect' });
+      expect(screen.queryByRole('tablist')).toBeNull();
+      expect(screen.getByRole('heading', { name: /Timeline/ })).toBeDefined();
+    });
   });
 });
 

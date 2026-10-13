@@ -2,14 +2,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, vi } from 'vitest';
+import { beforeEach, describe, expect, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
 import { router } from '../router';
-import { task } from './fixtures';
+import { task, workReport } from './fixtures';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend: vi.fn() }));
+const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet, apiSend }));
 
 function renderProject(key: string, search = '') {
   const testRouter = createRouter({
@@ -112,6 +112,9 @@ describe('board record links (MMR-449)', () => {
 /** Serve the MMR project with direction, a description, and two top-level children. */
 function serveProject() {
   apiGet.mockImplementation((path: string) => {
+    if (path.startsWith('/api/projects/MMR/work?')) {
+      return Promise.resolve(workReport());
+    }
     if (path === '/api/projects/MMR/tree') {
       return Promise.resolve({
         children: [
@@ -123,6 +126,7 @@ function serveProject() {
           { ...task({ id: 'MMR-9', status: 'ready', title: 'A loose task' }), children: [] },
         ],
         id: 'MMR',
+        status: 'in_progress',
         title: 'Mimir',
         type: 'project',
       });
@@ -142,48 +146,50 @@ function serveProject() {
   });
 }
 
-describe('project page (MMR-450)', () => {
-  it('opens the project itself at /p/KEY: title, description, and direction in full', async () => {
+describe('project page (MMR-450, MMR-470)', () => {
+  beforeEach(() => {
+    apiSend.mockReset();
+  });
+
+  it('opens the project itself at /p/KEY as its work page: title, then direction in full', async () => {
     serveProject();
     renderProject('MMR');
 
     await expect(screen.findByRole('heading', { level: 1, name: 'Mimir' })).resolves.toBeDefined();
-    expect(screen.getByText('work').tagName).toBe('STRONG');
+    await expect(screen.findByRole('region', { name: 'Now' })).resolves.toBeDefined();
     const rail = screen.getByRole('complementary', { name: 'Record details' });
     expect(within(rail).getByText('Ship record pages.')).toBeDefined();
     expect(within(rail).getByText('Then the work page.')).toBeDefined();
     expect(within(rail).getByRole('button', { name: 'Edit direction' })).toBeDefined();
+    expect(screen.getByText('work').tagName).toBe('STRONG');
   });
 
-  it('lists its top-level work, each linked to its page', async () => {
-    serveProject();
-    renderProject('MMR');
-
-    const contents = await screen.findByRole('region', { name: /contents/i });
-    await waitFor(() => {
-      expect(
-        within(contents)
-          .getByRole('link', { name: /Hosted backends/ })
-          .getAttribute('href'),
-      ).toBe('/p/MMR/1');
-    });
-    expect(
-      within(contents)
-        .getByRole('link', { name: /A loose task/ })
-        .getAttribute('href'),
-    ).toBe('/p/MMR/9');
-  });
-
-  it('links to the board, which lives at /p/KEY/board', async () => {
+  it('outlines its initiatives in the rail, each linked to its page, and not its loose tasks', async () => {
     serveProject();
     renderProject('MMR');
 
     const rail = await screen.findByRole('complementary', { name: 'Record details' });
-    expect(
-      within(rail)
-        .getByRole('link', { name: /open board/i })
-        .getAttribute('href'),
-    ).toBe('/p/MMR/board');
+    const structure = await within(rail).findByRole('navigation', { name: 'Structure' });
+    await waitFor(() => {
+      expect(
+        within(structure)
+          .getByRole('link', { name: /Hosted backends/ })
+          .getAttribute('href'),
+      ).toBe('/p/MMR/1');
+    });
+    expect(within(structure).queryByText('A loose task')).toBeNull();
+  });
+
+  it('keeps the board a link away, under Other views, and gone from the head', async () => {
+    serveProject();
+    renderProject('MMR');
+
+    const rail = await screen.findByRole('complementary', { name: 'Record details' });
+    expect(within(rail).getByRole('link', { name: 'Board' }).getAttribute('href')).toBe(
+      '/p/MMR/board',
+    );
+    expect(screen.queryByRole('link', { name: /open board/i })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Actions' })).toBeNull();
   });
 
   it('the board links back to the project page', async () => {
@@ -194,21 +200,14 @@ describe('project page (MMR-450)', () => {
     expect(within(title).getByRole('link').getAttribute('href')).toBe('/p/MMR');
   });
 
-  it('a phone sheet stays open under a dialog its button opens, and inside that dialog', async () => {
+  it('keeps New task and Project settings in the page head', async () => {
     serveProject();
     renderProject('MMR');
-    const chips = await screen.findByRole('group', { name: 'Record details' });
 
-    fireEvent.click(within(chips).getByRole('button', { name: 'Actions' }));
-    const actions = await screen.findByRole('dialog', { name: 'Actions' });
-    fireEvent.click(within(actions).getByRole('button', { name: 'New task' }));
-    const authoring = await screen.findByRole('dialog', { name: 'New work item' });
-    // A click inside the new dialog reaches the sheet only through React's
-    // portal bubbling; it must not close the sheet out from under the dialog.
-    fireEvent.click(within(authoring).getByRole('radio', { name: 'Phase' }));
-    expect(screen.getByRole('dialog', { name: 'New work item' })).toBeDefined();
-    // The modal on top hides the sheet from the accessibility tree; both stay mounted.
-    expect(screen.getAllByRole('dialog', { hidden: true })).toHaveLength(2);
+    await screen.findByRole('heading', { level: 1, name: 'Mimir' });
+    expect(screen.getByRole('button', { name: 'Project settings' })).toBeDefined();
+    fireEvent.click(screen.getAllByRole('button', { name: 'New task' })[0] as HTMLElement);
+    await expect(screen.findByRole('dialog', { name: 'New work item' })).resolves.toBeDefined();
   });
 
   it("rewrites the direction from the phone's Direction sheet", async () => {
@@ -220,6 +219,29 @@ describe('project page (MMR-450)', () => {
     const sheet = await screen.findByRole('dialog', { name: 'Direction' });
     fireEvent.click(within(sheet).getByRole('button', { name: 'Edit direction' }));
     await expect(screen.findByRole('textbox', { name: 'Direction text' })).resolves.toBeDefined();
+  });
+
+  it('keeps the phone sheet open under the editor when a save fails, and the draft with it', async () => {
+    serveProject();
+    apiSend.mockRejectedValue(new Error('write refused'));
+    renderProject('MMR');
+    const chips = await screen.findByRole('group', { name: 'Record details' });
+
+    fireEvent.click(within(chips).getByRole('button', { name: 'Direction' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Direction' });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Edit direction' }));
+    const draft = await screen.findByRole('textbox', { name: 'Direction text' });
+    fireEvent.change(draft, { target: { value: 'A new direction.' } });
+    // The editor is a portal child of the sheet, so its clicks reach the sheet's
+    // choice handler through React; one outside the sheet's body must not close it.
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledOnce();
+    });
+    expect(screen.getByRole('textbox', { name: 'Direction text' })).toHaveValue('A new direction.');
+    // The editor's modal hides the sheet from the accessibility tree; both stay mounted.
+    expect(screen.getAllByRole('dialog', { hidden: true })).toHaveLength(2);
   });
 
   it.each([
@@ -245,7 +267,7 @@ describe('project page (MMR-450)', () => {
     expect(testRouter.state.location.searchStr).toBe(search);
   });
 
-  it('says so when its contents cannot be read', async () => {
+  it('says so when its structure cannot be read', async () => {
     serveProject();
     const served = apiGet.getMockImplementation();
     apiGet.mockImplementation((path: string) =>
@@ -255,6 +277,6 @@ describe('project page (MMR-450)', () => {
     );
     renderProject('MMR');
 
-    await expect(screen.findByText(/couldn’t load the contents/i)).resolves.toBeDefined();
+    await expect(screen.findByText(/couldn’t load the structure/i)).resolves.toBeDefined();
   });
 });

@@ -1,19 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { isNotFound } from '../api/errors';
 import { annotationsQuery, nodeQuery, scratchpadsQuery, treeQuery } from '../api/queries';
-import type { WireNode, WireScratchpadRow, WireTreeNode } from '../api/types';
+import type { WireNode, WireScratchpadRow } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { AnnotationComposer } from '../components/annotation-composer';
-import { DirectionPanel } from '../components/direction-line';
 import { GroomingBadge, GroomingChip } from '../components/grooming-chip';
 import { GroomingDialog } from '../components/grooming-dialog';
 import { MoveDialog } from '../components/move-dialog';
 import {
   ArtifactLinks,
-  ContentsSection,
   DescriptionSection,
   ExternalRef,
   HoldCallout,
@@ -35,12 +33,13 @@ import type { RailChip } from '../components/record-layout';
 import { StatusBadge } from '../components/status-badge';
 import { TaskForm } from '../components/task-form';
 import { ActionButton } from '../components/ui/action-button';
-import { ancestorsOf, subtreeOf } from '../lib/ancestry';
+import { Crumbs, WorkPage } from '../components/work-page';
+import type { WorkTab } from '../components/work-page';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { visibleGrooming } from '../lib/grooming';
 import { useRememberRecord } from '../lib/recent-records';
-import { nodeIdOf, nodeLink } from '../lib/record-url';
+import { nodeIdOf } from '../lib/record-url';
 import { absoluteTime } from '../lib/time';
 import { buildFeed } from '../lib/timeline';
 import type { VerbSpec } from '../lib/transitions';
@@ -51,8 +50,8 @@ import { NotFoundPage } from './not-found';
  * `/p/$key/$seq` — a work node's own page (ADR 0013, v0.23 refinement). The
  * path is the node id split at its hyphen; a suffix that is not a node's shows
  * the not-found state without a lookup. A task's page carries its actions and
- * agent context; an initiative's or phase's carries its direction in full and
- * its contents, until the work page (MMR-439) takes containers over.
+ * agent context; an initiative or phase opens as the work page (MMR-467
+ * refinement), its notes behind a Timeline tab.
  */
 export function NodePage() {
   const { key, seq } = nodeRoute.useParams();
@@ -65,38 +64,6 @@ export function NodePage() {
     );
   }
   return <NodeRecord key={nodeId} nodeId={nodeId} />;
-}
-
-/** The path above a record: its project, then each container down to its parent. */
-function Crumbs({
-  projectKey,
-  tree,
-  nodeId,
-}: {
-  projectKey: string;
-  tree?: WireTreeNode;
-  nodeId: string;
-}) {
-  const ancestors = tree === undefined ? [] : (ancestorsOf(tree, nodeId) ?? []);
-  const crumb =
-    'rounded-sm font-mono text-tag text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent';
-  return (
-    <nav aria-label="Path" className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-      <Link to="/p/$key" params={{ key: projectKey }} className={crumb}>
-        {tree?.title ?? projectKey}
-      </Link>
-      {ancestors.map((a) => (
-        <span key={a.id} className="flex items-baseline gap-1.5">
-          <span aria-hidden className="text-tag text-ink-faint">
-            ›
-          </span>
-          <Link {...nodeLink(a.id)} className={crumb}>
-            {a.title}
-          </Link>
-        </span>
-      ))}
-    </nav>
-  );
 }
 
 /** A task's Edit, Move…, grooming setter, and the transition verbs it offers outside its verdict block. */
@@ -226,6 +193,8 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
   const verbs = useNodeVerbs(nodeId);
   const [moving, setMoving] = useState(false);
   const [grooming, setGrooming] = useState(false);
+  const { tab } = nodeRoute.useSearch();
+  const navigate = useNavigate({ from: nodeRoute.fullPath });
   const conn = connectivity([node, annotations]);
   useRememberRecord(
     node.data && { id: nodeId, kind: node.data.type, project: projectKey, title: node.data.title },
@@ -245,22 +214,48 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
     );
   }
 
+  const feed = buildFeed(data.created_at, data.history, annotations.data?.items);
+  const offline = conn.offline;
+
+  // An initiative or phase opens as the work page (MMR-467 refinement), its
+  // notes under a Timeline tab that the URL selects.
+  if (data.type !== 'task') {
+    const timeline = (
+      <>
+        <FeedList items={feed} pending={annotations.isPending} empty="Nothing yet." threaded />
+        <AnnotationComposer nodeId={nodeId} offline={offline} />
+      </>
+    );
+    const onTab = (next: WorkTab) => {
+      void navigate({ search: { tab: next === 'timeline' ? 'timeline' : undefined } });
+    };
+    return (
+      <>
+        <OfflineBanner {...conn} />
+        <WorkPage
+          record={data}
+          tree={tree.data}
+          treeFailed={tree.isError}
+          offline={offline}
+          container={{ onTab, tab: tab ?? 'work', timeline, timelineCount: feed.length }}
+        />
+      </>
+    );
+  }
+
   const scratchpads = (scratchpadRows.data?.items ?? []).filter((s) =>
     s.linked_work.includes(nodeId),
   );
   const prerequisites = data.deps === undefined ? [] : prerequisiteRows(data.deps);
   const blocking = data.deps?.blocking ?? [];
   const artifactCount = data.artifacts?.length ?? 0;
-  const feed = buildFeed(data.created_at, data.history, annotations.data?.items);
-  const offline = conn.offline;
   const groomingState = visibleGrooming(data);
 
-  // Edit, Move…, and the transitions are task verbs; a container has none
-  // yet. They step aside while the edit form is open: a
+  // Edit, Move…, and the transitions step aside while the edit form is open: a
   // second Edit would re-snapshot the tag baseline under a form that kept the
   // first one, and a transition would land mid-edit.
   const actions =
-    data.type === 'task' && edit.baseline === null ? (
+    edit.baseline === null ? (
       <ActionsPanel
         node={data}
         offline={offline}
@@ -299,24 +294,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
     </RailSection>
   );
   const details = <DetailsPanel node={data} />;
-  // Direction (MMR-390) is a container facet: initiatives and phases own
-  // `## Next`, tasks never do. It leads the rail, as on the work page to come.
-  const direction =
-    data.type === 'initiative' || data.type === 'phase' ? (
-      <DirectionPanel
-        subject={{ id: data.id, kind: 'node' }}
-        title={data.title}
-        next={data.next}
-        offline={offline}
-      />
-    ) : null;
-  // Undefined while the tree loads; the tree is read once, so a child's status
-  // here is as fresh as the last console write or window focus.
-  const contents =
-    tree.data === undefined ? undefined : (subtreeOf(tree.data, nodeId)?.children ?? []);
-
   const chips: RailChip[] = [
-    ...(direction === null ? [] : [{ content: direction, label: 'Direction' }]),
     ...(actions === null ? [] : [{ content: actions, label: 'Actions' }]),
     {
       content: (
@@ -335,7 +313,6 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
 
   const rail = (
     <>
-      {direction !== null && <RailSection label="Direction">{direction}</RailSection>}
       {actions !== null && <RailSection label="Actions">{actions}</RailSection>}
       {agent !== null && <RailSection label="Agent">{agent}</RailSection>}
       {dependsOn}
@@ -391,9 +368,6 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
             )}
             <HoldCallout node={data} />
             <DescriptionSection description={data.description} />
-            {data.type !== 'task' && (
-              <ContentsSection items={contents} unavailable={tree.isError} />
-            )}
             <section className="flex flex-col gap-3">
               <h2 className="microlabel border-b border-line pb-1.5 text-ink-faint">
                 Timeline · {feed.length}

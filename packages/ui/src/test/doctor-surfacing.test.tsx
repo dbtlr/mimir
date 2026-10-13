@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { WireDoctorFacet } from '../api/types';
 import { router } from '../router';
+import { workReport } from './fixtures';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
@@ -116,6 +117,9 @@ describe('record-health surfacing (MMR-185, mock 15b)', () => {
       }
       if (path === '/api/doctor?project=MMR') {
         return Promise.resolve(facet(2));
+      }
+      if (path.startsWith('/api/projects/MMR/work?')) {
+        return Promise.resolve(workReport());
       }
       return Promise.resolve({ items: [], total: 0 });
     });

@@ -107,7 +107,15 @@ export const boardRoute = createRoute({
   },
 });
 
-/** A work node's page: the node id split at its hyphen (`MMR-417` → `/p/MMR/417`). */
+export type NodeSearch = {
+  /** A container's selected tab; absent = its work page. Only `timeline` is carried. */
+  tab?: 'timeline';
+};
+
+/**
+ * A work node's page: the node id split at its hyphen (`MMR-417` → `/p/MMR/417`).
+ * A container's `?tab=timeline` opens its notes; any other value drops.
+ */
 export const nodeRoute = createRoute({
   beforeLoad: ({ params }) => {
     canonicalKey(params.key, '/p/$key/$seq');
@@ -115,6 +123,9 @@ export const nodeRoute = createRoute({
   component: NodePage,
   getParentRoute: () => rootRoute,
   path: '/p/$key/$seq',
+  validateSearch: (search: Record<string, unknown>): NodeSearch => ({
+    tab: search.tab === 'timeline' ? 'timeline' : undefined,
+  }),
 });
 
 /**

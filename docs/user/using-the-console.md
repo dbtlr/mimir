@@ -34,11 +34,18 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
 `MMR-a219`. Typing a bare ID such as `/MMR-417`, `/mmr-s41`, `/mmr-a219`, or
 `/mmr` redirects to its page.
 
-- **The project page** shows the description and the project's top-level work.
-  Its rail holds the direction in full, Open board, New task, settings,
-  artifacts, and details.
-- **An initiative or phase page** shows the description, what the container
-  holds, and its own direction in full.
+- **A project, initiative, or phase opens as its work page.** The main column
+  answers five questions in order: _Now_ (what is running, with when it
+  started, where, and its latest note), _Needs you_ (reviews, blocks you can
+  clear, and tasks that need answers, each with its reason), _Frontier_ (what
+  is runnable now, what is next to unlock, what is left to groom, and what is
+  waiting on others, folded), _Shipped_ (the last seven days, grouped by day),
+  and _Going cold_ (stale work). Every row opens its record page. The rail
+  holds the direction in full, the structure of initiatives and phases, About
+  (the description, artifacts, and details), and links to the board and the
+  project's tasks. New task is in the page head, and a project's settings sit
+  beside it. An initiative or phase adds its path above the title and keeps its
+  notes under a Timeline tab, at `?tab=timeline`.
 - **A task page** shows the path above the task, its description, a timeline
   with a note field, and a rail with actions, agent context, dependencies,
   artifacts, and details.

@@ -172,15 +172,19 @@ const MICROLABEL = 'font-mono text-micro font-semibold tracking-[0.13em] upperca
 /**
  * One group: a microlabel header (`In progress · 2`, `Today`) over its rows.
  * `labelClassName` carries a lane colour; the default is the faint ink tier.
+ * `hint` adds the question the group answers (the work page's sections).
  */
 export function BrowserGroup({
   label,
   count,
+  hint,
   labelClassName,
   children,
 }: {
   label: string;
   count?: number;
+  /** The question the group answers, in plain type after the label (the work page). */
+  hint?: string;
   labelClassName?: string;
   children?: ReactNode;
 }) {
@@ -195,6 +199,11 @@ export function BrowserGroup({
         )}
       >
         {heading}
+        {hint !== undefined && (
+          <span className="ml-2.5 font-sans text-meta font-normal tracking-normal text-ink-dim normal-case">
+            {hint}
+          </span>
+        )}
       </h2>
       {children}
     </section>
