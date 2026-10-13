@@ -473,7 +473,12 @@ describe('container page (MMR-450)', () => {
       const work = within(tabs).getByRole('tab', { name: 'Work' });
       expect(work.getAttribute('aria-selected')).toBe('true');
       expect(within(tabs).getByRole('tab', { name: /Timeline/ })).toHaveTextContent('Timeline2');
-      expect(screen.getByRole('tabpanel')).toBeDefined();
+      // Only the selected tab names a panel, and that panel is in the DOM.
+      const panel = screen.getByRole('tabpanel');
+      expect(work.getAttribute('aria-controls')).toBe(panel.id);
+      expect(within(tabs).getByRole('tab', { name: /Timeline/ })).not.toHaveAttribute(
+        'aria-controls',
+      );
       await expect(screen.findByRole('region', { name: 'Now' })).resolves.toBeDefined();
       expect(screen.queryByText('Settled the dialect seam')).toBeNull();
     });

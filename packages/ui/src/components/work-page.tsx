@@ -356,7 +356,8 @@ function WorkTabs({ tabs }: { tabs: ContainerTabs }) {
             role="tab"
             id={tabId(value)}
             aria-selected={selected}
-            aria-controls={panelId(value)}
+            // Only the selected panel is rendered, so only its tab names one.
+            aria-controls={selected ? panelId(value) : undefined}
             tabIndex={selected ? 0 : -1}
             onClick={() => {
               onTab(value);
