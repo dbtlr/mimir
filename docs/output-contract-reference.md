@@ -222,7 +222,8 @@ capped. A row appears in the first section that claims it: `now`, `needs_you`,
 `frontier`, `shipped`. `going_cold` is the one exception and repeats tasks the
 other sections show. Parked tasks have no row. Every row is the lean node object
 `list`/`next` emit with the section's fields folded on, and every row carries
-`stale` (true once the task is past the stale threshold). `type` on each row
+`stale` (true once the task is past the stale threshold; a finished task is
+never stale, so it is always false on `shipped` rows). `type` on each row
 tells a task from a container.
 
 - `scope`: `{ kind, id, title }`, where `kind` is `project`, `initiative`, or `phase`.

@@ -804,7 +804,7 @@ export type WorkShippedTask = {
   finishedAt: string;
   /** The reason an abandoned task carries; null for a done task or an abandon without one. */
   abandonReason: string | null;
-  /** This task is past the stale threshold (going cold lists it as well). */
+  /** Always false: a done or abandoned task is never stale, so going cold never repeats a shipped row. */
   stale: boolean;
 };
 
