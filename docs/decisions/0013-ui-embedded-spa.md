@@ -516,3 +516,63 @@ search it added stay. The MMR-467 refinement is revised:
   artifacts attached to it. The artifact browser has no per-record filter, so
   a container has no all-link. The direction is clamped to six lines with a
   _Read more_ that opens the reading pane.
+
+## Refinement (2026-10-13, MMR-492): the project browsers move under the project, and the shell gains a project sidebar
+
+The MMR-444 refinement kept `/tasks`, `/seeds`, and `/artifacts` as top-level
+browsers across all projects. With the review page owning the one
+cross-project surface (MMR-476 refinement), a browser that spans projects
+repeats a project filter on every visit and leaves the operator without a
+sense of where they are. The browsers move under the project instead, and the
+shell carries the project as a persistent frame. The MMR-444 rule "the
+cross-project browsers stay top-level" is reversed, and the MMR-467
+refinement's rail and the MMR-476 refinement's top bar are revised:
+
+- **The browsers are `/p/KEY/tasks`, `/p/KEY/seeds`, and `/p/KEY/artifacts`.**
+  These are the view segments the MMR-444 refinement reserved, and the
+  reserved-shape rule is unchanged. Filters stay typed search parameters. The
+  project filter chip leaves the browsers, because the path now names the
+  project.
+- **`/tasks`, `/seeds`, and `/artifacts` stop being pages and redirect.** With
+  `?project=K` the redirect goes to the scoped route and keeps the other
+  parameters, so `/tasks?project=MMR&status=blocked` becomes
+  `/p/MMR/tasks?status=blocked`. Bare, it goes to the current project's browser.
+  Links written before this change, such as the work page's
+  `/artifacts?project=KEY`, keep working.
+- **The current project is the one in the URL.** On a page outside a project
+  (`/`, `/doctor`), it is the last project visited, remembered per device. With
+  no history, it is the first project in the switcher's order.
+- **The shell gains a persistent project sidebar.** It has three parts:
+  - A switcher header that names the current project and opens the switcher.
+  - The project's sections (_Work_, _Tasks_, _Seeds_, _Artifacts_), with the
+    active one marked.
+  - The project's initiative and phase outline, which marks the open record's
+    place. The outline replaces the record page's breadcrumb, and the work
+    page rail's Structure section (MMR-467 refinement) moves into it.
+
+  On a phone the sidebar is a drawer, and a single parent link stands above a
+  record's id in place of the breadcrumb.
+- **The top bar keeps the brand, the jump palette, _Needs you_, and the theme
+  toggle.** The _Tasks_, _Artifacts_, and _Seeds_ links, and the phone overflow
+  menu's section items, move into the sidebar.
+- **The switcher lists pinned projects first, then the rest by most recent
+  activity.** Activity is the newest of the project's node updates,
+  transitions, annotations, seeds, and artifacts. Archived projects (ADR 0015)
+  sit in a collapsed section. A pin is a flag on the project in the store, so
+  pins follow the operator across devices; the remembered current project is
+  device-local.
+- **The review page at `/` remains the one cross-project surface.**
+  Cross-project search stays in the jump palette.
+- **The work page's _All tasks_ link moves from the rail's Other views to the
+  foot of its task list.** The MMR-487 refinement's Other views section is
+  retired with the link; the rail is Direction, About, and Artifacts, with
+  Structure now in the sidebar outline.
+
+Considered and rejected:
+
+- **Keeping the cross-project browsers beside the scoped ones.** Two ways to
+  list the same tasks, one of which needs a project filter to be useful,
+  against the principle of one obvious way to do a job.
+- **Remembering the current project only in the URL.** Pages outside a project
+  would have no project to show in the sidebar, and the browsers' bare
+  redirects would have no target.

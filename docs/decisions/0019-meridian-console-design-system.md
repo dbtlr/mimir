@@ -287,3 +287,20 @@ Considered and rejected:
   the same reason going cold did.
 - **Going cold rows on the review page.** 90 rows bury the decisions; a count
   per project that links to the work page keeps the signal without the list.
+
+## Refinement (2026-10-13, MMR-492): Needs you opens a popover of decisions
+
+§9 and the MMR-476 refinement made the top-bar alert a link to `/`. With the
+console now framed by a project sidebar (ADR 0013, project-sidebar
+refinement), a jump to the review page for every glance at the set moves the
+operator out of the project they are in. §9's "the top-bar alert is a link to
+`/`" is revised:
+
+- **_Needs you_ opens a popover, a bottom sheet on a phone.** It lists the
+  decisions grouped by project, in the review page's order (MMR-476
+  refinement), each with its in-place verbs (_Approve_, _Send back…_,
+  _Answer…_). The decision for the record on the current page is marked. The
+  popover links to the review page and to the focus queue (`/?mode=focus`).
+- **The hue and the count are unchanged.** Violet stays the attention hue, the
+  count badge carries the decision count, and the alert is absent when there
+  are no decisions. The popover lists the same set the badge counts.
