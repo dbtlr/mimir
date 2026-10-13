@@ -890,6 +890,128 @@ describe('work page row actions', () => {
   });
 });
 
+const secondReview = {
+  ...reviewRow,
+  ...task({ id: 'MMR-15', status: 'under_review', title: 'Name the seam' }),
+};
+/** Press a row's button the way a keyboard does: focused first, then activated. */
+const press = async (id: string, name: string) => {
+  const button = within(await actionsOf(id)).getByRole('button', { name });
+  button.focus();
+  fireEvent.click(button);
+};
+
+describe('work page focus after an acted-on row moves away', () => {
+  it('lands on the next row’s actions after Approve moves a row out of Needs you', async () => {
+    await openForWrite(
+      workReport({ needs_you: [reviewRow, secondReview] }),
+      workReport({ needs_you: [secondReview] }),
+    );
+
+    await press('MMR-12', 'Approve');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('group', { name: 'Actions for MMR-12' })).toBeNull();
+    });
+    expect(
+      within(await actionsOf('MMR-15')).getByRole('button', { name: 'Approve' }),
+    ).toHaveFocus();
+  });
+
+  it('lands on the section heading when the moved row had no row after it', async () => {
+    await openForWrite(
+      workReport({ needs_you: [secondReview, reviewRow] }),
+      workReport({ needs_you: [secondReview] }),
+    );
+
+    await press('MMR-12', 'Approve');
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /^Needs you · 1/ })).toHaveFocus();
+    });
+  });
+
+  it('lands on the next runnable row’s Start after Start moves a row to Now', async () => {
+    const first = frontierRow('MMR-20', 'Add the SQLite dialect');
+    const second = frontierRow('MMR-21', 'Add the Postgres dialect');
+    const runnable = (rows: (typeof first)[]) => ({ ...workReport().frontier, runnable: rows });
+    await openForWrite(
+      workReport({ frontier: runnable([first, second]) }),
+      workReport({ frontier: runnable([second]), now: [runningAs(first)] }),
+    );
+
+    await press('MMR-20', 'Start');
+
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole('group', { name: 'Actions for MMR-21' })).getByRole('button', {
+          name: 'Start',
+        }),
+      ).toHaveFocus();
+    });
+  });
+
+  it('lands on the next row after Send back… closes its dialog and the row moves', async () => {
+    await openForWrite(
+      workReport({ needs_you: [reviewRow, secondReview] }),
+      workReport({ needs_you: [secondReview], now: [runningAs(reviewRow)] }),
+    );
+
+    await press('MMR-12', 'Send back…');
+    const dialog = await screen.findByRole('dialog', { name: 'Send back' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole('group', { name: 'Actions for MMR-15' })).getByRole('button', {
+          name: 'Approve',
+        }),
+      ).toHaveFocus();
+    });
+  });
+
+  it('lands on the next row after an answer moves its row out of Needs you', async () => {
+    await openForWrite(
+      workReport({ needs_you: [answersRow, secondReview] }),
+      workReport({ needs_you: [secondReview] }),
+    );
+
+    await press('MMR-14', 'Answer…');
+    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
+      target: { value: 'Refuse.' },
+    });
+    fireEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
+
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole('group', { name: 'Actions for MMR-15' })).getByRole('button', {
+          name: 'Approve',
+        }),
+      ).toHaveFocus();
+    });
+  });
+
+  it('leaves focus alone when the operator has moved on before the row leaves', async () => {
+    await open(PROJECT_SCOPE, workReport({ needs_you: [reviewRow, secondReview] }));
+    const refresh = holdRefresh();
+
+    await press('MMR-12', 'Approve');
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledOnce();
+    });
+    const elsewhere = within(getRail()).getAllByRole('link')[0];
+    elsewhere?.focus();
+    refresh.resolve(workReport({ needs_you: [secondReview] }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('group', { name: 'Actions for MMR-12' })).toBeNull();
+    });
+    expect(elsewhere).toHaveFocus();
+  });
+});
+
 describe('work page offline', () => {
   it('disables New task, including the one in an empty frontier', async () => {
     serve(PHASE_SCOPE);

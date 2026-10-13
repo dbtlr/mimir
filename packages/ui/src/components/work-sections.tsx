@@ -18,6 +18,7 @@ import { visibleGrooming } from '../lib/grooming';
 import { nodeLink } from '../lib/record-url';
 import { ago, relativeTime } from '../lib/time';
 import { transitionLabel } from '../lib/transitions';
+import { useRowFocusHandoff } from '../lib/use-row-focus-handoff';
 import {
   SHIPPED_DAY_CAP,
   capDay,
@@ -42,7 +43,8 @@ import { Badge } from './ui/badge';
  * it appears. A row the operator can move in place carries its action: Start on
  * a runnable task, Approve and Send back… on one in review, and Answer… on one
  * that needs answers. Each action's write refetches the page's sections, so
- * the row moves to where it now belongs. Offline disables them (ADR 0013 §5).
+ * the row moves to where it now belongs, and keyboard focus moves on to the
+ * next row in its section (MMR-474). Offline disables them (ADR 0013 §5).
  */
 
 /** The attention violet is the Needs you section's alone (ADR 0019). */
@@ -52,17 +54,26 @@ const ATTENTION_RULE = 'border-l-2 border-attention pl-2';
 const ROW_ACTION = 'max-md:min-h-11';
 
 /**
+ * What every row action takes: its task, whether the console is offline, and
+ * `onAct`, called as the operator commits to an action that may move the row.
+ */
+type RowActionProps = { id: string; offline: boolean; onAct: (id: string) => void };
+
+/**
  * Each action owns its mutation, so only the rows that can act mount one.
  * Every write invalidates the work reads (useTransition, useGroom).
  */
-function StartAction({ id, offline }: { id: string; offline: boolean }) {
+function StartAction({ id, offline, onAct }: RowActionProps) {
   const { mutate, isPending } = useTransition(id);
   return (
     <ActionButton
       size="sm"
       className={ROW_ACTION}
       disabled={offline || isPending}
-      onClick={() => mutate({ verb: 'start' })}
+      onClick={() => {
+        onAct(id);
+        mutate({ verb: 'start' });
+      }}
     >
       Start
     </ActionButton>
@@ -70,7 +81,7 @@ function StartAction({ id, offline }: { id: string; offline: boolean }) {
 }
 
 /** Approve (`done`) and Send back… (`return`, with an optional reason), as on the task page. */
-function VerdictActions({ id, offline }: { id: string; offline: boolean }) {
+function VerdictActions({ id, offline, onAct }: RowActionProps) {
   const { mutate, isPending } = useTransition(id);
   const [sendingBack, setSendingBack] = useState(false);
   return (
@@ -80,7 +91,10 @@ function VerdictActions({ id, offline }: { id: string; offline: boolean }) {
         variant="attention"
         className={ROW_ACTION}
         disabled={offline || isPending}
-        onClick={() => mutate({ verb: 'done' })}
+        onClick={() => {
+          onAct(id);
+          mutate({ verb: 'done' });
+        }}
       >
         Approve
       </ActionButton>
@@ -98,6 +112,7 @@ function VerdictActions({ id, offline }: { id: string; offline: boolean }) {
         open={sendingBack}
         onClose={() => setSendingBack(false)}
         onConfirm={(reason) => {
+          onAct(id);
           mutate(reason === '' ? { verb: 'return' } : { reason, verb: 'return' });
           setSendingBack(false);
         }}
@@ -111,11 +126,8 @@ function AnswerAction({
   id,
   question,
   offline,
-}: {
-  id: string;
-  question: string | null;
-  offline: boolean;
-}) {
+  onAct,
+}: RowActionProps & { question: string | null }) {
   const [answering, setAnswering] = useState(false);
   return (
     <>
@@ -124,7 +136,11 @@ function AnswerAction({
         variant="attentionOutline"
         className={ROW_ACTION}
         disabled={offline}
-        onClick={() => setAnswering(true)}
+        onClick={() => {
+          // The answer is written from the dialog, which leaves with the row.
+          onAct(id);
+          setAnswering(true);
+        }}
       >
         Answer…
       </ActionButton>
@@ -234,17 +250,29 @@ function NeedsYouReason({ row }: { row: WireWorkNeedsYou }) {
 }
 
 /** What a needs-you row offers: a verdict, an answer, or nothing for a block. */
-function needsYouActions(row: WireWorkNeedsYou, offline: boolean): ReactNode {
+function needsYouActions(
+  row: WireWorkNeedsYou,
+  offline: boolean,
+  onAct: (id: string) => void,
+): ReactNode {
   if (row.reason === 'under_review') {
-    return <VerdictActions id={row.id} offline={offline} />;
+    return <VerdictActions id={row.id} offline={offline} onAct={onAct} />;
   }
   if (row.reason === 'needs_answers') {
-    return <AnswerAction id={row.id} question={row.question} offline={offline} />;
+    return <AnswerAction id={row.id} question={row.question} offline={offline} onAct={onAct} />;
   }
   return undefined;
 }
 
-function NeedsYouRow({ row, offline }: { row: WireWorkNeedsYou; offline: boolean }) {
+function NeedsYouRow({
+  row,
+  offline,
+  onAct,
+}: {
+  row: WireWorkNeedsYou;
+  offline: boolean;
+  onAct: (id: string) => void;
+}) {
   const holdReason = row.reason === 'blocked' ? row.hold_reason?.trim() : undefined;
   return (
     <div className={ATTENTION_RULE}>
@@ -254,7 +282,7 @@ function NeedsYouRow({ row, offline }: { row: WireWorkNeedsYou; offline: boolean
         title={row.title}
         leading={<StatusDot status={row.status} />}
         beforeTitle={<NeedsYouReason row={row} />}
-        actions={needsYouActions(row, offline)}
+        actions={needsYouActions(row, offline, onAct)}
         afterTitle={
           <RowTail
             row={row}
@@ -288,17 +316,19 @@ function NeedsYouSection({
   rows: readonly WireWorkNeedsYou[];
   offline: boolean;
 }) {
+  const { arm, headingRef } = useRowFocusHandoff(rows.map((row) => row.id));
   return (
     <BrowserGroup
       label="Needs you"
       count={rows.length > 0 ? rows.length : undefined}
       hint="Only your action moves these."
       labelClassName="text-attention-foreground"
+      headingRef={headingRef}
     >
       {rows.length === 0 ? (
         <Empty lead="Nothing needs you.">No reviews, blocks, or questions are waiting.</Empty>
       ) : (
-        rows.map((row) => <NeedsYouRow key={row.id} row={row} offline={offline} />)
+        rows.map((row) => <NeedsYouRow key={row.id} row={row} offline={offline} onAct={arm} />)
       )}
     </BrowserGroup>
   );
@@ -388,8 +418,9 @@ function FrontierSection({
   offline: boolean;
 }) {
   const unlock = frontier.next_to_unlock.filter((g) => g.tasks.length > 0);
+  const { arm, headingRef } = useRowFocusHandoff(frontier.runnable.map((row) => row.id));
   return (
-    <BrowserGroup label="Frontier" hint="What’s next, and who can take it?">
+    <BrowserGroup label="Frontier" hint="What’s next, and who can take it?" headingRef={headingRef}>
       {frontierIsEmpty(frontier) ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <Empty lead="The frontier is empty.">No task is ready or one step from ready.</Empty>
@@ -406,7 +437,7 @@ function FrontierSection({
                 <FrontierRow
                   key={row.id}
                   row={row}
-                  actions={<StartAction id={row.id} offline={offline} />}
+                  actions={<StartAction id={row.id} offline={offline} onAct={arm} />}
                 />
               ))
             )}
