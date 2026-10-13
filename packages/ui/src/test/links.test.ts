@@ -53,7 +53,79 @@ describe('splitLinks', () => {
   });
 });
 
+/** The URLs `splitLinks` found in `text`. */
+const urlsIn = (text: string): string[] =>
+  splitLinks(text)
+    .filter((segment) => segment.kind === 'url')
+    .map((segment) => segment.value);
+
+describe('splitLinks trailing trim', () => {
+  it.each([
+    ['`https://x.test/a`', 'https://x.test/a'],
+    ['**https://x.test/a**', 'https://x.test/a'],
+    ['_https://x.test/a_', 'https://x.test/a'],
+    ['<https://x.test/a>', 'https://x.test/a'],
+    ["'https://x.test/a'", 'https://x.test/a'],
+    ['"https://x.test/a"', 'https://x.test/a'],
+    ['https://x.test/a。', 'https://x.test/a'],
+    ['https://x.test/a，', 'https://x.test/a'],
+    ['https://x.test/a、', 'https://x.test/a'],
+    ['https://x.test/a；', 'https://x.test/a'],
+    ['https://x.test/a：', 'https://x.test/a'],
+    ['https://x.test/a！', 'https://x.test/a'],
+    ['https://x.test/a？', 'https://x.test/a'],
+  ])('links %s as %s', (text, href) => {
+    expect(urlsIn(text)).toEqual([href]);
+  });
+
+  it('stops the URL at a zero-width space', () => {
+    expect(urlsIn('https://x.test/a​b')).toEqual(['https://x.test/a']);
+  });
+
+  it('stops the URL at other whitespace', () => {
+    expect(urlsIn('https://x.test/a b')).toEqual(['https://x.test/a']);
+  });
+
+  it('keeps the text around the URL so segments rejoin to the input', () => {
+    const text = 'see **https://x.test/a**, ok';
+    expect(
+      splitLinks(text)
+        .map((segment) => segment.value)
+        .join(''),
+    ).toBe(text);
+  });
+});
+
+describe('splitLinks bracket balance', () => {
+  it('keeps the ] of an IPv6 host', () => {
+    expect(urlsIn('http://[::1]')).toEqual(['http://[::1]']);
+  });
+
+  it('drops a trailing ] the URL never opened', () => {
+    expect(urlsIn('[see https://x.test]')).toEqual(['https://x.test']);
+  });
+
+  it('keeps a balanced ) and drops an unopened one', () => {
+    expect(urlsIn('https://x.test/Foo_(bar)')).toEqual(['https://x.test/Foo_(bar)']);
+    expect(urlsIn('(see https://x.test/a)')).toEqual(['https://x.test/a']);
+  });
+});
+
+describe('splitLinks on long input', () => {
+  it('trims a long run of closing parens in linear time', () => {
+    const text = `https://a${')'.repeat(100_000)}`;
+    const start = performance.now();
+    const urls = urlsIn(text);
+    expect(performance.now() - start).toBeLessThan(250);
+    expect(urls).toEqual(['https://a']);
+  });
+});
+
 describe('isExternalHref', () => {
+  it('treats a protocol-relative //host as external', () => {
+    expect(isExternalHref('//evil.test')).toBe(true);
+  });
+
   it.each(['https://example.com', 'http://example.com/a', 'HTTPS://EXAMPLE.COM'])(
     'treats %s as external',
     (href) => {

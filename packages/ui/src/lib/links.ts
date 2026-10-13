@@ -1,32 +1,77 @@
 /** A run of reason text: plain text, or a bare http(s) URL to link. */
 export type LinkSegment = { kind: 'text' | 'url'; value: string };
 
-const URL_RUN = /https?:\/\/[^\s<>]+/gi;
+/** A bare URL ends at whitespace, an angle bracket, or an invisible zero-width character. */
+const URL_RUN = /https?:\/\/[^\s<>\u200B-\u200D\u2060\uFEFF]+/gi;
 const SCHEME = /^https?:\/\//i;
-/** Sentence punctuation that ends a URL's run without being part of it. */
-const TRAILING_PUNCTUATION = /[.,;:!?'"\]}]$/;
+/** An http(s) or protocol-relative (`//host`) reference: it leaves the console. */
+const EXTERNAL_HREF = /^(?:https?:)?\/\//i;
+/**
+ * Characters that end a URL's run without being part of it: sentence punctuation,
+ * markdown emphasis and code delimiters, quotes, and CJK full-width punctuation.
+ * Closing brackets are handled separately because a URL can legitimately hold them.
+ */
+const TRAILING_PUNCTUATION = new Set([
+  '.',
+  ',',
+  ';',
+  ':',
+  '!',
+  '?',
+  "'",
+  '"',
+  '}',
+  '`',
+  '*',
+  '_',
+  '>',
+  '\u3002', // 。
+  '\uFF0C', // ，
+  '\u3001', // 、
+  '\uFF1B', // ；
+  '\uFF1A', // ：
+  '\uFF01', // ！
+  '\uFF1F', // ？
+]);
 
+/** Closing bracket -> the opening bracket that justifies keeping it. */
+const BRACKET_PAIRS: Record<string, string> = { ')': '(', ']': '[' };
+
+/** How many times `char` occurs in `text`. */
 function count(text: string, char: string): number {
-  return text.split(char).length - 1;
+  let total = 0;
+  for (const c of text) {
+    if (c === char) {
+      total += 1;
+    }
+  }
+  return total;
 }
 
 /**
- * Trim the sentence punctuation a URL run swallowed. A closing paren stays only
- * while the URL opens one (`/wiki/Foo_(bar)`), so "(see https://x.test)" loses it.
+ * Trim the trailing characters a URL run swallowed. A closing `)` or `]` stays only
+ * while the URL opens one (`/wiki/Foo_(bar)`, `http://[::1]`), so "(see https://x.test)"
+ * loses it. Brackets are counted once and adjusted as they are trimmed, so a long
+ * run of closers costs linear time.
  */
 function trimUrlRun(run: string): string {
-  let url = run;
-  while (url.length > 0) {
-    if (
-      TRAILING_PUNCTUATION.test(url) ||
-      (url.endsWith(')') && count(url, ')') > count(url, '('))
-    ) {
-      url = url.slice(0, -1);
+  const unmatched: Record<string, number> = {};
+  for (const [close, open] of Object.entries(BRACKET_PAIRS)) {
+    unmatched[close] = count(run, close) - count(run, open);
+  }
+  let end = run.length;
+  while (end > 0) {
+    const char = run[end - 1] ?? '';
+    if (TRAILING_PUNCTUATION.has(char)) {
+      end -= 1;
+    } else if ((unmatched[char] ?? 0) > 0) {
+      unmatched[char] = (unmatched[char] ?? 0) - 1;
+      end -= 1;
     } else {
       break;
     }
   }
-  return url;
+  return run.slice(0, end);
 }
 
 /**
@@ -61,7 +106,7 @@ export function splitLinks(text: string): LinkSegment[] {
   return segments;
 }
 
-/** Whether a link points off the console (an http(s) URL), so it should open in a new tab. */
+/** Whether a link points off the console (an http(s) or `//host` URL), so it should open in a new tab. */
 export function isExternalHref(href: string | undefined): boolean {
-  return href !== undefined && SCHEME.test(href);
+  return href !== undefined && EXTERNAL_HREF.test(href);
 }

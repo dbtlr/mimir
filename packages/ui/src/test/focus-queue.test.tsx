@@ -233,6 +233,22 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     expect(screen.getByText('2 of 2')).toBeDefined();
   });
 
+  it('links a URL in the hold reason, opening in a new tab, with the text around it', async () => {
+    const linked = decision('MMR-53', 'blocked', {
+      hold_reason: 'Waiting on https://example.com/review today',
+      title: 'Wait for the review',
+    });
+    serve(decisions(linked));
+    renderAt('/?mode=focus');
+
+    const shown = await cardFor(linked);
+    const link = within(shown).getByRole('link', { name: 'https://example.com/review' });
+    expect(link.getAttribute('href')).toBe('https://example.com/review');
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+    expect(shown).toHaveTextContent('Waiting on https://example.com/review today');
+  });
+
   it('lands focus on the next decision’s first action after acting', async () => {
     serve(decisions(verdict, question), { after: decisions(question) });
     renderAt('/?mode=focus');

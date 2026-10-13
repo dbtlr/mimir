@@ -138,7 +138,17 @@ function ScrollingTable({ node: _node, ...props }: ComponentProps<'table'> & { n
  * would hand the viewer's IP and read time to whoever wrote the image in.
  */
 function ImageLink({ src, alt }: ComponentProps<'img'>) {
-  return <a href={typeof src === 'string' ? src : undefined}>Image: {alt || 'untitled'}</a>;
+  const href = typeof src === 'string' ? src : undefined;
+  const external = isExternalHref(href);
+  return (
+    <a
+      href={href}
+      target={external ? '_blank' : undefined}
+      rel={external ? 'noopener noreferrer' : undefined}
+    >
+      Image: {alt || 'untitled'}
+    </a>
+  );
 }
 
 /**

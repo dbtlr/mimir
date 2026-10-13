@@ -89,6 +89,17 @@ describe('markdownBody', () => {
     );
   });
 
+  it('opens an external image link in a new tab and leaves a relative one alone', () => {
+    render(
+      <MarkdownBody>![remote](https://example.com/a.png) ![local](/files/a.png)</MarkdownBody>,
+    );
+
+    const remote = screen.getByRole('link', { name: /remote/ });
+    expect(remote.getAttribute('target')).toBe('_blank');
+    expect(remote.getAttribute('rel')).toBe('noopener noreferrer');
+    expect(screen.getByRole('link', { name: /local/ }).hasAttribute('target')).toBe(false);
+  });
+
   it('re-measures a clamped body when its width changes', () => {
     const observed: { resize?: () => void } = {};
     vi.stubGlobal(
