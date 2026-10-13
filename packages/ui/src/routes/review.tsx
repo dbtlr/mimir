@@ -13,13 +13,14 @@ import type {
 } from '../api/types';
 import { ArchivedShelf } from '../components/archived-shelf';
 import { BrowserGroup, BrowserRow } from '../components/browser-list';
+import { FocusQueue } from '../components/focus-queue';
 import { NewProjectSheet } from '../components/new-project-sheet';
 import { OfflineBanner } from '../components/offline-banner';
 import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
 import { SeedKindChip } from '../components/seed-kind-chip';
 import { SeedPromoteSheet } from '../components/seed-promote-sheet';
 import { SeedVerbs } from '../components/seed-verbs';
-import { ActionButton } from '../components/ui/action-button';
+import { ActionButton, actionButtonVariants } from '../components/ui/action-button';
 import { NeedsYouRow, needsYouActions } from '../components/work-rows';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
@@ -27,6 +28,7 @@ import { nodeLink, seedLink } from '../lib/record-url';
 import { ago, relativeTime } from '../lib/time';
 import { useRowFocusHandoff } from '../lib/use-row-focus-handoff';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
+import { reviewRoute } from '../router';
 
 /*
  * `/` — the review page (ADR 0013 and ADR 0019, MMR-476 refinements): what
@@ -50,19 +52,33 @@ const PROJECT_LINK =
 
 function ReviewHead({ count }: { count: number }) {
   return (
-    <header className="flex flex-col gap-1">
-      <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">
-        {count > 0 ? (
-          <>
-            Needs you <span className="font-normal text-ink-faint">{count}</span>
-          </>
-        ) : (
-          'Nothing needs you'
-        )}
-      </h1>
-      <p className="text-meta text-ink-dim">
-        Decisions block agents, so they lead. Triage can wait for a spare minute.
-      </p>
+    <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <h1 className="text-header font-bold tracking-[-0.01em] text-ink-bright">
+          {count > 0 ? (
+            <>
+              Needs you <span className="font-normal text-ink-faint">{count}</span>
+            </>
+          ) : (
+            'Nothing needs you'
+          )}
+        </h1>
+        <p className="text-meta text-ink-dim">
+          Decisions block agents, so they lead. Triage can wait for a spare minute.
+        </p>
+      </div>
+      {count > 0 && (
+        <Link
+          to="/"
+          search={{ mode: 'focus' }}
+          className={cn(
+            actionButtonVariants({ variant: 'attention' }),
+            'max-md:min-h-11 max-md:w-full',
+          )}
+        >
+          Work through these · {count}
+        </Link>
+      )}
     </header>
   );
 }
@@ -521,6 +537,7 @@ function ProjectList({
 }
 
 export function ReviewPage() {
+  const { mode } = reviewRoute.useSearch();
   const [creating, setCreating] = useState(false);
   const review = useQuery(reviewQuery);
   const archived = useQuery(archivedProjectsQuery);
@@ -556,6 +573,15 @@ export function ReviewPage() {
           </ActionButton>
         </main>
         {sheet}
+      </>
+    );
+  }
+
+  if (mode === 'focus') {
+    return (
+      <>
+        <OfflineBanner {...conn} />
+        <FocusQueue report={report} offline={conn.offline} />
       </>
     );
   }
