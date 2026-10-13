@@ -58,6 +58,10 @@ async function task(parent: string, title: string): Promise<string> {
 const page = (id: string, opts: Partial<WorkOptions> = {}) =>
   workPageOf(store, id, { timeZone: 'UTC', ...opts });
 
+/** The task rows of a to_groom list (an empty phase also reads as a break-down row). */
+const taskRows = <T extends { task: { type: string } }>(rows: readonly T[]): T[] =>
+  rows.filter((r) => r.task.type === 'task');
+
 const ids = (rows: readonly { task: { id: string } }[]): string[] => rows.map((r) => r.task.id);
 
 const viewIds = (views: readonly { id: string }[]): string[] => views.map((v) => v.id);
@@ -169,7 +173,7 @@ test('needs_answers tasks are not in the frontier', async () => {
   const q = await task(phaseA, 'q');
   await groomTasks(store, [q], 'needs_answers', 'why?');
   const report = await page('MMR');
-  expect(ids(report.frontier.toGroom)).toEqual([]);
+  expect(ids(taskRows(report.frontier.toGroom))).toEqual([]);
   expect(ids(report.frontier.runnable)).toEqual([]);
   expect(ids(report.needsYou)).toEqual([q]);
 });
@@ -182,7 +186,7 @@ test('the frontier splits ready work into runnable and to_groom in rank order', 
 
   const report = await page('MMR');
   expect(ids(report.frontier.runnable)).toEqual([first, third]);
-  expect(ids(report.frontier.toGroom)).toEqual([second]);
+  expect(ids(taskRows(report.frontier.toGroom))).toEqual([second]);
   expect(report.frontier.nextToUnlock).toEqual([]);
 });
 
@@ -201,7 +205,7 @@ test('a task one step from ready joins the frontier; two steps away is excluded'
   const everywhere = [
     ...ids(report.frontier.runnable),
     ...report.frontier.nextToUnlock.flatMap((g) => ids(g.tasks)),
-    ...ids(report.frontier.toGroom),
+    ...ids(taskRows(report.frontier.toGroom)),
   ];
   expect(everywhere).not.toContain(c);
 });
@@ -250,7 +254,7 @@ test('an ungroomed awaiting task is a to_groom row naming what it awaits', async
   const b = await task(phaseA, 'b');
   await depend(store, b, [a]);
   const report = await page('MMR');
-  expect(report.frontier.toGroom.map((r) => [r.task.id, r.awaitingOn])).toEqual([
+  expect(taskRows(report.frontier.toGroom).map((r) => [r.task.id, r.awaitingOn])).toEqual([
     [a, []],
     [b, [a]],
   ]);
@@ -284,7 +288,7 @@ test('a phase scope excludes tasks outside its subtree but an outside prerequisi
   ]);
   const all = [
     ...ids(report.frontier.runnable),
-    ...ids(report.frontier.toGroom),
+    ...ids(taskRows(report.frontier.toGroom)),
     ...report.frontier.nextToUnlock.flatMap((g) => ids(g.tasks)),
   ];
   expect(all).not.toContain(outsideOther);
@@ -294,14 +298,14 @@ test('an initiative scope covers every phase beneath it', async () => {
   const inA = await task(phaseA, 'a');
   const inB = await task(phaseB, 'b');
   const report = await page(initId);
-  expect(ids(report.frontier.toGroom)).toEqual([inA, inB]);
+  expect(ids(taskRows(report.frontier.toGroom))).toEqual([inA, inB]);
 });
 
 test('parked tasks are not in the frontier', async () => {
   const t = await task(phaseA, 'parked');
   await parkTask(store, t);
   const report = await page('MMR');
-  expect(ids(report.frontier.toGroom)).toEqual([]);
+  expect(ids(taskRows(report.frontier.toGroom))).toEqual([]);
   expect(ids(report.frontier.runnable)).toEqual([]);
 });
 
@@ -374,11 +378,12 @@ test('shipped is scoped to the container subtree', async () => {
   expect(ids((await page(phaseA)).shipped)).toEqual([inA]);
 });
 
-test('going_stale lists stale tasks no other section shows, stalest first', async () => {
+test('going_cold lists every stale task, oldest first, even ones other sections show', async () => {
   const stale = await task(phaseA, 'stale');
   const staler = await task(phaseA, 'staler');
   const readyStale = await task(phaseA, 'ready but stale');
   const workingStale = await task(phaseA, 'working but stale');
+  const fresh = await task(phaseA, 'fresh');
   await blockTask(store, stale, 'x', 'others');
   await blockTask(store, staler, 'y', 'others');
   await startTask(store, workingStale);
@@ -386,13 +391,42 @@ test('going_stale lists stale tasks no other section shows, stalest first', asyn
   await rawPatchNode(store, staler, { updated_at: '2026-01-01T00:00:00.000Z' });
   await rawPatchNode(store, readyStale, { updated_at: '2026-01-01T00:00:00.000Z' });
   await rawPatchNode(store, workingStale, { updated_at: '2026-01-01T00:00:00.000Z' });
+  await rawPatchNode(store, fresh, { updated_at: '2026-02-28T00:00:00.000Z' });
 
   const report = await page('MMR', { asOf: '2026-03-01T00:00:00.000Z' });
-  expect(viewIds(report.goingStale)).toEqual([staler, stale]);
-  // Each of the others is shown once, in the earlier section that claims it.
-  expect(ids(report.now)).toEqual([workingStale]);
-  expect(ids(report.frontier.toGroom)).toContain(readyStale);
-  expect(viewIds((await page('MMR', { asOf: '2026-01-03T00:00:00.000Z' })).goingStale)).toEqual([]);
+  // Oldest updated_at first, seq breaking the tie.
+  expect(viewIds(report.goingCold)).toEqual([staler, readyStale, workingStale, stale]);
+  // The earlier sections keep their rows, flagged stale.
+  expect(report.now.map((r) => [r.task.id, r.stale])).toEqual([[workingStale, true]]);
+  expect(taskRows(report.frontier.toGroom).find((r) => r.task.id === readyStale)?.stale).toBe(true);
+  expect(report.frontier.waitingOnOthers.map((r) => [r.task.id, r.stale])).toEqual([
+    [stale, true],
+    [staler, true],
+  ]);
+  expect(viewIds((await page('MMR', { asOf: '2026-01-03T00:00:00.000Z' })).goingCold)).toEqual([]);
+});
+
+test('waiting_on_others lists tasks blocked on others, started or not, with the block reason', async () => {
+  const unstarted = await task(phaseA, 'unstarted');
+  const started = await task(phaseA, 'started');
+  const mine = await task(phaseA, 'mine');
+  const parked = await task(phaseA, 'parked');
+  await blockTask(store, unstarted, 'waiting on the vendor', 'others');
+  await startTask(store, started);
+  await blockTask(store, started, 'needs upstream fix', 'others');
+  await blockTask(store, mine, 'my call', 'you');
+  await parkTask(store, parked);
+
+  const report = await page('MMR');
+  expect(report.frontier.waitingOnOthers.map((r) => [r.task.id, r.blockReason])).toEqual([
+    [unstarted, 'waiting on the vendor'],
+    [started, 'needs upstream fix'],
+  ]);
+  // Claimed by the frontier, in page order after needs_you.
+  expect(ids(report.now)).toEqual([]);
+  expect(ids(report.needsYou)).toEqual([mine]);
+  expect(ids(report.frontier.runnable)).toEqual([]);
+  expect(taskRows(report.frontier.toGroom)).toEqual([]);
 });
 
 test('a started task blocked on you is in needs_you, not now', async () => {
@@ -421,19 +455,107 @@ test('a needs-answers question is the latest note, even one added after grooming
   expect((await page('MMR')).needsYou[0]?.question).toBe('follow-up detail');
 });
 
-test('containers never appear as rows', async () => {
+test('containers appear only as break-down rows in to_groom', async () => {
   const t = await task(phaseA, 't');
   await startTask(store, t);
   const report = await page('MMR');
-  const all = [
+  const everywhere = [
     ...ids(report.now),
     ...ids(report.needsYou),
     ...ids(report.frontier.runnable),
-    ...ids(report.frontier.toGroom),
+    ...ids(report.frontier.waitingOnOthers),
+    ...report.frontier.nextToUnlock.flatMap((g) => ids(g.tasks)),
     ...ids(report.shipped),
-    ...viewIds(report.goingStale),
+    ...viewIds(report.goingCold),
   ];
-  expect(all.every((id) => ![initId, phaseA, phaseB].includes(id))).toBe(true);
+  expect(everywhere.every((id) => ![initId, phaseA, phaseB].includes(id))).toBe(true);
+  for (const row of report.frontier.toGroom) {
+    expect(row.breakDown).toBe(row.task.type !== 'task');
+  }
+});
+
+test('an empty phase is a break-down row after the to_groom tasks; a phase with children is not', async () => {
+  const inA = await task(phaseA, 'a task');
+  const report = await page('MMR');
+  expect(report.frontier.toGroom.map((r) => [r.task.id, r.task.type, r.breakDown])).toEqual([
+    [inA, 'task', false],
+    [phaseB, 'phase', true],
+  ]);
+  expect(report.frontier.toGroom[1]?.awaitingOn).toEqual([]);
+});
+
+test('the scope itself is never a break-down row', async () => {
+  const report = await page(phaseB);
+  expect(report.frontier.toGroom).toEqual([]);
+});
+
+test('an initiative of empty phases lists the phases, not the initiative', async () => {
+  const report = await page('MMR');
+  expect(report.frontier.toGroom.map((r) => r.task.id)).toEqual([phaseA, phaseB]);
+});
+
+test('a container whose subtree is all terminal or parked is not a break-down row', async () => {
+  const done = await task(phaseA, 'done');
+  await completeTask(store, done);
+  const parked = await task(phaseB, 'parked');
+  await parkTask(store, parked);
+  const report = await page('MMR');
+  expect(report.frontier.toGroom).toEqual([]);
+});
+
+test('an empty open-ended phase (a standing home) is not a break-down row', async () => {
+  const home = await createPhase(store, {
+    openEnded: true,
+    parentId: await nodeIdOf(store, initId),
+    title: 'Bugs',
+  });
+  const report = await page('MMR');
+  expect(report.frontier.toGroom.map((r) => r.task.id)).not.toContain(`MMR-${String(home.seq)}`);
+});
+
+test('a break-down container follows the one-step rule on its own and inherited edges', async () => {
+  // phase A is empty and waits on a ready task: one step away.
+  const gate = await task(phaseB, 'gate');
+  await depend(store, phaseA, [gate]);
+  let rows = (await page('MMR')).frontier.toGroom;
+  expect(rows.find((r) => r.task.id === phaseA)?.awaitingOn).toEqual([gate]);
+
+  // The gate itself now waits on another task: phase A is two steps away.
+  const upstream = await task(phaseB, 'upstream');
+  await depend(store, gate, [upstream]);
+  rows = (await page('MMR')).frontier.toGroom;
+  expect(rows.map((r) => r.task.id)).not.toContain(phaseA);
+});
+
+test('an edge on the parent initiative is inherited by an empty phase beneath it', async () => {
+  const gate = await task(phaseB, 'gate');
+  const init2 = await createInitiative(store, {
+    projectId: await projectIdOf(store, 'MMR'),
+    title: 'other',
+  });
+  const init2Id = `MMR-${String(init2.seq)}`;
+  const empty = await createPhase(store, {
+    parentId: await nodeIdOf(store, init2Id),
+    title: 'empty',
+  });
+  const emptyId = `MMR-${String(empty.seq)}`;
+  await depend(store, init2Id, [gate]);
+
+  let rows = (await page('MMR')).frontier.toGroom;
+  expect(rows.find((r) => r.task.id === emptyId)?.awaitingOn).toEqual([gate]);
+
+  const upstream = await task(phaseB, 'upstream');
+  await depend(store, gate, [upstream]);
+  rows = (await page('MMR')).frontier.toGroom;
+  expect(rows.map((r) => r.task.id)).not.toContain(emptyId);
+});
+
+test('a break-down container waiting on a blocked prerequisite is not listed', async () => {
+  const gate = await task(phaseB, 'gate');
+  await blockTask(store, gate, 'stuck', 'others');
+  await depend(store, phaseA, [gate]);
+  const rows = (await page('MMR')).frontier.toGroom;
+  expect(rows.map((r) => r.task.id)).not.toContain(phaseA);
 });
 
 test('started_at is the latest start or reopen, not a return from review', async () => {
@@ -465,7 +587,7 @@ test('runnable requires a rank, as next does', async () => {
   expect(ids((await page('MMR')).frontier.runnable)).toEqual([ranked]);
 });
 
-test('every row carries a stale flag, even where going_stale does not list it', async () => {
+test('every row carries a stale flag', async () => {
   const working = await task(phaseA, 'working');
   const ready = await task(phaseA, 'ready');
   const fresh = await task(phaseA, 'fresh');
@@ -476,10 +598,10 @@ test('every row carries a stale flag, even where going_stale does not list it', 
 
   const report = await page('MMR', { asOf: '2026-03-01T00:00:00.000Z' });
   expect(report.now.map((r) => [r.task.id, r.stale])).toEqual([[working, true]]);
-  const stale = new Map(report.frontier.toGroom.map((r) => [r.task.id, r.stale]));
+  const stale = new Map(taskRows(report.frontier.toGroom).map((r) => [r.task.id, r.stale]));
   expect(stale.get(ready)).toBe(true);
   expect(stale.get(fresh)).toBe(false);
-  expect(report.goingStale).toEqual([]);
+  expect(viewIds(report.goingCold)).toEqual([working, ready]);
 });
 
 test('a missing or unknown zone is a validation error', async () => {

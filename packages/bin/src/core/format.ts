@@ -537,13 +537,23 @@ export function overviewToWire(report: OverviewReport): Record<string, unknown> 
 
 /** A work-page frontier row: the lean task with the prerequisites it awaits folded on. */
 function frontierTaskToWire(row: WorkFrontierTask): Record<string, unknown> {
-  return { ...nodeToWire(row.task), awaiting_on: row.awaitingOn, stale: row.stale };
+  const wire: Record<string, unknown> = {
+    ...nodeToWire(row.task),
+    awaiting_on: row.awaitingOn,
+    stale: row.stale,
+  };
+  // Present only on a container row; `type` already tells the UI which kind it is.
+  if (row.breakDown) {
+    wire.break_down = true;
+  }
+  return wire;
 }
 
 /**
  * Map a {@link WorkReport} (MMR-469) to its wire object — the one shape the HTTP
  * work routes emit. Like the overview, each row is the lean task wire object with
- * the section's own fields folded onto it; containers never appear as rows.
+ * the section's own fields folded onto it; a container appears only as a
+ * `break_down` row in `frontier.to_groom`.
  */
 export function workToWire(report: WorkReport): Record<string, unknown> {
   return {
@@ -558,8 +568,13 @@ export function workToWire(report: WorkReport): Record<string, unknown> {
       })),
       runnable: report.frontier.runnable.map(frontierTaskToWire),
       to_groom: report.frontier.toGroom.map(frontierTaskToWire),
+      waiting_on_others: report.frontier.waitingOnOthers.map((row) => ({
+        ...nodeToWire(row.task),
+        block_reason: row.blockReason,
+        stale: row.stale,
+      })),
     },
-    going_stale: report.goingStale.map((task) => ({ ...nodeToWire(task), stale: true })),
+    going_cold: report.goingCold.map((task) => ({ ...nodeToWire(task), stale: true })),
     needs_you: report.needsYou.map((row) => ({
       ...nodeToWire(row.task),
       question: row.question,

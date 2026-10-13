@@ -11,15 +11,24 @@ import type {
   WorkScope,
   WorkShippedTask,
   WorkUnlockGroup,
+  WorkWaitingTask,
 } from '@mimir/contract';
 
 import { recentDaysWindow, withinWindow } from '../dates';
 import type { DerivationSet } from '../derive';
-import { deriveSet, findNodeInSet, hasUnsettledPrereq, nodeStatusWord } from '../derive';
+import {
+  childDistribution,
+  deriveSet,
+  findNodeInSet,
+  hasUnsettledPrereq,
+  nodeStatusWord,
+} from '../derive';
 import { notFound, projectNotFound, validation } from '../errors';
 import { parseIdentity } from '../ids';
 import type { Node } from '../model';
 import { isStale } from '../predicates';
+import { boardOrder } from '../resource';
+import { distributionTotal } from '../status';
 import type { Store } from '../store';
 import { now } from '../time';
 import { byRankOrder } from './queries';
@@ -43,7 +52,8 @@ export type WorkOptions = {
 /** The shipped window spans this many caller-local calendar days, today included. */
 const SHIPPED_WINDOW_DAYS = 7;
 
-type ScopedTasks = { scope: WorkScope; projectKey: string; tasks: Node[] };
+/** The scope's identity, every task beneath it, and every container beneath it (the scope itself excluded). */
+type ScopedTasks = { scope: WorkScope; projectKey: string; tasks: Node[]; containers: Node[] };
 
 /** Resolve the scope id to its identity and every task beneath it. */
 function resolveWorkScope(set: DerivationSet, id: string): ScopedTasks {
@@ -60,10 +70,12 @@ function resolveWorkScope(set: DerivationSet, id: string): ScopedTasks {
     if (project === undefined || project.archived_at !== null) {
       throw projectNotFound(identity.key);
     }
+    const nodes = set.nodesByProject.get(project.key) ?? [];
     return {
+      containers: nodes.filter((n) => n.type !== 'task'),
       projectKey: project.key,
       scope: { id: project.key, kind: 'project', title: project.name },
-      tasks: (set.nodesByProject.get(project.key) ?? []).filter((n) => n.type === 'task'),
+      tasks: nodes.filter((n) => n.type === 'task'),
     };
   }
   const root = findNodeInSet(set, id);
@@ -77,17 +89,20 @@ function resolveWorkScope(set: DerivationSet, id: string): ScopedTasks {
     );
   }
   const tasks: Node[] = [];
+  const containers: Node[] = [];
   const pending: Node[] = [root];
   for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
     for (const child of set.childrenByParent.get(node.id) ?? []) {
       if (child.type === 'task') {
         tasks.push(child);
       } else {
+        containers.push(child);
         pending.push(child);
       }
     }
   }
   return {
+    containers,
     projectKey: root.project_id,
     scope: { id: root.id, kind: root.type, title: root.title },
     tasks,
@@ -109,17 +124,18 @@ function cmpStr(a: string, b: string): number {
 const ONE_STEP_STATUSES = new Set(['in_progress', 'under_review', 'ready']);
 
 /**
- * Is this todo task on the frontier — ready, or awaiting only prerequisites that
- * are themselves in flight or ready (at most one step from startable)? A
+ * Is this todo task (or break-down container) on the frontier — ready, or
+ * awaiting only prerequisites that are themselves in flight or ready (at most
+ * one step from startable)? A
  * prerequisite that is blocked, parked, or itself awaiting puts the task two or
  * more steps away. Own and ancestor-inherited edges both count, and a
  * prerequisite outside the scope still gates.
  */
-function frontierPrereqs(set: DerivationSet, task: Node): NodeRef[] | undefined {
-  if (!hasUnsettledPrereq(set, task.id)) {
+function frontierPrereqs(set: DerivationSet, node: Node): NodeRef[] | undefined {
+  if (!hasUnsettledPrereq(set, node.id)) {
     return [];
   }
-  const awaitingOn = buildAwaitingOn(set, task.id);
+  const awaitingOn = buildAwaitingOn(set, node.id);
   return awaitingOn.every((ref) => ONE_STEP_STATUSES.has(ref.status ?? ''))
     ? awaitingOn
     : undefined;
@@ -160,17 +176,21 @@ function abandonedOf(
  *   needs-answers todos (the latest note is the question); newest first within each.
  * - `frontier`: todo tasks at most one step from startable. Groomed and ready are
  *   `runnable` (`next` order); groomed and awaiting are `nextToUnlock`; ungroomed
- *   ones are `toGroom`. A needs-answers task is in `needsYou`, not here.
+ *   ones are `toGroom`, followed by the initiatives and phases in scope that read
+ *   to break down (no open children, ADR 0033), under the same one-step rule on
+ *   their own and inherited edges. A needs-answers task is in `needsYou`, not
+ *   here. `waitingOnOthers` holds the tasks blocked with an owner of `others`.
  * - `shipped`: done or abandoned during the last 7 caller-local calendar days
  *   (today included, in `timeZone`), newest first.
- * - `goingStale`: stale tasks no earlier section shows (a task appears in one
- *   section only, in page order), stalest first.
+ * - `goingCold`: every stale task in scope, oldest first. It is the one section
+ *   that repeats tasks other sections show; the other sections flag them `stale`.
  *
- * Parked tasks, blocks owned by others, and empty containers have no row yet.
+ * Elsewhere a task appears in one section only, in page order. Parked tasks
+ * have no row.
  */
 export async function workPageOf(store: Store, id: string, opts: WorkOptions): Promise<WorkReport> {
   const set = deriveSet(await store.loadWorkingSet());
-  const { scope, projectKey, tasks } = resolveWorkScope(set, id);
+  const { scope, projectKey, tasks, containers } = resolveWorkScope(set, id);
   const asOf = opts.asOf ?? now();
   const shippedWindow = recentDaysWindow(asOf, SHIPPED_WINDOW_DAYS, opts.timeZone);
   const rankOrder = byRankOrder(set);
@@ -178,6 +198,7 @@ export async function workPageOf(store: Store, id: string, opts: WorkOptions): P
   const nowNodes: Node[] = [];
   const needsYou: { node: Node; reason: WorkNeedsYouReason }[] = [];
   const frontier: { node: Node; awaitingOn: NodeRef[] }[] = [];
+  const waitingOnOthers: Node[] = [];
   const shippedCandidates: Node[] = [];
   const staleIds = new Set<string>();
 
@@ -189,6 +210,8 @@ export async function workPageOf(store: Store, id: string, opts: WorkOptions): P
       needsYou.push({ node, reason: 'under_review' });
     } else if (word === 'blocked' && node.block_owner === 'you') {
       needsYou.push({ node, reason: 'blocked' });
+    } else if (word === 'blocked' && node.block_owner === 'others') {
+      waitingOnOthers.push(node);
     } else if (node.lifecycle === 'todo' && node.hold === 'none') {
       if (node.grooming === 'needs_answers') {
         needsYou.push({ node, reason: 'needs_answers' });
@@ -212,6 +235,17 @@ export async function workPageOf(store: Store, id: string, opts: WorkOptions): P
       staleIds.add(node.id);
     }
   }
+
+  // Initiatives and phases with no children at all read to break down (ADR 0033).
+  // Children that finished or are parked still count as children, and a standing
+  // open-ended home is meant to stay empty, so neither is a break-down row.
+  const breakDown = containers
+    .filter((c) => c.open_ended !== true && distributionTotal(childDistribution(set, c.id)) === 0)
+    .toSorted(boardOrder)
+    .flatMap((node) => {
+      const awaitingOn = frontierPrereqs(set, node);
+      return awaitingOn === undefined ? [] : [{ awaitingOn, node }];
+    });
 
   const needsAnswers = needsYou.filter((n) => n.reason === 'needs_answers').map((n) => n.node.id);
   const abandonedStems = shippedCandidates
@@ -279,6 +313,7 @@ export async function workPageOf(store: Store, id: string, opts: WorkOptions): P
     awaitingOn: NodeRef[];
   }): Promise<WorkFrontierTask> => ({
     awaitingOn: entry.awaitingOn.map((ref) => ref.id),
+    breakDown: entry.node.type !== 'task',
     stale: staleIds.has(entry.node.id),
     task: await viewOf(entry.node),
   });
@@ -288,7 +323,13 @@ export async function workPageOf(store: Store, id: string, opts: WorkOptions): P
     groomed.filter((e) => e.awaitingOn.length === 0 && e.node.rank !== null).map(frontierRow),
   );
   const toGroom = await Promise.all(
-    frontier.filter((e) => e.node.grooming !== 'groomed').map(frontierRow),
+    [...frontier.filter((e) => e.node.grooming !== 'groomed'), ...breakDown].map(frontierRow),
+  );
+  const waiting: WorkWaitingTask[] = await Promise.all(
+    waitingOnOthers.map(async (node) => {
+      const task = await viewOf(node);
+      return { blockReason: task.holdReason ?? null, stale: staleIds.has(node.id), task };
+    }),
   );
   const nextToUnlock = await groupByPrerequisite(
     set,
@@ -316,24 +357,17 @@ export async function workPageOf(store: Store, id: string, opts: WorkOptions): P
   // breaks a same-millisecond tie.
   shipped.sort((a, b) => cmpStr(b.finishedAt, a.finishedAt) || seqOf(b.task.id) - seqOf(a.task.id));
 
-  // One section per task, in page order: a stale task an earlier section
-  // already shows (in progress, awaiting review, ready on the frontier, shipped)
-  // is not repeated under going stale. Each row still carries its own flag.
-  const claimed = new Set<string>([
-    ...nowNodes.map((n) => n.id),
-    ...needsYou.map((n) => n.node.id),
-    ...frontier.map((n) => n.node.id),
-    ...shipped.map((r) => r.task.id),
-  ]);
-  const staleNodes = tasks.filter((n) => staleIds.has(n.id) && !claimed.has(n.id));
-
-  const goingStale = await Promise.all(
-    staleNodes.toSorted((a, b) => cmpStr(a.updated_at, b.updated_at) || a.seq - b.seq).map(viewOf),
+  // Going cold repeats tasks other sections show; those rows carry `stale` too.
+  const goingCold = await Promise.all(
+    tasks
+      .filter((n) => staleIds.has(n.id))
+      .toSorted((a, b) => cmpStr(a.updated_at, b.updated_at) || a.seq - b.seq)
+      .map(viewOf),
   );
 
   return {
-    frontier: { nextToUnlock, runnable, toGroom },
-    goingStale,
+    frontier: { nextToUnlock, runnable, toGroom, waitingOnOthers: waiting },
+    goingCold,
     needsYou: needsYouRows,
     now: nowRows,
     scope,

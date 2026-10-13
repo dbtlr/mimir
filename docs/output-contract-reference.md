@@ -216,12 +216,14 @@ without it or with an unknown zone: it decides where the `shipped` days begin
 and end (ADR 0029), and there is no fallback zone. The page has no CLI or MCP
 form yet.
 
-The envelope is one composite object. Rows are tasks only (containers scope the
-page and never appear as rows), no section is capped, and a task appears in the
-first section that claims it: `now`, `needs_you`, `frontier`, `shipped`,
-`going_stale`. Every row is the lean task object `list`/`next` emit with the
-section's fields folded on, and every row carries `stale` (true once the task is
-past the stale threshold, even where `going_stale` does not list it).
+The envelope is one composite object. Rows are tasks, plus the initiatives and
+phases that read to break down (in `frontier.to_groom` only), and no section is
+capped. A row appears in the first section that claims it: `now`, `needs_you`,
+`frontier`, `shipped`. `going_cold` is the one exception and repeats tasks the
+other sections show. Parked tasks have no row. Every row is the lean node object
+`list`/`next` emit with the section's fields folded on, and every row carries
+`stale` (true once the task is past the stale threshold). `type` on each row
+tells a task from a container.
 
 - `scope`: `{ kind, id, title }`, where `kind` is `project`, `initiative`, or `phase`.
 - `now`: in-progress tasks. Adds `started_at` (the latest start or reopen),
@@ -234,19 +236,28 @@ past the stale threshold, even where `going_stale` does not list it).
   (`under_review`, `blocked`, or `needs_answers`) and `question` (the task's
   latest note for `needs_answers`, otherwise `null`).
 - `frontier`: todo, un-held tasks that are ready or await only prerequisites
-  that are in progress, under review, or ready.
+  that are in progress, under review, or ready, plus the blocked-on-others list.
   - `runnable`: groomed, ready, and ranked, in `next` order.
   - `next_to_unlock`: `[{ prerequisite: { id, title, status }, tasks }]`, groomed
     tasks grouped by the prerequisite they wait on. A task waiting on several
     prerequisites appears under each.
-  - `to_groom`: tasks that are not groomed, in rank order.
-  - Every frontier task adds `awaiting_on`, the unsettled prerequisite ids
-    (empty when ready).
+  - `to_groom`: tasks that are not groomed, in rank order, then the initiatives
+    and phases in scope (the scope itself excluded) that have no children, in
+    board order. A container row has `type` `initiative` or `phase` and
+    `break_down: true`, which a task row omits. A container follows the same
+    one-step rule as a task, over its own and inherited dependency edges. A
+    container whose children are all finished or parked, and a standing
+    open-ended home, is not listed.
+  - Every `runnable`, `next_to_unlock`, and `to_groom` row adds `awaiting_on`,
+    the unsettled prerequisite ids (empty when ready).
+  - `waiting_on_others`: tasks blocked with a block owner of `others`, started or
+    not, in rank order. Adds `block_reason` (the task's hold reason, also on the
+    row as `hold_reason`).
 - `shipped`: tasks done or abandoned in the last seven calendar days, today
   included, in the caller's zone; newest first. Adds `finished_at` and
   `abandon_reason` (`null` for a done task).
-- `going_stale`: stale tasks that no earlier section shows, stalest first; each
-  row has `stale: true`.
+- `going_cold`: every stale task in scope, oldest `updated_at` first, including
+  tasks an earlier section shows; each row has `stale: true`.
 
 ## The `service` report (report kind, MMR-59)
 

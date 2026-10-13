@@ -6,6 +6,7 @@ import type { Server } from 'bun';
 import {
   abandonTask,
   annotate,
+  blockTask,
   completeTask,
   createInitiative,
   createPhase,
@@ -264,7 +265,7 @@ test('GET /api/projects/:key/work serves the sections for the whole project', as
   expect(body.now).toEqual([]);
   expect(body.needs_you).toEqual([]);
   expect(body.shipped).toEqual([]);
-  expect(body.going_stale).toEqual([]);
+  expect(body.going_cold).toEqual([]);
 });
 
 test('GET /api/nodes/:id/work scopes the page to a container subtree', async () => {
@@ -276,6 +277,21 @@ test('GET /api/nodes/:id/work scopes the page to a container subtree', async () 
   expect(ids).toEqual([task1, task2]);
   const other = await parse(await get(`/api/nodes/${initiativeRef}/work?tz=UTC`));
   expect((other.scope as Rec).kind).toBe('initiative');
+});
+
+test('an empty phase is a break_down row in to_groom on the wire', async () => {
+  const initId = await nodeIdOf(store, initiativeRef);
+  const empty = await createPhase(store, { parentId: initId, title: 'to plan' });
+  const emptyRef = `MMR-${String(empty.seq)}`;
+  const body = await parse(await get(`/api/projects/MMR/work?tz=UTC`));
+  const rows = (body.frontier as Rec).to_groom as Rec[];
+  expect(rows.map((r) => r.id)).toEqual([task1, task2, emptyRef]);
+  expect(rows.map((r) => [r.type, r.break_down])).toEqual([
+    ['task', undefined],
+    ['task', undefined],
+    ['phase', true],
+  ]);
+  expect(rows[2]?.awaiting_on).toEqual([]);
 });
 
 test('GET /api/nodes/:id/work refuses a task id', async () => {
@@ -339,6 +355,9 @@ test('the work page wire shape on a populated board', async () => {
   await depend(store, waiting, [prereq]);
   await groomTasks(store, [prereq, waiting], 'groomed');
 
+  const blockedOthers = await make('blocked on others');
+  await blockTask(store, blockedOthers, 'vendor fix', 'others');
+
   const done = await make('done');
   await completeTask(store, done);
   const dropped = await make('dropped');
@@ -379,11 +398,17 @@ test('the work page wire shape on a populated board', async () => {
   ]);
   expect((frontier.to_groom as Rec[]).map((r) => r.id)).toEqual([task1, task2]);
 
+  expect(frontier.waiting_on_others).toEqual([
+    expect.objectContaining({ block_reason: 'vendor fix', id: blockedOthers, stale: false }),
+  ]);
+  // No container reads to break down on this board, so no row carries break_down.
+  expect((frontier.to_groom as Rec[]).every((r) => r.break_down === undefined)).toBe(true);
+
   const shipped = body.shipped as Rec[];
   expect(row(shipped, done).abandon_reason).toBeNull();
   expect(row(shipped, done).finished_at).toEqual(expect.any(String));
   expect(row(shipped, dropped).abandon_reason).toBe('superseded');
-  expect(body.going_stale).toEqual([]);
+  expect(body.going_cold).toEqual([]);
 });
 
 // ---------------------------------------------------------------------------

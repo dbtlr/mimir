@@ -733,7 +733,7 @@ export type WorkNowTask = {
   latestNote: AnnotationView | null;
   /** Active Scratchpads anchored to the task. */
   scratchpads: WorkScratchpad[];
-  /** This task is past the stale threshold (shown here even when going stale lists it elsewhere). */
+  /** This task is past the stale threshold (going cold lists it as well). */
   stale: boolean;
 };
 
@@ -745,16 +745,22 @@ export type WorkNeedsYouTask = {
   reason: WorkNeedsYouReason;
   /** The latest note's text for a needs-answers task (the open question); null otherwise. */
   question: string | null;
-  /** This task is past the stale threshold (shown here even when going stale lists it elsewhere). */
+  /** This task is past the stale threshold (going cold lists it as well). */
   stale: boolean;
 };
 
-/** A frontier task: ready, or awaiting only prerequisites that are one step from done. */
+/**
+ * A frontier row: a task that is ready or awaiting only prerequisites one step
+ * from done, or (in `toGroom` only) an initiative or phase that reads to break
+ * down. `task.type` tells them apart.
+ */
 export type WorkFrontierTask = {
   task: NodeView;
   /** The unsettled prerequisite ids it awaits (own or inherited); empty when ready. */
   awaitingOn: string[];
-  /** This task is past the stale threshold (shown here even when going stale lists it elsewhere). */
+  /** The row is a container with no open children (ADR 0033), not a task. */
+  breakDown: boolean;
+  /** This task is past the stale threshold (going cold lists it as well). */
   stale: boolean;
 };
 
@@ -764,14 +770,28 @@ export type WorkUnlockGroup = {
   tasks: WorkFrontierTask[];
 };
 
+/** A task blocked on someone outside the board (block owner `others`). */
+export type WorkWaitingTask = {
+  task: NodeView;
+  /** Why it is blocked (the task's hold reason). */
+  blockReason: string | null;
+  /** This task is past the stale threshold (going cold lists it as well). */
+  stale: boolean;
+};
+
 /** The frontier: work one step from startable, split by what the operator can do with it. */
 export type WorkFrontier = {
   /** Groomed and ready, in `next` order. */
   runnable: WorkFrontierTask[];
   /** Groomed and awaiting, grouped by the prerequisite each waits on. */
   nextToUnlock: WorkUnlockGroup[];
-  /** Not groomed, ready or awaiting within the frontier, in rank order. */
+  /**
+   * Not groomed, ready or awaiting within the frontier, in rank order; then the
+   * containers that read to break down, in board order.
+   */
   toGroom: WorkFrontierTask[];
+  /** Blocked with an owner of `others`, started or not, in rank order. */
+  waitingOnOthers: WorkWaitingTask[];
 };
 
 /** A task that finished (done or abandoned) inside the shipped window. */
@@ -780,13 +800,14 @@ export type WorkShippedTask = {
   finishedAt: string;
   /** The reason an abandoned task carries; null for a done task or an abandon without one. */
   abandonReason: string | null;
-  /** This task is past the stale threshold (shown here even when going stale lists it elsewhere). */
+  /** This task is past the stale threshold (going cold lists it as well). */
   stale: boolean;
 };
 
 /**
- * The console work page for a project or one container's subtree. Tasks only —
- * containers scope the page but never appear as rows. No section is capped.
+ * The console work page for a project or one container's subtree. Rows are
+ * tasks, plus the containers that read to break down in `frontier.toGroom`. No
+ * section is capped.
  */
 export type WorkReport = {
   scope: WorkScope;
@@ -795,8 +816,12 @@ export type WorkReport = {
   frontier: WorkFrontier;
   /** Done or abandoned in the last 7 days, newest first. */
   shipped: WorkShippedTask[];
-  /** Stale tasks no earlier section shows, stalest first (each wire row carries `stale: true`). */
-  goingStale: NodeView[];
+  /**
+   * Every stale task in scope, oldest `updated_at` first, including tasks an
+   * earlier section shows (the one exception to a task appearing once). Each
+   * wire row carries `stale: true`.
+   */
+  goingCold: NodeView[];
 };
 
 /** The set-valued column names (flat, MMR-38), for `--col` parsing and the cheap-vs-heavy default sets. */
