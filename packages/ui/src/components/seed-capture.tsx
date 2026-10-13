@@ -30,7 +30,7 @@ export function useSeedCapture(): () => void {
  * Hosts the global "file a seed" popover (Meridian 12c, MMR-247) so it works
  * from any surface without leaving it. Lives in the Shell; the `s` hotkey and
  * any `useSeedCapture()` caller open it. There is no global "+" affordance in
- * the Shell (the authoring sheet's "+ New task" is board-header-scoped, MMR-227),
+ * the Shell (the authoring sheet's "+ New task" is scoped to the work page's head, MMR-227),
  * so the mobile long-press trigger is deliberately skipped — see the task notes.
  */
 export function SeedCaptureProvider({ children }: { children: ReactNode }) {
@@ -69,7 +69,7 @@ function SeedCaptureDialog({
 
 /**
  * Three fields, no more (12c): kind pills (default `idea`), one capture field,
- * and an optional project select (the current board when on `/p/$key`, else the
+ * and an optional project select (the current project when on `/p/$key`, else the
  * first project). The capture field is one blob with commit-message semantics
  * (MMR-263): the first line is the title, the rest is the body. Enter files;
  * Shift+Enter adds a newline. Success closes, toasts, and resets.

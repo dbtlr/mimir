@@ -18,7 +18,7 @@
  * Flat wells carry depth by tone alone (no drop shadows in dark); accent,
  * attention, and status hues render as washes, never solid backgrounds. One
  * status color system, declared once here and consumed identically by
- * distribution bars, board column headers, and record pages.
+ * distribution bars, status badges, and record pages.
  */
 @theme {
   --font-sans: 'Instrument Sans Variable', 'Instrument Sans', system-ui, sans-serif;
@@ -144,7 +144,7 @@ body {
 /*
  * Tailwind v4's preflight ships buttons with `cursor: default`; restore the
  * pointer for enabled interactive controls. The console is button-dense —
- * board/project cards, artifact rows, and verb menus are all <button>s — so the
+ * archived-project cards, artifact rows, and verb menus are all <button>s — so the
  * fix belongs at the source, not sprinkled per card. Disabled controls (e.g.
  * offline-disabled writes) correctly keep the default cursor.
  */

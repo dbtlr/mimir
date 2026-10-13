@@ -1,4 +1,4 @@
-import { Link, Outlet, useNavigate } from '@tanstack/react-router';
+import { Link, Outlet, useMatchRoute, useNavigate } from '@tanstack/react-router';
 import { Toaster } from 'sonner';
 
 import { AttentionAlert } from '../components/attention-alert';
@@ -12,8 +12,24 @@ import { SeedCaptureProvider } from '../components/seed-capture';
 import { ThemeToggle } from '../components/theme-toggle';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../components/ui/menu';
 import { VersionFooter } from '../components/version-footer';
+import { cn } from '../lib/cn';
 import { useTheme } from '../lib/use-theme';
 import { useToastPosition } from '../lib/use-toast-position';
+
+/** The top-bar sections, in order — one list feeds the inline nav and the overflow menu. */
+const NAV_SECTIONS = [
+  { label: 'Tasks', to: '/tasks' },
+  { label: 'Artifacts', to: '/artifacts' },
+  { label: 'Seeds', to: '/seeds' },
+] as const;
+
+/**
+ * The active section's selection treatment (ADR 0019): the accent as a
+ * low-alpha wash with a hairline inset ring, never a solid fill. Keyed on
+ * `aria-current`, which the router sets and the menu items set by hand.
+ */
+const ACTIVE_NAV =
+  'aria-[current=page]:bg-accent/10 aria-[current=page]:text-ink-bright aria-[current=page]:inset-ring aria-[current=page]:inset-ring-accent/28';
 
 /** The app shell: brand + project picker, the routed surface, and the global
  * top-bar controls (jump palette, artifacts, attention, theme). */
@@ -29,6 +45,7 @@ function ShellContent() {
   const { theme, toggle } = useTheme();
   const toastPosition = useToastPosition();
   const navigate = useNavigate();
+  const matchRoute = useMatchRoute();
   return (
     <SeedCaptureProvider>
       <div className="flex h-dvh flex-col overflow-hidden">
@@ -44,24 +61,20 @@ function ShellContent() {
           <div className="ml-auto flex items-center gap-1">
             <JumpPalette />
             {/* desktop — the secondary nav inline */}
-            <Link
-              to="/tasks"
-              className="microlabel hidden rounded px-2 py-1 text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent md:inline-block"
-            >
-              Tasks
-            </Link>
-            <Link
-              to="/artifacts"
-              className="microlabel hidden rounded px-2 py-1 text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent md:inline-block"
-            >
-              Artifacts
-            </Link>
-            <Link
-              to="/seeds"
-              className="microlabel hidden rounded px-2 py-1 text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent md:inline-block"
-            >
-              Seeds
-            </Link>
+            {NAV_SECTIONS.map(({ label, to }) => (
+              <Link
+                key={to}
+                to={to}
+                // Search params (a project filter) never un-mark the section.
+                activeOptions={{ includeSearch: false }}
+                className={cn(
+                  'microlabel hidden rounded px-2 py-1 text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent md:inline-block',
+                  ACTIVE_NAV,
+                )}
+              >
+                {label}
+              </Link>
+            ))}
             <AttentionAlert />
             <PwaRefreshAction />
             <ThemeToggle theme={theme} onToggle={toggle} />
@@ -84,24 +97,18 @@ function ShellContent() {
                 </svg>
               </MenuTrigger>
               <MenuContent className="w-44">
-                <MenuItem
-                  className="py-2.5 text-sm"
-                  onClick={() => void navigate({ to: '/tasks' })}
-                >
-                  Tasks
-                </MenuItem>
-                <MenuItem
-                  className="py-2.5 text-sm"
-                  onClick={() => void navigate({ to: '/artifacts' })}
-                >
-                  Artifacts
-                </MenuItem>
-                <MenuItem
-                  className="py-2.5 text-sm"
-                  onClick={() => void navigate({ to: '/seeds' })}
-                >
-                  Seeds
-                </MenuItem>
+                {NAV_SECTIONS.map(({ label, to }) => (
+                  <MenuItem
+                    key={to}
+                    className={cn('py-2.5 text-sm', ACTIVE_NAV)}
+                    aria-current={
+                      matchRoute({ fuzzy: true, includeSearch: false, to }) ? 'page' : undefined
+                    }
+                    onClick={() => void navigate({ to })}
+                  >
+                    {label}
+                  </MenuItem>
+                ))}
               </MenuContent>
             </MenuRoot>
           </div>

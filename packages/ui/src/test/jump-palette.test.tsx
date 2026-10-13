@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../api/errors';
 import type { WireSearchHit } from '../api/types';
 import { router } from '../router';
-import { emptyRead, project, task } from './fixtures';
+import { emptyRead, project, task, workReport } from './fixtures';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
@@ -76,8 +76,17 @@ function mockApi() {
     if (path === '/api/projects') {
       return Promise.resolve({ items: [project({ id: 'MMR', title: 'Mimir' })], total: 1 });
     }
+    if (path.startsWith('/api/projects/MMR/work?')) {
+      return Promise.resolve(workReport());
+    }
     if (path === '/api/projects/MMR/tree') {
-      return Promise.resolve({ children: [], id: 'MMR', title: 'Mimir', type: 'project' });
+      return Promise.resolve({
+        children: [],
+        id: 'MMR',
+        status: 'in_progress',
+        title: 'Mimir',
+        type: 'project',
+      });
     }
     if (path === '/api/projects/MMR') {
       return Promise.resolve(project({ id: 'MMR', title: 'Mimir' }));
@@ -203,7 +212,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('ranks the current project first by sending it with the query', async () => {
     const user = userEvent.setup();
-    renderApp('/p/MMR/board');
+    renderApp('/p/MMR');
 
     await jump(user, 'sqlite');
 
@@ -287,7 +296,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('lists recently opened records and the actions when the query is empty', async () => {
     const user = userEvent.setup();
-    const testRouter = renderApp('/p/MMR/board');
+    const testRouter = renderApp('/p/MMR');
 
     await jump(user, 'sqlite');
     await screen.findByRole('group', { name: /Titles/ });
@@ -344,7 +353,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('opens the authoring sheet from New task', async () => {
     const user = userEvent.setup();
-    renderApp('/p/MMR/board');
+    renderApp('/p/MMR');
 
     await user.click(await screen.findByRole('button', { name: 'Jump to…' }));
     await user.click(await screen.findByRole('option', { name: /New task in MMR/ }));

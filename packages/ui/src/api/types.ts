@@ -142,12 +142,12 @@ export type WireNode = {
   status: StatusWord;
   parent: string | null;
 
-  /** Facet — only present on the detail fetch, not list/board responses. */
+  /** Facet — only present on the detail fetch, not list responses. */
   description?: string | null;
   /** Facet (MMR-321) — the owned `## Next` direction narrative on a project,
    * initiative, or phase. Absent entirely when the section is unset. */
   next?: string;
-  /** Short single-line lede for list/board views (all-node, optional). */
+  /** Short single-line lede for list views (all-node, optional). */
   summary?: string | null;
   /** Facet (MMR-454) — the list row's one-line preview: the stored summary when
    * set, else derived from the description (ADR 0021). Only on reads that ask

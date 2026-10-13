@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
-import type { WireNode, WireTreeNode, WireWorkReport } from '../api/types';
+import type { WireArtifact, WireNode, WireTreeNode, WireWorkReport } from '../api/types';
 import { router } from '../router';
 import { emptyRead, task, workReport } from './fixtures';
 
@@ -504,13 +504,19 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
 });
 
 describe.each(SCOPES)('work page rail, $name', (scope) => {
-  it('runs Direction, Structure, About, then Other views', async () => {
+  it('runs Direction, Structure, About, Artifacts (when it has any), then Other views', async () => {
     await open(scope);
 
     const labels = within(getRail())
       .getAllByRole('heading', { level: 2 })
       .map((h) => h.textContent);
-    expect(labels).toStrictEqual(['Direction', 'Structure', 'About', 'Other views']);
+    expect(labels).toStrictEqual([
+      'Direction',
+      'Structure',
+      'About',
+      ...((scope.record.artifacts ?? []).length > 0 ? ['Artifacts'] : []),
+      'Other views',
+    ]);
   });
 
   it('shows the direction in full, editable in place', async () => {
@@ -585,13 +591,11 @@ describe.each(SCOPES)('work page rail, $name', (scope) => {
     expect(panel.getByText('updated')).toBeDefined();
   });
 
-  it('links to the board and to the project’s tasks', async () => {
+  it('links to the project’s tasks, and to no board', async () => {
     await open(scope);
 
     const views = within(getRail()).getByRole('navigation', { name: 'Other views' });
-    expect(within(views).getByRole('link', { name: 'Board' }).getAttribute('href')).toBe(
-      '/p/MMR/board',
-    );
+    expect(within(views).queryByRole('link', { name: 'Board' })).toBeNull();
     expect(within(views).getByRole('link', { name: 'All tasks in MMR' }).getAttribute('href')).toBe(
       '/tasks?project=MMR',
     );
@@ -604,7 +608,13 @@ describe.each(SCOPES)('work page rail, $name', (scope) => {
       within(chips)
         .getAllByRole('button')
         .map((b) => b.textContent),
-    ).toStrictEqual(['Direction', 'Structure', 'About', 'Other views']);
+    ).toStrictEqual([
+      'Direction',
+      'Structure',
+      'About',
+      ...((scope.record.artifacts ?? []).length > 0 ? ['Artifacts'] : []),
+      'Other views',
+    ]);
 
     fireEvent.click(within(chips).getByRole('button', { name: 'Direction' }));
     const direction = await screen.findByRole('dialog', { name: 'Direction' });
@@ -636,9 +646,7 @@ describe.each(SCOPES)('work page rail, $name', (scope) => {
 
     fireEvent.click(within(chips).getByRole('button', { name: 'Other views' }));
     const views = await screen.findByRole('dialog', { name: 'Other views' });
-    expect(within(views).getByRole('link', { name: 'Board' }).getAttribute('href')).toBe(
-      '/p/MMR/board',
-    );
+    expect(within(views).getByRole('link', { name: 'All tasks in MMR' })).toBeDefined();
   });
 });
 
@@ -1218,13 +1226,73 @@ describe('work page head', () => {
     ).toBe('/p/MMR/115');
   });
 
-  it('a record with no description or artifacts says so in About', async () => {
+  it('a container with no description says so in About', async () => {
     const bare: Scope = {
       ...PHASE_SCOPE,
       record: { ...PHASE, deps: undefined, description: null },
     };
     await open(bare);
 
-    expect(screen.getByText('No description or artifacts.')).toBeDefined();
+    expect(within(getRail()).getByText('No description.')).toBeDefined();
+    expect(within(getRail()).queryByRole('heading', { name: 'Artifacts' })).toBeNull();
+  });
+});
+
+/** `count` artifacts, numbered so that a higher number was created later. */
+function artifactsOf(count: number): WireArtifact[] {
+  return Array.from({ length: count }, (_, i) => ({
+    created_at: `2026-06-${String(i + 1).padStart(2, '0')}T10:00:00.000Z`,
+    id: `MMR-a${String(i + 1)}`,
+    tags: [],
+    title: `Brief ${String(i + 1)}`,
+  }));
+}
+
+const artifactsSection = () =>
+  within(getRail()).getByRole('heading', { name: 'Artifacts' }).closest('section') as HTMLElement;
+
+describe('work page rail About and Artifacts (MMR-486)', () => {
+  it('prompts a project with no description to add one in its settings', async () => {
+    await open({ ...PROJECT_SCOPE, record: { ...PROJECT, artifacts: [], description: undefined } });
+
+    const about = within(getRail()).getByRole('heading', { name: 'About' }).closest('section');
+    expect(about).toHaveTextContent('No description yet. Add one in project settings (⚙).');
+  });
+
+  it('lists the five newest artifacts and links to the project’s artifact browser', async () => {
+    await open({ ...PROJECT_SCOPE, record: { ...PROJECT, artifacts: artifactsOf(7) } });
+
+    const panel = within(artifactsSection());
+    expect(
+      panel.getAllByRole('link', { name: /^Brief/ }).map((l) => l.textContent?.replace('❄', '')),
+    ).toStrictEqual(['Brief 7', 'Brief 6', 'Brief 5', 'Brief 4', 'Brief 3']);
+    expect(panel.getByRole('link', { name: 'All 7 artifacts' }).getAttribute('href')).toBe(
+      '/artifacts?project=MMR',
+    );
+    // Artifacts live in their own section, not under About.
+    const about = within(getRail()).getByRole('heading', { name: 'About' }).closest('section');
+    expect(about).not.toHaveTextContent('Brief');
+  });
+
+  it('lists every artifact and no all-link when they fit the cap', async () => {
+    await open({ ...PROJECT_SCOPE, record: { ...PROJECT, artifacts: artifactsOf(5) } });
+
+    const panel = within(artifactsSection());
+    expect(panel.getAllByRole('link')).toHaveLength(5);
+    expect(panel.queryByRole('link', { name: /^All \d+ artifacts$/ })).toBeNull();
+  });
+
+  it('omits the section when there are no artifacts', async () => {
+    await open({ ...PROJECT_SCOPE, record: { ...PROJECT, artifacts: [] } });
+
+    expect(within(getRail()).queryByRole('heading', { name: 'Artifacts' })).toBeNull();
+  });
+
+  it('a container lists what is attached to it, uncapped, with no project-wide link', async () => {
+    await open({ ...PHASE_SCOPE, record: { ...PHASE, artifacts: artifactsOf(7) } });
+
+    const panel = within(artifactsSection());
+    expect(panel.getAllByRole('link')).toHaveLength(7);
+    expect(panel.queryByRole('link', { name: /^All \d+ artifacts$/ })).toBeNull();
   });
 });

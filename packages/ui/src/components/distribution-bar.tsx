@@ -5,8 +5,8 @@ import { STATUS_META, STATUS_ORDER } from '../lib/status';
 
 /**
  * The rollup distribution as a segmented hairline bar — segment order and
- * colors come from the one status system, identical on project cards, board
- * headers, and tree containers.
+ * colors come from the one status system, identical wherever it appears
+ * (today the work page's head).
  */
 export function DistributionBar({
   distribution,

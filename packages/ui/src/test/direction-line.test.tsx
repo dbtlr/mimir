@@ -1,10 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, vi } from 'vitest';
 
-import { DirectionLine, DirectionPanel, foldDirection } from '../components/direction-line';
+import { DirectionPanel } from '../components/direction-line';
 
 const { apiSend } = vi.hoisted(() => ({ apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet: vi.fn(), apiSend }));
@@ -20,223 +20,6 @@ afterEach(() => {
 });
 
 const PROSE = 'Land the console direction line.\n\n- **cut** the dialog\n- wire the PATCH\n';
-
-/** The trigger's accessible name is the microlabel plus the folded line. */
-const TRIGGER = { name: /^Direction/ } as const;
-
-function renderProject(next: string | undefined, offline = false) {
-  return render(
-    <DirectionLine
-      subject={{ key: 'MMR', kind: 'project' }}
-      title="Mimir"
-      next={next}
-      offline={offline}
-    />,
-    { wrapper },
-  );
-}
-
-describe('foldDirection', () => {
-  it('folds to the first line with content, as plain text', () => {
-    expect(foldDirection('\n\n  First line.  \nSecond line.')).toBe('First line.');
-    expect(foldDirection('## Ship the console\n\nbody')).toBe('Ship the console');
-    expect(foldDirection('- **Ship onboarding first.** Then the rest.')).toBe(
-      'Ship onboarding first. Then the rest.',
-    );
-    expect(foldDirection('1. Cut `v0.20.0` from _main_')).toBe('Cut v0.20.0 from main');
-    expect(foldDirection('> See [ADR 0026](docs/decisions/0026.md) for the rule')).toBe(
-      'See ADR 0026 for the rule',
-    );
-    expect(foldDirection('Windows wrote this.\r\nAnd this.\r\n')).toBe('Windows wrote this.');
-  });
-
-  it('is undefined when there is nothing to fold', () => {
-    expect(foldDirection(undefined)).toBeUndefined();
-    expect(foldDirection('   \n\n')).toBeUndefined();
-  });
-
-  it('leaves snake_case identifiers alone (intraword underscores are not emphasis)', () => {
-    expect(foldDirection('Ship foo_service_v2 and external_ref today')).toBe(
-      'Ship foo_service_v2 and external_ref today',
-    );
-  });
-
-  it('still strips underscore emphasis at word boundaries', () => {
-    expect(foldDirection('Cut _main_ and __ship__ it')).toBe('Cut main and ship it');
-  });
-});
-
-describe('directionLine', () => {
-  it('folds multi-line prose to its first line under the Direction microlabel', () => {
-    renderProject(PROSE);
-    const line = screen.getByRole('button', TRIGGER);
-    // jsdom concatenates name parts without layout whitespace; a browser
-    // renders the same two boxes as "Direction Land the console…".
-    expect(line).toHaveAccessibleName(/^Direction\s*Land the console direction line\.$/);
-    // The fold is one line: nothing below the first survives into the row.
-    expect(screen.queryByText(/wire the PATCH/)).toBeNull();
-  });
-
-  it('reads "No direction set" when the prose is empty', () => {
-    renderProject(undefined);
-    expect(screen.getByRole('button', TRIGGER)).toHaveAccessibleName(
-      /^Direction\s*No direction set$/,
-    );
-  });
-
-  it('opens a dialog that renders the prose as markdown', async () => {
-    const user = userEvent.setup();
-    renderProject(PROSE);
-    await user.click(screen.getByRole('button', TRIGGER));
-
-    const dialog = await screen.findByRole('dialog');
-    expect(dialog.textContent).toContain('MMR');
-    expect(screen.getByText('cut').tagName).toBe('STRONG');
-    expect(screen.getAllByRole('listitem')).toHaveLength(2);
-  });
-
-  it('edits the whole text and PATCHes the project, then returns to the reading pane', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR' });
-    const user = userEvent.setup();
-    renderProject(PROSE);
-    await user.click(screen.getByRole('button', TRIGGER));
-    await user.click(await screen.findByRole('button', { name: 'Edit' }));
-
-    const box = screen.getByRole('textbox');
-    expect(box).toHaveValue(PROSE);
-    await user.clear(box);
-    await user.type(box, 'Rewritten direction.');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-
-    await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/MMR', {
-        next: 'Rewritten direction.',
-      });
-    });
-    await waitFor(() => {
-      expect(screen.queryByRole('textbox')).toBeNull();
-    });
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeDefined();
-  });
-
-  it('a first direction is written from the empty state', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR' });
-    const user = userEvent.setup();
-    renderProject(undefined);
-    await user.click(screen.getByRole('button', TRIGGER));
-    await user.click(await screen.findByRole('button', { name: 'Edit' }));
-
-    expect(screen.getByRole('textbox')).toHaveValue('');
-    await user.type(screen.getByRole('textbox'), 'First direction.');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-
-    await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/MMR', {
-        next: 'First direction.',
-      });
-    });
-  });
-
-  it('cancel discards the draft and writes nothing', async () => {
-    const user = userEvent.setup();
-    renderProject(PROSE);
-    await user.click(screen.getByRole('button', TRIGGER));
-    await user.click(await screen.findByRole('button', { name: 'Edit' }));
-    await user.type(screen.getByRole('textbox'), 'scratch');
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
-
-    expect(apiSend).not.toHaveBeenCalled();
-    expect(screen.queryByRole('textbox')).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
-    expect(screen.getByRole('textbox')).toHaveValue(PROSE);
-  });
-
-  it('a new subject under a mounted row drops the open editor and its draft', async () => {
-    const user = userEvent.setup();
-    const view = renderProject(PROSE);
-    await user.click(screen.getByRole('button', TRIGGER));
-    await user.click(await screen.findByRole('button', { name: 'Edit' }));
-    await user.type(screen.getByRole('textbox'), 'half-typed rewrite');
-
-    view.rerender(
-      <DirectionLine
-        subject={{ key: 'SR', kind: 'project' }}
-        title="Saga"
-        next="Saga's own direction."
-        offline={false}
-      />,
-    );
-
-    // The draft belonged to MMR — it must not follow the row to SR.
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.queryByRole('textbox')).toBeNull();
-    await user.click(screen.getByRole('button', TRIGGER));
-    await user.click(await screen.findByRole('button', { name: 'Edit' }));
-    expect(screen.getByRole('textbox')).toHaveValue("Saga's own direction.");
-  });
-
-  it('a subject that returns does not re-arm the dialog', async () => {
-    const user = userEvent.setup();
-    const view = renderProject(PROSE);
-    await user.click(screen.getByRole('button', TRIGGER));
-    await screen.findByRole('dialog');
-
-    const saga = (
-      <DirectionLine
-        subject={{ key: 'SR', kind: 'project' }}
-        title="Saga"
-        next="Saga's own direction."
-        offline={false}
-      />
-    );
-    view.rerender(saga);
-    expect(screen.queryByRole('dialog')).toBeNull();
-
-    // Back to the subject the dialog was opened for: it stays closed. The
-    // route is one non-remounting component, so a stale "open for MMR" would
-    // reopen uninvited on the return trip.
-    view.rerender(
-      <DirectionLine
-        subject={{ key: 'MMR', kind: 'project' }}
-        title="Mimir"
-        next={PROSE}
-        offline={false}
-      />,
-    );
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-  it('offline disables Edit', async () => {
-    const user = userEvent.setup();
-    renderProject(PROSE, true);
-    await user.click(screen.getByRole('button', TRIGGER));
-    const edit = await screen.findByRole('button', { name: 'Edit' });
-    expect(edit).toBeDisabled();
-  });
-
-  it('a node subject PATCHes the node route', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-12' });
-    const user = userEvent.setup();
-    render(
-      <DirectionLine
-        subject={{ id: 'MMR-12', kind: 'node' }}
-        title="Console"
-        next="Old plan."
-        offline={false}
-      />,
-      { wrapper },
-    );
-    await user.click(screen.getByRole('button', TRIGGER));
-    await user.click(await screen.findByRole('button', { name: 'Edit' }));
-    await user.clear(screen.getByRole('textbox'));
-    await user.type(screen.getByRole('textbox'), 'New plan.');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-
-    await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/nodes/MMR-12', { next: 'New plan.' });
-    });
-  });
-});
 
 describe('directionPanel (MMR-450)', () => {
   it('opens straight into the editor and closes on Cancel', async () => {
@@ -257,6 +40,67 @@ describe('directionPanel (MMR-450)', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
+  });
+
+  it('Save PATCHes the project with the rewritten text', async () => {
+    apiSend.mockResolvedValue({});
+    render(
+      <DirectionPanel
+        subject={{ key: 'MMR', kind: 'project' }}
+        title="Mimir"
+        next={PROSE}
+        offline={false}
+      />,
+      { wrapper },
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit direction' }));
+    const box = screen.getByRole('textbox', { name: 'Direction text' });
+    await userEvent.clear(box);
+    await userEvent.type(box, 'Rewritten direction.');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/MMR', {
+        next: 'Rewritten direction.',
+      });
+    });
+  });
+
+  it('a node subject PATCHes the node route', async () => {
+    apiSend.mockResolvedValue({});
+    render(
+      <DirectionPanel
+        subject={{ id: 'MMR-12', kind: 'node' }}
+        title="Console"
+        next="Old plan."
+        offline={false}
+      />,
+      { wrapper },
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit direction' }));
+    const box = screen.getByRole('textbox', { name: 'Direction text' });
+    await userEvent.clear(box);
+    await userEvent.type(box, 'New plan.');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/nodes/MMR-12', { next: 'New plan.' });
+    });
+  });
+
+  it('offline disables Edit', () => {
+    render(
+      <DirectionPanel
+        subject={{ key: 'MMR', kind: 'project' }}
+        title="Mimir"
+        next={PROSE}
+        offline
+      />,
+      { wrapper },
+    );
+    expect(screen.getByRole('button', { name: 'Edit direction' })).toBeDisabled();
   });
 
   it('closes on Save once the rewrite lands', async () => {
@@ -303,5 +147,122 @@ describe('directionPanel (MMR-450)', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
+  });
+});
+
+const renderPanel = () =>
+  render(
+    <DirectionPanel
+      subject={{ key: 'MMR', kind: 'project' }}
+      title="Mimir"
+      next={PROSE}
+      offline={false}
+    />,
+    { wrapper },
+  );
+
+const panel = (next: string) => (
+  <DirectionPanel
+    subject={{ key: 'MMR', kind: 'project' }}
+    title="Mimir"
+    next={next}
+    offline={false}
+  />
+);
+
+describe('directionPanel clamp (MMR-484)', () => {
+  const proto = HTMLElement.prototype;
+  const original = {
+    client: Object.getOwnPropertyDescriptor(proto, 'clientHeight'),
+    scroll: Object.getOwnPropertyDescriptor(proto, 'scrollHeight'),
+  };
+
+  /** jsdom has no layout; stub the two heights the clamp measures. */
+  function stubHeights(scrollHeight: number | (() => number), clientHeight: number) {
+    Object.defineProperty(proto, 'scrollHeight', {
+      configurable: true,
+      get: () => (typeof scrollHeight === 'function' ? scrollHeight() : scrollHeight),
+    });
+    Object.defineProperty(proto, 'clientHeight', { configurable: true, get: () => clientHeight });
+  }
+
+  afterEach(() => {
+    for (const [name, descriptor] of [
+      ['clientHeight', original.client],
+      ['scrollHeight', original.scroll],
+    ] as const) {
+      if (descriptor === undefined) {
+        Reflect.deleteProperty(proto, name);
+      } else {
+        Object.defineProperty(proto, name, descriptor);
+      }
+    }
+  });
+
+  it('clamps the rendered direction to six lines', () => {
+    stubHeights(100, 100);
+    renderPanel();
+    const article = screen.getByText('cut').closest('article');
+    expect(article).toHaveAttribute('data-clamped');
+    expect(article?.className).toContain('max-h-[6lh]');
+  });
+
+  it('offers no Read more when the direction fits its clamp', () => {
+    stubHeights(100, 100);
+    renderPanel();
+    expect(screen.queryByRole('button', { name: 'Read more of the direction' })).toBeNull();
+  });
+
+  it('offers Read more when it overflows, opening the reading dialog rather than the editor', async () => {
+    stubHeights(400, 100);
+    renderPanel();
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Read more of the direction' }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('Direction');
+    expect(screen.queryByRole('textbox')).toBeNull();
+    // View mode keeps its own Edit, which switches to the editor in place.
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Edit' }));
+    expect(screen.getByRole('textbox', { name: 'Direction text' })).toHaveValue(PROSE);
+  });
+
+  it('gives Read more a 24px hit area and a name that contains its visible text', () => {
+    stubHeights(400, 100);
+    renderPanel();
+
+    const readMore = screen.getByRole('button', { name: 'Read more of the direction' });
+    expect(readMore).toHaveTextContent('Read more');
+    expect(readMore.className).toContain('min-h-6');
+  });
+
+  it('returns focus to Edit when Read more unmounts under the open dialog', async () => {
+    let scrollHeight = 400;
+    stubHeights(() => scrollHeight, 100);
+    apiSend.mockResolvedValue({});
+    const view = render(panel(PROSE), { wrapper });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Read more of the direction' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Edit' }));
+    const box = screen.getByRole('textbox', { name: 'Direction text' });
+    await userEvent.clear(box);
+    await userEvent.type(box, 'Short.');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    // The refetch lands: the shorter text fits, so Read more unmounts.
+    scrollHeight = 100;
+    view.rerender(panel('Short.'));
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Read more of the direction' })).toBeNull();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(screen.getByRole('button', { name: 'Edit direction' })).toHaveFocus();
   });
 });

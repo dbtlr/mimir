@@ -6,13 +6,13 @@ import type { KeyboardEvent, ReactNode } from 'react';
 import { ApiError } from '../api/errors';
 import { browserTimeZone, workQuery } from '../api/queries';
 import { projectKeyOf } from '../api/types';
-import type { WireNode, WireTreeNode } from '../api/types';
+import type { WireArtifact, WireNode, WireTreeNode } from '../api/types';
 import { ancestorsOf } from '../lib/ancestry';
 import { cn } from '../lib/cn';
 import { nodeLink } from '../lib/record-url';
 import { STATUS_META, STATUS_ORDER } from '../lib/status';
 import { absoluteTime } from '../lib/time';
-import { buildOutline } from '../lib/work-page';
+import { RAIL_ARTIFACT_CAP, buildOutline, newestArtifacts } from '../lib/work-page';
 import type { OutlineEntry, OutlineTally } from '../lib/work-page';
 import { DirectionPanel } from './direction-line';
 import { DistributionBar } from './distribution-bar';
@@ -38,7 +38,7 @@ import { WorkSections } from './work-sections';
 /*
  * The work page (ADR 0013, MMR-467 refinement): a project, initiative, or phase
  * opens as five question-ordered sections beside a rail of Direction,
- * Structure, About, and Other views. One implementation serves all three
+ * Structure, About, Artifacts, and Other views. One implementation serves all three
  * scopes; a container adds its path above the title and a Work | Timeline tab bar.
  */
 
@@ -252,28 +252,25 @@ function AboutLabel({ children }: { children: ReactNode }) {
   return <h3 className="microlabel text-ink-faint">{children}</h3>;
 }
 
-/** The record's description, artifacts, and details — the rail's About. */
-function AboutPanel({ record }: { record: WireNode }) {
+/**
+ * The record's description and details — the rail's About. A project with no
+ * description points at its settings, the one place it is edited; a container
+ * has no editor, so it just says so.
+ */
+function AboutPanel({ record, isProject }: { record: WireNode; isProject: boolean }) {
   const description = record.description?.trim() ?? '';
-  const hasDescription = description !== '';
-  const artifacts = record.artifacts ?? [];
   const prerequisites = record.deps === undefined ? [] : prerequisiteRows(record.deps);
   const blocking = record.deps?.blocking ?? [];
   return (
     <div className="flex flex-col gap-3">
-      {hasDescription && (
+      {description === '' ? (
+        <p className="text-xs text-ink-faint">
+          {isProject ? 'No description yet. Add one in project settings (⚙).' : 'No description.'}
+        </p>
+      ) : (
         <MarkdownBody breaks className="max-w-none">
           {description}
         </MarkdownBody>
-      )}
-      {artifacts.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <AboutLabel>Artifacts · {artifacts.length}</AboutLabel>
-          <ArtifactLinks artifacts={artifacts} />
-        </div>
-      )}
-      {!hasDescription && artifacts.length === 0 && (
-        <p className="text-xs text-ink-faint">No description or artifacts.</p>
       )}
       {prerequisites.length > 0 && (
         <div className="flex flex-col gap-1">
@@ -301,15 +298,43 @@ function AboutPanel({ record }: { record: WireNode }) {
   );
 }
 
-/** The two other lenses on the scope: the board, and its tasks in the browser. */
+/**
+ * The rail's Artifacts. A project can hold hundreds, so it lists the newest few
+ * and links to the artifact browser filtered to it. A container's attached set
+ * is small and the browser has no per-record filter, so it lists them all.
+ */
+function ArtifactsPanel({
+  artifacts,
+  projectKey,
+  isProject,
+}: {
+  artifacts: readonly WireArtifact[];
+  projectKey: string;
+  isProject: boolean;
+}) {
+  const shown = isProject ? newestArtifacts(artifacts, RAIL_ARTIFACT_CAP) : artifacts;
+  return (
+    <div className="flex flex-col gap-1">
+      <ArtifactLinks artifacts={shown} />
+      {isProject && artifacts.length > RAIL_ARTIFACT_CAP && (
+        <Link
+          to="/artifacts"
+          search={{ project: projectKey }}
+          className="rounded-sm px-1 py-0.5 text-xs text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          All {artifacts.length} artifacts
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/** The other lens on the scope: its tasks in the browser. */
 function OtherViews({ projectKey }: { projectKey: string }) {
   const link =
     'rounded-sm px-1.5 py-1 text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent';
   return (
     <nav aria-label="Other views" className="flex flex-col gap-px">
-      <Link to="/p/$key/board" params={{ key: projectKey }} className={link}>
-        Board
-      </Link>
       <Link to="/tasks" search={{ project: projectKey }} className={link}>
         All tasks in {projectKey}
       </Link>
@@ -460,13 +485,18 @@ export function WorkPage({
     />
   );
   const structure = <StructureOutline tree={tree} unavailable={treeFailed} currentId={record.id} />;
-  const about = <AboutPanel record={record} />;
+  const about = <AboutPanel record={record} isProject={isProject} />;
+  const artifacts = record.artifacts ?? [];
+  const artifactsPanel = (
+    <ArtifactsPanel artifacts={artifacts} projectKey={projectKey} isProject={isProject} />
+  );
   const views = <OtherViews projectKey={projectKey} />;
 
   const chips: RailChip[] = [
     { content: direction, label: 'Direction' },
     { content: structure, label: 'Structure' },
     { content: about, label: 'About' },
+    ...(artifacts.length > 0 ? [{ content: artifactsPanel, label: 'Artifacts' }] : []),
     { content: views, label: 'Other views' },
   ];
   const rail = (
@@ -474,6 +504,7 @@ export function WorkPage({
       <RailSection label="Direction">{direction}</RailSection>
       <RailSection label="Structure">{structure}</RailSection>
       <RailSection label="About">{about}</RailSection>
+      {artifacts.length > 0 && <RailSection label="Artifacts">{artifactsPanel}</RailSection>}
       <RailSection label="Other views">{views}</RailSection>
     </>
   );

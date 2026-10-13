@@ -71,7 +71,7 @@ export type AuthoringPromote = {
 export type AuthoringSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The scope's project — the board pre-fills it; omitted, the first project wins. */
+  /** The scope's project — the work page pre-fills it; omitted, the first project wins. */
   projectKey?: string;
   offline?: boolean;
   prefill?: AuthoringPrefill;

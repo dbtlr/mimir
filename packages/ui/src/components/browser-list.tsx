@@ -223,7 +223,8 @@ type RecordTarget =
 
 /**
  * One row of a browser: an optional leading mark (a status dot), then the id
- * and title with optional chips before or after the title, a one-line lede,
+ * in its own column beside the title column, which holds the title and any
+ * chips before or after it, a one-line lede,
  * and a meta line. The title link stretches over the whole row, so the row is
  * the hit target while staying a single real link. The link's name is the
  * title; the id is its description. The lede hides on a phone
@@ -266,11 +267,15 @@ export function BrowserRow({
       className="relative flex gap-2.5 rounded-md px-1 py-[7px] transition-colors hover:bg-well-850 has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-accent max-md:flex-wrap"
     >
       {leading !== undefined && <span className="flex h-5 shrink-0 items-center">{leading}</span>}
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <span id={idLabel} className="font-mono text-mono-id text-ink-faint">
-            {id}
-          </span>
+      {/* Two columns: the id keeps its own, and everything after it (a
+          wrapping title, its chips, the lede, the meta line) hangs in the
+          title column instead of dropping under the id. Baseline alignment
+          pins the id to the first line. */}
+      <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-2">
+        <span id={idLabel} className="font-mono text-mono-id text-ink-faint">
+          {id}
+        </span>
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
           {beforeTitle}
           <Link
             {...to}
@@ -286,9 +291,13 @@ export function BrowserRow({
           {afterTitle}
         </div>
         {lede !== undefined && lede !== null && lede !== '' && (
-          <p className="truncate text-[0.78125rem] text-ink-dim max-md:hidden">{lede}</p>
+          <p className="col-start-2 truncate text-[0.78125rem] text-ink-dim max-md:hidden">
+            {lede}
+          </p>
         )}
-        {meta !== undefined && <div className="text-mono-id text-ink-faint">{meta}</div>}
+        {meta !== undefined && (
+          <div className="col-start-2 text-mono-id text-ink-faint">{meta}</div>
+        )}
       </div>
       {actions !== undefined && (
         <div

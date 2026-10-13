@@ -1,15 +1,6 @@
 import type { SeedKind } from '@mimir/contract';
-import {
-  createRootRoute,
-  createRoute,
-  createRouter,
-  redirect,
-  stripSearchParams,
-} from '@tanstack/react-router';
-import type { SearchSchemaInput } from '@tanstack/react-router';
+import { createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router';
 
-import { BAND_MODES } from './lib/bands';
-import type { BandMode } from './lib/bands';
 import {
   artifactIdOf,
   artifactLink,
@@ -22,7 +13,6 @@ import {
 import { isSeedKind } from './lib/seed-lanes';
 import { ArtifactPage } from './routes/artifact';
 import { ArtifactsPage } from './routes/artifacts';
-import { BoardPage } from './routes/board';
 import { DoctorPage } from './routes/doctor';
 import { NodePage } from './routes/node';
 import { NotFoundPage } from './routes/not-found';
@@ -35,20 +25,11 @@ import { TasksPage } from './routes/tasks';
 
 /**
  * Navigation (ADR 0013 §3 and its v0.23 refinement): URLs name scopes, views,
- * and records — `/` the review page, `/p/KEY` the project's page, `/p/KEY/board`
- * its board, `/p/KEY/417` a work node's page, `/p/KEY/s41` a seed's page,
- * `/p/KEY/a219` an artifact's page. The board is an optional view with no
- * lenses (MMR-467 refinement). Typed search params carry that contract in the
- * type system.
+ * and records — `/` the review page, `/p/KEY` the project's page,
+ * `/p/KEY/417` a work node's page, `/p/KEY/s41` a seed's page, `/p/KEY/a219`
+ * an artifact's page. The board view is retired (MMR-487). Typed search params
+ * carry that contract in the type system.
  */
-
-const isBandMode = (value: unknown): value is BandMode =>
-  typeof value === 'string' && (BAND_MODES as readonly string[]).includes(value);
-
-export type BoardSearch = {
-  /** The board's swimlane grouping (MMR-221) — addressable, `phase` defaulted-out. */
-  bands: BandMode;
-};
 
 const rootRoute = createRootRoute({ component: Shell });
 
@@ -71,7 +52,7 @@ export const reviewRoute = createRoute({
  * One record, one URL: a lowercase key (`/p/mmr`, `/p/mmr/417`) moves to its
  * canonical spelling, keeping the rest of the path and the search.
  */
-function canonicalKey(key: string, to: '/p/$key' | '/p/$key/board' | '/p/$key/$seq') {
+function canonicalKey(key: string, to: '/p/$key' | '/p/$key/$seq') {
   const canonical = key.toUpperCase();
   if (canonical !== key) {
     // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
@@ -92,25 +73,6 @@ export const projectRoute = createRoute({
   component: ProjectPage,
   getParentRoute: () => rootRoute,
   path: '/p/$key',
-});
-
-/** A project's board — a view of the project, beside its records (v0.23 refinement). */
-export const boardRoute = createRoute({
-  beforeLoad: ({ params }) => {
-    canonicalKey(params.key, '/p/$key/board');
-  },
-  component: BoardPage,
-  getParentRoute: () => rootRoute,
-  path: '/p/$key/board',
-  search: {
-    // phase is the primary grouping — keep the default out of the URL, so a
-    // clean `/p/KEY/board` is the canonical board.
-    middlewares: [stripSearchParams<BoardSearch>({ bands: 'phase' })],
-  },
-  validateSearch: (search: Record<string, unknown> & SearchSchemaInput): BoardSearch => {
-    const bands: BandMode = isBandMode(search.bands) ? search.bands : 'phase';
-    return { bands };
-  },
 });
 
 export type NodeSearch = {
@@ -304,7 +266,6 @@ const devRoutes = import.meta.env.DEV
 const routeTree = rootRoute.addChildren([
   reviewRoute,
   projectRoute,
-  boardRoute,
   nodeRoute,
   seedRoute,
   artifactRoute,

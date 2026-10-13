@@ -13,8 +13,7 @@ import { ProjectUnavailablePage } from './not-found';
 /**
  * `/p/$key` — the project opens as its work page (ADR 0013, MMR-467
  * refinement): Now, Needs you, Frontier, Shipped, and Going cold beside a rail
- * of Direction, Structure, About, and Other views. The board is a view one
- * link away at `/p/$key/board`.
+ * of Direction, Structure, About, Artifacts, and Other views.
  */
 export function ProjectPage() {
   const { key } = projectRoute.useParams();

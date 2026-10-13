@@ -128,7 +128,7 @@ export function TaskForm({
         </form.Field>
       </div>
 
-      {/* Summary — short one-line lede for list/board views */}
+      {/* Summary — short one-line lede for list views */}
       <div className="flex flex-col gap-1">
         <label htmlFor="task-form-summary" className="text-xs font-medium text-ink-dim">
           Summary

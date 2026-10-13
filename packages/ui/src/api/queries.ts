@@ -151,38 +151,14 @@ export const tasksBrowserQuery = (f: TaskFilters, windows = 1) => {
   });
 };
 
-/**
- * The board's live half: every non-terminal task in the project, in rank
- * order — the API's array order IS rank (ADR 0007), so the Ready column
- * renders items exactly as received.
- */
-export const boardLiveQuery = (key: string) =>
-  queryOptions({
-    queryFn: () =>
-      apiGet<Collection<WireNode>>(
-        `/api/nodes?project=${encodeURIComponent(key)}&type=task&status=live`,
-      ),
-    queryKey: ['board', key, 'live'],
-  });
-
-/** The board's Done column source: completed tasks, newest completion first. */
-export const boardDoneQuery = (key: string) =>
-  queryOptions({
-    queryFn: () =>
-      apiGet<Collection<WireNode>>(
-        `/api/nodes?project=${encodeURIComponent(key)}&type=task&status=done&limit=200`,
-      ),
-    queryKey: ['board', key, 'done'],
-  });
-
-/** The whole project hierarchy, nested, rank-ordered: the work page's Structure and the board's Phase bands. */
+/** The whole project hierarchy, nested, rank-ordered: the work page's Structure. */
 export const treeQuery = (key: string) =>
   queryOptions({
     queryFn: () => apiGet<WireTreeNode>(`/api/projects/${encodeURIComponent(key)}/tree`),
     queryKey: ['tree', key],
   });
 
-/** One project record (status word + distribution for the board header). */
+/** One project record (status word + distribution for the work page header). */
 export const projectQuery = (key: string) =>
   queryOptions({
     queryFn: () => apiGet<WireNode>(`/api/projects/${encodeURIComponent(key)}`),

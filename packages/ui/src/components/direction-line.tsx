@@ -1,132 +1,17 @@
 import { Dialog } from '@base-ui-components/react/dialog';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { useUpdateDirection } from '../api/mutations';
 import type { DirectionTarget } from '../api/mutations';
 import { cn } from '../lib/cn';
+import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { MarkdownBody } from './markdown-body';
+import type { ClampMeasure } from './markdown-body';
 import { ActionButton } from './ui/action-button';
 
 /** The subject's on-screen handle — the project key or the node id. */
 function subjectId(subject: DirectionTarget): string {
   return subject.kind === 'project' ? subject.key : subject.id;
-}
-
-/** `[text](url)` → `text`, `![alt](url)` → `alt`. */
-const MARKDOWN_LINK = /!?\[([^\]]*)]\([^)]*\)/g;
-/** A paired star emphasis/strong run: `**x**`, `*x*`. */
-const STAR_EMPHASIS = /(\*\*|\*)(?=\S)([\s\S]*?\S)\1/g;
-/**
- * The underscore twin. CommonMark forbids intraword underscore emphasis, so
- * both delimiters must sit on a word boundary — otherwise `foo_service_v2`
- * reads as emphasis and folds to `fooservicev2`.
- */
-const UNDERSCORE_EMPHASIS = /(?<!\w)(__|_)(?=\S)([\s\S]*?\S)\1(?!\w)/g;
-/** Leading block syntax: blockquote marks, ATX hashes, and bullet or ordered markers. */
-const LEADING_BLOCK = /^(?:>\s*)*(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+)?/;
-
-/** Drop paired emphasis markers, twice: a nested `**_x_**` needs a second pass. */
-function stripEmphasis(line: string): string {
-  let out = line;
-  for (let pass = 0; pass < 2; pass += 1) {
-    out = out.replace(STAR_EMPHASIS, '$2').replace(UNDERSCORE_EMPHASIS, '$2');
-  }
-  return out;
-}
-
-/**
- * The fold: the first line that carries content, as plain text. The row is a
- * single line of UI chrome, not a markdown surface — an unstripped `**bold**`
- * or `- bullet` would read as literal syntax where the operator expects prose.
- * Returns undefined when there is no direction to fold.
- */
-export function foldDirection(next: string | undefined): string | undefined {
-  const line = next
-    ?.replace(/\r\n?/g, '\n')
-    .split('\n')
-    .map((l) => l.trim())
-    .find((l) => l !== '');
-  if (line === undefined) {
-    return undefined;
-  }
-  const plain = stripEmphasis(line.replace(LEADING_BLOCK, '').replace(MARKDOWN_LINK, '$1'))
-    .replaceAll('`', '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return plain === '' ? undefined : plain;
-}
-
-/**
- * The folded direction row (MMR-390) — the owned `## Next` prose (ADR 0026
- * Decision 2) stated in one line under the board header. It is a control, not
- * a card: clicking opens the reading dialog, where Edit replaces the whole
- * text. Deliberately one visual
- * line — direction is a pointer to the full record, not the record itself.
- */
-export function DirectionLine({
-  subject,
-  title,
-  next,
-  offline,
-}: {
-  subject: DirectionTarget;
-  title: string;
-  next: string | undefined;
-  offline: boolean;
-}) {
-  const id = subjectId(subject);
-  // Open state is held as the subject it was opened FOR, so a surface that
-  // swaps subjects under a mounted row (navigating between projects) closes
-  // the dialog instead of pointing it at the new record.
-  const [openFor, setOpenFor] = useState<string | null>(null);
-  // Adjusted during render, not in an effect: the board route is one
-  // non-remounting component, so a subject swap must forget the old open
-  // state immediately — an effect would let a return trip to the first
-  // subject reopen the dialog uninvited before it ran.
-  if (openFor !== null && openFor !== id) {
-    setOpenFor(null);
-  }
-  const fold = foldDirection(next);
-  return (
-    <>
-      <button
-        type="button"
-        aria-haspopup="dialog"
-        onClick={() => {
-          setOpenFor(id);
-        }}
-        className="flex w-full items-center gap-2.5 rounded-lg bg-well-850 px-2.5 py-1.5 text-left inset-ring inset-ring-line transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent"
-      >
-        {/* Not aria-hidden: the microlabel plus the fold IS the button's
-            accessible name, so two direction rows on one page are told apart. */}
-        <span className="microlabel shrink-0 text-ink-faint">Direction</span>
-        <span
-          className={cn(
-            'min-w-0 flex-1 truncate text-xs',
-            fold === undefined ? 'text-ink-ghost' : 'text-ink-dim',
-          )}
-        >
-          {fold ?? 'No direction set'}
-        </span>
-        <span aria-hidden className="shrink-0 text-ink-faint">
-          ›
-        </span>
-      </button>
-      {/* Keyed by subject: the draft belongs to the record it was typed
-          against and must never follow the row to another one. */}
-      <DirectionDialog
-        key={id}
-        subject={subject}
-        title={title}
-        next={next}
-        offline={offline}
-        open={openFor === id}
-        onClose={() => {
-          setOpenFor(null);
-        }}
-      />
-    </>
-  );
 }
 
 /**
@@ -144,6 +29,7 @@ function DirectionDialog({
   offline,
   open,
   onClose,
+  finalFocus,
   editOnly = false,
 }: {
   subject: DirectionTarget;
@@ -152,6 +38,8 @@ function DirectionDialog({
   offline: boolean;
   open: boolean;
   onClose: () => void;
+  /** Where focus lands when the dialog closes; the opener may be gone by then. */
+  finalFocus: () => HTMLElement | null;
   /** Open straight into the editor, and close on Save or Cancel: the caller
    * already shows the text, so there is no reading view to return to. */
   editOnly?: boolean;
@@ -191,6 +79,7 @@ function DirectionDialog({
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-[60] bg-well-950/70 backdrop-blur-[2px]" />
         <Dialog.Popup
+          finalFocus={finalFocus}
           aria-describedby={undefined}
           className="fixed top-1/2 left-1/2 z-[60] flex max-h-[85dvh] w-[min(92vw,640px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-line-bright bg-well-850 shadow-2xl outline-none light:shadow-overlay"
         >
@@ -272,9 +161,10 @@ function DirectionDialog({
 }
 
 /**
- * The direction in full (MMR-450): the owned `## Next` prose rendered as
- * markdown, with Edit opening the whole-text rewrite. Record pages show it in
- * place of the folded {@link DirectionLine}.
+ * The direction in rail form (MMR-450, MMR-484): the owned `## Next` prose
+ * rendered as markdown, clamped to six lines so a long rewrite cannot push the
+ * rest of the rail off screen. "Read more" appears only when the text really
+ * overflows and opens the reading dialog; Edit opens the whole-text rewrite.
  */
 export function DirectionPanel({
   subject,
@@ -288,48 +178,76 @@ export function DirectionPanel({
   offline: boolean;
 }) {
   const id = subjectId(subject);
-  // Held as the subject it was opened FOR, as in DirectionLine: the project
+  // Held as the subject it was opened FOR, like the open dialog: the project
   // page does not remount between projects, and a draft must never follow the
   // panel to another record's direction.
-  const [editingFor, setEditingFor] = useState<string | null>(null);
-  if (editingFor !== null && editingFor !== id) {
-    setEditingFor(null);
+  const [openFor, setOpenFor] = useState<{ id: string; mode: 'read' | 'edit' } | null>(null);
+  if (openFor !== null && openFor.id !== id) {
+    setOpenFor(null);
   }
+  const [measure, setMeasure] = useState<ClampMeasure>({ lines: 0, overflowing: false });
   const empty = next === undefined || next.trim() === '';
+  const editRef = useRef<HTMLButtonElement>(null);
+  const readMoreRef = useRef<HTMLButtonElement>(null);
+  // A rewrite can shorten the text until Read more unmounts under the open
+  // dialog; Edit is always mounted, so it is the stable place to land.
+  const settleFocus = () =>
+    readMoreRef.current?.isConnected === true ? readMoreRef.current : editRef.current;
   return (
     <div className="flex flex-col gap-2">
       {empty ? (
         <p className="text-xs text-ink-ghost">No direction set</p>
       ) : (
-        <MarkdownBody className="max-w-none">{next}</MarkdownBody>
+        <MarkdownBody className="max-w-none" clamp={6} onClampMeasure={setMeasure}>
+          {next}
+        </MarkdownBody>
       )}
-      <div>
+      <div className="flex items-center gap-3">
         <ActionButton
+          ref={editRef}
           size="sm"
           variant="outline"
           aria-label="Edit direction"
           aria-haspopup="dialog"
           disabled={offline}
           onClick={() => {
-            setEditingFor(id);
+            setOpenFor({ id, mode: 'edit' });
           }}
         >
           Edit
         </ActionButton>
+        {!empty && measure.overflowing && (
+          <button
+            ref={readMoreRef}
+            type="button"
+            aria-label="Read more of the direction"
+            aria-haspopup="dialog"
+            onClick={() => {
+              setOpenFor({ id, mode: 'read' });
+            }}
+            className={cn(
+              'inline-flex min-h-6 items-center rounded-sm px-1.5 text-micro text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent',
+              PHONE_TOUCH_TARGET,
+            )}
+          >
+            Read more
+          </button>
+        )}
       </div>
-      {/* Mounted only while editing, so each opening drafts from the current
-          text; keyed by subject so a draft never carries over. */}
-      {editingFor === id && (
+      {/* Mounted only while open, so each opening drafts from the current
+          text; keyed by subject and mode so a draft never carries over. */}
+      {openFor !== null && (
         <DirectionDialog
-          key={id}
+          key={`${id}:${openFor.mode}`}
           subject={subject}
           title={title}
           next={next}
           offline={offline}
           open
-          editOnly
+          finalFocus={settleFocus}
+          editOnly={openFor.mode === 'edit'}
           onClose={() => {
-            setEditingFor(null);
+            setOpenFor(null);
           }}
         />
       )}

@@ -1,6 +1,6 @@
 import { cva } from 'class-variance-authority';
 import type { VariantProps } from 'class-variance-authority';
-import type { ButtonHTMLAttributes } from 'react';
+import type { ComponentProps } from 'react';
 
 import { cn } from '../../lib/cn';
 
@@ -35,7 +35,7 @@ export const actionButtonVariants = cva(
   },
 );
 
-export type ActionButtonProps = {} & ButtonHTMLAttributes<HTMLButtonElement> &
+export type ActionButtonProps = ComponentProps<'button'> &
   VariantProps<typeof actionButtonVariants>;
 
 export function ActionButton({ className, size, variant, type, ...props }: ActionButtonProps) {

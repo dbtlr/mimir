@@ -25,10 +25,7 @@ function renderProject(key: string, search = '') {
   return testRouter;
 }
 
-describe.each([
-  ['project page', ''],
-  ['board', '/board'],
-])('%s archived-404 (MMR-230)', (_surface, suffix) => {
+describe('project page archived-404 (MMR-230)', () => {
   it('a 404ing project renders the unavailable notice, not a false Offline banner', async () => {
     // Archived-404 semantics: every project-scoped read answers 404, while
     // portfolio reads (shell strips, picker) stay healthy.
@@ -38,7 +35,7 @@ describe.each([
       }
       return Promise.resolve(emptyRead(path));
     });
-    renderProject('SR', suffix);
+    renderProject('SR');
 
     await expect(screen.findByText(/archived or no longer exists/i)).resolves.toBeDefined();
     // The server answered — the surface must not read as offline.
@@ -48,65 +45,10 @@ describe.each([
 
   it('an unreachable server still reads as offline, not as not-found', async () => {
     apiGet.mockRejectedValue(new TypeError('fetch failed'));
-    renderProject('SR', suffix);
+    renderProject('SR');
 
     await expect(screen.findByText(/offline — last synced/i)).resolves.toBeDefined();
     expect(screen.queryByText(/archived or no longer exists/i)).toBeNull();
-  });
-});
-
-describe('board direction (MMR-390)', () => {
-  it('a project with direction folds its first line under the board header', async () => {
-    apiGet.mockImplementation((path: string) => {
-      if (path === '/api/projects/MMR/tree') {
-        return Promise.resolve({ children: [], id: 'MMR', title: 'Mimir', type: 'project' });
-      }
-      if (path.startsWith('/api/projects/MMR')) {
-        return Promise.resolve({
-          description: null,
-          distribution: {},
-          id: 'MMR',
-          next: 'Ship the direction line.\n\nThen the dossier.',
-          status: 'in_progress',
-          title: 'Mimir',
-          type: 'project',
-        });
-      }
-      return Promise.resolve(emptyRead(path));
-    });
-    renderProject('MMR', '/board');
-
-    await expect(screen.findByText('Ship the direction line.')).resolves.toBeDefined();
-    expect(screen.getByRole('button', { name: /direction/i })).toBeDefined();
-    // The fold is one line — the rest stays in the dialog.
-    expect(screen.queryByText(/Then the dossier/)).toBeNull();
-  });
-});
-
-describe('tree retirement (MMR-472)', () => {
-  it('an old ?view=tree link opens the board, not the tree', async () => {
-    apiGet.mockImplementation((path: string) => {
-      if (path === '/api/projects/MMR/tree') {
-        return Promise.resolve({
-          children: [
-            { ...task({ id: 'MMR-7', status: 'ready', title: 'Leaf task' }), children: [] },
-          ],
-          id: 'MMR',
-          title: 'Mimir',
-          type: 'project',
-        });
-      }
-      if (path === '/api/projects/MMR') {
-        return Promise.resolve({ id: 'MMR', status: 'ready', title: 'Mimir', type: 'project' });
-      }
-      return Promise.resolve(emptyRead(path));
-    });
-    renderProject('MMR', '/board?view=tree');
-
-    await expect(screen.findByTestId('board')).resolves.toBeDefined();
-    // The tree's only leaf is not on the board, so it shows nowhere.
-    expect(screen.queryByText('Leaf task')).toBeNull();
-    expect(screen.queryByRole('navigation', { name: 'Lens' })).toBeNull();
   });
 });
 
@@ -181,24 +123,26 @@ describe('project page (MMR-450, MMR-470)', () => {
     expect(within(structure).queryByText('A loose task')).toBeNull();
   });
 
-  it('keeps the board a link away, under Other views, and gone from the head', async () => {
+  it('offers no board view — Other views holds the task browser only (MMR-487)', async () => {
     serveProject();
     renderProject('MMR');
 
     const rail = await screen.findByRole('complementary', { name: 'Record details' });
-    expect(within(rail).getByRole('link', { name: 'Board' }).getAttribute('href')).toBe(
-      '/p/MMR/board',
-    );
-    expect(screen.queryByRole('link', { name: /open board/i })).toBeNull();
+    const views = within(rail).getByRole('navigation', { name: 'Other views' });
+    expect(
+      within(views)
+        .getAllByRole('link')
+        .map((l) => l.textContent),
+    ).toStrictEqual(['All tasks in MMR']);
+    expect(screen.queryByRole('link', { name: /board/i })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Actions' })).toBeNull();
   });
 
-  it('the board links back to the project page', async () => {
+  it('an old /board link reads as no record rather than a board (MMR-487)', async () => {
     serveProject();
     renderProject('MMR', '/board');
 
-    const title = await screen.findByRole('heading', { level: 1, name: 'Mimir' });
-    expect(within(title).getByRole('link').getAttribute('href')).toBe('/p/MMR');
+    await expect(screen.findByText('No record at /p/MMR/board.')).resolves.toBeDefined();
   });
 
   it('keeps New task and Project settings in the page head', async () => {
@@ -247,7 +191,7 @@ describe('project page (MMR-450, MMR-470)', () => {
 
   it.each([
     ['/p/mmr', '/p/MMR', ''],
-    ['/p/mmr/board?bands=release', '/p/MMR/board', '?bands=release'],
+    ['/p/mmr/417?tab=timeline', '/p/MMR/417', '?tab=timeline'],
   ])('moves %s to its canonical spelling', async (url, pathname, search) => {
     serveProject();
     const testRouter = createRouter({
