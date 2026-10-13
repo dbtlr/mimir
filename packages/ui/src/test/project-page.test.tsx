@@ -107,33 +107,17 @@ describe('project page (MMR-450, MMR-470)', () => {
     expect(screen.getByText('work').tagName).toBe('STRONG');
   });
 
-  it('outlines its initiatives in the rail, each linked to its page, and not its loose tasks', async () => {
+  it('offers no board view, and its rail has no structure or other views (MMR-487, MMR-496)', async () => {
     serveProject();
     renderProject('MMR');
 
     const rail = await screen.findByRole('complementary', { name: 'Record details' });
-    const structure = await within(rail).findByRole('navigation', { name: 'Structure' });
-    await waitFor(() => {
-      expect(
-        within(structure)
-          .getByRole('link', { name: /Hosted backends/ })
-          .getAttribute('href'),
-      ).toBe('/p/MMR/1');
-    });
-    expect(within(structure).queryByText('A loose task')).toBeNull();
-  });
-
-  it('offers no board view — Other views holds the task browser only (MMR-487)', async () => {
-    serveProject();
-    renderProject('MMR');
-
-    const rail = await screen.findByRole('complementary', { name: 'Record details' });
-    const views = within(rail).getByRole('navigation', { name: 'Other views' });
     expect(
-      within(views)
-        .getAllByRole('link')
-        .map((l) => l.textContent),
-    ).toStrictEqual(['All tasks in MMR']);
+      within(rail)
+        .getAllByRole('heading', { level: 2 })
+        .map((h) => h.textContent),
+    ).toStrictEqual(['Direction', 'About']);
+    expect(within(rail).queryByRole('navigation')).toBeNull();
     expect(screen.queryByRole('link', { name: /board/i })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Actions' })).toBeNull();
   });
@@ -210,18 +194,5 @@ describe('project page (MMR-450, MMR-470)', () => {
       expect(testRouter.state.location.pathname).toBe(pathname);
     });
     expect(testRouter.state.location.searchStr).toBe(search);
-  });
-
-  it('says so when its structure cannot be read', async () => {
-    serveProject();
-    const served = apiGet.getMockImplementation();
-    apiGet.mockImplementation((path: string) =>
-      path === '/api/projects/MMR/tree'
-        ? Promise.reject(new TypeError('fetch failed'))
-        : served?.(path),
-    );
-    renderProject('MMR');
-
-    await expect(screen.findByText(/couldn’t load the structure/i)).resolves.toBeDefined();
   });
 });

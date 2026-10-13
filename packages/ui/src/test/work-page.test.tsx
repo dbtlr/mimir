@@ -504,7 +504,7 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
 });
 
 describe.each(SCOPES)('work page rail, $name', (scope) => {
-  it('runs Direction, Structure, About, Artifacts (when it has any), then Other views', async () => {
+  it('runs Direction, About, then Artifacts (when it has any), with no structure or other views', async () => {
     await open(scope);
 
     const labels = within(getRail())
@@ -512,10 +512,8 @@ describe.each(SCOPES)('work page rail, $name', (scope) => {
       .map((h) => h.textContent);
     expect(labels).toStrictEqual([
       'Direction',
-      'Structure',
       'About',
       ...((scope.record.artifacts ?? []).length > 0 ? ['Artifacts'] : []),
-      'Other views',
     ]);
   });
 
@@ -531,55 +529,6 @@ describe.each(SCOPES)('work page rail, $name', (scope) => {
     );
   });
 
-  it('outlines initiatives and phases with progress, ∞, parked, and finished work folded', async () => {
-    await open(scope);
-
-    const structure = await within(getRail()).findByRole('navigation', { name: 'Structure' });
-    const all = within(structure).getByRole('link', { name: /All work/ });
-    expect(all.getAttribute('href')).toBe('/p/MMR');
-    expect(all).toHaveTextContent('1/5');
-    const live = within(structure).getByRole('link', { name: /Console work/ });
-    expect(live.getAttribute('href')).toBe('/p/MMR/101');
-    expect(live).toHaveTextContent('1/2');
-    expect(within(structure).getByRole('link', { name: /Record pages/ })).toHaveTextContent('2/2');
-    expect(within(structure).getByRole('link', { name: /Maintenance/ })).toHaveTextContent('∞');
-    expect(within(structure).getByRole('link', { name: /Post-v1 ideas/ })).toHaveTextContent(
-      'parked',
-    );
-    // Tasks are not in the outline.
-    expect(within(structure).queryByText('A loose task')).toBeNull();
-    // One finished initiative folds shut.
-    const fold = within(structure).getByText('1 finished initiative').closest('details');
-    expect(fold).not.toHaveAttribute('open');
-    expect(within(structure).getByText('Old arc')).not.toBeVisible();
-    fireEvent.click(within(structure).getByText('1 finished initiative'));
-    expect(within(structure).getByText('Old arc')).toBeVisible();
-  });
-
-  it('marks the current scope in the outline', async () => {
-    await open(scope);
-
-    const structure = await within(getRail()).findByRole('navigation', { name: 'Structure' });
-    const current = within(structure)
-      .getAllByRole('link')
-      .filter((l) => l.getAttribute('aria-current') === 'page');
-    expect(current).toHaveLength(1);
-    expect(current[0]).toHaveTextContent(scope.name === 'project' ? 'All work' : 'Work page');
-  });
-
-  it('says so when the structure cannot be read', async () => {
-    serve(scope);
-    const served = apiGet.getMockImplementation();
-    apiGet.mockImplementation((path: string) =>
-      path === '/api/projects/MMR/tree'
-        ? Promise.reject(new TypeError('fetch failed'))
-        : served?.(path),
-    );
-    renderAt(scope.url);
-
-    await expect(screen.findByText(/couldn’t load the structure/i)).resolves.toBeDefined();
-  });
-
   it('holds the description, artifacts, and details in About', async () => {
     await open(scope);
 
@@ -591,14 +540,17 @@ describe.each(SCOPES)('work page rail, $name', (scope) => {
     expect(panel.getByText('updated')).toBeDefined();
   });
 
-  it('links to the project’s tasks, and to no board', async () => {
+  it('ends its sections with a link to the project’s tasks, and holds no board or Other views', async () => {
     await open(scope);
 
-    const views = within(getRail()).getByRole('navigation', { name: 'Other views' });
-    expect(within(views).queryByRole('link', { name: 'Board' })).toBeNull();
-    expect(within(views).getByRole('link', { name: 'All tasks in MMR' }).getAttribute('href')).toBe(
-      '/p/MMR/tasks',
-    );
+    const link = await screen.findByRole('link', { name: /All tasks in MMR/ });
+    expect(link.getAttribute('href')).toBe('/p/MMR/tasks');
+    expect(within(getRail()).queryByRole('link', { name: /All tasks/ })).toBeNull();
+    expect(within(getRail()).queryByRole('navigation', { name: 'Other views' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Board' })).toBeNull();
+    // The link comes after the last section.
+    const goingCold = screen.getByRole('region', { name: 'Going cold' });
+    expect(goingCold.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('opens each rail part as a phone sheet with the same content', async () => {
@@ -610,10 +562,8 @@ describe.each(SCOPES)('work page rail, $name', (scope) => {
         .map((b) => b.textContent),
     ).toStrictEqual([
       'Direction',
-      'Structure',
       'About',
       ...((scope.record.artifacts ?? []).length > 0 ? ['Artifacts'] : []),
-      'Other views',
     ]);
 
     fireEvent.click(within(chips).getByRole('button', { name: 'Direction' }));
@@ -626,16 +576,6 @@ describe.each(SCOPES)('work page rail, $name', (scope) => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
 
-    fireEvent.click(within(chips).getByRole('button', { name: 'Structure' }));
-    const structure = await screen.findByRole('dialog', { name: 'Structure' });
-    expect(
-      (await within(structure).findByRole('link', { name: /Console work/ })).getAttribute('href'),
-    ).toBe('/p/MMR/101');
-    fireEvent.click(within(structure).getByRole('button', { name: 'Close' }));
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog')).toBeNull();
-    });
-
     fireEvent.click(within(chips).getByRole('button', { name: 'About' }));
     const about = await screen.findByRole('dialog', { name: 'About' });
     expect(within(about).getByText('created')).toBeDefined();
@@ -643,33 +583,6 @@ describe.each(SCOPES)('work page rail, $name', (scope) => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
-
-    fireEvent.click(within(chips).getByRole('button', { name: 'Other views' }));
-    const views = await screen.findByRole('dialog', { name: 'Other views' });
-    expect(within(views).getByRole('link', { name: 'All tasks in MMR' })).toBeDefined();
-  });
-});
-
-describe('work page structure inside finished work', () => {
-  const oldPhase: Scope = {
-    name: 'phase',
-    record: { ...PHASE, id: 'MMR-112', parent: 'MMR-111', title: 'Old phase' },
-    recordPath: '/api/nodes/MMR-112',
-    url: '/p/MMR/112',
-    workPath: '/api/nodes/MMR-112/work',
-  };
-
-  it('opens the finished fold and marks the current phase when it sits under a finished initiative', async () => {
-    await open(oldPhase);
-
-    const structure = await within(getRail()).findByRole('navigation', { name: 'Structure' });
-    const fold = within(structure).getByText('1 finished initiative').closest('details');
-    expect(fold).toHaveAttribute('open');
-    const current = within(structure).getByRole('link', { name: /Old phase/ });
-    expect(current.getAttribute('aria-current')).toBe('page');
-    expect(within(structure).getByRole('link', { name: /All work/ })).not.toHaveAttribute(
-      'aria-current',
-    );
   });
 });
 
@@ -1189,16 +1102,16 @@ describe('work page head', () => {
     expect(screen.queryByRole('navigation', { name: 'Path' })).toBeNull();
   });
 
-  it('a phase shows its path and files new work into itself, with no settings', async () => {
+  it('a phase links its parent for a phone, files new work into itself, and has no settings or breadcrumb', async () => {
     await open(PHASE_SCOPE);
 
-    const path = screen.getByRole('navigation', { name: 'Path' });
+    const parent = await screen.findByRole('link', { name: /Console work/ });
     await waitFor(() => {
-      expect(within(path).getByRole('link', { name: 'Console work' }).getAttribute('href')).toBe(
-        '/p/MMR/101',
-      );
+      expect(parent.getAttribute('href')).toBe('/p/MMR/101');
     });
-    expect(within(path).getByRole('link', { name: 'Mimir' }).getAttribute('href')).toBe('/p/MMR');
+    // Phone only: the sidebar outline carries the place from md up.
+    expect(parent.className).toContain('md:hidden');
+    expect(screen.queryByRole('navigation', { name: 'Path' })).toBeNull();
     expect(screen.getByText('MMR-105 · phase')).toBeDefined();
     expect(screen.queryByRole('button', { name: 'Project settings' })).toBeNull();
 

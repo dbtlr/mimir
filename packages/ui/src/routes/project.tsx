@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { isNotFound } from '../api/errors';
-import { doctorQuery, projectQuery, treeQuery } from '../api/queries';
+import { doctorQuery, projectQuery } from '../api/queries';
 import { OfflineBanner } from '../components/offline-banner';
 import { RecordPending } from '../components/record-layout';
 import { WorkPage } from '../components/work-page';
@@ -13,16 +13,14 @@ import { ProjectUnavailablePage } from './not-found';
 /**
  * `/p/$key` — the project opens as its work page (ADR 0013, MMR-467
  * refinement): Now, Needs you, Frontier, Shipped, and Going cold beside a rail
- * of Direction, Structure, About, Artifacts, and Other views.
+ * of Direction, About, and Artifacts. Its structure is the sidebar outline
+ * (MMR-496).
  */
 export function ProjectPage() {
   const { key } = projectRoute.useParams();
   const project = useQuery(projectQuery(key));
-  // The tree outlines the structure and the doctor read counts findings; a
-  // miss on either only thins the page, so neither counts toward connectivity.
-  // The tree is the whole board, so it is read once rather than polled, as on
-  // the record pages; a console write invalidates it.
-  const tree = useQuery({ ...treeQuery(key), refetchInterval: false });
+  // The doctor read counts findings; a miss only thins the page, so it does not
+  // count toward connectivity.
   const health = useQuery(doctorQuery(key));
   const conn = connectivity([project]);
   useRememberRecord(
@@ -49,8 +47,6 @@ export function ProjectPage() {
       <OfflineBanner {...conn} />
       <WorkPage
         record={project.data}
-        tree={tree.data}
-        treeFailed={tree.isError}
         findings={health.data?.finding_total ?? 0}
         offline={conn.offline}
       />

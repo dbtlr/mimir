@@ -1,12 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { WireReviewReport, WireWorkNeedsYou } from '../api/types';
 import { router } from '../router';
 import { project, reviewReport, seed, task, workReport } from './fixtures';
+import { stubViewport } from './viewport';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
@@ -16,31 +17,6 @@ vi.mock('../api/client', () => ({ apiGet, apiSend }));
  * decisions waiting on the operator across projects. It opens a popover of
  * them on a desktop and a bottom sheet on a phone.
  */
-
-/**
- * Pin the viewport the alert switches on: a desktop width, or a phone's. The
- * returned setter flips it and notifies the listeners, as a window resize does.
- */
-function stubViewport(initial: 'desktop' | 'phone') {
-  let desktop = initial === 'desktop';
-  const listeners = new Set<() => void>();
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
-    get matches() {
-      return desktop;
-    },
-    media: query,
-    removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
-  }));
-  return (next: 'desktop' | 'phone') => {
-    desktop = next === 'desktop';
-    act(() => {
-      for (const listener of listeners) {
-        listener();
-      }
-    });
-  };
-}
 
 beforeEach(() => {
   apiGet.mockReset();

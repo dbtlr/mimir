@@ -14,7 +14,7 @@ says otherwise. For access from another device, pick a
 [network mode](../guides/port-and-proxy.md): `tailscale serve` keeps HTTPS and
 the installable PWA, and a reverse proxy does too.
 
-![Mimir project work page with its rail of direction, structure, and details](../assets/console-project.png)
+![Mimir project work page with its rail of direction, details, and artifacts](../assets/console-project.png)
 
 ## Review what needs you
 
@@ -73,15 +73,17 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
   task in review, and Answer… on a task that needs answers, which saves your
   answer as a note and sets the task's grooming state. The row then moves to
   the section it now belongs in. Offline, these buttons are disabled. The rail
-  holds the direction (clamped to a few lines, with Read more for the rest), the
-  structure of initiatives and phases, About (the description and details),
-  Artifacts (a project's five newest, with a link to all of them when it has more than five), and a link to
-  the project's tasks. New task is in the page head, and a project's settings sit
-  beside it. An initiative or phase adds its path above the title and keeps its
-  notes under a Timeline tab, at `?tab=timeline`.
-- **A task page** shows the path above the task, its description, a timeline
-  with a note field, and a rail with actions, agent context, dependencies,
-  artifacts, and details.
+  holds the direction (clamped to a few lines, with Read more for the rest),
+  About (the description and details), and Artifacts (a project's five newest,
+  with a link to all of them when it has more than five). A link to all of the
+  project's tasks closes the five sections. New task is in the page head, and a
+  project's settings sit beside it. An initiative or phase keeps its notes under
+  a Timeline tab, at `?tab=timeline`. Its place in the project is marked in the
+  sidebar, and on a phone a link to its parent stands above its ID.
+- **A task page** shows its description, a timeline with a note field, and a
+  rail with actions, agent context, dependencies, artifacts, and details. The
+  sidebar lists the task under its phase or initiative, and on a phone a link
+  to that parent (or to the project) stands above its ID.
 - **A seed page** reads as a request: which board asks which, the description,
   and what came of it, meaning the tasks promoted from the seed and the tasks
   on any board that name it as upstream. A decision block offers the verbs the
@@ -99,13 +101,41 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
 
 On a phone, the rail folds into chips that open bottom sheets.
 
+## Find your way with the sidebar
+
+A sidebar on the left frames every page for the current project. The current
+project is the one in the address, else the last one you visited on this
+device, else the first in the project menu. With no projects, there is no
+sidebar; the review page offers **New project**.
+
+- **The header** names the project by key and title. Choose it to open the
+  project menu, which lists every project with its ready count and ends with
+  **New project**.
+- **Work** opens the project's work page. Under it, an outline lists the
+  project's initiatives and phases, each with its done-over-total count, ∞
+  when open-ended, or _parked_. Finished initiatives fold into one line you can
+  open. Tasks are not in the outline unless you have one open.
+- **Tasks**, **Seeds**, and **Artifacts** open the project's browsers. The
+  section you are in is marked, and a record counts toward its section: a
+  task's page is in Tasks, a seed's in Seeds, an artifact's in Artifacts, and
+  an initiative's or phase's in Work.
+- **The outline marks the open record's place.** The initiatives and phases
+  above it are ringed, an open initiative or phase is highlighted, and an open
+  task appears under its nearest container. A finished initiative opens when
+  the record sits inside it.
+
+On a phone, the sidebar is a drawer. The button at the left of the top bar
+opens it. Choosing a section or record closes it. Escape or a tap outside
+also closes it and returns focus to the button.
+
+The top bar holds the Mimir brand (a link to the review page), the jump
+palette, **Needs you**, and the theme toggle.
+
 ## Browse a project's records
 
 Each project has three browsers, at `/p/KEY/tasks`, `/p/KEY/seeds`, and
-`/p/KEY/artifacts`. The top bar links to the current project's: the project in
-the address, else the last one you visited on this device, else the first in the
-project switcher. The old addresses `/tasks`, `/seeds`, and `/artifacts` still
-work: with `?project=KEY` they open that project's browser, and without it they
+`/p/KEY/artifacts`. The sidebar links to the current project's. The old
+addresses `/tasks`, `/seeds`, and `/artifacts` still work: with `?project=KEY` they open that project's browser, and without it they
 open the current project's. With no projects at all they open the review page.
 
 - **Tasks** for the project's tasks, grouped by status, with

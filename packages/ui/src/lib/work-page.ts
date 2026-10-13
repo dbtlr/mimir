@@ -1,9 +1,10 @@
 import type { WireArtifact, WireTreeNode } from '../api/types';
+import { ancestorsOf, subtreeOf } from './ancestry';
 
 /*
  * The pure derivations behind the work page (ADR 0013, MMR-467 refinement):
  * Shipped's day groups and per-day cap, whether the frontier has any row, and
- * the Structure outline of initiatives and phases.
+ * the outline of initiatives and phases the shell's sidebar shows.
  */
 
 /** Rows a Shipped day shows before its "N more" control. */
@@ -106,24 +107,30 @@ export function frontierIsEmpty(frontier: {
   );
 }
 
-/** What a Structure row shows beside its title. */
+/** What an outline row shows beside its title. */
 export type OutlineTally =
   | { kind: 'counts'; done: number; total: number }
   | { kind: 'open_ended' }
-  | { kind: 'parked' };
+  | { kind: 'parked' }
+  | { kind: 'none' };
 
-/** One initiative or phase in the Structure outline, at its nesting depth. */
+/**
+ * Where an outline row sits against the open record: the record itself, or a
+ * container above it.
+ */
+export type OutlineMark = 'current' | 'path';
+
+/** One initiative or phase in the outline, at its nesting depth; or the open task. */
 export type OutlineEntry = {
   id: string;
   title: string;
   status: WireTreeNode['status'];
   depth: number;
   tally: OutlineTally;
+  mark?: OutlineMark;
 };
 
-export type StructureOutline = {
-  /** The project's own `done/total`, for the "All work" row. */
-  root: { done: number; total: number };
+export type ProjectOutline = {
   /** Live top-level containers and everything under them, in tree order. */
   entries: OutlineEntry[];
   /** Finished top-level initiatives, folded: how many, and their rows. */
@@ -155,27 +162,88 @@ function tallyOf(node: WireTreeNode): OutlineTally {
   return { kind: 'counts', ...childTally(node) };
 }
 
+/** The open record and the containers above it. */
+type Place = { currentId: string; pathIds: ReadonlySet<string> };
+
+function markOf(id: string, place: Place | undefined): OutlineMark | undefined {
+  if (place === undefined) {
+    return undefined;
+  }
+  if (id === place.currentId) {
+    return 'current';
+  }
+  return place.pathIds.has(id) ? 'path' : undefined;
+}
+
 /** A container and the containers under it, flattened in tree order. */
-function flatten(node: WireTreeNode, depth: number): OutlineEntry[] {
+function flatten(node: WireTreeNode, depth: number, place: Place | undefined): OutlineEntry[] {
   return [
-    { depth, id: node.id, status: node.status, tally: tallyOf(node), title: node.title },
-    ...node.children.filter(isContainer).flatMap((c) => flatten(c, depth + 1)),
+    {
+      depth,
+      id: node.id,
+      mark: markOf(node.id, place),
+      status: node.status,
+      tally: tallyOf(node),
+      title: node.title,
+    },
+    ...node.children.filter(isContainer).flatMap((c) => flatten(c, depth + 1, place)),
   ];
 }
 
 /**
- * The Structure outline of a project tree: its initiatives and phases, never
- * its tasks. A top-level initiative that is finished (done or abandoned) folds apart from the rest;
- * a finished phase deeper down stays in place, so the live work reads in context.
+ * The open task as a leaf row just under its nearest container, or first when
+ * the project itself holds it. Unchanged when the container is not in `entries`.
  */
-export function buildOutline(tree: WireTreeNode): StructureOutline {
+function withTaskRow(
+  entries: OutlineEntry[],
+  task: WireTreeNode,
+  parentId: string | undefined,
+): OutlineEntry[] {
+  const at = parentId === undefined ? -1 : entries.findIndex((e) => e.id === parentId);
+  if (parentId !== undefined && at === -1) {
+    return entries;
+  }
+  const row: OutlineEntry = {
+    depth: at === -1 ? 0 : (entries[at]?.depth ?? 0) + 1,
+    id: task.id,
+    mark: 'current',
+    status: task.status,
+    tally: { kind: 'none' },
+    title: task.title,
+  };
+  return entries.toSpliced(at + 1, 0, row);
+}
+
+/**
+ * The outline of a project tree: its initiatives and phases, never its tasks. A
+ * top-level initiative that is finished (done or abandoned) folds apart from the
+ * rest; a finished phase deeper down stays in place, so the live work reads in
+ * context.
+ *
+ * With `openId`, the outline marks where that record sits: its own row is
+ * `current` and the containers above it are `path`. A task is not an outline
+ * row by nature, so the open one is listed under its nearest container.
+ */
+export function buildOutline(tree: WireTreeNode, openId?: string): ProjectOutline {
+  const above = openId === undefined ? undefined : ancestorsOf(tree, openId);
+  const open = openId === undefined ? undefined : subtreeOf(tree, openId);
+  const place: Place | undefined =
+    above === undefined || openId === undefined
+      ? undefined
+      : { currentId: openId, pathIds: new Set(above.map((a) => a.id)) };
   const top = tree.children.filter(isContainer);
   const finishedTop = top.filter(isFinished);
-  return {
-    entries: top.filter((n) => !isFinished(n)).flatMap((n) => flatten(n, 0)),
-    finished: { count: finishedTop.length, entries: finishedTop.flatMap((n) => flatten(n, 0)) },
-    root: childTally(tree),
-  };
+  let entries = top.filter((n) => !isFinished(n)).flatMap((n) => flatten(n, 0, place));
+  let folded = finishedTop.flatMap((n) => flatten(n, 0, place));
+  if (open !== undefined && !isContainer(open)) {
+    const parentId = above?.at(-1)?.id;
+    if (folded.some((e) => e.id === parentId)) {
+      folded = withTaskRow(folded, open, parentId);
+    } else {
+      entries = withTaskRow(entries, open, parentId);
+    }
+  }
+  return { entries, finished: { count: finishedTop.length, entries: folded } };
 }
 
 /** How many artifacts the project rail lists before pointing at the full browser. */
