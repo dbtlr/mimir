@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 
 import { parseJson } from '@mimir/helpers';
 import type { Server } from 'bun';
@@ -341,6 +341,7 @@ test('GET /api/review names the last finish with its finish time', async () => {
 });
 
 test('GET /api/review still answers when the doctor scan fails, counting no findings', async () => {
+  const logged = spyOn(console, 'error').mockImplementation(() => {});
   await send('POST', '/api/seeds', { kind: 'idea', project: 'NRN', title: 'an idea' });
   const failingServer = createServer(store, {
     doctor: () => Promise.reject(new Error('doctor scan failed')),
@@ -352,7 +353,10 @@ test('GET /api/review still answers when the doctor scan fails, counting no find
     expect(res.status).toBe(200);
     const triage = (await parse(res)).triage as Rec[];
     expect(triage.map((g) => [(g.project as Rec).key, g.findings])).toEqual([['NRN', 0]]);
+    // The operator still learns the scan failed: the serve log says so.
+    expect(logged).toHaveBeenCalledWith(expect.stringContaining('doctor scan failed'));
   } finally {
+    logged.mockRestore();
     await failingServer.stop(true);
   }
 });

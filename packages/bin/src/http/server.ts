@@ -1378,7 +1378,11 @@ function bindServer(
                 const facet =
                   opts.doctor === undefined ? emptyDoctorFacet() : await opts.doctor(undefined);
                 return new Map(facet.groups.map((g) => [g.project, g.finding_count]));
-              } catch {
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                console.error(
+                  `⚠ serve: doctor scan failed; the review page counts no findings — ${message}`,
+                );
                 return new Map();
               }
             })();
