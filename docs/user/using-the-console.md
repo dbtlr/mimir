@@ -79,10 +79,10 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
   project's tasks closes the five sections. New task is in the page head, and a
   project's settings sit beside it. An initiative or phase keeps its notes under
   a Timeline tab, at `?tab=timeline`. Its place in the project is marked in the
-  sidebar, and on a phone a link to its parent stands above its ID.
+  sidebar, and below 1024px wide a link to its parent stands above its ID.
 - **A task page** shows its description, a timeline with a note field, and a
   rail with actions, agent context, dependencies, artifacts, and details. The
-  sidebar lists the task under its phase or initiative, and on a phone a link
+  sidebar lists the task under its phase or initiative, and below 1024px wide a link
   to that parent (or to the project) stands above its ID.
 - **A seed page** reads as a request: which board asks which, the description,
   and what came of it, meaning the tasks promoted from the seed and the tasks
@@ -124,7 +124,7 @@ sidebar; the review page offers **New project**.
   task appears under its nearest container. A finished initiative opens when
   the record sits inside it.
 
-On a phone, the sidebar is a drawer. The button at the left of the top bar
+Below 1024px wide, such as on a phone or a small tablet, the sidebar is a drawer. The button at the left of the top bar
 opens it. Choosing a section or record closes it. Escape or a tap outside
 also closes it and returns focus to the button.
 

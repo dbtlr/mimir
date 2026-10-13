@@ -16,7 +16,7 @@ function ParentLabel({ title }: { title: string }) {
 /**
  * The one link above a record's id on a phone (MMR-496): its nearest container,
  * or the project when no container holds it. A desktop reads the same place off
- * the sidebar outline, so the link hides from `md` up.
+ * the sidebar outline, so the link hides from `lg` up (below it the sidebar is a drawer).
  */
 export function ParentLink({
   projectKey,
@@ -29,7 +29,7 @@ export function ParentLink({
 }) {
   const parent = tree === undefined ? undefined : ancestorsOf(tree, nodeId)?.at(-1);
   const className =
-    'flex min-w-0 items-baseline gap-1.5 rounded-sm text-meta text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent md:hidden';
+    'flex min-w-0 items-baseline gap-1.5 rounded-sm text-meta text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent lg:hidden';
   return parent === undefined ? (
     <Link to="/p/$key" params={{ key: projectKey }} className={className}>
       <ParentLabel title={tree?.title ?? projectKey} />

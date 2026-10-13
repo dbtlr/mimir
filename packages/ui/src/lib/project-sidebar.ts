@@ -60,6 +60,14 @@ export function sectionOfPath(
   }
 }
 
+/** Is this a section's own route (`/p/MMR`, `/p/MMR/tasks`), rather than a record inside it? */
+export function isSectionPage(pathname: string): boolean {
+  const segment = projectSegments(pathname)?.segment;
+  return (
+    segment === undefined || segment === 'tasks' || segment === 'seeds' || segment === 'artifacts'
+  );
+}
+
 /** The node id a record page's path opens (`/p/MMR/417` → `MMR-417`), or undefined. */
 export function openRecordId(pathname: string): string | undefined {
   const segments = projectSegments(pathname);

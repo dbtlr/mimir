@@ -1110,7 +1110,7 @@ describe('work page head', () => {
       expect(parent.getAttribute('href')).toBe('/p/MMR/101');
     });
     // Phone only: the sidebar outline carries the place from md up.
-    expect(parent.className).toContain('md:hidden');
+    expect(parent.className).toContain('lg:hidden');
     expect(screen.queryByRole('navigation', { name: 'Path' })).toBeNull();
     expect(screen.getByText('MMR-105 · phase')).toBeDefined();
     expect(screen.queryByRole('button', { name: 'Project settings' })).toBeNull();

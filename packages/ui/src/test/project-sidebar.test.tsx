@@ -1,13 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import type { WireNode, WireTreeNode } from '../api/types';
+import { subtreeOf } from '../lib/ancestry';
 import { rememberProject } from '../lib/current-project';
 import { router } from '../router';
-import { emptyRead, project, reviewReport } from './fixtures';
+import { emptyRead, project, reviewReport, task, workReport } from './fixtures';
 import { stubViewport } from './viewport';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
@@ -62,11 +64,24 @@ function serve(projects: WireNode[], trees: Record<string, WireTreeNode> = {}) {
       return Promise.resolve({ items: projects, total: projects.length });
     }
     // The page itself never loads: these cases read the shell around it.
-    if (
-      path.startsWith('/api/doctor') ||
-      /^\/api\/(projects\/[A-Z]+|nodes\/[A-Z]+-\d+)$/.test(path)
-    ) {
+    if (path.startsWith('/api/doctor') || /^\/api\/projects\/[A-Z]+$/.test(path)) {
       return Promise.withResolvers().promise;
+    }
+    // A record page does load: the sidebar reads the open record's type from it.
+    const nodeId = /^\/api\/nodes\/([A-Z]+-\d+)(\/work\?.*)?$/.exec(path);
+    const found = nodeId?.[1] === undefined ? undefined : subtreeOf(TREE, nodeId[1]);
+    if (found !== undefined) {
+      return Promise.resolve(
+        nodeId?.[2] === undefined
+          ? task({
+              id: found.id,
+              parent: found.parent,
+              status: found.status,
+              title: found.title,
+              type: found.type,
+            })
+          : workReport(),
+      );
     }
     const tree = /^\/api\/projects\/([A-Z]+)\/tree$/.exec(path)?.[1];
     if (tree !== undefined && served[tree] !== undefined) {
@@ -104,8 +119,10 @@ const SECTIONS = ['Work', 'Tasks', 'Seeds', 'Artifacts'];
 /** The sidebar's sections currently marked as the page. */
 async function activeSections() {
   const nav = await sidebar();
-  return SECTIONS.filter(
-    (name) => within(nav).getByRole('link', { name }).getAttribute('aria-current') === 'page',
+  return SECTIONS.filter((name) =>
+    ['page', 'true'].includes(
+      within(nav).getByRole('link', { name }).getAttribute('aria-current') ?? '',
+    ),
   );
 }
 
@@ -161,8 +178,8 @@ describe('sidebar sections mark the page (MMR-485, MMR-496)', () => {
   it('washes the active section in the accent selection treatment, never solid', async () => {
     renderAt('/p/MMR/seeds');
     const link = within(await sidebar()).getByRole('link', { name: 'Seeds' });
-    expect(link.className).toContain('aria-[current=page]:bg-accent/10');
-    expect(link.className).toContain('aria-[current=page]:inset-ring-accent/28');
+    expect(link.className).toContain('aria-[current]:bg-accent/10');
+    expect(link.className).toContain('aria-[current]:inset-ring-accent/28');
   });
 });
 
@@ -330,6 +347,129 @@ describe('sidebar outline', () => {
   });
 });
 
+/** Every sidebar link marked as the current page. */
+const pageMarks = async () =>
+  within(await sidebar())
+    .getAllByRole('link', { current: 'page' })
+    .map((l) => l.textContent);
+
+describe('sidebar announces where the page is', () => {
+  it('marks the phase row as the page and its section as a softer current, not both as the page', async () => {
+    renderAt('/p/MMR/2');
+    const nav = await sidebar();
+    await waitFor(async () => {
+      await expect(pageMarks()).resolves.toStrictEqual([expect.stringContaining('phase MMR-2')]);
+    });
+    expect(within(nav).getByRole('link', { name: 'Work' })).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('marks a task’s row as the page and Tasks as the current section', async () => {
+    renderAt('/p/MMR/3');
+    const nav = await sidebar();
+    await waitFor(async () => {
+      await expect(pageMarks()).resolves.toStrictEqual([expect.stringContaining('task MMR-3')]);
+    });
+    expect(within(nav).getByRole('link', { name: 'Tasks' })).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+  });
+
+  it('marks a browser’s section as the page itself, since no row stands for it', async () => {
+    renderAt('/p/MMR/seeds');
+    const nav = await sidebar();
+    await waitFor(() => {
+      expect(within(nav).getByRole('link', { name: 'Seeds' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      );
+    });
+  });
+
+  it('says in words that a ringed ancestor contains the page', async () => {
+    renderAt('/p/MMR/3');
+    const nav = await outline();
+    const initiative = await within(nav).findByRole('link', { name: /initiative MMR-1/ });
+    await waitFor(() => {
+      expect(initiative).toHaveAccessibleName(/contains this page/);
+    });
+    expect(within(nav).getByRole('link', { name: /phase MMR-4/ })).not.toHaveAccessibleName(
+      /contains this page/,
+    );
+  });
+
+  it('puts a task’s page under Tasks from its own record, without the tree', async () => {
+    const served = apiGet.getMockImplementation();
+    apiGet.mockImplementation((path: string) =>
+      path.endsWith('/tree') ? Promise.reject(new Error('down')) : served?.(path),
+    );
+    renderAt('/p/MMR/3');
+    await waitFor(async () => {
+      await expect(activeSections()).resolves.toStrictEqual(['Tasks']);
+    });
+  });
+
+  it('names the sidebar landmark', async () => {
+    renderAt('/p/MMR');
+    await sidebar();
+    expect(screen.getByRole('complementary', { name: 'Project' })).toBeInTheDocument();
+  });
+
+  it('offers a skip link before everything else that moves focus to the page', async () => {
+    renderAt('/p/MMR/2');
+    await screen.findByRole('heading', { level: 1 });
+    const skip = screen.getByRole('link', { name: 'Skip to content' });
+    expect(document.body.querySelector('a')).toBe(skip);
+
+    await userEvent.click(skip);
+
+    expect(screen.getByRole('main')).toHaveFocus();
+  });
+});
+
+describe('sidebar breakpoint', () => {
+  it('is a drawer on a tablet, where the page rail needs the width', async () => {
+    stubViewport('tablet');
+    renderAt('/p/MMR/2');
+    const open = await screen.findByRole('button', { name: 'Open project menu' });
+    expect(screen.queryByRole('complementary', { name: 'Project' })).toBeNull();
+    await userEvent.click(open);
+    await expect(screen.findByRole('dialog', { name: 'Project' })).resolves.toBeInTheDocument();
+  });
+
+  it('keeps the parent link on a tablet and hides it from desktop', async () => {
+    stubViewport('tablet');
+    renderAt('/p/MMR/3');
+    const parent = await screen.findByRole('link', { name: /phase MMR-2/ });
+    expect(parent.className).toContain('lg:hidden');
+  });
+
+  it('moves the desktop toasts clear of the sidebar', async () => {
+    renderAt('/p/MMR');
+    await sidebar();
+    toast('Saved');
+    const toaster = await waitFor(() => {
+      const el = document.querySelector<HTMLElement>('[data-sonner-toaster]');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    expect(toaster.style.getPropertyValue('--offset-left')).toContain('16rem');
+  });
+
+  it('leaves the toasts at the edge when there is no sidebar', async () => {
+    serve([]);
+    renderAt('/');
+    await screen.findByRole('link', { name: 'Mimir' });
+    toast('Saved');
+    const toaster = await waitFor(() => {
+      const el = document.querySelector<HTMLElement>('[data-sonner-toaster]');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    expect(toaster.style.getPropertyValue('--offset-left')).not.toContain('16rem');
+  });
+});
+
 describe('top bar', () => {
   it('keeps the brand, the jump palette, Needs you, and the theme toggle', async () => {
     const served = apiGet.getMockImplementation();
@@ -415,6 +555,20 @@ describe('sidebar drawer on a phone', () => {
       expect(screen.queryByRole('dialog', { name: 'Project' })).toBeNull();
     });
     expect(testRouter.state.location.pathname).toBe('/p/MMR/seeds');
+  });
+
+  it('closes when the page changes some other way, such as Back or the jump palette', async () => {
+    const testRouter = renderAt('/p/MMR');
+    await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
+    await screen.findByRole('dialog', { name: 'Project' });
+
+    await act(async () => {
+      await testRouter.navigate({ params: { key: 'MMR', seq: '2' }, to: '/p/$key/$seq' });
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Project' })).toBeNull();
+    });
   });
 
   it('closes on the scrim', async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { openRecordId, sectionOfPath } from '../lib/project-sidebar';
+import { isSectionPage, openRecordId, sectionOfPath } from '../lib/project-sidebar';
 
 describe('sectionOfPath', () => {
   it.each([
@@ -24,6 +24,19 @@ describe('sectionOfPath', () => {
 
   it('ignores a trailing slash', () => {
     expect(sectionOfPath('/p/MMR/tasks/')).toBe('tasks');
+  });
+});
+
+describe('isSectionPage', () => {
+  it.each(['/p/MMR', '/p/MMR/tasks', '/p/MMR/seeds', '/p/MMR/artifacts'])(
+    "%s is a section's own page",
+    (path) => {
+      expect(isSectionPage(path)).toBe(true);
+    },
+  );
+
+  it.each(['/p/MMR/417', '/p/MMR/s41', '/p/MMR/a219'])('%s is a record inside one', (path) => {
+    expect(isSectionPage(path)).toBe(false);
   });
 });
 

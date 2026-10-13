@@ -148,7 +148,7 @@ describe('task page (MMR-449)', () => {
     const parent = await screen.findByRole('link', { name: /SQLite replaces Norn/ });
     expect(parent.getAttribute('href')).toBe('/p/MMR/2');
     // The sidebar outline carries the place from md up.
-    expect(parent.className).toContain('md:hidden');
+    expect(parent.className).toContain('lg:hidden');
     expect(screen.queryByRole('navigation', { name: 'Path' })).toBeNull();
   });
 
@@ -163,7 +163,7 @@ describe('task page (MMR-449)', () => {
     await screen.findByRole('heading', { level: 1 });
     const parent = screen
       .getAllByRole('link', { name: 'Mimir' })
-      .find((l) => l.className.includes('md:hidden'));
+      .find((l) => l.className.includes('lg:hidden'));
     expect(parent?.getAttribute('href')).toBe('/p/MMR');
   });
 
@@ -463,7 +463,7 @@ describe('container page (MMR-450)', () => {
     await screen.findByRole('heading', { level: 1 });
     const parent = screen
       .getAllByRole('link', { name: 'Mimir' })
-      .find((l) => l.className.includes('md:hidden'));
+      .find((l) => l.className.includes('lg:hidden'));
     expect(parent?.getAttribute('href')).toBe('/p/MMR');
     await expect(screen.findByRole('region', { name: 'Frontier' })).resolves.toBeDefined();
   });

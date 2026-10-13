@@ -1,13 +1,12 @@
 import { Dialog } from '@base-ui-components/react/dialog';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useRouterState } from '@tanstack/react-router';
+import { Link, useLinkProps, useRouterState } from '@tanstack/react-router';
 import { useState } from 'react';
 
-import { treeQuery } from '../api/queries';
+import { nodeQuery, treeQuery } from '../api/queries';
 import type { WireTreeNode } from '../api/types';
-import { subtreeOf } from '../lib/ancestry';
 import { cn } from '../lib/cn';
-import { openRecordId, sectionOfPath } from '../lib/project-sidebar';
+import { isSectionPage, openRecordId, sectionOfPath } from '../lib/project-sidebar';
 import { nodeLink } from '../lib/record-url';
 import { buildOutline } from '../lib/work-page';
 import type { OutlineEntry, OutlineTally } from '../lib/work-page';
@@ -18,17 +17,19 @@ import { Skeleton } from './ui/skeleton';
 /*
  * The shell's project sidebar (ADR 0013, MMR-492 refinement): the current
  * project's switcher header, its sections, and its initiative and phase
- * outline, which marks the open record's place. A desktop shows it beside the
- * page; a phone folds it into a drawer behind a top-bar button.
+ * outline, which marks the open record's place. From `lg` up it sits beside
+ * the page; below that it folds into a drawer behind a top-bar button, because
+ * a record page's own rail needs the width a tablet has.
  */
 
 /**
  * The selection treatment (ADR 0019): the accent as a low-alpha wash with a
- * hairline inset ring, never a solid fill. Keyed on `aria-current`, which the
- * router sets and the sidebar sets by hand where the page is not the link's own
- * route (a task's page marks Tasks).
+ * hairline inset ring, never a solid fill. Sections key it on any
+ * `aria-current`, rows on `page`.
  */
-const CURRENT =
+const SECTION_CURRENT =
+  'aria-[current]:bg-accent/10 aria-[current]:text-ink-bright aria-[current]:inset-ring aria-[current]:inset-ring-accent/28';
+const ROW_CURRENT =
   'aria-[current=page]:bg-accent/10 aria-[current=page]:text-ink-bright aria-[current=page]:inset-ring aria-[current=page]:inset-ring-accent/28';
 
 const ROW =
@@ -46,6 +47,13 @@ const BROWSERS = [
 
 type SectionEntry = typeof WORK | (typeof BROWSERS)[number];
 
+/**
+ * A section link. It is the page (`aria-current="page"`) only on its own route.
+ * On a record inside it, the record's outline row is the page and the section
+ * is just the current one (`aria-current="true"`), so a screen reader hears one
+ * page, not two. The router would call both "page", so the props are its own
+ * with `aria-current` replaced.
+ */
 function SectionLink({
   entry,
   projectKey,
@@ -54,21 +62,23 @@ function SectionLink({
 }: {
   entry: SectionEntry;
   projectKey: string;
-  current: boolean;
+  current: 'page' | 'true' | undefined;
   onNavigate?: () => void;
 }) {
+  const linkProps = useLinkProps({
+    activeOptions: { exact: true, includeSearch: false },
+    onClick: onNavigate,
+    params: { key: projectKey },
+    to: entry.to,
+  });
   return (
-    <Link
-      to={entry.to}
-      params={{ key: projectKey }}
-      // The route alone cannot say: a task's page is Tasks, a phase's is Work.
-      activeOptions={{ exact: true, includeSearch: false }}
-      aria-current={current ? 'page' : undefined}
-      onClick={onNavigate}
-      className={cn(ROW, 'py-1.5 text-meta max-md:py-2.5', CURRENT)}
+    <a
+      {...linkProps}
+      aria-current={current}
+      className={cn(ROW, 'py-1.5 text-meta max-lg:py-2.5', SECTION_CURRENT)}
     >
       {entry.label}
-    </Link>
+    </a>
   );
 }
 
@@ -97,7 +107,7 @@ function tallyText(tally: OutlineTally): string {
 /**
  * An outline row. The open record's own row is the page (accent wash); the
  * containers above it carry a ring alone, so the record's place reads down the
- * outline.
+ * outline, and say so in words for a screen reader.
  */
 function OutlineRow({ entry, onNavigate }: { entry: OutlineEntry; onNavigate?: () => void }) {
   const tally = tallyText(entry.tally);
@@ -110,13 +120,14 @@ function OutlineRow({ entry, onNavigate }: { entry: OutlineEntry; onNavigate?: (
       onClick={onNavigate}
       className={cn(
         ROW,
-        'rounded-sm py-1 text-xs max-md:py-2 data-[on-path]:text-ink-bright data-[on-path]:inset-ring data-[on-path]:inset-ring-accent/28',
-        CURRENT,
+        'rounded-sm py-1 text-xs max-lg:py-2 data-[on-path]:text-ink-bright data-[on-path]:inset-ring data-[on-path]:inset-ring-accent/28',
+        ROW_CURRENT,
       )}
       style={{ marginLeft: `${String(entry.depth * 0.75)}rem` }}
     >
       <StatusDot status={entry.status} />
       <span className="min-w-0 flex-1 truncate">{entry.title}</span>
+      {entry.mark === 'path' && <span className="sr-only">, contains this page</span>}
       {tally !== '' && (
         <span className="shrink-0 font-mono text-mono-id text-ink-faint">{tally}</span>
       )}
@@ -159,7 +170,7 @@ function Outline({
       ))}
       {outline.finished.count > 0 && (
         <details open={insideFold}>
-          <summary className="cursor-pointer rounded-sm px-2 py-1 text-xs text-ink-faint focus-visible:outline-2 focus-visible:outline-accent max-md:py-2">
+          <summary className="cursor-pointer rounded-sm px-2 py-1 text-xs text-ink-faint focus-visible:outline-2 focus-visible:outline-accent max-lg:py-2">
             {outline.finished.count} finished{' '}
             {outline.finished.count === 1 ? 'initiative' : 'initiatives'}
           </summary>
@@ -183,20 +194,26 @@ function SidebarBody({ projectKey, onNavigate }: { projectKey: string; onNavigat
   // the record pages; a console write invalidates it.
   const tree = useQuery({ ...treeQuery(projectKey), refetchInterval: false });
   const openId = openRecordId(pathname);
-  const openType =
-    openId === undefined || tree.data === undefined
-      ? undefined
-      : subtreeOf(tree.data, openId)?.type;
-  const here = sectionOfPath(pathname, openType);
-  const sectionLink = (entry: SectionEntry) => (
-    <SectionLink
-      key={entry.section}
-      entry={entry}
-      projectKey={projectKey}
-      current={here === entry.section}
-      onNavigate={onNavigate}
-    />
-  );
+  // The page reads this record already, so it is in the cache: a task's page is
+  // Tasks as soon as the record lands, and whether or not the tree does.
+  const record = useQuery({ ...nodeQuery(openId ?? ''), enabled: openId !== undefined });
+  const here = sectionOfPath(pathname, record.data?.type);
+  const onOwnPage = isSectionPage(pathname);
+  const sectionLink = (entry: SectionEntry) => {
+    let current: 'page' | 'true' | undefined;
+    if (here === entry.section) {
+      current = onOwnPage ? 'page' : 'true';
+    }
+    return (
+      <SectionLink
+        key={entry.section}
+        entry={entry}
+        projectKey={projectKey}
+        current={current}
+        onNavigate={onNavigate}
+      />
+    );
+  };
   return (
     <nav aria-label="Project" className="flex flex-col gap-0.5">
       <div className="mb-2">
@@ -217,19 +234,29 @@ function SidebarBody({ projectKey, onNavigate }: { projectKey: string; onNavigat
 /** The desktop sidebar: a fixed-width column beside the page. */
 export function ProjectSidebar({ projectKey }: { projectKey: string }) {
   return (
-    <aside className="w-64 shrink-0 overflow-y-auto border-r border-line bg-well-950 p-2.5">
+    <aside
+      aria-label="Project"
+      className="w-64 shrink-0 overflow-y-auto border-r border-line bg-well-950 p-2.5"
+    >
       <SidebarBody projectKey={projectKey} />
     </aside>
   );
 }
 
 /**
- * The phone sidebar: a button for the top bar that opens the same content as a
- * drawer from the left. Escape or a tap on the scrim closes it and hands focus
- * back to the button; choosing something closes it too.
+ * The compact sidebar: a button for the top bar that opens the same content as
+ * a drawer from the left. Escape or a tap on the scrim closes it and hands
+ * focus back to the button; choosing something, or any other move to another
+ * page (Back, the jump palette), closes it too.
  */
 export function ProjectDrawer({ projectKey }: { projectKey: string }) {
   const [open, setOpen] = useState(false);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [seenPath, setSeenPath] = useState(pathname);
+  if (seenPath !== pathname) {
+    setSeenPath(pathname);
+    setOpen(false);
+  }
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger
