@@ -11,6 +11,8 @@ import {
   depend,
   groomTasks,
   parkTask,
+  reopenTask,
+  returnTask,
   startTask,
   submitTask,
 } from '../mutations';
@@ -18,6 +20,7 @@ import { createScratchpadService } from '../scratchpads';
 import type { Store } from '../store';
 import { expectMimirError } from '../testing';
 import { workPageOf } from './index';
+import type { WorkOptions } from './work';
 
 /**
  * `workPageOf` (MMR-469) — the console work page's sections for a project or a
@@ -51,22 +54,26 @@ async function task(parent: string, title: string): Promise<string> {
   return `MMR-${String(node.seq)}`;
 }
 
+/** The work page in UTC unless a test says otherwise (the zone is a required option). */
+const page = (id: string, opts: Partial<WorkOptions> = {}) =>
+  workPageOf(store, id, { timeZone: 'UTC', ...opts });
+
 const ids = (rows: readonly { task: { id: string } }[]): string[] => rows.map((r) => r.task.id);
 
 const viewIds = (views: readonly { id: string }[]): string[] => views.map((v) => v.id);
 
 test('the scope names its kind, id, and title', async () => {
-  expect((await workPageOf(store, 'MMR')).scope).toEqual({
+  expect((await page('MMR')).scope).toEqual({
     id: 'MMR',
     kind: 'project',
     title: 'Mimir',
   });
-  expect((await workPageOf(store, initId)).scope).toEqual({
+  expect((await page(initId)).scope).toEqual({
     id: initId,
     kind: 'initiative',
     title: 'init',
   });
-  expect((await workPageOf(store, phaseA)).scope).toEqual({
+  expect((await page(phaseA)).scope).toEqual({
     id: phaseA,
     kind: 'phase',
     title: 'A',
@@ -75,11 +82,11 @@ test('the scope names its kind, id, and title', async () => {
 
 test('a task id, an unknown id, and an archived project are refused', async () => {
   const t = await task(phaseA, 't');
-  await expectMimirError('validation', () => workPageOf(store, t));
-  await expectMimirError('not_found', () => workPageOf(store, 'MMR-999'));
-  await expectMimirError('not_found', () => workPageOf(store, 'NOPE'));
+  await expectMimirError('validation', () => page(t));
+  await expectMimirError('not_found', () => page('MMR-999'));
+  await expectMimirError('not_found', () => page('NOPE'));
   await archiveProject(store, 'MMR');
-  await expectMimirError('not_found', () => workPageOf(store, 'MMR'));
+  await expectMimirError('not_found', () => page('MMR'));
 });
 
 test('now lists in_progress tasks with started time, latest note, and agent context', async () => {
@@ -90,7 +97,7 @@ test('now lists in_progress tasks with started time, latest note, and agent cont
   const idle = await task(phaseA, 'idle');
   void idle;
 
-  const report = await workPageOf(store, 'MMR');
+  const report = await page('MMR');
   expect(report.now).toHaveLength(1);
   const row = report.now[0];
   expect(row?.task.id).toBe(t);
@@ -109,7 +116,7 @@ test('now lists the Scratchpads anchored to the task', async () => {
   const service = createScratchpadService(store.scratchpads, store.artifacts, store);
   const pad = await service.create({ anchors: [t], project: 'MMR', title: 'working notes' });
 
-  const rows = (await workPageOf(store, 'MMR')).now;
+  const rows = (await page('MMR')).now;
   expect(rows.find((r) => r.task.id === t)?.scratchpads).toEqual([
     { id: pad.id, title: 'working notes' },
   ]);
@@ -119,7 +126,7 @@ test('now lists the Scratchpads anchored to the task', async () => {
 test('now has no note when the task has none', async () => {
   const t = await task(phaseA, 'quiet');
   await startTask(store, t);
-  expect((await workPageOf(store, 'MMR')).now[0]?.latestNote).toBeNull();
+  expect((await page('MMR')).now[0]?.latestNote).toBeNull();
 });
 
 test('needs_you orders under_review, then you-blocks, then needs-answers', async () => {
@@ -131,7 +138,7 @@ test('needs_you orders under_review, then you-blocks, then needs-answers', async
   await startTask(store, review);
   await submitTask(store, review);
 
-  const report = await workPageOf(store, 'MMR');
+  const report = await page('MMR');
   expect(report.needsYou.map((r) => [r.task.id, r.reason])).toEqual([
     [review, 'under_review'],
     [blocked, 'blocked'],
@@ -147,13 +154,13 @@ test('needs_you is most recent first within each reason', async () => {
   await blockTask(store, older, 'x', 'you');
   await blockTask(store, newer, 'y', 'you');
   await rawPatchNode(store, older, { updated_at: '2026-01-01T00:00:00.000Z' });
-  expect(ids((await workPageOf(store, 'MMR')).needsYou)).toEqual([newer, older]);
+  expect(ids((await page('MMR')).needsYou)).toEqual([newer, older]);
 });
 
 test('a block owned by others is not in needs_you', async () => {
   const t = await task(phaseA, 'waiting on upstream');
   await blockTask(store, t, 'upstream', 'others');
-  const report = await workPageOf(store, 'MMR');
+  const report = await page('MMR');
   expect(report.needsYou).toEqual([]);
   expect(ids(report.frontier.runnable)).toEqual([]);
 });
@@ -161,7 +168,7 @@ test('a block owned by others is not in needs_you', async () => {
 test('needs_answers tasks are not in the frontier', async () => {
   const q = await task(phaseA, 'q');
   await groomTasks(store, [q], 'needs_answers', 'why?');
-  const report = await workPageOf(store, 'MMR');
+  const report = await page('MMR');
   expect(ids(report.frontier.toGroom)).toEqual([]);
   expect(ids(report.frontier.runnable)).toEqual([]);
   expect(ids(report.needsYou)).toEqual([q]);
@@ -173,7 +180,7 @@ test('the frontier splits ready work into runnable and to_groom in rank order', 
   const third = await task(phaseA, 'third');
   await groomTasks(store, [first, third], 'groomed');
 
-  const report = await workPageOf(store, 'MMR');
+  const report = await page('MMR');
   expect(ids(report.frontier.runnable)).toEqual([first, third]);
   expect(ids(report.frontier.toGroom)).toEqual([second]);
   expect(report.frontier.nextToUnlock).toEqual([]);
@@ -187,7 +194,7 @@ test('a task one step from ready joins the frontier; two steps away is excluded'
   await depend(store, c, [b]);
   await groomTasks(store, [a, b, c], 'groomed');
 
-  const report = await workPageOf(store, 'MMR');
+  const report = await page('MMR');
   expect(ids(report.frontier.runnable)).toEqual([a]);
   expect(report.frontier.nextToUnlock.map((g) => g.prerequisite.id)).toEqual([a]);
   expect(ids(report.frontier.nextToUnlock[0]?.tasks ?? [])).toEqual([b]);
@@ -206,7 +213,7 @@ test('a task awaiting an in-flight prerequisite is one step away', async () => {
   await groomTasks(store, [b], 'groomed');
   await startTask(store, a);
 
-  const report = await workPageOf(store, 'MMR');
+  const report = await page('MMR');
   expect(report.frontier.nextToUnlock).toHaveLength(1);
   expect(report.frontier.nextToUnlock[0]?.prerequisite).toEqual({
     id: a,
@@ -222,7 +229,7 @@ test('a task awaiting a blocked prerequisite is not on the frontier', async () =
   await depend(store, b, [a]);
   await groomTasks(store, [b], 'groomed');
   await blockTask(store, a, 'stuck', 'others');
-  const report = await workPageOf(store, 'MMR');
+  const report = await page('MMR');
   expect(report.frontier.nextToUnlock).toEqual([]);
 });
 
@@ -233,7 +240,7 @@ test('a task waiting on two frontier prerequisites appears under each, groups in
   await depend(store, c, [a, b]);
   await groomTasks(store, [c], 'groomed');
 
-  const report = await workPageOf(store, 'MMR');
+  const report = await page('MMR');
   expect(report.frontier.nextToUnlock.map((g) => g.prerequisite.id)).toEqual([a, b]);
   expect(report.frontier.nextToUnlock.map((g) => ids(g.tasks))).toEqual([[c], [c]]);
 });
@@ -242,7 +249,7 @@ test('an ungroomed awaiting task is a to_groom row naming what it awaits', async
   const a = await task(phaseA, 'a');
   const b = await task(phaseA, 'b');
   await depend(store, b, [a]);
-  const report = await workPageOf(store, 'MMR');
+  const report = await page('MMR');
   expect(report.frontier.toGroom.map((r) => [r.task.id, r.awaitingOn])).toEqual([
     [a, []],
     [b, [a]],
@@ -255,7 +262,7 @@ test('an edge on a container gates its descendants and counts as one step', asyn
   await depend(store, phaseA, [gate]);
   await groomTasks(store, [gate, inA], 'groomed');
 
-  const report = await workPageOf(store, 'MMR');
+  const report = await page('MMR');
   expect(ids(report.frontier.runnable)).toEqual([gate]);
   expect(report.frontier.nextToUnlock.map((g) => [g.prerequisite.id, ids(g.tasks)])).toEqual([
     [gate, [inA]],
@@ -270,7 +277,7 @@ test('a phase scope excludes tasks outside its subtree but an outside prerequisi
   await depend(store, inA, [outside]);
   await groomTasks(store, [outside, outsideOther, inA, inA2], 'groomed');
 
-  const report = await workPageOf(store, phaseA);
+  const report = await page(phaseA);
   expect(ids(report.frontier.runnable)).toEqual([inA2]);
   expect(report.frontier.nextToUnlock.map((g) => [g.prerequisite.id, ids(g.tasks)])).toEqual([
     [outside, [inA]],
@@ -286,19 +293,19 @@ test('a phase scope excludes tasks outside its subtree but an outside prerequisi
 test('an initiative scope covers every phase beneath it', async () => {
   const inA = await task(phaseA, 'a');
   const inB = await task(phaseB, 'b');
-  const report = await workPageOf(store, initId);
+  const report = await page(initId);
   expect(ids(report.frontier.toGroom)).toEqual([inA, inB]);
 });
 
 test('parked tasks are not in the frontier', async () => {
   const t = await task(phaseA, 'parked');
   await parkTask(store, t);
-  const report = await workPageOf(store, 'MMR');
+  const report = await page('MMR');
   expect(ids(report.frontier.toGroom)).toEqual([]);
   expect(ids(report.frontier.runnable)).toEqual([]);
 });
 
-test('shipped keeps done and abandoned tasks from the last 7 days, newest first, with abandon reason', async () => {
+test('shipped keeps done and abandoned tasks from today, with abandon reason', async () => {
   const done = await task(phaseA, 'done');
   await startTask(store, done);
   await completeTask(store, done);
@@ -307,13 +314,29 @@ test('shipped keeps done and abandoned tasks from the last 7 days, newest first,
   const bare = await task(phaseA, 'dropped bare');
   await abandonTask(store, bare);
 
-  const report = await workPageOf(store, 'MMR');
-  expect(report.shipped.map((r) => r.task.id)).toEqual([bare, dropped, done]);
+  const report = await page('MMR');
+  expect(report.shipped.map((r) => r.task.id).toSorted()).toEqual([bare, done, dropped].toSorted());
   const byId = new Map(report.shipped.map((r) => [r.task.id, r]));
   expect(byId.get(dropped)?.abandonReason).toBe('no longer needed');
   expect(byId.get(bare)?.abandonReason).toBeNull();
   expect(byId.get(done)?.abandonReason).toBeNull();
   expect(byId.get(done)?.finishedAt).toBe(byId.get(done)?.task.completedAt ?? 'unset');
+});
+
+test('shipped is ordered by finish time, newest first, whatever the seq order', async () => {
+  const first = await task(phaseA, 'created first');
+  const second = await task(phaseA, 'created second');
+  const third = await task(phaseA, 'created third');
+  for (const id of [first, second, third]) {
+    await completeTask(store, id);
+  }
+  // Finish times that follow neither seq order nor its reverse.
+  await rawPatchNode(store, first, { completed_at: '2026-03-15T10:00:00.000Z' });
+  await rawPatchNode(store, second, { completed_at: '2026-03-14T09:00:00.000Z' });
+  await rawPatchNode(store, third, { completed_at: '2026-03-16T01:00:00.000Z' });
+
+  const report = await page('MMR', { asOf: '2026-03-16T12:00:00.000Z' });
+  expect(ids(report.shipped)).toEqual([third, first, second]);
 });
 
 test('shipped covers the last 7 calendar days, today included, in the caller zone', async () => {
@@ -326,20 +349,20 @@ test('shipped covers the last 7 calendar days, today included, in the caller zon
   // UTC: the window opens 2026-03-10T00:00Z (today is the 16th; 6 days back).
   await rawPatchNode(store, edgeIn, { completed_at: '2026-03-10T00:00:00.000Z' });
   await rawPatchNode(store, edgeOut, { completed_at: '2026-03-09T23:59:59.999Z' });
-  expect(ids((await workPageOf(store, 'MMR', { asOf })).shipped)).toEqual([edgeIn]);
+  expect(ids((await page('MMR', { asOf })).shipped)).toEqual([edgeIn]);
 
   // New York is on EDT: the 16th began at 04:00Z, so the window opens 2026-03-10T04:00Z.
   await rawPatchNode(store, edgeIn, { completed_at: '2026-03-10T04:00:00.000Z' });
   await rawPatchNode(store, edgeOut, { completed_at: '2026-03-10T03:59:59.999Z' });
   const ny = { asOf, timeZone: 'America/New_York' };
-  expect(ids((await workPageOf(store, 'MMR', ny)).shipped)).toEqual([edgeIn]);
+  expect(ids((await page('MMR', ny)).shipped)).toEqual([edgeIn]);
 });
 
 test('shipped excludes a completion after the end of today', async () => {
   const t = await task(phaseA, 'future');
   await completeTask(store, t);
   await rawPatchNode(store, t, { completed_at: '2026-03-17T00:00:00.000Z' });
-  const report = await workPageOf(store, 'MMR', { asOf: '2026-03-16T12:00:00.000Z' });
+  const report = await page('MMR', { asOf: '2026-03-16T12:00:00.000Z' });
   expect(report.shipped).toEqual([]);
 });
 
@@ -348,7 +371,7 @@ test('shipped is scoped to the container subtree', async () => {
   const inB = await task(phaseB, 'b');
   await completeTask(store, inA);
   await completeTask(store, inB);
-  expect(ids((await workPageOf(store, phaseA)).shipped)).toEqual([inA]);
+  expect(ids((await page(phaseA)).shipped)).toEqual([inA]);
 });
 
 test('going_stale lists stale tasks no other section shows, stalest first', async () => {
@@ -364,21 +387,19 @@ test('going_stale lists stale tasks no other section shows, stalest first', asyn
   await rawPatchNode(store, readyStale, { updated_at: '2026-01-01T00:00:00.000Z' });
   await rawPatchNode(store, workingStale, { updated_at: '2026-01-01T00:00:00.000Z' });
 
-  const report = await workPageOf(store, 'MMR', { asOf: '2026-03-01T00:00:00.000Z' });
+  const report = await page('MMR', { asOf: '2026-03-01T00:00:00.000Z' });
   expect(viewIds(report.goingStale)).toEqual([staler, stale]);
   // Each of the others is shown once, in the earlier section that claims it.
   expect(ids(report.now)).toEqual([workingStale]);
   expect(ids(report.frontier.toGroom)).toContain(readyStale);
-  expect(
-    viewIds((await workPageOf(store, 'MMR', { asOf: '2026-01-03T00:00:00.000Z' })).goingStale),
-  ).toEqual([]);
+  expect(viewIds((await page('MMR', { asOf: '2026-01-03T00:00:00.000Z' })).goingStale)).toEqual([]);
 });
 
 test('a started task blocked on you is in needs_you, not now', async () => {
   const t = await task(phaseA, 'working then blocked');
   await startTask(store, t);
   await blockTask(store, t, 'need a decision', 'you');
-  const report = await workPageOf(store, 'MMR');
+  const report = await page('MMR');
   expect(report.now).toEqual([]);
   expect(report.needsYou.map((r) => [r.task.id, r.reason])).toEqual([[t, 'blocked']]);
 });
@@ -389,7 +410,7 @@ test('a parked or blocked needs-answers task is not a needs-answers row', async 
   await groomTasks(store, [parked, blocked], 'needs_answers', 'why?');
   await parkTask(store, parked);
   await blockTask(store, blocked, 'x', 'others');
-  const report = await workPageOf(store, 'MMR');
+  const report = await page('MMR');
   expect(report.needsYou).toEqual([]);
 });
 
@@ -397,13 +418,13 @@ test('a needs-answers question is the latest note, even one added after grooming
   const t = await task(phaseA, 'q');
   await groomTasks(store, [t], 'needs_answers', 'first question');
   await annotate(store, t, 'follow-up detail');
-  expect((await workPageOf(store, 'MMR')).needsYou[0]?.question).toBe('follow-up detail');
+  expect((await page('MMR')).needsYou[0]?.question).toBe('follow-up detail');
 });
 
 test('containers never appear as rows', async () => {
   const t = await task(phaseA, 't');
   await startTask(store, t);
-  const report = await workPageOf(store, 'MMR');
+  const report = await page('MMR');
   const all = [
     ...ids(report.now),
     ...ids(report.needsYou),
@@ -413,4 +434,57 @@ test('containers never appear as rows', async () => {
     ...viewIds(report.goingStale),
   ];
   expect(all.every((id) => ![initId, phaseA, phaseB].includes(id))).toBe(true);
+});
+
+test('started_at is the latest start or reopen, not a return from review', async () => {
+  const t = await task(phaseA, 'cycled');
+  await startTask(store, t);
+  await completeTask(store, t);
+  await reopenTask(store, t, 'not finished');
+  const history = await store.bodySections.readHistory(t);
+  const reopenedAt = history.at(-1)?.at;
+  expect(history.at(-1)?.to).toBe('in_progress');
+
+  expect((await page('MMR')).now[0]?.startedAt).toBe(reopenedAt ?? 'missing');
+
+  // A return from review keeps the earlier start.
+  const r = await task(phaseA, 'returned');
+  await startTask(store, r);
+  const startedAt = (await store.bodySections.readHistory(r)).at(-1)?.at;
+  await submitTask(store, r);
+  await returnTask(store, r, 'more work');
+  const row = (await page('MMR')).now.find((n) => n.task.id === r);
+  expect(row?.startedAt).toBe(startedAt ?? 'missing');
+});
+
+test('runnable requires a rank, as next does', async () => {
+  const ranked = await task(phaseA, 'ranked');
+  const unranked = await task(phaseA, 'unranked');
+  await groomTasks(store, [ranked, unranked], 'groomed');
+  await rawPatchNode(store, unranked, { rank: null });
+  expect(ids((await page('MMR')).frontier.runnable)).toEqual([ranked]);
+});
+
+test('every row carries a stale flag, even where going_stale does not list it', async () => {
+  const working = await task(phaseA, 'working');
+  const ready = await task(phaseA, 'ready');
+  const fresh = await task(phaseA, 'fresh');
+  await startTask(store, working);
+  await rawPatchNode(store, working, { updated_at: '2026-01-01T00:00:00.000Z' });
+  await rawPatchNode(store, ready, { updated_at: '2026-01-01T00:00:00.000Z' });
+  await rawPatchNode(store, fresh, { updated_at: '2026-02-28T00:00:00.000Z' });
+
+  const report = await page('MMR', { asOf: '2026-03-01T00:00:00.000Z' });
+  expect(report.now.map((r) => [r.task.id, r.stale])).toEqual([[working, true]]);
+  const stale = new Map(report.frontier.toGroom.map((r) => [r.task.id, r.stale]));
+  expect(stale.get(ready)).toBe(true);
+  expect(stale.get(fresh)).toBe(false);
+  expect(report.goingStale).toEqual([]);
+});
+
+test('a missing or unknown zone is a validation error', async () => {
+  await expectMimirError('validation', () => workPageOf(store, 'MMR', { timeZone: '' }));
+  await expectMimirError('validation', () =>
+    workPageOf(store, 'MMR', { timeZone: 'Mars/Olympus' }),
+  );
 });

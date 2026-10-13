@@ -733,6 +733,8 @@ export type WorkNowTask = {
   latestNote: AnnotationView | null;
   /** Active Scratchpads anchored to the task. */
   scratchpads: WorkScratchpad[];
+  /** This task is past the stale threshold (shown here even when going stale lists it elsewhere). */
+  stale: boolean;
 };
 
 export type WorkNeedsYouReason = 'under_review' | 'blocked' | 'needs_answers';
@@ -743,6 +745,8 @@ export type WorkNeedsYouTask = {
   reason: WorkNeedsYouReason;
   /** The latest note's text for a needs-answers task (the open question); null otherwise. */
   question: string | null;
+  /** This task is past the stale threshold (shown here even when going stale lists it elsewhere). */
+  stale: boolean;
 };
 
 /** A frontier task: ready, or awaiting only prerequisites that are one step from done. */
@@ -750,6 +754,8 @@ export type WorkFrontierTask = {
   task: NodeView;
   /** The unsettled prerequisite ids it awaits (own or inherited); empty when ready. */
   awaitingOn: string[];
+  /** This task is past the stale threshold (shown here even when going stale lists it elsewhere). */
+  stale: boolean;
 };
 
 /** The frontier tasks waiting on one prerequisite. */
@@ -774,6 +780,8 @@ export type WorkShippedTask = {
   finishedAt: string;
   /** The reason an abandoned task carries; null for a done task or an abandon without one. */
   abandonReason: string | null;
+  /** This task is past the stale threshold (shown here even when going stale lists it elsewhere). */
+  stale: boolean;
 };
 
 /**
@@ -787,7 +795,7 @@ export type WorkReport = {
   frontier: WorkFrontier;
   /** Done or abandoned in the last 7 days, newest first. */
   shipped: WorkShippedTask[];
-  /** Tasks past the stale threshold, stalest first. */
+  /** Stale tasks no earlier section shows, stalest first (each wire row carries `stale: true`). */
   goingStale: NodeView[];
 };
 

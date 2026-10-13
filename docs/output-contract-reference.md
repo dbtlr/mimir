@@ -206,6 +206,48 @@ counts, each with a capped `listings` head.
 The MCP `overview` tool and HTTP `GET /api/projects/:key/overview` return the
 identical envelope (ADR 0012).
 
+## The work page (HTTP report, MMR-469)
+
+`GET /api/projects/:key/work` and `GET /api/nodes/:id/work` return the console
+work page for a project, or for an initiative or phase and its whole subtree. A
+task id is refused (400 `validation`); an unknown or archived id is a 404. Both
+routes **require `?tz=`**, the caller's IANA zone, and answer 400 `validation`
+without it or with an unknown zone: it decides where the `shipped` days begin
+and end (ADR 0029), and there is no fallback zone. The page has no CLI or MCP
+form yet.
+
+The envelope is one composite object. Rows are tasks only (containers scope the
+page and never appear as rows), no section is capped, and a task appears in the
+first section that claims it: `now`, `needs_you`, `frontier`, `shipped`,
+`going_stale`. Every row is the lean task object `list`/`next` emit with the
+section's fields folded on, and every row carries `stale` (true once the task is
+past the stale threshold, even where `going_stale` does not list it).
+
+- `scope`: `{ kind, id, title }`, where `kind` is `project`, `initiative`, or `phase`.
+- `now`: in-progress tasks. Adds `started_at` (the latest start or reopen),
+  `latest_note` (`{ content, created_at }` or `null`), and `scratchpads`
+  (`[{ id, title }]`, the active Scratchpads anchored to the task). The agent
+  context (`harness`, `branch`, `host`, `session`, `external_ref`) is on the
+  task object.
+- `needs_you`: under review, then blocks owned by `you`, then todo tasks whose
+  grooming is `needs_answers`; newest first within each. Adds `reason`
+  (`under_review`, `blocked`, or `needs_answers`) and `question` (the task's
+  latest note for `needs_answers`, otherwise `null`).
+- `frontier`: todo, un-held tasks that are ready or await only prerequisites
+  that are in progress, under review, or ready.
+  - `runnable`: groomed, ready, and ranked, in `next` order.
+  - `next_to_unlock`: `[{ prerequisite: { id, title, status }, tasks }]`, groomed
+    tasks grouped by the prerequisite they wait on. A task waiting on several
+    prerequisites appears under each.
+  - `to_groom`: tasks that are not groomed, in rank order.
+  - Every frontier task adds `awaiting_on`, the unsettled prerequisite ids
+    (empty when ready).
+- `shipped`: tasks done or abandoned in the last seven calendar days, today
+  included, in the caller's zone; newest first. Adds `finished_at` and
+  `abandon_reason` (`null` for a done task).
+- `going_stale`: stale tasks that no earlier section shows, stalest first; each
+  row has `stale: true`.
+
 ## The `service` report (report kind, MMR-59)
 
 `mimir service status` emits `{ config, recent_events, units }`, on one line

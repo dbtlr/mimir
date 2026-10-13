@@ -537,7 +537,7 @@ export function overviewToWire(report: OverviewReport): Record<string, unknown> 
 
 /** A work-page frontier row: the lean task with the prerequisites it awaits folded on. */
 function frontierTaskToWire(row: WorkFrontierTask): Record<string, unknown> {
-  return { ...nodeToWire(row.task), awaiting_on: row.awaitingOn };
+  return { ...nodeToWire(row.task), awaiting_on: row.awaitingOn, stale: row.stale };
 }
 
 /**
@@ -559,11 +559,12 @@ export function workToWire(report: WorkReport): Record<string, unknown> {
       runnable: report.frontier.runnable.map(frontierTaskToWire),
       to_groom: report.frontier.toGroom.map(frontierTaskToWire),
     },
-    going_stale: report.goingStale.map(nodeToWire),
+    going_stale: report.goingStale.map((task) => ({ ...nodeToWire(task), stale: true })),
     needs_you: report.needsYou.map((row) => ({
       ...nodeToWire(row.task),
       question: row.question,
       reason: row.reason,
+      stale: row.stale,
     })),
     now: report.now.map((row) => ({
       ...nodeToWire(row.task),
@@ -572,6 +573,7 @@ export function workToWire(report: WorkReport): Record<string, unknown> {
           ? null
           : { content: row.latestNote.content, created_at: row.latestNote.createdAt },
       scratchpads: row.scratchpads,
+      stale: row.stale,
       started_at: row.startedAt,
     })),
     scope: report.scope,
@@ -579,6 +581,7 @@ export function workToWire(report: WorkReport): Record<string, unknown> {
       ...nodeToWire(row.task),
       abandon_reason: row.abandonReason,
       finished_at: row.finishedAt,
+      stale: row.stale,
     })),
   };
 }

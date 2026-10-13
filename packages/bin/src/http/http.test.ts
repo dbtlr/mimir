@@ -4,13 +4,20 @@ import { parseJson } from '@mimir/helpers';
 import type { Server } from 'bun';
 
 import {
+  abandonTask,
+  annotate,
   completeTask,
   createInitiative,
   createPhase,
   createProject,
+  createScratchpadService,
   createTask,
+  depend,
   deriveSet,
   findNodeInSet,
+  groomTasks,
+  startTask,
+  submitTask,
 } from '../core';
 import type { Store } from '../core';
 import { SCHEMA_VERSION } from '../core/store-sql/migrator';
@@ -246,7 +253,7 @@ test('GET /api/projects/:key/overview rejects a node ref key', async () => {
 
 // The console work page (MMR-469): one derivation for a project or any container.
 test('GET /api/projects/:key/work serves the sections for the whole project', async () => {
-  const res = await get('/api/projects/MMR/work');
+  const res = await get('/api/projects/MMR/work?tz=UTC');
   expect(res.status).toBe(200);
   const body = await parse(res);
   expect(body.scope).toEqual({ id: 'MMR', kind: 'project', title: 'Mimir' });
@@ -261,33 +268,122 @@ test('GET /api/projects/:key/work serves the sections for the whole project', as
 });
 
 test('GET /api/nodes/:id/work scopes the page to a container subtree', async () => {
-  const res = await get(`/api/nodes/${phaseRef}/work`);
+  const res = await get(`/api/nodes/${phaseRef}/work?tz=UTC`);
   expect(res.status).toBe(200);
   const body = await parse(res);
   expect(body.scope).toEqual({ id: phaseRef, kind: 'phase', title: 'phase 4' });
   const ids = ((body.frontier as Rec).to_groom as Rec[]).map((t) => t.id);
   expect(ids).toEqual([task1, task2]);
-  const other = await parse(await get(`/api/nodes/${initiativeRef}/work`));
+  const other = await parse(await get(`/api/nodes/${initiativeRef}/work?tz=UTC`));
   expect((other.scope as Rec).kind).toBe('initiative');
 });
 
 test('GET /api/nodes/:id/work refuses a task id', async () => {
-  const res = await get(`/api/nodes/${task1}/work`);
+  const res = await get(`/api/nodes/${task1}/work?tz=UTC`);
   expect(res.status).toBe(400);
   expect(errorCode(await parse(res))).toBe('validation');
 });
 
 test('work routes 404 on an unknown id and send a project key to the other route', async () => {
-  expect((await get('/api/nodes/MMR-999/work')).status).toBe(404);
-  expect((await get('/api/projects/NOPE/work')).status).toBe(404);
-  expect((await get('/api/nodes/MMR/work')).status).toBe(400);
-  expect((await get(`/api/projects/${task1}/work`)).status).toBe(400);
+  expect((await get('/api/nodes/MMR-999/work?tz=UTC')).status).toBe(404);
+  expect((await get('/api/projects/NOPE/work?tz=UTC')).status).toBe(404);
+  expect((await get('/api/nodes/MMR/work?tz=UTC')).status).toBe(400);
 });
 
-test('work routes reject an unknown ?tz=', async () => {
-  const res = await get('/api/projects/MMR/work?tz=Mars/Olympus');
-  expect(res.status).toBe(400);
-  expect(errorCode(await parse(res))).toBe('validation');
+test('the projects work route names a task as a task and a container as a container', async () => {
+  const task = await parse(await get(`/api/projects/${task1}/work?tz=UTC`));
+  expect((task.error as { message: string }).message).toContain('is a task');
+  const container = await get(`/api/projects/${phaseRef}/work?tz=UTC`);
+  expect(container.status).toBe(400);
+  const hint = (await parse(container)).error as { hint?: string };
+  expect(hint.hint).toContain(`/api/nodes/${phaseRef}/work`);
+});
+
+test('work routes require a known ?tz= (ADR 0029: no fallback zone)', async () => {
+  for (const path of ['/api/projects/MMR/work', `/api/nodes/${phaseRef}/work`]) {
+    const missing = await get(path);
+    expect(missing.status).toBe(400);
+    expect(errorCode(await parse(missing))).toBe('validation');
+    const unknown = await get(`${path}?tz=Mars/Olympus`);
+    expect(unknown.status).toBe(400);
+    expect(errorCode(await parse(unknown))).toBe('validation');
+  }
+});
+
+// Pins the wire vocabulary of every section on a populated board: snake_case keys,
+// explicit nulls, and the row fields folded onto the task wire object.
+test('the work page wire shape on a populated board', async () => {
+  const phaseId = await nodeIdOf(store, phaseRef);
+  const make = async (title: string): Promise<string> =>
+    `MMR-${String((await createTask(store, { parentId: phaseId, title })).seq)}`;
+
+  const working = await make('working');
+  const quiet = await make('quiet');
+  await startTask(store, working, { branch: 'feat/x', harness: 'claude' });
+  await startTask(store, quiet);
+  await annotate(store, working, 'halfway there');
+  const pad = await createScratchpadService(store.scratchpads, store.artifacts, store).create({
+    anchors: [working],
+    project: 'MMR',
+    title: 'notes',
+  });
+
+  const review = await make('review');
+  await startTask(store, review);
+  await submitTask(store, review);
+  const question = await make('question');
+  await groomTasks(store, [question], 'needs_answers', 'which database?');
+
+  const prereq = await make('base');
+  const waiting = await make('waiting');
+  await depend(store, waiting, [prereq]);
+  await groomTasks(store, [prereq, waiting], 'groomed');
+
+  const done = await make('done');
+  await completeTask(store, done);
+  const dropped = await make('dropped');
+  await abandonTask(store, dropped, 'superseded');
+
+  const body = await parse(await get('/api/projects/MMR/work?tz=UTC'));
+  const row = (rows: unknown, id: string): Rec =>
+    (rows as Rec[]).find((r) => r.id === id) ?? { missing: id };
+
+  const nowRows = body.now as Rec[];
+  const workingRow = row(nowRows, working);
+  expect(workingRow.harness).toBe('claude');
+  expect(workingRow.branch).toBe('feat/x');
+  expect(workingRow.latest_note).toEqual({
+    content: 'halfway there',
+    created_at: expect.any(String),
+  });
+  expect(workingRow.started_at).toEqual(expect.any(String));
+  expect(workingRow.scratchpads).toEqual([{ id: pad.id, title: 'notes' }]);
+  expect(workingRow.stale).toBe(false);
+  expect(row(nowRows, quiet).latest_note).toBeNull();
+  expect(row(nowRows, quiet).scratchpads).toEqual([]);
+
+  const needsYou = body.needs_you as Rec[];
+  expect(needsYou.map((r) => [r.id, r.reason, r.question])).toEqual([
+    [review, 'under_review', null],
+    [question, 'needs_answers', 'which database?'],
+  ]);
+
+  const frontier = body.frontier as Rec;
+  const runnable = frontier.runnable as Rec[];
+  expect(runnable.map((r) => [r.id, r.awaiting_on])).toEqual([[prereq, []]]);
+  expect(frontier.next_to_unlock).toEqual([
+    {
+      prerequisite: { id: prereq, status: 'ready', title: 'base' },
+      tasks: [expect.objectContaining({ awaiting_on: [prereq], id: waiting, stale: false })],
+    },
+  ]);
+  expect((frontier.to_groom as Rec[]).map((r) => r.id)).toEqual([task1, task2]);
+
+  const shipped = body.shipped as Rec[];
+  expect(row(shipped, done).abandon_reason).toBeNull();
+  expect(row(shipped, done).finished_at).toEqual(expect.any(String));
+  expect(row(shipped, dropped).abandon_reason).toBe('superseded');
+  expect(body.going_stale).toEqual([]);
 });
 
 // ---------------------------------------------------------------------------

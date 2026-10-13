@@ -347,21 +347,29 @@ export function intersectWindows(a: InstantWindow, b: InstantWindow): InstantWin
  * its real length.
  */
 export function recentDaysWindow(asOf: string, days: number, zone: string): InstantWindow {
-  const todayText = new Intl.DateTimeFormat('en-CA', {
-    day: '2-digit',
-    month: '2-digit',
-    timeZone: zone,
-    year: 'numeric',
-  }).format(new Date(asOf));
-  const today = parseCalendarDate(todayText);
-  if (today === null) {
-    throw validation(`cannot resolve the calendar day of ${asOf} in ${zone}`, timeZoneHint);
+  if (requireTimeZone(zone) === undefined) {
+    throw validation('a caller timezone is required', timeZoneHint);
   }
-  const first = new Date(utcMillis(today.year, today.month, today.day) - (days - 1) * DAY_MS);
-  const firstText = first.toISOString().slice(0, 10);
+  const asOfMs = Date.parse(asOf);
+  if (Number.isNaN(asOfMs)) {
+    throw validation(`invalid reference time: ${asOf}`, dateValueHint(asOf));
+  }
+  // The wall clock read as UTC fields is the caller's local date.
+  const wall = new Date(wallClock(asOfMs, zone));
+  const today: CalendarDate = {
+    day: wall.getUTCDate(),
+    month: wall.getUTCMonth() + 1,
+    year: wall.getUTCFullYear(),
+  };
+  const firstMs = utcMillis(today.year, today.month, today.day) - (days - 1) * DAY_MS;
+  const first = new Date(firstMs);
+  const tomorrow = nextDay(today);
   return {
-    from: dateFilterWindow('on', firstText, zone).from,
-    until: dateFilterWindow('on', todayText, zone).until,
+    from: bound(
+      dayOpensAt(first.getUTCFullYear(), first.getUTCMonth() + 1, first.getUTCDate(), zone),
+      true,
+    ),
+    until: bound(dayOpensAt(tomorrow.year, tomorrow.month, tomorrow.day, zone), false),
   };
 }
 

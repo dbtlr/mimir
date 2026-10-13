@@ -291,10 +291,20 @@ function optSeedKind(body: Record<string, unknown>): SeedKind | undefined {
   return narrowed;
 }
 
-/** The work page's options off the request: the caller's validated `?tz=` zone, if sent. */
-function workOptionsOf(req: Request): { timeZone?: string } {
+/**
+ * The work page's options off the request: the caller's `?tz=` zone, validated.
+ * The zone is required — it decides where the shipped days begin, and there is
+ * no fallback zone (ADR 0029).
+ */
+function workOptionsOf(req: Request): { timeZone: string } {
   const timeZone = requireTimeZone(new URL(req.url).searchParams.get('tz') ?? undefined);
-  return timeZone === undefined ? {} : { timeZone };
+  if (timeZone === undefined) {
+    throw validation(
+      'the work page needs the caller timezone (tz)',
+      'pass an IANA timezone (tz), e.g. America/New_York',
+    );
+  }
+  return { timeZone };
 }
 
 /** Map the `?status` param on the seed queue to the selector (MMR-245). */
@@ -1341,6 +1351,10 @@ function bindServer(
           guarded(req, async () => {
             const key = req.params.key;
             if (parseIdentity(key)?.kind !== 'project') {
+              const node = findNodeInSet(deriveSet(await store.loadWorkingSet()), key);
+              if (node?.type === 'task') {
+                throw validation(`${key} is a task, not a project`, 'a task has no work page');
+              }
               throw validation(`${key} is not a project key`, `use /api/nodes/${key}/work`);
             }
             return json(workToWire(await workPageOf(store, key, workOptionsOf(req))));

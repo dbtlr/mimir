@@ -36,8 +36,8 @@ import { buildAwaitingOn, buildNodeView } from './view';
 export type WorkOptions = {
   /** Reference time (ISO-ms-Z) for the shipped window and staleness; defaults to now. */
   asOf?: string;
-  /** The caller's IANA zone, which decides where the shipped days begin and end (ADR 0029). Defaults to UTC. */
-  timeZone?: string;
+  /** The caller's IANA zone, which decides where the shipped days begin and end (ADR 0029). Required: there is no fallback zone. */
+  timeZone: string;
 };
 
 /** The shipped window spans this many caller-local calendar days, today included. */
@@ -127,10 +127,17 @@ function frontierPrereqs(set: DerivationSet, task: Node): NodeRef[] | undefined 
 
 const latestOf = <T>(items: readonly T[] | undefined): T | undefined => items?.at(-1);
 
-/** When the task last started: its latest todo to in_progress transition, else any move into in_progress. */
+/**
+ * When the task last started: its latest move into in_progress that did not come
+ * back from review. A start and a reopen count; a return from review continues
+ * the same run of work.
+ */
 function startedAtOf(task: Node, history: readonly HistoryEntry[]): string {
-  const intoProgress = history.filter((h) => h.kind === 'lifecycle' && h.to === 'in_progress');
-  const start = latestOf(intoProgress.filter((h) => h.from === 'todo')) ?? latestOf(intoProgress);
+  const start = latestOf(
+    history.filter(
+      (h) => h.kind === 'lifecycle' && h.to === 'in_progress' && h.from !== 'under_review',
+    ),
+  );
   return start?.at ?? task.updated_at;
 }
 
@@ -161,22 +168,18 @@ function abandonedOf(
  *
  * Parked tasks, blocks owned by others, and empty containers have no row yet.
  */
-export async function workPageOf(
-  store: Store,
-  id: string,
-  opts: WorkOptions = {},
-): Promise<WorkReport> {
+export async function workPageOf(store: Store, id: string, opts: WorkOptions): Promise<WorkReport> {
   const set = deriveSet(await store.loadWorkingSet());
   const { scope, projectKey, tasks } = resolveWorkScope(set, id);
   const asOf = opts.asOf ?? now();
-  const shippedWindow = recentDaysWindow(asOf, SHIPPED_WINDOW_DAYS, opts.timeZone ?? 'UTC');
+  const shippedWindow = recentDaysWindow(asOf, SHIPPED_WINDOW_DAYS, opts.timeZone);
   const rankOrder = byRankOrder(set);
 
   const nowNodes: Node[] = [];
   const needsYou: { node: Node; reason: WorkNeedsYouReason }[] = [];
   const frontier: { node: Node; awaitingOn: NodeRef[] }[] = [];
   const shippedCandidates: Node[] = [];
-  const staleCandidates: Node[] = [];
+  const staleIds = new Set<string>();
 
   for (const node of tasks.toSorted(rankOrder)) {
     const word = nodeStatusWord(set, node);
@@ -206,20 +209,9 @@ export async function workPageOf(
       }
     }
     if (isStale(set, node, { asOf })) {
-      staleCandidates.push(node);
+      staleIds.add(node.id);
     }
   }
-
-  // One section per task, in page order: a stale task an earlier section
-  // already shows (in progress, awaiting review, ready on the frontier) is not
-  // repeated under going stale.
-  const claimed = new Set<string>([
-    ...nowNodes.map((n) => n.id),
-    ...needsYou.map((n) => n.node.id),
-    ...frontier.map((n) => n.node.id),
-    ...shippedCandidates.map((n) => n.id),
-  ]);
-  const staleNodes = staleCandidates.filter((n) => !claimed.has(n.id));
 
   const needsAnswers = needsYou.filter((n) => n.reason === 'needs_answers').map((n) => n.node.id);
   const abandonedStems = shippedCandidates
@@ -235,8 +227,7 @@ export async function workPageOf(
     nowNodes.length === 0 ? Promise.resolve([]) : store.scratchpads.list(projectKey),
   ]);
 
-  // One view per task, however many rows it appears in (a task can sit in
-  // several next-to-unlock groups).
+  // A task can sit in several next-to-unlock groups; build its view once per call.
   const views = new Map<string, NodeView>();
   const viewOf = async (node: Node): Promise<NodeView> => {
     const cached = views.get(node.id);
@@ -257,6 +248,7 @@ export async function workPageOf(
         scratchpads: scratchpads
           .filter((pad) => pad.anchors.includes(node.id))
           .map((pad) => ({ id: pad.id, title: pad.title })),
+        stale: staleIds.has(node.id),
         startedAt: startedAtOf(node, sections?.history ?? []),
         task: await viewOf(node),
       };
@@ -277,6 +269,7 @@ export async function workPageOf(
             ? (latestOf(questionSections.get(node.id)?.annotations)?.content ?? null)
             : null,
         reason,
+        stale: staleIds.has(node.id),
         task: await viewOf(node),
       })),
   );
@@ -286,11 +279,13 @@ export async function workPageOf(
     awaitingOn: NodeRef[];
   }): Promise<WorkFrontierTask> => ({
     awaitingOn: entry.awaitingOn.map((ref) => ref.id),
+    stale: staleIds.has(entry.node.id),
     task: await viewOf(entry.node),
   });
   const groomed = frontier.filter((e) => e.node.grooming === 'groomed');
+  // Runnable is `next`'s selection: ready and ranked.
   const runnable = await Promise.all(
-    groomed.filter((e) => e.awaitingOn.length === 0).map(frontierRow),
+    groomed.filter((e) => e.awaitingOn.length === 0 && e.node.rank !== null).map(frontierRow),
   );
   const toGroom = await Promise.all(
     frontier.filter((e) => e.node.grooming !== 'groomed').map(frontierRow),
@@ -312,6 +307,7 @@ export async function workPageOf(
       shipped.push({
         abandonReason: abandoned?.reason ?? null,
         finishedAt,
+        stale: staleIds.has(node.id),
         task: await viewOf(node),
       });
     }
@@ -319,6 +315,17 @@ export async function workPageOf(
   // Newest first; the higher seq (created later, so most likely finished later)
   // breaks a same-millisecond tie.
   shipped.sort((a, b) => cmpStr(b.finishedAt, a.finishedAt) || seqOf(b.task.id) - seqOf(a.task.id));
+
+  // One section per task, in page order: a stale task an earlier section
+  // already shows (in progress, awaiting review, ready on the frontier, shipped)
+  // is not repeated under going stale. Each row still carries its own flag.
+  const claimed = new Set<string>([
+    ...nowNodes.map((n) => n.id),
+    ...needsYou.map((n) => n.node.id),
+    ...frontier.map((n) => n.node.id),
+    ...shipped.map((r) => r.task.id),
+  ]);
+  const staleNodes = tasks.filter((n) => staleIds.has(n.id) && !claimed.has(n.id));
 
   const goingStale = await Promise.all(
     staleNodes.toSorted((a, b) => cmpStr(a.updated_at, b.updated_at) || a.seq - b.seq).map(viewOf),
