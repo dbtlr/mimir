@@ -660,6 +660,36 @@ describe('review page seed triage acts in place (MMR-479)', () => {
     });
   });
 
+  it('moves nothing later for a promote that fails after its sheet closed', async () => {
+    const serving = await openForWrite(
+      triage({ mmr: [firstSeed, secondSeed] }),
+      triage({ mmr: [firstSeed, secondSeed] }),
+    );
+    const promoted = Promise.withResolvers<object>();
+    apiSend.mockReturnValue(promoted.promise);
+    await expand('Mimir');
+
+    await press('MMR-s25', 'Promote to task…');
+    const promote = await screen.findByRole('button', { name: 'Promote ↵' });
+    await waitFor(() => {
+      expect(promote).toBeEnabled();
+    });
+    fireEvent.click(promote);
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByDisplayValue('Oldest idea')).toBeNull();
+    });
+    promoted.reject(new Error('promote failed'));
+    await screen.findByText('promote failed');
+    // The seed was triaged elsewhere meanwhile.
+    await serving.poll(triage({ mmr: [secondSeed] }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: 'Oldest idea' })).toBeNull();
+    });
+    expect(document.body).toHaveFocus();
+  });
+
   it('lists a project afresh, closed, when it returns to triage', async () => {
     const serving = await openForWrite(triage({ mmr: [firstSeed] }), triage({}));
     await expand('Mimir');

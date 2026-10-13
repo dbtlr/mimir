@@ -1,6 +1,6 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { promoteSeedKey } from '../api/mutations';
 import { archivedProjectsQuery, reviewQuery } from '../api/queries';
@@ -165,8 +165,9 @@ const listsSeed = (report: WireReviewReport | undefined, id: string): boolean =>
  * promote, one render before the refreshed rows (a promote stays pending until
  * the refetches land, but the query renders them on its next notify), so the
  * close reads the cached review: a seed it no longer lists is leaving, and the
- * handoff stays armed for it, as it does while a promote is still in flight
- * (the sheet closed mid-write). A sheet closed without a promote disarms.
+ * handoff stays armed for it. A sheet closed while its promote is still in
+ * flight leaves that call to the promote's end: one that fails with the seed
+ * still listed disarms. A sheet closed without a promote disarms.
  */
 function SeedTriageActions({
   seed,
@@ -179,6 +180,20 @@ function SeedTriageActions({
 }) {
   const queryClient = useQueryClient();
   const [promoting, setPromoting] = useState(false);
+  const inFlight = useIsMutating({ mutationKey: promoteSeedKey(seed.id) }) > 0;
+  const closedMidWrite = useRef(false);
+  /** Disarm unless the cached review has dropped the seed, which is leaving. */
+  const disarmIfListed = () => {
+    if (listsSeed(queryClient.getQueryData(reviewQuery.queryKey), seed.id)) {
+      handoff.disarm(seed.id);
+    }
+  };
+  useEffect(() => {
+    if (closedMidWrite.current && !inFlight) {
+      closedMidWrite.current = false;
+      disarmIfListed();
+    }
+  });
   return (
     <>
       <SeedVerbs
@@ -201,9 +216,10 @@ function SeedTriageActions({
               return;
             }
             setPromoting(false);
-            const inFlight = queryClient.isMutating({ mutationKey: promoteSeedKey(seed.id) }) > 0;
-            if (!inFlight && listsSeed(queryClient.getQueryData(reviewQuery.queryKey), seed.id)) {
-              handoff.disarm(seed.id);
+            if (queryClient.isMutating({ mutationKey: promoteSeedKey(seed.id) }) > 0) {
+              closedMidWrite.current = true;
+            } else {
+              disarmIfListed();
             }
           }}
         />
