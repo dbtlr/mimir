@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
-import { projectsQuery, tasksBrowserQuery } from '../api/queries';
+import { tasksBrowserQuery } from '../api/queries';
 import type { TaskFilters } from '../api/queries';
 import type { Collection, WireNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
@@ -18,11 +18,11 @@ import {
   BrowserShowMore,
   FilterChip,
   FilterRow,
-  MenuChip,
   RemovableChip,
 } from '../components/browser-list';
 import { GroomingChip } from '../components/grooming-chip';
 import { OfflineBanner } from '../components/offline-banner';
+import { ProjectGate } from '../components/project-gate';
 import { StatusDot } from '../components/status-dot';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
@@ -117,30 +117,18 @@ const seqOf = (id: string) => Number(id.slice(id.lastIndexOf('-') + 1));
 
 /**
  * Bucket tasks into the browser's groups: one per status word present, in
- * display order, or one per project key, alphabetical. Rows within a group
- * follow `order` (newest activity first unless a view says otherwise); empty
- * groups never appear.
+ * display order. Rows within a group follow `order` (newest activity first
+ * unless a view says otherwise); empty groups never appear.
  */
 function groupTasks(
   items: readonly WireNode[],
-  by: 'status' | 'project',
   order: (a: WireNode, b: WireNode) => number,
 ): TaskGroup[] {
-  if (by === 'status') {
-    return TASK_STATUS_ORDER.map((word) => ({
-      items: items.filter((n) => n.status === word).toSorted(order),
-      key: word,
-      label: STATUS_META[word].label,
-    })).filter((g) => g.items.length > 0);
-  }
-  const buckets = new Map<string, WireNode[]>();
-  for (const node of items) {
-    const key = projectKeyOfNode(node);
-    buckets.set(key, [...(buckets.get(key) ?? []), node]);
-  }
-  return [...buckets.entries()]
-    .toSorted(([a], [b]) => a.localeCompare(b))
-    .map(([key, group]) => ({ items: group.toSorted(order), key, label: key }));
+  return TASK_STATUS_ORDER.map((word) => ({
+    items: items.filter((n) => n.status === word).toSorted(order),
+    key: word,
+    label: STATUS_META[word].label,
+  })).filter((g) => g.items.length > 0);
 }
 
 /** The meta line: mono project key › parent title, ∞ on a standing home, then the age. */
@@ -217,33 +205,27 @@ function useTaskWindow(filters: TaskFilters) {
 }
 
 /**
- * `/tasks` — the grouped reading list (MMR-454, mock "Browsers C"): every task
- * across all projects, grouped by status or project, each row a real link with
- * its lede and where it lives. Live is the default view; the filter set
- * (`q`, `project`, `status`, `group`) is URL-addressable, so /tasks stays the
+ * `/p/KEY/tasks` — the grouped reading list (MMR-454, mock "Browsers C"): every
+ * task in the path's project, grouped by status, each row a real
+ * link with its lede and where it lives. Live is the default view; the filter
+ * set (`q`, `status`) is URL-addressable, so the browser stays the
  * complete view (ADR 0013) — any status a deep link carries still filters and
  * shows as a removable chip.
  */
 export function TasksPage() {
   const navigate = useNavigate();
+  const { key: project } = tasksRoute.useParams();
   const search = tasksRoute.useSearch();
-  // validateSearch drops invalid values, but the router merges the raw URL back
-  // in for unvalidated parents, so the page re-checks rather than trusting the type.
-  const groupBy = search.group === 'project' ? 'project' : 'status';
   const liveView = isLiveView(search.status);
   const finishedView = search.status === 'terminal';
-  const filters: TaskFilters = { lede: true };
-  if (search.project !== undefined) {
-    filters.project = search.project;
-  }
-  // Live is the default view, so a bare /tasks asks for it explicitly rather
-  // than leaning on the server's default.
+  const filters: TaskFilters = { lede: true, project };
+  // Live is the default view, so a URL with no status asks for it explicitly
+  // rather than leaning on the server's default.
   filters.status = search.status ?? 'live';
   if (search.q !== undefined) {
     filters.q = search.q;
   }
 
-  const projects = useQuery(projectsQuery);
   const { tasks, loadedTasks, totalTasks, hasMore, loadingMore, loadMoreFailed, loadMore } =
     useTaskWindow(filters);
   const conn = connectivity([tasks]);
@@ -252,6 +234,7 @@ export function TasksPage() {
 
   const setFilter = (partial: Partial<TasksSearch>) =>
     void navigate({
+      params: { key: project },
       replace: true,
       search: (prev) => {
         const next = { ...prev, ...partial };
@@ -262,7 +245,7 @@ export function TasksPage() {
         }
         return next;
       },
-      to: '/tasks',
+      to: '/p/$key/tasks',
     });
 
   // Controlled + debounced search (the MMR-63 pattern): the box updates now, the
@@ -290,23 +273,9 @@ export function TasksPage() {
   }, [q, search.q]);
 
   const groups = useMemo(
-    () => groupTasks(loadedTasks ?? [], groupBy, finishedView ? byCompletion : newestFirst),
-    [loadedTasks, groupBy, finishedView],
+    () => groupTasks(loadedTasks ?? [], finishedView ? byCompletion : newestFirst),
+    [loadedTasks, finishedView],
   );
-
-  const projectOptions = [
-    { label: 'All projects', value: '' },
-    ...(projects.data?.items ?? []).map((p) => ({
-      label: (
-        <>
-          <StatusDot status={p.status} />
-          <span className="font-mono text-xs font-semibold text-ink-bright">{p.id}</span>
-          <span className="truncate">{p.title}</span>
-        </>
-      ),
-      value: p.id,
-    })),
-  ];
 
   let countWord = 'match';
   if (liveView) {
@@ -316,141 +285,123 @@ export function TasksPage() {
   }
 
   return (
-    <>
-      <OfflineBanner {...conn} />
-      <main
-        className={cn('min-h-0 w-full flex-1 overflow-y-auto', conn.offline && 'offline-demoted')}
-      >
-        <BrowserPage
-          title="Tasks"
-          count={
-            loadedTasks !== undefined &&
-            totalTasks !== undefined &&
-            // A windowed view says how much of the whole it shows (MMR-460).
-            `${loadedTasks.length < totalTasks ? `${loadedTasks.length} of ` : ''}${totalTasks} ${countWord}`
-          }
-          action={
-            // Create opens the shared authoring sheet (MMR-227), whose own
-            // project-spanning HOME picker chooses where the node lands — the
-            // cross-project browser has no single active project to pre-fill.
-            <button
-              type="button"
-              disabled={conn.offline}
-              onClick={() => {
-                setCreateOpen(true);
-              }}
-              className="inline-flex items-center rounded-lg bg-action px-[13px] py-1.5 text-tag font-bold text-action-foreground transition-colors hover:bg-action/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40"
-            >
-              + New task
-            </button>
-          }
+    <ProjectGate projectKey={project}>
+      <>
+        <OfflineBanner {...conn} />
+        <main
+          className={cn('min-h-0 w-full flex-1 overflow-y-auto', conn.offline && 'offline-demoted')}
         >
-          <FilterRow>
-            <div ref={searchRef} className="flex min-w-0 flex-[1_1_260px]">
-              <BrowserSearch
-                value={q}
-                onChange={setQ}
-                label="Search tasks"
-                placeholder="Search titles and IDs…"
-              />
-            </div>
-            <MenuChip
-              label={search.project ?? 'All projects'}
-              on={search.project !== undefined}
-              options={projectOptions}
-              onSelect={(project) => {
-                setFilter({ project });
-              }}
-            />
-            <FilterChip
-              on={liveView}
-              onClick={() => {
-                setFilter({ status: '' });
-              }}
-            >
-              Live
-            </FilterChip>
-            <FilterChip
-              on={finishedView}
-              onClick={() => {
-                setFilter({ status: 'terminal' });
-              }}
-            >
-              Finished
-            </FilterChip>
-            {/* Any other status a deep link carries (a word, a union, `all`)
-                still filters; it shows as an accent chip that removes it. */}
-            {!liveView && !finishedView && search.status !== undefined && (
-              <RemovableChip
-                label={statusFilterLabel(search.status)}
-                removeLabel={`Remove status filter ${statusFilterLabel(search.status)}`}
-                onRemove={() => {
-                  searchRef.current?.querySelector('input')?.focus();
+          <BrowserPage
+            title="Tasks"
+            count={
+              loadedTasks !== undefined &&
+              totalTasks !== undefined &&
+              // A windowed view says how much of the whole it shows (MMR-460).
+              `${loadedTasks.length < totalTasks ? `${loadedTasks.length} of ` : ''}${totalTasks} ${countWord}`
+            }
+            action={
+              // Create opens the shared authoring sheet (MMR-227), whose own
+              // project-spanning HOME picker chooses where the node lands.
+              <button
+                type="button"
+                disabled={conn.offline}
+                onClick={() => {
+                  setCreateOpen(true);
+                }}
+                className="inline-flex items-center rounded-lg bg-action px-[13px] py-1.5 text-tag font-bold text-action-foreground transition-colors hover:bg-action/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40"
+              >
+                + New task
+              </button>
+            }
+          >
+            <FilterRow>
+              <div ref={searchRef} className="flex min-w-0 flex-[1_1_260px]">
+                <BrowserSearch
+                  value={q}
+                  onChange={setQ}
+                  label="Search tasks"
+                  placeholder="Search titles and IDs…"
+                />
+              </div>
+              <FilterChip
+                on={liveView}
+                onClick={() => {
                   setFilter({ status: '' });
                 }}
-              />
-            )}
-            <MenuChip
-              label={`Group: ${groupBy}`}
-              on={groupBy !== 'status'}
-              options={[
-                { label: 'Status', value: 'status' },
-                { label: 'Project', value: 'project' },
-              ]}
-              onSelect={(group) => {
-                setFilter({ group: group === 'project' ? 'project' : undefined });
-              }}
-            />
-          </FilterRow>
-
-          {tasks.isPending && loadedTasks === undefined && <Skeleton className="mt-4 h-40" />}
-          {tasks.isError && loadedTasks === undefined && (
-            <p className="py-4 text-xs text-status-blocked">
-              Unreachable — is `mimir serve` running?
-            </p>
-          )}
-          {loadedTasks !== undefined && groups.length === 0 && (
-            <BrowserEmpty>No tasks match.</BrowserEmpty>
-          )}
-          {groups.map((group) => (
-            <BrowserGroup key={group.key} label={group.label} count={group.items.length}>
-              {group.items.map((node) => (
-                <BrowserRow
-                  key={node.id}
-                  to={nodeLink(node.id)}
-                  id={node.id}
-                  title={node.title}
-                  leading={
-                    <>
-                      <StatusDot status={node.status} />
-                      <span className="sr-only">{STATUS_META[node.status].label}</span>
-                    </>
-                  }
-                  afterTitle={<GroomingChip node={node} />}
-                  lede={node.lede ?? node.summary}
-                  meta={<TaskMeta node={node} />}
-                  // Terminal rows demote by ink tier alone — never by opacity
-                  // (ADR 0019 §7; opacity is offline's).
-                  demoted={node.status === 'done' || node.status === 'abandoned'}
-                  struck={node.status === 'abandoned'}
+              >
+                Live
+              </FilterChip>
+              <FilterChip
+                on={finishedView}
+                onClick={() => {
+                  setFilter({ status: 'terminal' });
+                }}
+              >
+                Finished
+              </FilterChip>
+              {/* Any other status a deep link carries (a word, a union, `all`)
+                still filters; it shows as an accent chip that removes it. */}
+              {!liveView && !finishedView && search.status !== undefined && (
+                <RemovableChip
+                  label={statusFilterLabel(search.status)}
+                  removeLabel={`Remove status filter ${statusFilterLabel(search.status)}`}
+                  onRemove={() => {
+                    searchRef.current?.querySelector('input')?.focus();
+                    setFilter({ status: '' });
+                  }}
                 />
-              ))}
-            </BrowserGroup>
-          ))}
-          {hasMore && (
-            <>
-              {loadMoreFailed && (
-                <p role="alert" className="mt-4 text-center text-xs text-status-blocked">
-                  Couldn't load more finished tasks.
-                </p>
               )}
-              <BrowserShowMore loading={loadingMore} onClick={loadMore} />
-            </>
-          )}
-        </BrowserPage>
-      </main>
+            </FilterRow>
 
-      <AuthoringSheet open={createOpen} onOpenChange={setCreateOpen} offline={conn.offline} />
-    </>
+            {tasks.isPending && loadedTasks === undefined && <Skeleton className="mt-4 h-40" />}
+            {tasks.isError && loadedTasks === undefined && (
+              <p className="py-4 text-xs text-status-blocked">
+                Unreachable — is `mimir serve` running?
+              </p>
+            )}
+            {loadedTasks !== undefined && groups.length === 0 && (
+              <BrowserEmpty>No tasks match.</BrowserEmpty>
+            )}
+            {groups.map((group) => (
+              <BrowserGroup key={group.key} label={group.label} count={group.items.length}>
+                {group.items.map((node) => (
+                  <BrowserRow
+                    key={node.id}
+                    to={nodeLink(node.id)}
+                    id={node.id}
+                    title={node.title}
+                    leading={
+                      <>
+                        <StatusDot status={node.status} />
+                        <span className="sr-only">{STATUS_META[node.status].label}</span>
+                      </>
+                    }
+                    afterTitle={<GroomingChip node={node} />}
+                    lede={node.lede ?? node.summary}
+                    meta={<TaskMeta node={node} />}
+                    // Terminal rows demote by ink tier alone — never by opacity
+                    // (ADR 0019 §7; opacity is offline's).
+                    demoted={node.status === 'done' || node.status === 'abandoned'}
+                    struck={node.status === 'abandoned'}
+                  />
+                ))}
+              </BrowserGroup>
+            ))}
+            {hasMore && (
+              <>
+                {loadMoreFailed && (
+                  <p role="alert" className="mt-4 text-center text-xs text-status-blocked">
+                    Couldn't load more finished tasks.
+                  </p>
+                )}
+                <BrowserShowMore loading={loadingMore} onClick={loadMore} />
+              </>
+            )}
+          </BrowserPage>
+        </main>
+
+        <AuthoringSheet open={createOpen} onOpenChange={setCreateOpen} offline={conn.offline} />
+      </>
+    </ProjectGate>
   );
 }

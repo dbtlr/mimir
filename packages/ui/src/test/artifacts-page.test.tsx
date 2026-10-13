@@ -20,7 +20,7 @@ const summary = (n: number, over: Partial<WireArtifactSummary> = {}): WireArtifa
   ...over,
 });
 
-function renderArtifactsPage(url = '/artifacts') {
+function renderArtifactsPage(url = '/p/MMR/artifacts') {
   const testRouter = createRouter({
     history: createMemoryHistory({ initialEntries: [url] }),
     routeTree: router.routeTree,
@@ -115,20 +115,17 @@ describe('artifactsPage', () => {
     });
   });
 
-  it('choosing a project sets the project param', async () => {
+  it('scopes the read to the project in the path and offers no project chip', async () => {
     serveRows([summary(8)]);
-    const testRouter = renderArtifactsPage();
+    renderArtifactsPage();
     await screen.findByText('Artifact 8');
-    await userEvent.click(screen.getByRole('button', { name: /All projects/ }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'MMR' }));
-    await waitFor(() => {
-      expect(testRouter.state.location.search).toEqual({ project: 'MMR' });
-    });
+    expect(lastArtifactsParams().get('project')).toBe('MMR');
+    expect(screen.queryByRole('button', { name: /All projects/ })).toBeNull();
   });
 
   it('a ?a= param opens no reader and reaches no query', async () => {
     serveRows([summary(8)]);
-    renderArtifactsPage('/artifacts?a=MMR-a8');
+    renderArtifactsPage('/p/MMR/artifacts?a=MMR-a8');
     await screen.findByText('Artifact 8');
     expect(screen.queryByTestId('artifact-reader')).toBeNull();
     expect(screen.queryByRole('complementary', { name: 'Provenance' })).toBeNull();
@@ -137,14 +134,14 @@ describe('artifactsPage', () => {
 
   it('a numeric q in the URL is the text it was typed as', async () => {
     serveRows([summary(8)]);
-    renderArtifactsPage('/artifacts?q=2026');
+    renderArtifactsPage('/p/MMR/artifacts?q=2026');
     await screen.findByText('Artifact 8');
     expect(lastArtifactsParams().get('q')).toBe('2026');
   });
 
   it('date filters in the URL render as removable chips and reach the query', async () => {
     serveRows([summary(8)]);
-    renderArtifactsPage('/artifacts?atOrAfter=2026-06-01');
+    renderArtifactsPage('/p/MMR/artifacts?atOrAfter=2026-06-01');
     await screen.findByText('Artifact 8');
     expect(
       screen.getByRole('button', { name: 'Remove filter on or after 2026-06-01' }),

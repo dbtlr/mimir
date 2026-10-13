@@ -99,19 +99,26 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
 
 On a phone, the rail folds into chips that open bottom sheets.
 
-## Browse portfolio records
+## Browse a project's records
 
-Portfolio-wide surfaces include:
+Each project has three browsers, at `/p/KEY/tasks`, `/p/KEY/seeds`, and
+`/p/KEY/artifacts`. The top bar links to the current project's: the project in
+the address, else the last one you visited on this device, else the first in the
+project switcher. The old addresses `/tasks`, `/seeds`, and `/artifacts` still
+work: with `?project=KEY` they open that project's browser, and without it they
+open the current project's. With no projects at all they open the review page.
 
-- **Tasks** for every task across projects, grouped by status (or by project),
-  with **Live** and **Finished** views and a search over titles and IDs;
+- **Tasks** for the project's tasks, grouped by status, with
+  **Live** and **Finished** views and a search over titles and IDs;
 - **Artifacts** for frozen work products, grouped by the day they were frozen,
   each showing the records it is attached to;
 - **Seeds** for the grooming queue, grouped by lane: untriaged, ready to
   resolve, and promoted, with parked and settled seeds folded behind **Show
-  parked seeds** and **Show settled seeds**;
-- **Record health** for `mimir doctor` findings: rows the store holds in an
-  inconsistent state, each with its table, key, and evidence.
+  parked seeds** and **Show settled seeds**.
+
+The cross-project surface for record health is separate: **Record health**
+shows `mimir doctor` findings, the rows the store holds in an inconsistent
+state, each with its table, key, and evidence.
 
 The tasks, artifacts, and seeds browsers show a one-line preview of each
 record's description or summary under its title, and every row opens the

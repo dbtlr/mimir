@@ -57,7 +57,7 @@ function mockApi(items: WireSeed[] = list) {
   });
 }
 
-function renderSeeds(initial = '/seeds') {
+function renderSeeds(initial = '/p/MMR/seeds') {
   const testRouter = createRouter({
     history: createMemoryHistory({ initialEntries: [initial] }),
     routeTree: router.routeTree,
@@ -208,7 +208,7 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
       seed({ id: 'MMR-s1', lane: 'untriaged', title: 'Scroll snaps to top' }),
       seed({ id: 'MMR-s2', lane: 'untriaged', title: 'Retry 45 times' }),
     ]);
-    renderSeeds('/seeds?q=45');
+    renderSeeds('/p/MMR/seeds?q=45');
     await screen.findByText('Retry 45 times');
     expect(screen.queryByText('Scroll snaps to top')).toBeNull();
     expect(screen.getByRole('searchbox', { name: 'Search seeds' })).toHaveValue('45');
@@ -240,7 +240,7 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
 
   it('applies a kind from the URL and drops an invalid one', async () => {
     mockApi();
-    renderSeeds('/seeds?kind=feature');
+    renderSeeds('/p/MMR/seeds?kind=feature');
     await screen.findByText('Offline banner flicker');
     expect(screen.queryByText('Scroll snaps to top')).toBeNull();
     expect(screen.getByRole('button', { name: /feature/ })).toBeDefined();
@@ -248,17 +248,17 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
 
   it('ignores an invalid kind param', async () => {
     mockApi();
-    const testRouter = renderSeeds('/seeds?kind=epic');
+    const testRouter = renderSeeds('/p/MMR/seeds?kind=epic');
     await screen.findByText('Scroll snaps to top');
     expect(testRouter.state.location.search).not.toHaveProperty('kind');
   });
 
-  it('filters by project server-side and shows the chosen key', async () => {
+  it('scopes the read to the project in the path and offers no project chip', async () => {
     mockApi();
-    renderSeeds('/seeds?project=NRN');
+    renderSeeds('/p/NRN/seeds');
     await screen.findByText('Untriaged · 1');
     expect(apiGet).toHaveBeenCalledWith(expect.stringContaining('project=NRN'));
-    expect(screen.getByRole('button', { name: /NRN/ })).toBeDefined();
+    expect(screen.queryByRole('button', { name: /All projects/ })).toBeNull();
   });
 
   it('says "No seeds match." when the filters exclude everything', async () => {
@@ -277,7 +277,7 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
 
   it('no longer opens a reading pane from ?seed=', async () => {
     mockApi();
-    renderSeeds('/seeds?seed=MMR-s1');
+    renderSeeds('/p/MMR/seeds?seed=MMR-s1');
     await screen.findByText('Untriaged · 1');
     expect(screen.queryByRole('article')).toBeNull();
     expect(screen.queryByText('Select a seed to read.')).toBeNull();

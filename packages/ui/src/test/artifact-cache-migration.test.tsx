@@ -63,7 +63,7 @@ describe('sanitizePersistedClient', () => {
 
 function renderArtifactsWith(client: QueryClient) {
   const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: ['/artifacts'] }),
+    history: createMemoryHistory({ initialEntries: ['/p/MMR/artifacts'] }),
     routeTree: router.routeTree,
   });
   render(

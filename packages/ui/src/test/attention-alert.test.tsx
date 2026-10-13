@@ -163,14 +163,14 @@ async function openAlert(name: string) {
 
 describe('the attention alert trigger', () => {
   it('is a button named for the count of decisions, not a link', async () => {
-    renderAt('/tasks', twoProjects());
+    renderAt('/p/MMR/tasks', twoProjects());
     const alert = await screen.findByRole('button', { name: '3 decisions need you' });
     expect(alert.textContent).toContain('3');
     expect(screen.queryByRole('link', { name: /need you/ })).toBeNull();
   });
 
   it('reads in the singular for one decision', async () => {
-    renderAt('/tasks', twoProjects({ lm: [verdict] }));
+    renderAt('/p/MMR/tasks', twoProjects({ lm: [verdict] }));
     await expect(
       screen.findByRole('button', { name: '1 decision needs you' }),
     ).resolves.toBeDefined();
@@ -194,7 +194,7 @@ describe('the attention alert trigger', () => {
 
 describe('the Needs you popover', () => {
   it('opens on the trigger, moves focus in, and closes on Escape back to the trigger', async () => {
-    renderAt('/tasks', twoProjects());
+    renderAt('/p/MMR/tasks', twoProjects());
     expect(screen.queryByRole('dialog')).toBeNull();
 
     const panel = await openAlert('3 decisions need you');
@@ -209,7 +209,7 @@ describe('the Needs you popover', () => {
   });
 
   it('lists the decisions grouped by project, in the review order, with their verbs', async () => {
-    renderAt('/tasks', twoProjects());
+    renderAt('/p/MMR/tasks', twoProjects());
     const panel = await openAlert('3 decisions need you');
 
     const groups = within(panel).getAllByRole('region');
@@ -240,7 +240,7 @@ describe('the Needs you popover', () => {
   });
 
   it('links to the review page and the focus queue', async () => {
-    renderAt('/tasks', twoProjects());
+    renderAt('/p/MMR/tasks', twoProjects());
     const panel = await openAlert('3 decisions need you');
 
     expect(within(panel).getByRole('link', { name: 'Open review page' }).getAttribute('href')).toBe(
@@ -252,7 +252,7 @@ describe('the Needs you popover', () => {
   });
 
   it('closes on navigation', async () => {
-    const { testRouter } = renderAt('/tasks', twoProjects());
+    const { testRouter } = renderAt('/p/MMR/tasks', twoProjects());
     const panel = await openAlert('3 decisions need you');
 
     await userEvent.click(within(panel).getByRole('link', { name: 'Work through these · 3' }));
@@ -264,7 +264,7 @@ describe('the Needs you popover', () => {
   });
 
   it('closes on a row’s link too', async () => {
-    const { testRouter } = renderAt('/tasks', twoProjects());
+    const { testRouter } = renderAt('/p/MMR/tasks', twoProjects());
     const panel = await openAlert('3 decisions need you');
 
     await userEvent.click(within(panel).getByRole('link', { name: 'Ship the plugin' }));
@@ -299,14 +299,14 @@ describe('the Needs you popover', () => {
   });
 
   it('is not announced as a page footer', async () => {
-    renderAt('/tasks', twoProjects());
+    renderAt('/p/MMR/tasks', twoProjects());
     const panel = await openAlert('3 decisions need you');
 
     expect(within(panel).queryByRole('contentinfo')).toBeNull();
   });
 
   it('returns focus to Send back… when its dialog is cancelled or escaped', async () => {
-    renderAt('/tasks', twoProjects({ lm: [verdict] }));
+    renderAt('/p/MMR/tasks', twoProjects({ lm: [verdict] }));
     const panel = await openAlert('1 decision needs you');
     const sendBack = within(panel).getByRole('button', { name: 'Send back…' });
 
@@ -331,7 +331,7 @@ describe('the Needs you popover', () => {
 
   it('closes, with a row’s open dialog, when the viewport crosses the breakpoint', async () => {
     const setViewport = stubViewport('desktop');
-    renderAt('/tasks', twoProjects({ lm: [verdict] }));
+    renderAt('/p/MMR/tasks', twoProjects({ lm: [verdict] }));
     const panel = await openAlert('1 decision needs you');
     await userEvent.click(within(panel).getByRole('button', { name: 'Send back…' }));
     const dialog = await screen.findByRole('dialog', { name: 'Send back' });
@@ -355,7 +355,7 @@ describe('the Needs you popover', () => {
       report = twoProjects({ mmr: [block, question] });
       return Promise.resolve({});
     });
-    renderServed('/tasks');
+    renderServed('/p/MMR/tasks');
     const panel = await openAlert('3 decisions need you');
 
     fireEvent.click(within(panel).getByRole('button', { name: 'Approve' }));
@@ -374,7 +374,7 @@ describe('the Needs you popover', () => {
   });
 
   it('keeps the popover open behind a row’s own dialog', async () => {
-    renderAt('/tasks', twoProjects({ lm: [verdict] }));
+    renderAt('/p/MMR/tasks', twoProjects({ lm: [verdict] }));
     const panel = await openAlert('1 decision needs you');
 
     await userEvent.click(within(panel).getByRole('button', { name: 'Send back…' }));
@@ -392,7 +392,7 @@ describe('the Needs you popover', () => {
       report = twoProjects({});
       return Promise.resolve({});
     });
-    renderServed('/tasks');
+    renderServed('/p/MMR/tasks');
     const panel = await openAlert('1 decision needs you');
     const approve = within(panel).getByRole('button', { name: 'Approve' });
     approve.focus();
@@ -415,7 +415,7 @@ describe('the Needs you popover', () => {
 describe('the Needs you sheet on a phone', () => {
   it('opens the same list as a bottom sheet, and Escape returns focus to the trigger', async () => {
     stubViewport('phone');
-    renderAt('/tasks', twoProjects());
+    renderAt('/p/MMR/tasks', twoProjects());
     const trigger = await screen.findByRole('button', { name: '3 decisions need you' });
     const panel = await openAlert('3 decisions need you');
 
@@ -435,7 +435,7 @@ describe('the Needs you sheet on a phone', () => {
 
   it('returns focus to Send back… when its dialog is escaped', async () => {
     stubViewport('phone');
-    renderAt('/tasks', twoProjects({ lm: [verdict] }));
+    renderAt('/p/MMR/tasks', twoProjects({ lm: [verdict] }));
     const panel = await openAlert('1 decision needs you');
     const sendBack = within(panel).getByRole('button', { name: 'Send back…' });
 
@@ -450,7 +450,7 @@ describe('the Needs you sheet on a phone', () => {
   });
 
   it('shows the desktop popover without a close control', async () => {
-    renderAt('/tasks', twoProjects());
+    renderAt('/p/MMR/tasks', twoProjects());
     const panel = await openAlert('3 decisions need you');
 
     expect(within(panel).queryByRole('button', { name: 'Close' })).toBeNull();

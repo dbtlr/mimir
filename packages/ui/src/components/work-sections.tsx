@@ -364,8 +364,9 @@ function ShippedSection({
       {rows.length === 0 ? (
         <Empty lead="Nothing shipped in the last 7 days.">
           <Link
-            to="/tasks"
-            search={{ project: projectKey, status: 'terminal' }}
+            to="/p/$key/tasks"
+            params={{ key: projectKey }}
+            search={{ status: 'terminal' }}
             className="text-accent-foreground hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
           >
             Finished tasks →

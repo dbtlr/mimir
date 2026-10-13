@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useId, useMemo, useState } from 'react';
 
-import { projectsQuery, seedsQuery } from '../api/queries';
+import { seedsQuery } from '../api/queries';
 import type { SeedFilters } from '../api/queries';
 import type { WireSeed } from '../api/types';
 import {
@@ -17,6 +17,7 @@ import {
   MenuChip,
 } from '../components/browser-list';
 import { OfflineBanner } from '../components/offline-banner';
+import { ProjectGate } from '../components/project-gate';
 import { useSeedCapture } from '../components/seed-capture';
 import { SeedKindChip } from '../components/seed-kind-chip';
 import { Skeleton } from '../components/ui/skeleton';
@@ -103,27 +104,25 @@ function FoldedGroup({ lane, seeds }: { lane: 'parked' | 'settled'; seeds: reado
 }
 
 /**
- * `/seeds` — the grooming queue as a grouped reading list (MMR-454): a centred
- * column, search and project/kind chips, and rows grouped by the server's
- * `lane` in fixed order. Every row links to the seed's page; PARKED and SETTLED
- * fold behind a "Show … seeds" control. Search and kind filter client-side;
- * the project filter is the server's.
+ * `/p/KEY/seeds` — the project's grooming queue as a grouped reading list
+ * (MMR-454): a centred column, search and kind chips, and rows grouped by the
+ * server's `lane` in fixed order. Every row links to the seed's page; PARKED
+ * and SETTLED fold behind a "Show … seeds" control. Search and kind filter
+ * client-side; the project scope is the path's, read by the server.
  */
 export function SeedsPage() {
   const navigate = useNavigate();
+  const { key: project } = seedsRoute.useParams();
   const search = seedsRoute.useSearch();
   const openCapture = useSeedCapture();
 
-  const filters: SeedFilters = {};
-  if (search.project !== undefined) {
-    filters.project = search.project;
-  }
+  const filters: SeedFilters = { project };
   const seeds = useQuery(seedsQuery(filters));
-  const projects = useQuery(projectsQuery);
   const conn = connectivity([seeds]);
 
-  const setFilter = (partial: { project?: string; q?: string; kind?: SeedKind }) =>
+  const setFilter = (partial: { q?: string; kind?: SeedKind }) =>
     void navigate({
+      params: { key: project },
       replace: true,
       search: (prev) => {
         const next: Record<string, unknown> = { ...prev, ...partial };
@@ -134,7 +133,7 @@ export function SeedsPage() {
         }
         return next;
       },
-      to: '/seeds',
+      to: '/p/$key/seeds',
     });
 
   // Controlled + debounced search (the /tasks pattern): the box and the list
@@ -173,94 +172,84 @@ export function SeedsPage() {
   const { toTriage, toResolve } = seedSummary(all ?? []);
   const loaded = seeds.data !== undefined;
 
-  const projectOptions = [
-    { label: 'All projects', value: ALL },
-    ...(projects.data?.items ?? []).map((p) => ({ label: p.id, value: p.id })),
-  ];
   const kindOptions = [
     { label: 'Any kind', value: ALL },
     ...SEED_KIND_VALUES.map((k) => ({ label: k, value: k })),
   ];
 
   return (
-    <>
-      <OfflineBanner {...conn} />
-      <main
-        className={cn(
-          'flex min-h-0 w-full flex-1 flex-col overflow-y-auto',
-          conn.offline && 'offline-demoted',
-        )}
-      >
-        <BrowserPage
-          title="Seeds"
-          count={summaryText(toTriage, toResolve)}
-          action={
-            <button
-              type="button"
-              onClick={openCapture}
-              className="inline-flex items-center rounded-lg bg-action px-[13px] py-1.5 text-tag font-bold whitespace-nowrap text-action-foreground transition-colors hover:bg-action/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            >
-              + File a seed
-            </button>
-          }
+    <ProjectGate projectKey={project}>
+      <>
+        <OfflineBanner {...conn} />
+        <main
+          className={cn(
+            'flex min-h-0 w-full flex-1 flex-col overflow-y-auto',
+            conn.offline && 'offline-demoted',
+          )}
         >
-          <FilterRow>
-            <BrowserSearch
-              value={q}
-              onChange={setQ}
-              label="Search seeds"
-              placeholder="Search seeds…"
-            />
-            <MenuChip
-              label={search.project ?? 'All projects'}
-              on={search.project !== undefined}
-              options={projectOptions}
-              onSelect={(value) => {
-                setFilter({ project: value });
-              }}
-            />
-            <MenuChip
-              label={search.kind ?? 'Any kind'}
-              on={search.kind !== undefined}
-              options={kindOptions}
-              onSelect={(value) => {
-                setFilter({ kind: isSeedKind(value) ? value : undefined });
-              }}
-            />
-          </FilterRow>
-
-          {seeds.isPending && <Skeleton className="h-24" />}
-          {groups.map(({ lane, seeds: laneSeeds }) =>
-            lane === 'parked' || lane === 'settled' ? (
-              <FoldedGroup key={lane} lane={lane} seeds={laneSeeds} />
-            ) : (
-              <BrowserGroup
-                key={lane}
-                label={SEED_LANE_LABEL[lane]}
-                count={laneSeeds.length}
-                labelClassName={SEED_LANE_INK[lane]}
+          <BrowserPage
+            title="Seeds"
+            count={summaryText(toTriage, toResolve)}
+            action={
+              <button
+                type="button"
+                onClick={openCapture}
+                className="inline-flex items-center rounded-lg bg-action px-[13px] py-1.5 text-tag font-bold whitespace-nowrap text-action-foreground transition-colors hover:bg-action/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
-                {laneSeeds.map((seed) => (
-                  <SeedBrowserRow key={seed.id} seed={seed} />
-                ))}
-              </BrowserGroup>
-            ),
-          )}
-          {loaded && all?.length === 0 && (
-            <BrowserEmpty>
-              No seeds yet — press <span className="font-mono text-ink-dim">s</span> to file one.
-            </BrowserEmpty>
-          )}
-          {loaded && all !== undefined && all.length > 0 && shown.length === 0 && (
-            <BrowserEmpty>No seeds match.</BrowserEmpty>
-          )}
-          {seeds.isError && !loaded && (
-            <p className="p-4 text-xs text-status-blocked">
-              Unreachable — is `mimir serve` running?
-            </p>
-          )}
-        </BrowserPage>
-      </main>
-    </>
+                + File a seed
+              </button>
+            }
+          >
+            <FilterRow>
+              <BrowserSearch
+                value={q}
+                onChange={setQ}
+                label="Search seeds"
+                placeholder="Search seeds…"
+              />
+              <MenuChip
+                label={search.kind ?? 'Any kind'}
+                on={search.kind !== undefined}
+                options={kindOptions}
+                onSelect={(value) => {
+                  setFilter({ kind: isSeedKind(value) ? value : undefined });
+                }}
+              />
+            </FilterRow>
+
+            {seeds.isPending && <Skeleton className="h-24" />}
+            {groups.map(({ lane, seeds: laneSeeds }) =>
+              lane === 'parked' || lane === 'settled' ? (
+                <FoldedGroup key={lane} lane={lane} seeds={laneSeeds} />
+              ) : (
+                <BrowserGroup
+                  key={lane}
+                  label={SEED_LANE_LABEL[lane]}
+                  count={laneSeeds.length}
+                  labelClassName={SEED_LANE_INK[lane]}
+                >
+                  {laneSeeds.map((seed) => (
+                    <SeedBrowserRow key={seed.id} seed={seed} />
+                  ))}
+                </BrowserGroup>
+              ),
+            )}
+            {loaded && all?.length === 0 && (
+              <BrowserEmpty>
+                No seeds yet — press <span className="font-mono text-ink-dim">s</span> to file one.
+              </BrowserEmpty>
+            )}
+            {loaded && all !== undefined && all.length > 0 && shown.length === 0 && (
+              <BrowserEmpty>No seeds match.</BrowserEmpty>
+            )}
+            {seeds.isError && !loaded && (
+              <p className="p-4 text-xs text-status-blocked">
+                Unreachable — is `mimir serve` running?
+              </p>
+            )}
+          </BrowserPage>
+        </main>
+      </>
+    </ProjectGate>
   );
 }

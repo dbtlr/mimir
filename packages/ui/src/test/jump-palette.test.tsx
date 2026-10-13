@@ -151,7 +151,7 @@ afterEach(() => {
 describe('jump palette (MMR-455)', () => {
   it('finds a record by its exact ID, lists its links, and opens it with Enter', async () => {
     const user = userEvent.setup();
-    const testRouter = renderApp('/tasks');
+    const testRouter = renderApp('/p/MMR/tasks');
 
     await jump(user, 'MMR-417');
 
@@ -325,7 +325,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('names no project on New task where none is in scope', async () => {
     const user = userEvent.setup();
-    renderApp('/tasks');
+    renderApp('/');
 
     await user.click(await screen.findByRole('button', { name: 'Jump to…' }));
     const actions = await screen.findByRole('group', { name: /Actions/ });
@@ -334,7 +334,7 @@ describe('jump palette (MMR-455)', () => {
 
   it('runs an action from the keyboard: File a seed opens the capture dialog', async () => {
     const user = userEvent.setup();
-    renderApp('/tasks');
+    renderApp('/p/MMR/tasks');
 
     await openFromButton(user);
     const actions = screen.getByRole('group', { name: /Actions/ });
