@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { useRejectSeed, useResolveSeed } from '../api/mutations';
+import { useParkSeed, useRejectSeed, useResolveSeed, useUnparkSeed } from '../api/mutations';
 import type { WireSeed } from '../api/types';
 import { cn } from '../lib/cn';
 import { ReasonDialog } from './reason-dialog';
 
-type PendingVerb = 'reject' | 'resolve' | null;
+type PendingVerb = 'park' | 'reject' | 'resolve' | null;
 
 /** A lead verb's wash: the accent, or the ready lane's violet. */
 const PRIMARY_INK = {
@@ -63,12 +63,14 @@ export function SpawnedRef({ seed }: { seed: WireSeed }) {
 /**
  * The pinned triage verb row (MMR-247, ADR 0019 §5) — labeled chips scoped to
  * the seed's lane:
- *  - untriaged: Promote to task… (primary) · Reject… · Later
+ *  - untriaged: Promote to task… (primary) · Reject… · Park…
+ *  - parked: Promote to task… (primary) · Unpark · Reject…
  *  - ready (to resolve): Resolve… (primary) · Promote again… · Reject…, with the spawned link
  *  - promoted (in flight): Promote again… (primary) · Reject…, with the spawned reference
- * "Later" is purely local — it collapses/deselects the row, no lifecycle change,
- * no server call. Reject/Resolve open the required-reason dialog. A surface
- * that lists the spawned work itself (the seed page) drops the reference.
+ * Park sets the seed aside so it stops counting as untriaged (MMR-473); it opens
+ * the optional-reason dialog, and Unpark acts at once. Reject/Resolve open the
+ * required-reason dialog. A surface that lists the spawned work itself (the seed
+ * page) drops the reference.
  *
  * Seam (MMR-248): one primary per lane. Promote leads (primary) on untriaged and
  * promoted; on the ready lane Resolve keeps the lead and Promote falls in behind
@@ -76,14 +78,12 @@ export function SpawnedRef({ seed }: { seed: WireSeed }) {
  */
 export function SeedVerbs({
   seed,
-  onLater,
   onPromote,
   offline,
   withSpawned = true,
   className,
 }: {
   seed: WireSeed;
-  onLater?: () => void;
   /** MMR-248: opens the promote sheet for this seed (the lead verb while live). */
   onPromote?: (seed: WireSeed) => void;
   offline?: boolean;
@@ -94,6 +94,8 @@ export function SeedVerbs({
   const [pending, setPending] = useState<PendingVerb>(null);
   const reject = useRejectSeed(seed.id);
   const resolve = useResolveSeed(seed.id);
+  const park = useParkSeed(seed.id);
+  const unpark = useUnparkSeed(seed.id);
 
   // A settled seed is frozen — no verbs (its rows render read-only).
   if (seed.lane === 'settled') {
@@ -123,15 +125,22 @@ export function SeedVerbs({
       );
     }
   }
+  if (seed.lane === 'parked') {
+    chips.push(
+      <VerbChip key="unpark" disabled={offline} onClick={() => unpark.mutate()}>
+        Unpark
+      </VerbChip>,
+    );
+  }
   chips.push(
     <VerbChip key="reject" disabled={offline} onClick={() => setPending('reject')}>
       Reject…
     </VerbChip>,
   );
-  if (seed.lane === 'untriaged' && onLater !== undefined) {
+  if (seed.lane === 'untriaged') {
     chips.push(
-      <VerbChip key="later" onClick={onLater}>
-        Later
+      <VerbChip key="park" disabled={offline} onClick={() => setPending('park')}>
+        Park…
       </VerbChip>,
     );
   }
@@ -141,7 +150,9 @@ export function SeedVerbs({
   if (onPromote !== undefined && seed.lane !== 'ready') {
     chips.unshift(
       <VerbChip key="promote" primary disabled={offline} onClick={() => onPromote(seed)}>
-        {seed.lane === 'untriaged' ? 'Promote to task…' : 'Promote again…'}
+        {seed.lane === 'untriaged' || seed.lane === 'parked'
+          ? 'Promote to task…'
+          : 'Promote again…'}
       </VerbChip>,
     );
   }
@@ -150,6 +161,16 @@ export function SeedVerbs({
     <div className={cn('flex flex-wrap items-center gap-2', className)}>
       {chips}
       {withSpawned && <SpawnedRef seed={seed} />}
+      <ReasonDialog
+        title="Park seed"
+        confirmLabel="Park"
+        open={pending === 'park'}
+        onClose={() => setPending(null)}
+        onConfirm={(reason) => {
+          park.mutate(reason);
+          setPending(null);
+        }}
+      />
       <ReasonDialog
         title="Reject seed"
         confirmLabel="Reject"

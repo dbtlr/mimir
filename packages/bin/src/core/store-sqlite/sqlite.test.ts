@@ -12,6 +12,7 @@ import { openSqlite, SQLITE_FILE } from './client';
 import { createSqliteStore, readSchemaVersion } from './dialect';
 import { statements as initStatements } from './migrations/0001-init';
 import { statements as groomingStatements } from './migrations/0002-grooming';
+import { statements as blockOwnerStatements } from './migrations/0003-block-owner';
 
 /**
  * The SQLite store's file-backed behavior (ADR 0032 Decision 3): what opening
@@ -47,7 +48,7 @@ test('opening a new file creates it, migrates it, and puts it in WAL mode', asyn
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0001_init', '0002_grooming', '0003_block_owner'],
+      applied: ['0001_init', '0002_grooming', '0003_block_owner', '0004_seed_parked'],
       from: 0,
       to: SCHEMA_VERSION,
     });
@@ -86,7 +87,7 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0002_grooming', '0003_block_owner'],
+      applied: ['0002_grooming', '0003_block_owner', '0004_seed_parked'],
       from: 1,
       to: SCHEMA_VERSION,
     });
@@ -132,7 +133,11 @@ test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by
 
   const handle = await openSqlite(path);
   try {
-    expect(handle.upgrade).toEqual({ applied: ['0003_block_owner'], from: 2, to: SCHEMA_VERSION });
+    expect(handle.upgrade).toEqual({
+      applied: ['0003_block_owner', '0004_seed_parked'],
+      from: 2,
+      to: SCHEMA_VERSION,
+    });
     const rows = await sql<{ id: string; block_owner: string | null }>`
       select id, block_owner from node order by seq
     `.execute(handle.db);
@@ -148,6 +153,87 @@ test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by
         sql`update node set block_owner = 'bogus' where id = 'MMR-3'`.execute(handle.db),
       ),
     ).toContain('CHECK');
+  } finally {
+    await handle.close();
+  }
+});
+
+test('0004_seed_parked upgrades a version-3 store: seeds and their history survive, parked is admitted, bogus values rejected', async () => {
+  // The store as the previous binary left it: 0001–0003, with a seed and its history.
+  const old = new Database(path, { create: true });
+  for (const statement of [...initStatements, ...groomingStatements, ...blockOwnerStatements]) {
+    old.run(statement);
+  }
+  old.run(`INSERT INTO schema_version (version, applied_at) VALUES (1, 't'), (2, 't'), (3, 't')`);
+  old.run(
+    `INSERT INTO project (key, name, created_at, updated_at) VALUES ('MMR', 'Mimir', 't', 't')`,
+  );
+  old.run(
+    `INSERT INTO seed (id, project_key, seq, title, kind, lifecycle, requester, description, spawned, created_at, updated_at)
+     VALUES ('MMR-s1', 'MMR', 1, 'kept', 'idea', 'promoted', NULL, 'body', '["MMR-9"]', 'c', 'u'),
+            ('MMR-s2', 'MMR', 2, 'fresh', 'bug', 'new', NULL, NULL, '[]', 'c', 'u')`,
+  );
+  old.run(
+    `INSERT INTO seed_history (id, seed_id, kind, from_value, to_value, reason, at)
+     VALUES (7, 'MMR-s1', 'lifecycle', 'new', 'promoted', 'promoted — spawned MMR-9', 'h')`,
+  );
+  // History ids past the highest surviving row were handed out once; the counter
+  // must keep counting from there, never reuse them.
+  old.run(`UPDATE sqlite_sequence SET seq = 12 WHERE name = 'seed_history'`);
+  // The previous schema refuses the new word, so the upgrade is what admits it.
+  expect(() => old.run(`UPDATE seed SET lifecycle = 'parked' WHERE id = 'MMR-s2'`)).toThrow(
+    'CHECK',
+  );
+  old.close();
+
+  const handle = await openSqlite(path);
+  try {
+    expect(handle.upgrade).toEqual({ applied: ['0004_seed_parked'], from: 3, to: SCHEMA_VERSION });
+    const seeds = await sql<{
+      id: string;
+      lifecycle: string;
+      spawned: string;
+      description: string | null;
+    }>`
+      select id, lifecycle, spawned, description from seed order by seq
+    `.execute(handle.db);
+    expect(seeds.rows).toEqual([
+      { description: 'body', id: 'MMR-s1', lifecycle: 'promoted', spawned: '["MMR-9"]' },
+      { description: null, id: 'MMR-s2', lifecycle: 'new', spawned: '[]' },
+    ]);
+    const history = await sql<{ id: number; seed_id: string; reason: string }>`
+      select id, seed_id, reason from seed_history
+    `.execute(handle.db);
+    expect(history.rows).toEqual([
+      { id: 7, reason: 'promoted — spawned MMR-9', seed_id: 'MMR-s1' },
+    ]);
+
+    await sql`update seed set lifecycle = 'parked' where id = 'MMR-s2'`.execute(handle.db);
+    expect(
+      await refusal(
+        sql`update seed set lifecycle = 'bogus' where id = 'MMR-s2'`.execute(handle.db),
+      ),
+    ).toContain('CHECK');
+    // The history still references the seed table, and its index survived the rebuild.
+    expect(
+      await refusal(
+        sql`insert into seed_history (seed_id, kind, at) values ('MMR-s99', 'lifecycle', 'h')`.execute(
+          handle.db,
+        ),
+      ),
+    ).toContain('FOREIGN KEY');
+    const index = await sql<{ name: string }>`
+      select name from sqlite_master where type = 'index' and tbl_name = 'seed_history'
+    `.execute(handle.db);
+    expect(index.rows.map((row) => row.name)).toContain('idx_seed_history_seed');
+    // New history rows keep counting past every id ever handed out.
+    await sql`insert into seed_history (seed_id, kind, at) values ('MMR-s2', 'lifecycle', 'h')`.execute(
+      handle.db,
+    );
+    const ids = await sql<{ id: number }>`select id from seed_history order by id`.execute(
+      handle.db,
+    );
+    expect(ids.rows.map((row) => row.id)).toEqual([7, 13]);
   } finally {
     await handle.close();
   }

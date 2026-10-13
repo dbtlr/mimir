@@ -69,15 +69,16 @@ function SeedBrowserRow({ seed, demoted = false }: { seed: WireSeed; demoted?: b
   );
 }
 
-/** The folded SETTLED group: its rows stay hidden until the reader asks. */
-function SettledGroup({ seeds }: { seeds: readonly WireSeed[] }) {
+/** A folded lane (PARKED or SETTLED): its count shows, its rows stay hidden until
+ * the reader asks. Settled rows read demoted; parked rows are still live. */
+function FoldedGroup({ lane, seeds }: { lane: 'parked' | 'settled'; seeds: readonly WireSeed[] }) {
   const [shown, setShown] = useState(false);
   const rowsId = useId();
   return (
     <BrowserGroup
-      label={SEED_LANE_LABEL.settled}
+      label={SEED_LANE_LABEL[lane]}
       count={seeds.length}
-      labelClassName={SEED_LANE_INK.settled}
+      labelClassName={SEED_LANE_INK[lane]}
     >
       <button
         type="button"
@@ -88,12 +89,12 @@ function SettledGroup({ seeds }: { seeds: readonly WireSeed[] }) {
         }}
         className="mb-1 rounded-sm px-1 text-[0.78125rem] text-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
-        {shown ? 'Hide settled seeds' : 'Show settled seeds'}
+        {shown ? `Hide ${lane} seeds` : `Show ${lane} seeds`}
       </button>
       {shown && (
         <div id={rowsId}>
           {seeds.map((seed) => (
-            <SeedBrowserRow key={seed.id} seed={seed} demoted />
+            <SeedBrowserRow key={seed.id} seed={seed} demoted={lane === 'settled'} />
           ))}
         </div>
       )}
@@ -104,8 +105,8 @@ function SettledGroup({ seeds }: { seeds: readonly WireSeed[] }) {
 /**
  * `/seeds` — the grooming queue as a grouped reading list (MMR-454): a centred
  * column, search and project/kind chips, and rows grouped by the server's
- * `lane` in fixed order. Every row links to the seed's page; SETTLED folds
- * behind a "Show settled seeds" control. Search and kind filter client-side;
+ * `lane` in fixed order. Every row links to the seed's page; PARKED and SETTLED
+ * fold behind a "Show … seeds" control. Search and kind filter client-side;
  * the project filter is the server's.
  */
 export function SeedsPage() {
@@ -230,8 +231,8 @@ export function SeedsPage() {
 
           {seeds.isPending && <Skeleton className="h-24" />}
           {groups.map(({ lane, seeds: laneSeeds }) =>
-            lane === 'settled' ? (
-              <SettledGroup key={lane} seeds={laneSeeds} />
+            lane === 'parked' || lane === 'settled' ? (
+              <FoldedGroup key={lane} lane={lane} seeds={laneSeeds} />
             ) : (
               <BrowserGroup
                 key={lane}

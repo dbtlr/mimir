@@ -110,6 +110,7 @@ test('renderTriageReport: upstream-resolution arrow reads upstream → task (MMR
     board: 'MMR',
     dryRun: false,
     failures: [],
+    parked: 0,
     readyToResolve: [],
     untriaged: [],
     upstreamResolutions: [
@@ -127,6 +128,21 @@ test('renderTriageReport: upstream-resolution arrow reads upstream → task (MMR
   const text = renderTriageReport(report, fakeIo(false));
   expect(text).toContain('MMR-s1 -> MMR-3'); // plain io: ascii glyph, upstream first
   expect(text).not.toContain('<-');
+});
+
+test('renderTriageReport: parked seeds are a count with a pointer, never a section (MMR-473)', () => {
+  const report: TriageReport = {
+    board: 'MMR',
+    dryRun: false,
+    failures: [],
+    parked: 2,
+    readyToResolve: [],
+    untriaged: [],
+    upstreamResolutions: [],
+  };
+  const text = renderTriageReport(report, fakeIo(false));
+  expect(text).toContain('0 untriaged seeds · 2 parked ·');
+  expect(text).toContain('2 parked seeds — list them: mimir seeds -p MMR --status parked');
 });
 
 // ─── Local-time rendering (MMR-350, ADR 0029) ───────────────────────────────
@@ -247,6 +263,7 @@ function overview(over: Partial<OverviewReport> = {}): OverviewReport {
     hygiene: {
       blocked: 0,
       listings: { blocked: [], stale: [], untriaged: [] },
+      parkedSeeds: 0,
       stale: 0,
       untriaged: 0,
     },
@@ -258,6 +275,23 @@ function overview(over: Partial<OverviewReport> = {}): OverviewReport {
     ...over,
   };
 }
+
+test('overview: parked seeds add a reminder line without flagging anything (MMR-473)', () => {
+  const text = renderOverview(
+    overview({
+      hygiene: {
+        blocked: 0,
+        listings: { blocked: [], stale: [], untriaged: [] },
+        parkedSeeds: 1,
+        stale: 0,
+        untriaged: 0,
+      },
+    }),
+    fakeIo(false),
+  );
+  expect(text).toContain('nothing flagged');
+  expect(text).toContain('1 parked seed — list them: mimir seeds -p MMR --status parked');
+});
 
 test('overview: a same-day session window states its zone once (MMR-350)', () => {
   const text = renderOverview(

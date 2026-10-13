@@ -1630,6 +1630,7 @@ describe('overview (MMR-278)', () => {
       awaiting: { count: number; tasks: unknown[] };
       hygiene: {
         untriaged: number;
+        parked_seeds: number;
         blocked: number;
         stale: number;
         listings: { blocked: unknown[]; stale: unknown[]; untriaged: unknown[] };
@@ -1641,6 +1642,7 @@ describe('overview (MMR-278)', () => {
     expect(env.hygiene).toEqual({
       blocked: 0,
       listings: { blocked: [], stale: [], untriaged: [] },
+      parked_seeds: 0,
       stale: 0,
       untriaged: 0,
     });

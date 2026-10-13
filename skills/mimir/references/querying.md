@@ -37,7 +37,8 @@ awaits) · **recent sessions** (top 5: the session id, its window, the tasks it
 touched, and the lede of the `session_summary` artifact that covers it) ·
 **hygiene** (untriaged/blocked/stale counts, each nonzero count naming
 its follow-up command, with the first 5 rows behind it — blocked and stale
-tasks carry their attention lane, untriaged seeds their lede). In flight comes
+tasks carry their attention lane, untriaged seeds their lede; parked seeds
+are a count only). In flight comes
 before next by design — orienting via `next` alone is the classic trap (it
 **excludes `in_progress`**), and overview structurally avoids it.
 

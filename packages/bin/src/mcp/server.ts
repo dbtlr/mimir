@@ -211,7 +211,11 @@ export function uniformToolDescription(spec: OpFact): string {
       ? ''
       : ` Optional ${spec.choice.name} (${spec.choice.values.join('|')}): ${spec.choice.summary}.`;
   const echo = spec.subject === 'project' ? 'Echoes the project.' : 'Echoes the updated node.';
-  return `${head}${arrow}.${reason}${choice} ${echo}`;
+  const seeds =
+    spec.seeds === true
+      ? ' A seed id (KEY-sN) is accepted too: it moves the seed between untriaged and parked and echoes the seed.'
+      : '';
+  return `${head}${arrow}.${reason}${choice} ${echo}${seeds}`;
 }
 
 /** Reorder a raw shape's keys alphabetically — the tool schemas keep their
@@ -562,7 +566,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'overview',
-    'Session-boot orientation for ONE project (MMR-278): a header (project id, status word, rollup distribution), in-flight tasks (in_progress + under_review, uncapped), the ready-queue head (next, top 5), dependency-gated tasks (awaiting, top 5, each carrying the upstream ids it awaits), and hygiene counts (untriaged seeds, blocked, stale). scope defaults to the bound board; "all" is rejected — a composite is one project, use list for a cross-project set. Every section carries its TRUE total even when its list is capped. Returns one composite JSON envelope.',
+    'Session-boot orientation for ONE project (MMR-278): a header (project id, status word, rollup distribution), in-flight tasks (in_progress + under_review, uncapped), the ready-queue head (next, top 5), dependency-gated tasks (awaiting, top 5, each carrying the upstream ids it awaits), and hygiene counts (untriaged seeds, blocked, stale, and parked_seeds — parked seeds are counted, never listed). scope defaults to the bound board; "all" is rejected — a composite is one project, use list for a cross-project set. Every section carries its TRUE total even when its list is capped. Returns one composite JSON envelope.',
     { scope: z.string().optional() },
     (args: { scope?: string }) => toolOverview(store, args, boundScope),
   );
@@ -940,7 +944,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'seeds',
-    'The grooming queue — live seeds (new + promoted) oldest-first by default. project scopes to one board (default the bound board; "all" = every board); requester filters to a requesting board; status is new|promoted|resolved|rejected or live|all; sort is asc|desc (age). The created_at date ops (on/before/after/atOrBefore/atOrAfter, arrays of FIELD:VALUE tokens like "created_at:2026-07-01") window the queue by age; a bare YYYY-MM-DD needs tz, your IANA timezone.',
+    'The grooming queue — live seeds (new + promoted) oldest-first by default; a parked seed is listed only by status parked or all. project scopes to one board (default the bound board; "all" = every board); requester filters to a requesting board; status is new|parked|promoted|resolved|rejected or live|all; sort is asc|desc (age). The created_at date ops (on/before/after/atOrBefore/atOrAfter, arrays of FIELD:VALUE tokens like "created_at:2026-07-01") window the queue by age; a bare YYYY-MM-DD needs tz, your IANA timezone.',
     {
       project: z.string().optional(),
       requester: z.string().optional(),
@@ -988,7 +992,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'reject',
-    'Reject a seed (KEY-sN) — a terminal transition reachable from new or promoted; reason required. Echoes the updated seed.',
+    'Reject a seed (KEY-sN) — a terminal transition reachable from new, parked, or promoted; reason required. Echoes the updated seed.',
     { id: z.string(), reason: z.string() },
     (args: { id: string; reason: string }) => toolReject(store, args),
   );
@@ -996,7 +1000,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'resolve',
-    'Resolve a seed (KEY-sN) — a terminal transition reachable from new or promoted; resolution reason required. Echoes the updated seed.',
+    'Resolve a seed (KEY-sN) — a terminal transition reachable from new, parked, or promoted; resolution reason required. Echoes the updated seed.',
     { id: z.string(), reason: z.string() },
     (args: { id: string; reason: string }) => toolResolve(store, args),
   );
@@ -1004,7 +1008,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'triage',
-    "Reconcile ONE board's grooming queue (MMR-246): (a) surface new/untriaged seeds, (b) flag promoted seeds whose spawned work has all settled (ready to resolve — never auto-closed), and (c) over the board's OWN tasks whose upstream seed went terminal, append an idempotent annotation recording the resolution and suggest unblock. WRITES the check-(c) annotations by default; NEVER transitions anything (unblock/resolve stay suggestions). dryRun previews with no writes. board defaults to the bound board. Idempotent — a re-run is a no-op. Returns the three-check report.",
+    "Reconcile ONE board's grooming queue (MMR-246): (a) surface new/untriaged seeds (parked seeds are only counted, as parked), (b) flag promoted seeds whose spawned work has all settled (ready to resolve — never auto-closed), and (c) over the board's OWN tasks whose upstream seed went terminal, append an idempotent annotation recording the resolution and suggest unblock. WRITES the check-(c) annotations by default; NEVER transitions anything (unblock/resolve stay suggestions). dryRun previews with no writes. board defaults to the bound board. Idempotent — a re-run is a no-op. Returns the three-check report.",
     { board: z.string().optional(), dryRun: z.boolean().optional() },
     (args: { board?: string; dryRun?: boolean }) => toolTriage(store, args, boundScope),
   );

@@ -61,12 +61,15 @@ mimir seed "should capture parse a title from the first line?" -k idea   # own b
 ```sh
 mimir seeds                       # the bound board: live seeds, oldest-first
 mimir seeds -p NRN --grouped      # lanes: UNTRIAGED · READY TO RESOLVE · PROMOTED · SETTLED
+mimir seeds --status all --grouped   # adds the PARKED lane
+mimir seeds --status parked       # the seeds set aside for later
 mimir seeds -p all --requester MMR   # everything my board has asked of others
 mimir get NRN-s3                  # one seed, resolved view
 ```
 
 - Default shows **live** seeds (`new`+`promoted`) **oldest-first** — the
-  longest-waiting seed is the triage priority. `--status <word>|all`,
+  longest-waiting seed is the triage priority. Parked seeds are left out;
+  `--status parked` or `all` lists them. `--status <word>|all`,
   `--sort asc|desc`, `-p all` for every board, and the shared date ops over
   `created_at` (`--at-or-after created_at:2026-07-01`, `--tz <IANA>`).
 - `seed` captures and `seeds` queries. For tasks and other nodes, `list` is the
@@ -79,12 +82,20 @@ mimir promote NRN-s3 --parent NRN-42 --desc "…"   # germinate: creates the tas
 mimir promote NRN-s3 --link NRN-55                # record EXISTING work as spawned (no create)
 mimir resolve NRN-s6 "shipped in v0.45.0"         # terminal: satisfied  (reason required)
 mimir reject  NRN-s4 "covered by NRN-102"         # terminal: declined   (reason required)
+mimir park    NRN-s7 "after the sync rewrite"     # keep it, stop triaging it (reason optional)
+mimir unpark  NRN-s7                              # back to untriaged
 mimir update  NRN-s2 --title "…" --kind idea      # patch a LIVE seed; terminal seeds refuse
 ```
 
-- Lifecycle: `new → promoted → resolved | rejected` — and both terminals are
-  reachable straight from `new` ("already fixed" is a **resolve**, not a reject;
+- Lifecycle: `new → promoted → resolved | rejected`, with `new ⇄ parked` beside
+  it — and both terminals are reachable straight from `new` or `parked` ("already fixed" is a **resolve**, not a reject;
   the reason string carries the nuance).
+- **Park** an untriaged seed the board owner wants to keep but not decide on
+  now. A parked seed leaves the untriaged count in `overview` and `triage`,
+  which report only how many are parked. `unpark` returns it to `new`; a
+  parked seed can also be promoted, resolved, or rejected directly. Parking is
+  the owner's triage call, not a way to defer your own follow-up work: that is
+  still a task.
 - `promote` is **repeatable** while promoted — further germination appends
   `spawned` links. `--link` records work that already exists.
 - **Terminal states are set only by these explicit verbs.** All spawned work
@@ -127,7 +138,7 @@ mimir triage --dry-run  # preview; writes nothing
 ```
 
 One board per run, self-contained. Three checks: **(a)** surfaces untriaged
-seeds; **(b)** flags promoted seeds whose spawned work has all settled —
+seeds (parked seeds are only counted); **(b)** flags promoted seeds whose spawned work has all settled —
 _ready to resolve_; **(c)** for the board's **own** tasks whose `upstream` seed
 went terminal, appends the resolution annotation
 (`upstream KEY-sN resolved: <reason>`) and suggests unblock.

@@ -29,7 +29,24 @@ mimir get AUR-s4
 ```
 
 The grouped view separates untriaged, promoted, ready-to-resolve, and settled
-Seeds. The console provides the same grooming lanes; each Seed opens on its own page.
+Seeds. Parked Seeds are left out of the default queue; add `--status all` to
+see them in their own lane. The console provides the same grooming lanes; each
+Seed opens on its own page.
+
+## Park a Seed for later
+
+Park a Seed that you want to keep but not decide on now:
+
+```sh
+mimir park AUR-s6 "revisit after the sync rewrite"
+mimir unpark AUR-s6
+```
+
+A parked Seed no longer counts as untriaged, so `mimir triage` and
+`mimir overview` stop asking about it. Both still report how many Seeds are
+parked. The default queue leaves parked Seeds out; list them with
+`mimir seeds --status parked`. The reason is optional. Unpark a Seed to return
+it to the untriaged queue, or promote, reject, or resolve it directly.
 
 ## Settle the question
 

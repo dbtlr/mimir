@@ -8,6 +8,7 @@ import { assertSchemaCurrent, readSchemaVersion, SCHEMA_VERSION, upgradeSchema }
 import type { DB } from './index';
 import { statements as initStatements } from './migrations/0001-init';
 import { statements as groomingStatements } from './migrations/0002-grooming';
+import { statements as blockOwnerStatements } from './migrations/0003-block-owner';
 import { createPgliteDialect } from './pglite';
 
 function freshDb(): Kysely<DB> {
@@ -41,7 +42,7 @@ test('an upgrade names the migrations it applied and lands the current version',
   const db = freshDb();
   try {
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0001_init', '0002_grooming', '0003_block_owner'],
+      applied: ['0001_init', '0002_grooming', '0003_block_owner', '0004_seed_parked'],
       from: 0,
       to: SCHEMA_VERSION,
     });
@@ -79,7 +80,7 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
     `.execute(db);
 
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0002_grooming', '0003_block_owner'],
+      applied: ['0002_grooming', '0003_block_owner', '0004_seed_parked'],
       from: 1,
       to: SCHEMA_VERSION,
     });
@@ -126,7 +127,7 @@ test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by
     `.execute(db);
 
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0003_block_owner'],
+      applied: ['0003_block_owner', '0004_seed_parked'],
       from: 2,
       to: SCHEMA_VERSION,
     });
@@ -147,6 +148,52 @@ test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by
         (reason: unknown) => String(reason),
       );
     expect(rejection).toContain('node_block_owner_check');
+  } finally {
+    await db.destroy();
+  }
+});
+
+test('0004_seed_parked upgrades a version-3 store: seeds keep their lifecycle, parked is admitted, bogus values rejected', async () => {
+  const db = freshDb();
+  try {
+    // The store as the previous binary left it: 0001–0003, with a seed.
+    for (const statement of [...initStatements, ...groomingStatements, ...blockOwnerStatements]) {
+      await sql.raw(statement).execute(db);
+    }
+    await sql`insert into schema_version (version, applied_at) values (1, 't'), (2, 't'), (3, 't')`.execute(
+      db,
+    );
+    await sql`insert into project (key, name, created_at, updated_at) values ('MMR', 'Mimir', 't', 't')`.execute(
+      db,
+    );
+    await sql`
+      insert into seed (id, project_key, seq, title, kind, lifecycle, created_at, updated_at)
+      values ('MMR-s1', 'MMR', 1, 't', 'idea', 'new', 't', 't')
+    `.execute(db);
+    // The previous schema refuses the new word, so the upgrade is what admits it.
+    const before = await sql`update seed set lifecycle = 'parked' where id = 'MMR-s1'`
+      .execute(db)
+      .then(
+        () => 'accepted',
+        (reason: unknown) => String(reason),
+      );
+    expect(before).toContain('seed_lifecycle_check');
+
+    expect(await upgradeSchema(db)).toEqual({
+      applied: ['0004_seed_parked'],
+      from: 3,
+      to: SCHEMA_VERSION,
+    });
+    await sql`update seed set lifecycle = 'parked' where id = 'MMR-s1'`.execute(db);
+    const rows = await sql<{ lifecycle: string }>`select lifecycle from seed`.execute(db);
+    expect(rows.rows).toEqual([{ lifecycle: 'parked' }]);
+    const rejection = await sql`update seed set lifecycle = 'bogus' where id = 'MMR-s1'`
+      .execute(db)
+      .then(
+        () => 'accepted',
+        (reason: unknown) => String(reason),
+      );
+    expect(rejection).toContain('seed_lifecycle_check');
   } finally {
     await db.destroy();
   }

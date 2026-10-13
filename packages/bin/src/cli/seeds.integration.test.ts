@@ -193,6 +193,35 @@ describe('seed CLI verbs', () => {
     }
   });
 
+  test('park and unpark move a seed and echo the seed (MMR-473)', async () => {
+    await cli(['seed', 'someday', '-k', 'idea']); // MMR-s1
+    const parked = await cli(['park', 'MMR-s1', 'after', 'v1', '-f', 'json']);
+    expect(parked.code).toBe(0);
+    expect(parseJson<Record<string, unknown>>(parked.io.out.join(''))).toMatchObject({
+      id: 'MMR-s1',
+      lane: 'parked',
+      lifecycle: 'parked',
+    });
+    expect((await store.seeds.loadHistory('MMR', 1))?.at(-1)?.reason).toBe('after v1');
+
+    const queue = await cli(['seeds', '-f', 'json']);
+    expect(parseJson<{ seeds: unknown[] }>(queue.io.out.join('')).seeds).toEqual([]);
+
+    const unparked = await cli(['unpark', 'MMR-s1', '-f', 'json']);
+    expect(unparked.code).toBe(0);
+    expect(parseJson<Record<string, unknown>>(unparked.io.out.join(''))).toMatchObject({
+      lane: 'untriaged',
+      lifecycle: 'new',
+    });
+  });
+
+  test('park signposts the seed in human output (MMR-473)', async () => {
+    await cli(['seed', 'someday', '-k', 'idea']); // MMR-s1
+    const { code, io } = await cli(['park', 'MMR-s1', 'not', 'now', '-f', 'records']);
+    expect(code).toBe(0);
+    expect(io.out.join('\n')).toContain('parked MMR-s1 · not now');
+  });
+
   test('seeds -p all reads every active board (B5b)', async () => {
     await createProject(store, { key: 'OTH', name: 'Other' });
     await cli(['seed', 'here', '-k', 'idea']); // MMR-s1

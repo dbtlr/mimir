@@ -17,7 +17,17 @@ import { resolveProjectKeyInSet } from '../resolve-set';
 import type { Store } from '../store';
 import type { DB } from '../store-sql/schema';
 import { createSqliteTestStore } from '../store-sqlite/testing';
-import { fileSeed, getSeed, listSeeds, promoteSeed, transitionSeed, updateSeed } from './intent';
+import {
+  fileSeed,
+  getSeed,
+  listSeeds,
+  parkSeed,
+  promoteSeed,
+  transitionSeed,
+  unparkSeed,
+  updateSeed,
+} from './intent';
+import { seedLane } from './lane';
 import { triage } from './triage';
 
 /**
@@ -482,6 +492,117 @@ describe('seed verbs (intent)', () => {
     const blankLoaded = await getSeed(store, blank.id, { content: true });
     expect(blank.description).toBeNull();
     expect(blank.description).toBe(blankLoaded.description);
+  });
+});
+
+describe('parking a seed (MMR-473)', () => {
+  test('park moves an untriaged seed to parked; unpark returns it to untriaged', async () => {
+    await seedbed();
+    await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title: 'someday' });
+
+    const parked = await parkSeed(store, 'MMR-s1', 'not now');
+    expect(parked.lifecycle).toBe('parked');
+    expect(seedLane(parked)).toBe('parked');
+
+    const unparked = await unparkSeed(store, 'MMR-s1');
+    expect(unparked.lifecycle).toBe('new');
+    expect(seedLane(unparked)).toBe('untriaged');
+  });
+
+  test('the park reason is optional and recorded in the seed history', async () => {
+    await seedbed();
+    await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title: 'a' });
+    await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title: 'b' });
+    await parkSeed(store, 'MMR-s1', 'after the console rebuild');
+    await parkSeed(store, 'MMR-s2');
+
+    const history = await store.seeds.loadHistory('MMR', 1);
+    expect(history?.at(-1)).toMatchObject({
+      from: 'new',
+      reason: 'after the console rebuild',
+      to: 'parked',
+    });
+    expect((await store.seeds.loadHistory('MMR', 2))?.at(-1)).toMatchObject({
+      reason: null,
+      to: 'parked',
+    });
+  });
+
+  test('a parked seed leaves the default queue but is listed by --status parked', async () => {
+    await seedbed();
+    await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title: 'kept' });
+    await fileSeed(store, {
+      description: 'come back after v1',
+      kind: 'bug',
+      project: 'MMR',
+      requester: null,
+      title: 'later',
+    });
+    await parkSeed(store, 'MMR-s2');
+
+    expect((await listSeeds(store, { project: 'MMR' })).map((s) => s.id)).toEqual(['MMR-s1']);
+    const parked = await listSeeds(store, { project: 'MMR', status: 'parked' });
+    expect(parked.map((s) => s.id)).toEqual(['MMR-s2']);
+    // A parked seed is still a live record: it carries its lede like any queued seed.
+    expect(parked[0]?.lede).toBe('come back after v1');
+    const all = await listSeeds(store, { project: 'MMR', status: 'all' });
+    expect(all.map((s) => s.id)).toEqual(['MMR-s1', 'MMR-s2']);
+  });
+
+  test('a parked seed can be promoted, resolved, or rejected without unparking', async () => {
+    const { phaseRef: parent } = await seedbed();
+    for (const title of ['promote me', 'resolve me', 'reject me']) {
+      await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title });
+    }
+    for (const id of ['MMR-s1', 'MMR-s2', 'MMR-s3']) {
+      await parkSeed(store, id);
+    }
+
+    const promoted = await promoteSeed(store, 'MMR-s1', { parent });
+    expect(promoted.seed.lifecycle).toBe('promoted');
+    expect((await store.seeds.loadHistory('MMR', 1))?.at(-1)).toMatchObject({
+      from: 'parked',
+      to: 'promoted',
+    });
+    expect((await transitionSeed(store, 'MMR-s2', 'resolved', 'done already')).lifecycle).toBe(
+      'resolved',
+    );
+    expect((await transitionSeed(store, 'MMR-s3', 'rejected', 'no')).lifecycle).toBe('rejected');
+  });
+
+  test('only an untriaged seed parks, and only a parked seed unparks', async () => {
+    const { phaseRef: parent } = await seedbed();
+    await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title: 'promoted' });
+    await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title: 'resolved' });
+    await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title: 'new' });
+    await promoteSeed(store, 'MMR-s1', { parent });
+    await transitionSeed(store, 'MMR-s2', 'resolved', 'fixed');
+    await parkSeed(store, 'MMR-s3');
+
+    expect(await rejectMessage(() => parkSeed(store, 'MMR-s1'))).toMatch(/cannot move promoted/);
+    expect(await rejectMessage(() => parkSeed(store, 'MMR-s2'))).toMatch(/cannot move resolved/);
+    expect(await rejectMessage(() => parkSeed(store, 'MMR-s3'))).toMatch(/cannot move parked/);
+    expect(await rejectMessage(() => unparkSeed(store, 'MMR-s1'))).toMatch(/not parked/);
+  });
+
+  test('a parked seed can still be edited', async () => {
+    await seedbed();
+    await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title: 'rough' });
+    await parkSeed(store, 'MMR-s1');
+    const updated = await updateSeed(store, 'MMR-s1', { title: 'sharper' });
+    expect(updated.title).toBe('sharper');
+    expect(updated.lifecycle).toBe('parked');
+  });
+
+  test('an archived board refuses park and unpark', async () => {
+    await seedbed();
+    await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title: 's' });
+    await archiveProject(store, await pidOf('MMR'));
+    const archived = await rejectCode(() => transitionSeed(store, 'MMR-s1', 'rejected', 'x'));
+    expect(await rejectCode(() => parkSeed(store, 'MMR-s1'))).toBe(archived);
+    // The board refusal comes first: an archived board never reveals a seed's state.
+    expect(await rejectCode(() => unparkSeed(store, 'MMR-s1'))).toBe(archived);
+    expect(await rejectMessage(() => unparkSeed(store, 'MMR-s1'))).toMatch(/archived/);
   });
 });
 

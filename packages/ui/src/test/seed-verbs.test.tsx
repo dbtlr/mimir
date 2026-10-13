@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,7 +7,8 @@ import type { WireSeed } from '../api/types';
 import { SeedVerbs } from '../components/seed-verbs';
 import { seed } from './fixtures';
 
-vi.mock('../api/client', () => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
+const { apiSend } = vi.hoisted(() => ({ apiSend: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet: vi.fn(), apiSend }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 afterEach(() => {
@@ -18,7 +19,7 @@ function renderVerbs(s: WireSeed, onPromote?: (seed: WireSeed) => void): void {
   const client = new QueryClient();
   render(
     <QueryClientProvider client={client}>
-      <SeedVerbs seed={s} onLater={() => {}} onPromote={onPromote} />
+      <SeedVerbs seed={s} onPromote={onPromote} />
     </QueryClientProvider>,
   );
 }
@@ -70,5 +71,45 @@ describe('seedVerbs promote chip (MMR-248)', () => {
     renderVerbs(s, onPromote);
     await userEvent.click(screen.getByRole('button', { name: 'Promote to task…' }));
     expect(onPromote).toHaveBeenCalledWith(s);
+  });
+});
+
+describe('seedVerbs parking (MMR-473)', () => {
+  it('offers Park… on an untriaged seed, after Reject…', () => {
+    renderVerbs(seed({ lane: 'untriaged' }), vi.fn());
+    const labels = screen.getAllByRole('button').map((b) => b.textContent);
+    expect(labels).toStrictEqual(['Promote to task…', 'Reject…', 'Park…']);
+  });
+
+  it('parks with an optional reason', async () => {
+    apiSend.mockResolvedValue(seed({ lane: 'parked', lifecycle: 'parked' }));
+    renderVerbs(seed({ id: 'MMR-s7', lane: 'untriaged' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Park…' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByRole('textbox'), '  after v1  ');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Park' }));
+    expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s7/park', { reason: 'after v1' });
+  });
+
+  it('parks without a reason when none is given', async () => {
+    apiSend.mockResolvedValue(seed({ lane: 'parked', lifecycle: 'parked' }));
+    renderVerbs(seed({ id: 'MMR-s7', lane: 'untriaged' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Park…' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Park' }));
+    expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s7/park', undefined);
+  });
+
+  it('offers Promote, Unpark, and Reject on a parked seed', () => {
+    renderVerbs(seed({ lane: 'parked', lifecycle: 'parked' }), vi.fn());
+    const labels = screen.getAllByRole('button').map((b) => b.textContent);
+    expect(labels).toStrictEqual(['Promote to task…', 'Unpark', 'Reject…']);
+  });
+
+  it('unparks straight away — no dialog', async () => {
+    apiSend.mockResolvedValue(seed({ lane: 'untriaged' }));
+    renderVerbs(seed({ id: 'MMR-s7', lane: 'parked', lifecycle: 'parked' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Unpark' }));
+    expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s7/unpark');
   });
 });

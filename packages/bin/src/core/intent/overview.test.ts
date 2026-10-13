@@ -12,7 +12,7 @@ import {
   updateNode,
   updateProject,
 } from '../mutations';
-import { fileSeed } from '../seeds';
+import { fileSeed, parkSeed } from '../seeds';
 import type { Store } from '../store';
 import { expectMimirError } from '../testing';
 import { overviewOf } from './index';
@@ -108,6 +108,7 @@ test('empty sections carry a zero count', async () => {
   expect(report.hygiene).toEqual({
     blocked: 0,
     listings: { blocked: [], stale: [], untriaged: [] },
+    parkedSeeds: 0,
     stale: 0,
     untriaged: 0,
   });
@@ -402,6 +403,16 @@ test('untriaged seed rows carry id, title, and the derived lede', async () => {
       title: 'report the schema',
     },
   ]);
+});
+
+test('a parked seed is counted as parked, never as untriaged (MMR-473)', async () => {
+  const kept = await fileSeed(store, { kind: 'idea', project: 'MMR', title: 'decide now' });
+  const later = await fileSeed(store, { kind: 'idea', project: 'MMR', title: 'someday' });
+  await parkSeed(store, later.id);
+  const report = await overviewOf(store, 'MMR');
+  expect(report.hygiene.untriaged).toBe(1);
+  expect(report.hygiene.listings.untriaged.map((row) => row.id)).toEqual([kept.id]);
+  expect(report.hygiene.parkedSeeds).toBe(1);
 });
 
 // ─── Direction prose (MMR-322, ADR 0026 Decision 2) ──────────────────────────

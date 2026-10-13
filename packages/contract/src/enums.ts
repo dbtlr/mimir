@@ -104,29 +104,33 @@ export const SEED_KIND_VALUES = ['idea', 'bug', 'feature'] as const;
 export type SeedKind = (typeof SEED_KIND_VALUES)[number];
 
 /**
- * Seed lifecycle (MMR-244) — triage progress: `new → promoted | resolved | rejected`
- * and `promoted → resolved | rejected`. The terminal states (`resolved`/`rejected`)
- * are set only by explicit triager verbs, never derived from spawned work (all
- * spawned tasks can be abandoned without satisfying the request). "Later" is
- * staying `new`; `resolved` is honest across all three kinds.
+ * Seed lifecycle (MMR-244) — triage progress: `new → parked | promoted | resolved |
+ * rejected`, `parked → new | promoted | resolved | rejected`, and `promoted →
+ * resolved | rejected`. `parked` (MMR-473) is the deliberate "later": the seed is
+ * kept but stops counting as untriaged, and `unpark` returns it to `new`. The
+ * terminal states (`resolved`/`rejected`) are set only by explicit triager verbs,
+ * never derived from spawned work (all spawned tasks can be abandoned without
+ * satisfying the request); `resolved` is honest across all three kinds.
  */
-export const SEED_LIFECYCLE_VALUES = ['new', 'promoted', 'resolved', 'rejected'] as const;
+export const SEED_LIFECYCLE_VALUES = ['new', 'parked', 'promoted', 'resolved', 'rejected'] as const;
 export type SeedLifecycle = (typeof SEED_LIFECYCLE_VALUES)[number];
 
 /**
  * Seed lane (MMR-245) — the exclusive, highest-wins standing a seed view groups
  * into, the seed sibling of the node attention {@link Lane}. `untriaged` (new,
  * awaiting a decision), `ready` (promoted + all spawned work settled — ready to
- * resolve), `promoted` (in flight, work outstanding), `settled` (resolved/rejected).
- * `ready` wins over `promoted` so the attention signal is never buried. Exposed on
- * the wire so consumers derive nothing.
+ * resolve), `promoted` (in flight, work outstanding), `parked` (set aside on
+ * purpose, MMR-473), `settled` (resolved/rejected). `ready` wins over `promoted`
+ * so the attention signal is never buried. Exposed on the wire so consumers
+ * derive nothing.
  */
-export const SEED_LANE_VALUES = ['untriaged', 'ready', 'promoted', 'settled'] as const;
+export const SEED_LANE_VALUES = ['untriaged', 'ready', 'promoted', 'parked', 'settled'] as const;
 export type SeedLane = (typeof SEED_LANE_VALUES)[number];
 
 /**
  * The seed queue `--status` universe (MMR-245): a lifecycle word, or the `live`
- * (new + promoted, the default) / `all` unions — the seed sibling of
+ * (new + promoted, the default — a parked seed is set aside, so it is listed only
+ * by `parked` or `all`) / `all` unions — the seed sibling of
  * {@link STATUS_SELECTOR_VALUES}. Single-sourced here so all three transports and
  * the {@link SeedStatusSelector} type derive from one vocabulary.
  */

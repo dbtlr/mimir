@@ -6,21 +6,30 @@ import type { WireSeed } from '../api/types';
 /**
  * The seeds queue's lane grammar (MMR-247). The server serves each seed's
  * `lane` (MMR-245), so grouping never re-derives it — it only buckets and
- * orders. Order is fixed: UNTRIAGED → READY TO RESOLVE → PROMOTED → SETTLED
- * (the "dispose" wording the mocks predate is renamed to "resolve").
+ * orders. Order is fixed: UNTRIAGED → READY TO RESOLVE → PROMOTED → PARKED →
+ * SETTLED (the "dispose" wording the mocks predate is renamed to "resolve").
  */
-export const SEED_LANE_ORDER: readonly SeedLane[] = ['untriaged', 'ready', 'promoted', 'settled'];
+export const SEED_LANE_ORDER: readonly SeedLane[] = [
+  'untriaged',
+  'ready',
+  'promoted',
+  'parked',
+  'settled',
+];
 
 /** Group-header label per lane — sentence case; the group header uppercases it. */
 export const SEED_LANE_LABEL: Record<SeedLane, string> = {
+  parked: 'Parked',
   promoted: 'Promoted',
   ready: 'Ready to resolve',
   settled: 'Settled',
   untriaged: 'Untriaged',
 };
 
-/** Header ink per lane: teal untriaged, violet ready-to-resolve, neutral promoted, ghost settled. */
+/** Header ink per lane: teal untriaged, violet ready-to-resolve, neutral promoted,
+ * the task status palette's parked ink for parked, ghost settled. */
 export const SEED_LANE_INK: Record<SeedLane, string> = {
+  parked: 'text-status-parked',
   promoted: 'text-ink-dim',
   ready: 'text-attention',
   settled: 'text-ink-ghost',
@@ -33,7 +42,7 @@ export type SeedLaneGroup = {
 };
 
 /**
- * Bucket seeds into the four lanes in fixed order. Empty lanes are dropped —
+ * Bucket seeds into the lanes in fixed order. Empty lanes are dropped —
  * a lane with no seeds shows no header. Within a lane the server's array order
  * (FIFO by creation) is preserved.
  */

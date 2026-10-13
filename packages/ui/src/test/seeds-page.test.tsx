@@ -140,6 +140,19 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
     expect(screen.getAllByText(/^from /)).toHaveLength(1);
   });
 
+  it('folds parked seeds under their count until asked (MMR-473)', async () => {
+    mockApi([
+      ...list,
+      seed({ id: 'MMR-s6', lane: 'parked', lifecycle: 'parked', title: 'Someday idea' }),
+    ]);
+    const user = userEvent.setup();
+    renderSeeds();
+    await screen.findByText('Parked · 1');
+    expect(screen.queryByText('Someday idea')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Show parked seeds' }));
+    expect(screen.getByRole('link', { name: 'Someday idea' })).toHaveAttribute('href', '/p/MMR/s6');
+  });
+
   it('folds settled seeds until "Show settled seeds" reveals them', async () => {
     mockApi();
     const user = userEvent.setup();

@@ -85,7 +85,8 @@ export function uniformSummary(spec: OpFact): string {
   if (t.axis === 'lifecycle' && !isTerminalLifecycle(t.to)) {
     return `${spec.summary} (${t.from.join('/')} → ${t.to})`;
   }
-  return spec.summary;
+  // A verb that also acts on a seed (MMR-473 — park/unpark) says so on its row.
+  return spec.seeds === true ? `${spec.summary} · also a seed (KEY-sN)` : spec.summary;
 }
 
 /** The terse-help rows for the uniform verbs matching `group`, aligned to the
@@ -235,9 +236,9 @@ options:
       --tag <t>           create: tag at creation (repeatable)
       -k, --kind <kind>   seed: idea|bug|feature (required)
       --requester <KEY>   seeds: filter to a requesting board
-      --status <s>        seeds: new|promoted|resolved|rejected|live|all
+      --status <s>        seeds: new|parked|promoted|resolved|rejected|live|all
       --sort <asc|desc>   seeds: age order (default asc)
-      --grouped           seeds: lane view (untriaged/ready/settled)
+      --grouped           seeds: lane view (untriaged/ready/settled; parked with --status all)
       --upstream <KEY-sN> create/update task: requester-side seed pointer
       --groomed           create task: born groomed (carved from a finished design)
       --host <text>       create/start/update: the machine the work happens on
@@ -359,7 +360,10 @@ const UNIFORM_EXAMPLES: Record<UniformVerb, readonly string[]> = {
     'mimir block MMR-3 "upstream API down"   # no --on: others if MMR-3 has an upstream, else you',
   ],
   done: ['mimir done MMR-3'],
-  park: ['mimir park MMR-3 "waiting on design"'],
+  park: [
+    'mimir park MMR-3 "waiting on design"',
+    'mimir park MMR-s4 "after v1"   # a seed: kept, no longer untriaged',
+  ],
   reopen: ['mimir reopen MMR-3'],
   return: ['mimir return MMR-3 "needs tests"'],
   start: [
@@ -370,7 +374,7 @@ const UNIFORM_EXAMPLES: Record<UniformVerb, readonly string[]> = {
   submit: ['mimir submit MMR-3'],
   unarchive: ['mimir unarchive SAGA'],
   unblock: ['mimir unblock MMR-3'],
-  unpark: ['mimir unpark MMR-3'],
+  unpark: ['mimir unpark MMR-3', 'mimir unpark MMR-s4   # a seed: back to untriaged'],
 };
 
 /** The per-command descriptors for the twelve uniform verbs, projected from the
@@ -900,8 +904,10 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     examples: [
       "mimir seeds                          # the bound board's live queue, oldest-first",
       'mimir seeds --grouped                # the lane view (untriaged / ready to resolve / settled)',
+      'mimir seeds --status all --grouped   # every lane, parked included',
       'mimir seeds -p all                   # every active board',
       'mimir seeds --status all --sort desc # every seed, newest-first',
+      'mimir seeds --status parked          # the seeds set aside for later',
       'mimir seeds --requester MMR          # seeds MMR filed on other boards',
       'mimir seeds --at-or-after created_at:2026-07-01  # filed this month or later',
     ],
@@ -911,7 +917,10 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
         'the board whose queue (default: the bound board; "all" = every board)',
       ],
       ['--requester <KEY>', 'filter to seeds a board requested'],
-      ['--status <s>', 'new|promoted|resolved|rejected, or live (default) | all'],
+      [
+        '--status <s>',
+        'new|parked|promoted|resolved|rejected, or live (default: new + promoted) | all',
+      ],
       ['--sort <asc|desc>', 'age order (default asc = oldest-first)'],
       F_DATES,
       F_TZ,
@@ -946,7 +955,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['<reason>', 'why (required)'],
     ],
     examples: ['mimir reject MMR-s1 "out of scope"'],
-    summary: 'reject a seed (terminal) — reachable from new or promoted; reason required',
+    summary: 'reject a seed (terminal) — reachable from new, parked, or promoted; reason required',
     usage: 'mimir reject <KEY-sN> "<reason>"',
   },
   resolve: {
@@ -955,7 +964,8 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['<resolution>', 'how (required)'],
     ],
     examples: ['mimir resolve MMR-s1 "shipped in MMR-9"', 'mimir resolve MMR-s2 "already fixed"'],
-    summary: 'resolve a seed (terminal) — reachable from new or promoted; resolution required',
+    summary:
+      'resolve a seed (terminal) — reachable from new, parked, or promoted; resolution required',
     usage: 'mimir resolve <KEY-sN> "<resolution>"',
   },
   triage: {

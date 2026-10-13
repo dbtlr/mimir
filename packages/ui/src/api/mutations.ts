@@ -353,6 +353,27 @@ export function useResolveSeed(id: string) {
   });
 }
 
+/** Park a seed (MMR-473) — `POST /api/seeds/:id/park`; the reason is optional, as on a task park. */
+export function useParkSeed(id: string) {
+  const invalidate = useInvalidateOnWrite();
+  return useMutation({
+    mutationFn: (reason?: string) =>
+      apiSend<WireSeed>('POST', `/api/seeds/${encodeURIComponent(id)}/park`, reasonBody(reason)),
+    onError: (err: Error) => toast.error(err.message),
+    onSettled: () => void invalidate(),
+  });
+}
+
+/** Unpark a seed (MMR-473) — `POST /api/seeds/:id/unpark`, back to the untriaged queue. */
+export function useUnparkSeed(id: string) {
+  const invalidate = useInvalidateOnWrite();
+  return useMutation({
+    mutationFn: () => apiSend<WireSeed>('POST', `/api/seeds/${encodeURIComponent(id)}/unpark`),
+    onError: (err: Error) => toast.error(err.message),
+    onSettled: () => void invalidate(),
+  });
+}
+
 /**
  * Promote a seed into work (MMR-248) — `POST /api/seeds/:id/promote`, create
  * mode: `parent` is the chosen home, title/description ride as edited, and

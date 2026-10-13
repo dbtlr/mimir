@@ -212,7 +212,7 @@ The grooming-queue record ([ADR 0020](decisions/0020-seeds-grooming-queue-entity
 | `seq`         | integer   | required | per-project seed sequence; `(project_key, seq)` is unique                 |
 | `title`       | text      | required | display title                                                             |
 | `kind`        | text      | required | `idea` \| `bug` \| `feature`                                              |
-| `lifecycle`   | text      | required | `new` \| `promoted` \| `resolved` \| `rejected`; starts `new`             |
+| `lifecycle`   | text      | required | `new` \| `parked` \| `promoted` \| `resolved` \| `rejected`; starts `new` |
 | `requester`   | text      | optional | `KEY` of a requesting project. No foreign key                             |
 | `description` | text      | optional | the prose body (the lede is derived from it, ADR 0021)               |
 | `spawned`     | text list | required | `KEY-seq` work nodes germinated from this seed; default empty             |
@@ -221,7 +221,7 @@ The grooming-queue record ([ADR 0020](decisions/0020-seeds-grooming-queue-entity
 
 `seed_history` holds a seed's lifecycle transitions: `id` (append order), `seed_id` (foreign key), `kind` (the transition vocabulary), `from_value`, `to_value`, `reason`, and `at`. Seed transitions are **not** in `transition_log`: that feed is keyed to nodes and projects (ADR 0015).
 
-**Lifecycle machine:** `new → promoted | resolved | rejected` and `promoted → resolved | rejected`. `resolved`/`rejected` are terminal (a terminal seed is frozen — `patch`/`transition` refuse it); the terminal states are set only by explicit triager verbs, never derived from spawned work. `promote`/germinate moves `new → promoted` and appends the spawned node to `spawned` in one transaction.
+**Lifecycle machine:** `new → parked | promoted | resolved | rejected`, `parked → new | promoted | resolved | rejected`, and `promoted → resolved | rejected`. `parked` is a seed set aside on purpose: it is not untriaged, and `unpark` returns it to `new`. `resolved`/`rejected` are terminal (a terminal seed is frozen — `patch`/`transition` refuse it); the terminal states are set only by explicit triager verbs, never derived from spawned work. `promote`/germinate moves a `new` or `parked` seed to `promoted` and appends the spawned node to `spawned` in one transaction. A park's reason is optional, so a `seed_history` reason may be null.
 
 The task-side `upstream` column (see the node table) is the requester-side pointer at a seed — reference-only in v1, resolved by the read seam.
 
@@ -274,7 +274,7 @@ The store keeps **only the string**: there is **no per-tag note and no per-tag t
 
 ## Closed vocabularies
 
-Each is a `CHECK` on its column, built from the enum arrays in `@mimir/contract`. A value outside the set cannot be written. Widening a vocabulary is a migration. Migrations `0002_grooming` and `0003_block_owner` are the exception to "built from the enum arrays": each freezes its values as literals, because a migration is a historical fact that a later change to the live enum must not alter.
+Each is a `CHECK` on its column, built from the enum arrays in `@mimir/contract`. A value outside the set cannot be written. Widening a vocabulary is a migration. Migrations `0002_grooming`, `0003_block_owner`, and `0004_seed_parked` are the exception to "built from the enum arrays", as is `0001_init`'s `seed.lifecycle` check, which `0004_seed_parked` widens: each freezes its values as literals, because a migration is a historical fact that a later change to the live enum must not alter.
 
 | Column                                  | Values                                                     |
 | --------------------------------------- | ---------------------------------------------------------- |
@@ -287,7 +287,7 @@ Each is a `CHECK` on its column, built from the enum arrays in `@mimir/contract`
 | `node.size`                             | `small`, `medium`, `large`                                 |
 | `transition_log.kind`, `seed_history.kind` | `lifecycle`, `hold`, `dependency`, `move`, `archive`    |
 | `seed.kind`                             | `idea`, `bug`, `feature`                                   |
-| `seed.lifecycle`                        | `new`, `promoted`, `resolved`, `rejected`                  |
+| `seed.lifecycle`                        | `new`, `parked`, `promoted`, `resolved`, `rejected`        |
 | `tag.entity_type`                       | `project`, `node`, `artifact` (seeds carry no tags)        |
 | `project.key`                           | two to four uppercase letters                              |
 
@@ -308,7 +308,7 @@ Query-layer outputs, intentionally **absent** from every table ([ADR 0001](decis
 
 `schema_version` holds `(version, applied_at)`, one row per applied migration. The store's version is the highest `version` present. A fresh database has no `schema_version` table.
 
-Migrations are a static, ordered list carried in the binary (`core/store-sql/migrations.ts`), forward-only: append, never edit, because a migration that has run on any store is a historical fact. Each migration's DDL is written as literal statements once per dialect, so a migration cannot be added for one backend alone. The first migration is `0001_init`, which creates every table above. `0002_grooming` adds the task-only `node.grooming` column with its `CHECK` and sets every existing task to `not_groomed`. `0003_block_owner` adds the nullable `node.block_owner` column with its `CHECK` and backfills each blocked task (`others` when it has an `upstream`, else `you`); parked and unheld tasks stay null. Each migration runs in its own transaction, so a failed step leaves the old schema intact.
+Migrations are a static, ordered list carried in the binary (`core/store-sql/migrations.ts`), forward-only: append, never edit, because a migration that has run on any store is a historical fact. Each migration's DDL is written as literal statements once per dialect, so a migration cannot be added for one backend alone. The first migration is `0001_init`, which creates every table above. `0002_grooming` adds the task-only `node.grooming` column with its `CHECK` and sets every existing task to `not_groomed`. `0003_block_owner` adds the nullable `node.block_owner` column with its `CHECK` and backfills each blocked task (`others` when it has an `upstream`, else `you`); parked and unheld tasks stay null. `0004_seed_parked` widens the `seed.lifecycle` `CHECK` to admit `parked`; Postgres replaces the constraint, and SQLite, which cannot alter a `CHECK`, rebuilds `seed` and `seed_history` with every row and history id kept. Each migration runs in its own transaction, so a failed step leaves the old schema intact.
 
 - **Newer schema than the binary.** Every normal command refuses it, on both backends. A newer schema is never downgraded; update the binary.
 - **SQLite migrates on open.** The store is one file, `store.sqlite`, in the installation's data directory. Opening creates it when absent, runs it in WAL mode with foreign keys enforced, and applies every pending migration. A file that holds tables but no schema version is refused as not a Mimir store, and the file is left as found.

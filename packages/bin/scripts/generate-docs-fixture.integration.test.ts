@@ -85,7 +85,7 @@ test('the documentation portfolio includes an archived project', async () => {
   expect(ember?.archived_at).not.toBeNull();
 });
 
-test('seeds are present in all four lanes', async () => {
+test('seeds are present in every lane', async () => {
   const views = await listSeeds(store, { status: 'all' });
   const lanes = new Set(views.map((v) => seedLane(v)));
   for (const lane of SEED_LANE_VALUES) {

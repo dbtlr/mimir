@@ -12,8 +12,8 @@ import { validation } from '../errors';
  * ids cross this boundary, exactly like the artifact seam — the stem is the id
  * (ADR 0016).
  *
- * The seam owns the lifecycle machine (`new → promoted | resolved | rejected`;
- * `promoted → resolved | rejected`) and the store-level mutation primitives
+ * The seam owns the lifecycle machine ({@link SEED_TRANSITIONS}) and the
+ * store-level mutation primitives
  * ({@link SeedStore.patch}/{@link SeedStore.transition}/{@link SeedStore.germinate}).
  * The verb surface (CLI/MCP/HTTP) rides on top in MMR-245; `requester`/`spawned`
  * are verb-owned relations, never patched directly.
@@ -88,12 +88,12 @@ export type SeedStore = {
    * or absent — a terminal seed is frozen (the reason string carries the nuance). */
   patch: (key: string, seq: number, patch: SeedPatch) => Promise<void>;
   /** Move a seed along the lifecycle machine, recording the transition in
-   * `## History` with the (required) reason. Refuses an illegal edge or an
-   * absent seed. */
-  transition: (key: string, seq: number, to: SeedLifecycle, reason: string) => Promise<void>;
+   * `## History` with its reason (`null` only where the verb makes the reason
+   * optional — park and unpark). Refuses an illegal edge or an absent seed. */
+  transition: (key: string, seq: number, to: SeedLifecycle, reason: string | null) => Promise<void>;
   /** Germinate the seed for promote (MMR-245): from ONE load, apply ONE atomic
    * plan that appends the work-node stem (`KEY-seq`) to `spawned`, crosses
-   * `new → promoted` on the first promote (with its `## History` record), and
+   * `new|parked → promoted` on the first promote (with its `## History` record), and
    * stamps `updated_at` — so the seed can never reflect a spawned task without the
    * lifecycle move, nor vice versa. Idempotent: a re-run whose stem is already
    * linked AND whose seed is already promoted is a no-op (a retried promote cannot
@@ -104,13 +104,16 @@ export type SeedStore = {
 
 /**
  * The seed lifecycle machine (MMR-244): the legal `from → to` edges. Both
- * terminals are reachable from both live states — "already fixed / already
+ * terminals are reachable from every live state — "already fixed / already
  * exists" is a *resolution* straight from `new`, the reason string carrying the
- * nuance. The terminals (`resolved`/`rejected`) have no outgoing edges: a
- * terminal seed is frozen.
+ * nuance. Only an untriaged (`new`) seed parks, and unparking returns it to
+ * `new`; a parked seed may also be promoted or settled directly (MMR-473). The
+ * terminals (`resolved`/`rejected`) have no outgoing edges: a terminal seed is
+ * frozen.
  */
 export const SEED_TRANSITIONS: Readonly<Record<SeedLifecycle, readonly SeedLifecycle[]>> = {
-  new: ['promoted', 'resolved', 'rejected'],
+  new: ['parked', 'promoted', 'resolved', 'rejected'],
+  parked: ['new', 'promoted', 'resolved', 'rejected'],
   promoted: ['resolved', 'rejected'],
   rejected: [],
   resolved: [],
@@ -139,6 +142,15 @@ export function assertLiveSeed(stem: string, lifecycle: SeedLifecycle, hint: str
   if (isTerminalSeed(lifecycle)) {
     throw validation(`seed ${stem} is ${lifecycle} — a terminal seed is frozen`, hint);
   }
+}
+
+/** Every legal edge rendered for a refusal hint, derived from {@link SEED_TRANSITIONS}
+ * so the hint can never drift from the machine. */
+export function seedEdgesHint(): string {
+  const edges = Object.entries(SEED_TRANSITIONS)
+    .filter(([, to]) => to.length > 0)
+    .map(([from, to]) => `${from} → ${to.join(' | ')}`);
+  return `legal edges: ${edges.join('; ')}`;
 }
 
 /** May a seed move `from → to` under the lifecycle machine? */

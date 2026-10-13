@@ -5,7 +5,7 @@ import { notFound, projectNotFound, validation } from '../errors';
 import type { ExportedSeed } from '../export';
 import { renderSeedRef } from '../ids';
 import type { SeedRecord, SeedStore } from '../seeds/store';
-import { assertLiveSeed, canTransitionSeed } from '../seeds/store';
+import { assertLiveSeed, canTransitionSeed, seedEdgesHint } from '../seeds/store';
 import { now } from '../time';
 import { inLists, insertBatched } from './batch';
 import type { StoreDialect } from './dialect';
@@ -68,7 +68,7 @@ async function historyOf(ex: Executor, id: string): Promise<HistoryEntry[]> {
 async function appendHistory(
   tx: Transaction<DB>,
   id: string,
-  entry: { from: string; to: string; reason: string; at: string },
+  entry: { from: string; to: string; reason: string | null; at: string },
 ): Promise<void> {
   await tx
     .insertInto('seed_history')
@@ -215,10 +215,16 @@ export function createSqlSeedStore(db: Kysely<DB>, dialect: StoreDialect): SeedS
     async germinate(key, seq, nodeStem) {
       await dialect.write(db, async (tx) => {
         const row = await mutableRow(tx, key, seq);
-        assertLiveSeed(row.id, row.lifecycle, 'promote applies only to a new or promoted seed');
+        assertLiveSeed(
+          row.id,
+          row.lifecycle,
+          'promote applies only to a new, parked, or promoted seed',
+        );
         const spawned = list.decode(row.spawned);
         const alreadyLinked = spawned.includes(nodeStem);
-        const needsPromote = row.lifecycle === 'new';
+        // The first promote crosses into `promoted` from whichever live state
+        // the seed waited in — untriaged or parked.
+        const needsPromote = row.lifecycle !== 'promoted';
         // Idempotent: the stem is already linked AND the seed is already
         // promoted, so a retried promote cannot double-record.
         if (alreadyLinked && !needsPromote) {
@@ -307,7 +313,7 @@ export function createSqlSeedStore(db: Kysely<DB>, dialect: StoreDialect): SeedS
         assertLiveSeed(
           row.id,
           row.lifecycle,
-          'patches (title/kind/description) apply only to a new or promoted seed',
+          'patches (title/kind/description) apply only to a new, parked, or promoted seed',
         );
         const changes = {
           ...(patch.title === undefined ? {} : { title: patch.title }),
@@ -332,10 +338,7 @@ export function createSqlSeedStore(db: Kysely<DB>, dialect: StoreDialect): SeedS
       await dialect.write(db, async (tx) => {
         const row = await mutableRow(tx, key, seq);
         if (!canTransitionSeed(row.lifecycle, to)) {
-          throw validation(
-            `a seed cannot move ${row.lifecycle} → ${to}`,
-            'legal edges: new → promoted | resolved | rejected; promoted → resolved | rejected',
-          );
+          throw validation(`a seed cannot move ${row.lifecycle} → ${to}`, seedEdgesHint());
         }
         const at = now();
         await tx
