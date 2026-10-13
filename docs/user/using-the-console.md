@@ -43,9 +43,16 @@ its tasks in progress. Each entry opens the project's work page. Archived
 projects are on a shelf under the list, beside **New project**. On a phone, the
 list is behind the **Projects** chip.
 
-The top-bar alert shows how many decisions wait on you and opens this page. It
-is hidden when there are none. Seeds, findings, and tasks going cold never
-light it.
+The top-bar **Needs you** alert shows how many decisions wait on you. It opens
+a popover (a bottom sheet on a phone) that lists them grouped by project, in
+the same order as this page, so you can decide without leaving the page you are
+on. Each row has the same buttons as here (**Approve**, **Send back…**,
+**Answer…**), and the decision for the record you are viewing is marked _This
+page_. A row leaves the list when its change lands, and the popover stays open
+until you press Escape, choose a link, or move to another page. It links to
+**Open review page** and to **Work through these**, the one-at-a-time queue.
+The alert is hidden when there are no decisions. Seeds, findings, and tasks
+going cold never light it.
 
 ## Work within a project
 

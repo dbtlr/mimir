@@ -64,7 +64,16 @@ function NeedsYouReason({ row }: { row: WireWorkNeedsYou }) {
  * the latest question on a task that needs answers. `actions` are the
  * buttons that settle it in place, when the surface offers them.
  */
-export function NeedsYouRow({ row, actions }: { row: WireWorkNeedsYou; actions?: ReactNode }) {
+export function NeedsYouRow({
+  row,
+  actions,
+  current = false,
+}: {
+  row: WireWorkNeedsYou;
+  actions?: ReactNode;
+  /** The row is the record on the page the operator is looking at. */
+  current?: boolean;
+}) {
   const holdReason = row.reason === 'blocked' ? row.hold_reason?.trim() : undefined;
   return (
     <div className={ATTENTION_RULE}>
@@ -73,7 +82,12 @@ export function NeedsYouRow({ row, actions }: { row: WireWorkNeedsYou; actions?:
         id={row.id}
         title={row.title}
         leading={<StatusDot status={row.status} />}
-        beforeTitle={<NeedsYouReason row={row} />}
+        beforeTitle={
+          <>
+            <NeedsYouReason row={row} />
+            {current && <span className="microlabel text-ink-faint">This page</span>}
+          </>
+        }
         actions={actions}
         afterTitle={
           <RowTail
