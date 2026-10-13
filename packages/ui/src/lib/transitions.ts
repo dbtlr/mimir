@@ -26,7 +26,7 @@ const LABEL: Record<TransitionVerb, string> = {
   done: 'Mark done',
   park: 'Park for later',
   reopen: 'Reopen',
-  return: 'Request changes',
+  return: 'Send back',
   start: 'Start',
   submit: 'Submit for review',
   unblock: 'Unblock',

@@ -40,7 +40,11 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
   clear, and tasks that need answers, each with its reason), _Frontier_ (what
   is runnable now, what is next to unlock, what is left to groom, and what is
   waiting on others, folded), _Shipped_ (the last seven days, grouped by day),
-  and _Going cold_ (stale work). Every row opens its record page. The rail
+  and _Going cold_ (stale work). Every row opens its record page. Some rows
+  also act in place: Start on a runnable task, Approve and Send back… on a
+  task in review, and Answer… on a task that needs answers, which saves your
+  answer as a note and sets the task's grooming state. The row then moves to
+  the section it now belongs in. Offline, these buttons are disabled. The rail
   holds the direction in full, the structure of initiatives and phases, About
   (the description, artifacts, and details), and links to the board and the
   project's tasks. New task is in the page head, and a project's settings sit

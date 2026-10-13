@@ -110,9 +110,7 @@ function ActionsPanel({
         ))}
       </div>
       {awaitsVerdict(node) && (
-        <p className="text-tag text-ink-faint">
-          Approve and Request changes sit in the verdict block.
-        </p>
+        <p className="text-tag text-ink-faint">Approve and Send back sit in the verdict block.</p>
       )}
     </div>
   );

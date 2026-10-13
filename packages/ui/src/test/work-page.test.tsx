@@ -8,8 +8,8 @@ import type { WireNode, WireTreeNode, WireWorkReport } from '../api/types';
 import { router } from '../router';
 import { task, workReport } from './fixtures';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend: vi.fn() }));
+const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet, apiSend }));
 
 // Mon Oct 12 2026, 18:00 in the suite's pinned zone (America/New_York).
 const NOW = Date.parse('2026-10-12T22:00:00.000Z');
@@ -18,6 +18,7 @@ const daysAgo = (d: number) => new Date(NOW - d * 24 * 60 * 60_000).toISOString(
 
 beforeEach(() => {
   apiGet.mockReset();
+  apiSend.mockReset();
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(NOW);
 });
@@ -157,6 +158,8 @@ async function open(scope: Scope, report?: WireWorkReport | Error, tree?: WireTr
 
 const getRail = () => screen.getByRole('complementary', { name: 'Record details' });
 const section = (name: string) => screen.findByRole('region', { name });
+/** A row's action buttons, grouped and named for the task they act on. */
+const actionsOf = (id: string) => screen.findByRole('group', { name: `Actions for ${id}` });
 const hrefOf = (within_: HTMLElement, name: string | RegExp) =>
   within(within_).getByRole('link', { name }).getAttribute('href');
 
@@ -253,8 +256,8 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
     expect(hrefOf(needs, 'Refuse to open unmigrated stores')).toBe('/p/MMR/14');
     expect(within(needs).getByText('needs answers')).toBeDefined();
     expect(needs).toHaveTextContent('Should it refuse, or warn?');
-    // Needs you is a read: the actions are a later change.
-    expect(within(needs).queryByRole('button')).toBeNull();
+    // A block's row offers no action here; the task page clears it.
+    expect(within(needs).queryByRole('group', { name: 'Actions for MMR-13' })).toBeNull();
   });
 
   it('splits the frontier: runnable, next to unlock under its prerequisite, and to groom', async () => {
@@ -305,6 +308,11 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
     expect(hrefOf(groom, 'Hosted backends')).toBe('/p/MMR/23');
     expect(groom).toHaveTextContent('initiative');
     expect(within(groom).getByText('break down')).toBeDefined();
+
+    // Only a runnable row can be started from here.
+    expect(within(runnable).getByRole('button', { name: 'Start' })).toBeDefined();
+    expect(within(unlock).queryByRole('button')).toBeNull();
+    expect(within(groom).queryByRole('button')).toBeNull();
   });
 
   it('folds what waits on others until opened, each row with its reason', async () => {
@@ -657,6 +665,231 @@ describe('work page structure inside finished work', () => {
   });
 });
 
+/**
+ * Serve `before` at the project's work route until a write lands, then `after`,
+ * the way the server's next read reflects the action.
+ */
+async function openForWrite(before: WireWorkReport, after: WireWorkReport) {
+  let report = before;
+  serve(PROJECT_SCOPE);
+  const served = apiGet.getMockImplementation();
+  apiGet.mockImplementation((path: string) =>
+    path.startsWith(`${PROJECT_SCOPE.workPath}?`) ? Promise.resolve(report) : served?.(path),
+  );
+  apiSend.mockImplementation(() => {
+    report = after;
+    return Promise.resolve({});
+  });
+  renderAt(PROJECT_SCOPE.url);
+  await screen.findByRole('heading', { level: 1, name: PROJECT.title });
+}
+
+/** Accept writes, and hold the project's next work read until the test resolves it. */
+function holdRefresh() {
+  const refresh = Promise.withResolvers<WireWorkReport>();
+  const served = apiGet.getMockImplementation();
+  apiGet.mockImplementation((path: string) =>
+    path.startsWith(`${PROJECT_SCOPE.workPath}?`) ? refresh.promise : served?.(path),
+  );
+  apiSend.mockResolvedValue({});
+  return refresh;
+}
+
+const runningAs = (row: { id: string; title: string }) => ({
+  ...nowRow,
+  branch: null,
+  harness: null,
+  id: row.id,
+  latest_note: null,
+  scratchpads: [],
+  title: row.title,
+});
+
+describe('work page row actions', () => {
+  it('starts a runnable task, which then shows under Now', async () => {
+    const runnable = frontierRow('MMR-20', 'Add the SQLite dialect');
+    await openForWrite(
+      workReport({ frontier: { ...workReport().frontier, runnable: [runnable] } }),
+      workReport({ now: [runningAs(runnable)] }),
+    );
+
+    fireEvent.click(within(await actionsOf('MMR-20')).getByRole('button', { name: 'Start' }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-20/start', undefined);
+    });
+    const now = await section('Now · 1');
+    expect(hrefOf(now, 'Add the SQLite dialect')).toBe('/p/MMR/20');
+    expect(screen.queryByRole('region', { name: 'Runnable now' })).toBeNull();
+  });
+
+  it('approves a task in review, which then shows under Shipped', async () => {
+    await openForWrite(
+      workReport({ needs_you: [reviewRow] }),
+      workReport({ shipped: [shippedRow('MMR-12', minutesAgo(1), { title: 'Extract the seam' })] }),
+    );
+
+    fireEvent.click(within(await actionsOf('MMR-12')).getByRole('button', { name: 'Approve' }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-12/done', undefined);
+    });
+    const shipped = await section('Shipped · 1');
+    expect(hrefOf(shipped, 'Extract the seam')).toBe('/p/MMR/12');
+    await expect(section('Needs you')).resolves.toHaveTextContent('Nothing needs you.');
+  });
+
+  it('sends a task in review back with a reason, and it returns to Now', async () => {
+    await openForWrite(
+      workReport({ needs_you: [reviewRow] }),
+      workReport({ now: [runningAs(reviewRow)] }),
+    );
+
+    fireEvent.click(within(await actionsOf('MMR-12')).getByRole('button', { name: 'Send back…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Send back' });
+    fireEvent.change(within(dialog).getByRole('textbox'), {
+      target: { value: 'Cover the empty case' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-12/return', {
+        reason: 'Cover the empty case',
+      });
+    });
+    const now = await section('Now · 1');
+    expect(hrefOf(now, 'Extract the seam')).toBe('/p/MMR/12');
+    await expect(section('Needs you')).resolves.toHaveTextContent('Nothing needs you.');
+  });
+
+  it('answers a question and sets the grooming state, and the task moves to the frontier', async () => {
+    await openForWrite(
+      workReport({ needs_you: [answersRow] }),
+      workReport({
+        frontier: {
+          ...workReport().frontier,
+          runnable: [frontierRow('MMR-14', 'Refuse to open unmigrated stores')],
+        },
+      }),
+    );
+
+    fireEvent.click(within(await actionsOf('MMR-14')).getByRole('button', { name: 'Answer…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
+    expect(dialog).toHaveTextContent('Should it refuse, or warn?');
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
+      target: { value: 'Refuse, and name the export command.' },
+    });
+    fireEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-14/groom', {
+        note: 'Refuse, and name the export command.',
+        state: 'groomed',
+      });
+    });
+    const runnable = await section('Runnable now');
+    expect(hrefOf(runnable, 'Refuse to open unmigrated stores')).toBe('/p/MMR/14');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
+    });
+    await expect(section('Needs you')).resolves.toHaveTextContent('Nothing needs you.');
+  });
+
+  it('sends a task back with no body when no reason is given', async () => {
+    await openForWrite(
+      workReport({ needs_you: [reviewRow] }),
+      workReport({ now: [runningAs(reviewRow)] }),
+    );
+
+    fireEvent.click(within(await actionsOf('MMR-12')).getByRole('button', { name: 'Send back…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Send back' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-12/return', undefined);
+    });
+  });
+
+  it('keeps a row’s buttons off until the sections have refreshed, so one tap writes once', async () => {
+    await open(PROJECT_SCOPE, workReport({ needs_you: [reviewRow] }));
+    // The write lands, but the refreshed sections are still on their way.
+    const refresh = holdRefresh();
+
+    const approve = within(await actionsOf('MMR-12')).getByRole('button', { name: 'Approve' });
+    fireEvent.click(approve);
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledOnce();
+    });
+    expect(approve).toBeDisabled();
+    expect(
+      within(await actionsOf('MMR-12')).getByRole('button', { name: 'Send back…' }),
+    ).toBeDisabled();
+
+    refresh.resolve(workReport());
+    await expect(section('Needs you')).resolves.toHaveTextContent('Nothing needs you.');
+  });
+
+  it('keeps the answer dialog open until the sections have refreshed', async () => {
+    await open(PROJECT_SCOPE, workReport({ needs_you: [answersRow] }));
+    const refresh = holdRefresh();
+
+    fireEvent.click(within(await actionsOf('MMR-14')).getByRole('button', { name: 'Answer…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
+      target: { value: 'Refuse.' },
+    });
+    fireEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledOnce();
+    });
+    expect(within(dialog).getByRole('button', { name: 'Answer' })).toBeDisabled();
+
+    refresh.resolve(workReport());
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
+    });
+  });
+
+  it('asks for what is still open when the answer keeps the task at needs answers', async () => {
+    await open(PROJECT_SCOPE, workReport({ needs_you: [answersRow] }));
+
+    fireEvent.click(within(await actionsOf('MMR-14')).getByRole('button', { name: 'Answer…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
+    expect(within(dialog).getByRole('textbox', { name: 'Answer (required)' })).toBeDefined();
+
+    fireEvent.click(within(dialog).getByRole('radio', { name: /^needs answers/ }));
+    expect(
+      within(dialog).getByRole('textbox', { name: 'Answer, and what is still open (required)' }),
+    ).toBeDefined();
+  });
+
+  it('needs both an answer and a chosen state before it answers', async () => {
+    await open(PROJECT_SCOPE, workReport({ needs_you: [answersRow] }));
+
+    fireEvent.click(within(await actionsOf('MMR-14')).getByRole('button', { name: 'Answer…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
+    const submit = within(dialog).getByRole('button', { name: 'Answer' });
+    // No state is chosen for the operator: the grooming call is theirs to make.
+    for (const radio of within(dialog).getAllByRole('radio')) {
+      expect(radio).not.toBeChecked();
+    }
+    expect(submit).toBeDisabled();
+
+    fireEvent.click(within(dialog).getByRole('radio', { name: /^needs answers/ }));
+    expect(submit).toBeDisabled();
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
+      target: { value: '   ' },
+    });
+    expect(submit).toBeDisabled();
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
+      target: { value: 'Partly: refuse. Still open: the flag name.' },
+    });
+    expect(submit).toBeEnabled();
+  });
+});
+
 describe('work page offline', () => {
   it('disables New task, including the one in an empty frontier', async () => {
     serve(PHASE_SCOPE);
@@ -672,6 +905,32 @@ describe('work page offline', () => {
     const frontier = await section('Frontier');
     await waitFor(() => {
       expect(within(frontier).getByRole('button', { name: 'New task' })).toBeDisabled();
+    });
+  });
+
+  it('disables every row action', async () => {
+    serve(
+      PHASE_SCOPE,
+      workReport({
+        frontier: { ...workReport().frontier, runnable: [frontierRow('MMR-20', 'Runnable')] },
+        needs_you: [reviewRow, answersRow],
+      }),
+    );
+    const served = apiGet.getMockImplementation();
+    apiGet.mockImplementation((path: string) =>
+      path === '/api/nodes/MMR-105/annotations'
+        ? Promise.reject(new Error('unreachable'))
+        : served?.(path),
+    );
+    renderAt('/p/MMR/105');
+
+    const actions = await Promise.all(['MMR-12', 'MMR-14', 'MMR-20'].map(actionsOf));
+    await waitFor(() => {
+      for (const group of actions) {
+        for (const button of within(group).getAllByRole('button')) {
+          expect(button).toBeDisabled();
+        }
+      }
     });
   });
 });

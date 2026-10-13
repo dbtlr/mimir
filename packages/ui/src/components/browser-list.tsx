@@ -221,7 +221,9 @@ type RecordTarget =
  * and a meta line. The title link stretches over the whole row, so the row is
  * the hit target while staying a single real link. The link's name is the
  * title; the id is its description. The lede hides on a phone
- * (the mock's "groups stay, ledes drop").
+ * (the mock's "groups stay, ledes drop"). `actions` trail the row, above the
+ * stretched link so they take their own clicks, and wrap under it on a phone,
+ * where the strip's empty width still lets a tap through to the link.
  */
 export function BrowserRow({
   to,
@@ -232,6 +234,7 @@ export function BrowserRow({
   afterTitle,
   lede,
   meta,
+  actions,
   demoted = false,
   struck = false,
 }: {
@@ -243,6 +246,8 @@ export function BrowserRow({
   afterTitle?: ReactNode;
   lede?: string | null;
   meta?: ReactNode;
+  /** Buttons that act on the record in place, grouped as "Actions for <id>". */
+  actions?: ReactNode;
   /** Finished rows demote by ink tier, never by opacity (ADR 0019 §7). */
   demoted?: boolean;
   /** Strike the title through — an abandoned task. */
@@ -250,7 +255,7 @@ export function BrowserRow({
 }) {
   const idLabel = useId();
   return (
-    <div className="relative flex gap-2.5 rounded-md px-1 py-[7px] transition-colors hover:bg-well-850 has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-accent">
+    <div className="relative flex gap-2.5 rounded-md px-1 py-[7px] transition-colors hover:bg-well-850 has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-accent max-md:flex-wrap">
       {leading !== undefined && <span className="flex h-5 shrink-0 items-center">{leading}</span>}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -276,6 +281,15 @@ export function BrowserRow({
         )}
         {meta !== undefined && <div className="text-mono-id text-ink-faint">{meta}</div>}
       </div>
+      {actions !== undefined && (
+        <div
+          role="group"
+          aria-label={`Actions for ${id}`}
+          className="pointer-events-none relative flex shrink-0 items-start gap-2 *:pointer-events-auto max-md:basis-full max-md:justify-end"
+        >
+          {actions}
+        </div>
+      )}
     </div>
   );
 }

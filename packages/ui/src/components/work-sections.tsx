@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { useTransition } from '../api/mutations';
 import type {
   WireNode,
   WireWorkFrontier,
@@ -16,6 +17,7 @@ import { cn } from '../lib/cn';
 import { visibleGrooming } from '../lib/grooming';
 import { nodeLink } from '../lib/record-url';
 import { ago, relativeTime } from '../lib/time';
+import { transitionLabel } from '../lib/transitions';
 import {
   SHIPPED_DAY_CAP,
   capDay,
@@ -25,20 +27,119 @@ import {
 } from '../lib/work-page';
 import { BrowserGroup, BrowserRow } from './browser-list';
 import { GroomingBadge } from './grooming-chip';
+import { GroomingDialog } from './grooming-dialog';
 import { NewTaskButton } from './new-task-button';
+import { ReasonDialog } from './reason-dialog';
 import { SizeBadge, StaleBadge } from './signal-badges';
 import { StatusDot } from './status-dot';
+import { ActionButton } from './ui/action-button';
 import { Badge } from './ui/badge';
 
 /*
  * The work page's five sections (ADR 0013, MMR-467 refinement): Now, Needs you,
  * Frontier, Shipped, and Going cold. Every row is a BrowserRow, so each is one
  * real link to its record's page, and a stale row wears the stale chip wherever
- * it appears.
+ * it appears. A row the operator can move in place carries its action: Start on
+ * a runnable task, Approve and Send back… on one in review, and Answer… on one
+ * that needs answers. Each action's write refetches the page's sections, so
+ * the row moves to where it now belongs. Offline disables them (ADR 0013 §5).
  */
 
 /** The attention violet is the Needs you section's alone (ADR 0019). */
 const ATTENTION_RULE = 'border-l-2 border-attention pl-2';
+
+/** Row buttons are touch-sized on a phone, where they wrap under the row. */
+const ROW_ACTION = 'max-md:min-h-11';
+
+/**
+ * Each action owns its mutation, so only the rows that can act mount one.
+ * Every write invalidates the work reads (useTransition, useGroom).
+ */
+function StartAction({ id, offline }: { id: string; offline: boolean }) {
+  const { mutate, isPending } = useTransition(id);
+  return (
+    <ActionButton
+      size="sm"
+      className={ROW_ACTION}
+      disabled={offline || isPending}
+      onClick={() => mutate({ verb: 'start' })}
+    >
+      Start
+    </ActionButton>
+  );
+}
+
+/** Approve (`done`) and Send back… (`return`, with an optional reason), as on the task page. */
+function VerdictActions({ id, offline }: { id: string; offline: boolean }) {
+  const { mutate, isPending } = useTransition(id);
+  const [sendingBack, setSendingBack] = useState(false);
+  return (
+    <>
+      <ActionButton
+        size="sm"
+        variant="attention"
+        className={ROW_ACTION}
+        disabled={offline || isPending}
+        onClick={() => mutate({ verb: 'done' })}
+      >
+        Approve
+      </ActionButton>
+      <ActionButton
+        size="sm"
+        variant="outline"
+        className={ROW_ACTION}
+        disabled={offline || isPending}
+        onClick={() => setSendingBack(true)}
+      >
+        {transitionLabel('return')}…
+      </ActionButton>
+      <ReasonDialog
+        verb="return"
+        open={sendingBack}
+        onClose={() => setSendingBack(false)}
+        onConfirm={(reason) => {
+          mutate(reason === '' ? { verb: 'return' } : { reason, verb: 'return' });
+          setSendingBack(false);
+        }}
+      />
+    </>
+  );
+}
+
+/** Answer… writes the answer as a note and sets the grooming state the operator picks. */
+function AnswerAction({
+  id,
+  question,
+  offline,
+}: {
+  id: string;
+  question: string | null;
+  offline: boolean;
+}) {
+  const [answering, setAnswering] = useState(false);
+  return (
+    <>
+      <ActionButton
+        size="sm"
+        variant="attentionOutline"
+        className={ROW_ACTION}
+        disabled={offline}
+        onClick={() => setAnswering(true)}
+      >
+        Answer…
+      </ActionButton>
+      {answering && (
+        <GroomingDialog
+          mode="answer"
+          nodeId={id}
+          question={question}
+          open
+          onClose={() => setAnswering(false)}
+        />
+      )}
+    </>
+  );
+}
 
 /** An empty section's line: a bold lead and what its emptiness means. */
 function Empty({ lead, children }: { lead: string; children?: ReactNode }) {
@@ -132,7 +233,18 @@ function NeedsYouReason({ row }: { row: WireWorkNeedsYou }) {
   );
 }
 
-function NeedsYouRow({ row }: { row: WireWorkNeedsYou }) {
+/** What a needs-you row offers: a verdict, an answer, or nothing for a block. */
+function needsYouActions(row: WireWorkNeedsYou, offline: boolean): ReactNode {
+  if (row.reason === 'under_review') {
+    return <VerdictActions id={row.id} offline={offline} />;
+  }
+  if (row.reason === 'needs_answers') {
+    return <AnswerAction id={row.id} question={row.question} offline={offline} />;
+  }
+  return undefined;
+}
+
+function NeedsYouRow({ row, offline }: { row: WireWorkNeedsYou; offline: boolean }) {
   const holdReason = row.reason === 'blocked' ? row.hold_reason?.trim() : undefined;
   return (
     <div className={ATTENTION_RULE}>
@@ -142,6 +254,7 @@ function NeedsYouRow({ row }: { row: WireWorkNeedsYou }) {
         title={row.title}
         leading={<StatusDot status={row.status} />}
         beforeTitle={<NeedsYouReason row={row} />}
+        actions={needsYouActions(row, offline)}
         afterTitle={
           <RowTail
             row={row}
@@ -168,7 +281,13 @@ function NeedsYouRow({ row }: { row: WireWorkNeedsYou }) {
   );
 }
 
-function NeedsYouSection({ rows }: { rows: readonly WireWorkNeedsYou[] }) {
+function NeedsYouSection({
+  rows,
+  offline,
+}: {
+  rows: readonly WireWorkNeedsYou[];
+  offline: boolean;
+}) {
   return (
     <BrowserGroup
       label="Needs you"
@@ -179,14 +298,14 @@ function NeedsYouSection({ rows }: { rows: readonly WireWorkNeedsYou[] }) {
       {rows.length === 0 ? (
         <Empty lead="Nothing needs you.">No reviews, blocks, or questions are waiting.</Empty>
       ) : (
-        rows.map((row) => <NeedsYouRow key={row.id} row={row} />)
+        rows.map((row) => <NeedsYouRow key={row.id} row={row} offline={offline} />)
       )}
     </BrowserGroup>
   );
 }
 
 /** A frontier row: its grooming chip and size, and what a container to break down is. */
-function FrontierRow({ row, meta }: { row: WireWorkFrontier; meta?: ReactNode }) {
+function FrontierRow({ row, actions }: { row: WireWorkFrontier; actions?: ReactNode }) {
   return (
     <BrowserRow
       to={nodeLink(row.id)}
@@ -200,7 +319,7 @@ function FrontierRow({ row, meta }: { row: WireWorkFrontier; meta?: ReactNode })
           <RowTail row={row} />
         </>
       }
-      meta={meta}
+      actions={actions}
     />
   );
 }
@@ -283,7 +402,13 @@ function FrontierSection({
             {frontier.runnable.length === 0 ? (
               <Empty lead="Nothing runnable yet." />
             ) : (
-              frontier.runnable.map((row) => <FrontierRow key={row.id} row={row} />)
+              frontier.runnable.map((row) => (
+                <FrontierRow
+                  key={row.id}
+                  row={row}
+                  actions={<StartAction id={row.id} offline={offline} />}
+                />
+              ))
             )}
           </section>
           {unlock.length > 0 && (
@@ -477,7 +602,7 @@ export function WorkSections({
   return (
     <div className="flex flex-col">
       <NowSection rows={report.now} />
-      <NeedsYouSection rows={report.needs_you} />
+      <NeedsYouSection rows={report.needs_you} offline={offline} />
       <FrontierSection
         frontier={report.frontier}
         projectKey={projectKey}
