@@ -12,7 +12,7 @@ import { cn } from '../../lib/cn';
  * alternate. Solid fills carry `text-well-950`, which flips near-black in dark
  * and near-white in light so the label stays legible on either theme's fill.
  */
-const actionButtonVariants = cva(
+export const actionButtonVariants = cva(
   'inline-flex items-center justify-center gap-1.5 font-semibold whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40',
   {
     defaultVariants: { size: 'default', variant: 'action' },

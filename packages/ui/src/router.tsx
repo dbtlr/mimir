@@ -52,10 +52,19 @@ export type BoardSearch = {
 
 const rootRoute = createRootRoute({ component: Shell });
 
+export type ReviewSearch = {
+  /** The review page's mode; absent = the list. Only `focus`, the focus queue, is carried. */
+  mode?: 'focus';
+};
+
+/** `/` — the review page; `?mode=focus` walks its decisions one at a time (MMR-480). */
 export const reviewRoute = createRoute({
   component: ReviewPage,
   getParentRoute: () => rootRoute,
   path: '/',
+  validateSearch: (search: Record<string, unknown>): ReviewSearch => ({
+    mode: search.mode === 'focus' ? 'focus' : undefined,
+  }),
 });
 
 /**
