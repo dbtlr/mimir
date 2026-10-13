@@ -306,6 +306,60 @@ test('work routes 404 on an unknown id and send a project key to the other route
   expect((await get('/api/nodes/MMR/work?tz=UTC')).status).toBe(400);
 });
 
+// The console review page (MMR-477): decisions, queue, triage, and the project list.
+test('GET /api/review serves the snake_case review envelope', async () => {
+  await startTask(store, task1);
+  await submitTask(store, task1);
+  await blockTask(store, otherTask, 'need a key', 'you');
+  const res = await get('/api/review');
+  expect(res.status).toBe(200);
+  const body = await parse(res);
+  expect(Object.keys(body).toSorted()).toEqual(['decisions', 'projects', 'queue', 'triage']);
+  expect(body.queue).toEqual([task1, otherTask]);
+  const decisions = body.decisions as Rec[];
+  expect(decisions.map((g) => g.project)).toEqual([
+    { key: 'MMR', name: 'Mimir' },
+    { key: 'NRN', name: 'Norn' },
+  ]);
+  const row = ((decisions[0]?.rows ?? []) as Rec[])[0];
+  expect(row).toMatchObject({ id: task1, question: null, reason: 'under_review', stale: false });
+  expect(body.triage).toEqual([]);
+  expect(body.projects).toEqual([
+    { decisions: 1, in_flight: 0, key: 'MMR', name: 'Mimir', triage: 0 },
+    { decisions: 1, in_flight: 0, key: 'NRN', name: 'Norn', triage: 0 },
+  ]);
+});
+
+test('GET /api/review counts the injected doctor findings per active project', async () => {
+  await send('POST', '/api/seeds', { kind: 'idea', project: 'NRN', title: 'an idea' });
+  const doctorServer = createServer(store, {
+    doctor: async () => ({
+      finding_total: 6,
+      groups: [
+        { finding_count: 2, project: 'MMR', records: [] },
+        { finding_count: 4, project: 'store', records: [] },
+      ],
+      scanned_at: '2026-10-13T00:00:00.000Z',
+      scope: null,
+    }),
+    port: 0,
+    version: '0.0.0-test',
+  });
+  try {
+    const res = await fetch(`http://127.0.0.1:${String(doctorServer.port)}/api/review`);
+    expect(res.status).toBe(200);
+    const body = await parse(res);
+    const triage = body.triage as Rec[];
+    expect(triage.map((g) => [(g.project as Rec).key, g.findings, g.going_cold])).toEqual([
+      ['MMR', 2, 0],
+      ['NRN', 0, 0],
+    ]);
+    expect(((triage[1]?.seeds as Rec[]) ?? []).map((s) => s.title)).toEqual(['an idea']);
+  } finally {
+    await doctorServer.stop(true);
+  }
+});
+
 test('the projects work route names a task as a task and a container as a container', async () => {
   const taskRes = await get(`/api/projects/${task1}/work?tz=UTC`);
   expect(taskRes.status).toBe(400);

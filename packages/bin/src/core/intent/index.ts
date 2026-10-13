@@ -14,6 +14,7 @@ export {
   overviewScratchpadOf,
   statusOfNode,
 } from './queries';
+export { type ReviewOptions, reviewOf } from './review';
 export { type WorkOptions, workPageOf } from './work';
 export {
   type SessionGroup,

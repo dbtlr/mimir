@@ -6,6 +6,7 @@ import type {
   OverviewReport,
   OverviewScratchpad,
   OverviewSession,
+  ReviewReport,
   Scratchpad,
   SearchHit,
   SeedView,
@@ -597,6 +598,39 @@ export function workToWire(report: WorkReport): Record<string, unknown> {
       abandon_reason: row.abandonReason,
       finished_at: row.finishedAt,
       stale: row.stale,
+    })),
+  };
+}
+
+/**
+ * Map a {@link ReviewReport} (MMR-477) to its wire object — the shape
+ * `GET /api/review` emits. Decision rows are the work page's `needs_you` rows
+ * (the lean task wire object with `question`, `reason`, `stale` folded on).
+ */
+export function reviewToWire(report: ReviewReport): Record<string, unknown> {
+  return {
+    decisions: report.decisions.map((group) => ({
+      project: group.project,
+      rows: group.rows.map((row) => ({
+        ...nodeToWire(row.task),
+        question: row.question,
+        reason: row.reason,
+        stale: row.stale,
+      })),
+    })),
+    projects: report.projects.map((p) => ({
+      decisions: p.decisions,
+      in_flight: p.inFlight,
+      key: p.key,
+      name: p.name,
+      triage: p.triage,
+    })),
+    queue: report.queue,
+    triage: report.triage.map((group) => ({
+      findings: group.findings,
+      going_cold: group.goingCold,
+      project: group.project,
+      seeds: group.seeds.map(seedToWire),
     })),
   };
 }

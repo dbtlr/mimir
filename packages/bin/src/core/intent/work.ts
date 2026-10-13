@@ -103,14 +103,45 @@ function resolveWorkScope(set: DerivationSet, id: string): ScopedTasks {
 }
 
 /** Newest `updated_at` first, then lowest seq — a deterministic recency order. */
-const byRecency = (a: Node, b: Node): number => cmpStr(b.updated_at, a.updated_at) || a.seq - b.seq;
+export const byRecency = (a: Node, b: Node): number =>
+  cmpStr(b.updated_at, a.updated_at) || a.seq - b.seq;
 
 /** Ordinal string comparison — the canonical timestamps sort chronologically as text. */
-function cmpStr(a: string, b: string): number {
+export function cmpStr(a: string, b: string): number {
   if (a < b) {
     return -1;
   }
   return a > b ? 1 : 0;
+}
+
+/** The needs-you reasons in page order: a verdict, then a block on the operator, then a question. */
+export const NEEDS_YOU_REASON_ORDER: readonly WorkNeedsYouReason[] = [
+  'under_review',
+  'blocked',
+  'needs_answers',
+];
+
+/**
+ * Why a task waits on the operator, or `undefined` when it does not: under
+ * review, blocked with an owner of `you`, or a `todo` with no hold whose
+ * grooming state is needs-answers. The one membership rule the work page's
+ * `needsYou` and the review page's decisions share. `word` is the task's
+ * {@link nodeStatusWord}.
+ */
+export function needsYouReasonOf(
+  node: Node,
+  word: ReturnType<typeof nodeStatusWord>,
+): WorkNeedsYouReason | undefined {
+  if (word === 'under_review') {
+    return 'under_review';
+  }
+  if (word === 'blocked' && node.block_owner === 'you') {
+    return 'blocked';
+  }
+  if (node.lifecycle === 'todo' && node.hold === 'none' && node.grooming === 'needs_answers') {
+    return 'needs_answers';
+  }
+  return undefined;
 }
 
 /** The statuses a prerequisite can hold and still be "one step away" from done. */
@@ -134,7 +165,7 @@ function frontierPrereqs(set: DerivationSet, node: Node): NodeRef[] | undefined 
     : undefined;
 }
 
-const latestOf = <T>(items: readonly T[] | undefined): T | undefined => items?.at(-1);
+export const latestOf = <T>(items: readonly T[] | undefined): T | undefined => items?.at(-1);
 
 /**
  * When the task last started: its latest move into in_progress that did not come
@@ -199,22 +230,17 @@ export async function workPageOf(store: Store, id: string, opts: WorkOptions): P
 
   for (const node of tasks.toSorted(rankOrder)) {
     const word = nodeStatusWord(set, node);
+    const needsYouReason = needsYouReasonOf(node, word);
     if (word === 'in_progress') {
       nowNodes.push(node);
-    } else if (word === 'under_review') {
-      needsYou.push({ node, reason: 'under_review' });
-    } else if (word === 'blocked' && node.block_owner === 'you') {
-      needsYou.push({ node, reason: 'blocked' });
+    } else if (needsYouReason !== undefined) {
+      needsYou.push({ node, reason: needsYouReason });
     } else if (word === 'blocked' && node.block_owner === 'others') {
       waitingOnOthers.push(node);
     } else if (node.lifecycle === 'todo' && node.hold === 'none') {
-      if (node.grooming === 'needs_answers') {
-        needsYou.push({ node, reason: 'needs_answers' });
-      } else {
-        const awaitingOn = frontierPrereqs(set, node);
-        if (awaitingOn !== undefined) {
-          frontier.push({ awaitingOn, node });
-        }
+      const awaitingOn = frontierPrereqs(set, node);
+      if (awaitingOn !== undefined) {
+        frontier.push({ awaitingOn, node });
       }
     } else if (node.lifecycle === 'done' || node.lifecycle === 'abandoned') {
       // Prefilter on the stamp that moves at (or after) the finish; the exact
@@ -285,12 +311,11 @@ export async function workPageOf(store: Store, id: string, opts: WorkOptions): P
     }),
   );
 
-  const reasonOrder: WorkNeedsYouReason[] = ['under_review', 'blocked', 'needs_answers'];
   const needsYouRows: WorkNeedsYouTask[] = await Promise.all(
     needsYou
       .toSorted(
         (a, b) =>
-          reasonOrder.indexOf(a.reason) - reasonOrder.indexOf(b.reason) ||
+          NEEDS_YOU_REASON_ORDER.indexOf(a.reason) - NEEDS_YOU_REASON_ORDER.indexOf(b.reason) ||
           byRecency(a.node, b.node),
       )
       .map(async ({ node, reason }) => ({
