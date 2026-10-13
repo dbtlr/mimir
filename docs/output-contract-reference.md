@@ -206,6 +206,62 @@ counts, each with a capped `listings` head.
 The MCP `overview` tool and HTTP `GET /api/projects/:key/overview` return the
 identical envelope (ADR 0012).
 
+## The work page (HTTP report, MMR-469)
+
+`GET /api/projects/:key/work` and `GET /api/nodes/:id/work` return the console
+work page for a project, or for an initiative or phase and its whole subtree. A
+task id is refused (400 `validation`); an unknown or archived id is a 404. Both
+routes **require `?tz=`**, the caller's IANA zone, and answer 400 `validation`
+without it or with an unknown zone: it decides where the `shipped` days begin
+and end (ADR 0029), and there is no fallback zone. The page has no CLI or MCP
+form yet.
+
+The envelope is one composite object. Rows are tasks, plus the initiatives and
+phases that read to break down (in `frontier.to_groom` only), and no section is
+capped. A row appears in the first section that claims it: `now`, `needs_you`,
+`frontier`, `shipped`. `going_cold` is the one exception and repeats tasks the
+other sections show. Parked tasks have no row. Every row is the lean node object
+`list`/`next` emit with the section's fields folded on, and every row carries
+`stale` (true once the task is past the stale threshold; a finished task is
+never stale, so it is always false on `shipped` rows). `type` on each row
+tells a task from a container.
+
+- `scope`: `{ kind, id, title }`, where `kind` is `project`, `initiative`, or `phase`.
+- `now`: in-progress tasks. Adds `started_at` (the latest start or reopen),
+  `latest_note` (`{ content, created_at }` or `null`), and `scratchpads`
+  (`[{ id, title }]`, the active Scratchpads anchored to the task). The agent
+  context (`harness`, `branch`, `host`, `session`, `external_ref`) is on the
+  task object.
+- `needs_you`: under review, then blocks owned by `you`, then todo tasks whose
+  grooming is `needs_answers`; newest first within each. Adds `reason`
+  (`under_review`, `blocked`, or `needs_answers`) and `question` (the task's
+  latest note for `needs_answers`, otherwise `null`).
+- `frontier`: todo, un-held tasks that are ready or await only prerequisites
+  that are in progress, under review, or ready, plus the blocked-on-others list.
+  - `runnable`: groomed, ready, and ranked, in `next` order. A groomed, ready
+    task with no rank has no row, as `next` omits it.
+  - `next_to_unlock`: `[{ prerequisite: { id, title, status }, tasks }]`, groomed
+    tasks grouped by the prerequisite they wait on. A task waiting on several
+    prerequisites appears under each.
+  - `to_groom`: tasks that are not groomed, in rank order, then the initiatives
+    and phases in scope (the scope itself excluded) that have no children, in
+    board order. A container row has `type` `initiative` or `phase` and
+    `break_down: true`; every frontier row carries `break_down`, `false` on a
+    task. A container follows the same
+    one-step rule as a task, over its own and inherited dependency edges. A
+    container with any child (finished or parked included, and an open-ended
+    home counts), and a standing open-ended home itself, is not listed.
+  - Every `runnable`, `next_to_unlock`, and `to_groom` row adds `awaiting_on`,
+    the unsettled prerequisite ids (empty when ready).
+  - `waiting_on_others`: tasks blocked with a block owner of `others`, started or
+    not, oldest `updated_at` first (blocking clears rank). Adds `block_reason`
+    (the task's hold reason, also on the row as `hold_reason`).
+- `shipped`: tasks done or abandoned in the last seven calendar days, today
+  included, in the caller's zone; newest first. Adds `finished_at` and
+  `abandon_reason` (`null` for a done task).
+- `going_cold`: every stale task in scope, oldest `updated_at` first, including
+  tasks an earlier section shows; each row has `stale: true`.
+
 ## The `service` report (report kind, MMR-59)
 
 `mimir service status` emits `{ config, recent_events, units }`, on one line

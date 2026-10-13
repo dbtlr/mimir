@@ -6,6 +6,7 @@ import {
   intersectWindows,
   isTimeZone,
   parseDateFilterTokens,
+  recentDaysWindow,
   systemTimeZone,
   withinWindow,
 } from './dates';
@@ -272,5 +273,50 @@ describe('composition', () => {
     await expectMimirError('validation', async () =>
       parseDateFilterTokens((op) => (op === 'on' ? ['2026-06-10'] : []), 'created_at'),
     );
+  });
+});
+
+const edgesOf = (asOf: string, days: number, zone: string) => {
+  const window = recentDaysWindow(asOf, days, zone);
+  return { from: window.from?.at ?? null, until: window.until?.at ?? null };
+};
+
+describe('recentDaysWindow', () => {
+  test('spans the last N caller-local days, today included', () => {
+    expect(edgesOf('2026-03-16T12:00:00.000Z', 7, 'UTC')).toEqual({
+      from: '2026-03-10T00:00:00.000Z',
+      until: '2026-03-17T00:00:00.000Z',
+    });
+    expect(edgesOf('2026-03-16T12:00:00.000Z', 1, 'UTC')).toEqual({
+      from: '2026-03-16T00:00:00.000Z',
+      until: '2026-03-17T00:00:00.000Z',
+    });
+  });
+
+  test("the caller's zone decides which day it is", () => {
+    // 02:00Z on the 16th is still the evening of the 15th in New York (EDT, -04:00).
+    expect(edgesOf('2026-03-16T02:00:00.000Z', 7, 'America/New_York')).toEqual({
+      from: '2026-03-09T04:00:00.000Z',
+      until: '2026-03-16T04:00:00.000Z',
+    });
+  });
+
+  test('a spring-forward inside the window keeps each day its real length', () => {
+    // New York springs forward on 2026-03-08: the 6th opens at 05:00Z (EST), today (the
+    // 12th) closes at 04:00Z on the 13th (EDT).
+    expect(edgesOf('2026-03-12T12:00:00.000Z', 7, 'America/New_York')).toEqual({
+      from: '2026-03-06T05:00:00.000Z',
+      until: '2026-03-13T04:00:00.000Z',
+    });
+  });
+
+  test('an unknown zone or a malformed reference time is a validation error', async () => {
+    await expectMimirError('validation', async () =>
+      recentDaysWindow('2026-03-16T12:00:00.000Z', 7, 'Mars/Olympus'),
+    );
+    await expectMimirError('validation', async () =>
+      recentDaysWindow('2026-03-16T12:00:00.000Z', 7, ''),
+    );
+    await expectMimirError('validation', async () => recentDaysWindow('not a time', 7, 'UTC'));
   });
 });

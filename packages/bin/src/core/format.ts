@@ -14,6 +14,8 @@ import type {
   TreeView,
   TriageReport,
   UpstreamResolution,
+  WorkFrontierTask,
+  WorkReport,
 } from '@mimir/contract';
 
 import { overviewScratchpadOf } from './intent/queries';
@@ -530,6 +532,70 @@ export function overviewToWire(report: OverviewReport): Record<string, unknown> 
       entries: report.sessions.entries.map(sessionToWire),
       shown: report.sessions.shown,
     },
+  };
+}
+
+/** A work-page frontier row: the lean task with the prerequisites it awaits folded on. */
+function frontierTaskToWire(row: WorkFrontierTask): Record<string, unknown> {
+  const wire: Record<string, unknown> = {
+    ...nodeToWire(row.task),
+    awaiting_on: row.awaitingOn,
+    // True on a container row; `type` says which kind of container.
+    break_down: row.breakDown,
+    stale: row.stale,
+  };
+  return wire;
+}
+
+/**
+ * Map a {@link WorkReport} (MMR-469) to its wire object — the one shape the HTTP
+ * work routes emit. Like the overview, each row is the lean task wire object with
+ * the section's own fields folded onto it; a container appears only as a
+ * `break_down` row in `frontier.to_groom`.
+ */
+export function workToWire(report: WorkReport): Record<string, unknown> {
+  return {
+    frontier: {
+      next_to_unlock: report.frontier.nextToUnlock.map((group) => ({
+        prerequisite: {
+          id: group.prerequisite.id,
+          status: group.prerequisite.status,
+          title: group.prerequisite.title,
+        },
+        tasks: group.tasks.map(frontierTaskToWire),
+      })),
+      runnable: report.frontier.runnable.map(frontierTaskToWire),
+      to_groom: report.frontier.toGroom.map(frontierTaskToWire),
+      waiting_on_others: report.frontier.waitingOnOthers.map((row) => ({
+        ...nodeToWire(row.task),
+        block_reason: row.blockReason,
+        stale: row.stale,
+      })),
+    },
+    going_cold: report.goingCold.map((task) => ({ ...nodeToWire(task), stale: true })),
+    needs_you: report.needsYou.map((row) => ({
+      ...nodeToWire(row.task),
+      question: row.question,
+      reason: row.reason,
+      stale: row.stale,
+    })),
+    now: report.now.map((row) => ({
+      ...nodeToWire(row.task),
+      latest_note:
+        row.latestNote === null
+          ? null
+          : { content: row.latestNote.content, created_at: row.latestNote.createdAt },
+      scratchpads: row.scratchpads,
+      stale: row.stale,
+      started_at: row.startedAt,
+    })),
+    scope: report.scope,
+    shipped: report.shipped.map((row) => ({
+      ...nodeToWire(row.task),
+      abandon_reason: row.abandonReason,
+      finished_at: row.finishedAt,
+      stale: row.stale,
+    })),
   };
 }
 

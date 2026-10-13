@@ -712,6 +712,122 @@ export type OverviewReport = {
   hygiene: OverviewHygiene;
 };
 
+/** What a work page is scoped to: a whole project or one container's subtree. */
+export type WorkScope = {
+  kind: 'project' | 'initiative' | 'phase';
+  /** The project KEY, or the container's `KEY-seq`. */
+  id: string;
+  /** The project name, or the container title. */
+  title: string;
+};
+
+/** A Scratchpad linked to a work-page task (its id and title, for the agent context). */
+export type WorkScratchpad = { id: string; title: string };
+
+/** A task on the work page's "now" list: in progress, with when it started and its last note. */
+export type WorkNowTask = {
+  /** Carries the agent context fields (harness, branch, host, session, externalRef). */
+  task: NodeView;
+  /** When the task last entered in-progress. */
+  startedAt: string;
+  latestNote: AnnotationView | null;
+  /** Active Scratchpads anchored to the task. */
+  scratchpads: WorkScratchpad[];
+  /** This task is past the stale threshold (going cold lists it as well). */
+  stale: boolean;
+};
+
+export type WorkNeedsYouReason = 'under_review' | 'blocked' | 'needs_answers';
+
+/** A task waiting on the operator, and why. */
+export type WorkNeedsYouTask = {
+  task: NodeView;
+  reason: WorkNeedsYouReason;
+  /** The latest note's text for a needs-answers task (the open question); null otherwise. */
+  question: string | null;
+  /** This task is past the stale threshold (going cold lists it as well). */
+  stale: boolean;
+};
+
+/**
+ * A frontier row: a task that is ready or awaiting only prerequisites one step
+ * from done, or (in `toGroom` only) an initiative or phase that reads to break
+ * down. `task.type` tells them apart.
+ */
+export type WorkFrontierTask = {
+  task: NodeView;
+  /** The unsettled prerequisite ids it awaits (own or inherited); empty when ready. */
+  awaitingOn: string[];
+  /** The row is a container with no children (ADR 0033), not a task. */
+  breakDown: boolean;
+  /** This task is past the stale threshold (going cold lists it as well). */
+  stale: boolean;
+};
+
+/** The frontier tasks waiting on one prerequisite. */
+export type WorkUnlockGroup = {
+  prerequisite: NodeRef;
+  tasks: WorkFrontierTask[];
+};
+
+/** A task blocked on someone outside the board (block owner `others`). */
+export type WorkWaitingTask = {
+  task: NodeView;
+  /** Why it is blocked (the task's hold reason). */
+  blockReason: string | null;
+  /** This task is past the stale threshold (going cold lists it as well). */
+  stale: boolean;
+};
+
+/**
+ * The frontier: work one step from startable, split by what the operator can do
+ * with it, plus the tasks that wait on others. A groomed, ready task with no rank
+ * has no row, as `next` omits it.
+ */
+export type WorkFrontier = {
+  /** Groomed and ready, in `next` order. */
+  runnable: WorkFrontierTask[];
+  /** Groomed and awaiting, grouped by the prerequisite each waits on. */
+  nextToUnlock: WorkUnlockGroup[];
+  /**
+   * Not groomed, ready or awaiting within the frontier, in rank order; then the
+   * containers that read to break down, in board order.
+   */
+  toGroom: WorkFrontierTask[];
+  /** Blocked with an owner of `others`, started or not, oldest update first (blocking clears rank). */
+  waitingOnOthers: WorkWaitingTask[];
+};
+
+/** A task that finished (done or abandoned) inside the shipped window. */
+export type WorkShippedTask = {
+  task: NodeView;
+  finishedAt: string;
+  /** The reason an abandoned task carries; null for a done task or an abandon without one. */
+  abandonReason: string | null;
+  /** Always false: a done or abandoned task is never stale, so going cold never repeats a shipped row. */
+  stale: boolean;
+};
+
+/**
+ * The console work page for a project or one container's subtree. Rows are
+ * tasks, plus the containers that read to break down in `frontier.toGroom`. No
+ * section is capped.
+ */
+export type WorkReport = {
+  scope: WorkScope;
+  now: WorkNowTask[];
+  needsYou: WorkNeedsYouTask[];
+  frontier: WorkFrontier;
+  /** Done or abandoned in the last 7 days, newest first. */
+  shipped: WorkShippedTask[];
+  /**
+   * Every stale task in scope, oldest `updated_at` first, including tasks an
+   * earlier section shows (the one exception to a task appearing once). Each
+   * wire row carries `stale: true`.
+   */
+  goingCold: NodeView[];
+};
+
 /** The set-valued column names (flat, MMR-38), for `--col` parsing and the cheap-vs-heavy default sets. */
 export const FACET_NAMES = [
   'deps',

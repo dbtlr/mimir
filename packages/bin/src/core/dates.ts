@@ -340,6 +340,39 @@ export function intersectWindows(a: InstantWindow, b: InstantWindow): InstantWin
   return { from: tighterFrom(a.from, b.from), until: tighterUntil(a.until, b.until) };
 }
 
+/**
+ * The window of the last `days` caller-local calendar days ending with the day
+ * `asOf` falls on, today included (ADR 0029): it opens when day `today - (days -
+ * 1)` opens in `zone` and closes when today closes. A 23- or 25-hour day keeps
+ * its real length.
+ */
+export function recentDaysWindow(asOf: string, days: number, zone: string): InstantWindow {
+  if (requireTimeZone(zone) === undefined) {
+    throw validation('a caller timezone is required', timeZoneHint);
+  }
+  const asOfMs = Date.parse(asOf);
+  if (Number.isNaN(asOfMs)) {
+    throw validation(`invalid reference time: ${asOf}`, dateValueHint(asOf));
+  }
+  // The wall clock read as UTC fields is the caller's local date.
+  const wall = new Date(wallClock(asOfMs, zone));
+  const today: CalendarDate = {
+    day: wall.getUTCDate(),
+    month: wall.getUTCMonth() + 1,
+    year: wall.getUTCFullYear(),
+  };
+  const firstMs = utcMillis(today.year, today.month, today.day) - (days - 1) * DAY_MS;
+  const first = new Date(firstMs);
+  const tomorrow = nextDay(today);
+  return {
+    from: bound(
+      dayOpensAt(first.getUTCFullYear(), first.getUTCMonth() + 1, first.getUTCDate(), zone),
+      true,
+    ),
+    until: bound(dayOpensAt(tomorrow.year, tomorrow.month, tomorrow.day, zone), false),
+  };
+}
+
 /** Does a stored timestamp fall in the window? An absent or unparseable value never does. */
 export function withinWindow(window: InstantWindow, value: string | null | undefined): boolean {
   if (value == null || value === '') {

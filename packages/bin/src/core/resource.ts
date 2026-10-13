@@ -51,7 +51,7 @@ export async function listProjects(
  * else (containers, terminal tasks) by seq after it. Rank crosses the surface
  * as array order, never a field (ADR 0007).
  */
-function boardOrder(a: Node, b: Node): number {
+export function boardOrder(a: Node, b: Node): number {
   const aNull = a.rank === null ? 1 : 0;
   const bNull = b.rank === null ? 1 : 0;
   return aNull - bNull || (a.rank ?? 0) - (b.rank ?? 0) || a.seq - b.seq;
