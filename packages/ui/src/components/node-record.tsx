@@ -11,6 +11,7 @@ import type { TaskFormValues } from '../lib/schemas';
 import { availableTransitions, transitionLabel } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
 import { verdictSummary } from '../lib/verdict';
+import { LinkifiedText } from './linkified-text';
 import { MarkdownBody } from './markdown-body';
 import { ReasonDialog } from './reason-dialog';
 import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
@@ -204,7 +205,7 @@ export function HoldCallout({ node }: { node: WireNode }) {
       <span className={cn('microlabel mr-2', HOLD_CALLOUT[node.hold].label)}>
         {holdLabel(node.hold, node.block_owner)}
       </span>
-      {reason}
+      <LinkifiedText>{reason}</LinkifiedText>
     </div>
   );
 }

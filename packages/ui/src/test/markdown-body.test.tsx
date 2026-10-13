@@ -129,4 +129,36 @@ describe('markdownBody', () => {
       'https://example.com/graph.png',
     );
   });
+
+  it('opens an external link in a new tab', () => {
+    render(
+      <MarkdownBody>
+        See [the docs](https://example.com/docs) or https://example.org/x.
+      </MarkdownBody>,
+    );
+
+    for (const name of ['the docs', 'https://example.org/x']) {
+      const link = screen.getByRole('link', { name });
+      expect(link.getAttribute('target')).toBe('_blank');
+      expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+    }
+  });
+
+  it('opens an external link in a new tab in a document body too', () => {
+    render(<MarkdownBody images>[the docs](https://example.com/docs)</MarkdownBody>);
+
+    expect(screen.getByRole('link', { name: 'the docs' }).getAttribute('target')).toBe('_blank');
+  });
+
+  it('leaves in-app, anchor, and mailto links to default behavior', () => {
+    render(
+      <MarkdownBody>[task](/p/MMR/1) [top](#top) [mail](mailto:drew@example.com)</MarkdownBody>,
+    );
+
+    for (const name of ['task', 'top', 'mail']) {
+      const link = screen.getByRole('link', { name });
+      expect(link.hasAttribute('target')).toBe(false);
+      expect(link.hasAttribute('rel')).toBe(false);
+    }
+  });
 });
