@@ -66,6 +66,9 @@ export function useRowFocusHandoff(ids: readonly string[]) {
  * `submittedAt`, which also catches a failure too fast to render as pending).
  * It must follow the render, not a mutate callback: TanStack Query runs those
  * before it renders the refetched rows, and a leaving row unmounts first.
+ * The action unmounting disarms too: a row that stays but loses its action
+ * (blocked elsewhere) is over. That cleanup runs after the commit's layout
+ * effects, so a leaving row has already handed focus on.
  */
 export function useDisarmWhenSettled(
   handoff: RowFocusHandoff,
@@ -79,6 +82,7 @@ export function useDisarmWhenSettled(
     }
     last.current = settled;
   }, [handoff, id, settled]);
+  useEffect(() => () => handoff.disarm(id), [handoff, id]);
 }
 
 /**

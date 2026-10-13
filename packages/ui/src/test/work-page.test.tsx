@@ -1066,6 +1066,45 @@ describe('work page focus after an acted-on row moves away', () => {
     });
   });
 
+  it('moves nothing for a row that lost its action before it leaves', async () => {
+    const first = frontierRow('MMR-20', 'Add the SQLite dialect');
+    const second = frontierRow('MMR-21', 'Add the Postgres dialect');
+    const runnable = (rows: (typeof first)[]) => ({ ...workReport().frontier, runnable: rows });
+    await open(
+      PROJECT_SCOPE,
+      workReport({ frontier: runnable([first, second]), needs_you: [reviewRow, secondReview] }),
+    );
+
+    // MMR-12 is blocked elsewhere as it is approved, so it stays with no action.
+    const blockedRefresh = holdRefresh();
+    await press('MMR-12', 'Approve');
+    const blockedAs = { ...blockedRow, id: 'MMR-12', title: reviewRow.title };
+    blockedRefresh.resolve(
+      workReport({ frontier: runnable([first, second]), needs_you: [blockedAs, secondReview] }),
+    );
+    await waitFor(() => {
+      expect(screen.queryByRole('group', { name: 'Actions for MMR-12' })).toBeNull();
+    });
+
+    const startRefresh = holdRefresh();
+    await press('MMR-20', 'Start');
+    startRefresh.resolve(
+      workReport({
+        frontier: runnable([second]),
+        needs_you: [secondReview],
+        now: [runningAs(first)],
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole('group', { name: 'Actions for MMR-21' })).getByRole('button', {
+          name: 'Start',
+        }),
+      ).toHaveFocus();
+    });
+  });
+
   it('leaves focus alone when the operator has moved on before the row leaves', async () => {
     await open(PROJECT_SCOPE, workReport({ needs_you: [reviewRow, secondReview] }));
     const refresh = holdRefresh();
