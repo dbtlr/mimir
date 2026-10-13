@@ -73,6 +73,7 @@ export type ProjectPatch = {
   name?: string;
   description?: string | null;
   archived_at?: string | null;
+  pinned?: boolean;
   updated_at?: string;
 };
 

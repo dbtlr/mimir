@@ -38,10 +38,11 @@ test('a v0.20 Norn export imports into the SQLite store and re-exports unchanged
     const report = await target.store.import(document, { dryRun: false, mode: 'fresh' });
     expect(report.applied).toBe(true);
 
-    // The fixture predates the grooming state (ADR 0033) and the block owner
-    // (MMR-438), so the re-export is the same document at transfer version 3, with
+    // The fixture predates the grooming state (ADR 0033), the block owner
+    // (MMR-438), and the project pin (MMR-493), so the re-export is the same document at transfer version 4, with
     // each node carrying the defaults a fresh node is born with: `not_groomed`
-    // for a task, and for a blocked task the owner its upstream implies.
+    // for a task, for a blocked task the owner its upstream implies, and every
+    // project unpinned.
     const withDefaults: StoreExport = {
       ...document,
       nodes: document.nodes.map((node) => ({
@@ -49,7 +50,8 @@ test('a v0.20 Norn export imports into the SQLite store and re-exports unchanged
         block_owner: impliedOwner(node),
         grooming: node.type === 'task' ? 'not_groomed' : null,
       })),
-      schema_version: 3,
+      projects: document.projects.map((project) => ({ ...project, pinned: false })),
+      schema_version: 4,
     };
     const reexported = await target.store.export();
     expect(canonicalJson(withoutStamp(reexported))).toBe(canonicalJson(withoutStamp(withDefaults)));

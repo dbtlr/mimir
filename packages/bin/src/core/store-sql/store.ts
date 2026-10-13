@@ -47,7 +47,7 @@ export function createSqlStore(db: Kysely<DB>, dialect: StoreDialect): Store {
     import: (document, opts) => importSqlStore(db, dialect, document, opts),
     loadNodesForProjects: (keys, valid) => loadNodesForProjects(db, dialect, keys, valid),
     loadProjectActivity: (keys) => loadProjectActivity(db, keys),
-    loadProjects: () => loadProjects(db),
+    loadProjects: () => loadProjects(db, dialect),
     loadWorkingSet: () => dialect.snapshot(db, (tx) => loadWorkingSet(tx, dialect)),
     scratchpads: createSqlScratchpadStore(db, dialect),
     search: createSqlSearchStore(db, dialect),

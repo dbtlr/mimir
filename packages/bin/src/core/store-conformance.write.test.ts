@@ -233,6 +233,22 @@ for (const backend of backends) {
     expect(error.message).toContain('XYZ');
   });
 
+  it('a project is born unpinned, and updateProject pins and unpins it', async () => {
+    const store = await fresh();
+    await base(store);
+    expect((await store.loadProjects()).map((project) => project.pinned)).toEqual([false]);
+
+    const pinned = await updateProject(store, 'MMR', { pinned: true });
+    expect(pinned.pinned).toBe(true);
+    // The pin is the only thing the patch touched.
+    expect(pinned.name).toBe('Mimir');
+    expect((await store.loadProjects()).map((project) => project.pinned)).toEqual([true]);
+
+    const unpinned = await updateProject(store, 'MMR', { pinned: false });
+    expect(unpinned.pinned).toBe(false);
+    expect((await store.loadProjects()).map((project) => project.pinned)).toEqual([false]);
+  });
+
   it('insertDependency is idempotent and deleteDependency reports what it removed', async () => {
     const store = await fresh();
     const { first, second } = await base(store);

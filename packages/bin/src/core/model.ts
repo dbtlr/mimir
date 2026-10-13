@@ -24,6 +24,8 @@ export type Project = {
   description: string | null;
   /** The archived operator axis (ADR 0015): NULL = active, set = archived (doubles as "when"). */
   archived_at: string | null;
+  /** The operator's "keep at hand" mark (MMR-493): the console lists pinned projects first. */
+  pinned: boolean;
   created_at: string;
   updated_at: string;
 };

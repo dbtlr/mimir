@@ -55,21 +55,22 @@ export function toNode(row: NodeRow, dialect: StoreDialect): Node {
   };
 }
 
-export function toProject(row: ProjectRow): Project {
+export function toProject(row: ProjectRow, dialect: StoreDialect): Project {
   return {
     archived_at: row.archived_at,
     created_at: row.created_at,
     description: row.description,
     key: row.key,
     name: row.name,
+    pinned: dialect.codecs.bool.decode(row.pinned),
     updated_at: row.updated_at,
   };
 }
 
 /** Every project, key-ordered, archived included. */
-export async function loadProjects(ex: Executor): Promise<Project[]> {
+export async function loadProjects(ex: Executor, dialect: StoreDialect): Promise<Project[]> {
   const rows = await ex.selectFrom('project').selectAll().orderBy('key').execute();
-  return rows.map(toProject);
+  return rows.map((row) => toProject(row, dialect));
 }
 
 /**
@@ -133,7 +134,7 @@ async function tagsByEntity(
 
 /** The whole store's derivation inputs in one consistent projection. */
 export async function loadWorkingSet(ex: Executor, dialect: StoreDialect): Promise<WorkingSet> {
-  const projects = await loadProjects(ex);
+  const projects = await loadProjects(ex, dialect);
   const nodeRows = await ex
     .selectFrom('node')
     .selectAll()

@@ -182,10 +182,14 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
         description: row.description,
         key: row.key,
         name: row.name,
+        pinned: false,
         updated_at: timestamp,
       };
       try {
-        await tx.insertInto('project').values(project).execute();
+        await tx
+          .insertInto('project')
+          .values({ ...project, pinned: bool.encode(project.pinned) })
+          .execute();
       } catch (error) {
         // The verb fences duplicates first; a RAW writer call reaches the key,
         // and must fail the way the verb does rather than as a driver error.
@@ -277,7 +281,7 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
         .selectAll()
         .where('key', '=', key)
         .executeTakeFirst();
-      return row === undefined ? undefined : toProject(row);
+      return row === undefined ? undefined : toProject(row, dialect);
     },
 
     loadWorkingSet: () => loadWorkingSet(tx, dialect),
@@ -340,7 +344,11 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
       if (!(await projectExists(key))) {
         throw invariant('the record vanished mid-transaction');
       }
-      const columns: ProjectUpdate = { ...patch };
+      const { pinned, ...rest } = patch;
+      const columns: ProjectUpdate = {
+        ...rest,
+        ...(pinned === undefined ? {} : { pinned: bool.encode(pinned) }),
+      };
       if (Object.keys(columns).length === 0) {
         return;
       }

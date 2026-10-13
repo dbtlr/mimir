@@ -9,6 +9,7 @@ import type { DB } from './index';
 import { statements as initStatements } from './migrations/0001-init';
 import { statements as groomingStatements } from './migrations/0002-grooming';
 import { statements as blockOwnerStatements } from './migrations/0003-block-owner';
+import { statements as seedParkedStatements } from './migrations/0004-seed-parked';
 import { createPgliteDialect } from './pglite';
 
 function freshDb(): Kysely<DB> {
@@ -42,7 +43,13 @@ test('an upgrade names the migrations it applied and lands the current version',
   const db = freshDb();
   try {
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0001_init', '0002_grooming', '0003_block_owner', '0004_seed_parked'],
+      applied: [
+        '0001_init',
+        '0002_grooming',
+        '0003_block_owner',
+        '0004_seed_parked',
+        '0005_project_pinned',
+      ],
       from: 0,
       to: SCHEMA_VERSION,
     });
@@ -80,7 +87,7 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
     `.execute(db);
 
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0002_grooming', '0003_block_owner', '0004_seed_parked'],
+      applied: ['0002_grooming', '0003_block_owner', '0004_seed_parked', '0005_project_pinned'],
       from: 1,
       to: SCHEMA_VERSION,
     });
@@ -127,7 +134,7 @@ test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by
     `.execute(db);
 
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0003_block_owner', '0004_seed_parked'],
+      applied: ['0003_block_owner', '0004_seed_parked', '0005_project_pinned'],
       from: 2,
       to: SCHEMA_VERSION,
     });
@@ -180,7 +187,7 @@ test('0004_seed_parked upgrades a version-3 store: seeds keep their lifecycle, p
     expect(before).toContain('seed_lifecycle_check');
 
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0004_seed_parked'],
+      applied: ['0004_seed_parked', '0005_project_pinned'],
       from: 3,
       to: SCHEMA_VERSION,
     });
@@ -194,6 +201,54 @@ test('0004_seed_parked upgrades a version-3 store: seeds keep their lifecycle, p
         (reason: unknown) => String(reason),
       );
     expect(rejection).toContain('seed_lifecycle_check');
+  } finally {
+    await db.destroy();
+  }
+});
+
+test('0005_project_pinned upgrades a version-4 store: projects keep their data and read unpinned, NULL is rejected', async () => {
+  const db = freshDb();
+  try {
+    // The store as the previous binary left it: 0001–0004, with two projects.
+    for (const statement of [
+      ...initStatements,
+      ...groomingStatements,
+      ...blockOwnerStatements,
+      ...seedParkedStatements,
+    ]) {
+      await sql.raw(statement).execute(db);
+    }
+    await sql`insert into schema_version (version, applied_at) values (1, 't'), (2, 't'), (3, 't'), (4, 't')`.execute(
+      db,
+    );
+    await sql`
+      insert into project (key, name, description, last_seq, created_at, updated_at)
+      values ('MMR', 'Mimir', 'the store', 7, 'c', 'u'), ('OPS', 'Ops', null, 0, 'c', 'u')
+    `.execute(db);
+
+    expect(await upgradeSchema(db)).toEqual({
+      applied: ['0005_project_pinned'],
+      from: 4,
+      to: SCHEMA_VERSION,
+    });
+    const rows = await sql<{
+      key: string;
+      description: string | null;
+      last_seq: number;
+      pinned: boolean;
+    }>`select key, description, last_seq, pinned from project order by key`.execute(db);
+    expect(rows.rows).toEqual([
+      { description: 'the store', key: 'MMR', last_seq: 7, pinned: false },
+      { description: null, key: 'OPS', last_seq: 0, pinned: false },
+    ]);
+    await sql`update project set pinned = true where key = 'MMR'`.execute(db);
+    const rejection = await sql`update project set pinned = null where key = 'MMR'`
+      .execute(db)
+      .then(
+        () => 'accepted',
+        (reason: unknown) => String(reason),
+      );
+    expect(rejection).toContain('pinned');
   } finally {
     await db.destroy();
   }

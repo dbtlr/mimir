@@ -39,19 +39,21 @@ import type { NewAnnotationRecord, NewTagRecord, NewTransitionRecord } from './s
  * The transfer document's own schema version, bumped on any shape change so an
  * older binary refuses a document it would read lossily. Version 2 adds the
  * node `grooming` key (ADR 0033); version 3 adds the node `block_owner` key
- * (ADR 0001, MMR-438).
+ * (ADR 0001, MMR-438); version 4 adds the project `pinned` key (MMR-493).
  */
-export const STORE_EXPORT_SCHEMA_VERSION = 3;
+export const STORE_EXPORT_SCHEMA_VERSION = 4;
 
 /**
  * Every version this binary imports. A version-1 document predates `grooming`
  * and imports with each task `not_groomed`; a version-1 or -2 document predates
  * `block_owner`, so each blocked task imports with the owner its `upstream`
- * implies (`others` with one, else `you`).
+ * implies (`others` with one, else `you`); a document older than version 4
+ * predates `pinned`, so each project imports unpinned.
  */
 export const READABLE_STORE_EXPORT_SCHEMA_VERSIONS: readonly number[] = [
   1,
   2,
+  3,
   STORE_EXPORT_SCHEMA_VERSION,
 ];
 

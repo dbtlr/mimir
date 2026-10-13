@@ -143,6 +143,7 @@ export async function exportSqlStore(ex: Executor, dialect: StoreDialect): Promi
       description: project.description,
       key: project.key,
       name: project.name,
+      pinned: project.pinned,
       updated_at: project.updated_at,
     });
   }
@@ -484,6 +485,7 @@ async function applyImport(
         last_seed_seq: counters.seed,
         last_seq: counters.node,
         name: project.name,
+        pinned: dialect.codecs.bool.encode(project.pinned),
         ...nextOf(project.key),
         updated_at: project.updated_at,
       });

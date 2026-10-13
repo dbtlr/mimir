@@ -115,20 +115,26 @@ export const transferSchema = z.object({
       })),
   ),
   projects: z.array(
-    z.object({
-      archived_at: nullableText,
-      counters: z.object({ artifact: integer, node: integer, seed: integer }),
-      created_at: text,
-      description: nullableText,
-      key,
-      name: text,
-      updated_at: text,
-    }),
+    z
+      .object({
+        archived_at: nullableText,
+        counters: z.object({ artifact: integer, node: integer, seed: integer }),
+        created_at: text,
+        description: nullableText,
+        key,
+        name: text,
+        // Absent in a document written before the field existed (MMR-493); the
+        // transform below defaults it to unpinned.
+        pinned: z.boolean().optional(),
+        updated_at: text,
+      })
+      .transform((project) => ({ ...project, pinned: project.pinned ?? false })),
   ),
-  // A version-1 or -2 document parses into the current shape: its nodes' missing
-  // `grooming` and `block_owner` are defaulted above, so the version normalizes too.
+  // A version-1, -2, or -3 document parses into the current shape: its nodes'
+  // missing `grooming` and `block_owner` and its projects' missing `pinned` are
+  // defaulted above, so the version normalizes too.
   schema_version: z
-    .union([z.literal(1), z.literal(2), z.literal(STORE_EXPORT_SCHEMA_VERSION)])
+    .union([z.literal(1), z.literal(2), z.literal(3), z.literal(STORE_EXPORT_SCHEMA_VERSION)])
     .transform((): typeof STORE_EXPORT_SCHEMA_VERSION => STORE_EXPORT_SCHEMA_VERSION),
   scratchpads: z.array(
     z.object({

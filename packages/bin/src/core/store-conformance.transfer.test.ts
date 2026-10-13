@@ -471,12 +471,12 @@ describe.each(backends)('$name', (backend) => {
       try {
         const refusal = await refusalOf(
           futureTarget.store.import(
-            { ...document, schema_version: 4 },
+            { ...document, schema_version: 5 },
             { dryRun: false, mode: 'fresh' },
           ),
         );
-        expect(refusal).toContain('unsupported transfer document schema version 4');
-        expect(refusal).toContain('this binary reads schema versions 1, 2, 3');
+        expect(refusal).toContain('unsupported transfer document schema version 5');
+        expect(refusal).toContain('this binary reads schema versions 1, 2, 3, 4');
       } finally {
         await futureTarget.close();
       }
@@ -489,7 +489,7 @@ describe.each(backends)('$name', (backend) => {
     try {
       await seedWorkingSet(source.store);
       const document = await source.store.export();
-      expect(document.schema_version).toBe(3);
+      expect(document.schema_version).toBe(4);
 
       // Only the blocked task carries an owner; the fixture states `others`, which
       // the derivation rule (no upstream, so `you`) would not produce.
@@ -519,13 +519,52 @@ describe.each(backends)('$name', (backend) => {
           };
           await legacyTarget.store.import(legacy, { dryRun: false, mode: 'fresh' });
           const imported = await legacyTarget.store.export();
-          expect(imported.schema_version).toBe(3);
+          expect(imported.schema_version).toBe(4);
           for (const node of imported.nodes) {
             expect(node.block_owner, node.id).toBe(node.hold === 'blocked' ? expected : null);
           }
         } finally {
           await legacyTarget.close();
         }
+      }
+    } finally {
+      await source.close();
+    }
+  });
+  test('the project pin round-trips through export and import, and a pre-version-4 document imports unpinned', async () => {
+    const source = await backend.make();
+    try {
+      await seedWorkingSet(source.store);
+      const document = await source.store.export();
+      // The fixture pins one project and leaves the other, so a round trip that
+      // defaulted or flipped the flag would show.
+      expect(document.projects.map((project) => [project.key, project.pinned])).toEqual([
+        ['MMR', true],
+        ['OPS', false],
+      ]);
+
+      const target = await backend.make();
+      try {
+        await target.store.import(document, { dryRun: false, mode: 'fresh' });
+        expect(withoutStamp(await target.store.export())).toEqual(withoutStamp(document));
+      } finally {
+        await target.close();
+      }
+
+      // A version-3 document carries no `pinned` key on its projects.
+      const legacyTarget = await backend.make();
+      try {
+        const legacy = {
+          ...document,
+          projects: document.projects.map(({ pinned: _pinned, ...project }) => project),
+          schema_version: 3,
+        };
+        await legacyTarget.store.import(legacy, { dryRun: false, mode: 'fresh' });
+        const imported = await legacyTarget.store.export();
+        expect(imported.schema_version).toBe(4);
+        expect(imported.projects.map((project) => project.pinned)).toEqual([false, false]);
+      } finally {
+        await legacyTarget.close();
       }
     } finally {
       await source.close();

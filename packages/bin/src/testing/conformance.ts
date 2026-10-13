@@ -172,7 +172,7 @@ export async function seedWorkingSet(store: Store): Promise<void> {
   await submitTask(store, prereq.id);
 
   await updateNode(store, initiative.id, { next: 'land the export, then the import' });
-  await updateProject(store, 'MMR', { next: 'ship the bridge' });
+  await updateProject(store, 'MMR', { next: 'ship the bridge', pinned: true });
 
   // A PRESENT but EMPTY `## Next` — the section stored with no prose in it. The verbs cannot author it (a blank narrative is a clear), so it
   // goes through the writer directly, co-writing the stamp the write path
