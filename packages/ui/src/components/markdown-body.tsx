@@ -5,6 +5,7 @@ import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
 
 import { cn } from '../lib/cn';
+import { isExternalHref } from '../lib/links';
 
 /**
  * Two code treatments, one rule (ADR 0019 §7 rule 4 and its MMR-445
@@ -137,11 +138,48 @@ function ScrollingTable({ node: _node, ...props }: ComponentProps<'table'> & { n
  * would hand the viewer's IP and read time to whoever wrote the image in.
  */
 function ImageLink({ src, alt }: ComponentProps<'img'>) {
-  return <a href={typeof src === 'string' ? src : undefined}>Image: {alt || 'untitled'}</a>;
+  const href = typeof src === 'string' ? src : undefined;
+  const external = isExternalHref(href);
+  return (
+    <a
+      href={href}
+      target={external ? '_blank' : undefined}
+      rel={external ? 'noopener noreferrer' : undefined}
+    >
+      Image: {alt || 'untitled'}
+    </a>
+  );
 }
 
-const BODY_COMPONENTS = { ...BODY_HEADINGS, img: ImageLink, table: ScrollingTable };
-const DOCUMENT_COMPONENTS = { ...BODY_HEADINGS, table: ScrollingTable };
+/**
+ * A link: an external http(s) one opens in a new tab so reading a record never
+ * navigates away from the console; relative, anchor, and other-scheme links keep
+ * the browser's default.
+ */
+function MarkdownLink({
+  node: _node,
+  children,
+  ...props
+}: ComponentProps<'a'> & { node?: unknown }) {
+  const external = isExternalHref(props.href);
+  return (
+    <a
+      {...props}
+      target={external ? '_blank' : props.target}
+      rel={external ? 'noopener noreferrer' : props.rel}
+    >
+      {children}
+    </a>
+  );
+}
+
+const BODY_COMPONENTS = {
+  ...BODY_HEADINGS,
+  a: MarkdownLink,
+  img: ImageLink,
+  table: ScrollingTable,
+};
+const DOCUMENT_COMPONENTS = { ...BODY_HEADINGS, a: MarkdownLink, table: ScrollingTable };
 
 /**
  * The two text scales a host can ask for. `default` is the reading scale;

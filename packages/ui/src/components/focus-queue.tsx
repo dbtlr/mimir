@@ -9,6 +9,7 @@ import { cn } from '../lib/cn';
 import { nodeLink } from '../lib/record-url';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
 import { verdictSummary } from '../lib/verdict';
+import { LinkifiedText } from './linkified-text';
 import { MarkdownBody } from './markdown-body';
 import { ExternalRef } from './node-record';
 import { RecordPending } from './record-layout';
@@ -189,7 +190,9 @@ function FocusCard({
       )}
       {holdReason !== undefined && holdReason !== '' && (
         <Context label="Waiting on" className="border-attention">
-          <span className="whitespace-pre-line text-ink">{holdReason}</span>
+          <span className="whitespace-pre-line text-ink">
+            <LinkifiedText>{holdReason}</LinkifiedText>
+          </span>
         </Context>
       )}
       {description !== undefined && description !== '' && (

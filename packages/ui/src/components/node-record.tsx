@@ -6,11 +6,13 @@ import type { ReactNode } from 'react';
 import { useTag, useTransition, useUntag, useUpdateNode } from '../api/mutations';
 import type { WireAnnotation, WireArtifact, WireDeps, WireNode } from '../api/types';
 import { cn } from '../lib/cn';
+import { isBareUrl } from '../lib/links';
 import { artifactLink, nodeLink } from '../lib/record-url';
 import type { TaskFormValues } from '../lib/schemas';
 import { availableTransitions, transitionLabel } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
 import { verdictSummary } from '../lib/verdict';
+import { LinkifiedText } from './linkified-text';
 import { MarkdownBody } from './markdown-body';
 import { ReasonDialog } from './reason-dialog';
 import { OpenEndedBadge, PriorityBadge, SizeBadge, StaleBadge } from './signal-badges';
@@ -131,24 +133,17 @@ export function SignalBadges({ node }: { node: WireNode }) {
   );
 }
 
-/** external_ref is free text (e.g. `GH-123`, `PR #41`) — only link genuine URLs. */
-function isHttpUrl(value: string): boolean {
-  try {
-    const u = new URL(value);
-    return u.protocol === 'http:' || u.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
-/** external_ref as a `↗` link when it's a URL, else plain mono text (no dead link). */
+/**
+ * external_ref is free text (e.g. `GH-123`, `PR #41`): a URL renders as a `↗` link,
+ * anything else as plain mono text (no dead link).
+ */
 export function ExternalRef({ value }: { value: string }) {
-  if (isHttpUrl(value)) {
+  if (isBareUrl(value)) {
     return (
       <a
         href={value}
         target="_blank"
-        rel="noreferrer"
+        rel="noopener noreferrer"
         className="self-start font-mono text-mono-id break-all text-accent-foreground hover:text-accent"
       >
         {value} ↗
@@ -204,7 +199,7 @@ export function HoldCallout({ node }: { node: WireNode }) {
       <span className={cn('microlabel mr-2', HOLD_CALLOUT[node.hold].label)}>
         {holdLabel(node.hold, node.block_owner)}
       </span>
-      {reason}
+      <LinkifiedText>{reason}</LinkifiedText>
     </div>
   );
 }

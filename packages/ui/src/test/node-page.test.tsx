@@ -1076,6 +1076,25 @@ describe('task page hold callout (MMR-466)', () => {
     },
   );
 
+  it('links a URL in the hold reason, opening in a new tab', async () => {
+    await openTask(
+      task({
+        block_owner: 'you',
+        hold: 'blocked',
+        hold_reason: 'Pick a variant from https://example.com/a/b.',
+        id: 'MMR-51',
+        status: 'blocked',
+      }),
+    );
+
+    const link = within(screen.getByRole('article')).getByRole('link', {
+      name: 'https://example.com/a/b',
+    });
+    expect(link.getAttribute('href')).toBe('https://example.com/a/b');
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+  });
+
   it('shows no callout for a parked task with no reason', async () => {
     await openTask(task({ hold: 'parked', hold_reason: null, id: 'MMR-51', status: 'parked' }));
 

@@ -5,6 +5,7 @@ import { cn } from '../lib/cn';
 import { ago } from '../lib/time';
 import { describeTransition } from '../lib/timeline';
 import type { FeedItem } from '../lib/timeline';
+import { LinkifiedText } from './linkified-text';
 import { MarkdownBody } from './markdown-body';
 import type { ClampMeasure } from './markdown-body';
 import { Skeleton } from './ui/skeleton';
@@ -42,7 +43,12 @@ function TransitionLine({ entry }: { entry: WireHistoryEntry }) {
     <p className="text-meta text-ink">
       <span className="font-medium">{label}</span>
       {detail != null && <span className="ml-1.5 font-mono text-tag text-ink-dim">{detail}</span>}
-      {entry.reason != null && <span className="text-ink-dim"> — {entry.reason}</span>}
+      {entry.reason != null && (
+        <span className="text-ink-dim">
+          {' — '}
+          <LinkifiedText>{entry.reason}</LinkifiedText>
+        </span>
+      )}
     </p>
   );
 }
