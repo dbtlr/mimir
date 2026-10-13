@@ -1094,6 +1094,29 @@ test('MCP archive freezes + hides; projects reveals it and unarchive round-trips
   expect((await toolUniform(store, 'start', { id: taskRef })).isError).toBeUndefined();
 });
 
+test('MCP projects and get carry last_activity_at (MMR-494)', async () => {
+  const later = '2099-01-01T00:00:00.000Z';
+  await createProject(store, { key: 'AAA', name: 'a' });
+  await store.transact((w) =>
+    w.appendTransition({
+      at: later,
+      from_value: 'a',
+      kind: 'lifecycle',
+      node_id: phaseId,
+      to_value: 'b',
+    }),
+  );
+  const listed = parseJson<{ projects: { id: string; last_activity_at: string }[] }>(
+    textOf(await toolProjects(store, {})),
+  );
+  const byId = Object.fromEntries(listed.projects.map((p) => [p.id, p.last_activity_at]));
+  expect(byId.MMR).toBe(later);
+  expect(byId.AAA).not.toBe(later);
+  expect(typeof byId.AAA).toBe('string');
+  const got = parseJson<{ last_activity_at: string }>(textOf(await toolGet(store, { id: 'MMR' })));
+  expect(got.last_activity_at).toBe(later);
+});
+
 test('MCP projects lists active by default and opens the shelf on request (MMR-406)', async () => {
   await createProject(store, { key: 'AAA', name: 'a' });
   await toolUniform(store, 'archive', { key: 'AAA' });

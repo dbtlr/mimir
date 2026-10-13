@@ -323,6 +323,10 @@ export function renderRecords(node: NodeView, io: Io, expandAnnotations = false)
   if (node.completedAt != null) {
     pairs.push(['completed', formatInstant(node.completedAt, io.zone)]);
   }
+  // Project-only (MMR-494): when anything last happened in the project.
+  if (node.lastActivityAt !== undefined) {
+    pairs.push(['last activity', formatInstant(node.lastActivityAt, io.zone)]);
+  }
 
   if (node.deps !== undefined && node.deps.dependsOn.length > 0) {
     pairs.push([

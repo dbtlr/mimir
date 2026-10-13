@@ -4,6 +4,7 @@ import type { Store } from '../store';
 import { createSqlArtifactStore } from './artifacts';
 import { createSqlBodySectionStore } from './body-sections';
 import type { StoreDialect } from './dialect';
+import { loadProjectActivity } from './project-activity';
 import type { DB } from './schema';
 import { createSqlScratchpadStore } from './scratchpads';
 import { createSqlSearchStore } from './search';
@@ -45,6 +46,7 @@ export function createSqlStore(db: Kysely<DB>, dialect: StoreDialect): Store {
     export: () => exportSqlStoreFrom(db, dialect),
     import: (document, opts) => importSqlStore(db, dialect, document, opts),
     loadNodesForProjects: (keys, valid) => loadNodesForProjects(db, dialect, keys, valid),
+    loadProjectActivity: () => loadProjectActivity(db),
     loadProjects: () => loadProjects(db),
     loadWorkingSet: () => dialect.snapshot(db, (tx) => loadWorkingSet(tx, dialect)),
     scratchpads: createSqlScratchpadStore(db, dialect),

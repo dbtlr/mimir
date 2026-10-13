@@ -276,6 +276,15 @@ export type Store = {
   loadProjects: () => Promise<readonly Project[]>;
 
   /**
+   * Each project's most recent activity (MMR-494): project key → the newest
+   * canonical stamp across the project row, its nodes, transitions,
+   * annotations, seeds (and seed history), and artifacts. One aggregate read
+   * for every project, archived included; no project is absent or null, since
+   * the project's own `updated_at` is one of the sources.
+   */
+  loadProjectActivity: () => Promise<ReadonlyMap<string, string>>;
+
+  /**
    * The project-scoped node read (MMR-251): the nodes of the named projects only,
    * shaped identically to {@link loadWorkingSet}, so a single-seed read pays for
    * its spawned targets' projects rather than the whole store. That is the

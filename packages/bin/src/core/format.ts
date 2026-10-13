@@ -170,6 +170,10 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
   }
   wire.created_at = node.createdAt;
   wire.updated_at = node.updatedAt;
+  // Project-only (MMR-494) — present exactly when the view carries it.
+  if (node.lastActivityAt !== undefined) {
+    wire.last_activity_at = node.lastActivityAt;
+  }
 
   if (node.deps !== undefined) {
     wire.deps = {

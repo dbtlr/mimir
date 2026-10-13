@@ -372,6 +372,12 @@ export type NodeView = {
   summary?: string | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Project-only (MMR-494): the newest instant of anything that happened in the
+   * project — its own row, nodes, transitions, annotations, seeds, artifacts.
+   * Never earlier than `updatedAt`.
+   */
+  lastActivityAt?: string;
 
   // bare — task-only
   priority?: Priority | null;

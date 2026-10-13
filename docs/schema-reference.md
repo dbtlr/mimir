@@ -85,6 +85,8 @@ The scope root. Categorically not a node: it doesn't complete (no status), isn't
 | `created_at`        | text    | required | ISO-8601 UTC                                                                              |
 | `updated_at`        | text    | required | ISO-8601 UTC, every write                                                                 |
 
+**`last_activity_at` is derived, not stored.** The project reads project it as the newest of the project's own `updated_at`, its nodes' `updated_at`, its `transition_log` entries (node-owned and project-keyed), its nodes' annotations, its seeds' `updated_at` and `seed_history`, and its artifacts' `updated_at`. One aggregate query computes it for every project at once; it needs no column and no extra index beyond the existing `project_key` and foreign-key ones.
+
 Project-keyed `archive`/`unarchive` transitions ([ADR 0015](decisions/0015-project-archive-frozen-and-hidden.md)) append to `transition_log` with `project_key` set. Projects carry no annotations.
 
 ## `node` (initiative | phase | task)
