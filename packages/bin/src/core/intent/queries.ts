@@ -526,7 +526,7 @@ export async function getNode(store: Store, id: string, opts: GetOptions = {}): 
       store.artifacts,
       set,
       project,
-      await store.loadProjectActivity(),
+      await store.loadProjectActivity([project.key]),
       facets,
     );
   }

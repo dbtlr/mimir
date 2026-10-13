@@ -410,7 +410,7 @@ export async function projectViewByKey(
         store.artifacts,
         set,
         project,
-        await store.loadProjectActivity(),
+        await store.loadProjectActivity([project.key]),
         facets,
       );
 }
@@ -426,7 +426,7 @@ export async function projectViewOf(
     store.artifacts,
     deriveSet(await store.loadWorkingSet()),
     project,
-    await store.loadProjectActivity(),
+    await store.loadProjectActivity([project.key]),
     facets,
   );
 }

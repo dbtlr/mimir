@@ -1,15 +1,15 @@
 import { afterEach, expect, setDefaultTimeout, test } from 'bun:test';
 
 import type { Instance } from '../testing/conformance';
-import { backends } from '../testing/conformance';
+import { backends, scratchpad } from '../testing/conformance';
 import { createInitiative, createProject, createTask } from './create';
-import { annotate, startTask, updateNode } from './mutations';
+import { annotate, archiveProject, startTask, updateNode } from './mutations';
 import type { Store } from './store';
 
 /**
  * `Store.loadProjectActivity` (MMR-494) on every backend: each project's newest
- * stamp across its own row, nodes, transitions, annotations, seeds (and their
- * history), and artifacts — and an event in one project never moves another's.
+ * stamp across its own row, nodes, transitions, annotations, seeds, artifacts,
+ * and scratchpads — and an event in one project never moves another's.
  */
 
 setDefaultTimeout(60_000);
@@ -67,6 +67,7 @@ for (const backend of backends) {
   it('reports every project, archived included', async () => {
     const store = await fresh();
     await world(store);
+    await archiveProject(store, 'OPS');
     expect([...(await store.loadProjectActivity()).keys()].toSorted()).toEqual(['MMR', 'OPS']);
   });
 
@@ -180,6 +181,34 @@ for (const backend of backends) {
       title: 'Spec',
     });
     expect(await activity(store)).toEqual({ MMR: artifact.updated_at, OPS: before.OPS });
+  });
+
+  it('a scratchpad alone moves its project and not another', async () => {
+    const store = await fresh();
+    const { mmrTask } = await world(store);
+    const before = await activity(store);
+    await store.scratchpads.create(scratchpad(mmrTask, { updatedAt: LATER }));
+    expect(await activity(store)).toEqual({ MMR: LATER, OPS: before.OPS });
+  });
+
+  it('filtered by project key, reports just those projects', async () => {
+    const store = await fresh();
+    await world(store);
+    const all = await store.loadProjectActivity();
+    const one = await store.loadProjectActivity(['OPS']);
+    expect([...one.keys()]).toEqual(['OPS']);
+    expect(one.get('OPS')).toBe(all.get('OPS'));
+    expect((await store.loadProjectActivity([])).size).toBe(0);
+    expect((await store.loadProjectActivity(['NOPE'])).size).toBe(0);
+  });
+
+  it('filtered reads still take the newest across sources', async () => {
+    const store = await fresh();
+    const { opsTask } = await world(store);
+    await store.transact((w) =>
+      w.insertAnnotation({ content: 'note', created_at: LATER, node_id: opsTask }),
+    );
+    expect([...(await store.loadProjectActivity(['OPS']))]).toEqual([['OPS', LATER]]);
   });
 
   it('is the newest across sources', async () => {

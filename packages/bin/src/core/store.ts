@@ -278,11 +278,13 @@ export type Store = {
   /**
    * Each project's most recent activity (MMR-494): project key → the newest
    * canonical stamp across the project row, its nodes, transitions,
-   * annotations, seeds (and seed history), and artifacts. One aggregate read
-   * for every project, archived included; no project is absent or null, since
-   * the project's own `updated_at` is one of the sources.
+   * annotations, seeds, artifacts, and scratchpads. One aggregate read for
+   * every project, archived included; no project is absent or null, since the
+   * project's own `updated_at` is one of the sources. Pass `projectKeys` to
+   * narrow the read to those projects (the single-project reads); an empty list
+   * reads as nothing.
    */
-  loadProjectActivity: () => Promise<ReadonlyMap<string, string>>;
+  loadProjectActivity: (projectKeys?: readonly string[]) => Promise<ReadonlyMap<string, string>>;
 
   /**
    * The project-scoped node read (MMR-251): the nodes of the named projects only,

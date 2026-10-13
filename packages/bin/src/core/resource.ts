@@ -96,7 +96,7 @@ export async function projectTree(
     store.artifacts,
     set,
     project,
-    await store.loadProjectActivity(),
+    await store.loadProjectActivity([project.key]),
     facetSet,
   );
   const roots = childRows(set, project.key, null);
