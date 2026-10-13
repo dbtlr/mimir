@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -17,14 +17,29 @@ vi.mock('../api/client', () => ({ apiGet, apiSend }));
  * them on a desktop and a bottom sheet on a phone.
  */
 
-/** Pin the viewport the alert switches on: a desktop width, or a phone's. */
-function stubViewport(viewport: 'desktop' | 'phone') {
+/**
+ * Pin the viewport the alert switches on: a desktop width, or a phone's. The
+ * returned setter flips it and notifies the listeners, as a window resize does.
+ */
+function stubViewport(initial: 'desktop' | 'phone') {
+  let desktop = initial === 'desktop';
+  const listeners = new Set<() => void>();
   vi.stubGlobal('matchMedia', (query: string) => ({
-    addEventListener: () => {},
-    matches: viewport === 'desktop',
+    addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+    get matches() {
+      return desktop;
+    },
     media: query,
-    removeEventListener: () => {},
+    removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
   }));
+  return (next: 'desktop' | 'phone') => {
+    desktop = next === 'desktop';
+    act(() => {
+      for (const listener of listeners) {
+        listener();
+      }
+    });
+  };
 }
 
 beforeEach(() => {
@@ -55,6 +70,16 @@ function serve(current: () => WireReviewReport) {
     }
     if (p === '/api/seeds/MMR-s480') {
       return Promise.resolve(seed({ id: 'MMR-s480', lane: 'untriaged' }));
+    }
+    if (p.startsWith('/api/projects/MMR/work?')) {
+      return Promise.resolve(workReport());
+    }
+    if (p === '/api/projects/MMR') {
+      return Promise.resolve({
+        ...project({ id: 'MMR' }),
+        distribution: { in_progress: 1, ready: 1 },
+        next: 'Ship it.',
+      });
     }
     if (p.startsWith('/api/projects/MMR/tree')) {
       return Promise.resolve({ ...project({ id: 'MMR' }), children: [] });
@@ -250,6 +275,79 @@ describe('the Needs you popover', () => {
     expect(testRouter.state.location.pathname).toBe('/p/LM/196');
   });
 
+  it('closes on a link to the page already showing', async () => {
+    renderAt('/p/MMR/480', twoProjects());
+    const panel = await openAlert('3 decisions need you');
+
+    await userEvent.click(within(panel).getByRole('link', { name: question.title }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Needs you' })).toBeNull();
+    });
+  });
+
+  it('closes on the current project’s heading link', async () => {
+    const { testRouter } = renderAt('/p/MMR', twoProjects());
+    const panel = await openAlert('3 decisions need you');
+
+    await userEvent.click(within(panel).getByRole('link', { name: /Mimir/ }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Needs you' })).toBeNull();
+    });
+    expect(testRouter.state.location.pathname).toBe('/p/MMR');
+  });
+
+  it('is not announced as a page footer', async () => {
+    renderAt('/tasks', twoProjects());
+    const panel = await openAlert('3 decisions need you');
+
+    expect(within(panel).queryByRole('contentinfo')).toBeNull();
+  });
+
+  it('returns focus to Send back… when its dialog is cancelled or escaped', async () => {
+    renderAt('/tasks', twoProjects({ lm: [verdict] }));
+    const panel = await openAlert('1 decision needs you');
+    const sendBack = within(panel).getByRole('button', { name: 'Send back…' });
+
+    await userEvent.click(sendBack);
+    const dialog = await screen.findByRole('dialog', { name: 'Send back' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Send back' })).toBeNull();
+    });
+    expect(sendBack).toHaveFocus();
+
+    await userEvent.click(sendBack);
+    await screen.findByRole('dialog', { name: 'Send back' });
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Send back' })).toBeNull();
+    });
+    expect(sendBack).toHaveFocus();
+    // Escape closed only the dialog; the popover is still there.
+    expect(screen.getByRole('dialog', { name: 'Needs you' })).toBeDefined();
+  });
+
+  it('closes, with a row’s open dialog, when the viewport crosses the breakpoint', async () => {
+    const setViewport = stubViewport('desktop');
+    renderAt('/tasks', twoProjects({ lm: [verdict] }));
+    const panel = await openAlert('1 decision needs you');
+    await userEvent.click(within(panel).getByRole('button', { name: 'Send back…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Send back' });
+    await userEvent.type(within(dialog).getByRole('textbox'), 'Cover errors');
+
+    setViewport('phone');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    // The alert itself stays, closed, and opens afresh as the sheet.
+    const sheet = await openAlert('1 decision needs you');
+    expect(within(sheet).getByRole('button', { name: 'Close' })).toBeDefined();
+    expect(screen.queryByRole('dialog', { name: 'Send back' })).toBeNull();
+  });
+
   it('stays open while a row is acted on, and the row leaves when the write lands', async () => {
     let report = twoProjects();
     serve(() => report);
@@ -333,6 +431,22 @@ describe('the Needs you sheet on a phone', () => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
     expect(trigger).toHaveFocus();
+  });
+
+  it('returns focus to Send back… when its dialog is escaped', async () => {
+    stubViewport('phone');
+    renderAt('/tasks', twoProjects({ lm: [verdict] }));
+    const panel = await openAlert('1 decision needs you');
+    const sendBack = within(panel).getByRole('button', { name: 'Send back…' });
+
+    await userEvent.click(sendBack);
+    await screen.findByRole('dialog', { name: 'Send back' });
+    await userEvent.keyboard('{Escape}');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Send back' })).toBeNull();
+    });
+    expect(sendBack).toHaveFocus();
   });
 
   it('shows the desktop popover without a close control', async () => {

@@ -1,5 +1,5 @@
 import type { Grooming } from '@mimir/contract';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useTransition } from '../api/mutations';
@@ -148,6 +148,8 @@ export function StartAction({ id, offline, handoff }: RowActionProps) {
 function VerdictActions({ id, offline, handoff }: RowActionProps) {
   const { mutate, isPending, submittedAt } = useTransition(id);
   const [sendingBack, setSendingBack] = useState(false);
+  // The dialog is not this button's popup, so it is told where focus goes back to.
+  const sendBackRef = useRef<HTMLButtonElement>(null);
   useDisarmWhenSettled(handoff, id, isPending ? null : submittedAt);
   return (
     <>
@@ -164,6 +166,7 @@ function VerdictActions({ id, offline, handoff }: RowActionProps) {
         Approve
       </ActionButton>
       <ActionButton
+        ref={sendBackRef}
         size="sm"
         variant="outline"
         className={PHONE_TOUCH_TARGET}
@@ -174,6 +177,7 @@ function VerdictActions({ id, offline, handoff }: RowActionProps) {
       </ActionButton>
       <ReasonDialog
         verb="return"
+        finalFocus={sendBackRef}
         open={sendingBack}
         onClose={() => setSendingBack(false)}
         onConfirm={(reason) => {

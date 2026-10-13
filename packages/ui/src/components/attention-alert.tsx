@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useMatch, useRouterState } from '@tanstack/react-router';
 import { useState } from 'react';
-import type { ReactNode } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 
 import { reviewQuery } from '../api/queries';
 import type { WireReviewReport } from '../api/types';
@@ -29,6 +29,24 @@ function useCurrentNodeId(): string | undefined {
 }
 
 /**
+ * Run `close` when a link inside the panel is activated. Clicks inside a
+ * dialog a row opened reach here through React's portal bubbling, so a target
+ * outside the panel's own DOM is ignored.
+ */
+function closeOnLink(close: () => void) {
+  return (event: MouseEvent<HTMLElement>) => {
+    const target = event.target;
+    if (
+      target instanceof Element &&
+      event.currentTarget.contains(target) &&
+      target.closest('a') !== null
+    ) {
+      close();
+    }
+  };
+}
+
+/**
  * The decisions behind the badge, as one panel for the popover and the sheet:
  * a heading, the review page's grouped rows with their in-place verbs, and
  * the footer links. Acting on a row keeps the panel open; the row leaves when
@@ -53,7 +71,11 @@ function NeedsYouPanel({
     report.decisions.flatMap((group) => group.rows.map((row) => row.id)),
   );
   return (
-    <div className="flex min-h-0 flex-col">
+    // The panel is a click boundary, not a control: following any link in it
+    // closes it. A link to the page already showing changes no URL, so the
+    // close-on-navigation in the alert would never see it.
+    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div className="flex min-h-0 flex-col" onClick={closeOnLink(onNavigate)}>
       <section className="flex min-h-0 flex-col">
         <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
           <h2
@@ -78,19 +100,14 @@ function NeedsYouPanel({
           )}
         </div>
       </section>
-      <footer className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
-        <Link
-          to="/"
-          onClick={onNavigate}
-          className={cn(PROJECT_LINK, 'text-meta text-ink-dim hover:text-ink-bright')}
-        >
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
+        <Link to="/" className={cn(PROJECT_LINK, 'text-meta text-ink-dim hover:text-ink-bright')}>
           Open review page
         </Link>
         {count > 0 && (
           <Link
             to="/"
             search={{ mode: 'focus' }}
-            onClick={onNavigate}
             className={cn(
               actionButtonVariants({ size: 'sm', variant: 'attention' }),
               'ml-auto max-md:min-h-11',
@@ -99,7 +116,7 @@ function NeedsYouPanel({
             Work through these · {count}
           </Link>
         )}
-      </footer>
+      </div>
     </div>
   );
 }
@@ -135,9 +152,13 @@ export function AttentionAlert() {
   const href = useRouterState({ select: (state) => state.location.href });
   const [open, setOpen] = useState(false);
   const [seenHref, setSeenHref] = useState(href);
+  const [seenDesktop, setSeenDesktop] = useState(desktop);
   // Navigating closes the panel: the operator has moved on to what they chose.
-  if (seenHref !== href) {
+  // So does crossing the breakpoint, which swaps the popover for the sheet and
+  // would remount the list, losing a row's open dialog and what is typed in it.
+  if (seenHref !== href || seenDesktop !== desktop) {
     setSeenHref(href);
+    setSeenDesktop(desktop);
     setOpen(false);
   }
 
