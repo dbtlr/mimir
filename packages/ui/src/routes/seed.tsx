@@ -439,7 +439,7 @@ function SeedRecord({ seedId }: { seedId: string }) {
         <span aria-hidden className="text-tag text-ink-faint">
           ›
         </span>
-        <Link to="/seeds" search={{ project: data.project }} className={crumb}>
+        <Link to="/p/$key/seeds" params={{ key: data.project }} className={crumb}>
           Seeds
         </Link>
       </nav>

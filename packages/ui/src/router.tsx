@@ -6,6 +6,7 @@ import {
   artifactLink,
   artifactPath,
   bareIdRedirect,
+  canonicalProjectKey,
   seedIdOf,
   seedLink,
   seedPath,
@@ -13,6 +14,7 @@ import {
 import { isSeedKind } from './lib/seed-lanes';
 import { ArtifactPage } from './routes/artifact';
 import { ArtifactsPage } from './routes/artifacts';
+import { BrowserRedirect } from './routes/browser-redirect';
 import { DoctorPage } from './routes/doctor';
 import { NodePage } from './routes/node';
 import { NotFoundPage } from './routes/not-found';
@@ -26,6 +28,7 @@ import { TasksPage } from './routes/tasks';
 /**
  * Navigation (ADR 0013 §3 and its v0.23 refinement): URLs name scopes, views,
  * and records — `/` the review page, `/p/KEY` the project's page,
+ * `/p/KEY/tasks` (and `/seeds`, `/artifacts`) its browsers,
  * `/p/KEY/417` a work node's page, `/p/KEY/s41` a seed's page, `/p/KEY/a219`
  * an artifact's page. The board view is retired (MMR-487). Typed search params
  * carry that contract in the type system.
@@ -52,7 +55,10 @@ export const reviewRoute = createRoute({
  * One record, one URL: a lowercase key (`/p/mmr`, `/p/mmr/417`) moves to its
  * canonical spelling, keeping the rest of the path and the search.
  */
-function canonicalKey(key: string, to: '/p/$key' | '/p/$key/$seq') {
+function canonicalKey(
+  key: string,
+  to: '/p/$key' | '/p/$key/$seq' | '/p/$key/tasks' | '/p/$key/seeds' | '/p/$key/artifacts',
+) {
   const canonical = key.toUpperCase();
   if (canonical !== key) {
     // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
@@ -173,46 +179,61 @@ function textParam(value: unknown): string | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? String(value) : undefined;
 }
 
+/**
+ * The three browsers sit under their project (ADR 0013, MMR-492 refinement):
+ * `/p/KEY/tasks`, `/p/KEY/seeds`, `/p/KEY/artifacts`. These are the view
+ * segments the record grammar reserves — a record suffix is all digits or
+ * `s`/`a` plus digits — and a static segment outranks the `$seq` param, so
+ * `/p/KEY/tasks` never reaches a record page. The path names the project, so
+ * the search carries filters only.
+ */
+
 export type ArtifactsSearch = {
-  project?: string;
   tag?: string;
   q?: string;
   atOrAfter?: string;
   atOrBefore?: string;
 };
 
+const validateArtifactsSearch = (search: Record<string, unknown>): ArtifactsSearch => ({
+  atOrAfter: textParam(search.atOrAfter),
+  atOrBefore: textParam(search.atOrBefore),
+  q: textParam(search.q),
+  tag: textParam(search.tag),
+});
+
 export const artifactsRoute = createRoute({
+  beforeLoad: ({ params }) => {
+    canonicalKey(params.key, '/p/$key/artifacts');
+  },
   component: ArtifactsPage,
   getParentRoute: () => rootRoute,
-  path: '/artifacts',
-  validateSearch: (search: Record<string, unknown>): ArtifactsSearch => ({
-    atOrAfter: textParam(search.atOrAfter),
-    atOrBefore: textParam(search.atOrBefore),
-    project: textParam(search.project),
-    q: textParam(search.q),
-    tag: textParam(search.tag),
-  }),
+  path: '/p/$key/artifacts',
+  validateSearch: validateArtifactsSearch,
 });
 
 export type TasksSearch = {
-  project?: string;
   status?: string;
   q?: string;
   /** How the browser groups its rows; absent = by status (the default). */
   group?: 'project';
 };
 
+const validateTasksSearch = (search: Record<string, unknown>): TasksSearch => ({
+  // `status` grouping is the default and stays out of the URL; any other value drops.
+  group: search.group === 'project' ? 'project' : undefined,
+  q: textParam(search.q),
+  status: textParam(search.status),
+});
+
 export const tasksRoute = createRoute({
+  beforeLoad: ({ params }) => {
+    canonicalKey(params.key, '/p/$key/tasks');
+  },
   component: TasksPage,
   getParentRoute: () => rootRoute,
-  path: '/tasks',
-  validateSearch: (search: Record<string, unknown>): TasksSearch => ({
-    // `status` grouping is the default and stays out of the URL; any other value drops.
-    group: search.group === 'project' ? 'project' : undefined,
-    project: textParam(search.project),
-    q: textParam(search.q),
-    status: textParam(search.status),
-  }),
+  path: '/p/$key/tasks',
+  validateSearch: validateTasksSearch,
 });
 
 export type DoctorSearch = {
@@ -230,22 +251,84 @@ export const doctorRoute = createRoute({
 });
 
 export type SeedsSearch = {
-  /** The filter to one project's board (`all`/absent = every board). */
-  project?: string;
   /** Client-side text filter over id, title, and lede. */
   q?: string;
   /** Client-side kind filter. */
   kind?: SeedKind;
 };
 
+const validateSeedsSearch = (search: Record<string, unknown>): SeedsSearch => ({
+  kind: isSeedKind(search.kind) ? search.kind : undefined,
+  q: textParam(search.q),
+});
+
 export const seedsRoute = createRoute({
+  beforeLoad: ({ params }) => {
+    canonicalKey(params.key, '/p/$key/seeds');
+  },
   component: SeedsPage,
   getParentRoute: () => rootRoute,
+  path: '/p/$key/seeds',
+  validateSearch: validateSeedsSearch,
+});
+
+/**
+ * The retired top-level browsers (MMR-495). `/tasks`, `/seeds`, and
+ * `/artifacts` are no longer pages: with `?project=KEY` they move to the
+ * project's browser keeping every other parameter, and bare they go to the
+ * current project's (see {@link BrowserRedirect}). Links written before the
+ * move keep working.
+ */
+
+export type LegacyTasksSearch = TasksSearch & { project?: string };
+export type LegacySeedsSearch = SeedsSearch & { project?: string };
+export type LegacyArtifactsSearch = ArtifactsSearch & { project?: string };
+
+export const legacyTasksRoute = createRoute({
+  beforeLoad: ({ search: { project: key, ...search } }) => {
+    if (key !== undefined) {
+      // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
+      throw redirect({ params: { key }, replace: true, search, to: '/p/$key/tasks' });
+    }
+  },
+  component: () => <BrowserRedirect view="tasks" search={legacyTasksRoute.useSearch()} />,
+  getParentRoute: () => rootRoute,
+  path: '/tasks',
+  validateSearch: (search: Record<string, unknown>): LegacyTasksSearch => ({
+    ...validateTasksSearch(search),
+    project: canonicalProjectKey(textParam(search.project)),
+  }),
+});
+
+export const legacySeedsRoute = createRoute({
+  beforeLoad: ({ search: { project: key, ...search } }) => {
+    if (key !== undefined) {
+      // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
+      throw redirect({ params: { key }, replace: true, search, to: '/p/$key/seeds' });
+    }
+  },
+  component: () => <BrowserRedirect view="seeds" search={legacySeedsRoute.useSearch()} />,
+  getParentRoute: () => rootRoute,
   path: '/seeds',
-  validateSearch: (search: Record<string, unknown>): SeedsSearch => ({
-    kind: isSeedKind(search.kind) ? search.kind : undefined,
-    project: textParam(search.project),
-    q: textParam(search.q),
+  validateSearch: (search: Record<string, unknown>): LegacySeedsSearch => ({
+    ...validateSeedsSearch(search),
+    project: canonicalProjectKey(textParam(search.project)),
+  }),
+});
+
+export const legacyArtifactsRoute = createRoute({
+  beforeLoad: ({ search: { project: key, ...search } }) => {
+    if (key !== undefined) {
+      // oxlint-disable-next-line typescript/only-throw-error -- the router's redirect contract
+      throw redirect({ params: { key }, replace: true, search, to: '/p/$key/artifacts' });
+    }
+  },
+  component: () => <BrowserRedirect view="artifacts" search={legacyArtifactsRoute.useSearch()} />,
+  getParentRoute: () => rootRoute,
+  path: '/artifacts',
+  validateSearch: (search: Record<string, unknown>): LegacyArtifactsSearch => ({
+    ...validateArtifactsSearch(search),
+    project: canonicalProjectKey(textParam(search.project)),
   }),
 });
 
@@ -272,6 +355,9 @@ const routeTree = rootRoute.addChildren([
   artifactsRoute,
   seedsRoute,
   tasksRoute,
+  legacyArtifactsRoute,
+  legacySeedsRoute,
+  legacyTasksRoute,
   doctorRoute,
   ...devRoutes,
   notFoundRoute,

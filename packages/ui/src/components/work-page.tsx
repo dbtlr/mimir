@@ -318,8 +318,8 @@ function ArtifactsPanel({
       <ArtifactLinks artifacts={shown} />
       {isProject && artifacts.length > RAIL_ARTIFACT_CAP && (
         <Link
-          to="/artifacts"
-          search={{ project: projectKey }}
+          to="/p/$key/artifacts"
+          params={{ key: projectKey }}
           className="rounded-sm px-1 py-0.5 text-xs text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
         >
           All {artifacts.length} artifacts
@@ -335,7 +335,7 @@ function OtherViews({ projectKey }: { projectKey: string }) {
     'rounded-sm px-1.5 py-1 text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent';
   return (
     <nav aria-label="Other views" className="flex flex-col gap-px">
-      <Link to="/tasks" search={{ project: projectKey }} className={link}>
+      <Link to="/p/$key/tasks" params={{ key: projectKey }} className={link}>
         All tasks in {projectKey}
       </Link>
     </nav>

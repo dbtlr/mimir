@@ -433,7 +433,7 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
     expect(shipped).toHaveTextContent('Nothing shipped in the last 7 days.');
     expect(
       within(shipped).getByRole('link', { name: 'Finished tasks →' }).getAttribute('href'),
-    ).toBe('/tasks?project=MMR&status=terminal');
+    ).toBe('/p/MMR/tasks?status=terminal');
     await expect(section('Going cold')).resolves.toHaveTextContent(
       'Nothing stale. Everything here has moved recently.',
     );
@@ -597,7 +597,7 @@ describe.each(SCOPES)('work page rail, $name', (scope) => {
     const views = within(getRail()).getByRole('navigation', { name: 'Other views' });
     expect(within(views).queryByRole('link', { name: 'Board' })).toBeNull();
     expect(within(views).getByRole('link', { name: 'All tasks in MMR' }).getAttribute('href')).toBe(
-      '/tasks?project=MMR',
+      '/p/MMR/tasks',
     );
   });
 
@@ -1267,7 +1267,7 @@ describe('work page rail About and Artifacts (MMR-486)', () => {
       panel.getAllByRole('link', { name: /^Brief/ }).map((l) => l.textContent?.replace('❄', '')),
     ).toStrictEqual(['Brief 7', 'Brief 6', 'Brief 5', 'Brief 4', 'Brief 3']);
     expect(panel.getByRole('link', { name: 'All 7 artifacts' }).getAttribute('href')).toBe(
-      '/artifacts?project=MMR',
+      '/p/MMR/artifacts',
     );
     // Artifacts live in their own section, not under About.
     const about = within(getRail()).getByRole('heading', { name: 'About' }).closest('section');

@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useId, useMemo, useState } from 'react';
 
-import { projectsQuery, seedsQuery } from '../api/queries';
+import { seedsQuery } from '../api/queries';
 import type { SeedFilters } from '../api/queries';
 import type { WireSeed } from '../api/types';
 import {
@@ -103,27 +103,25 @@ function FoldedGroup({ lane, seeds }: { lane: 'parked' | 'settled'; seeds: reado
 }
 
 /**
- * `/seeds` — the grooming queue as a grouped reading list (MMR-454): a centred
- * column, search and project/kind chips, and rows grouped by the server's
- * `lane` in fixed order. Every row links to the seed's page; PARKED and SETTLED
- * fold behind a "Show … seeds" control. Search and kind filter client-side;
- * the project filter is the server's.
+ * `/p/KEY/seeds` — the project's grooming queue as a grouped reading list
+ * (MMR-454): a centred column, search and kind chips, and rows grouped by the
+ * server's `lane` in fixed order. Every row links to the seed's page; PARKED
+ * and SETTLED fold behind a "Show … seeds" control. Search and kind filter
+ * client-side; the project scope is the path's, read by the server.
  */
 export function SeedsPage() {
   const navigate = useNavigate();
+  const { key: project } = seedsRoute.useParams();
   const search = seedsRoute.useSearch();
   const openCapture = useSeedCapture();
 
-  const filters: SeedFilters = {};
-  if (search.project !== undefined) {
-    filters.project = search.project;
-  }
+  const filters: SeedFilters = { project };
   const seeds = useQuery(seedsQuery(filters));
-  const projects = useQuery(projectsQuery);
   const conn = connectivity([seeds]);
 
-  const setFilter = (partial: { project?: string; q?: string; kind?: SeedKind }) =>
+  const setFilter = (partial: { q?: string; kind?: SeedKind }) =>
     void navigate({
+      params: { key: project },
       replace: true,
       search: (prev) => {
         const next: Record<string, unknown> = { ...prev, ...partial };
@@ -134,7 +132,7 @@ export function SeedsPage() {
         }
         return next;
       },
-      to: '/seeds',
+      to: '/p/$key/seeds',
     });
 
   // Controlled + debounced search (the /tasks pattern): the box and the list
@@ -173,10 +171,6 @@ export function SeedsPage() {
   const { toTriage, toResolve } = seedSummary(all ?? []);
   const loaded = seeds.data !== undefined;
 
-  const projectOptions = [
-    { label: 'All projects', value: ALL },
-    ...(projects.data?.items ?? []).map((p) => ({ label: p.id, value: p.id })),
-  ];
   const kindOptions = [
     { label: 'Any kind', value: ALL },
     ...SEED_KIND_VALUES.map((k) => ({ label: k, value: k })),
@@ -210,14 +204,6 @@ export function SeedsPage() {
               onChange={setQ}
               label="Search seeds"
               placeholder="Search seeds…"
-            />
-            <MenuChip
-              label={search.project ?? 'All projects'}
-              on={search.project !== undefined}
-              options={projectOptions}
-              onSelect={(value) => {
-                setFilter({ project: value });
-              }}
             />
             <MenuChip
               label={search.kind ?? 'Any kind'}

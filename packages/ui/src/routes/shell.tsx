@@ -13,14 +13,18 @@ import { ThemeToggle } from '../components/theme-toggle';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../components/ui/menu';
 import { VersionFooter } from '../components/version-footer';
 import { cn } from '../lib/cn';
+import { useCurrentProjectKey, useRememberCurrentProject } from '../lib/current-project';
 import { useTheme } from '../lib/use-theme';
 import { useToastPosition } from '../lib/use-toast-position';
 
-/** The top-bar sections, in order — one list feeds the inline nav and the overflow menu. */
+/**
+ * The top-bar sections, in order — one list feeds the inline nav and the
+ * overflow menu. Each is a browser of the current project (MMR-495).
+ */
 const NAV_SECTIONS = [
-  { label: 'Tasks', to: '/tasks' },
-  { label: 'Artifacts', to: '/artifacts' },
-  { label: 'Seeds', to: '/seeds' },
+  { label: 'Tasks', to: '/p/$key/tasks' },
+  { label: 'Artifacts', to: '/p/$key/artifacts' },
+  { label: 'Seeds', to: '/p/$key/seeds' },
 ] as const;
 
 /**
@@ -46,6 +50,13 @@ function ShellContent() {
   const toastPosition = useToastPosition();
   const navigate = useNavigate();
   const matchRoute = useMatchRoute();
+  useRememberCurrentProject();
+  // With no project to browse there are no sections to offer.
+  const projectKey = useCurrentProjectKey();
+  const sections =
+    projectKey === undefined
+      ? []
+      : NAV_SECTIONS.map(({ label, to }) => ({ label, params: { key: projectKey }, to }));
   return (
     <SeedCaptureProvider>
       <div className="flex h-dvh flex-col overflow-hidden">
@@ -61,11 +72,12 @@ function ShellContent() {
           <div className="ml-auto flex items-center gap-1">
             <JumpPalette />
             {/* desktop — the secondary nav inline */}
-            {NAV_SECTIONS.map(({ label, to }) => (
+            {sections.map(({ label, params, to }) => (
               <Link
                 key={to}
                 to={to}
-                // Search params (a project filter) never un-mark the section.
+                params={params}
+                // Search params (filters) never un-mark the section.
                 activeOptions={{ includeSearch: false }}
                 className={cn(
                   'microlabel hidden rounded px-2 py-1 text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent md:inline-block',
@@ -79,38 +91,42 @@ function ShellContent() {
             <PwaRefreshAction />
             <ThemeToggle theme={theme} onToggle={toggle} />
             {/* mobile — the secondary nav folds into an overflow menu */}
-            <MenuRoot>
-              <MenuTrigger
-                aria-label="More"
-                className="flex h-9 w-9 items-center justify-center rounded text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent md:hidden"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden="true"
+            {sections.length > 0 && (
+              <MenuRoot>
+                <MenuTrigger
+                  aria-label="More"
+                  className="flex h-9 w-9 items-center justify-center rounded text-ink-dim transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent md:hidden"
                 >
-                  <circle cx="5" cy="12" r="1.6" />
-                  <circle cx="12" cy="12" r="1.6" />
-                  <circle cx="19" cy="12" r="1.6" />
-                </svg>
-              </MenuTrigger>
-              <MenuContent className="w-44">
-                {NAV_SECTIONS.map(({ label, to }) => (
-                  <MenuItem
-                    key={to}
-                    className={cn('py-2.5 text-sm', ACTIVE_NAV)}
-                    aria-current={
-                      matchRoute({ fuzzy: true, includeSearch: false, to }) ? 'page' : undefined
-                    }
-                    onClick={() => void navigate({ to })}
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
                   >
-                    {label}
-                  </MenuItem>
-                ))}
-              </MenuContent>
-            </MenuRoot>
+                    <circle cx="5" cy="12" r="1.6" />
+                    <circle cx="12" cy="12" r="1.6" />
+                    <circle cx="19" cy="12" r="1.6" />
+                  </svg>
+                </MenuTrigger>
+                <MenuContent className="w-44">
+                  {sections.map(({ label, params, to }) => (
+                    <MenuItem
+                      key={to}
+                      className={cn('py-2.5 text-sm', ACTIVE_NAV)}
+                      aria-current={
+                        matchRoute({ fuzzy: true, includeSearch: false, params, to })
+                          ? 'page'
+                          : undefined
+                      }
+                      onClick={() => void navigate({ params, to })}
+                    >
+                      {label}
+                    </MenuItem>
+                  ))}
+                </MenuContent>
+              </MenuRoot>
+            )}
           </div>
         </header>
         <PwaUpdateBanner />

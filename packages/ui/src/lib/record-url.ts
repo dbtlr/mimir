@@ -69,6 +69,12 @@ export function recordLink(record: { kind: SearchKind; id: string }) {
   }
 }
 
+/** A project key typed as text (`mmr`, `MMR`) in its canonical spelling, or undefined when it is not a key. */
+export function canonicalProjectKey(text: string | undefined): string | undefined {
+  const upper = text?.toUpperCase();
+  return upper !== undefined && KEY.test(upper) ? upper : undefined;
+}
+
 /** The node id a record path names, or undefined when the suffix is not a node's. */
 export function nodeIdOf(key: string, suffix: string): string | undefined {
   const upper = key.toUpperCase();

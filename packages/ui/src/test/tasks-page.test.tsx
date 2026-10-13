@@ -90,7 +90,7 @@ function mockApi() {
   });
 }
 
-function renderTasks(initial = '/tasks') {
+function renderTasks(initial = '/p/MMR/tasks') {
   const testRouter = createRouter({
     history: createMemoryHistory({ initialEntries: [initial] }),
     routeTree: router.routeTree,
@@ -108,7 +108,7 @@ function renderTasks(initial = '/tasks') {
 }
 
 const search = (r: ReturnType<typeof renderTasks>) =>
-  r.state.location.search as { project?: string; status?: string; q?: string; group?: string };
+  r.state.location.search as { status?: string; q?: string; group?: string };
 
 /** The `/api/nodes?` list reads issued so far, as query-string objects. */
 const nodeReads = () =>
@@ -166,7 +166,7 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
 
   it('group=project groups by project key, alphabetically, newest first', async () => {
     mockApi();
-    renderTasks('/tasks?group=project');
+    renderTasks('/p/MMR/tasks?group=project');
     await screen.findByText('Doctor the wire');
     expect(groupHeadings()).toStrictEqual(['MMR · 4', 'NRN · 1']);
     expect(titlesIn('MMR · 4')).toStrictEqual([
@@ -199,7 +199,7 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
 
   it('drops an invalid group value', async () => {
     mockApi();
-    renderTasks('/tasks?group=nonsense');
+    renderTasks('/p/MMR/tasks?group=nonsense');
     await screen.findByText('Doctor the wire');
     expect(screen.getByRole('button', { name: /Group: status/ })).toBeDefined();
     expect(groupHeadings()[0]).toBe('Under review · 1');
@@ -299,7 +299,7 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
 
   it('a deep-linked status shows a removable chip, presses neither view, and removing returns to Live', async () => {
     mockApi();
-    const testRouter = renderTasks('/tasks?status=ready');
+    const testRouter = renderTasks('/p/MMR/tasks?status=ready');
     const user = userEvent.setup();
     await screen.findByText('Doctor the wire');
 
@@ -320,7 +320,7 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
 
   it('treats an empty status in the URL as the Live view with no removable chip', async () => {
     mockApi();
-    renderTasks('/tasks?status=');
+    renderTasks('/p/MMR/tasks?status=');
     await screen.findByText('Doctor the wire');
     expect(live().getAttribute('aria-pressed')).toBe('true');
     expect(screen.queryByRole('button', { name: /Remove status filter/ })).toBeNull();
@@ -329,14 +329,14 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
 
   it('survives a numeric status in the URL', async () => {
     mockApi();
-    renderTasks('/tasks?status=1');
+    renderTasks('/p/MMR/tasks?status=1');
     await screen.findByText('Doctor the wire');
     expect(screen.getByRole('heading', { level: 1, name: 'Tasks' })).toBeDefined();
   });
 
   it('removing the status chip hands keyboard focus to the search box', async () => {
     mockApi();
-    renderTasks('/tasks?status=ready');
+    renderTasks('/p/MMR/tasks?status=ready');
     const user = userEvent.setup();
     await screen.findByText('Doctor the wire');
     await user.click(screen.getByRole('button', { name: 'Remove status filter Ready' }));
@@ -353,33 +353,28 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
 
   it('labels a deep-linked union and the all selector', async () => {
     mockApi();
-    renderTasks('/tasks?status=ready,blocked');
+    renderTasks('/p/MMR/tasks?status=ready,blocked');
     await screen.findByText('Doctor the wire');
     expect(
       screen.getByRole('button', { name: 'Remove status filter Ready, Blocked' }),
     ).toBeDefined();
   });
 
-  it('restores a deep-linked project and search, and the project menu sets project', async () => {
+  it('restores a deep-linked search and scopes the read to the project in the path', async () => {
     mockApi();
-    const testRouter = renderTasks('/tasks?project=MMR&q=cutover');
-    const user = userEvent.setup();
+    renderTasks('/p/MMR/tasks?q=cutover');
     await screen.findByText('Doctor the wire');
 
     expect(screen.getByRole('searchbox')).toHaveProperty('value', 'cutover');
     const read = nodeReads().find((p) => p.get('q') === 'cutover');
     expect(read?.get('project')).toBe('MMR');
+  });
 
-    await user.click(screen.getByRole('button', { name: /^MMR/ }));
-    await user.click(await screen.findByRole('menuitem', { name: 'All projects' }));
-    await waitFor(() => {
-      expect(search(testRouter).project).toBeUndefined();
-    });
-    await user.click(screen.getByRole('button', { name: /All projects/ }));
-    await user.click(await screen.findByRole('menuitem', { name: /NRN/ }));
-    await waitFor(() => {
-      expect(search(testRouter).project).toBe('NRN');
-    });
+  it('has no project filter chip — the path names the project', async () => {
+    mockApi();
+    renderTasks();
+    await screen.findByText('Doctor the wire');
+    expect(screen.queryByRole('button', { name: /All projects/ })).not.toBeInTheDocument();
   });
 
   it('typing in the search box updates q after the debounce', async () => {
@@ -473,7 +468,7 @@ describe('tasksPage Finished view windows (MMR-460)', () => {
 
   it('asks for one bounded window first and offers Show more', async () => {
     mockTerminalApi(finishedTasks(finishedCount));
-    renderTasks('/tasks?status=terminal');
+    renderTasks('/p/MMR/tasks?status=terminal');
     await screen.findByText('Finished 0');
 
     expect(rowCount()).toBe(FINISHED_PAGE_SIZE);
@@ -492,7 +487,7 @@ describe('tasksPage Finished view windows (MMR-460)', () => {
     mockTerminalApi(finishedTasks(finishedCount), (limit) =>
       limit === FINISHED_PAGE_SIZE * 2 ? held.promise : undefined,
     );
-    renderTasks('/tasks?status=terminal');
+    renderTasks('/p/MMR/tasks?status=terminal');
     const user = userEvent.setup();
     await screen.findByText('Finished 0');
 
@@ -521,7 +516,7 @@ describe('tasksPage Finished view windows (MMR-460)', () => {
 
   it('has no Show more when every finished task fits one window', async () => {
     mockTerminalApi(finishedTasks(3));
-    renderTasks('/tasks?status=terminal');
+    renderTasks('/p/MMR/tasks?status=terminal');
     await screen.findByText('Finished 0');
     expect(showMore()).toBeNull();
   });
@@ -531,7 +526,7 @@ describe('tasksPage Finished view windows (MMR-460)', () => {
     mockTerminalApi(finishedTasks(finishedCount), (limit) =>
       limit === FINISHED_PAGE_SIZE * 2 && fail ? Promise.reject(new Error('down')) : undefined,
     );
-    renderTasks('/tasks?status=terminal');
+    renderTasks('/p/MMR/tasks?status=terminal');
     const user = userEvent.setup();
     await screen.findByText('Finished 0');
 
@@ -550,7 +545,7 @@ describe('tasksPage Finished view windows (MMR-460)', () => {
 
   it('starts over at one window when the view changes', async () => {
     mockTerminalApi(finishedTasks(finishedCount));
-    renderTasks('/tasks?status=terminal');
+    renderTasks('/p/MMR/tasks?status=terminal');
     const user = userEvent.setup();
     await screen.findByText('Finished 0');
     await user.click(showMore() as HTMLElement);
@@ -576,7 +571,7 @@ describe('tasksPage Finished view windows (MMR-460)', () => {
       updated_at: '2026-06-25T00:00:00.000Z',
     });
     mockTerminalApi([...finishedTasks(3), edited]);
-    renderTasks('/tasks?status=terminal');
+    renderTasks('/p/MMR/tasks?status=terminal');
     await screen.findByText('Late edit');
     expect(titlesIn('Done · 4')).toStrictEqual([
       'Finished 0',

@@ -39,7 +39,7 @@ function mockApi() {
   });
 }
 
-function renderApp(initial = '/seeds') {
+function renderApp(initial = '/p/MMR/seeds') {
   const testRouter = createRouter({
     history: createMemoryHistory({ initialEntries: [initial] }),
     routeTree: router.routeTree,

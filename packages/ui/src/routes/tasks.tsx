@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
-import { projectsQuery, tasksBrowserQuery } from '../api/queries';
+import { tasksBrowserQuery } from '../api/queries';
 import type { TaskFilters } from '../api/queries';
 import type { Collection, WireNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
@@ -217,25 +217,23 @@ function useTaskWindow(filters: TaskFilters) {
 }
 
 /**
- * `/tasks` — the grouped reading list (MMR-454, mock "Browsers C"): every task
- * across all projects, grouped by status or project, each row a real link with
- * its lede and where it lives. Live is the default view; the filter set
- * (`q`, `project`, `status`, `group`) is URL-addressable, so /tasks stays the
+ * `/p/KEY/tasks` — the grouped reading list (MMR-454, mock "Browsers C"): every
+ * task in the path's project, grouped by status or project, each row a real
+ * link with its lede and where it lives. Live is the default view; the filter
+ * set (`q`, `status`, `group`) is URL-addressable, so the browser stays the
  * complete view (ADR 0013) — any status a deep link carries still filters and
  * shows as a removable chip.
  */
 export function TasksPage() {
   const navigate = useNavigate();
+  const { key: project } = tasksRoute.useParams();
   const search = tasksRoute.useSearch();
   // validateSearch drops invalid values, but the router merges the raw URL back
   // in for unvalidated parents, so the page re-checks rather than trusting the type.
   const groupBy = search.group === 'project' ? 'project' : 'status';
   const liveView = isLiveView(search.status);
   const finishedView = search.status === 'terminal';
-  const filters: TaskFilters = { lede: true };
-  if (search.project !== undefined) {
-    filters.project = search.project;
-  }
+  const filters: TaskFilters = { lede: true, project };
   // Live is the default view, so a bare /tasks asks for it explicitly rather
   // than leaning on the server's default.
   filters.status = search.status ?? 'live';
@@ -243,7 +241,6 @@ export function TasksPage() {
     filters.q = search.q;
   }
 
-  const projects = useQuery(projectsQuery);
   const { tasks, loadedTasks, totalTasks, hasMore, loadingMore, loadMoreFailed, loadMore } =
     useTaskWindow(filters);
   const conn = connectivity([tasks]);
@@ -252,6 +249,7 @@ export function TasksPage() {
 
   const setFilter = (partial: Partial<TasksSearch>) =>
     void navigate({
+      params: { key: project },
       replace: true,
       search: (prev) => {
         const next = { ...prev, ...partial };
@@ -262,7 +260,7 @@ export function TasksPage() {
         }
         return next;
       },
-      to: '/tasks',
+      to: '/p/$key/tasks',
     });
 
   // Controlled + debounced search (the MMR-63 pattern): the box updates now, the
@@ -294,20 +292,6 @@ export function TasksPage() {
     [loadedTasks, groupBy, finishedView],
   );
 
-  const projectOptions = [
-    { label: 'All projects', value: '' },
-    ...(projects.data?.items ?? []).map((p) => ({
-      label: (
-        <>
-          <StatusDot status={p.status} />
-          <span className="font-mono text-xs font-semibold text-ink-bright">{p.id}</span>
-          <span className="truncate">{p.title}</span>
-        </>
-      ),
-      value: p.id,
-    })),
-  ];
-
   let countWord = 'match';
   if (liveView) {
     countWord = 'live';
@@ -331,8 +315,7 @@ export function TasksPage() {
           }
           action={
             // Create opens the shared authoring sheet (MMR-227), whose own
-            // project-spanning HOME picker chooses where the node lands — the
-            // cross-project browser has no single active project to pre-fill.
+            // project-spanning HOME picker chooses where the node lands.
             <button
               type="button"
               disabled={conn.offline}
@@ -354,14 +337,6 @@ export function TasksPage() {
                 placeholder="Search titles and IDs…"
               />
             </div>
-            <MenuChip
-              label={search.project ?? 'All projects'}
-              on={search.project !== undefined}
-              options={projectOptions}
-              onSelect={(project) => {
-                setFilter({ project });
-              }}
-            />
             <FilterChip
               on={liveView}
               onClick={() => {

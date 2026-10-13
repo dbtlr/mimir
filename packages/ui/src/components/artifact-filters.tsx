@@ -15,8 +15,8 @@ const REMOVABLE: { key: keyof Filters; label: (v: string) => string }[] = [
 ];
 
 /**
- * The artifact browser's filter row (MMR-454): a title search, a project menu,
- * and a kind menu. `onChange` carries the single changed field; the page
+ * The artifact browser's filter row (MMR-454): a title search and a kind
+ * menu. `onChange` carries the single changed field; the page
  * merges it into the search params (an empty string clears that filter).
  * Dates and a non-kind `tag` have no menu; when the URL carries them they
  * render as removable accent chips.
@@ -27,12 +27,10 @@ const REMOVABLE: { key: keyof Filters; label: (v: string) => string }[] = [
  */
 export function ArtifactFilters({
   filters,
-  projects,
   rowTags,
   onChange,
 }: {
   filters: Filters;
-  projects: string[];
   /** The loaded rows' tags — the kind menu offers the kinds they show. */
   rowTags: readonly (readonly string[])[];
   onChange: (partial: Partial<Filters>) => void;
@@ -91,19 +89,6 @@ export function ArtifactFilters({
           placeholder="Search titles…"
         />
       </div>
-      <MenuChip
-        label={
-          filters.project === undefined || filters.project === '' ? 'All projects' : filters.project
-        }
-        on={filters.project !== undefined && filters.project !== ''}
-        options={[
-          { label: 'All projects', value: '' },
-          ...projects.map((p) => ({ label: p, value: p })),
-        ]}
-        onSelect={(project) => {
-          onChange({ project });
-        }}
-      />
       <MenuChip
         label={chosenKind ?? 'Any kind'}
         on={chosenKind !== undefined}
