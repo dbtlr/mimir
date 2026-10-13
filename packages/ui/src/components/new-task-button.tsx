@@ -3,11 +3,20 @@ import { useState } from 'react';
 import { AuthoringSheet } from './authoring-sheet';
 
 /**
- * The create affordance on the board header and the project page. Opens the Meridian authoring sheet
- * (MMR-227) — task / phase / initiative behind a type selector — pre-filled to
- * the current project. Replaces the retired `TaskForm mode="create"` path.
+ * The create affordance on the work page's head (project and container) and the
+ * board. Opens the authoring sheet (MMR-227) pre-filled to the project, or to
+ * `home` when the page is a container.
  */
-export function NewTaskButton({ projectKey, offline }: { projectKey: string; offline?: boolean }) {
+export function NewTaskButton({
+  projectKey,
+  offline,
+  home,
+}: {
+  projectKey: string;
+  offline?: boolean;
+  /** A container id to file into — the sheet opens with it as the home. */
+  home?: string;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -28,6 +37,7 @@ export function NewTaskButton({ projectKey, offline }: { projectKey: string; off
         onOpenChange={setOpen}
         projectKey={projectKey}
         offline={offline}
+        prefill={home === undefined ? undefined : { home }}
       />
     </>
   );

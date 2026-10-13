@@ -398,3 +398,36 @@ Considered and rejected:
 - **A cockpit of panes, or a single timeline** (the shaping mocks' variants B
   and C). Panes split the reading order and stack poorly on a phone; a
   timeline mixes rank order with dependency order on one axis.
+
+## Refinement (2026-10-12, MMR-470): a container's work page keeps its timeline under a tab
+
+The MMR-467 refinement gave the work page five sections and a four-part rail,
+and left out the timeline a container page showed until then. An initiative's
+or phase's notes record the decisions made about it (grooming outcomes, mock
+approvals, scope calls), and the timeline's composer was the console's only way
+to add one. The work page keeps them:
+
+- **An initiative's or phase's work page has two tabs under its head: _Work_
+  and _Timeline_.** _Work_ is the default and holds the five sections. _Timeline_
+  holds the same timeline a task page shows: the container's creation, notes,
+  and transitions, oldest first, with the note composer. The tab label carries
+  the timeline's entry count.
+- **The tab is in the URL** as `?tab=timeline`; the work tab has no parameter,
+  so `/p/KEY/367` still opens on the work.
+- **A project has no tabs.** A project record carries no notes, so it has no
+  timeline to keep.
+- The rail is the same under either tab.
+- **The structure outline is the whole project's.** On every work page it lists
+  the project's initiatives and phases and highlights the current scope, so a
+  phase's page shows where the phase sits. The MMR-467 refinement's "the
+  scope's initiatives and phases" means this outline.
+
+Considered and rejected (mocked as variants A–C beside the chosen D):
+
+- **A sixth main-column section after _Going cold_.** On a busy scope the
+  newest decision lands below a long _Shipped_ list.
+- **Notes in the rail under Direction.** The rail already carries the direction
+  in full and the structure outline; notes would clamp to a few lines there.
+- **The latest note under the head, with the timeline in a drawer.** It adds a
+  drawer, a surface the console does not otherwise have, and a line to every
+  page head.

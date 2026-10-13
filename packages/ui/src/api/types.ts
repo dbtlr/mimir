@@ -19,6 +19,8 @@ import type {
   TransitionKind,
   Verdicts,
   ViewType,
+  WorkNeedsYouReason,
+  WorkScope,
 } from '@mimir/contract';
 
 /**
@@ -244,6 +246,66 @@ export type WireScratchpadRow = {
   open_agenda: number;
   state: 'active' | 'freezing';
   updated_at: string;
+};
+
+/**
+ * The work page's rows (`GET /api/projects/:key/work`, `GET /api/nodes/:id/work`,
+ * MMR-469) — each is the lean node object with its section's fields folded on,
+ * snake_case as `workToWire` in `@mimir/bin` core/format.ts renders them. A row
+ * can be stale in any section but Shipped, which only ever carries `false`.
+ */
+export type WireWorkNow = {
+  started_at: string;
+  latest_note: { content: string; created_at: string } | null;
+  scratchpads: { id: string; title: string }[];
+  stale: boolean;
+} & WireNode;
+
+export type WireWorkNeedsYou = {
+  reason: WorkNeedsYouReason;
+  /** The latest note's text for a needs-answers row, otherwise null. */
+  question: string | null;
+  stale: boolean;
+} & WireNode;
+
+/** A frontier task, or in `to_groom` a container that reads to break down. */
+export type WireWorkFrontier = {
+  /** The unsettled prerequisite ids, empty when ready. */
+  awaiting_on: string[];
+  break_down: boolean;
+  stale: boolean;
+} & WireNode;
+
+export type WireWorkUnlockGroup = {
+  prerequisite: NodeRef;
+  tasks: WireWorkFrontier[];
+};
+
+export type WireWorkWaiting = {
+  block_reason: string | null;
+  stale: boolean;
+} & WireNode;
+
+export type WireWorkShipped = {
+  finished_at: string;
+  /** The reason an abandoned task carries; null for a done task. */
+  abandon_reason: string | null;
+  stale: boolean;
+} & WireNode;
+
+/** The work page for a project or one container's subtree. */
+export type WireWorkReport = {
+  scope: WorkScope;
+  now: WireWorkNow[];
+  needs_you: WireWorkNeedsYou[];
+  frontier: {
+    runnable: WireWorkFrontier[];
+    next_to_unlock: WireWorkUnlockGroup[];
+    to_groom: WireWorkFrontier[];
+    waiting_on_others: WireWorkWaiting[];
+  };
+  shipped: WireWorkShipped[];
+  going_cold: WireNode[];
 };
 
 /** The collection envelope with its count (ADR 0012 — never a bare array). */
