@@ -1,5 +1,6 @@
 import { Dialog } from '@base-ui-components/react/dialog';
 import { useState } from 'react';
+import type { RefObject } from 'react';
 
 import { transitionLabel } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
@@ -16,12 +17,15 @@ import { ActionButton } from './ui/action-button';
  *    server-mandated triage record (400 otherwise).
  * `verb` drives the default title (the action's plain label) for the node lens; `title`
  * overrides it for callers with their own heading, like the seed dialogs.
+ * `finalFocus` names the element that takes focus when the dialog closes, for
+ * an opener that is not a dialog trigger, which Base UI cannot find by itself.
  */
 export function ReasonDialog({
   verb = null,
   title,
   confirmLabel = 'Confirm',
   required = false,
+  finalFocus,
   open,
   onClose,
   onConfirm,
@@ -30,6 +34,7 @@ export function ReasonDialog({
   title?: string;
   confirmLabel?: string;
   required?: boolean;
+  finalFocus?: RefObject<HTMLElement | null>;
   open: boolean;
   onClose: () => void;
   onConfirm: (reason: string) => void;
@@ -48,7 +53,10 @@ export function ReasonDialog({
     >
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-50 bg-well-950/70 backdrop-blur-[2px]" />
-        <Dialog.Popup className="fixed top-1/2 left-1/2 z-50 flex w-[min(92vw,380px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 rounded-lg border border-line bg-well-900 p-4 shadow-2xl outline-none">
+        <Dialog.Popup
+          finalFocus={finalFocus}
+          className="fixed top-1/2 left-1/2 z-50 flex w-[min(92vw,380px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 rounded-lg border border-line bg-well-900 p-4 shadow-2xl outline-none"
+        >
           <Dialog.Title className="text-sm font-semibold text-ink-bright">
             {title ?? (verb === null ? '' : transitionLabel(verb))}
           </Dialog.Title>

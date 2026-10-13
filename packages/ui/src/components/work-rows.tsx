@@ -1,5 +1,5 @@
 import type { Grooming } from '@mimir/contract';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useTransition } from '../api/mutations';
@@ -64,7 +64,16 @@ function NeedsYouReason({ row }: { row: WireWorkNeedsYou }) {
  * the latest question on a task that needs answers. `actions` are the
  * buttons that settle it in place, when the surface offers them.
  */
-export function NeedsYouRow({ row, actions }: { row: WireWorkNeedsYou; actions?: ReactNode }) {
+export function NeedsYouRow({
+  row,
+  actions,
+  current = false,
+}: {
+  row: WireWorkNeedsYou;
+  actions?: ReactNode;
+  /** The row is the record on the page the operator is looking at. */
+  current?: boolean;
+}) {
   const holdReason = row.reason === 'blocked' ? row.hold_reason?.trim() : undefined;
   return (
     <div className={ATTENTION_RULE}>
@@ -73,7 +82,12 @@ export function NeedsYouRow({ row, actions }: { row: WireWorkNeedsYou; actions?:
         id={row.id}
         title={row.title}
         leading={<StatusDot status={row.status} />}
-        beforeTitle={<NeedsYouReason row={row} />}
+        beforeTitle={
+          <>
+            <NeedsYouReason row={row} />
+            {current && <span className="microlabel text-ink-faint">This page</span>}
+          </>
+        }
         actions={actions}
         afterTitle={
           <RowTail
@@ -134,6 +148,8 @@ export function StartAction({ id, offline, handoff }: RowActionProps) {
 function VerdictActions({ id, offline, handoff }: RowActionProps) {
   const { mutate, isPending, submittedAt } = useTransition(id);
   const [sendingBack, setSendingBack] = useState(false);
+  // The dialog is not this button's popup, so it is told where focus goes back to.
+  const sendBackRef = useRef<HTMLButtonElement>(null);
   useDisarmWhenSettled(handoff, id, isPending ? null : submittedAt);
   return (
     <>
@@ -150,6 +166,7 @@ function VerdictActions({ id, offline, handoff }: RowActionProps) {
         Approve
       </ActionButton>
       <ActionButton
+        ref={sendBackRef}
         size="sm"
         variant="outline"
         className={PHONE_TOUCH_TARGET}
@@ -160,6 +177,7 @@ function VerdictActions({ id, offline, handoff }: RowActionProps) {
       </ActionButton>
       <ReasonDialog
         verb="return"
+        finalFocus={sendBackRef}
         open={sendingBack}
         onClose={() => setSendingBack(false)}
         onConfirm={(reason) => {

@@ -13,6 +13,7 @@ import type {
 } from '../api/types';
 import { ArchivedShelf } from '../components/archived-shelf';
 import { BrowserGroup, BrowserRow } from '../components/browser-list';
+import { DecisionGroups, PROJECT_LINK } from '../components/decision-groups';
 import { FocusQueue } from '../components/focus-queue';
 import { NewProjectSheet } from '../components/new-project-sheet';
 import { OfflineBanner } from '../components/offline-banner';
@@ -21,7 +22,6 @@ import { SeedKindChip } from '../components/seed-kind-chip';
 import { SeedPromoteSheet } from '../components/seed-promote-sheet';
 import { SeedVerbs } from '../components/seed-verbs';
 import { ActionButton, actionButtonVariants } from '../components/ui/action-button';
-import { NeedsYouRow, needsYouActions } from '../components/work-rows';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { nodeLink, seedLink } from '../lib/record-url';
@@ -46,9 +46,6 @@ import { reviewRoute } from '../router';
 /** `1 decision` / `2 decisions` — a count with its noun, singular at one. */
 const counted = (n: number, one: string, many = `${one}s`): string =>
   `${String(n)} ${n === 1 ? one : many}`;
-
-const PROJECT_LINK =
-  'rounded-sm focus-visible:outline-2 focus-visible:outline-accent transition-colors';
 
 function ReviewHead({ count }: { count: number }) {
   return (
@@ -80,22 +77,6 @@ function ReviewHead({ count }: { count: number }) {
         </Link>
       )}
     </header>
-  );
-}
-
-/** The project a group of rows belongs to, opening its work page. */
-function ProjectHeading({ project }: { project: { key: string; name: string } }) {
-  return (
-    <h3 className="mb-1">
-      <Link
-        to="/p/$key"
-        params={{ key: project.key }}
-        className={cn(PROJECT_LINK, 'inline-flex items-baseline gap-2 hover:text-ink-bright')}
-      >
-        <span className="font-mono text-mono-id text-accent-foreground">{project.key}</span>
-        <span className="text-meta font-semibold text-ink">{project.name}</span>
-      </Link>
-    </h3>
   );
 }
 
@@ -146,20 +127,7 @@ function DecideSection({ report, offline }: { report: WireReviewReport; offline:
       {report.decisions.length === 0 ? (
         <AllClear inFlight={inFlight} last={report.last_finished} />
       ) : (
-        <div className="flex flex-col gap-4">
-          {report.decisions.map((group) => (
-            <section key={group.project.key} aria-label={group.project.name}>
-              <ProjectHeading project={group.project} />
-              {group.rows.map((row) => (
-                <NeedsYouRow
-                  key={row.id}
-                  row={row}
-                  actions={needsYouActions(row, offline, handoff)}
-                />
-              ))}
-            </section>
-          ))}
-        </div>
+        <DecisionGroups groups={report.decisions} offline={offline} handoff={handoff} />
       )}
     </BrowserGroup>
   );

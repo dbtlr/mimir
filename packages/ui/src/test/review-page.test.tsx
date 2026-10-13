@@ -380,6 +380,27 @@ describe('review page decisions act in place (MMR-479)', () => {
     });
   });
 
+  it('returns focus to Send back… when its dialog is escaped or cancelled', async () => {
+    await openForWrite(decisionsFor({ lm: [verdict] }), decisionsFor({}));
+    const sendBack = within(await actionsOf('LM-196')).getByRole('button', { name: 'Send back…' });
+
+    await userEvent.click(sendBack);
+    await screen.findByRole('dialog', { name: 'Send back' });
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Send back' })).toBeNull();
+    });
+    expect(sendBack).toHaveFocus();
+
+    await userEvent.click(sendBack);
+    const dialog = await screen.findByRole('dialog', { name: 'Send back' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Send back' })).toBeNull();
+    });
+    expect(sendBack).toHaveFocus();
+  });
+
   it('answers a question and sets the grooming state', async () => {
     await openForWrite(decisionsFor({ mmr: [question] }), decisionsFor({}));
 
