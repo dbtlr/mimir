@@ -17,6 +17,48 @@ and are compiled into a new release section at each cut
 ([ADR 0022](docs/decisions/0022-changelog-fragments-compiled-at-cut.md));
 `bun run changelog:compile` previews the pending section.
 
+## v0.24.0 - 2026-10-13
+
+### Added
+
+- **Tasks carry a grooming state** (MMR-464). A task is `not_groomed`, `needs_answers`, or `groomed`, set with `mimir groom <ids> <state> [note]` (MCP `groom`, HTTP `POST /api/nodes/:id/groom`) or born groomed with `create task --groomed`. The note is written as an annotation, and `needs_answers` requires one.
+- **`next`, `list`, and `overview` rows show each todo task's grooming state** (MMR-464). `--eq grooming:groomed` narrows the queue, and `next` keeps its rank order and membership. The agent skill now teaches agents to prefer groomed tasks.
+- **Blocks record who can clear them** (MMR-465). `mimir block --on you|others` (MCP and HTTP `on`) says whether the operator or someone outside the board must clear the block. Without `--on`, a task with an `upstream` seed blocks as `others` and any other task blocks as `you`. `mimir get` shows a `block owner` line, and `--eq block_owner:you` narrows a list. Changing an owner is `unblock`, then `block`.
+- **The console's "for you" count includes only blocks you own** (MMR-465). A block waiting on others keeps its blocked status but leaves the needs-you list, and a stale one still appears as going cold. The agent skill now teaches `block --on you` for a question and `--upstream` before `block` for a cross-board ask.
+- **The console shows grooming state and block owners** (MMR-466). Todo tasks carry a grooming chip on their page, board card, and `/tasks` row, and the task page's "Set grooming…" action sets the state (a note is required for needs answers). A blocked task's callout now reads "Blocked on you" or "Blocked on others".
+- **Work page endpoints serve a project or any container's sections** (MMR-469). `GET /api/projects/:key/work` and `GET /api/nodes/:id/work` (an initiative or phase, covering its whole subtree) return what is running now, what needs you, the frontier of groomed and ungroomed work one step from startable, what shipped in the last seven days, the tasks waiting on others, the initiatives and phases that still need breaking down, and what is going cold. A task id is refused. Both routes require `?tz=`, the caller's IANA zone, to place the shipped days.
+- **Work page rows act in place** (MMR-471). A runnable task has Start, a task in review has Approve and Send back…, and a task that needs answers has Answer…, which saves the answer as a note and sets the task's grooming state. The row moves to its new section after each action, and the buttons are disabled offline.
+- **Seeds can be parked** (MMR-473). `mimir park KEY-sN ["reason"]` sets an untriaged seed aside, and `mimir unpark KEY-sN` returns it to the queue. A parked seed no longer counts as untriaged in `mimir overview`, `mimir triage`, or the console, which report only how many seeds are parked (`parked_seeds` in the overview's `hygiene`, `parked` in the triage report). The default `mimir seeds` queue leaves parked seeds out; `--status parked` lists them. A parked seed can still be edited, promoted, resolved, or rejected. MCP `park`/`unpark` accept a seed id, and HTTP serves `POST /api/seeds/:id/park` and `/unpark`. The console's **Later** chip is now **Park…**, a parked seed offers **Unpark**, and the seeds page folds parked seeds behind **Show parked seeds**. Opening the store applies migration `0004_seed_parked`.
+- **`GET /api/review` serves the console's review page** (MMR-477). It returns the decisions grouped by project, the focus-queue order, per-project triage counts (untriaged seeds, tasks going cold, and `doctor` findings), and the project list.
+- **Review page rows act in place** (MMR-479). On `/`, a task in review offers Approve and Send back…, and a task that needs answers offers Answer…, as on a work page. An untriaged seed listed under a triage row offers Promote to task…, Reject…, and Park…. When an acted-on row leaves, keyboard focus moves to the next row's first action, across project groups, or to the section heading when no row follows.
+- **Work through decisions one at a time** (MMR-480). The review page head offers _Work through these_ with the decision count, opening the focus queue at `/?mode=focus`. It shows one decision at a time, verdicts first, then blocks on you, then questions, with the task's path, description, and its question, submitted work, or what the block waits on, beside the row's actions, Skip, and a link to the task page. Acting moves to the next decision and Skip moves on without acting. The list is fixed when the queue opens, and it returns to `/` when the list runs out.
+
+### Changed
+
+- **Schema migration 0002 adds the grooming column** (MMR-464). A SQLite store upgrades when it is opened. A Postgres store needs `mimir store upgrade`, run after every machine sharing it has the new binary, because older binaries refuse an upgraded store.
+- **Store exports are transfer version 2** (MMR-464). A backup now carries each task's grooming state. Import still reads version-1 backups, defaulting every task to `not_groomed`, and an older binary refuses a version-2 backup instead of dropping the field.
+- **Schema migration 0003 adds the block owner column** (MMR-465). A SQLite store upgrades when it is opened. A Postgres store needs `mimir store upgrade`, run after every machine sharing it has the new binary, because older binaries refuse an upgraded store. Existing blocks are migrated by the same rule: `others` when the task has an upstream, otherwise `you`.
+- **Store exports are transfer version 3** (MMR-465). A backup now carries each blocked task's owner. Import still reads version-1 and version-2 backups, deriving the owner by the same rule, and an older binary refuses a version-3 backup instead of dropping the field.
+- **`--on` is refused on verbs that cannot use it** (MMR-465). It belongs to `block`, `depend`, `undepend`, and the date filters of `list`, `next`, `artifacts`, and `seeds`; `park --on you` used to be accepted and ignored.
+- **The console's Finished tasks view loads in windows** (MMR-460). It shows the 50 most recently completed tasks first and a "Show more" button loads the next 50, so the view no longer slows down as finished work piles up. `GET /api/nodes` accepts an `offset` beside `limit`.
+- **A project, initiative, or phase opens as the work page** (MMR-470). `/p/KEY` and a container's own page now answer five questions in order: what is running (Now), what needs you, what is next (the Frontier, split into runnable now, next to unlock, to groom, and waiting on others), what shipped in the last 7 days, and what is going cold. The rail runs Direction, Structure, About, and Other views, with the board one link away. An initiative or phase keeps its notes under a Timeline tab, at `?tab=timeline`.
+- **Returning work for changes is labelled Send back everywhere in the console** (MMR-471), on the task page, board cards, and the work page alike, replacing Request changes.
+- **The console opens on a review page of what needs you** (MMR-478). `/` lists decisions grouped by project: tasks in review, blocks only you can clear, and tasks that need answers. Below them, a triage table counts each project's untriaged seeds, tasks going cold, and `doctor` findings, and a row opens to list its seeds. The rail lists every project. When nothing waits, the page names the work in progress and the last task finished. The Overview and its project cards are gone.
+- **The top-bar alert counts decisions only** (MMR-478). It shows the number of decisions waiting on you, links to `/`, and is hidden at zero. Tasks going cold and `doctor` findings no longer light it.
+- **`GET /api/review` names the last finished task** (MMR-478). The new `last_finished` field holds the newest done or abandoned task across active projects, with `finished_at` and `abandon_reason`, or null when nothing has finished.
+- **`mimir overview` hygiene rows drop the lane word** (MMR-478). Blocked and stale rows lead with the task, and `-f json` hygiene rows no longer carry `lane`.
+
+### Removed
+
+- **The console's tree view is gone** (MMR-472). The work page's Structure outline replaces it. The board at `/p/KEY/board` stays as an optional view linked from the work page's rail, and it no longer has a Board | Tree toggle; an old `?view=tree` link opens the board.
+- **The `attention` facet** (MMR-478). Project Lanes are retired ([ADR 0019](docs/decisions/0019-meridian-console-design-system.md)), so `GET /api/projects` no longer sends `attention`, and `mimir get --col attention` is refused as an unknown column.
+- **`leaf_counts` on the active project list** (MMR-478). Only the archived shelf reads it, so `GET /api/projects` sends it on `?status=archived` rows alone.
+
+### Fixed
+
+- **Keyboard focus stays on the work page after a row moves away** (MMR-474). When Start, Approve, Send back…, or Answer… moves a row out of its section, focus moves to the next row's first action, or to the section heading when no row followed it, instead of falling back to the top of the page.
+- **Seed triage chips are touch-sized on a phone** (MMR-481). Below the `md` breakpoint, the Promote, Reject, Park, Unpark, and Resolve chips on `/` and on a seed page grow to a 44px touch target, matching the row actions beside them. From `md` up they keep their compact height.
+
 ## v0.23.0 - 2026-10-12
 
 ### Added
