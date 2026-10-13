@@ -295,11 +295,13 @@ export type UpdateProjectFields = {
   /** The owned `## Next` direction narrative (MMR-321) — body prose, not a
    * scalar field; blank clears the section. */
   next?: string | null;
+  /** Pin or unpin the project (MMR-493) — the operator's "keep at hand" mark. */
+  pinned?: boolean;
 };
 
 /**
- * The dumb scalar patcher for a project row (MMR-88): `name` and `description`
- * are its mutable columns — `key` is immutable — joined since MMR-321 by
+ * The dumb scalar patcher for a project row (MMR-88): `name`, `description`, and
+ * `pinned` (MMR-493) are its mutable columns — `key` is immutable — joined since MMR-321 by
  * the `## Next` body section, which is written through the same transaction and
  * guarded by the same co-written `updated_at` stamp. No transition log
  * (projects have no status). Returns the updated project row directly.
@@ -324,6 +326,9 @@ export async function updateProject(
     }
     if (fields.description !== undefined) {
       patch.description = fields.description;
+    }
+    if (fields.pinned !== undefined) {
+      patch.pinned = fields.pinned;
     }
 
     const wroteNext = await applyNextSection(w, 'project', id, fields.next);

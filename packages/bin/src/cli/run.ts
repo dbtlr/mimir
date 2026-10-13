@@ -174,6 +174,9 @@ const OPTIONS = {
   // Container open-ended converse pair (MMR-204) — like top/bottom.
   'open-ended': { type: 'boolean' },
   'not-open-ended': { type: 'boolean' },
+  // Project pin converse pair (MMR-493) — the same shape as open-ended.
+  pinned: { type: 'boolean' },
+  'not-pinned': { type: 'boolean' },
   title: { type: 'string' },
   yes: { short: 'y', type: 'boolean' },
   // skill install
@@ -338,6 +341,8 @@ type OwnedFlagValues = {
   ref?: string;
   upstream?: string;
   groomed?: boolean;
+  pinned?: boolean;
+  'not-pinned'?: boolean;
   host?: string;
   harness?: string;
   session?: string;
@@ -496,6 +501,20 @@ const VERB_OWNED_FLAGS: readonly {
     given: (values) => values.groomed === true,
     hint: `'--groomed' creates a task already groomed; list/next filter with '--eq grooming:groomed', and 'mimir groom <ids> <state>' sets it later`,
     owner: 'create',
+  },
+  // The pin converse pair is `update`'s alone: on `list` or `create` a stray
+  // `--pinned` would read as a filter or a creation signal and silently do nothing.
+  {
+    flag: '--pinned',
+    given: (values) => values.pinned === true,
+    hint: `'--pinned' pins a project: mimir update <KEY> --pinned (undo with --not-pinned)`,
+    owner: 'update',
+  },
+  {
+    flag: '--not-pinned',
+    given: (values) => values['not-pinned'] === true,
+    hint: `'--not-pinned' unpins a project: mimir update <KEY> --not-pinned`,
+    owner: 'update',
   },
   {
     flag: '--host',

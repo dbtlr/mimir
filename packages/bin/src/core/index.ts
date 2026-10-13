@@ -18,6 +18,7 @@ export * from './query';
 export * from './dates';
 export type * from './store';
 export * from './export';
+export { pinRefusal } from './project-pin';
 export * from './resource';
 export * from './errors';
 export * from './status';

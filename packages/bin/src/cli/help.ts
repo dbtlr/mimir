@@ -226,6 +226,7 @@ options:
                           (create takes it positional: create task <title> …)
       --desc <text>       create/update: description
       --direction <text>  update: the ## Next narrative (projects/containers)
+      --pinned            update: pin a project (--not-pinned unpins it)
       --summary <text>    create/update/attach/scratch: summary (nodes and artifacts; 256 chars max)
       --target <text>     create/update: target date or milestone
       --ref <ref>         create/update: external reference
@@ -721,6 +722,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir update MMR-3 --priority p1 --size m',
       'mimir update MMR-3 --desc "clarified scope"',
       'mimir update MMR --name "Mimir core"        # rename a project',
+      'mimir update MMR --pinned                   # keep a project at hand (--not-pinned undoes it)',
       'mimir update MMR --direction "Ship the read path, then revisit caching."',
     ],
     flags: [
@@ -744,11 +746,15 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
         'task only: the resume handles — how a takeover picks the work back up; a blank clears one',
       ],
       ['--name <name>', 'project only (KEY): rename it'],
+      [
+        '--pinned / --not-pinned',
+        'project only (KEY): pin it so the console lists it first, or unpin it',
+      ],
       ['-k, --kind <kind>', 'seed only (KEY-sN): idea|bug|feature'],
     ],
     summary: 'patch scalar fields (a dumb patch — status is excluded; use the lifecycle verbs)',
     usage:
-      'mimir update <id> [--title …] [--desc …] [--direction …] [--summary …] [--priority …] [--size …] [--target …] [--ref …] [--upstream <KEY-sN|none>] [--host …] [--harness …] [--session …] [--branch …] [--name …] [--kind …]',
+      'mimir update <id> [--title …] [--desc …] [--direction …] [--summary …] [--priority …] [--size …] [--target …] [--ref …] [--upstream <KEY-sN|none>] [--host …] [--harness …] [--session …] [--branch …] [--name …] [--pinned|--not-pinned] [--kind …]',
   },
   annotate: {
     args: [A_ID, ['<text>', 'note body (or stdin when omitted)']],

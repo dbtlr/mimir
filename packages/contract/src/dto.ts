@@ -416,6 +416,11 @@ export type NodeView = {
   // `projects --status archived`).
   archivedAt?: string | null;
 
+  // bare — project-only: the operator's pin (MMR-493), always present on a
+  // project view (true or false), absent on every other node. The console lists
+  // pinned projects first.
+  pinned?: boolean;
+
   // facets — opt-in
   /**
    * Full description prose — the `## Task Description` body section (MMR-162).

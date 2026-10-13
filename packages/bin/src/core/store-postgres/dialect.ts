@@ -17,6 +17,7 @@ import { statements as init } from './migrations/0001-init';
 import { statements as grooming } from './migrations/0002-grooming';
 import { statements as blockOwner } from './migrations/0003-block-owner';
 import { statements as seedParked } from './migrations/0004-seed-parked';
+import { statements as projectPinned } from './migrations/0005-project-pinned';
 import { serializable, snapshotRead } from './tx';
 
 /**
@@ -92,6 +93,7 @@ export const postgresDialect: StoreDialect = {
     '0002_grooming': grooming,
     '0003_block_owner': blockOwner,
     '0004_seed_parked': seedParked,
+    '0005_project_pinned': projectPinned,
   },
   // A shared store upgrades by one explicit act, never as a side effect of a
   // binary opening it (ADR 0030).

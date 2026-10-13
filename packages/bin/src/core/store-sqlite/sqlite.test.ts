@@ -13,6 +13,7 @@ import { createSqliteStore, readSchemaVersion } from './dialect';
 import { statements as initStatements } from './migrations/0001-init';
 import { statements as groomingStatements } from './migrations/0002-grooming';
 import { statements as blockOwnerStatements } from './migrations/0003-block-owner';
+import { statements as seedParkedStatements } from './migrations/0004-seed-parked';
 
 /**
  * The SQLite store's file-backed behavior (ADR 0032 Decision 3): what opening
@@ -48,7 +49,13 @@ test('opening a new file creates it, migrates it, and puts it in WAL mode', asyn
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0001_init', '0002_grooming', '0003_block_owner', '0004_seed_parked'],
+      applied: [
+        '0001_init',
+        '0002_grooming',
+        '0003_block_owner',
+        '0004_seed_parked',
+        '0005_project_pinned',
+      ],
       from: 0,
       to: SCHEMA_VERSION,
     });
@@ -87,7 +94,7 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0002_grooming', '0003_block_owner', '0004_seed_parked'],
+      applied: ['0002_grooming', '0003_block_owner', '0004_seed_parked', '0005_project_pinned'],
       from: 1,
       to: SCHEMA_VERSION,
     });
@@ -134,7 +141,7 @@ test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0003_block_owner', '0004_seed_parked'],
+      applied: ['0003_block_owner', '0004_seed_parked', '0005_project_pinned'],
       from: 2,
       to: SCHEMA_VERSION,
     });
@@ -188,7 +195,11 @@ test('0004_seed_parked upgrades a version-3 store: seeds and their history survi
 
   const handle = await openSqlite(path);
   try {
-    expect(handle.upgrade).toEqual({ applied: ['0004_seed_parked'], from: 3, to: SCHEMA_VERSION });
+    expect(handle.upgrade).toEqual({
+      applied: ['0004_seed_parked', '0005_project_pinned'],
+      from: 3,
+      to: SCHEMA_VERSION,
+    });
     const seeds = await sql<{
       id: string;
       lifecycle: string;
@@ -234,6 +245,57 @@ test('0004_seed_parked upgrades a version-3 store: seeds and their history survi
       handle.db,
     );
     expect(ids.rows.map((row) => row.id)).toEqual([7, 13]);
+  } finally {
+    await handle.close();
+  }
+});
+
+test('0005_project_pinned upgrades a version-4 store: projects keep their data and read unpinned, only 0 and 1 are admitted', async () => {
+  // The store as the previous binary left it: 0001–0004, with two live projects.
+  const old = new Database(path, { create: true });
+  for (const statement of [
+    ...initStatements,
+    ...groomingStatements,
+    ...blockOwnerStatements,
+    ...seedParkedStatements,
+  ]) {
+    old.run(statement);
+  }
+  old.run(
+    `INSERT INTO schema_version (version, applied_at) VALUES (1, 't'), (2, 't'), (3, 't'), (4, 't')`,
+  );
+  old.run(
+    `INSERT INTO project (key, name, description, last_seq, created_at, updated_at)
+     VALUES ('MMR', 'Mimir', 'the store', 7, 'c', 'u'), ('OPS', 'Ops', NULL, 0, 'c', 'u')`,
+  );
+  old.close();
+
+  const handle = await openSqlite(path);
+  try {
+    expect(handle.upgrade).toEqual({
+      applied: ['0005_project_pinned'],
+      from: 4,
+      to: SCHEMA_VERSION,
+    });
+    const rows = await sql<{
+      key: string;
+      description: string | null;
+      last_seq: number;
+      pinned: number;
+    }>`
+      select key, description, last_seq, pinned from project order by key
+    `.execute(handle.db);
+    expect(rows.rows).toEqual([
+      { description: 'the store', key: 'MMR', last_seq: 7, pinned: 0 },
+      { description: null, key: 'OPS', last_seq: 0, pinned: 0 },
+    ]);
+    await sql`update project set pinned = 1 where key = 'MMR'`.execute(handle.db);
+    expect(
+      await refusal(sql`update project set pinned = 2 where key = 'MMR'`.execute(handle.db)),
+    ).toContain('CHECK');
+    expect(
+      await refusal(sql`update project set pinned = NULL where key = 'MMR'`.execute(handle.db)),
+    ).toContain('NOT NULL');
   } finally {
     await handle.close();
   }

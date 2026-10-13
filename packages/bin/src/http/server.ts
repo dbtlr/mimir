@@ -1299,15 +1299,18 @@ function bindServer(
             if (parseIdentity(key)?.kind !== 'project') {
               throw validation(`${key} is not a project key`, 'nodes live at /api/nodes/:id');
             }
-            const body = await readBody(req, ['name', 'title', 'description', 'next']);
+            const body = await readBody(req, ['name', 'title', 'description', 'next', 'pinned']);
             // Accept both `name` and `title` as the project name field
             // (`title` follows the NodeView wire name; `name` is the native field).
             const name = strField(body, 'name') ?? strField(body, 'title');
             const description = strField(body, 'description');
             // The owned `## Next` narrative (MMR-321) — re-authored whole.
             const next = strField(body, 'next');
+            // The operator's pin (MMR-493) — project-only, so the node, seed, and
+            // artifact patches never list it and refuse it as an unknown field.
+            const pinned = boolField(body, 'pinned');
             const projectId = resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), key);
-            await updateProject(store, projectId, { description, name, next });
+            await updateProject(store, projectId, { description, name, next, pinned });
             const view = await projectViewByKey(store, key, new Set(PROJECT_FACETS));
             if (view === undefined) {
               throw projectNotFound(key);

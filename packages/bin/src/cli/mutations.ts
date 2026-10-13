@@ -38,6 +38,7 @@ import {
   parseWireField,
   UPSTREAM_CLEAR,
   notFound,
+  pinRefusal,
   promoteSeed,
   releasedByArchive,
   reorder,
@@ -381,6 +382,13 @@ export async function cmdReorder(c: Ctx): Promise<number> {
 
 export async function cmdUpdate(c: Ctx): Promise<number> {
   const token = requirePos(c, 1, 'update');
+  const kind = parseIdentity(token)?.kind;
+  // Only a project can be pinned (MMR-493). Refused here, before any branch
+  // reads its own flags, so every non-project target answers in one voice; a
+  // seed's refusal is usage-class (exit 2), like its other node-only flags.
+  if (kind !== undefined) {
+    rejectPinFlags(c, kind, kind === 'seed' ? usage : validation);
+  }
   if (parseIdentity(token)?.kind === 'artifact') {
     return await cmdUpdateArtifact(c, token);
   }
@@ -517,8 +525,8 @@ function rejectInapplicableFields(
   }
 }
 
-/** `update KEY` — patch a project's `name`, `description`, and/or the owned
- * `## Next` narrative (MMR-88, MMR-321). */
+/** `update KEY` — patch a project's `name`, `description`, `pinned`, and/or the
+ * owned `## Next` narrative (MMR-88, MMR-321, MMR-493). */
 async function cmdUpdateProject(c: Ctx, token: string): Promise<number> {
   rejectInapplicableFields(
     c,
@@ -535,6 +543,10 @@ async function cmdUpdateProject(c: Ctx, token: string): Promise<number> {
   }
   if (typeof c.values.direction === 'string') {
     fields.next = c.values.direction;
+  }
+  const pinned = pinnedFlag(c);
+  if (pinned !== undefined) {
+    fields.pinned = pinned;
   }
   await updateProject(c.store, projectId, fields);
   await echoProject(c.store, token, c.format, c.io);
@@ -690,6 +702,39 @@ function openEndedFlag(c: Ctx): boolean | undefined {
     return true;
   }
   return off ? false : undefined;
+}
+
+/**
+ * Resolve the `--pinned` / `--not-pinned` converse pair to a tri-state
+ * (MMR-493), like {@link openEndedFlag}: `true`, `false`, or `undefined`
+ * (neither flag). Passing both is a usage error.
+ */
+function pinnedFlag(c: Ctx): boolean | undefined {
+  const on = c.values.pinned === true;
+  const off = c.values['not-pinned'] === true;
+  if (on && off) {
+    throw usage('at most one of --pinned | --not-pinned');
+  }
+  if (on) {
+    return true;
+  }
+  return off ? false : undefined;
+}
+
+/** Refuse a pin flag aimed at anything but a project (MMR-493), naming the flag given. */
+function rejectPinFlags(
+  c: Ctx,
+  kind: NonNullable<ReturnType<typeof parseIdentity>>['kind'],
+  fail: (message: string) => Error,
+): void {
+  for (const flag of ['pinned', 'not-pinned'] as const) {
+    if (c.values[flag] === true) {
+      const refusal = pinRefusal(kind, `--${flag}`);
+      if (refusal !== null) {
+        throw fail(refusal);
+      }
+    }
+  }
 }
 
 /**
