@@ -215,10 +215,17 @@ its scope. A task whose grooming state is _needs answers_ waits on the
 operator's answer, and nothing else moves it, so the section includes it.
 
 - On a work page, _Needs you_ is tasks under review, blocks owned by `you`,
-  and tasks that need answers, in that order.
-- A needs-answers row takes the attention hue and shows its latest note as
-  the question. Its grooming chip keeps its amber (MMR-466 refinement).
-- _Going cold_ is not part of a work page's _Needs you_. The page shows stale
-  work in its own _Going stale_ section.
-- The top-bar alert keeps §9's set as narrowed by block ownership. The review
-  page (MMR-440) still decides its own set, and whether the alert follows it.
+  and `todo` tasks with no hold whose grooming state is _needs answers_, in
+  that order. A parked or blocked task's grooming state does not put it in
+  the set (ADR 0033 reads grooming for unheld `todo` tasks only).
+- A needs-answers row takes the attention hue and shows its latest note,
+  which is normally the question its grooming call wrote. Its grooming chip
+  keeps its amber (MMR-466 refinement).
+- _Going cold_ is not part of a work page's _Needs you_. The page lists stale
+  work in its own _Going cold_ section, and a stale row in _Needs you_ carries
+  the stale chip.
+- This amends the block-ownership refinement's rule that one narrowed set
+  applies wherever the console counts what needs the operator. A work page's
+  _Needs you_ is its own set, so its count can differ from the top-bar alert.
+  The alert keeps §9's set as narrowed by block ownership. The review page
+  (MMR-440) still decides its own set, and whether the alert follows it.
