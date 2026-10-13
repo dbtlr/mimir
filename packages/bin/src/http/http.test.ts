@@ -336,7 +336,7 @@ test('GET /api/review serves the snake_case review envelope', async () => {
 test('GET /api/review names the last finish with its finish time', async () => {
   await completeTask(store, task1);
   const body = await parse(await get('/api/review'));
-  expect(body.last_finished).toMatchObject({ abandon_reason: null, id: task1 });
+  expect(body.last_finished).toMatchObject({ abandon_reason: null, id: task1, stale: false });
   expect(typeof (body.last_finished as Rec).finished_at).toBe('string');
 });
 

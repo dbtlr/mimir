@@ -17,6 +17,7 @@ import type {
   UpstreamResolution,
   WorkFrontierTask,
   WorkReport,
+  WorkShippedTask,
 } from '@mimir/contract';
 
 import { overviewScratchpadOf } from './intent/queries';
@@ -585,12 +586,17 @@ export function workToWire(report: WorkReport): Record<string, unknown> {
       started_at: row.startedAt,
     })),
     scope: report.scope,
-    shipped: report.shipped.map((row) => ({
-      ...nodeToWire(row.task),
-      abandon_reason: row.abandonReason,
-      finished_at: row.finishedAt,
-      stale: row.stale,
-    })),
+    shipped: report.shipped.map(shippedToWire),
+  };
+}
+
+/** A finished task's wire row: the work page's Shipped rows and the review page's last finish. */
+function shippedToWire(row: WorkShippedTask): Record<string, unknown> {
+  return {
+    ...nodeToWire(row.task),
+    abandon_reason: row.abandonReason,
+    finished_at: row.finishedAt,
+    stale: row.stale,
   };
 }
 
@@ -610,14 +616,7 @@ export function reviewToWire(report: ReviewReport): Record<string, unknown> {
         stale: row.stale,
       })),
     })),
-    last_finished:
-      report.lastFinished === null
-        ? null
-        : {
-            ...nodeToWire(report.lastFinished.task),
-            abandon_reason: report.lastFinished.abandonReason,
-            finished_at: report.lastFinished.finishedAt,
-          },
+    last_finished: report.lastFinished === null ? null : shippedToWire(report.lastFinished),
     projects: report.projects.map((p) => ({
       decisions: p.decisions,
       in_flight: p.inFlight,
