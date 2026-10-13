@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { useId } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 
 import { cn } from '../lib/cn';
 import type { artifactLink, nodeLink, seedLink } from '../lib/record-url';
@@ -173,12 +173,15 @@ const MICROLABEL = 'font-mono text-micro font-semibold tracking-[0.13em] upperca
  * One group: a microlabel header (`In progress · 2`, `Today`) over its rows.
  * `labelClassName` carries a lane colour; the default is the faint ink tier.
  * `hint` adds the question the group answers (the work page's sections).
+ * `headingRef` makes the heading focusable, so focus can land there when a row
+ * leaves the group (useRowFocusHandoff).
  */
 export function BrowserGroup({
   label,
   count,
   hint,
   labelClassName,
+  headingRef,
   children,
 }: {
   label: string;
@@ -186,14 +189,17 @@ export function BrowserGroup({
   /** The question the group answers, in plain type after the label (the work page). */
   hint?: string;
   labelClassName?: string;
+  headingRef?: Ref<HTMLHeadingElement>;
   children?: ReactNode;
 }) {
   const heading = count === undefined ? label : `${label} · ${count}`;
   return (
     <section aria-label={heading} className="mt-4">
       <h2
+        ref={headingRef}
+        tabIndex={headingRef === undefined ? undefined : -1}
         className={cn(
-          'mb-2 block border-b border-line pb-1.5',
+          'mb-2 block border-b border-line pb-1.5 focus-visible:outline-2 focus-visible:outline-accent',
           MICROLABEL,
           labelClassName ?? 'text-ink-faint',
         )}
@@ -255,7 +261,10 @@ export function BrowserRow({
 }) {
   const idLabel = useId();
   return (
-    <div className="relative flex gap-2.5 rounded-md px-1 py-[7px] transition-colors hover:bg-well-850 has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-accent max-md:flex-wrap">
+    <div
+      data-row-id={id}
+      className="relative flex gap-2.5 rounded-md px-1 py-[7px] transition-colors hover:bg-well-850 has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-accent max-md:flex-wrap"
+    >
       {leading !== undefined && <span className="flex h-5 shrink-0 items-center">{leading}</span>}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -285,6 +294,7 @@ export function BrowserRow({
         <div
           role="group"
           aria-label={`Actions for ${id}`}
+          data-row-actions
           className="pointer-events-none relative flex shrink-0 items-start gap-2 *:pointer-events-auto max-md:basis-full max-md:justify-end"
         >
           {actions}

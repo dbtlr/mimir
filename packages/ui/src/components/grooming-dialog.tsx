@@ -1,6 +1,6 @@
 import { Dialog } from '@base-ui-components/react/dialog';
 import type { Grooming } from '@mimir/contract';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useGroom } from '../api/mutations';
 import { GROOMING_META, GROOMING_ORDER } from '../lib/grooming';
@@ -72,9 +72,18 @@ export function GroomingDialog({
   const blank = note.trim() === '';
   const needsNote = answering || chosen === 'needs_answers';
 
+  // Close once the success renders. A mutate callback would run before the
+  // refetched records render, and the work page needs a row the answer moves
+  // to leave before its dialog closes (MMR-474).
+  useEffect(() => {
+    if (groom.isSuccess) {
+      onClose();
+    }
+  }, [groom.isSuccess, onClose]);
+
   function handleSet() {
     if (chosen !== null) {
-      groom.mutate({ note, state: chosen }, { onSuccess: onClose });
+      groom.mutate({ note, state: chosen });
     }
   }
 
