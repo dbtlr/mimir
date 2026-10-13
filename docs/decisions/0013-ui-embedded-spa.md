@@ -314,3 +314,59 @@ or the rendered id, so typing `mmr-45` in the `/tasks` browser finds `MMR-45`
 and `MMR-450`. The change lives in the shared node selection, so the CLI
 (`list`/`next -q`) and MCP get it too. The artifact feed's `q` stays
 title-only.
+
+## Refinement (2026-10-12, MMR-467): a project or container opens as its work page
+
+§4 made the board the primary lens. Agent work moves through statuses in
+minutes, so the columns mostly show churn, and status belongs on the row.
+The console rebuild (MMR-356) replaces the lens with a work page built from
+the questions the operator asks. §4 is revised:
+
+- **`/p/KEY` and a container's own URL open its work page.** A project, an
+  initiative, or a phase opens at its page from the MMR-444 refinement
+  (`/p/KEY`, `/p/KEY/367`) as the work page, scoped to its subtree. A task
+  page is unchanged.
+- **The main column is five sections in question order:** _Now_ (tasks in
+  progress), _Needs you_ (ADR 0019, work-page refinement), _Frontier_,
+  _Shipped_, and _Going stale_. Every row links to its record page.
+- **The frontier is the work that could move soon.** It holds every task
+  that is not started and not blocked or parked, and is either ready or
+  awaiting only prerequisites in progress, under review, or ready: at most
+  one step away. Grooming state (ADR 0033) splits it: groomed and ready is
+  _Runnable now_ in rank order; groomed and awaiting is _Next to unlock_,
+  grouped by the prerequisite it waits on; not groomed, ready or awaiting, is
+  _To groom_. A task that needs answers is in _Needs you_, not the frontier.
+  A task two or more steps away is not on the page; the project's task
+  browser lists it. Inherited dependency edges count, as they do for
+  `ready`.
+- **Shipped is the last seven days.** Tasks done or abandoned in that window,
+  newest first, grouped by day. An abandoned row shows its reason. Releases
+  and session summaries are not rows; the daily briefing (MMR-442) covers
+  what happened.
+- **Going stale is the stale set**, the same predicate as `?is=stale`, scoped
+  to the page.
+- **The rail is Direction, Structure, About, then Other views.** The
+  direction leads in full as rendered markdown and is editable in place. The
+  structure outline lists the scope's initiatives and phases and links each
+  to its own page. About holds the description, artifacts, and details.
+  Other views links to the board and the project's task browser. On a phone
+  each rail section is a chip under the title that opens a bottom sheet.
+- **The board is an optional view; the tree retires.** `/p/KEY/board` keeps
+  the status columns, reached from the rail. The tree lens and its `?view=`
+  parameter are removed. The cross-project Overview at `/` stays until the
+  review page (MMR-440) replaces it.
+
+Considered and rejected:
+
+- **Every awaiting task under Next to unlock.** On a deep plan it becomes a
+  long list that is mostly not near, and the frontier stops meaning "what
+  could move soon."
+- **A fixed count of recent finishes for Shipped.** It keeps a quiet
+  project's section from going empty, but then Shipped no longer means
+  recent.
+- **The description folded under the title.** It is more visible but
+  competes with the work for the top of the page; a phase's description
+  often holds long settled decisions.
+- **A cockpit of panes, or a single timeline** (the shaping mocks' variants B
+  and C). Panes split the reading order and stack poorly on a phone; a
+  timeline mixes rank order with dependency order on one axis.
