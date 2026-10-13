@@ -403,11 +403,15 @@ export type PromoteSeedInput = {
 /** The promote echo (MMR-245): the seed wire with the spawned task id as a sibling. */
 export type PromotedSeed = WireSeed & { created?: string };
 
+/** A seed's promote, so a surface can ask whether one is still in flight. */
+export const promoteSeedKey = (id: string) => ['promote-seed', id] as const;
+
 export function usePromoteSeed(id: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
     mutationFn: (input: PromoteSeedInput) =>
       apiSend<PromotedSeed>('POST', `/api/seeds/${encodeURIComponent(id)}/promote`, input),
+    mutationKey: promoteSeedKey(id),
     onError: (err: Error) => toast.error(err.message),
     // Pending until the refetches land, so a review page row leaves while the
     // sheet is still open and focus follows it (MMR-479).

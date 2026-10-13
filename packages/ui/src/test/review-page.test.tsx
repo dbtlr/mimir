@@ -55,12 +55,13 @@ function renderReview() {
     history: createMemoryHistory({ initialEntries: ['/'] }),
     routeTree: router.routeTree,
   });
+  const client = new QueryClient();
   render(
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={client}>
       <RouterProvider router={testRouter} />
     </QueryClientProvider>,
   );
-  return testRouter;
+  return client;
 }
 
 const LM = { key: 'LM', name: 'Loom CLI' };
@@ -294,6 +295,13 @@ describe('the review page at / (ADR 0013, MMR-476 refinement)', () => {
  */
 async function openForWrite(before: WireReviewReport, after: WireReviewReport) {
   let report = before;
+  const serving = {
+    /** Serve `next` from the next review read, as a poll would. */
+    poll: (next: WireReviewReport) => {
+      report = next;
+      return client.invalidateQueries({ queryKey: ['review'] });
+    },
+  };
   apiGet.mockImplementation((path: string) => {
     if (path === '/api/review') {
       return Promise.resolve(report);
@@ -311,8 +319,9 @@ async function openForWrite(before: WireReviewReport, after: WireReviewReport) {
     report = after;
     return Promise.resolve({});
   });
-  renderReview();
+  const client = renderReview();
   await screen.findByRole('heading', { level: 1 });
+  return serving;
 }
 
 /** A row's action buttons, grouped and named for the record they act on. */
@@ -582,5 +591,89 @@ describe('review page seed triage acts in place (MMR-479)', () => {
         screen.getByRole('heading', { level: 2, name: /^Triage when you have a minute/ }),
       ).toHaveFocus();
     });
+  });
+
+  it('keeps the Triage heading for focus when the last seed on the page leaves', async () => {
+    await openForWrite(triage({ mmr: [firstSeed] }), triage({}));
+    await expand('Mimir');
+
+    await press('MMR-s25', 'Reject…');
+    const dialog = await screen.findByRole('dialog', { name: 'Reject seed' });
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'No' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Reject' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { level: 2, name: /^Triage when you have a minute/ }),
+      ).toHaveFocus();
+    });
+    expect(screen.getByText('Nothing left to triage.')).toBeDefined();
+  });
+
+  it('moves nothing for a cancelled promote’s seed when it leaves later', async () => {
+    const serving = await openForWrite(triage({ mmr: [firstSeed, secondSeed] }), triage({}));
+    await expand('Mimir');
+
+    await press('MMR-s25', 'Promote to task…');
+    await screen.findByDisplayValue('Oldest idea');
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByDisplayValue('Oldest idea')).toBeNull();
+    });
+    // The seed was promoted elsewhere meanwhile.
+    await serving.poll(triage({ mmr: [secondSeed] }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: 'Oldest idea' })).toBeNull();
+    });
+    expect(document.body).toHaveFocus();
+  });
+
+  it('lands on the next seed when the promote sheet is closed before its promote lands', async () => {
+    const serving = await openForWrite(
+      triage({ mmr: [firstSeed, secondSeed] }),
+      triage({ mmr: [firstSeed, secondSeed] }),
+    );
+    const promoted = Promise.withResolvers<object>();
+    apiSend.mockReturnValue(promoted.promise);
+    await expand('Mimir');
+
+    await press('MMR-s25', 'Promote to task…');
+    const promote = await screen.findByRole('button', { name: 'Promote ↵' });
+    await waitFor(() => {
+      expect(promote).toBeEnabled();
+    });
+    fireEvent.click(promote);
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByDisplayValue('Oldest idea')).toBeNull();
+    });
+    void serving.poll(triage({ mmr: [secondSeed] }));
+    promoted.resolve({ created: 'MMR-500', id: 'MMR-s25', lifecycle: 'promoted' });
+
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole('group', { name: 'Actions for MMR-s30' })).getByRole('button', {
+          name: 'Promote to task…',
+        }),
+      ).toHaveFocus();
+    });
+  });
+
+  it('lists a project afresh, closed, when it returns to triage', async () => {
+    const serving = await openForWrite(triage({ mmr: [firstSeed] }), triage({}));
+    await expand('Mimir');
+
+    fireEvent.click(within(await actionsOf('MMR-s25')).getByRole('button', { name: 'Park…' }));
+    fireEvent.click(
+      within(await screen.findByRole('dialog', { name: 'Park seed' })).getByRole('button', {
+        name: 'Park',
+      }),
+    );
+    await screen.findByText('Nothing left to triage.');
+    await serving.poll(triage({ mmr: [secondSeed] }));
+
+    const toggle = await screen.findByRole('button', { name: /Mimir/ });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
   });
 });

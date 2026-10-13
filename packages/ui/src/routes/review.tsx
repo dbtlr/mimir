@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
+import { promoteSeedKey } from '../api/mutations';
 import { archivedProjectsQuery, reviewQuery } from '../api/queries';
 import type {
   WireNode,
@@ -164,7 +165,8 @@ const listsSeed = (report: WireReviewReport | undefined, id: string): boolean =>
  * promote, one render before the refreshed rows (a promote stays pending until
  * the refetches land, but the query renders them on its next notify), so the
  * close reads the cached review: a seed it no longer lists is leaving, and the
- * handoff stays armed for it. A sheet closed without a promote disarms.
+ * handoff stays armed for it, as it does while a promote is still in flight
+ * (the sheet closed mid-write). A sheet closed without a promote disarms.
  */
 function SeedTriageActions({
   seed,
@@ -199,7 +201,8 @@ function SeedTriageActions({
               return;
             }
             setPromoting(false);
-            if (listsSeed(queryClient.getQueryData(reviewQuery.queryKey), seed.id)) {
+            const inFlight = queryClient.isMutating({ mutationKey: promoteSeedKey(seed.id) }) > 0;
+            if (!inFlight && listsSeed(queryClient.getQueryData(reviewQuery.queryKey), seed.id)) {
               handoff.disarm(seed.id);
             }
           }}
@@ -281,7 +284,7 @@ function TriageRow({
           )}
         </td>
       </tr>
-      {open && seeds.length > 0 && (
+      {open && (
         <tr id={seedsId} className="border-b border-line">
           <td colSpan={5} className="pb-2 pl-4">
             <section aria-label={`Untriaged seeds in ${project.name}`}>
@@ -325,7 +328,10 @@ const COLUMN =
 /**
  * Untriaged seeds, going cold, and findings per project: nothing here stops an
  * agent. The opened rows are kept here, so focus can move from a seed that
- * leaves to the next listed seed, in its project or the next opened one.
+ * leaves to the next listed seed, in its project or the next opened one. A
+ * project closes once it has no seeds, so one that returns lists afresh. The
+ * section is absent while nothing waits, but once shown it stays, saying so,
+ * so focus has its heading to land on when the last row leaves.
  */
 function TriageSection({
   triage,
@@ -335,6 +341,14 @@ function TriageSection({
   offline: boolean;
 }) {
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
+  const [shown, setShown] = useState(triage.length > 0);
+  if (triage.length > 0 && !shown) {
+    setShown(true);
+  }
+  const withSeeds = new Set(triage.filter((g) => g.seeds.length > 0).map((g) => g.project.key));
+  if ([...opened].some((key) => !withSeeds.has(key))) {
+    setOpened(new Set([...opened].filter((key) => withSeeds.has(key))));
+  }
   const isOpen = (group: WireReviewTriage) => opened.has(group.project.key);
   const { handoff, headingRef } = useRowFocusHandoff(
     triage.filter(isOpen).flatMap((group) => group.seeds.map((seed) => seed.id)),
@@ -348,52 +362,58 @@ function TriageSection({
       return next;
     });
   };
-  if (triage.length === 0) {
+  if (triage.length === 0 && !shown) {
     return null;
   }
   return (
     <BrowserGroup
       label="Triage when you have a minute"
-      hint={triageSummary(triage)}
+      hint={triage.length === 0 ? undefined : triageSummary(triage)}
       headingRef={headingRef}
     >
-      <div className="overflow-x-auto">
-        <table aria-label="Triage" className="w-full border-collapse">
-          <thead className="text-ink-faint">
-            <tr className="border-b border-line">
-              <th scope="col" className={cn(COLUMN, 'pl-0 text-left')}>
-                Project
-              </th>
-              <th scope="col" className={COLUMN}>
-                Seeds
-              </th>
-              <th scope="col" className={COLUMN}>
-                Oldest
-              </th>
-              <th scope="col" className={COLUMN}>
-                {/* A phone has no width for the full label. */}
-                <span className="md:hidden">Cold</span>
-                <span className="max-md:hidden">Going cold</span>
-              </th>
-              <th scope="col" className={cn(COLUMN, 'pr-0')}>
-                Findings
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {triage.map((group) => (
-              <TriageRow
-                key={group.project.key}
-                group={group}
-                open={isOpen(group)}
-                onToggle={() => toggle(group.project.key)}
-                offline={offline}
-                handoff={handoff}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {triage.length === 0 ? (
+        <p className="px-1 py-2 text-xs text-ink-faint">
+          <strong className="font-semibold text-ink-dim">Nothing left to triage.</strong>
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table aria-label="Triage" className="w-full border-collapse">
+            <thead className="text-ink-faint">
+              <tr className="border-b border-line">
+                <th scope="col" className={cn(COLUMN, 'pl-0 text-left')}>
+                  Project
+                </th>
+                <th scope="col" className={COLUMN}>
+                  Seeds
+                </th>
+                <th scope="col" className={COLUMN}>
+                  Oldest
+                </th>
+                <th scope="col" className={COLUMN}>
+                  {/* A phone has no width for the full label. */}
+                  <span className="md:hidden">Cold</span>
+                  <span className="max-md:hidden">Going cold</span>
+                </th>
+                <th scope="col" className={cn(COLUMN, 'pr-0')}>
+                  Findings
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {triage.map((group) => (
+                <TriageRow
+                  key={group.project.key}
+                  group={group}
+                  open={isOpen(group)}
+                  onToggle={() => toggle(group.project.key)}
+                  offline={offline}
+                  handoff={handoff}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </BrowserGroup>
   );
 }

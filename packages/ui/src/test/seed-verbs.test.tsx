@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -111,5 +111,19 @@ describe('seedVerbs parking (MMR-473)', () => {
     renderVerbs(seed({ id: 'MMR-s7', lane: 'parked', lifecycle: 'parked' }));
     await userEvent.click(screen.getByRole('button', { name: 'Unpark' }));
     expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s7/unpark');
+  });
+
+  it('holds every chip off while a verb is pending, so it cannot be sent twice', async () => {
+    apiSend.mockReturnValue(Promise.withResolvers().promise);
+    renderVerbs(seed({ id: 'MMR-s7', lane: 'untriaged' }), vi.fn());
+    await userEvent.click(screen.getByRole('button', { name: 'Park…' }));
+    await userEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Park' }),
+    );
+    await waitFor(() => {
+      expect(screen.getAllByRole('button').every((b) => (b as HTMLButtonElement).disabled)).toBe(
+        true,
+      );
+    });
   });
 });
