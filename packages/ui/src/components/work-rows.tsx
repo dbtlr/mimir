@@ -6,6 +6,7 @@ import { useTransition } from '../api/mutations';
 import type { WireNode, WireWorkNeedsYou } from '../api/types';
 import { visibleGrooming } from '../lib/grooming';
 import { nodeLink } from '../lib/record-url';
+import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { transitionLabel } from '../lib/transitions';
 import { useDisarmWhenSettled } from '../lib/use-row-focus-handoff';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
@@ -100,9 +101,6 @@ export function NeedsYouRow({ row, actions }: { row: WireWorkNeedsYou; actions?:
   );
 }
 
-/** Row buttons are touch-sized on a phone, where they wrap under the row. */
-const ROW_ACTION = 'max-md:min-h-11';
-
 /**
  * What every row action takes: its task, whether the console is offline, and
  * its section's focus handoff, armed as the operator commits to an action and
@@ -120,7 +118,7 @@ export function StartAction({ id, offline, handoff }: RowActionProps) {
   return (
     <ActionButton
       size="sm"
-      className={ROW_ACTION}
+      className={PHONE_TOUCH_TARGET}
       disabled={offline || isPending}
       onClick={() => {
         handoff.arm(id);
@@ -142,7 +140,7 @@ function VerdictActions({ id, offline, handoff }: RowActionProps) {
       <ActionButton
         size="sm"
         variant="attention"
-        className={ROW_ACTION}
+        className={PHONE_TOUCH_TARGET}
         disabled={offline || isPending}
         onClick={() => {
           handoff.arm(id);
@@ -154,7 +152,7 @@ function VerdictActions({ id, offline, handoff }: RowActionProps) {
       <ActionButton
         size="sm"
         variant="outline"
-        className={ROW_ACTION}
+        className={PHONE_TOUCH_TARGET}
         disabled={offline || isPending}
         onClick={() => setSendingBack(true)}
       >
@@ -190,7 +188,7 @@ function AnswerAction({
       <ActionButton
         size="sm"
         variant="attentionOutline"
-        className={ROW_ACTION}
+        className={PHONE_TOUCH_TARGET}
         disabled={offline}
         onClick={() => {
           // The answer is written from the dialog, which leaves with the row.

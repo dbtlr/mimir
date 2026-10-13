@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useParkSeed, useRejectSeed, useResolveSeed, useUnparkSeed } from '../api/mutations';
 import type { WireSeed } from '../api/types';
 import { cn } from '../lib/cn';
+import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { useDisarmWhenSettled } from '../lib/use-row-focus-handoff';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
 import { ReasonDialog } from './reason-dialog';
@@ -42,6 +43,7 @@ function VerbChip({
       onClick={onClick}
       className={cn(
         'inline-flex items-center rounded-md px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40',
+        PHONE_TOUCH_TARGET,
         primary
           ? PRIMARY_INK[attention === true ? 'attention' : 'accent']
           : 'font-medium text-ink-dim inset-ring inset-ring-line hover:bg-well-800 hover:text-ink-bright',
