@@ -279,6 +279,7 @@ export async function buildProjectView(
   artifacts: ArtifactStore,
   set: DerivationSet,
   project: Project,
+  activity: ReadonlyMap<string, string>,
   facets: ReadonlySet<FacetName> = new Set(),
 ): Promise<NodeView> {
   const distribution = rootDistribution(set, project.key);
@@ -286,6 +287,7 @@ export async function buildProjectView(
     createdAt: project.created_at,
     description: project.description,
     id: project.key,
+    lastActivityAt: activity.get(project.key) ?? project.updated_at,
     parent: null,
     status: interpret(distribution),
     title: project.name,
@@ -403,7 +405,14 @@ export async function projectViewByKey(
   const project = findProjectInSet(set, key);
   return project === undefined
     ? undefined
-    : buildProjectView(store.bodySections, store.artifacts, set, project, facets);
+    : buildProjectView(
+        store.bodySections,
+        store.artifacts,
+        set,
+        project,
+        await store.loadProjectActivity([project.key]),
+        facets,
+      );
 }
 
 /** A project view over a fresh snapshot — the one-off echo path (verbs, transports). */
@@ -417,6 +426,7 @@ export async function projectViewOf(
     store.artifacts,
     deriveSet(await store.loadWorkingSet()),
     project,
+    await store.loadProjectActivity([project.key]),
     facets,
   );
 }

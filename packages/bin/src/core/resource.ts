@@ -29,6 +29,7 @@ export async function listProjects(
   filter: ProjectStatusSelector = 'active',
 ): Promise<NodeView[]> {
   const set = deriveSet(await store.loadWorkingSet());
+  const activity = await store.loadProjectActivity();
   // ws.projects is key-ordered; the filter picks the shelf.
   const projects = set.ws.projects.filter((p) => {
     if (filter === 'active') {
@@ -41,7 +42,7 @@ export async function listProjects(
   });
   return Promise.all(
     projects.map((p) =>
-      buildProjectView(store.bodySections, store.artifacts, set, p, new Set(facets)),
+      buildProjectView(store.bodySections, store.artifacts, set, p, activity, new Set(facets)),
     ),
   );
 }
@@ -95,6 +96,7 @@ export async function projectTree(
     store.artifacts,
     set,
     project,
+    await store.loadProjectActivity([project.key]),
     facetSet,
   );
   const roots = childRows(set, project.key, null);

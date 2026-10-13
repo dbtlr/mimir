@@ -521,7 +521,14 @@ export async function getNode(store: Store, id: string, opts: GetOptions = {}): 
     if (project === undefined || project.archived_at !== null) {
       throw projectNotFound(identity.key);
     }
-    return buildProjectView(store.bodySections, store.artifacts, set, project, facets);
+    return buildProjectView(
+      store.bodySections,
+      store.artifacts,
+      set,
+      project,
+      await store.loadProjectActivity([project.key]),
+      facets,
+    );
   }
   if (identity?.kind === 'artifact') {
     throw validation(`${id} is an artifact, not a project or a task/phase/initiative`);

@@ -114,6 +114,27 @@ test('GET /api/projects lists every project with its rollup', async () => {
   expect(items[0]?.distribution).toBeDefined();
 });
 
+test('GET /api/projects and /api/projects/:key carry last_activity_at (MMR-494)', async () => {
+  const later = '2099-01-01T00:00:00.000Z';
+  await store.transact((w) =>
+    w.appendTransition({
+      at: later,
+      from_value: 'a',
+      kind: 'lifecycle',
+      node_id: otherTask,
+      to_value: 'b',
+    }),
+  );
+  const items = (await parse(await get('/api/projects'))).items as Rec[];
+  const byId = Object.fromEntries(items.map((p) => [p.id, p]));
+  expect(byId.NRN?.last_activity_at).toBe(later);
+  // the untouched project reports an instant at or after its own updated_at, never the other's
+  expect(byId.MMR?.last_activity_at).not.toBe(later);
+  expect(String(byId.MMR?.last_activity_at) >= String(byId.MMR?.updated_at)).toBe(true);
+  const detail = await parse(await get('/api/projects/NRN'));
+  expect(detail.last_activity_at).toBe(later);
+});
+
 test('GET /api/projects rows carry no attention facet (Lanes retired, MMR-476)', async () => {
   const res = await get('/api/projects');
   const items = (await parse(res)).items as Rec[];

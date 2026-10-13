@@ -598,6 +598,31 @@ test('projects -f json wraps the rows under a projects key (MMR-406)', async () 
   expect(parsed.total).toBe(1);
 });
 
+test('projects and get carry last_activity_at in json and records (MMR-494)', async () => {
+  const later = '2099-01-01T00:00:00.000Z';
+  await store.transact((w) =>
+    w.appendTransition({
+      at: later,
+      from_value: 'a',
+      kind: 'lifecycle',
+      node_id: phaseId,
+      to_value: 'b',
+    }),
+  );
+  const list = fakeIo();
+  expect(await runCli(['projects', '-f', 'json'], () => store, list)).toBe(0);
+  const parsed = parseJson<{ projects: { last_activity_at: string }[] }>(list.out.join(''));
+  expect(parsed.projects[0]?.last_activity_at).toBe(later);
+
+  const one = fakeIo();
+  expect(await runCli(['get', 'MMR', '-f', 'json'], () => store, one)).toBe(0);
+  expect(parseJson<{ last_activity_at: string }>(one.out.join('')).last_activity_at).toBe(later);
+
+  const records = fakeIo(true);
+  expect(await runCli(['get', 'MMR', '-f', 'records'], () => store, records)).toBe(0);
+  expect(records.out.join('')).toContain('last activity');
+});
+
 test('the projects table counts projects, not tasks (MMR-406)', async () => {
   const io = fakeIo(true);
   expect(await runCli(['projects'], () => store, io)).toBe(0);

@@ -85,6 +85,8 @@ The scope root. Categorically not a node: it doesn't complete (no status), isn't
 | `created_at`        | text    | required | ISO-8601 UTC                                                                              |
 | `updated_at`        | text    | required | ISO-8601 UTC, every write                                                                 |
 
+**`last_activity_at` is derived, not stored.** A project read reports the newest of these stamps as `last_activity_at`: the project's own `updated_at`, its nodes' `updated_at`, its `transition_log` entries (node-owned and project-keyed), its nodes' annotations, its seeds' `updated_at`, its artifacts' `updated_at`, and its scratchpads' `updated_at`. Seed history adds no source of its own, because each history row carries the same instant as the seed's `updated_at`. One aggregate query computes it for every project at once, or for a named few when a single project is read; it needs no column and no index beyond the existing `project_key` and foreign-key ones.
+
 Project-keyed `archive`/`unarchive` transitions ([ADR 0015](decisions/0015-project-archive-frozen-and-hidden.md)) append to `transition_log` with `project_key` set. Projects carry no annotations.
 
 ## `node` (initiative | phase | task)

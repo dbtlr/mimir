@@ -178,6 +178,8 @@ export type WireNode = {
   archived_at?: string | null;
   created_at: string;
   updated_at: string;
+  /** Project-only (MMR-494): the newest instant of anything in the project, never before `updated_at`. */
+  last_activity_at?: string;
 
   deps?: WireDeps;
   children?: NodeRef[];
