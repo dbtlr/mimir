@@ -18,7 +18,8 @@ import { visibleGrooming } from '../lib/grooming';
 import { nodeLink } from '../lib/record-url';
 import { ago, relativeTime } from '../lib/time';
 import { transitionLabel } from '../lib/transitions';
-import { useRowFocusHandoff } from '../lib/use-row-focus-handoff';
+import { useDisarmWhenSettled, useRowFocusHandoff } from '../lib/use-row-focus-handoff';
+import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
 import {
   SHIPPED_DAY_CAP,
   capDay,
@@ -55,23 +56,25 @@ const ROW_ACTION = 'max-md:min-h-11';
 
 /**
  * What every row action takes: its task, whether the console is offline, and
- * `onAct`, called as the operator commits to an action that may move the row.
+ * its section's focus handoff, armed as the operator commits to an action and
+ * disarmed if the action ends with the row still in place.
  */
-type RowActionProps = { id: string; offline: boolean; onAct: (id: string) => void };
+type RowActionProps = { id: string; offline: boolean; handoff: RowFocusHandoff };
 
 /**
  * Each action owns its mutation, so only the rows that can act mount one.
  * Every write invalidates the work reads (useTransition, useGroom).
  */
-function StartAction({ id, offline, onAct }: RowActionProps) {
-  const { mutate, isPending } = useTransition(id);
+function StartAction({ id, offline, handoff }: RowActionProps) {
+  const { mutate, isPending, submittedAt } = useTransition(id);
+  useDisarmWhenSettled(handoff, id, isPending ? null : submittedAt);
   return (
     <ActionButton
       size="sm"
       className={ROW_ACTION}
       disabled={offline || isPending}
       onClick={() => {
-        onAct(id);
+        handoff.arm(id);
         mutate({ verb: 'start' });
       }}
     >
@@ -81,9 +84,10 @@ function StartAction({ id, offline, onAct }: RowActionProps) {
 }
 
 /** Approve (`done`) and Send back… (`return`, with an optional reason), as on the task page. */
-function VerdictActions({ id, offline, onAct }: RowActionProps) {
-  const { mutate, isPending } = useTransition(id);
+function VerdictActions({ id, offline, handoff }: RowActionProps) {
+  const { mutate, isPending, submittedAt } = useTransition(id);
   const [sendingBack, setSendingBack] = useState(false);
+  useDisarmWhenSettled(handoff, id, isPending ? null : submittedAt);
   return (
     <>
       <ActionButton
@@ -92,7 +96,7 @@ function VerdictActions({ id, offline, onAct }: RowActionProps) {
         className={ROW_ACTION}
         disabled={offline || isPending}
         onClick={() => {
-          onAct(id);
+          handoff.arm(id);
           mutate({ verb: 'done' });
         }}
       >
@@ -112,7 +116,7 @@ function VerdictActions({ id, offline, onAct }: RowActionProps) {
         open={sendingBack}
         onClose={() => setSendingBack(false)}
         onConfirm={(reason) => {
-          onAct(id);
+          handoff.arm(id);
           mutate(reason === '' ? { verb: 'return' } : { reason, verb: 'return' });
           setSendingBack(false);
         }}
@@ -126,9 +130,12 @@ function AnswerAction({
   id,
   question,
   offline,
-  onAct,
+  handoff,
 }: RowActionProps & { question: string | null }) {
   const [answering, setAnswering] = useState(false);
+  // Each opening counts, so every close reads as a newly settled action.
+  const [opened, setOpened] = useState(0);
+  useDisarmWhenSettled(handoff, id, answering ? null : opened);
   return (
     <>
       <ActionButton
@@ -138,7 +145,8 @@ function AnswerAction({
         disabled={offline}
         onClick={() => {
           // The answer is written from the dialog, which leaves with the row.
-          onAct(id);
+          handoff.arm(id);
+          setOpened((n) => n + 1);
           setAnswering(true);
         }}
       >
@@ -253,13 +261,13 @@ function NeedsYouReason({ row }: { row: WireWorkNeedsYou }) {
 function needsYouActions(
   row: WireWorkNeedsYou,
   offline: boolean,
-  onAct: (id: string) => void,
+  handoff: RowFocusHandoff,
 ): ReactNode {
   if (row.reason === 'under_review') {
-    return <VerdictActions id={row.id} offline={offline} onAct={onAct} />;
+    return <VerdictActions id={row.id} offline={offline} handoff={handoff} />;
   }
   if (row.reason === 'needs_answers') {
-    return <AnswerAction id={row.id} question={row.question} offline={offline} onAct={onAct} />;
+    return <AnswerAction id={row.id} question={row.question} offline={offline} handoff={handoff} />;
   }
   return undefined;
 }
@@ -267,11 +275,11 @@ function needsYouActions(
 function NeedsYouRow({
   row,
   offline,
-  onAct,
+  handoff,
 }: {
   row: WireWorkNeedsYou;
   offline: boolean;
-  onAct: (id: string) => void;
+  handoff: RowFocusHandoff;
 }) {
   const holdReason = row.reason === 'blocked' ? row.hold_reason?.trim() : undefined;
   return (
@@ -282,7 +290,7 @@ function NeedsYouRow({
         title={row.title}
         leading={<StatusDot status={row.status} />}
         beforeTitle={<NeedsYouReason row={row} />}
-        actions={needsYouActions(row, offline, onAct)}
+        actions={needsYouActions(row, offline, handoff)}
         afterTitle={
           <RowTail
             row={row}
@@ -316,7 +324,7 @@ function NeedsYouSection({
   rows: readonly WireWorkNeedsYou[];
   offline: boolean;
 }) {
-  const { arm, headingRef } = useRowFocusHandoff(rows.map((row) => row.id));
+  const { handoff, headingRef } = useRowFocusHandoff(rows.map((row) => row.id));
   return (
     <BrowserGroup
       label="Needs you"
@@ -328,7 +336,9 @@ function NeedsYouSection({
       {rows.length === 0 ? (
         <Empty lead="Nothing needs you.">No reviews, blocks, or questions are waiting.</Empty>
       ) : (
-        rows.map((row) => <NeedsYouRow key={row.id} row={row} offline={offline} onAct={arm} />)
+        rows.map((row) => (
+          <NeedsYouRow key={row.id} row={row} offline={offline} handoff={handoff} />
+        ))
       )}
     </BrowserGroup>
   );
@@ -418,7 +428,7 @@ function FrontierSection({
   offline: boolean;
 }) {
   const unlock = frontier.next_to_unlock.filter((g) => g.tasks.length > 0);
-  const { arm, headingRef } = useRowFocusHandoff(frontier.runnable.map((row) => row.id));
+  const { handoff, headingRef } = useRowFocusHandoff(frontier.runnable.map((row) => row.id));
   return (
     <BrowserGroup label="Frontier" hint="What’s next, and who can take it?" headingRef={headingRef}>
       {frontierIsEmpty(frontier) ? (
@@ -437,7 +447,7 @@ function FrontierSection({
                 <FrontierRow
                   key={row.id}
                   row={row}
-                  actions={<StartAction id={row.id} offline={offline} onAct={arm} />}
+                  actions={<StartAction id={row.id} offline={offline} handoff={handoff} />}
                 />
               ))
             )}

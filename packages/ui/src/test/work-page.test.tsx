@@ -993,6 +993,79 @@ describe('work page focus after an acted-on row moves away', () => {
     });
   });
 
+  it('moves nothing for a cancelled answer’s row when it leaves later', async () => {
+    const first = frontierRow('MMR-20', 'Add the SQLite dialect');
+    const second = frontierRow('MMR-21', 'Add the Postgres dialect');
+    const runnable = (rows: (typeof first)[]) => ({ ...workReport().frontier, runnable: rows });
+    await openForWrite(
+      workReport({ frontier: runnable([first, second]), needs_you: [answersRow, secondReview] }),
+      // MMR-14 was answered elsewhere meanwhile, so Start's refresh drops it too.
+      workReport({
+        frontier: runnable([second]),
+        needs_you: [secondReview],
+        now: [runningAs(first)],
+      }),
+    );
+
+    await press('MMR-14', 'Answer…');
+    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
+    });
+    await press('MMR-20', 'Start');
+
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole('group', { name: 'Actions for MMR-21' })).getByRole('button', {
+          name: 'Start',
+        }),
+      ).toHaveFocus();
+    });
+  });
+
+  it('moves nothing for a failed approval’s row when it leaves later', async () => {
+    const first = frontierRow('MMR-20', 'Add the SQLite dialect');
+    const second = frontierRow('MMR-21', 'Add the Postgres dialect');
+    const runnable = (rows: (typeof first)[]) => ({ ...workReport().frontier, runnable: rows });
+    const before = workReport({
+      frontier: runnable([first, second]),
+      needs_you: [reviewRow, secondReview],
+    });
+    await open(PROJECT_SCOPE, before);
+
+    const failedRefresh = holdRefresh();
+    apiSend.mockRejectedValueOnce(new Error('conflict'));
+    await press('MMR-12', 'Approve');
+    const approve = within(await actionsOf('MMR-12')).getByRole('button', { name: 'Approve' });
+    await waitFor(() => {
+      expect(approve).toBeDisabled();
+    });
+    failedRefresh.resolve(before);
+    await waitFor(() => {
+      expect(approve).toBeEnabled();
+    });
+
+    const startRefresh = holdRefresh();
+    await press('MMR-20', 'Start');
+    // MMR-12 was approved elsewhere meanwhile, so Start's refresh drops it too.
+    startRefresh.resolve(
+      workReport({
+        frontier: runnable([second]),
+        needs_you: [secondReview],
+        now: [runningAs(first)],
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole('group', { name: 'Actions for MMR-21' })).getByRole('button', {
+          name: 'Start',
+        }),
+      ).toHaveFocus();
+    });
+  });
+
   it('leaves focus alone when the operator has moved on before the row leaves', async () => {
     await open(PROJECT_SCOPE, workReport({ needs_you: [reviewRow, secondReview] }));
     const refresh = holdRefresh();
