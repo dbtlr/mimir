@@ -79,16 +79,20 @@ function byProjectOrder(a: ProjectFacts, b: ProjectFacts): number {
  *
  * `findings` is the `doctor` finding count per project key; a key that is not
  * an active project (`store`, an archived project) is ignored. Core never runs
- * doctor itself, so the caller supplies the counts.
+ * doctor itself, so the caller supplies the counts, as a promise when the scan
+ * is still running so it overlaps the store load.
  */
 export async function reviewOf(
   store: Store,
-  findings: ReadonlyMap<string, number>,
+  findings: ReadonlyMap<string, number> | Promise<ReadonlyMap<string, number>>,
   opts: ReviewOptions = {},
 ): Promise<ReviewReport> {
   const asOf = opts.asOf ?? now();
   // `new` is the untriaged lane; the same load serves the node derivation below.
-  const { set, views } = await listSeedsResolved(store, { status: 'new' });
+  const [{ set, views }, findingCounts] = await Promise.all([
+    listSeedsResolved(store, { status: 'new' }),
+    findings,
+  ]);
   const seedsByProject = Map.groupBy(views, (v) => v.project);
 
   const facts: ProjectFacts[] = set.ws.projects
@@ -120,7 +124,7 @@ export async function reviewOf(
       );
       return {
         decisions,
-        findings: findings.get(project.key) ?? 0,
+        findings: findingCounts.get(project.key) ?? 0,
         goingCold,
         inFlight,
         project,

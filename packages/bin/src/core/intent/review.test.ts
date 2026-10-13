@@ -82,8 +82,10 @@ async function question(key: string, title = 'question'): Promise<string> {
 
 const at = (id: string, updated_at: string) => rawPatchNode(store, id, { updated_at });
 
-const review = (opts: ReviewOptions = {}, findings: ReadonlyMap<string, number> = new Map()) =>
-  reviewOf(store, findings, opts);
+const review = (
+  opts: ReviewOptions = {},
+  findings: ReadonlyMap<string, number> | Promise<ReadonlyMap<string, number>> = new Map(),
+) => reviewOf(store, findings, opts);
 
 const rowIds = (group: { rows: readonly { task: { id: string } }[] }): string[] =>
   group.rows.map((r) => r.task.id);
@@ -172,6 +174,19 @@ test('a tie on leading reason and recency falls to the key', async () => {
   expect((await review()).decisions.map((g) => g.project.key)).toEqual(['AAA', 'BBB']);
 });
 
+test("a project's recency is its newest decision of its leading reason, not its newest decision", async () => {
+  await project('AAA');
+  await project('BBB');
+  // AAA's block is older than BBB's, though AAA's question is the newest decision of all.
+  const aBlock = await blockedOnYou('AAA');
+  const aAsk = await question('AAA');
+  const bBlock = await blockedOnYou('BBB');
+  await at(aBlock, '2026-01-01T00:00:00.000Z');
+  await at(bBlock, '2026-02-01T00:00:00.000Z');
+  await at(aAsk, '2026-03-01T00:00:00.000Z');
+  expect((await review()).decisions.map((g) => g.project.key)).toEqual(['BBB', 'AAA']);
+});
+
 test('projects without decisions follow, by triage count then key', async () => {
   for (const key of ['AAA', 'BBB', 'CCC', 'DDD']) {
     await project(key);
@@ -228,6 +243,33 @@ test('triage counts tasks going cold as of the reference time', async () => {
   expect(report.triage[0]?.goingCold).toBe(1);
   expect(report.triage[0]?.seeds).toEqual([]);
   expect(report.projects[0]?.triage).toBe(1);
+});
+
+test("the going-cold count matches the work page's Going cold section it links to", async () => {
+  await project('MMR');
+  const asOf = '2026-03-01T00:00:00.000Z';
+  const ids = [
+    await task('MMR', 'ready'),
+    await underReview('MMR'),
+    await blockedOnYou('MMR'),
+    await task('MMR', 'parked'),
+    await task('MMR', 'running'),
+  ];
+  await parkTask(store, ids[3] ?? '');
+  await startTask(store, ids[4] ?? '');
+  for (const id of ids) {
+    await at(id, '2026-01-01T00:00:00.000Z');
+  }
+  const page = await workPageOf(store, 'MMR', { asOf, timeZone: 'UTC' });
+  const report = await review({ asOf });
+  expect(page.goingCold.length).toBeGreaterThan(0);
+  expect(report.triage[0]?.goingCold).toBe(page.goingCold.length);
+});
+
+test('findings can arrive as a promise, so the doctor scan overlaps the store load', async () => {
+  await project('MMR');
+  const report = await review({}, Promise.resolve(new Map([['MMR', 2]])));
+  expect(report.triage[0]?.findings).toBe(2);
 });
 
 test('triage counts the findings handed in and ignores keys that are not active projects', async () => {

@@ -1371,9 +1371,12 @@ function bindServer(
       '/api/review': {
         GET: (req) =>
           guarded(req, async () => {
-            const facet =
-              opts.doctor === undefined ? emptyDoctorFacet() : await opts.doctor(undefined);
-            const findings = new Map(facet.groups.map((g) => [g.project, g.finding_count]));
+            // The scan runs alongside reviewOf's store load rather than before it.
+            const findings = (async () => {
+              const facet =
+                opts.doctor === undefined ? emptyDoctorFacet() : await opts.doctor(undefined);
+              return new Map(facet.groups.map((g) => [g.project, g.finding_count]));
+            })();
             return json(reviewToWire(await reviewOf(store, findings)));
           }),
       },
