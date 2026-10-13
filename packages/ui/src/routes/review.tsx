@@ -377,7 +377,9 @@ export function ReviewPage() {
   }
   const report = review.data;
 
-  if (report.projects.length === 0 && archivedProjects.length === 0) {
+  // Only a confirmed-empty archive makes a fresh store: an archived read still
+  // in flight, or failed, may yet hold every project.
+  if (report.projects.length === 0 && archived.data?.items.length === 0) {
     // A fresh store's one useful action is creating a project.
     return (
       <>

@@ -11,8 +11,8 @@ import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from './ui/menu';
 
 /**
  * Top-bar project switcher (MMR-79). Shows the current project key (or
- * "Projects" off the overview); the menu lists every project with its status and
- * ready count so you can jump between projects without returning to the overview.
+ * "Projects" outside a project); the menu lists every project with its status and
+ * ready count so you can jump between projects without returning to `/`.
  * A trailing "+ New project" row opens the create-project sheet (MMR-230).
  */
 export function ProjectPicker() {

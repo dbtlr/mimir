@@ -123,12 +123,10 @@ test('GET /api/projects rows carry no attention facet (Lanes retired, MMR-476)',
   }
 });
 
-test('GET /api/projects carries the leaf_counts facet for the card vitals (MMR-105)', async () => {
-  const res = await get('/api/projects');
-  const items = (await parse(res)).items as Rec[];
-  // MMR's two seeded leaf tasks are both fresh → ready: 2 (snake_case wire key)
+test('GET /api/projects leaves leaf_counts to the archived door, the only list that reads it', async () => {
+  const items = (await parse(await get('/api/projects'))).items as Rec[];
   expect(items[0]?.id).toBe('MMR');
-  expect(items[0]?.leaf_counts).toEqual({ ready: 2 });
+  expect(items[0]?.leaf_counts).toBeUndefined();
 });
 
 test('POST /api/projects creates and echoes the project record; duplicate keys conflict', async () => {
@@ -340,6 +338,23 @@ test('GET /api/review names the last finish with its finish time', async () => {
   const body = await parse(await get('/api/review'));
   expect(body.last_finished).toMatchObject({ abandon_reason: null, id: task1 });
   expect(typeof (body.last_finished as Rec).finished_at).toBe('string');
+});
+
+test('GET /api/review still answers when the doctor scan fails, counting no findings', async () => {
+  await send('POST', '/api/seeds', { kind: 'idea', project: 'NRN', title: 'an idea' });
+  const failingServer = createServer(store, {
+    doctor: () => Promise.reject(new Error('doctor scan failed')),
+    port: 0,
+    version: '0.0.0-test',
+  });
+  try {
+    const res = await fetch(`http://127.0.0.1:${String(failingServer.port)}/api/review`);
+    expect(res.status).toBe(200);
+    const triage = (await parse(res)).triage as Rec[];
+    expect(triage.map((g) => [(g.project as Rec).key, g.findings])).toEqual([['NRN', 0]]);
+  } finally {
+    await failingServer.stop(true);
+  }
 });
 
 test('GET /api/review counts the injected doctor findings per active project', async () => {

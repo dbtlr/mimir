@@ -121,6 +121,14 @@ export const NEEDS_YOU_REASON_ORDER: readonly WorkNeedsYouReason[] = [
   'needs_answers',
 ];
 
+/** Needs-you order, shared by the work page, the review page's groups, and its focus queue: reason, then newest first. */
+export const byNeedsYouOrder = (
+  a: { node: Node; reason: WorkNeedsYouReason },
+  b: { node: Node; reason: WorkNeedsYouReason },
+): number =>
+  NEEDS_YOU_REASON_ORDER.indexOf(a.reason) - NEEDS_YOU_REASON_ORDER.indexOf(b.reason) ||
+  byRecency(a.node, b.node);
+
 /**
  * Why a task waits on the operator, or `undefined` when it does not: under
  * review, blocked with an owner of `you`, or a `todo` with no hold whose
@@ -312,21 +320,15 @@ export async function workPageOf(store: Store, id: string, opts: WorkOptions): P
   );
 
   const needsYouRows: WorkNeedsYouTask[] = await Promise.all(
-    needsYou
-      .toSorted(
-        (a, b) =>
-          NEEDS_YOU_REASON_ORDER.indexOf(a.reason) - NEEDS_YOU_REASON_ORDER.indexOf(b.reason) ||
-          byRecency(a.node, b.node),
-      )
-      .map(async ({ node, reason }) => ({
-        question:
-          reason === 'needs_answers'
-            ? (latestOf(questionSections.get(node.id)?.annotations)?.content ?? null)
-            : null,
-        reason,
-        stale: staleIds.has(node.id),
-        task: await viewOf(node),
-      })),
+    needsYou.toSorted(byNeedsYouOrder).map(async ({ node, reason }) => ({
+      question:
+        reason === 'needs_answers'
+          ? (latestOf(questionSections.get(node.id)?.annotations)?.content ?? null)
+          : null,
+      reason,
+      stale: staleIds.has(node.id),
+      task: await viewOf(node),
+    })),
   );
 
   const frontierRow = async (entry: {

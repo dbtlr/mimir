@@ -19,7 +19,7 @@ import { buildNodeView } from './view';
 import {
   NEEDS_YOU_REASON_ORDER,
   abandonedOf,
-  byRecency,
+  byNeedsYouOrder,
   cmpStr,
   latestOf,
   needsYouReasonOf,
@@ -183,11 +183,7 @@ export async function reviewOf(
           goingCold += 1;
         }
       }
-      decisions.sort(
-        (a, b) =>
-          NEEDS_YOU_REASON_ORDER.indexOf(a.reason) - NEEDS_YOU_REASON_ORDER.indexOf(b.reason) ||
-          byRecency(a.node, b.node),
-      );
+      decisions.sort(byNeedsYouOrder);
       return {
         decisions,
         findings: findingCounts.get(project.key) ?? 0,
@@ -224,11 +220,7 @@ export async function reviewOf(
 
   const queue = facts
     .flatMap((f) => f.decisions)
-    .toSorted(
-      (a, b) =>
-        NEEDS_YOU_REASON_ORDER.indexOf(a.reason) - NEEDS_YOU_REASON_ORDER.indexOf(b.reason) ||
-        byRecency(a.node, b.node),
-    )
+    .toSorted(byNeedsYouOrder)
     .map((d) => d.node.id);
 
   const triage: ReviewTriageGroup[] = facts

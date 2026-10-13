@@ -274,4 +274,16 @@ describe('the review page at / (ADR 0013, MMR-476 refinement)', () => {
     expect(screen.queryByRole('region', { name: /Decide/ })).toBeNull();
     expect(screen.getAllByRole('button', { name: '+ New project' }).length).toBeGreaterThan(0);
   });
+
+  it('does not claim a fresh store before it knows whether projects are archived', async () => {
+    apiGet.mockImplementation((path: string) =>
+      path === '/api/review'
+        ? Promise.resolve(reviewReport())
+        : Promise.reject(new Error('archived read failed')),
+    );
+    renderReview();
+
+    await screen.findByRole('heading', { level: 1, name: 'Nothing needs you' });
+    expect(screen.queryByText('No projects yet.')).toBeNull();
+  });
 });
