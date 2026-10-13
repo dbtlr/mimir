@@ -207,3 +207,26 @@ set, so its chips never take the attention violet.
 - Whether needs-answers tasks join the needs-you set is the review page's
   decision (MMR-440). If they do, that page's rows take the attention hue, and
   the chip keeps its amber.
+
+## Refinement (2026-10-12, MMR-467): a work page's needs-you set includes tasks that need answers
+
+The work page (ADR 0013, work-page refinement) has a _Needs you_ section for
+its scope. A task whose grooming state is _needs answers_ waits on the
+operator's answer, and nothing else moves it, so the section includes it.
+
+- On a work page, _Needs you_ is tasks under review, blocks owned by `you`,
+  and `todo` tasks with no hold whose grooming state is _needs answers_, in
+  that order. Grooming state alone never puts a parked or blocked task in
+  the set: a parked task stays quiet, and a block owned by `you` is already
+  in the set as a block.
+- A needs-answers row takes the attention hue and shows its latest note,
+  which is normally the question its grooming call wrote. Its grooming chip
+  keeps its amber (MMR-466 refinement).
+- _Going cold_ is not part of a work page's _Needs you_. The page lists stale
+  work in its own _Going cold_ section, and a stale row in _Needs you_ carries
+  the stale chip.
+- This amends the block-ownership refinement's rule that one narrowed set
+  applies wherever the console counts what needs the operator. A work page's
+  _Needs you_ is its own set, so its count can differ from the top-bar alert.
+  The alert keeps §9's set as narrowed by block ownership. The review page
+  (MMR-440) still decides its own set, and whether the alert follows it.

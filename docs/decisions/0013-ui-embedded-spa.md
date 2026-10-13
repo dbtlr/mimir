@@ -314,3 +314,87 @@ or the rendered id, so typing `mmr-45` in the `/tasks` browser finds `MMR-45`
 and `MMR-450`. The change lives in the shared node selection, so the CLI
 (`list`/`next -q`) and MCP get it too. The artifact feed's `q` stays
 title-only.
+
+## Refinement (2026-10-12, MMR-467): a project or container opens as its work page
+
+§4 made the board the primary lens. Agent work moves through statuses in
+minutes, so the columns mostly show churn, and status belongs on the row.
+The console rebuild (MMR-356) replaces the lens with a work page built from
+the questions the operator asks. §4 is revised:
+
+- **`/p/KEY` and a container's own URL open its work page.** A project, an
+  initiative, or a phase opens at its page from the MMR-444 refinement
+  (`/p/KEY`, `/p/KEY/367`) as the work page, scoped to its subtree. A task
+  page is unchanged.
+- **The main column is five sections in question order:** _Now_, _Needs
+  you_, _Frontier_, _Shipped_, and _Going cold_. Every row links to its
+  record page. A task appears once, in the first section that claims it;
+  _Going cold_ is the one exception. A stale row carries the stale chip
+  wherever it appears.
+- **Now is the work moving.** It lists tasks whose status word (ADR 0008) is
+  `in_progress`, with when each started, its latest note, and its agent
+  context.
+- **Needs you** is the work page's needs-you set (ADR 0019, work-page
+  refinement).
+- **The frontier is the work that could move soon.** It holds every `todo`
+  task with no hold that is `ready`, or `awaiting` only prerequisites whose
+  status word is `in_progress`, `under_review`, or `ready`. Such a task is at
+  most one step away. A container prerequisite counts by its rollup word,
+  and inherited dependency edges count, as they do for `ready`. Grooming
+  state (ADR 0033) splits these tasks into three groups:
+  - _Runnable now_ is groomed and `ready`, in `next` order.
+  - _Next to unlock_ is groomed and `awaiting`, grouped by prerequisite. A
+    task waiting on several prerequisites appears under each.
+  - _To groom_ is not groomed, `ready` or `awaiting`, in rank order. An
+    initiative or phase that reads _to break down_ (ADR 0033 §6) follows
+    the tasks, under the same one-step rule on its own dependencies.
+
+  The frontier ends with _Waiting on others_, a folded group outside that
+  rule. It lists every task blocked with owner `others`, started or not and
+  at any distance, with each block's reason, oldest first. Blocks owned by
+  `you` are in _Needs you_, so every blocked task has one home on the page.
+
+  An unheld task that needs answers is in _Needs you_, not the frontier; a
+  blocked task that needs answers keeps its block's home. An unheld task two
+  or more steps away, and a parked task, are not rows; the board and the
+  task browser list them.
+- **Shipped is the last seven calendar days**, today included, in the
+  caller's time zone (ADR 0029). It lists tasks done or abandoned in that
+  window, newest first, grouped by day. An abandoned row shows its reason.
+  Releases and session summaries are not rows; the daily briefing (MMR-442)
+  covers what happened.
+- **Going cold is every stale task in scope** (ADR 0019 §9), the same
+  predicate as `?is=stale`, oldest first. It repeats rows shown in earlier
+  sections so that it answers its own question: what has nobody touched in
+  a while.
+- **The rail is Direction, Structure, About, then Other views.** The
+  direction leads in full as rendered markdown and is editable in place. The
+  structure outline lists the scope's initiatives and phases and links each
+  to its own page. About holds the description, artifacts, and details.
+  Other views links to the board and the task browser. On a phone each rail
+  section is a chip under the title that opens a bottom sheet.
+- **The board is an optional view; the tree retires.** `/p/KEY/board` keeps
+  the status columns, reached from the rail. The tree lens and its `?view=`
+  parameter are removed. The cross-project Overview at `/` stays until the
+  review page (MMR-440) replaces it. Where this ADR's earlier sections and
+  ADR 0019 name the board as the primary lens, the work page now holds that
+  place.
+
+Considered and rejected:
+
+- **Every awaiting task under Next to unlock.** On a deep plan it becomes a
+  long list that is mostly not near, and the frontier stops meaning "what
+  could move soon."
+- **One section per task, with no exception.** Every stale task is in
+  progress, ready, under review, or blocked, so earlier sections claim it
+  and _Going cold_ would always be empty. Moving stale tasks out of _Now_
+  instead would hide a stuck task from the section that shows running work.
+- **A fixed count of recent finishes for Shipped.** It keeps a quiet
+  project's section from going empty, but then Shipped no longer means
+  recent.
+- **The description folded under the title.** It is more visible but
+  competes with the work for the top of the page; a phase's description
+  often holds long settled decisions.
+- **A cockpit of panes, or a single timeline** (the shaping mocks' variants B
+  and C). Panes split the reading order and stack poorly on a phone; a
+  timeline mixes rank order with dependency order on one axis.
