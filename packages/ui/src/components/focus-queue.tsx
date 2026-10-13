@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 
-import { annotationsQuery, nodeQuery, treeQuery } from '../api/queries';
+import { annotationsQuery, nodeQuery, reviewQuery, treeQuery } from '../api/queries';
 import { projectKeyOf } from '../api/types';
 import type { WireReviewReport, WireWorkNeedsYou } from '../api/types';
 import { cn } from '../lib/cn';
@@ -11,6 +11,7 @@ import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
 import { verdictSummary } from '../lib/verdict';
 import { MarkdownBody } from './markdown-body';
 import { ExternalRef } from './node-record';
+import { RecordPending } from './record-layout';
 import { ActionButton, actionButtonVariants } from './ui/action-button';
 import { Crumbs } from './work-page';
 import { needsYouActions } from './work-rows';
@@ -18,10 +19,12 @@ import { needsYouActions } from './work-rows';
 /*
  * `/?mode=focus` — the review page's focus queue (ADR 0013, MMR-476
  * refinement): one decision at a time, in ADR 0019's queue order. The list is
- * fixed when the queue opens, so a decision that arrives later waits for the
- * next pass. A decision settled anywhere — here, by its action, or elsewhere —
- * drops out of the live review read and the queue moves past it; Skip moves
- * past one without acting and leaves it on the page. When nothing is left the
+ * fixed when the queue opens, from a fresh read rather than a cached one, so a
+ * decision that arrives later waits for the next pass. The queue only moves
+ * forward: a decision settled anywhere — here, by its action, or elsewhere —
+ * drops out of the live review read and the queue moves past it, and Skip
+ * moves past one without acting, leaving it on the page. A decision behind
+ * the queue stays behind it, even when it returns. When nothing is left the
  * queue returns to `/`.
  */
 
@@ -40,36 +43,42 @@ function liveDecisions(report: WireReviewReport): Map<string, WireWorkNeedsYou> 
   return new Map(report.decisions.flatMap((group) => group.rows.map((row) => [row.id, row])));
 }
 
-/** The fixed list's decisions not yet passed: still live, and not skipped. */
-function remainingOf(
-  fixed: readonly string[],
-  live: ReadonlyMap<string, WireWorkNeedsYou>,
-  skipped: ReadonlySet<string>,
-): WireWorkNeedsYou[] {
-  return fixed.flatMap((id) => {
-    const row = live.get(id);
-    return row === undefined || skipped.has(id) ? [] : [row];
-  });
-}
-
-export function FocusQueue({ report, offline }: { report: WireReviewReport; offline: boolean }) {
-  const [fixed] = useState(() => report.queue);
-  const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set());
+export function FocusQueue({ offline }: { offline: boolean }) {
+  // Its own observer, so opening the queue refetches a read gone stale.
+  const review = useQuery(reviewQuery);
+  const [fixed, setFixed] = useState<readonly string[] | null>(null);
+  // The queue's place in the fixed list; nothing before it comes back.
+  const [cursor, setCursor] = useState(0);
   const navigate = useNavigate();
-  const [current, next] = remainingOf(fixed, liveDecisions(report), skipped);
+  const report = review.data;
+  // A read that cannot refresh (failed, or paused offline) is the best there is.
+  const settled = !review.isStale || review.isError || review.isPaused;
+  if (fixed === null && report !== undefined && settled) {
+    setFixed(report.queue);
+  }
+  const live = report === undefined ? new Map<string, WireWorkNeedsYou>() : liveDecisions(report);
+  const index = fixed?.findIndex((id, i) => i >= cursor && live.has(id)) ?? -1;
+  if (index > cursor) {
+    setCursor(index);
+  }
+  const exhausted = fixed !== null && index === -1;
 
   useEffect(() => {
-    if (current === undefined) {
+    if (exhausted) {
       void navigate({ replace: true, search: {}, to: '/' });
     }
-  }, [current, navigate]);
-  if (current === undefined) {
-    return null;
+  }, [exhausted, navigate]);
+  if (fixed === null || index === -1) {
+    return exhausted ? null : <RecordPending unreachable={false} />;
   }
 
-  const position = fixed.indexOf(current.id) + 1;
+  const current = live.get(fixed[index]!)!;
+  const nextId = fixed.slice(index + 1).find((id) => live.has(id));
+  const next = nextId === undefined ? undefined : live.get(nextId);
+  const position = index + 1;
   return (
     <main className="mx-auto flex w-full max-w-[720px] flex-1 flex-col gap-4 p-5 max-md:px-3.5">
+      <h1 className="sr-only">Work through these</h1>
       <div className="flex items-center gap-3">
         <Link
           to="/"
@@ -91,7 +100,7 @@ export function FocusQueue({ report, offline }: { report: WireReviewReport; offl
         key={current.id}
         row={current}
         offline={offline}
-        onSkip={() => setSkipped(new Set([...skipped, current.id]))}
+        onSkip={() => setCursor(index + 1)}
       />
       {next !== undefined && (
         <section aria-label="Up next" className="flex flex-col gap-1">
@@ -152,9 +161,8 @@ function FocusCard({
       : undefined;
   const holdReason = row.reason === 'blocked' ? row.hold_reason?.trim() : undefined;
   return (
-    <article
-      aria-label={`Decision ${row.id}`}
-      aria-describedby={titleId}
+    <section
+      aria-labelledby={titleId}
       className="flex flex-col gap-3 rounded-lg border border-line-bright border-l-3 border-l-attention bg-well-850 px-5 py-4 max-md:px-3.5"
     >
       <p className="flex flex-wrap items-baseline gap-x-2">
@@ -209,7 +217,7 @@ function FocusCard({
           Open task page
         </Link>
       </div>
-    </article>
+    </section>
   );
 }
 

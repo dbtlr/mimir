@@ -581,7 +581,7 @@ export function ReviewPage() {
     return (
       <>
         <OfflineBanner {...conn} />
-        <FocusQueue report={report} offline={conn.offline} />
+        <FocusQueue offline={conn.offline} />
       </>
     );
   }

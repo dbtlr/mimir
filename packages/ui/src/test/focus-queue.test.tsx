@@ -44,7 +44,7 @@ const block = decision('MMR-52', 'blocked', {
 });
 const question = decision('MMR-480', 'needs_answers', {
   question: 'Skip, or drop it?',
-  title: 'Work through these',
+  title: 'Pick the skip behavior',
 });
 
 /** A review read listing `rows` as decisions in the queue order given, grouped LM then MMR. */
@@ -122,12 +122,16 @@ function serve(
   };
 }
 
-function renderAt(path: string) {
+/** Render the console at `path`; `cached` seeds the review read as one restored from a day ago. */
+function renderAt(path: string, cached?: WireReviewReport) {
   const testRouter = createRouter({
     history: createMemoryHistory({ initialEntries: [path] }),
     routeTree: router.routeTree,
   });
-  const client = new QueryClient();
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: 5_000 } } });
+  if (cached !== undefined) {
+    client.setQueryData(['review'], cached, { updatedAt: NOW - 24 * 60 * 60_000 });
+  }
   render(
     <QueryClientProvider client={client}>
       <RouterProvider router={testRouter} />
@@ -154,8 +158,8 @@ describe('the review page head opens the focus queue (MMR-480)', () => {
   });
 });
 
-/** The focus card: the one decision the queue shows. */
-const card = () => screen.findByRole('article', { name: /^Decision / });
+/** The focus card, named by the title of the one decision the queue shows. */
+const cardFor = (row: WireWorkNeedsYou) => screen.findByRole('region', { name: row.title });
 
 describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () => {
   it('shows the first decision with its path, description, and question, and names the next', async () => {
@@ -166,8 +170,9 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     });
     renderAt('/?mode=focus');
 
-    const shown = await card();
-    expect(within(shown).getByRole('heading', { name: 'Work through these' })).toBeDefined();
+    const shown = await cardFor(question);
+    expect(screen.getByRole('heading', { level: 1, name: 'Work through these' })).toBeDefined();
+    expect(within(shown).getByRole('heading', { name: 'Pick the skip behavior' })).toBeDefined();
     expect(shown).toHaveTextContent('MMR-480');
     expect(shown).toHaveTextContent('Needs answers');
     expect(shown).toHaveTextContent('Skip, or drop it?');
@@ -211,7 +216,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     });
     renderAt('/?mode=focus');
 
-    const shown = await card();
+    const shown = await cardFor(verdict);
     await waitFor(() => {
       expect(shown).toHaveTextContent('Plugin ships with docs.');
     });
@@ -224,7 +229,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     await waitFor(() => {
       expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/LM-196/done', undefined);
     });
-    await expect(screen.findByRole('article', { name: 'Decision MMR-480' })).resolves.toBeDefined();
+    await expect(cardFor(question)).resolves.toBeDefined();
     expect(screen.getByText('2 of 2')).toBeDefined();
   });
 
@@ -232,11 +237,11 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     serve(decisions(verdict, question), { after: decisions(question) });
     renderAt('/?mode=focus');
 
-    const approve = within(await card()).getByRole('button', { name: 'Approve' });
+    const approve = within(await cardFor(verdict)).getByRole('button', { name: 'Approve' });
     approve.focus();
     fireEvent.click(approve);
 
-    const next = await screen.findByRole('article', { name: 'Decision MMR-480' });
+    const next = await cardFor(question);
     await waitFor(() => {
       expect(within(next).getByRole('button', { name: 'Answer…' })).toHaveFocus();
     });
@@ -246,7 +251,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     serve(decisions(block));
     renderAt('/?mode=focus');
 
-    const shown = await card();
+    const shown = await cardFor(block);
     expect(shown).toHaveTextContent('Blocked · yours');
     expect(shown).toHaveTextContent('Needs an API token');
     const actions = within(shown).getByRole('group', { name: 'Actions for MMR-52' });
@@ -264,8 +269,8 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     serve(decisions(question, block));
     const { testRouter } = renderAt('/?mode=focus');
 
-    fireEvent.click(within(await card()).getByRole('button', { name: 'Skip' }));
-    const second = await screen.findByRole('article', { name: 'Decision MMR-52' });
+    fireEvent.click(within(await cardFor(question)).getByRole('button', { name: 'Skip' }));
+    const second = await cardFor(block);
     fireEvent.click(within(second).getByRole('button', { name: 'Skip' }));
 
     await screen.findByRole('region', { name: 'Decide · 2' });
@@ -281,13 +286,13 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     });
     const serving = serve(decisions(verdict, block));
     const { client } = renderAt('/?mode=focus');
-    await screen.findByRole('article', { name: 'Decision LM-196' });
+    await cardFor(verdict);
 
     // The verdict is settled elsewhere and a new question arrives.
     serving.poll(decisions(block, later));
     await client.invalidateQueries({ queryKey: ['review'] });
 
-    const shown = await screen.findByRole('article', { name: 'Decision MMR-52' });
+    const shown = await cardFor(block);
     expect(screen.getByText('2 of 2')).toBeDefined();
     expect(screen.queryByRole('region', { name: 'Up next' })).toBeNull();
     fireEvent.click(within(shown).getByRole('button', { name: 'Skip' }));
@@ -300,5 +305,43 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
 
     await screen.findByRole('heading', { level: 1, name: 'Nothing needs you' });
     expect(testRouter.state.location.href).toBe('/');
+  });
+
+  it('lands focus on the next decision’s first action after Skip', async () => {
+    serve(decisions(question, verdict));
+    renderAt('/?mode=focus');
+
+    const skip = within(await cardFor(question)).getByRole('button', { name: 'Skip' });
+    skip.focus();
+    fireEvent.click(skip);
+
+    const next = await cardFor(verdict);
+    expect(within(next).getByRole('button', { name: 'Approve' })).toHaveFocus();
+  });
+
+  it('keeps a passed decision behind it when the decision returns', async () => {
+    const serving = serve(decisions(verdict, block, question));
+    const { client } = renderAt('/?mode=focus');
+    await cardFor(verdict);
+
+    // The verdict is sent back elsewhere, then resubmitted.
+    serving.poll(decisions(block, question));
+    await client.invalidateQueries({ queryKey: ['review'] });
+    await cardFor(block);
+    serving.poll(decisions(verdict, block, question));
+    await client.invalidateQueries({ queryKey: ['review'] });
+
+    await expect(cardFor(block)).resolves.toBeDefined();
+    expect(screen.queryByRole('region', { name: verdict.title })).toBeNull();
+    expect(screen.getByText('2 of 3')).toBeDefined();
+  });
+
+  it('fixes its list from a fresh read, not a cached one', async () => {
+    serve(decisions(question));
+    const { testRouter } = renderAt('/?mode=focus', decisions(verdict));
+
+    await expect(cardFor(question)).resolves.toBeDefined();
+    expect(screen.queryByRole('region', { name: verdict.title })).toBeNull();
+    expect(testRouter.state.location.href).toBe('/?mode=focus');
   });
 });
