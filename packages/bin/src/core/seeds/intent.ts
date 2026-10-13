@@ -43,9 +43,10 @@ import type { SeedRecord } from './store';
  * transports) import it from one place. */
 export type { SeedStatusSelector } from '@mimir/contract';
 
-/** The live universe — the untriaged + in-flight seeds (the non-terminal states),
- * derived from the lifecycle machine rather than a hand-spelled union (M2). */
-const isLive = (lifecycle: SeedLifecycle): boolean => !isTerminalSeed(lifecycle);
+/** The default `live` queue — the untriaged and in-flight seeds. A parked seed is
+ * set aside on purpose (MMR-473), so it is listed only by `parked` or `all`. */
+const isLive = (lifecycle: SeedLifecycle): boolean =>
+  lifecycle === 'new' || lifecycle === 'promoted';
 
 /** Narrow a raw `kind` value to the closed seed-kind enum, or `null` when it is
  * absent/non-string/foreign — the ONE narrowing every transport boundary shares
@@ -304,8 +305,8 @@ export async function listSeedsResolved(
   return { set, views };
 }
 
-/** Attach the derived lede to the LIVE views in `views` (mutated in place) from a
- * single batched section read (MMR-263). A no-op when no view is live.
+/** Attach the derived lede to the non-terminal views in `views` (mutated in place)
+ * from a single batched section read (MMR-263). A no-op when every view is settled.
  *
  * The lede is decorative, so a REJECTED batch read (a transport-level fault)
  * must not abort the queue: the live rows degrade to `lede: null` and the fault is noted on stderr —
@@ -313,7 +314,7 @@ export async function listSeedsResolved(
  * server stderr) without a wire change — so the degradation is diagnosable, not
  * silent (ADR 0017's diagnosability rule). */
 async function attachLede(store: Store, views: SeedView[]): Promise<void> {
-  const live = views.filter((v) => isLive(v.lifecycle));
+  const live = views.filter((v) => !isTerminalSeed(v.lifecycle));
   const refs = live
     .map((v) => parseSeedRef(v.id))
     .filter((ref): ref is { key: string; seq: number } => ref !== null);
@@ -353,10 +354,7 @@ export async function getSeed(
   id: string,
   opts: { content?: boolean } = {},
 ): Promise<SeedView> {
-  const ref = parseSeedRef(id);
-  if (ref === null) {
-    throw notFound(`${id} is not a seed id`, 'seed ids look like KEY-sN');
-  }
+  const ref = requireSeedRef(id);
   // Project-scoped (MMR-251): the lightweight all-projects read gates the board,
   // then the echo loads only the seed's spawned targets — no whole-store load.
   const projects = await store.loadProjects();
@@ -452,10 +450,7 @@ export async function promoteSeed(
   id: string,
   input: PromoteSeedInput,
 ): Promise<{ seed: SeedView; created?: string; spawnedId: string }> {
-  const ref = parseSeedRef(id);
-  if (ref === null) {
-    throw notFound(`${id} is not a seed id`, 'seed ids look like KEY-sN');
-  }
+  const ref = requireSeedRef(id);
   if (input.parent !== undefined && input.link !== undefined) {
     throw validation('promote takes --parent (create) or --link (record existing), not both');
   }
@@ -466,7 +461,7 @@ export async function promoteSeed(
   if (isTerminalSeed(rec.lifecycle)) {
     throw validation(
       `seed ${id} is ${rec.lifecycle} — a terminal seed cannot be promoted`,
-      'promote applies to a new or promoted seed',
+      'promote applies to a new, parked, or promoted seed',
     );
   }
 
@@ -539,9 +534,9 @@ export async function promoteSeed(
 
 /**
  * `reject` / `resolve KEY-sN "<reason>"` — the terminal transitions (MMR-245).
- * Both are reachable from `new` or `promoted`; the reason is required and rides
- * the `## History` record. The store's lifecycle machine enforces the legal edge
- * and terminal-freeze.
+ * Both are reachable from any live state; the reason is required and rides the
+ * `## History` record. The store's lifecycle machine enforces the legal edge and
+ * terminal-freeze.
  */
 export async function transitionSeed(
   store: Store,
@@ -549,13 +544,56 @@ export async function transitionSeed(
   to: 'resolved' | 'rejected',
   reason: string,
 ): Promise<SeedView> {
+  requireSeedRef(id);
+  if (reason.trim() === '') {
+    throw validation(`${to === 'rejected' ? 'reject' : 'resolve'} requires a reason`);
+  }
+  return moveSeed(store, id, to, reason);
+}
+
+/**
+ * `park KEY-sN ["<reason>"]` — set an untriaged seed aside on purpose (MMR-473).
+ * A parked seed stops counting as untriaged but stays a live record: it can still
+ * be edited, promoted, resolved, or rejected. The reason is optional, as on a
+ * task park, and rides the `## History` record.
+ */
+export async function parkSeed(store: Store, id: string, reason?: string): Promise<SeedView> {
+  return moveSeed(
+    store,
+    id,
+    'parked',
+    reason === undefined || reason.trim() === '' ? null : reason,
+  );
+}
+
+/** `unpark KEY-sN` — return a parked seed to the untriaged queue (MMR-473). */
+export async function unparkSeed(store: Store, id: string): Promise<SeedView> {
+  const ref = requireSeedRef(id);
+  const rec = await store.seeds.load(ref.key, ref.seq);
+  if (rec !== undefined && rec.lifecycle !== 'parked') {
+    throw validation(`seed ${id} is not parked (is ${rec.lifecycle})`);
+  }
+  return moveSeed(store, id, 'new', null);
+}
+
+/** Parse a seed id or refuse it with the one `not_found` every seed verb gives. */
+function requireSeedRef(id: string): { key: string; seq: number } {
   const ref = parseSeedRef(id);
   if (ref === null) {
     throw notFound(`${id} is not a seed id`, 'seed ids look like KEY-sN');
   }
-  if (reason.trim() === '') {
-    throw validation(`${to === 'rejected' ? 'reject' : 'resolve'} requires a reason`);
-  }
+  return ref;
+}
+
+/** Move a seed along its lifecycle machine on an active board and echo it — the
+ * shared body of the terminal and parking verbs. */
+async function moveSeed(
+  store: Store,
+  id: string,
+  to: SeedLifecycle,
+  reason: string | null,
+): Promise<SeedView> {
+  const ref = requireSeedRef(id);
   // One projects read serves the board-active guard AND the echo (MMR-251): no
   // whole-store load for either, and no second read for the echo.
   const projects = await store.loadProjects();
@@ -581,10 +619,7 @@ export async function updateSeed(
   id: string,
   fields: UpdateSeedFields,
 ): Promise<SeedView> {
-  const ref = parseSeedRef(id);
-  if (ref === null) {
-    throw notFound(`${id} is not a seed id`, 'seed ids look like KEY-sN');
-  }
+  const ref = requireSeedRef(id);
   // `update --title` inherits the capture title cap (MMR-263) — the same forcing
   // function, so a title can never grow past the cap after the fact.
   if (fields.title !== undefined) {

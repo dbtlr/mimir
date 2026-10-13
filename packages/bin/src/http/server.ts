@@ -46,6 +46,7 @@ import {
   asSeedKind,
   getSeed,
   listSeeds,
+  parkSeed,
   promoteSeed,
   promoteToWire,
   seedToWire,
@@ -53,6 +54,7 @@ import {
   scratchpadRowToWire,
   scratchpadToWire,
   transitionSeed,
+  unparkSeed,
   updateSeed,
   nodeViewOf,
   projectViewByKey,
@@ -1606,6 +1608,15 @@ function bindServer(
           }),
       },
 
+      // Parking (MMR-473): set an untriaged seed aside; `/unpark` below returns it.
+      '/api/seeds/:id/park': {
+        POST: (req) =>
+          guarded(req, async () => {
+            const body = await readBody(req, ['reason']);
+            return json(seedToWire(await parkSeed(store, req.params.id, strField(body, 'reason'))));
+          }),
+      },
+
       '/api/seeds/:id/promote': {
         POST: (req) =>
           guarded(req, async () => {
@@ -1658,6 +1669,14 @@ function bindServer(
               requiredStr(body, 'reason', 'resolve'),
             );
             return json(seedToWire(seed));
+          }),
+      },
+
+      '/api/seeds/:id/unpark': {
+        POST: (req) =>
+          guarded(req, async () => {
+            await readBody(req, []);
+            return json(seedToWire(await unparkSeed(store, req.params.id)));
           }),
       },
 

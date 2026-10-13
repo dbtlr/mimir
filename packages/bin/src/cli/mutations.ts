@@ -30,6 +30,7 @@ import {
   SEED_DATE_FIELD,
   moveNode,
   OPS,
+  seedOpFor,
   parseIdentity,
   parseOpChoice,
   parseSeedRef,
@@ -215,7 +216,17 @@ export async function cmdUniform(c: Ctx, verb: UniformVerb): Promise<number> {
     }
     return 0;
   }
-  const id = await resolveNode(c.store, requirePos(c, 1, verb), 'task');
+  const subject = requirePos(c, 1, verb);
+  // A seed id on a verb that accepts seeds (park/unpark, MMR-473) moves the seed
+  // and echoes it the way the other seed verbs do.
+  const seedRun = seedOpFor(verb, subject);
+  if (seedRun !== undefined) {
+    const seed = await seedRun(c.store, subject, reason);
+    signpost(c.io, c.format, withReason(`${word} ${seed.id}`, reason));
+    renderSeedView(seed, c.format, c.io);
+    return 0;
+  }
+  const id = await resolveNode(c.store, subject, 'task');
   await op.run(c.store, id, reason, fields, choice);
   const suffix = echoTransitionSuffix(op.transition, c.io.plain);
   await echoNodeWith(c.store, id, c.format, c.io, (rid) =>

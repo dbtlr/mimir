@@ -19,7 +19,8 @@ import { isTerminalSeed } from './store';
  * reconciliation over ONE board, self-contained (no store-wide scans, no
  * cross-board mutation). Three checks:
  *
- * - (a) the board's new/untriaged seeds — surfaced from the lane classifier.
+ * - (a) the board's new/untriaged seeds — surfaced from the lane classifier. A
+ *   parked seed is set aside on purpose, so it is only counted (`parked`).
  * - (b) the board's promoted seeds whose spawned work has all settled
  *   (`readyToResolve`) — an attention signal, NEVER an auto-close.
  * - (c) the board's OWN tasks whose `upstream` seed (on any board) went
@@ -116,12 +117,14 @@ export async function triage(store: Store, opts: TriageOptions): Promise<TriageR
   // the single gate — an archived/absent board never reaches the writes below. Its
   // working set is threaded out and reused for check (c) below, so the pass derives
   // ONE load, not one per check (MMR-251/D4).
-  const { set, views: liveSeeds } = await listSeedsResolved(store, {
+  const { set, views: seeds } = await listSeedsResolved(store, {
     project: opts.board,
-    status: 'live',
+    status: 'all',
   });
-  const untriaged = liveSeeds.filter((seed) => seedLane(seed) === 'untriaged');
-  const readyToResolve = liveSeeds.filter((seed) => seedLane(seed) === 'ready');
+  const untriaged = seeds.filter((seed) => seedLane(seed) === 'untriaged');
+  const readyToResolve = seeds.filter((seed) => seedLane(seed) === 'ready');
+  // Parked seeds (MMR-473) are reported as a count only: remembered, never asked about.
+  const parked = seeds.filter((seed) => seedLane(seed) === 'parked').length;
 
   // (c): the board's OWN tasks with an `upstream` ref. A malformed ref was already
   // nulled at the reader's grammar tier, so any non-null `upstream` is valid s-grammar.
@@ -228,5 +231,13 @@ export async function triage(store: Store, opts: TriageOptions): Promise<TriageR
     }
   }
 
-  return { board: opts.board, dryRun, failures, readyToResolve, untriaged, upstreamResolutions };
+  return {
+    board: opts.board,
+    dryRun,
+    failures,
+    parked,
+    readyToResolve,
+    untriaged,
+    upstreamResolutions,
+  };
 }

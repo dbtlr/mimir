@@ -552,8 +552,9 @@ function renderSeedTable(seeds: readonly SeedView[], io: Io, emptyMsg?: string):
 }
 
 /** The `--grouped` lane view (MMR-245): untriaged / ready to resolve / settled,
- * each with a count. A promoted seed whose spawned work is not all settled is
- * shown in a promoted lane (only when populated) so no seed is dropped. */
+ * each with a count. A promoted seed whose spawned work is not all settled, and a
+ * parked seed (MMR-473), are shown in their own lanes (only when populated) so no
+ * seed is dropped. */
 function renderSeedGrouped(seeds: readonly SeedView[], io: Io): string {
   // Bucket by the shared classifier (M1) so the lane view can't drift from the wire
   // `lane` field — one source of the untriaged/ready/promoted/settled partition.
@@ -562,12 +563,14 @@ function renderSeedGrouped(seeds: readonly SeedView[], io: Io): string {
     ['untriaged', inLane('untriaged')],
     ['ready to resolve', inLane('ready')],
     ['promoted', inLane('promoted')],
+    ['parked', inLane('parked')],
     ['settled', inLane('settled')],
   ];
   const out: string[] = [countLine(seeds.length, 'seed')];
   for (const [label, lane] of lanes) {
-    // The three headline lanes always show (with a count); promoted only when populated.
-    if (label === 'promoted' && lane.length === 0) {
+    // The three headline lanes always show (with a count); promoted and parked
+    // only when populated.
+    if ((label === 'promoted' || label === 'parked') && lane.length === 0) {
       continue;
     }
     out.push('', bold(`${label} (${String(lane.length)})`, io.plain));
@@ -663,7 +666,8 @@ export function renderTriageReport(report: TriageReport, io: Io): string {
     report.dryRun ? `${String(wouldAnnotate)} would annotate` : `${String(wrote)} annotated`,
     `${String(already)} already recorded`,
   ];
-  const counts = `${countLine(report.untriaged.length, 'untriaged seed')} · ${String(report.readyToResolve.length)} ready to resolve · ${countLine(res.length, 'upstream resolution')} (${cParts.join(', ')})`;
+  const parked = report.parked > 0 ? ` · ${String(report.parked)} parked` : '';
+  const counts = `${countLine(report.untriaged.length, 'untriaged seed')}${parked} · ${String(report.readyToResolve.length)} ready to resolve · ${countLine(res.length, 'upstream resolution')} (${cParts.join(', ')})`;
   const lede = [
     bold(`triage ${report.board}`, io.plain),
     report.failures.length > 0
@@ -686,6 +690,13 @@ export function renderTriageReport(report: TriageReport, io: Io): string {
   out.push('', bold(`ready to resolve (${String(report.readyToResolve.length)})`, io.plain));
   if (report.readyToResolve.length > 0) {
     out.push(...seedRows(report.readyToResolve, io));
+  }
+  // Parked seeds (MMR-473) are a reminder, never a decision: a count and where to look.
+  if (report.parked > 0) {
+    out.push(
+      '',
+      `${countLine(report.parked, 'parked seed')} — list them: mimir seeds -p ${report.board} --status parked`,
+    );
   }
   out.push('', bold(`upstream resolutions (${String(res.length)})`, io.plain));
   const glyph = arrow(io.plain);
@@ -910,7 +921,7 @@ export function renderOverview(report: OverviewReport, io: Io): string {
   // the reported project so the pointer stays true under `-s KEY`, then the
   // capped listing beneath it: the lane word first, so the row reads as a
   // standing, then the task's own line.
-  const { untriaged, blocked, stale, listings } = report.hygiene;
+  const { untriaged, blocked, stale, listings, parkedSeeds } = report.hygiene;
   out.push('', 'hygiene');
   const hygiene: string[] = [];
   const pushAttention = (rows: readonly OverviewAttentionTask[]): void => {
@@ -947,6 +958,12 @@ export function renderOverview(report: OverviewReport, io: Io): string {
     pushAttention(listings.stale);
   }
   out.push(...(hygiene.length === 0 ? ['  nothing flagged'] : hygiene.map((line) => `  ${line}`)));
+  // Parked seeds (MMR-473) are not flagged: one reminder line, never a listing.
+  if (parkedSeeds > 0) {
+    out.push(
+      `  ${countLine(parkedSeeds, 'parked seed')} — list them: mimir seeds -p ${id} --status parked`,
+    );
+  }
 
   return out.join('\n');
 }

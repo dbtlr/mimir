@@ -11,17 +11,24 @@ import {
 import { seed } from './fixtures';
 
 describe('seed lane grouping (MMR-247)', () => {
-  it('orders lanes UNTRIAGED → READY → PROMOTED → SETTLED and drops empties', () => {
+  it('orders lanes UNTRIAGED → READY → PROMOTED → PARKED → SETTLED and drops empties', () => {
     // Deliberately out of order on input.
     const seeds = [
       seed({ id: 'MMR-s4', lane: 'settled', lifecycle: 'resolved' }),
+      seed({ id: 'MMR-s5', lane: 'parked', lifecycle: 'parked' }),
       seed({ id: 'MMR-s2', lane: 'ready', lifecycle: 'promoted' }),
       seed({ id: 'MMR-s1', lane: 'untriaged' }),
       seed({ id: 'MMR-s3', lane: 'promoted', lifecycle: 'promoted' }),
     ];
     const groups = groupSeedsByLane(seeds);
     expect(groups.map((g) => g.lane)).toStrictEqual(SEED_LANE_ORDER);
-    expect(groups.map((g) => g.lane)).toStrictEqual(['untriaged', 'ready', 'promoted', 'settled']);
+    expect(groups.map((g) => g.lane)).toStrictEqual([
+      'untriaged',
+      'ready',
+      'promoted',
+      'parked',
+      'settled',
+    ]);
   });
 
   it('preserves server (FIFO) order within a lane', () => {
@@ -44,8 +51,10 @@ describe('seed lane grouping (MMR-247)', () => {
       seed({ lane: 'untriaged' }),
       seed({ lane: 'ready', lifecycle: 'promoted' }),
       seed({ lane: 'promoted', lifecycle: 'promoted' }),
+      seed({ lane: 'parked', lifecycle: 'parked' }),
       seed({ lane: 'settled', lifecycle: 'resolved' }),
     ];
+    // A parked seed is set aside on purpose: it never counts as waiting on you.
     expect(seedSummary(seeds)).toStrictEqual({ toResolve: 1, toTriage: 2 });
   });
 
@@ -54,6 +63,7 @@ describe('seed lane grouping (MMR-247)', () => {
       'Untriaged',
       'Ready to resolve',
       'Promoted',
+      'Parked',
       'Settled',
     ]);
   });

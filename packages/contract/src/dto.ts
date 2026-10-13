@@ -286,6 +286,9 @@ export type TriageReport = {
   dryRun: boolean;
   /** Check (a): the board's new/untriaged seeds (the `untriaged` lane). */
   untriaged: SeedView[];
+  /** How many of the board's seeds are parked (MMR-473) — set aside on purpose,
+   * so counted as a reminder rather than listed for a decision. */
+  parked: number;
   /** Check (b): the board's promoted seeds whose spawned work has all settled. */
   readyToResolve: SeedView[];
   /** Check (c): the board's tasks whose `upstream` seed went terminal. */
@@ -570,6 +573,8 @@ export type OverviewHygieneListings = {
 export type OverviewHygiene = {
   /** New (untriaged) seeds on the board. */
   untriaged: number;
+  /** Parked seeds on the board (MMR-473) — a reminder count, never a listing. */
+  parkedSeeds: number;
   /** Tasks whose status word is `blocked` (a manual hold). */
   blocked: number;
   /** Tasks that have gone quiet past the stale threshold. */

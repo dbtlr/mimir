@@ -96,6 +96,33 @@ describe('/api/seeds', () => {
     expect(resolved).toMatchObject({ id: 'MMR-s1', lifecycle: 'resolved' });
   });
 
+  test('park/unpark verb endpoints move the seed (reason optional) (MMR-473)', async () => {
+    await fetch(`${base}/api/seeds`, {
+      body: JSON.stringify({ kind: 'idea', project: 'MMR', title: 'a' }),
+      method: 'POST',
+    });
+    const parked = (await (
+      await fetch(`${base}/api/seeds/MMR-s1/park`, {
+        body: JSON.stringify({ reason: 'after v1' }),
+        method: 'POST',
+      })
+    ).json()) as Rec;
+    expect(parked).toMatchObject({ id: 'MMR-s1', lane: 'parked', lifecycle: 'parked' });
+    const unparked = (await (
+      await fetch(`${base}/api/seeds/MMR-s1/unpark`, { method: 'POST' })
+    ).json()) as Rec;
+    expect(unparked).toMatchObject({ lane: 'untriaged', lifecycle: 'new' });
+    const bare = (await (
+      await fetch(`${base}/api/seeds/MMR-s1/park`, { method: 'POST' })
+    ).json()) as Rec;
+    expect(bare).toMatchObject({ lifecycle: 'parked' });
+    const unknownKey = await fetch(`${base}/api/seeds/MMR-s1/unpark`, {
+      body: JSON.stringify({ reason: 'x' }),
+      method: 'POST',
+    });
+    expect(unknownKey.status).toBe(400);
+  });
+
   test('promote echoes the created task id as a sibling field (B7)', async () => {
     // A phase to promote under.
     const pid = resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), 'MMR');

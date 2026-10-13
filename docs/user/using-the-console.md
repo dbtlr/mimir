@@ -56,8 +56,9 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
 - **A seed page** reads as a request: which board asks which, the description,
   and what came of it, meaning the tasks promoted from the seed and the tasks
   on any board that name it as upstream. A decision block offers the verbs the
-  seed needs next: promote, reject, or leave a new seed for later; promote
-  again or reject while its work is under way; and resolve, promote again, or
+  seed needs next: promote, reject, or park a new seed for later; promote,
+  unpark, or reject a parked seed; promote again or reject while its work is
+  under way; and resolve, promote again, or
   reject once that work has settled. Its rail holds Edit, Copy link, and
   details.
 - **An artifact page** shows the frozen body under the work it is attached to.
@@ -84,8 +85,8 @@ Portfolio-wide surfaces include:
 - **Artifacts** for frozen work products, grouped by the day they were frozen,
   each showing the records it is attached to;
 - **Seeds** for the grooming queue, grouped by lane: untriaged, ready to
-  resolve, and promoted, with settled seeds folded behind **Show settled
-  seeds**;
+  resolve, and promoted, with parked and settled seeds folded behind **Show
+  parked seeds** and **Show settled seeds**;
 - **Record health** for `mimir doctor` findings: rows the store holds in an
   inconsistent state, each with its table, key, and evidence.
 

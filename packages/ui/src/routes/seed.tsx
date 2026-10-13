@@ -1,7 +1,7 @@
 import { SEED_KIND_VALUES } from '@mimir/contract';
 import type { SeedKind, SeedLane } from '@mimir/contract';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -50,8 +50,7 @@ export function SeedPage() {
 }
 
 /** A seed is editable until a terminal verb freezes it. */
-const isLive = (seed: WireSeed): boolean =>
-  seed.lifecycle === 'new' || seed.lifecycle === 'promoted';
+const isLive = (seed: WireSeed): boolean => seed.lane !== 'settled';
 
 /** The lane as the page head names it; a settled seed names how it ended. */
 function laneLabel(seed: WireSeed): string {
@@ -65,6 +64,9 @@ function laneLabel(seed: WireSeed): string {
     case 'promoted': {
       return 'Promoted';
     }
+    case 'parked': {
+      return 'Parked';
+    }
     default: {
       return seed.lifecycle === 'rejected' ? 'Rejected' : 'Resolved';
     }
@@ -72,6 +74,7 @@ function laneLabel(seed: WireSeed): string {
 }
 
 const LANE_BADGE: Record<SeedLane, string> = {
+  parked: 'text-status-parked inset-ring-line-bright',
   promoted: 'text-ink-dim inset-ring-line-bright',
   ready: 'bg-attention/12 text-attention inset-ring-attention/30',
   settled: 'text-ink-faint inset-ring-line',
@@ -80,6 +83,7 @@ const LANE_BADGE: Record<SeedLane, string> = {
 
 /** The decision block's wash, keyed to the lane that asks for it. */
 const DECISION_BOX: Record<Exclude<SeedLane, 'settled'>, { box: string; label: string }> = {
+  parked: { box: 'bg-well-850 inset-ring-line-bright', label: 'text-status-parked' },
   promoted: { box: 'bg-well-850 inset-ring-line-bright', label: 'text-ink-dim' },
   ready: { box: 'bg-attention/8 inset-ring-attention/30', label: 'text-attention' },
   untriaged: { box: 'bg-accent/6 inset-ring-accent/30', label: 'text-accent-foreground' },
@@ -200,7 +204,10 @@ function decisionPrompt(
   spawned: readonly (WireNode | undefined)[],
 ): string {
   if (seed.lane === 'untriaged') {
-    return `Promote it into work on the ${ownerTitle} board, reject it with a reason, or leave it for later.`;
+    return `Promote it into work on the ${ownerTitle} board, reject it with a reason, or park it for later.`;
+  }
+  if (seed.lane === 'parked') {
+    return `It is set aside, so it no longer counts as untriaged. Unpark it to decide now, or promote it into work on the ${ownerTitle} board.`;
   }
   if (seed.lane === 'ready') {
     const only = spawned.length === 1 ? spawned[0] : undefined;
@@ -357,7 +364,6 @@ function DetailsPanel({ seed }: { seed: WireSeed }) {
 }
 
 function SeedRecord({ seedId }: { seedId: string }) {
-  const navigate = useNavigate();
   const seed = useQuery(seedQuery(seedId));
   const projects = useQuery(projectsQuery);
   const upstream = useQuery(upstreamTasksQuery(seedId));
@@ -474,13 +480,7 @@ function SeedRecord({ seedId }: { seedId: string }) {
       >
         <h2 className={cn('microlabel', DECISION_BOX[data.lane].label)}>Your call</h2>
         <p className="text-meta text-ink">{decisionPrompt(data, ownerTitle, spawnedNodes)}</p>
-        <SeedVerbs
-          seed={data}
-          onLater={() => void navigate({ search: { project: data.project }, to: '/seeds' })}
-          onPromote={setPromoting}
-          offline={offline}
-          withSpawned={false}
-        />
+        <SeedVerbs seed={data} onPromote={setPromoting} offline={offline} withSpawned={false} />
       </section>
     );
 

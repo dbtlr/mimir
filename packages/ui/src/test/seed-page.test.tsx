@@ -244,17 +244,19 @@ describe('seed page (MMR-451)', () => {
       const labels = within(decision)
         .getAllByRole('button')
         .map((b) => b.textContent);
-      expect(labels).toStrictEqual(['Promote to task…', 'Reject…', 'Later']);
+      expect(labels).toStrictEqual(['Promote to task…', 'Reject…', 'Park…']);
     });
 
-    it('Later returns to the seed project’s queue', async () => {
-      serve(crossBoardBug);
-      const testRouter = renderAt('/p/NRN/s30');
+    it('names a parked seed and offers to unpark it (MMR-473)', async () => {
+      serve(seed({ ...crossBoardBug, lane: 'parked', lifecycle: 'parked' }));
+      renderAt('/p/NRN/s30');
 
       const decision = await screen.findByRole('region', { name: 'Your call' });
-      await userEvent.click(within(decision).getByRole('button', { name: 'Later' }));
-      await waitFor(() => expect(testRouter.state.location.pathname).toBe('/seeds'));
-      expect(testRouter.state.location.search).toEqual({ project: 'NRN' });
+      await waitFor(() => expect(decision).toHaveTextContent('set aside'));
+      const labels = within(decision)
+        .getAllByRole('button')
+        .map((b) => b.textContent);
+      expect(labels).toStrictEqual(['Promote to task…', 'Unpark', 'Reject…']);
     });
 
     it('offers resolve on a seed whose only task settled, and says how it ended', async () => {

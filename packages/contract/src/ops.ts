@@ -115,6 +115,13 @@ export type OpFact = {
    * only. Absent for the other eleven verbs, whose surfaces render as before.
    */
   choice?: OpChoice;
+  /**
+   * The verb also acts on a seed (MMR-473 — only `park`/`unpark`): a `KEY-sN` id
+   * moves the seed between untriaged and parked and echoes the seed. Read by the
+   * CLI and MCP uniform arms (dispatch, help, tool description); HTTP serves the
+   * seed verbs on the seed resource's own routes. Task subjects only.
+   */
+  seeds?: true;
 };
 
 /**
@@ -164,6 +171,7 @@ export const OP_FACTS = {
   },
   park: {
     reason: 'optional',
+    seeds: true,
     subject: 'task',
     summary: 'put a task on hold',
     transition: { axis: 'hold', from: 'none', to: 'parked' },
@@ -210,6 +218,7 @@ export const OP_FACTS = {
   },
   unpark: {
     reason: 'none',
+    seeds: true,
     subject: 'task',
     summary: 'clear the parked hold',
     transition: { axis: 'hold', from: 'parked', to: 'none' },

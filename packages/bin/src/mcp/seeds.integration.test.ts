@@ -13,7 +13,15 @@ import {
 } from '../core';
 import type { Store } from '../core';
 import { createTestStore } from '../testing/store';
-import { toolPromote, toolReject, toolResolve, toolSeed, toolSeeds, toolTriage } from './tools';
+import {
+  toolPromote,
+  toolReject,
+  toolResolve,
+  toolSeed,
+  toolSeeds,
+  toolTriage,
+  toolUniform,
+} from './tools';
 import type { ToolResult } from './tools';
 
 /** The seed MCP tools (MMR-245) over a real store. */
@@ -71,6 +79,16 @@ describe('seed MCP tools', () => {
     await toolSeed(store, { kind: 'idea', title: 't' }, 'MMR');
     const rejected = body(await toolReject(store, { id: 'MMR-s2', reason: 'out of scope' }));
     expect(rejected).toMatchObject({ id: 'MMR-s2', lifecycle: 'rejected' });
+  });
+
+  test('the park and unpark tools take a seed id and echo the seed (MMR-473)', async () => {
+    await toolSeed(store, { kind: 'idea', title: 'someday' }, 'MMR');
+    const parked = body(await toolUniform(store, 'park', { id: 'MMR-s1', reason: 'after v1' }));
+    expect(parked).toMatchObject({ id: 'MMR-s1', lane: 'parked', lifecycle: 'parked' });
+    const queue = body(await toolSeeds(store, {}, 'MMR')) as { seeds: unknown[] };
+    expect(queue.seeds).toEqual([]);
+    const unparked = body(await toolUniform(store, 'unpark', { id: 'MMR-s1' }));
+    expect(unparked).toMatchObject({ lane: 'untriaged', lifecycle: 'new' });
   });
 
   test('seed with an unknown kind returns a structured error', async () => {

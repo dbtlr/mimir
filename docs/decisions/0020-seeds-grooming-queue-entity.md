@@ -213,3 +213,36 @@ adds a Postgres backend behind the same `Store` port, and every backend
 implements `Store.seeds` in full: the `KEY-sN` sequence is one of the three
 per-project sequence kinds (ADR 0006) that import preserves and the
 conformance suite exercises on both backends.
+
+## Refinement (2026-10-13, MMR-473): `parked` is a seed lifecycle state
+
+A board owner sometimes wants to keep a seed without deciding on it yet. Before
+this refinement the only "later" was leaving the seed `new`, so it stayed in
+the untriaged count of `overview`, `triage` check (a), and the console's seeds
+header indefinitely. The console's **Later** chip only collapsed the row in the
+browser.
+
+- **`parked` joins the closed lifecycle** as a live, non-terminal state:
+  `new → parked`, and `parked → new | promoted | resolved | rejected`. Only an
+  untriaged seed parks. A promoted seed is not flagged, so it has nothing to
+  park from. A parked seed stays editable and can be promoted, resolved, or
+  rejected without unparking first.
+- **The verbs are the task verbs `park`/`unpark`**, extended to accept a
+  `KEY-sN` id. The reason is optional, as on a task park, and rides
+  `## History`. "Set aside on purpose" keeps one word across tasks and seeds.
+  On HTTP the seed verbs keep their resource routes (`POST
+  /api/seeds/:id/park`, `/unpark`).
+- **A lifecycle value, not a hold overlay.** A task has two axes (ADR 0001),
+  but a seed has one. A seed-only hold axis would add a second field to carry
+  one value, and every lane, filter, and validator would then read two fields
+  to answer one question.
+- **Remembered, not flagged.** A parked seed is its own lane (`parked`). It is
+  out of the default `live` queue (`new` + `promoted`) and out of every
+  untriaged count. `overview` hygiene reports `parked_seeds` and the triage
+  report reports `parked`, as counts with no listing. `--status parked` and
+  `all` list parked seeds, and the console folds them behind **Show parked
+  seeds**.
+
+**Considered and rejected:** keeping parked seeds in the default queue with a
+marker. That keeps them visible, but the default list grows noisier as the
+backlog grows, which is what parking exists to stop.

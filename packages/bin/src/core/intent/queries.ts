@@ -866,10 +866,11 @@ export async function overviewOf(
   );
 
   // hygiene — the counts, each with the capped head of its own lane (MMR-322).
-  // Untriaged is the one seeds read (a `new` seed IS the untriaged lane).
-  const untriagedSeeds = (await store.seeds.listForProject(scopeId)).filter(
-    (seed) => seed.lifecycle === 'new',
-  );
+  // Untriaged is the one seeds read (a `new` seed IS the untriaged lane); the same
+  // read counts the parked seeds (MMR-473), a reminder that is never listed.
+  const seeds = await store.seeds.listForProject(scopeId);
+  const untriagedSeeds = seeds.filter((seed) => seed.lifecycle === 'new');
+  const parkedSeeds = seeds.filter((seed) => seed.lifecycle === 'parked').length;
   const blockedNodes = tasks
     .filter((n) => nodeStatusWord(set, n) === 'blocked')
     .toSorted(byRankOrder(set));
@@ -894,6 +895,7 @@ export async function overviewOf(
     hygiene: {
       blocked: blockedNodes.length,
       listings: { blocked: blockedRows, stale: staleRows, untriaged: untriagedRows },
+      parkedSeeds,
       stale: staleNodes.length,
       untriaged: untriagedSeeds.length,
     },

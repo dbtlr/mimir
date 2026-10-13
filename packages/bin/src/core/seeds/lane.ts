@@ -18,6 +18,9 @@ export function seedLane(view: Pick<SeedView, 'lifecycle' | 'readyToResolve'>): 
   if (view.lifecycle === 'new') {
     return 'untriaged';
   }
+  if (view.lifecycle === 'parked') {
+    return 'parked';
+  }
   // promoted: ready-to-resolve wins over the plain promoted lane.
   return view.readyToResolve ? 'ready' : 'promoted';
 }

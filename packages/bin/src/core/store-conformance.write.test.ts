@@ -807,6 +807,32 @@ for (const backend of backends) {
     expect(illegal.hint).toContain('legal edges');
   });
 
+  it('seeds.transition parks and unparks a new seed, with or without a reason', async () => {
+    const store = await fresh();
+    const { second } = await base(store);
+    const seed = await store.seeds.create({
+      description: null,
+      key: 'MMR',
+      kind: 'idea',
+      requester: null,
+      title: 'Someday',
+    });
+    await store.seeds.transition(seed.key, seed.seq, 'parked', 'not now');
+    expect((await store.seeds.load(seed.key, seed.seq))?.lifecycle).toBe('parked');
+    await store.seeds.transition(seed.key, seed.seq, 'new', null);
+    await store.seeds.transition(seed.key, seed.seq, 'parked', null);
+    // A parked seed germinates straight to promoted.
+    await store.seeds.germinate(seed.key, seed.seq, second.id);
+    expect(await store.seeds.loadHistory(seed.key, seed.seq)).toMatchObject([
+      { from: 'new', reason: 'not now', to: 'parked' },
+      { from: 'parked', reason: null, to: 'new' },
+      { from: 'new', reason: null, to: 'parked' },
+      { from: 'parked', to: 'promoted' },
+    ]);
+    const illegal = await errorOf(store.seeds.transition(seed.key, seed.seq, 'parked', null));
+    expect(illegal.message).toBe('a seed cannot move promoted → parked');
+  });
+
   it('seeds.transition refuses an absent seed', async () => {
     const store = await fresh();
     await base(store);
@@ -852,12 +878,12 @@ for (const backend of backends) {
     const germinated = await errorOf(store.seeds.germinate(seed.key, seed.seq, second.id));
     expect(germinated.code).toBe('validation');
     expect(germinated.message).toBe('seed MMR-s1 is rejected — a terminal seed is frozen');
-    expect(germinated.hint).toBe('promote applies only to a new or promoted seed');
+    expect(germinated.hint).toBe('promote applies only to a new, parked, or promoted seed');
 
     const patched = await errorOf(store.seeds.patch(seed.key, seed.seq, { title: 'Renamed' }));
     expect(patched.message).toBe('seed MMR-s1 is rejected — a terminal seed is frozen');
     expect(patched.hint).toBe(
-      'patches (title/kind/description) apply only to a new or promoted seed',
+      'patches (title/kind/description) apply only to a new, parked, or promoted seed',
     );
   });
 

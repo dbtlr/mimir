@@ -16,6 +16,7 @@ import { holdingConnection } from './driver';
 import { statements as init } from './migrations/0001-init';
 import { statements as grooming } from './migrations/0002-grooming';
 import { statements as blockOwner } from './migrations/0003-block-owner';
+import { statements as seedParked } from './migrations/0004-seed-parked';
 
 /**
  * The SQLite dialect of the shared SQL store (ADR 0032) — the local tier's
@@ -93,7 +94,12 @@ export const sqliteDialect: StoreDialect = {
   label: 'SQLite',
   // SQLITE_MAX_VARIABLE_NUMBER's default since SQLite 3.32.
   maxParameters: 32_766,
-  migrations: { '0001_init': init, '0002_grooming': grooming, '0003_block_owner': blockOwner },
+  migrations: {
+    '0001_init': init,
+    '0002_grooming': grooming,
+    '0003_block_owner': blockOwner,
+    '0004_seed_parked': seedParked,
+  },
   // A local store migrates forward whenever it is opened (ADR 0032 Decision
   // 3), so a gap only shows to a reader that skipped the opener.
   schemaRemedy: {

@@ -1,8 +1,9 @@
 import { BLOCK_OWNER_VALUES, OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
-import type { BlockOwner, OpFact, UniformVerb } from '@mimir/contract';
+import type { BlockOwner, OpFact, SeedView, UniformVerb } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
 
 import { invariant, validation } from './errors';
+import { parseSeedRef } from './ids';
 import type { Node, Project } from './model';
 import {
   abandonTask,
@@ -19,6 +20,7 @@ import {
   unparkTask,
 } from './mutations';
 import type { HandleFields } from './mutations/handles';
+import { parkSeed, unparkSeed } from './seeds/intent';
 import type { Store } from './store';
 
 /**
@@ -124,6 +126,34 @@ const OP_RUN: Record<UniformVerb, OpSpec['run']> = {
   unblock: (store, id) => unblockTask(store, id),
   unpark: (store, id) => unparkTask(store, id),
 };
+
+/** A seed binding of a uniform verb (MMR-473): the seed id, the optional reason,
+ * and the resolved seed view the transport echoes. */
+export type SeedOpRun = (store: Store, id: string, reason?: string) => Promise<SeedView>;
+
+/** The seed bindings for the verbs whose fact declares {@link OpFact.seeds}. */
+const SEED_OP_RUN: Partial<Record<UniformVerb, SeedOpRun>> = {
+  park: (store, id, reason) => parkSeed(store, id, reason),
+  unpark: (store, id) => unparkSeed(store, id),
+};
+
+/**
+ * The seed binding to run when `id` is a seed id and `verb` accepts seeds, or
+ * `undefined` when the transport should dispatch its task or project subject as
+ * usual. The one gate every uniform arm shares, so `mimir park KEY-sN` and the MCP
+ * `park` tool can never disagree about which verbs take a seed.
+ */
+export function seedOpFor(verb: UniformVerb, id: string): SeedOpRun | undefined {
+  const fact: OpFact = OP_FACTS[verb];
+  if (fact.seeds !== true || parseSeedRef(id) === null) {
+    return undefined;
+  }
+  const run = SEED_OP_RUN[verb];
+  if (run === undefined) {
+    throw invariant(`${verb} accepts seeds but binds no seed run`, 'add it to SEED_OP_RUN');
+  }
+  return run;
+}
 
 /**
  * The operation registry — the pure facts ({@link OP_FACTS} in `@mimir/contract`)

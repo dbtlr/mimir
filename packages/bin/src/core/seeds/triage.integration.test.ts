@@ -12,7 +12,7 @@ import {
 } from '../index';
 import { resolveProjectKeyInSet } from '../resolve-set';
 import type { Store } from '../store';
-import { fileSeed, promoteSeed, transitionSeed } from './intent';
+import { fileSeed, parkSeed, promoteSeed, transitionSeed } from './intent';
 import { triage } from './triage';
 
 /**
@@ -79,6 +79,19 @@ describe('triage pass', () => {
     expect(report.readyToResolve.map((s) => s.id)).toEqual(['MMR-s3']);
     // Triage NEVER auto-closes — the ready seed stays promoted.
     expect(report.readyToResolve[0]?.lifecycle).toBe('promoted');
+  });
+
+  test('(a) leaves parked seeds out of untriaged and reports how many are parked', async () => {
+    await seedbed();
+    await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title: 'decide now' });
+    await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title: 'someday' });
+    await fileSeed(store, { kind: 'bug', project: 'MMR', requester: null, title: 'someday too' });
+    await parkSeed(store, 'MMR-s2');
+    await parkSeed(store, 'MMR-s3');
+
+    const report = await triage(store, { board: 'MMR' });
+    expect(report.untriaged.map((s) => s.id)).toEqual(['MMR-s1']);
+    expect(report.parked).toBe(2);
   });
 
   test('(c) annotates a task whose upstream seed went terminal, pulling the reason', async () => {

@@ -42,7 +42,7 @@ otherwise. The references add detail and never relax them.
 **Statuses move through verbs.** `start`, `submit`, `return`, `done`,
 `abandon`, `reopen`, `park`/`unpark`, and `block`/`unblock` are the only way to
 change a task's status. `update` patches fields and leaves status alone. Seeds
-move through `promote`, `reject`, and `resolve`.
+move through `promote`, `reject`, `resolve`, and `park`/`unpark`.
 
 **Transition at the moment the claim becomes true.** A transition recorded
 later is a guess about the past, and the next agent reads it as fact.

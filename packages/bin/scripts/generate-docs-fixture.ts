@@ -51,6 +51,7 @@ import {
   listSeeds,
   nodeStatusWord,
   parkTask,
+  parkSeed,
   promoteSeed,
   renderId,
   seedLane,
@@ -350,7 +351,7 @@ const AURORA_ZOO: readonly {
 ];
 
 /** Aurora (`AUR`) — the rich board: the status zoo, the two open-ended homes,
- * the dependency chain, tags, artifacts, and the four-lane seed queue. */
+ * the dependency chain, tags, artifacts, and the seed queue in every lane. */
 async function buildAurora(store: Store): Promise<void> {
   await createProject(store, {
     description: 'Consumer mobile client — the flagship surface.',
@@ -469,7 +470,7 @@ async function buildAurora(store: Store): Promise<void> {
   await buildAuroraSeeds(store, board);
 }
 
-/** The Aurora seed queue — all four lanes, exercising file / promote / resolve /
+/** The Aurora seed queue — every lane, exercising file / park / promote / resolve /
  * reject. Spawned work lands under a normal "Groomed Work" phase. */
 async function buildAuroraSeeds(store: Store, board: Board): Promise<void> {
   const requests = await board.initiative({ title: 'Requests' });
@@ -481,6 +482,14 @@ async function buildAuroraSeeds(store: Store, board: Board): Promise<void> {
     project: 'AUR',
     title: 'Dark mode across the whole app',
   });
+
+  // parked (set aside on purpose — remembered, not untriaged)
+  const offlineSeed = await fileSeed(store, {
+    kind: 'idea',
+    project: 'AUR',
+    title: 'Offline mode for the whole app',
+  });
+  await parkSeed(store, offlineSeed.id, 'after the sync rewrite');
 
   // promoted (in flight — spawned work outstanding)
   const rotateBug = await fileSeed(store, {

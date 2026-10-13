@@ -41,6 +41,7 @@ import {
   inapplicableUpdateFields,
   listSeeds,
   OPS,
+  seedOpFor,
   parseDateFilterTokens,
   parseOpChoice,
   parsePriorityValue,
@@ -652,6 +653,12 @@ export function toolUniform(
       // The project subject guarantees a Project row from `run`.
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion
       return echoProject(store, project as Parameters<typeof echoProject>[1]);
+    }
+    // A seed id on a verb that accepts seeds (park/unpark, MMR-473) moves the
+    // seed and echoes it like the other seed tools.
+    const seedRun = seedOpFor(verb, args.id ?? '');
+    if (seedRun !== undefined) {
+      return ok(formatSeedJson(await seedRun(store, args.id ?? '', reason)));
     }
     const fields: UpdateFields = {};
     applyUpdateFields(
