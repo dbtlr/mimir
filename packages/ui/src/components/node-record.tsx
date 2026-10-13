@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { useTag, useTransition, useUntag, useUpdateNode } from '../api/mutations';
 import type { WireAnnotation, WireArtifact, WireDeps, WireNode } from '../api/types';
 import { cn } from '../lib/cn';
-import { isExternalHref } from '../lib/links';
+import { isBareUrl } from '../lib/links';
 import { artifactLink, nodeLink } from '../lib/record-url';
 import type { TaskFormValues } from '../lib/schemas';
 import { availableTransitions, transitionLabel } from '../lib/transitions';
@@ -138,7 +138,7 @@ export function SignalBadges({ node }: { node: WireNode }) {
  * anything else as plain mono text (no dead link).
  */
 export function ExternalRef({ value }: { value: string }) {
-  if (isExternalHref(value)) {
+  if (isBareUrl(value)) {
     return (
       <a
         href={value}

@@ -110,3 +110,9 @@ export function splitLinks(text: string): LinkSegment[] {
 export function isExternalHref(href: string | undefined): boolean {
   return href !== undefined && EXTERNAL_HREF.test(href);
 }
+
+/** True when the whole value is one http(s) URL, so free text that starts with a URL stays text. */
+export function isBareUrl(value: string): boolean {
+  const [only, ...rest] = splitLinks(value);
+  return rest.length === 0 && only?.kind === 'url' && only.value === value;
+}

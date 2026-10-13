@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isExternalHref, splitLinks } from '../lib/links';
+import { isBareUrl, isExternalHref, splitLinks } from '../lib/links';
 
 describe('splitLinks', () => {
   it('returns plain text as one text segment', () => {
@@ -139,4 +139,20 @@ describe('isExternalHref', () => {
       expect(isExternalHref(href)).toBe(false);
     },
   );
+});
+
+describe('isBareUrl', () => {
+  it('accepts a value that is one whole http(s) URL', () => {
+    expect(isBareUrl('https://github.com/dbtlr/mimir/pull/424')).toBe(true);
+  });
+
+  it('refuses free text that merely starts with a URL', () => {
+    expect(isBareUrl('https://x.test PR')).toBe(false);
+    expect(isBareUrl('https://x.test.')).toBe(false);
+  });
+
+  it('refuses ids and protocol-relative references', () => {
+    expect(isBareUrl('JIRA-123')).toBe(false);
+    expect(isBareUrl('//evil.test')).toBe(false);
+  });
 });
