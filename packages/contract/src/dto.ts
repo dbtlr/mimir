@@ -833,6 +833,52 @@ export type WorkReport = {
   goingCold: NodeView[];
 };
 
+/** A project as the review page names it. */
+export type ReviewProjectRef = { key: string; name: string };
+
+/** One project's decisions on the review page, in the work page's `needsYou` order. */
+export type ReviewDecisionGroup = {
+  project: ReviewProjectRef;
+  rows: WorkNeedsYouTask[];
+};
+
+/** One project's triage on the review page: what needs the operator eventually, stopping no agent. */
+export type ReviewTriageGroup = {
+  project: ReviewProjectRef;
+  /** Untriaged seeds, oldest first (a parked seed is not untriaged). */
+  seeds: SeedView[];
+  /** Tasks past the stale threshold. */
+  goingCold: number;
+  /** `doctor` findings owned by the project. */
+  findings: number;
+};
+
+/** One row of the review page's project list. */
+export type ReviewProject = ReviewProjectRef & {
+  /** Tasks that need the operator's decision. */
+  decisions: number;
+  /** Untriaged seeds, plus tasks going cold, plus `doctor` findings. */
+  triage: number;
+  /** Tasks whose status word is `in_progress`. */
+  inFlight: number;
+};
+
+/**
+ * The console's cross-project review page (ADR 0019 and ADR 0013, MMR-476
+ * refinements). `decisions` and `projects` share one project order; `queue`
+ * drops the grouping and walks every decision in focus-queue order.
+ */
+export type ReviewReport = {
+  /** Only projects with at least one decision. */
+  decisions: ReviewDecisionGroup[];
+  /** Every decision's task id: verdicts, then blocks on you, then questions; newest first within each. */
+  queue: string[];
+  /** Only projects with something to triage, most first. */
+  triage: ReviewTriageGroup[];
+  /** Every active project: decisions first, then by triage count. */
+  projects: ReviewProject[];
+};
+
 /** The set-valued column names (flat, MMR-38), for `--col` parsing and the cheap-vs-heavy default sets. */
 export const FACET_NAMES = [
   'deps',

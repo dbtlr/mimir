@@ -95,6 +95,8 @@ import {
   parseWireField,
   projectTree,
   reorder,
+  reviewOf,
+  reviewToWire,
   specUpdateFields,
   tagEntities,
   treeToWire,
@@ -1360,6 +1362,19 @@ function bindServer(
               throw validation(`${key} is not a project key`, `use /api/nodes/${key}/work`);
             }
             return json(workToWire(await workPageOf(store, key, workOptionsOf(req))));
+          }),
+      },
+
+      // The console review page (MMR-477) across every active project — see
+      // `reviewOf`. Core never runs doctor, so the per-project finding counts
+      // come from the doctor facet (empty when no provider is wired).
+      '/api/review': {
+        GET: (req) =>
+          guarded(req, async () => {
+            const facet =
+              opts.doctor === undefined ? emptyDoctorFacet() : await opts.doctor(undefined);
+            const findings = new Map(facet.groups.map((g) => [g.project, g.finding_count]));
+            return json(reviewToWire(await reviewOf(store, findings)));
           }),
       },
 
