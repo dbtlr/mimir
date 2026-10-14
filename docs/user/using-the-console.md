@@ -14,7 +14,7 @@ says otherwise. For access from another device, pick a
 [network mode](../guides/port-and-proxy.md): `tailscale serve` keeps HTTPS and
 the installable PWA, and a reverse proxy does too.
 
-![Mimir project work page with its rail of direction, details, and artifacts](../assets/console-project.png)
+![Mimir project work page with the project sidebar and outline, and a rail of direction, about, and artifacts](../assets/console-project.png)
 
 ## Review what needs you
 
