@@ -330,7 +330,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
         <StatusBadge status={data.status} pill />
         <GroomingChip node={data} />
       </div>
-      <h1 className="text-dossier leading-[1.35] font-bold tracking-[-0.01em] text-ink-bright md:text-header">
+      <h1 className="text-dossier leading-[1.35] font-bold tracking-[-0.01em] wrap-anywhere text-ink-bright md:text-header">
         {data.title}
       </h1>
     </header>

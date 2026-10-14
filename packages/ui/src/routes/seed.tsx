@@ -428,7 +428,7 @@ function SeedRecord({ seedId }: { seedId: string }) {
   );
 
   const crumb =
-    'rounded-sm font-mono text-tag text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent';
+    'rounded-sm font-mono text-tag wrap-anywhere text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent';
   const fromOtherBoard = data.requester !== null && data.requester !== data.project;
   const head = (
     <header className="flex flex-col gap-1.5">
@@ -463,7 +463,7 @@ function SeedRecord({ seedId }: { seedId: string }) {
           </span>
         )}
       </div>
-      <h1 className="text-dossier leading-[1.35] font-bold tracking-[-0.01em] text-ink-bright md:text-header">
+      <h1 className="text-dossier leading-[1.35] font-bold tracking-[-0.01em] wrap-anywhere text-ink-bright md:text-header">
         {data.title}
       </h1>
     </header>

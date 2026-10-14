@@ -85,7 +85,7 @@ function WorkHead({
         {isProject && <FindingsChip projectKey={projectKey} findings={findings} />}
       </div>
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
-        <h1 className="min-w-0 text-dossier leading-[1.35] font-bold tracking-[-0.01em] text-ink-bright md:text-header">
+        <h1 className="min-w-0 text-dossier leading-[1.35] font-bold tracking-[-0.01em] wrap-anywhere text-ink-bright md:text-header">
           {record.title}
         </h1>
         <div className="flex flex-wrap items-center gap-1.5">

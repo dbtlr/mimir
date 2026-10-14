@@ -227,10 +227,12 @@ type RecordTarget =
  * chips before or after it, a one-line lede,
  * and a meta line. The title link stretches over the whole row, so the row is
  * the hit target while staying a single real link. The link's name is the
- * title; the id is its description. The lede hides on a phone
- * (the mock's "groups stay, ledes drop"). `actions` trail the row, above the
- * stretched link so they take their own clicks, and wrap under it on a phone,
- * where the strip's empty width still lets a tap through to the link.
+ * title; the id is its description. The title and meta break anywhere, so an
+ * unbroken path or URL wraps instead of widening the page on a phone. The lede
+ * hides on a phone (the mock's "groups stay, ledes drop"). `actions` trail the
+ * row, above the stretched link so they take their own clicks, and wrap under
+ * it on a phone, where the strip's empty width still lets a tap through to the
+ * link.
  */
 export function BrowserRow({
   to,
@@ -287,7 +289,7 @@ export function BrowserRow({
             {...to}
             aria-describedby={idLabel}
             className={cn(
-              'min-w-0 text-body outline-none after:absolute after:inset-0',
+              'min-w-0 text-body wrap-anywhere outline-none after:absolute after:inset-0',
               demoted ? 'text-ink-dim' : 'text-ink-bright',
               struck && 'line-through decoration-ink-ghost',
             )}
@@ -302,7 +304,7 @@ export function BrowserRow({
           </p>
         )}
         {meta !== undefined && (
-          <div className="col-start-2 text-mono-id text-ink-faint">{meta}</div>
+          <div className="col-start-2 text-mono-id wrap-anywhere text-ink-faint">{meta}</div>
         )}
       </div>
       {actions !== undefined && (
