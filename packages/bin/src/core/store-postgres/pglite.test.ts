@@ -1,16 +1,16 @@
 import { expect, test } from 'bun:test';
 
-import { PGlite } from '@electric-sql/pglite';
 import type { Generated } from 'kysely';
 import { Kysely, sql } from 'kysely';
 
 import { createPgliteDialect } from './pglite';
+import { createEmptyPglite } from './testing';
 
 type Row = { id: string; n: Generated<number> };
 type TestDB = { t: Row };
 
 async function freshDb(): Promise<{ db: Kysely<TestDB>; close: () => Promise<void> }> {
-  const pg = new PGlite();
+  const pg = await createEmptyPglite();
   const db = new Kysely<TestDB>({ dialect: createPgliteDialect(pg) });
   await sql`create table t (id text primary key, n int not null default 0)`.execute(db);
   return { close: () => db.destroy(), db };

@@ -1,14 +1,13 @@
 import { Database } from 'bun:sqlite';
 import { describe, expect, test } from 'bun:test';
 
-import { PGlite } from '@electric-sql/pglite';
 import { Kysely, sql } from 'kysely';
 
 import { createProject } from '../../core/create';
 import type { Store } from '../../core/store';
 import { postgresDialect } from '../../core/store-postgres/index';
 import { createPgliteDialect } from '../../core/store-postgres/pglite';
-import { createPgliteTestStore } from '../../core/store-postgres/testing';
+import { createEmptyPglite, createPgliteTestStore } from '../../core/store-postgres/testing';
 import type { StoreDialect } from '../../core/store-sql/dialect';
 import type { DB } from '../../core/store-sql/schema';
 import { createBunSqliteDialect } from '../../core/store-sqlite/driver';
@@ -44,7 +43,7 @@ type Arm = {
   /** A fresh, migrated store with the doctor built over it. */
   make: () => Promise<Fixture>;
   /** A database with no schema at all — nothing has migrated it. */
-  empty: () => { db: Kysely<DB>; close: () => Promise<void> };
+  empty: () => Promise<{ db: Kysely<DB>; close: () => Promise<void> }>;
   /** Run raw DDL/DML with foreign-key enforcement suspended. */
   unconstrained: (db: Kysely<DB>, statements: readonly string[]) => Promise<void>;
   /** The literal for a false boolean column. */
@@ -57,8 +56,8 @@ const arms: Arm[] = [
   {
     anchorTo404: "UPDATE scratchpad SET anchors = anchors || ARRAY['MMR-404']",
     dialect: postgresDialect,
-    empty: () => {
-      const db = new Kysely<DB>({ dialect: createPgliteDialect(new PGlite()) });
+    empty: async () => {
+      const db = new Kysely<DB>({ dialect: createPgliteDialect(await createEmptyPglite()) });
       return { close: () => db.destroy(), db };
     },
     falseLiteral: 'false',
@@ -90,7 +89,7 @@ const arms: Arm[] = [
       const db = new Kysely<DB>({
         dialect: createBunSqliteDialect(new Database(':memory:')),
       });
-      return { close: () => db.destroy(), db };
+      return Promise.resolve({ close: () => db.destroy(), db });
     },
     falseLiteral: '0',
     make: async () => {
@@ -404,7 +403,7 @@ describe.each(arms)('$name', (arm) => {
   test(`${arm.name}: a database with no schema at all reports only schema-version, without throwing`, async () => {
     // No `upgradeSchema` call: the table queries the other checks run would
     // throw against a database that has none of their tables yet.
-    const { db, close } = arm.empty();
+    const { db, close } = await arm.empty();
     const doctor = createSqlDoctorBackend(db, arm.dialect);
     try {
       const { findings } = await doctor.diagnose(undefined);
