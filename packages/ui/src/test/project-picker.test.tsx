@@ -4,6 +4,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
+import { browserTimeZone } from '../api/queries';
 import type { WireNode, WireReviewProject } from '../api/types';
 import { ProjectPicker } from '../components/project-picker';
 import { router } from '../router';
@@ -29,7 +30,7 @@ const LUM = project({ id: 'LUM', last_activity_at: atDay('02'), title: 'Lumen' }
 const OLD = project({ archived_at: atDay('01'), id: 'OLD', title: 'Retired' });
 
 function decisions(key: string, count: number): WireReviewProject {
-  return { decisions: count, in_flight: 0, key, name: key, triage: 0 };
+  return { decisions: count, going_cold: 0, in_flight: 0, key, live: 0, name: key, triage: 0 };
 }
 
 /** The project with its pin set, when it is the one the write names. */
@@ -53,7 +54,7 @@ function serve(world: Partial<World> = {}) {
     if (path === '/api/projects?status=archived') {
       return Promise.resolve({ items: state.archived, total: state.archived.length });
     }
-    if (path === '/api/review') {
+    if (path.startsWith('/api/review')) {
       return Promise.resolve(reviewReport({ projects: state.review }));
     }
     if (path.startsWith('/api/doctor') || /^\/api\/projects\/[A-Z]+$/.test(path)) {
@@ -583,7 +584,9 @@ describe('switcher header', () => {
     renderAt('/p/NRN');
     await header();
     await waitFor(() => {
-      expect(apiGet).toHaveBeenCalledWith('/api/review');
+      expect(apiGet).toHaveBeenCalledWith(
+        `/api/review?tz=${encodeURIComponent(browserTimeZone())}`,
+      );
     });
     expect(screen.queryByText(/elsewhere/)).toBeNull();
   });

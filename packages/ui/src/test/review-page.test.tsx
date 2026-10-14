@@ -40,7 +40,7 @@ function decision(
 /** Serve the review payload, the archived shelf, and empty collections for every other read. */
 function serve(report: WireReviewReport, archived = [] as ReturnType<typeof project>[]) {
   apiGet.mockImplementation((path: string) => {
-    if (path === '/api/review') {
+    if (path.startsWith('/api/review')) {
       return Promise.resolve(report);
     }
     if (path === '/api/projects?status=archived') {
@@ -68,8 +68,8 @@ const LM = { key: 'LM', name: 'Loom CLI' };
 const MMR = { key: 'MMR', name: 'Mimir' };
 
 const TWO_PROJECTS = [
-  { ...LM, decisions: 1, in_flight: 1, triage: 0 },
-  { ...MMR, decisions: 2, in_flight: 2, triage: 3 },
+  { ...LM, decisions: 1, going_cold: 0, in_flight: 1, live: 0, triage: 0 },
+  { ...MMR, decisions: 2, going_cold: 0, in_flight: 2, live: 0, triage: 3 },
 ];
 
 describe('the review page at / (ADR 0013, MMR-476 refinement)', () => {
@@ -117,8 +117,8 @@ describe('the review page at / (ADR 0013, MMR-476 refinement)', () => {
           stale: false,
         },
         projects: [
-          { ...LM, decisions: 0, in_flight: 1, triage: 0 },
-          { ...MMR, decisions: 0, in_flight: 3, triage: 0 },
+          { ...LM, decisions: 0, going_cold: 0, in_flight: 1, live: 0, triage: 0 },
+          { ...MMR, decisions: 0, going_cold: 0, in_flight: 3, live: 0, triage: 0 },
         ],
       }),
     );
@@ -135,7 +135,11 @@ describe('the review page at / (ADR 0013, MMR-476 refinement)', () => {
   });
 
   it('names a quiet board plainly when nothing is in flight or finished', async () => {
-    serve(reviewReport({ projects: [{ ...MMR, decisions: 0, in_flight: 0, triage: 0 }] }));
+    serve(
+      reviewReport({
+        projects: [{ ...MMR, decisions: 0, going_cold: 0, in_flight: 0, live: 0, triage: 0 }],
+      }),
+    );
     renderReview();
 
     await screen.findByRole('heading', { level: 1, name: 'Nothing needs you' });
@@ -278,7 +282,7 @@ describe('the review page at / (ADR 0013, MMR-476 refinement)', () => {
 
   it('does not claim a fresh store before it knows whether projects are archived', async () => {
     apiGet.mockImplementation((path: string) =>
-      path === '/api/review'
+      path.startsWith('/api/review')
         ? Promise.resolve(reviewReport())
         : Promise.reject(new Error('archived read failed')),
     );
@@ -303,7 +307,7 @@ async function openForWrite(before: WireReviewReport, after: WireReviewReport) {
     },
   };
   apiGet.mockImplementation((path: string) => {
-    if (path === '/api/review') {
+    if (path.startsWith('/api/review')) {
       return Promise.resolve(report);
     }
     if (path === '/api/projects') {

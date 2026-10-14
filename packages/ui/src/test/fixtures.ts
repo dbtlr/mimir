@@ -92,9 +92,13 @@ export function workReport(overrides: Partial<WireWorkReport> = {}): WireWorkRep
 export function reviewReport(overrides: Partial<WireReviewReport> = {}): WireReviewReport {
   return {
     decisions: [],
+    going_cold: [],
     last_finished: null,
+    now: [],
     projects: [],
     queue: [],
+    runnable: [],
+    shipped: [],
     triage: [],
     ...overrides,
   };
@@ -106,5 +110,5 @@ export function reviewReport(overrides: Partial<WireReviewReport> = {}): WireRev
  * collection for any other path.
  */
 export function emptyRead(path: string): WireReviewReport | { items: []; total: 0 } {
-  return path === '/api/review' ? reviewReport() : { items: [], total: 0 };
+  return path.startsWith('/api/review') ? reviewReport() : { items: [], total: 0 };
 }

@@ -266,6 +266,34 @@ tells a task from a container.
 - `going_cold`: every stale task in scope, oldest `updated_at` first, including
   tasks an earlier section shows; each row has `stale: true`.
 
+## The review report (HTTP report, MMR-477, MMR-504)
+
+`GET /api/review` returns the console's cross-project review across every
+active project (archived projects contribute nothing). It has no CLI or MCP form.
+`?tz=` is required, as on the work routes: it is the caller's IANA zone and
+places the `shipped` window. A missing or unknown zone is a 400 `validation`.
+
+- `decisions`: per project with any, the work page's `needs_you` rows, projects
+  in urgency order (leading reason, then newest, then key).
+- `queue`: every decision's task id, verdicts then blocks then questions, newest
+  first within each.
+- `triage`: per project with anything to triage, `{ project, seeds, going_cold,
+  findings }`, most first, then key.
+- `last_finished`: the newest done or abandoned task, or `null`.
+- `now`, `shipped`, `runnable`, `going_cold`: the work page's `now`,
+  `shipped`, `frontier.runnable`, and `going_cold` rows across every active
+  project. One set of section rules and row builders serves both, so a project's
+  rows here equal its work report's rows. Across projects, `now` lists the most
+  recently started first, `runnable` follows the `projects` order and then each
+  project's own rank, `going_cold` lists the longest quiet first, and `shipped`
+  lists the newest first. Every row adds `project`, the project key. A
+  `going_cold` row is the task object with `stale: true`.
+- `projects`: every active project, pinned first, then newest `last_activity_at`
+  first, then key. Each carries `key`, `name`, and counts: `decisions`, `triage`
+  (untriaged seeds + going cold + `doctor` findings), `in_flight` (status
+  `in_progress`), `live` (the `--status live` group: every status other than
+  `done` and `abandoned`, so parked work counts), and `going_cold` (tasks past the stale threshold).
+
 ## The `service` report (report kind, MMR-59)
 
 `mimir service status` emits `{ config, recent_events, units }`, on one line

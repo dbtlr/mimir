@@ -34,7 +34,7 @@ afterEach(() => {
 /** Serve the review read from `current()`, so a test can change what the next read returns. */
 function serve(current: () => WireReviewReport) {
   apiGet.mockImplementation((p: string) => {
-    if (p === '/api/review') {
+    if (p.startsWith('/api/review')) {
       return Promise.resolve(current());
     }
     // The record pages the alert is opened from.
@@ -115,8 +115,8 @@ function twoProjects(
   return reviewReport({
     decisions,
     projects: [
-      { ...LM, decisions: rows.lm?.length ?? 0, in_flight: 0, triage: 0 },
-      { ...MMR, decisions: rows.mmr?.length ?? 0, in_flight: 0, triage: 0 },
+      { ...LM, decisions: rows.lm?.length ?? 0, going_cold: 0, in_flight: 0, live: 0, triage: 0 },
+      { ...MMR, decisions: rows.mmr?.length ?? 0, going_cold: 0, in_flight: 0, live: 0, triage: 0 },
     ],
     queue: decisions.flatMap((group) => group.rows.map((row) => row.id)),
   });
@@ -156,7 +156,7 @@ describe('the attention alert trigger', () => {
     renderAt(
       '/',
       reviewReport({
-        projects: [{ ...MMR, decisions: 0, in_flight: 0, triage: 15 }],
+        projects: [{ ...MMR, decisions: 0, going_cold: 0, in_flight: 0, live: 0, triage: 15 }],
         triage: [
           { findings: 12, going_cold: 2, project: MMR, seeds: [seed({ lane: 'untriaged' })] },
         ],

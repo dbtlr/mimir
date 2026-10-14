@@ -168,7 +168,7 @@ function SeedTriageActions({
   const closedMidWrite = useRef(false);
   /** Disarm unless the cached review has dropped the seed, which is leaving. */
   const disarmIfListed = () => {
-    if (listsSeed(queryClient.getQueryData(reviewQuery.queryKey), seed.id)) {
+    if (listsSeed(queryClient.getQueryData(reviewQuery().queryKey), seed.id)) {
       handoff.disarm(seed.id);
     }
   };
@@ -507,7 +507,7 @@ function ProjectList({
 export function ReviewPage() {
   const { mode } = reviewRoute.useSearch();
   const [creating, setCreating] = useState(false);
-  const review = useQuery(reviewQuery);
+  const review = useQuery(reviewQuery());
   const archived = useQuery(archivedProjectsQuery);
   const conn = connectivity([review, archived]);
   const archivedProjects = archived.data?.items ?? [];

@@ -1,29 +1,36 @@
 import type {
+  NodeView,
   ReviewDecisionGroup,
   ReviewProject,
   ReviewReport,
   ReviewTriageGroup,
+  ReviewWorkRow,
   SeedView,
   WorkNeedsYouReason,
   WorkShippedTask,
 } from '@mimir/contract';
 
-import type { DerivationSet } from '../derive';
-import { nodeStatusWord } from '../derive';
+import { recentDaysWindow } from '../dates';
+import { isTerminalWord, nodeStatusWord } from '../derive';
 import type { Node, Project } from '../model';
-import { isStale } from '../predicates';
 import { listSeedsResolved } from '../seeds/intent';
 import type { Store } from '../store';
 import { now } from '../time';
-import { buildNodeView } from './view';
 import {
   NEEDS_YOU_REASON_ORDER,
+  SHIPPED_WINDOW_DAYS,
   abandonedOf,
   byNeedsYouOrder,
+  classifyWork,
   cmpStr,
+  goingColdRowsOf,
   latestOf,
-  needsYouReasonOf,
+  nowRowsOf,
+  projectKeyOf,
+  runnableRowsOf,
   seqOf,
+  shippedRowsOf,
+  workRowSource,
 } from './work';
 
 /**
@@ -34,6 +41,11 @@ import {
 export type ReviewOptions = {
   /** Reference time (ISO-ms-Z) for staleness; defaults to now. */
   asOf?: string;
+  /**
+   * The caller's IANA zone, which places the `shipped` window (ADR 0029). Without
+   * it the window cannot be placed and `shipped` is empty.
+   */
+  timeZone?: string;
 };
 
 /** Everything the page derives about one active project before it is ordered. */
@@ -45,6 +57,7 @@ type ProjectFacts = {
   goingCold: number;
   findings: number;
   inFlight: number;
+  live: number;
 };
 
 const triageCount = (f: ProjectFacts): number => f.seeds.length + f.goingCold + f.findings;
@@ -92,7 +105,7 @@ const newerFinish = (a: Finish, b: Finish): number =>
  */
 async function lastFinishOf(
   store: Store,
-  set: DerivationSet,
+  viewOf: (node: Node) => Promise<NodeView>,
   finished: readonly Node[],
 ): Promise<WorkShippedTask | null> {
   const [lastDone] = finished
@@ -122,20 +135,47 @@ async function lastFinishOf(
         abandonReason: reasons.get(last.node.id) ?? null,
         finishedAt: last.at,
         stale: false,
-        task: await buildNodeView(store.bodySections, store.artifacts, set, last.node),
+        task: await viewOf(last.node),
       };
 }
+
+/**
+ * The rail's project order: pinned projects first, then the most recent
+ * activity (newest first), then key. `activity` is `Store.loadProjectActivity`;
+ * a project it does not name falls back to its own `updated_at`.
+ */
+const byRailOrder =
+  (activity: ReadonlyMap<string, string>) =>
+  (a: Project, b: Project): number =>
+    Number(b.pinned) - Number(a.pinned) ||
+    cmpStr(activity.get(b.key) ?? b.updated_at, activity.get(a.key) ?? a.updated_at) ||
+    cmpStr(a.key, b.key);
+
+/** Tag each work-page row with the project its task belongs to. */
+const tagged = <T extends { task: { id: string } }>(rows: readonly T[]): ReviewWorkRow<T>[] =>
+  rows.map((row) => ({ ...row, project: projectKeyOf(row.task.id) }));
 
 /**
  * The review page across every active (non-archived) project.
  *
  * - `decisions`: per project with any, the work page's `needsYou` rows (the
- *   membership rule is {@link needsYouReasonOf}), projects in urgency order.
+ *   membership rule is `needsYouReasonOf`), projects in urgency order.
  * - `queue`: every decision's task id, verdicts then blocks then questions,
  *   newest first within each reason, ignoring project.
  * - `triage`: per project with anything to triage, the untriaged seeds (oldest
  *   first), the tasks going cold, and the findings; most first, then key.
- * - `projects`: every active project in the decisions order, then by triage.
+ * - `projects`: every active project in the rail's order (pinned first, then
+ *   newest activity), with its decision, triage, in-flight, live, and going-cold
+ *   counts. `live` is the `--status live` group: every status but done and
+ *   abandoned, so parked work counts.
+ * - `now`, `shipped`, `runnable`, `goingCold` (MMR-504): the work page's rows
+ *   across every active project. They come from the work page's own section
+ *   rules and row builders ({@link classifyWork}), run once over all the
+ *   projects' tasks, so a project's rows here equal its work report's. Across
+ *   projects `now` lists the most recently started first, `runnable` follows the
+ *   `projects` order and then each project's rank, `goingCold` the longest quiet
+ *   first, and `shipped` the newest first. `shipped` needs `timeZone` to place
+ *   its window and is empty without one.
  * - `lastFinished`: the newest done or abandoned task, for the page's all-clear
  *   state; null when nothing has finished.
  *
@@ -150,55 +190,65 @@ export async function reviewOf(
   opts: ReviewOptions = {},
 ): Promise<ReviewReport> {
   const asOf = opts.asOf ?? now();
+  const shippedWindow =
+    opts.timeZone === undefined
+      ? undefined
+      : recentDaysWindow(asOf, SHIPPED_WINDOW_DAYS, opts.timeZone);
   // `new` is the untriaged lane; the same load serves the node derivation below.
-  const [{ set, views }, findingCounts] = await Promise.all([
+  const [{ set, views }, findingCounts, activity] = await Promise.all([
     listSeedsResolved(store, { status: 'new' }),
     findings,
+    store.loadProjectActivity(),
   ]);
   const seedsByProject = Map.groupBy(views, (v) => v.project);
-  const finished: Node[] = [];
+  const projects = set.ws.projects.filter((p) => p.archived_at === null);
+  const tasksByProject = new Map(
+    projects.map((p) => [
+      p.key,
+      (set.nodesByProject.get(p.key) ?? []).filter((n) => n.type === 'task'),
+    ]),
+  );
+  const tasks = [...tasksByProject.values()].flat();
+  const buckets = classifyWork(set, tasks, { asOf, shippedWindow });
+  const source = workRowSource(store, set, buckets);
 
-  const facts: ProjectFacts[] = set.ws.projects
-    .filter((p) => p.archived_at === null)
-    .map((project) => {
-      const decisions: ProjectFacts['decisions'] = [];
-      let goingCold = 0;
-      let inFlight = 0;
-      for (const node of set.nodesByProject.get(project.key) ?? []) {
-        if (node.type !== 'task') {
-          continue;
-        }
-        if (node.lifecycle === 'done' || node.lifecycle === 'abandoned') {
-          finished.push(node);
-        }
-        const word = nodeStatusWord(set, node);
-        const reason = needsYouReasonOf(node, word);
-        if (reason !== undefined) {
-          decisions.push({ node, reason });
-        }
-        if (word === 'in_progress') {
-          inFlight += 1;
-        }
-        if (isStale(set, node, { asOf })) {
-          goingCold += 1;
-        }
-      }
-      decisions.sort(byNeedsYouOrder);
-      return {
-        decisions,
-        findings: findingCounts.get(project.key) ?? 0,
-        goingCold,
-        inFlight,
-        project,
-        seeds: seedsByProject.get(project.key) ?? [],
-      };
-    })
+  const decisionsByProject = Map.groupBy(
+    buckets.needsYou.toSorted(byNeedsYouOrder),
+    (d) => d.node.project_id,
+  );
+  const inFlightByProject = Map.groupBy(buckets.now, (n) => n.project_id);
+  const coldByProject = Map.groupBy(buckets.stale, (n) => n.project_id);
+
+  const facts: ProjectFacts[] = projects
+    .map((project) => ({
+      decisions: decisionsByProject.get(project.key) ?? [],
+      findings: findingCounts.get(project.key) ?? 0,
+      goingCold: coldByProject.get(project.key)?.length ?? 0,
+      inFlight: inFlightByProject.get(project.key)?.length ?? 0,
+      live: (tasksByProject.get(project.key) ?? []).filter(
+        (n) => !isTerminalWord(nodeStatusWord(set, n)),
+      ).length,
+      project,
+      seeds: seedsByProject.get(project.key) ?? [],
+    }))
     .toSorted(byProjectOrder);
 
   const questionIds = facts.flatMap((f) =>
     f.decisions.filter((d) => d.reason === 'needs_answers').map((d) => d.node.id),
   );
-  const questions = await store.bodySections.readSectionsMany(questionIds, { annotations: true });
+  const [questions, nowRows, shippedRows, runnableRows, coldViews, lastFinished] =
+    await Promise.all([
+      store.bodySections.readSectionsMany(questionIds, { annotations: true }),
+      nowRowsOf(source),
+      shippedRowsOf(source, shippedWindow),
+      runnableRowsOf(source),
+      goingColdRowsOf(source),
+      lastFinishOf(
+        store,
+        source.viewOf,
+        tasks.filter((n) => n.lifecycle === 'done' || n.lifecycle === 'abandoned'),
+      ),
+    ]);
   const decisions: ReviewDecisionGroup[] = await Promise.all(
     facts
       .filter((f) => f.decisions.length > 0)
@@ -211,8 +261,8 @@ export async function reviewOf(
                 ? (latestOf(questions.get(node.id)?.annotations)?.content ?? null)
                 : null,
             reason,
-            stale: isStale(set, node, { asOf }),
-            task: await buildNodeView(store.bodySections, store.artifacts, set, node),
+            stale: buckets.staleIds.has(node.id),
+            task: await source.viewOf(node),
           })),
         ),
       })),
@@ -233,19 +283,35 @@ export async function reviewOf(
       seeds: f.seeds,
     }));
 
-  const projects: ReviewProject[] = facts.map((f) => ({
-    decisions: f.decisions.length,
-    inFlight: f.inFlight,
-    key: f.project.key,
-    name: f.project.name,
-    triage: triageCount(f),
-  }));
+  const railOrder = byRailOrder(activity);
+  const reviewProjects: ReviewProject[] = facts
+    .toSorted((a, b) => railOrder(a.project, b.project))
+    .map((f) => ({
+      decisions: f.decisions.length,
+      goingCold: f.goingCold,
+      inFlight: f.inFlight,
+      key: f.project.key,
+      live: f.live,
+      name: f.project.name,
+      triage: triageCount(f),
+    }));
+
+  const railIndex = new Map(reviewProjects.map((p, i) => [p.key, i]));
 
   return {
     decisions,
-    lastFinished: await lastFinishOf(store, set, finished),
-    projects,
+    goingCold: coldViews.map((task) => ({ project: projectKeyOf(task.id), task })),
+    lastFinished,
+    now: tagged(nowRows).toSorted((a, b) => cmpStr(b.startedAt, a.startedAt)),
+    projects: reviewProjects,
     queue,
+    // Project order, then the project's own rank: the rows arrive in one global
+    // rank order, which restricted to a project is that project's rank order, and
+    // the sort is stable.
+    runnable: tagged(runnableRows).toSorted(
+      (a, b) => (railIndex.get(a.project) ?? 0) - (railIndex.get(b.project) ?? 0),
+    ),
+    shipped: tagged(shippedRows),
     triage,
   };
 }

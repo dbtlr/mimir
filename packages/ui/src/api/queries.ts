@@ -67,12 +67,17 @@ export const archivedProjectsQuery = queryOptions({
 /**
  * The review page (MMR-477): what needs the operator across every active
  * project, plus the project list. Its own key root, listed in the write keys,
- * so every write refreshes it; the top-bar alert reads the same entry.
+ * so every write refreshes it; the top-bar alert reads the same entry. `tz` is
+ * required by the server (it places the Shipped days), so the browser's zone is
+ * part of the key, as on the work page.
  */
-export const reviewQuery = queryOptions({
-  queryFn: () => apiGet<WireReviewReport>('/api/review'),
-  queryKey: ['review'],
-});
+export const reviewQuery = () => {
+  const zone = browserTimeZone();
+  return queryOptions({
+    queryFn: () => apiGet<WireReviewReport>(`/api/review?tz=${encodeURIComponent(zone)}`),
+    queryKey: ['review', zone],
+  });
+};
 
 /**
  * Ready leaf tasks, portfolio-wide — the actionable count behind a picker row

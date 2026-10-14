@@ -42,7 +42,9 @@ function byActivityDesc(a: Orderable, b: Orderable): number {
  * The switcher's order: pinned projects first, then by most recent activity,
  * newest first. Archived projects are left out. Ties — including a list with no
  * pin or activity data at all — keep the list's own order. This is the one
- * place the order is defined; the switcher reads it from here.
+ * place the browser defines the order; the switcher reads it from here. Its
+ * server-side twin is the review report's `projects` order (`byRailOrder` in
+ * the bin package's `core/intent/review.ts`), which adds a key tiebreak.
  */
 export function orderProjects<T extends Orderable>(projects: readonly T[]): T[] {
   return projects

@@ -16,6 +16,7 @@ import type {
   TriageReport,
   UpstreamResolution,
   WorkFrontierTask,
+  WorkNowTask,
   WorkReport,
   WorkShippedTask,
 } from '@mimir/contract';
@@ -582,18 +583,23 @@ export function workToWire(report: WorkReport): Record<string, unknown> {
       reason: row.reason,
       stale: row.stale,
     })),
-    now: report.now.map((row) => ({
-      ...nodeToWire(row.task),
-      latest_note:
-        row.latestNote === null
-          ? null
-          : { content: row.latestNote.content, created_at: row.latestNote.createdAt },
-      scratchpads: row.scratchpads,
-      stale: row.stale,
-      started_at: row.startedAt,
-    })),
+    now: report.now.map(nowToWire),
     scope: report.scope,
     shipped: report.shipped.map(shippedToWire),
+  };
+}
+
+/** A work-page `now` row: the lean task with its start time, latest note, and Scratchpads folded on. */
+function nowToWire(row: WorkNowTask): Record<string, unknown> {
+  return {
+    ...nodeToWire(row.task),
+    latest_note:
+      row.latestNote === null
+        ? null
+        : { content: row.latestNote.content, created_at: row.latestNote.createdAt },
+    scratchpads: row.scratchpads,
+    stale: row.stale,
+    started_at: row.startedAt,
   };
 }
 
@@ -623,15 +629,25 @@ export function reviewToWire(report: ReviewReport): Record<string, unknown> {
         stale: row.stale,
       })),
     })),
+    going_cold: report.goingCold.map((row) => ({
+      ...nodeToWire(row.task),
+      project: row.project,
+      stale: true,
+    })),
     last_finished: report.lastFinished === null ? null : shippedToWire(report.lastFinished),
+    now: report.now.map((row) => ({ ...nowToWire(row), project: row.project })),
     projects: report.projects.map((p) => ({
       decisions: p.decisions,
+      going_cold: p.goingCold,
       in_flight: p.inFlight,
       key: p.key,
+      live: p.live,
       name: p.name,
       triage: p.triage,
     })),
     queue: report.queue,
+    runnable: report.runnable.map((row) => ({ ...frontierTaskToWire(row), project: row.project })),
+    shipped: report.shipped.map((row) => ({ ...shippedToWire(row), project: row.project })),
     triage: report.triage.map((group) => ({
       findings: group.findings,
       going_cold: group.goingCold,

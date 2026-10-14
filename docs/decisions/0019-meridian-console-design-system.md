@@ -304,3 +304,16 @@ operator out of the project they are in. §9's "the top-bar alert is a link to
 - **The hue and the count are unchanged.** Violet stays the attention hue, the
   count badge carries the decision count, and the alert is absent when there
   are no decisions. The popover lists the same set the badge counts.
+
+## Refinement (2026-10-13, MMR-504): the project listing orders by pin, then activity
+
+The MMR-476 refinement says the review page's project list uses the decisions
+order, then lists projects with no decisions by triage count. That is
+superseded for the project listing (the health strip, ADR 0013 MMR-503
+refinement):
+
+- **The project listing orders pinned projects first, then the most recent
+  activity, then the key.** The review report's `projects` array carries this
+  order, the same one the project switcher uses.
+- **Decision groups keep the urgency order.** The MMR-476 rules still govern
+  `decisions` and the focus queue, and `triage` keeps its count order.

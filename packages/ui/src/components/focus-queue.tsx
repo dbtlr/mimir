@@ -46,7 +46,7 @@ function liveDecisions(report: WireReviewReport): Map<string, WireWorkNeedsYou> 
 
 export function FocusQueue({ offline }: { offline: boolean }) {
   // Its own observer, so opening the queue refetches a read gone stale.
-  const review = useQuery(reviewQuery);
+  const review = useQuery(reviewQuery());
   const [fixed, setFixed] = useState<readonly string[] | null>(null);
   // The queue's place in the fixed list; nothing before it comes back.
   const [cursor, setCursor] = useState(0);

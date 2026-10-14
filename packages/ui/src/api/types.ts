@@ -289,6 +289,9 @@ export type WireWorkShipped = {
 } & WireNode;
 
 /** The work page for a project or one container's subtree. */
+/** A going-cold row: the task, flagged `stale` (always `true` here) like the other work rows. */
+export type WireWorkGoingCold = WireNode & { stale: boolean };
+
 export type WireWorkReport = {
   scope: WorkScope;
   now: WireWorkNow[];
@@ -300,7 +303,7 @@ export type WireWorkReport = {
     waiting_on_others: WireWorkWaiting[];
   };
   shipped: WireWorkShipped[];
-  going_cold: WireNode[];
+  going_cold: WireWorkGoingCold[];
 };
 
 /** A project as the review page names it. */
@@ -312,7 +315,14 @@ export type WireReviewProject = WireReviewProjectRef & {
   /** Untriaged seeds, plus tasks going cold, plus `doctor` findings. */
   triage: number;
   in_flight: number;
+  /** Open tasks: the `--status live` group (every status but done and abandoned, so parked counts). */
+  live: number;
+  /** Tasks past the stale threshold. */
+  going_cold: number;
 };
+
+/** A work-page row on the review page, tagged with its project's key. */
+export type WireReviewRow<T> = T & { project: string };
 
 /** One project's triage: untriaged seeds oldest first, and the going-cold and findings counts. */
 export type WireReviewTriage = {
@@ -324,14 +334,23 @@ export type WireReviewTriage = {
 
 /**
  * The cross-project review page (`GET /api/review`, MMR-477). `decisions` and
- * `projects` share one project order; `queue` is every decision's id in
- * focus-queue order, so its length is the decision count.
+ * `triage` are in urgency order; `projects` is the rail's order (pinned first,
+ * then newest activity); `queue` is every decision's id in focus-queue order, so
+ * its length is the decision count. `now`, `shipped`, `runnable`, and
+ * `going_cold` (MMR-504) are the work page's rows across every active project,
+ * each tagged with its project key. `now` is most recently started first,
+ * `runnable` follows the `projects` order, `going_cold` the longest quiet first,
+ * and `shipped` the newest first. The request needs `?tz=`, which places `shipped`.
  */
 export type WireReviewReport = {
   decisions: { project: WireReviewProjectRef; rows: WireWorkNeedsYou[] }[];
   queue: string[];
   triage: WireReviewTriage[];
   projects: WireReviewProject[];
+  now: WireReviewRow<WireWorkNow>[];
+  shipped: WireReviewRow<WireWorkShipped>[];
+  runnable: WireReviewRow<WireWorkFrontier>[];
+  going_cold: WireReviewRow<WireWorkGoingCold>[];
   /** The newest done or abandoned task across active projects; null when none has finished. */
   last_finished: WireWorkShipped | null;
 };
