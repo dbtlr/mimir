@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
+import { browserTimeZone } from '../api/queries';
 import type { WireNode, WireReviewProject, WireTreeNode } from '../api/types';
 import { subtreeOf } from '../lib/ancestry';
 import { rememberProject } from '../lib/current-project';
@@ -67,7 +68,7 @@ function serve(
     if (path === '/api/projects') {
       return Promise.resolve({ items: projects, total: projects.length });
     }
-    if (path === '/api/review') {
+    if (path.startsWith('/api/review')) {
       return Promise.resolve(reviewReport({ projects: review }));
     }
     // The page itself never loads: these cases read the shell around it.
@@ -119,7 +120,7 @@ const MMR = project({ id: 'MMR', title: 'Mimir' });
 const NRN = project({ id: 'NRN', title: 'Norn' });
 
 function decisions(key: string, count: number): WireReviewProject {
-  return { decisions: count, in_flight: 0, key, name: key, triage: 0 };
+  return { decisions: count, going_cold: 0, in_flight: 0, key, live: 0, name: key, triage: 0 };
 }
 
 const topBar = () => screen.getAllByRole('banner')[0] as HTMLElement;
@@ -280,7 +281,9 @@ describe('sidebar on All projects (MMR-505)', () => {
     renderAt('/');
     const nav = await sidebar();
     await waitFor(() => {
-      expect(apiGet).toHaveBeenCalledWith('/api/review');
+      expect(apiGet).toHaveBeenCalledWith(
+        `/api/review?tz=${encodeURIComponent(browserTimeZone())}`,
+      );
     });
     expect(allHeader(nav)).toHaveAccessibleName('All projects');
   });
