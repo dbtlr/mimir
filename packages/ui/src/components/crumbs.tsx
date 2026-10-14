@@ -21,7 +21,7 @@ export function Crumbs({
 }) {
   const ancestors = tree === undefined ? [] : (ancestorsOf(tree, nodeId) ?? []);
   const crumb =
-    'rounded-sm font-mono text-tag text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent';
+    'rounded-sm font-mono text-tag wrap-anywhere text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent';
   return (
     <nav aria-label="Path" className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
       <Link to="/p/$key" params={{ key: projectKey }} className={crumb}>

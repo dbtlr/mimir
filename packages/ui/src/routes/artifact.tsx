@@ -48,7 +48,7 @@ export function ArtifactPage() {
 }
 
 const crumb =
-  'rounded-sm font-mono text-tag text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent';
+  'rounded-sm font-mono text-tag wrap-anywhere text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent';
 
 const row =
   'flex min-w-0 items-center gap-2 rounded-sm px-1 py-1 text-xs text-ink transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent';
@@ -315,7 +315,7 @@ function ArtifactRecord({ artifactId }: { artifactId: string }) {
           Frozen {calendarDate(data.created_at)}
         </span>
       </div>
-      <h1 className="text-dossier leading-[1.35] font-bold tracking-[-0.01em] text-ink-bright md:text-header">
+      <h1 className="text-dossier leading-[1.35] font-bold tracking-[-0.01em] wrap-anywhere text-ink-bright md:text-header">
         {data.title}
       </h1>
       {data.summary !== undefined && (
