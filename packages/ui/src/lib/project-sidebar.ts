@@ -9,6 +9,14 @@ import { nodeIdOf } from './record-url';
 /** The sidebar's sections, in order. */
 export type SidebarSection = 'work' | 'tasks' | 'seeds' | 'artifacts';
 
+/**
+ * What the sidebar frames (MMR-505): a project, on its own `/p/KEY/…` pages, or
+ * All projects everywhere else (`/`, `/doctor`). The remembered project does
+ * not set it; that only steers the bare `/tasks`, `/seeds`, `/artifacts`
+ * redirects.
+ */
+export type SidebarContext = { kind: 'all' } | { kind: 'project'; key: string };
+
 const PROJECT_PATH = /^\/p\/([^/]+)(?:\/([^/]+))?\/?$/;
 const SEED_SUFFIX = /^s\d+$/;
 const ARTIFACT_SUFFIX = /^a\d+$/;
@@ -72,4 +80,10 @@ export function isSectionPage(pathname: string): boolean {
 export function openRecordId(pathname: string): string | undefined {
   const segments = projectSegments(pathname);
   return segments?.segment === undefined ? undefined : nodeIdOf(segments.key, segments.segment);
+}
+
+/** The sidebar's context for a page: its project on a project page, else All projects. */
+export function sidebarContextOf(pathname: string): SidebarContext {
+  const key = projectSegments(pathname)?.key;
+  return key === undefined ? { kind: 'all' } : { key, kind: 'project' };
 }

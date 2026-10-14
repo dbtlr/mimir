@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
-import type { WireNode, WireTreeNode } from '../api/types';
+import type { WireNode, WireReviewProject, WireTreeNode } from '../api/types';
 import { subtreeOf } from '../lib/ancestry';
 import { rememberProject } from '../lib/current-project';
 import { router } from '../router';
@@ -53,7 +53,11 @@ const TREE = node('MMR', 'project', 'in_progress', [
   node('MMR-9', 'initiative', 'parked', [node('MMR-10', 'task', 'parked')]),
 ]);
 
-function serve(projects: WireNode[], trees: Record<string, WireTreeNode> = {}) {
+function serve(
+  projects: WireNode[],
+  trees: Record<string, WireTreeNode> = {},
+  review: WireReviewProject[] = [],
+) {
   const served: Record<string, WireTreeNode> = {
     ...Object.fromEntries(projects.map((p) => [p.id, node(p.id, 'project', p.status)])),
     MMR: TREE,
@@ -62,6 +66,9 @@ function serve(projects: WireNode[], trees: Record<string, WireTreeNode> = {}) {
   apiGet.mockImplementation((path: string) => {
     if (path === '/api/projects') {
       return Promise.resolve({ items: projects, total: projects.length });
+    }
+    if (path === '/api/review') {
+      return Promise.resolve(reviewReport({ projects: review }));
     }
     // The page itself never loads: these cases read the shell around it.
     if (path.startsWith('/api/doctor') || /^\/api\/projects\/[A-Z]+$/.test(path)) {
@@ -111,9 +118,14 @@ function renderAt(initial: string) {
 const MMR = project({ id: 'MMR', title: 'Mimir' });
 const NRN = project({ id: 'NRN', title: 'Norn' });
 
+function decisions(key: string, count: number): WireReviewProject {
+  return { decisions: count, in_flight: 0, key, name: key, triage: 0 };
+}
+
 const topBar = () => screen.getAllByRole('banner')[0] as HTMLElement;
 const sidebar = () => screen.findByRole('navigation', { name: 'Project' });
 const outline = async () => within(await sidebar()).findByRole('navigation', { name: 'Outline' });
+const allHeader = (nav: HTMLElement) => within(nav).getByRole('button', { name: /^All projects/ });
 const SECTIONS = ['Work', 'Tasks', 'Seeds', 'Artifacts'];
 
 /** The sidebar's sections currently marked as the page. */
@@ -161,12 +173,6 @@ describe('sidebar sections mark the page (MMR-485, MMR-496)', () => {
     });
   });
 
-  it('marks nothing off a project', async () => {
-    renderAt('/');
-    await sidebar();
-    await expect(activeSections()).resolves.toStrictEqual([]);
-  });
-
   it('points the sections at the project', async () => {
     renderAt('/p/MMR');
     const nav = await sidebar();
@@ -197,33 +203,6 @@ describe('sidebar names the current project', () => {
     );
   });
 
-  it('shows the remembered project on /', async () => {
-    serve([MMR, NRN]);
-    rememberProject('NRN');
-    renderAt('/');
-    const nav = await sidebar();
-    await expect(
-      within(nav).findByRole('button', { name: /NRN.*Norn/ }),
-    ).resolves.toBeInTheDocument();
-    expect(within(nav).getByRole('link', { name: 'Seeds' })).toHaveAttribute(
-      'href',
-      '/p/NRN/seeds',
-    );
-  });
-
-  it('falls back to the first project when nothing is remembered', async () => {
-    serve([MMR, NRN]);
-    renderAt('/doctor');
-    const nav = await sidebar();
-    await expect(
-      within(nav).findByRole('button', { name: /MMR.*Mimir/ }),
-    ).resolves.toBeInTheDocument();
-    expect(within(nav).getByRole('link', { name: 'Seeds' })).toHaveAttribute(
-      'href',
-      '/p/MMR/seeds',
-    );
-  });
-
   it('opens the project switcher from the header, with a way to start a new project', async () => {
     renderAt('/p/MMR');
     await userEvent.click(await screen.findByRole('button', { name: /MMR.*Mimir/ }));
@@ -241,6 +220,105 @@ describe('sidebar names the current project', () => {
     });
     expect(screen.queryByRole('navigation', { name: 'Project' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Open project menu' })).toBeNull();
+  });
+});
+
+describe('sidebar on All projects (MMR-505)', () => {
+  it.each(['/', '/doctor'])(
+    'reads All projects on %s, whatever project was last visited',
+    async (path) => {
+      serve([MMR, NRN]);
+      rememberProject('NRN');
+      renderAt(path);
+      const nav = await sidebar();
+      expect(allHeader(nav)).toBeInTheDocument();
+      expect(within(nav).queryByRole('button', { name: /NRN/ })).toBeNull();
+    },
+  );
+
+  it.each(['/', '/doctor'])(
+    'holds only Work on %s: no outline, Tasks, Seeds, or Artifacts',
+    async (path) => {
+      serve([MMR]);
+      renderAt(path);
+      const nav = await sidebar();
+      expect(
+        within(nav)
+          .getAllByRole('link')
+          .map((l) => l.textContent),
+      ).toStrictEqual(['Work']);
+      expect(within(nav).queryByRole('navigation', { name: 'Outline' })).toBeNull();
+      expect(apiGet).not.toHaveBeenCalledWith('/api/projects/MMR/tree');
+    },
+  );
+
+  it('links Work to / and marks it the page there', async () => {
+    renderAt('/');
+    const work = within(await sidebar()).getByRole('link', { name: 'Work' });
+    expect(work).toHaveAttribute('href', '/');
+    expect(work).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('marks nothing as the page on /doctor', async () => {
+    renderAt('/doctor');
+    const work = within(await sidebar()).getByRole('link', { name: 'Work' });
+    expect(work).toHaveAttribute('href', '/');
+    expect(work).not.toHaveAttribute('aria-current');
+  });
+
+  it('washes Work in the accent selection treatment', async () => {
+    renderAt('/');
+    const work = within(await sidebar()).getByRole('link', { name: 'Work' });
+    expect(work.className).toContain('aria-[current]:bg-accent/10');
+  });
+
+  it('counts the decisions across every project in the header', async () => {
+    serve([MMR, NRN], {}, [decisions('MMR', 2), decisions('NRN', 3)]);
+    renderAt('/');
+    const header = await within(await sidebar()).findByRole('button', {
+      name: /^All projects.*5 decisions/,
+    });
+    expect(header).toHaveTextContent('5');
+  });
+
+  it('says nothing of decisions when none wait', async () => {
+    serve([MMR, NRN], {}, [decisions('MMR', 0)]);
+    renderAt('/');
+    const nav = await sidebar();
+    await waitFor(() => {
+      expect(apiGet).toHaveBeenCalledWith('/api/review');
+    });
+    expect(allHeader(nav)).toHaveAccessibleName('All projects');
+  });
+
+  it('has no "elsewhere" count', async () => {
+    serve([MMR, NRN], {}, [decisions('MMR', 2), decisions('NRN', 3)]);
+    renderAt('/');
+    await within(await sidebar()).findByRole('button', { name: /5 decisions/ });
+    expect(screen.queryByText(/elsewhere/)).toBeNull();
+  });
+
+  it('still leaves bare /tasks to the remembered project', async () => {
+    serve([MMR, NRN]);
+    rememberProject('NRN');
+    const testRouter = renderAt('/tasks');
+    await waitFor(() => {
+      expect(testRouter.state.location.pathname).toBe('/p/NRN/tasks');
+    });
+  });
+
+  it('returns to the project context on a project page', async () => {
+    serve([MMR, NRN]);
+    const testRouter = renderAt('/');
+    const nav = await sidebar();
+    expect(allHeader(nav)).toBeInTheDocument();
+    await act(async () => {
+      await testRouter.navigate({ params: { key: 'NRN' }, to: '/p/$key' });
+    });
+    await expect(
+      within(await sidebar()).findByRole('button', { name: /NRN.*Norn/ }),
+    ).resolves.toBeInTheDocument();
+    expect(within(await sidebar()).getByRole('link', { name: 'Seeds' })).toBeInTheDocument();
   });
 });
 
@@ -595,6 +673,30 @@ describe('sidebar drawer on a phone', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Project' })).toBeNull();
     });
+  });
+
+  it('opens on / with the All projects context: only Work, and it closes behind a pick', async () => {
+    serve([MMR, NRN], {}, [decisions('MMR', 1)]);
+    const testRouter = renderAt('/');
+    await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
+    const drawer = await screen.findByRole('dialog', { name: 'Project' });
+    const nav = within(drawer).getByRole('navigation', { name: 'Project' });
+    await expect(
+      within(nav).findByRole('button', { name: /^All projects.*1 decision/ }),
+    ).resolves.toBeInTheDocument();
+    expect(
+      within(nav)
+        .getAllByRole('link')
+        .map((l) => l.textContent),
+    ).toStrictEqual(['Work']);
+    expect(within(nav).getByRole('link', { name: 'Work' })).toHaveAttribute('aria-current', 'page');
+
+    await userEvent.click(within(nav).getByRole('button', { name: /^All projects/ }));
+    await userEvent.click(await screen.findByRole('option', { name: /NRN/ }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Project' })).toBeNull();
+    });
+    expect(testRouter.state.location.pathname).toBe('/p/NRN');
   });
 
   it('has no drawer button with no projects', async () => {

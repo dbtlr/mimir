@@ -8,6 +8,12 @@ import type { SidebarSection } from './project-sidebar';
  * project list, and where picking a project lands.
  */
 
+/**
+ * The switcher's highlight key for its All projects option (MMR-505). A project
+ * key is letters only, so this cannot name a project.
+ */
+export const ALL_PROJECTS_KEY = '*';
+
 type Switchable = Pick<WireNode, 'id' | 'title' | 'archived_at'> & {
   pinned?: boolean | null;
   last_activity_at?: string | null;

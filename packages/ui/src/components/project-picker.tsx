@@ -8,7 +8,9 @@ import { archivedProjectsQuery, projectsQuery, reviewQuery } from '../api/querie
 import type { WireNode } from '../api/types';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
+import type { SidebarContext } from '../lib/project-sidebar';
 import {
+  ALL_PROJECTS_KEY,
   filterProjects,
   groupProjects,
   overlayPins,
@@ -26,19 +28,24 @@ import { PopoverContent, PopoverRoot, PopoverTrigger } from './ui/popover';
  * fold away at the bottom. A trailing "+ New project" row opens the
  * create-project sheet (MMR-230).
  *
+ * Outside a project (`/`, `/doctor`) the button reads "All projects" with the
+ * decisions across every project, and the list opens on an "All projects"
+ * option that leads back to `/` (MMR-505).
+ *
  * The same popover opens inside the phone drawer; `onNavigate` lets the drawer
  * close behind a pick.
  */
 export function ProjectPicker({
-  projectKey,
+  context,
   onNavigate,
 }: {
-  projectKey: string;
+  context: SidebarContext;
   /** Called when a pick moves the page, so a drawer can close behind it. */
   onNavigate?: () => void;
 }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const projectKey = context.kind === 'project' ? context.key : undefined;
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const searchRef = useRef<HTMLInputElement | null>(null);
@@ -50,18 +57,25 @@ export function ProjectPicker({
   // header names it from the archived list once the active list lacks it.
   const archived = useQuery({
     ...archivedProjectsQuery,
-    enabled: projects.isSuccess && active === undefined,
+    enabled: projectKey !== undefined && projects.isSuccess && active === undefined,
   });
   const frozen =
     active === undefined ? archived.data?.items.find((p) => p.id === projectKey) : undefined;
   const current = active ?? frozen;
   const decisionsByKey = new Map(review.data?.projects.map((p) => [p.key, p.decisions]));
-  const elsewhere = [...decisionsByKey]
-    .filter(([key]) => key !== projectKey)
-    .reduce((sum, [, count]) => sum + count, 0);
+  const everywhere = [...decisionsByKey.values()].reduce((sum, count) => sum + count, 0);
+  const elsewhere = everywhere - (decisionsByKey.get(projectKey ?? '') ?? 0);
 
   const pick = (key: string) => {
     setOpen(false);
+    if (key === ALL_PROJECTS_KEY) {
+      // `/` is already All projects; `/doctor` reads as it too, but picking it leads home.
+      if (pathname !== '/') {
+        onNavigate?.();
+        void navigate({ to: '/' });
+      }
+      return;
+    }
     if (key === projectKey) {
       return;
     }
@@ -73,31 +87,43 @@ export function ProjectPicker({
     <>
       <PopoverRoot open={open} onOpenChange={setOpen}>
         <PopoverTrigger className="group flex w-full items-center gap-2 rounded-lg bg-well-850 px-2.5 py-2 text-left inset-ring inset-ring-line-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent data-[popup-open]:inset-ring-accent/45">
-          {active !== undefined && <StatusDot status={active.status} />}
-          {frozen !== undefined && <Snowflake />}
-          <span
-            className={cn(
-              'font-mono text-meta font-bold text-ink-bright',
-              frozen !== undefined && 'text-ink-faint',
-            )}
-          >
-            {projectKey}
-          </span>
-          <span
-            className={cn(
-              'min-w-0 flex-1 truncate text-body font-semibold text-ink-bright',
-              frozen !== undefined && 'text-ink-faint',
-            )}
-          >
-            {current?.title}
-          </span>
-          {elsewhere > 0 && (
-            <span className="flex shrink-0 items-center gap-1 text-micro font-semibold text-attention-foreground before:size-1.5 before:rounded-full before:bg-attention">
-              <span aria-hidden="true">{elsewhere} elsewhere</span>
-              <span className="sr-only">
-                {elsewhere} {elsewhere === 1 ? 'decision' : 'decisions'} in other projects
+          {context.kind === 'all' ? (
+            <>
+              <AllProjectsGlyph />
+              <span className="min-w-0 flex-1 truncate text-body font-semibold text-ink-bright">
+                All projects
               </span>
-            </span>
+              <DecisionCount count={everywhere} />
+            </>
+          ) : (
+            <>
+              {active !== undefined && <StatusDot status={active.status} />}
+              {frozen !== undefined && <Snowflake />}
+              <span
+                className={cn(
+                  'font-mono text-meta font-bold text-ink-bright',
+                  frozen !== undefined && 'text-ink-faint',
+                )}
+              >
+                {context.key}
+              </span>
+              <span
+                className={cn(
+                  'min-w-0 flex-1 truncate text-body font-semibold text-ink-bright',
+                  frozen !== undefined && 'text-ink-faint',
+                )}
+              >
+                {current?.title}
+              </span>
+              {elsewhere > 0 && (
+                <span className="flex shrink-0 items-center gap-1 text-micro font-semibold text-attention-foreground before:size-1.5 before:rounded-full before:bg-attention">
+                  <span aria-hidden="true">{elsewhere} elsewhere</span>
+                  <span className="sr-only">
+                    {elsewhere} {elsewhere === 1 ? 'decision' : 'decisions'} in other projects
+                  </span>
+                </span>
+              )}
+            </>
           )}
           <svg
             width="11"
@@ -123,8 +149,9 @@ export function ProjectPicker({
         >
           {open && (
             <SwitcherPanel
-              projectKey={projectKey}
+              context={context}
               decisions={decisionsByKey}
+              everywhere={everywhere}
               searchRef={searchRef}
               offline={conn.offline}
               onPick={pick}
@@ -138,6 +165,40 @@ export function ProjectPicker({
       </PopoverRoot>
       <NewProjectSheet open={creating} onOpenChange={setCreating} />
     </>
+  );
+}
+
+/** The mark of All projects: four tiles, where a project shows its status dot. */
+function AllProjectsGlyph() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="currentColor"
+      aria-hidden="true"
+      className="shrink-0 text-ink-dim"
+    >
+      <rect x="0" y="0" width="5" height="5" rx="1" />
+      <rect x="7" y="0" width="5" height="5" rx="1" />
+      <rect x="0" y="7" width="5" height="5" rx="1" />
+      <rect x="7" y="7" width="5" height="5" rx="1" />
+    </svg>
+  );
+}
+
+/** The violet count of decisions waiting; nothing at zero. */
+export function DecisionCount({ count }: { count: number }) {
+  if (count <= 0) {
+    return null;
+  }
+  return (
+    <span
+      aria-label={`${String(count)} ${count === 1 ? 'decision' : 'decisions'}`}
+      className="shrink-0 rounded-full bg-attention/12 px-[7px] text-tag font-semibold text-attention-foreground inset-ring inset-ring-attention/24"
+    >
+      {count}
+    </span>
   );
 }
 
@@ -180,15 +241,18 @@ function emptyMessage(input: {
  * row, Enter opens it, and Alt+P pins it. A row holds no control of its own.
  */
 function SwitcherPanel({
-  projectKey,
+  context,
   decisions,
+  everywhere,
   searchRef,
   offline,
   onPick,
   onNew,
 }: {
-  projectKey: string;
+  context: SidebarContext;
   decisions: ReadonlyMap<string, number>;
+  /** The decisions waiting across every project. */
+  everywhere: number;
   searchRef: RefObject<HTMLInputElement | null>;
   offline: boolean;
   onPick: (key: string) => void;
@@ -213,13 +277,15 @@ function SwitcherPanel({
   const rest = filterProjects(groups.rest, query);
   const archivedRows = filterProjects(archived.data?.items ?? [], query);
   const rows = [...pinned, ...rest, ...(showArchived ? archivedRows : [])];
-  const activeIndex = Math.max(
-    0,
-    rows.findIndex((r) => r.id === activeKey),
-  );
-  const active = rows.at(activeIndex);
-  const optionId = (key: string) => `${listId}-${key}`;
-  const activeOptionId = active === undefined ? undefined : optionId(active.id);
+  // All projects leads the list, but only while no search narrows it to projects.
+  const showAll = query.trim() === '';
+  const keys = [...(showAll ? [ALL_PROJECTS_KEY] : []), ...rows.map((r) => r.id)];
+  const activeIndex = Math.max(0, keys.indexOf(activeKey ?? ''));
+  const activeOption = keys.at(activeIndex);
+  const active = rows.find((r) => r.id === activeOption);
+  const optionId = (key: string) => `${listId}-${key === ALL_PROJECTS_KEY ? 'all' : key}`;
+  const activeOptionId = activeOption === undefined ? undefined : optionId(activeOption);
+  const projectKey = context.kind === 'project' ? context.key : undefined;
   const message = emptyMessage({
     failed: projects.isError,
     hasRows: pinned.length + rest.length > 0 || archivedRows.length > 0,
@@ -260,11 +326,11 @@ function SwitcherPanel({
     const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
     if (step !== undefined) {
       event.preventDefault();
-      setActiveKey(rows.at((activeIndex + step) % rows.length)?.id ?? null);
+      setActiveKey(keys.at((activeIndex + step) % keys.length) ?? null);
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      if (active !== undefined) {
-        onPick(active.id);
+      if (activeOption !== undefined) {
+        onPick(activeOption);
       }
     }
   };
@@ -274,7 +340,7 @@ function SwitcherPanel({
       key={p.id}
       project={p}
       id={optionId(p.id)}
-      active={p.id === active?.id}
+      active={p.id === activeOption}
       current={p.id === projectKey}
       decisions={decisions.get(p.id) ?? 0}
       pinnable={!offline}
@@ -325,6 +391,20 @@ function SwitcherPanel({
       </p>
       <div className="min-h-0 overflow-y-auto px-1.5 pb-1.5">
         <div id={listId} role="listbox" aria-label="Projects">
+          {showAll && (
+            <AllProjectsOption
+              id={optionId(ALL_PROJECTS_KEY)}
+              active={activeOption === ALL_PROJECTS_KEY}
+              current={context.kind === 'all'}
+              decisions={everywhere}
+              onActivate={() => {
+                setActiveKey(ALL_PROJECTS_KEY);
+              }}
+              onPick={() => {
+                onPick(ALL_PROJECTS_KEY);
+              }}
+            />
+          )}
           {pinned.length > 0 && <Group label="Pinned">{pinned.map(row)}</Group>}
           {rest.length > 0 && <Group label="Recent">{rest.map(row)}</Group>}
         </div>
@@ -365,6 +445,55 @@ function SwitcherPanel({
         </button>
       </div>
     </>
+  );
+}
+
+/**
+ * The All projects option: first in the list, current outside a project, and
+ * with no pin. It takes only the pointer, like a project row.
+ */
+function AllProjectsOption({
+  id,
+  active,
+  current,
+  decisions,
+  onActivate,
+  onPick,
+}: {
+  id: string;
+  active: boolean;
+  current: boolean;
+  decisions: number;
+  onActivate: () => void;
+  onPick: () => void;
+}) {
+  return (
+    // As in ProjectOption: the search box owns focus and the keys.
+    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events
+    <div
+      id={id}
+      role="option"
+      tabIndex={-1}
+      aria-selected={active}
+      aria-current={current ? 'true' : undefined}
+      onMouseDown={(event) => {
+        event.preventDefault();
+      }}
+      onClick={onPick}
+      onPointerMove={onActivate}
+      className={cn(
+        'mb-1 flex min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-meta text-ink-dim max-md:py-2.5',
+        'aria-selected:bg-well-800',
+        'aria-[current]:bg-accent/10 aria-[current]:text-ink-bright aria-[current]:inset-ring aria-[current]:inset-ring-accent/28',
+      )}
+    >
+      <AllProjectsGlyph />
+      <span className="shrink-0 text-meta font-semibold text-ink-bright">All projects</span>
+      <span className="min-w-0 flex-1 truncate text-xs text-ink-faint">
+        Work across every project
+      </span>
+      <DecisionCount count={decisions} />
+    </div>
   );
 }
 
@@ -444,14 +573,7 @@ function ProjectOption({
         {project.id}
       </span>
       <span className="min-w-0 flex-1 truncate">{project.title}</span>
-      {decisions > 0 && (
-        <span
-          aria-label={`${String(decisions)} ${decisions === 1 ? 'decision' : 'decisions'}`}
-          className="shrink-0 rounded-full bg-attention/12 px-[7px] text-tag font-semibold text-attention-foreground inset-ring inset-ring-attention/24"
-        >
-          {decisions}
-        </span>
-      )}
+      <DecisionCount count={decisions} />
       {pinned && <span className="sr-only">, pinned</span>}
       {!frozen && (
         // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions

@@ -1,4 +1,4 @@
-import { Link, Outlet } from '@tanstack/react-router';
+import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import { Toaster } from 'sonner';
 
 import { AttentionAlert } from '../components/attention-alert';
@@ -12,6 +12,7 @@ import { SeedCaptureProvider } from '../components/seed-capture';
 import { ThemeToggle } from '../components/theme-toggle';
 import { VersionFooter } from '../components/version-footer';
 import { useCurrentProjectKey, useRememberCurrentProject } from '../lib/current-project';
+import { sidebarContextOf } from '../lib/project-sidebar';
 import { useMediaQuery } from '../lib/use-media-query';
 import { useTheme } from '../lib/use-theme';
 import { useToastPosition } from '../lib/use-toast-position';
@@ -54,8 +55,8 @@ function SkipLink() {
 
 /**
  * The app shell (ADR 0013, MMR-492 refinement): a slim top bar (brand, jump
- * palette, Needs you, theme toggle), the current project's sidebar, and the
- * routed surface.
+ * palette, Needs you, theme toggle), the sidebar (the page's project, or All
+ * projects outside one), and the routed surface.
  */
 export function Shell() {
   return (
@@ -70,16 +71,19 @@ function ShellContent() {
   const toastPosition = useToastPosition();
   const desktop = useMediaQuery(DESKTOP);
   useRememberCurrentProject();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   // With no project there is nothing to frame: the review page at / handles
-  // creating the first one.
-  const projectKey = useCurrentProjectKey();
-  const sidebarShown = projectKey !== undefined && desktop;
+  // creating the first one. The remembered project only decides that a project
+  // exists; the sidebar's context comes from the page (MMR-505).
+  const framed = useCurrentProjectKey() !== undefined;
+  const context = framed ? sidebarContextOf(pathname) : undefined;
+  const sidebarShown = context !== undefined && desktop;
   return (
     <SeedCaptureProvider>
       <div className="flex h-dvh flex-col overflow-hidden">
         <SkipLink />
         <header className="z-20 flex items-center gap-2 border-b border-line bg-well-900/85 px-4 py-2 backdrop-blur max-lg:px-2">
-          {projectKey !== undefined && !desktop && <ProjectDrawer projectKey={projectKey} />}
+          {context !== undefined && !desktop && <ProjectDrawer context={context} />}
           <Link
             to="/"
             className="flex items-center gap-2 rounded font-mono text-card-mobile font-bold tracking-tight text-ink-bright focus-visible:outline-2 focus-visible:outline-accent"
@@ -95,7 +99,7 @@ function ShellContent() {
           </div>
         </header>
         <div className="flex min-h-0 flex-1">
-          {sidebarShown && <ProjectSidebar projectKey={projectKey} />}
+          {sidebarShown && <ProjectSidebar context={context} />}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <PwaUpdateBanner />
             <Outlet />
