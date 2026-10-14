@@ -576,3 +576,52 @@ Considered and rejected:
 - **Remembering the current project only in the URL.** Pages outside a project
   would have no project to show in the sidebar, and the browsers' bare
   redirects would have no target.
+
+## Refinement (2026-10-13, MMR-503): `/` is a cross-project work page, and the sidebar's context can be All projects
+
+The MMR-476 refinement made `/` a review page with a triage table and a
+project rail; the MMR-492 refinement then gave every project a work page and a
+sidebar. Beside the work page, the review page's two sections and its
+per-project table read as a different kind of page. `/` becomes the work
+page's cross-project counterpart, in the same row style. The MMR-476
+refinement's main column and rail are revised, and the MMR-492 refinement's
+sidebar rule for pages outside a project is revised:
+
+- **The main column is three sections: _Needs you_, _Now_, and _Shipped_.**
+  - _Needs you_ lists the decisions (ADR 0019) with their in-place verbs, as
+    the _Decide_ section did, in ADR 0019's order. Its _Work through these ·
+    N_ control opens the focus queue at `/?mode=focus`, which is unchanged.
+  - _Now_ lists the in-flight tasks across active projects.
+  - _Shipped_ lists recently finished tasks across active projects.
+  - Every row carries its project key and uses the work page's row style.
+- **The rail holds the project health strip and _When you have a minute_.**
+  - The strip has one row per active project (ADR 0015) with its decisions
+    (in the attention hue), live count, and going-cold count. Rows list
+    pinned projects first, then the rest by most recent activity, as the
+    switcher does (MMR-492 refinement), and each links to `/p/KEY`. It is the
+    one project listing on `/`, and its order replaces the project order the
+    MMR-476 refinement gave the review page's list.
+  - _When you have a minute_ has three groups: runnable now (tasks that can
+    start, each with _Start_), to triage (untriaged seeds, each with its
+    _Promote…_, _Park…_, and _Reject…_ verbs), and going cold. These replace
+    the triage table and keep the MMR-476 refinement's in-place seed triage.
+- **The per-project triage table and the review page's project rail retire.**
+  The rail's archived shelf and _New project_ move to the switcher, which
+  already lists archived projects and offers _New project_.
+- **The switcher gains an _All projects_ entry, first in its list, that leads
+  to `/`.** On `/` and `/doctor` the sidebar's context is All projects: its
+  header reads _All projects_, and only _Work_ (which is `/`, marked current)
+  sits under it. This revises the MMR-492 rule that, on a page outside a
+  project, the current project is the last one visited. Bare `/tasks`,
+  `/seeds`, and `/artifacts` still redirect to the last visited project's
+  browser.
+
+ADR 0019 is unchanged: the decisions set, its order, and the attention hue
+are the same, and only their placement on `/` moves.
+
+Considered and rejected:
+
+- **A literal mirror of the work page, with a project chip on every row and
+  no rail.** It loses the at-a-glance health of each project.
+- **Rows grouped under project subheads in every section.** It repeats the
+  project list in each section.
