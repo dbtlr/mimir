@@ -601,10 +601,13 @@ sidebar rule for pages outside a project is revised:
     switcher does (MMR-492 refinement), and each links to `/p/KEY`. It is the
     one project listing on `/`, and its order replaces the project order the
     MMR-476 refinement gave the review page's list.
-  - _When you have a minute_ has three groups: runnable now (tasks that can
+  - _When you have a minute_ has four groups: runnable now (tasks that can
     start, each with _Start_), to triage (untriaged seeds, each with its
-    _Promote…_, _Park…_, and _Reject…_ verbs), and going cold. These replace
-    the triage table and keep the MMR-476 refinement's in-place seed triage.
+    _Promote…_, _Park…_, and _Reject…_ verbs), going cold, and `doctor`
+    findings (a count per project with findings, linking to
+    `/doctor?project=KEY`). These replace the triage table, keep the MMR-476
+    refinement's in-place seed triage, and keep findings in the triage tier
+    that ADR 0019's MMR-476 refinement counts them in.
 - **The per-project triage table and the review page's project rail retire.**
   The rail's archived shelf and _New project_ move to the switcher, which
   already lists archived projects and offers _New project_.
@@ -617,7 +620,8 @@ sidebar rule for pages outside a project is revised:
   browser.
 
 ADR 0019 is unchanged: the decisions set, its order, and the attention hue
-are the same, and only their placement on `/` moves.
+are the same, findings stay in the review page's triage tier, and only their
+placement on `/` moves.
 
 Considered and rejected:
 
