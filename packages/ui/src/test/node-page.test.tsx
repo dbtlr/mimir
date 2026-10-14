@@ -141,24 +141,30 @@ describe('task page (MMR-449)', () => {
     expect(screen.getByRole('textbox', { name: /note/i })).toBeDefined();
   });
 
-  it('links every crumb in the path above the task', async () => {
+  it('links its nearest container above the id for a phone, in place of a breadcrumb', async () => {
     serve(sqlite);
     renderAt('/p/MMR/417');
 
-    const crumbs = await screen.findByRole('navigation', { name: 'Path' });
-    await waitFor(() => {
-      expect(within(crumbs).getByRole('link', { name: 'Mimir' }).getAttribute('href')).toBe(
-        '/p/MMR',
-      );
+    const parent = await screen.findByRole('link', { name: /SQLite replaces Norn/ });
+    expect(parent.getAttribute('href')).toBe('/p/MMR/2');
+    // The sidebar outline carries the place from md up.
+    expect(parent.className).toContain('lg:hidden');
+    expect(screen.queryByRole('navigation', { name: 'Path' })).toBeNull();
+  });
+
+  it('links the project when no container holds the task', async () => {
+    const loose = task({ id: 'MMR-9', parent: 'MMR', status: 'ready', title: 'A loose task' });
+    serve(loose, {
+      '/api/projects/MMR/tree': { ...TREE, children: [{ ...loose, children: [] }] },
     });
-    expect(
-      within(crumbs)
-        .getByRole('link', { name: 'Hosted and external backends' })
-        .getAttribute('href'),
-    ).toBe('/p/MMR/1');
-    expect(
-      within(crumbs).getByRole('link', { name: 'SQLite replaces Norn' }).getAttribute('href'),
-    ).toBe('/p/MMR/2');
+    renderAt('/p/MMR/9');
+
+    // The brand is also named Mimir; the parent link is the one a desktop hides.
+    await screen.findByRole('heading', { level: 1 });
+    const parent = screen
+      .getAllByRole('link', { name: 'Mimir' })
+      .find((l) => l.className.includes('lg:hidden'));
+    expect(parent?.getAttribute('href')).toBe('/p/MMR');
   });
 
   it('redirects a bare id, in any case, to the record page', async () => {
@@ -424,7 +430,10 @@ describe('container page (MMR-450)', () => {
       screen.findByRole('heading', { level: 1, name: 'SQLite replaces Norn' }),
     ).resolves.toBeDefined();
     expect(screen.getByText('MMR-2 · phase')).toBeDefined();
-    expect(screen.getByRole('navigation', { name: 'Path' })).toBeDefined();
+    expect(
+      screen.getByRole('link', { name: /Hosted and external backends/ }).getAttribute('href'),
+    ).toBe('/p/MMR/1');
+    expect(screen.queryByRole('navigation', { name: 'Path' })).toBeNull();
     for (const name of ['Now', 'Needs you', 'Frontier', 'Shipped', 'Going cold']) {
       // oxlint-disable-next-line no-await-in-loop -- one section at a time reads clearest
       await expect(screen.findByRole('region', { name })).resolves.toBeDefined();
@@ -441,7 +450,7 @@ describe('container page (MMR-450)', () => {
     expect(apiGet).toHaveBeenCalledWith('/api/nodes/MMR-2/work?tz=America%2FNew_York');
   });
 
-  it('an initiative opens as the work page too, its phases in the structure', async () => {
+  it('an initiative opens as the work page too, its parent the project', async () => {
     serve({
       ...phase,
       id: 'MMR-1',
@@ -451,13 +460,11 @@ describe('container page (MMR-450)', () => {
     });
     renderAt('/p/MMR/1');
 
-    const rail = await screen.findByRole('complementary', { name: 'Record details' });
-    const structure = await within(rail).findByRole('navigation', { name: 'Structure' });
-    expect(
-      within(structure)
-        .getByRole('link', { name: /SQLite replaces Norn/ })
-        .getAttribute('href'),
-    ).toBe('/p/MMR/2');
+    await screen.findByRole('heading', { level: 1 });
+    const parent = screen
+      .getAllByRole('link', { name: 'Mimir' })
+      .find((l) => l.className.includes('lg:hidden'));
+    expect(parent?.getAttribute('href')).toBe('/p/MMR');
     await expect(screen.findByRole('region', { name: 'Frontier' })).resolves.toBeDefined();
   });
 

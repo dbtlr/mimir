@@ -65,8 +65,20 @@ const rows: WireNode[] = [
   }),
 ];
 
+/** The project tree the shell's sidebar outline reads: a project holding no containers. */
+function projectTree(path: string) {
+  const id = /^\/api\/projects\/([A-Z]+)\/tree$/.exec(path)?.[1];
+  return id === undefined
+    ? undefined
+    : { children: [], id, status: 'in_progress', title: id, type: 'project' };
+}
+
 function mockApi() {
   apiGet.mockImplementation((path: string) => {
+    const tree = projectTree(path);
+    if (tree !== undefined) {
+      return Promise.resolve(tree);
+    }
     if (path.startsWith('/api/projects')) {
       return Promise.resolve({
         items: [
@@ -362,11 +374,7 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
   });
 
   it('says so when nothing matches', async () => {
-    apiGet.mockImplementation((path: string) =>
-      path.startsWith('/api/projects')
-        ? Promise.resolve(emptyRead(path))
-        : Promise.resolve(emptyRead(path)),
-    );
+    apiGet.mockImplementation((path: string) => Promise.resolve(emptyRead(path)));
     renderTasks();
     await expect(screen.findByText('No tasks match.')).resolves.toBeDefined();
   });
@@ -413,6 +421,10 @@ function mockTerminalApi(
   gate: (limit: number) => Promise<void> | undefined = () => undefined,
 ) {
   apiGet.mockImplementation(async (path: string) => {
+    const tree = projectTree(path);
+    if (tree !== undefined) {
+      return tree;
+    }
     if (path.startsWith('/api/projects')) {
       return { items: [{ id: 'MMR', status: 'in_progress', title: 'Mimir' }], total: 1 };
     }

@@ -408,7 +408,8 @@ function GoingColdSection({ rows }: { rows: readonly WireNode[] }) {
 }
 
 /**
- * The five sections in question order, from one work read. `home` is the
+ * The five sections in question order, from one work read, then a link to the
+ * project's task browser. `home` is the
  * container the page is scoped to, so the empty frontier's New task files
  * into it; a project passes none.
  */
@@ -437,6 +438,14 @@ export function WorkSections({
       />
       <ShippedSection rows={report.shipped} projectKey={projectKey} zone={zone} />
       <GoingColdSection rows={report.going_cold} />
+      {/* The other lens on the scope: its tasks in the browser, past the five sections. */}
+      <Link
+        to="/p/$key/tasks"
+        params={{ key: projectKey }}
+        className="mt-1 border-t border-line px-1 py-2.5 text-meta text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+      >
+        All tasks in {projectKey} →
+      </Link>
     </div>
   );
 }

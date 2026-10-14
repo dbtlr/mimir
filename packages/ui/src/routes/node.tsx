@@ -28,12 +28,13 @@ import {
 } from '../components/node-record';
 import { FeedList } from '../components/node-timeline';
 import { OfflineBanner } from '../components/offline-banner';
+import { ParentLink } from '../components/parent-link';
 import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
 import type { RailChip } from '../components/record-layout';
 import { StatusBadge } from '../components/status-badge';
 import { TaskForm } from '../components/task-form';
 import { ActionButton } from '../components/ui/action-button';
-import { Crumbs, WorkPage } from '../components/work-page';
+import { WorkPage } from '../components/work-page';
 import type { WorkTab } from '../components/work-page';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
@@ -180,11 +181,11 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
   const projectKey = projectKeyOf(nodeId);
   const node = useQuery(nodeQuery(nodeId));
   const annotations = useQuery(annotationsQuery(nodeId));
-  // The tree titles the path and the Scratchpad list names the agent's
-  // episode; a miss on either only thins the page, so neither counts toward
-  // connectivity.
-  // The tree is the whole board, so it is read once rather than polled; a
-  // console write invalidates it and returning to the window refetches it.
+  // The tree finds the phone parent link and the Scratchpad list names the
+  // agent's episode; a miss on either only thins the page, so neither counts
+  // toward connectivity. The tree is the whole board, so it is read once rather
+  // than polled; a console write invalidates it and returning to the window
+  // refetches it.
   const tree = useQuery({ ...treeQuery(projectKey), refetchInterval: false });
   const scratchpadRows = useQuery(scratchpadsQuery(projectKey));
   const edit = useNodeEdit(nodeId);
@@ -233,7 +234,6 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
         <WorkPage
           record={data}
           tree={tree.data}
-          treeFailed={tree.isError}
           offline={offline}
           container={{ onTab, tab: tab ?? 'work', timeline, timelineCount: feed.length }}
         />
@@ -322,7 +322,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
 
   const head = (
     <header className="flex flex-col gap-1.5">
-      <Crumbs projectKey={projectKey} tree={tree.data} nodeId={nodeId} />
+      <ParentLink projectKey={projectKey} tree={tree.data} nodeId={nodeId} />
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-mono text-mono-id text-ink-faint">
           {nodeId} · {data.type}

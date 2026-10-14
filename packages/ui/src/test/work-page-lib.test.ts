@@ -146,10 +146,6 @@ describe('buildOutline', () => {
     tn('MMR-14', 'task', 'ready'),
   ]);
 
-  it('counts the project’s direct children done over total, tasks included', () => {
-    expect(buildOutline(tree).root).toStrictEqual({ done: 1, total: 5 });
-  });
-
   it('lists live initiatives and phases with depth, leaving tasks out', () => {
     expect(buildOutline(tree).entries.map((e) => [e.id, e.depth])).toStrictEqual([
       ['MMR-1', 0],
@@ -194,7 +190,6 @@ describe('buildOutline', () => {
     );
 
     expect(outline.finished.entries[0]?.tally).toStrictEqual({ done: 1, kind: 'counts', total: 1 });
-    expect(outline.root).toStrictEqual({ done: 1, total: 1 });
   });
 
   it('is empty for a project that holds only tasks', () => {
@@ -202,6 +197,70 @@ describe('buildOutline', () => {
 
     expect(outline.entries).toStrictEqual([]);
     expect(outline.finished).toStrictEqual({ count: 0, entries: [] });
+  });
+});
+
+/** Each row's id and mark. */
+const marks = (entries: ReturnType<typeof buildOutline>['entries']) =>
+  entries.map((e) => [e.id, e.mark]);
+
+describe('buildOutline marks the open record’s place', () => {
+  const tree = tn('MMR', 'project', 'in_progress', [
+    tn('MMR-1', 'initiative', 'in_progress', [
+      tn('MMR-2', 'phase', 'in_progress', [tn('MMR-3', 'task', 'blocked')]),
+      tn('MMR-4', 'phase', 'ready'),
+    ]),
+    tn('MMR-5', 'initiative', 'done', [
+      tn('MMR-6', 'phase', 'done', [tn('MMR-7', 'task', 'done')]),
+    ]),
+    tn('MMR-8', 'task', 'ready'),
+  ]);
+
+  it('marks nothing when no record is open', () => {
+    expect(buildOutline(tree).entries.every((e) => e.mark === undefined)).toBe(true);
+  });
+
+  it('marks a container current and the containers above it as its path', () => {
+    expect(marks(buildOutline(tree, 'MMR-2').entries)).toStrictEqual([
+      ['MMR-1', 'path'],
+      ['MMR-2', 'current'],
+      ['MMR-4', undefined],
+    ]);
+  });
+
+  it('marks a task’s containers as its path and lists the task under its nearest container', () => {
+    const { entries } = buildOutline(tree, 'MMR-3');
+
+    expect(entries.map((e) => [e.id, e.mark, e.depth])).toStrictEqual([
+      ['MMR-1', 'path', 0],
+      ['MMR-2', 'path', 1],
+      ['MMR-3', 'current', 2],
+      ['MMR-4', undefined, 1],
+    ]);
+    expect(entries[2]).toMatchObject({ status: 'blocked', tally: { kind: 'none' } });
+  });
+
+  it('lists a task of the project itself first, at the top level', () => {
+    expect(buildOutline(tree, 'MMR-8').entries[0]).toMatchObject({
+      depth: 0,
+      id: 'MMR-8',
+      mark: 'current',
+    });
+  });
+
+  it('puts a task under a finished initiative in the fold', () => {
+    const { entries, finished } = buildOutline(tree, 'MMR-7');
+
+    expect(entries.some((e) => e.id === 'MMR-7')).toBe(false);
+    expect(finished.entries.map((e) => [e.id, e.mark])).toStrictEqual([
+      ['MMR-5', 'path'],
+      ['MMR-6', 'path'],
+      ['MMR-7', 'current'],
+    ]);
+  });
+
+  it('marks nothing for an id the tree does not hold', () => {
+    expect(buildOutline(tree, 'MMR-99').entries.every((e) => e.mark === undefined)).toBe(true);
   });
 });
 

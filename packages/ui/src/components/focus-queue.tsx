@@ -9,12 +9,12 @@ import { cn } from '../lib/cn';
 import { nodeLink } from '../lib/record-url';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
 import { verdictSummary } from '../lib/verdict';
+import { Crumbs } from './crumbs';
 import { LinkifiedText } from './linkified-text';
 import { MarkdownBody } from './markdown-body';
 import { ExternalRef } from './node-record';
 import { RecordPending } from './record-layout';
 import { ActionButton, actionButtonVariants } from './ui/action-button';
-import { Crumbs } from './work-page';
 import { needsYouActions } from './work-rows';
 
 /*
