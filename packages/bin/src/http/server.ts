@@ -1375,6 +1375,9 @@ function bindServer(
       '/api/review': {
         GET: (req) =>
           guarded(req, async () => {
+            // `?tz=` places the `shipped` window. It is optional here (a caller
+            // without a zone gets an empty `shipped`), but a bad zone is a 400.
+            const timeZone = requireTimeZone(new URL(req.url).searchParams.get('tz') ?? undefined);
             // The scan runs alongside reviewOf's store load rather than before it.
             const findings = (async (): Promise<ReadonlyMap<string, number>> => {
               try {
@@ -1389,7 +1392,11 @@ function bindServer(
                 return new Map();
               }
             })();
-            return json(reviewToWire(await reviewOf(store, findings)));
+            return json(
+              reviewToWire(
+                await reviewOf(store, findings, timeZone === undefined ? {} : { timeZone }),
+              ),
+            );
           }),
       },
 

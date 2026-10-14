@@ -312,7 +312,14 @@ export type WireReviewProject = WireReviewProjectRef & {
   /** Untriaged seeds, plus tasks going cold, plus `doctor` findings. */
   triage: number;
   in_flight: number;
+  /** Open tasks: every task whose status is not done, abandoned, or parked. */
+  live: number;
+  /** Tasks past the stale threshold. */
+  going_cold: number;
 };
+
+/** A work-page row on the review page, tagged with its project's key. */
+export type WireReviewRow<T> = T & { project: string };
 
 /** One project's triage: untriaged seeds oldest first, and the going-cold and findings counts. */
 export type WireReviewTriage = {
@@ -324,14 +331,21 @@ export type WireReviewTriage = {
 
 /**
  * The cross-project review page (`GET /api/review`, MMR-477). `decisions` and
- * `projects` share one project order; `queue` is every decision's id in
- * focus-queue order, so its length is the decision count.
+ * `triage` are in urgency order; `projects` is the rail's order (pinned first,
+ * then newest activity); `queue` is every decision's id in focus-queue order, so
+ * its length is the decision count. `now`, `shipped`, `runnable`, and
+ * `going_cold` (MMR-504) are the work page's rows across every active project,
+ * each tagged with its project key. `shipped` needs `?tz=` and is empty without it.
  */
 export type WireReviewReport = {
   decisions: { project: WireReviewProjectRef; rows: WireWorkNeedsYou[] }[];
   queue: string[];
   triage: WireReviewTriage[];
   projects: WireReviewProject[];
+  now: WireReviewRow<WireWorkNow>[];
+  shipped: WireReviewRow<WireWorkShipped>[];
+  runnable: WireReviewRow<WireWorkFrontier>[];
+  going_cold: WireReviewRow<WireNode>[];
   /** The newest done or abandoned task across active projects; null when none has finished. */
   last_finished: WireWorkShipped | null;
 };

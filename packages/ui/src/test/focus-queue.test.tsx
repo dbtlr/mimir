@@ -55,8 +55,15 @@ function decisions(...rows: WireWorkNeedsYou[]): WireReviewReport {
   return reviewReport({
     decisions: groups,
     projects: [
-      { ...LM, decisions: groups[0]?.rows.length ?? 0, in_flight: 0, triage: 0 },
-      { ...MMR, decisions: 0, in_flight: 0, triage: 0 },
+      {
+        ...LM,
+        decisions: groups[0]?.rows.length ?? 0,
+        going_cold: 0,
+        in_flight: 0,
+        live: 0,
+        triage: 0,
+      },
+      { ...MMR, decisions: 0, going_cold: 0, in_flight: 0, live: 0, triage: 0 },
     ],
     queue: rows.map((r) => r.id),
   });

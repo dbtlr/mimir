@@ -126,17 +126,23 @@ export class PwaFixture {
       return {
         body: JSON.stringify({
           decisions: [],
+          going_cold: [],
           last_finished: null,
+          now: [],
           projects: [
             {
               decisions: 0,
+              going_cold: 0,
               in_flight: 0,
               key: 'PWA',
+              live: 0,
               name: 'Offline-ready operator project',
               triage: 0,
             },
           ],
           queue: [],
+          runnable: [],
+          shipped: [],
           triage: [],
         }),
         status: 200,

@@ -16,6 +16,7 @@ import { fileSeed, parkSeed } from '../seeds';
 import type { Store } from '../store';
 import { reviewOf, workPageOf } from './index';
 import type { ReviewOptions } from './review';
+import { cmpStr } from './work';
 
 /**
  * `reviewOf` (MMR-477) — the console's cross-project review page: decisions
@@ -162,7 +163,6 @@ test('projects with decisions order by their leading reason, then recency, then 
   // AAA has no decisions.
   const report = await review();
   expect(report.decisions.map((g) => g.project.key)).toEqual(['DDD', 'CCC', 'BBB', 'EEE']);
-  expect(report.projects.map((p) => p.key)).toEqual(['DDD', 'CCC', 'BBB', 'EEE', 'AAA']);
   expect(report.decisions[0]?.rows[0]?.task.id).toBe(ddd);
 });
 
@@ -189,7 +189,7 @@ test("a project's recency is its newest decision of its leading reason, not its 
   expect((await review()).decisions.map((g) => g.project.key)).toEqual(['BBB', 'AAA']);
 });
 
-test('projects without decisions follow, by triage count then key', async () => {
+test('triage lists projects most first, then by key, and a decision-less project counts only triage', async () => {
   for (const key of ['AAA', 'BBB', 'CCC', 'DDD']) {
     await project(key);
   }
@@ -198,11 +198,19 @@ test('projects without decisions follow, by triage count then key', async () => 
   await fileSeed(store, { kind: 'bug', project: 'CCC', title: 'one' });
   await fileSeed(store, { kind: 'bug', project: 'CCC', title: 'two' });
   const report = await review();
-  expect(report.projects.map((p) => [p.key, p.decisions, p.triage])).toEqual([
-    ['DDD', 1, 0],
-    ['CCC', 0, 2],
-    ['BBB', 0, 1],
+  expect(report.triage.map((t) => [t.project.key, t.seeds.length])).toEqual([
+    ['CCC', 2],
+    ['BBB', 1],
+  ]);
+  expect(
+    report.projects
+      .toSorted((a, b) => cmpStr(a.key, b.key))
+      .map((p) => [p.key, p.decisions, p.triage]),
+  ).toEqual([
     ['AAA', 0, 0],
+    ['BBB', 0, 1],
+    ['CCC', 0, 2],
+    ['DDD', 1, 0],
   ]);
 });
 
@@ -318,9 +326,11 @@ test('inFlight counts the in-progress tasks of each project', async () => {
   await startTask(store, b);
   await underReview('BBB');
   const report = await review();
-  expect(report.projects.map((p) => [p.key, p.inFlight])).toEqual([
-    ['BBB', 0],
+  expect(
+    report.projects.toSorted((x, y) => cmpStr(x.key, y.key)).map((p) => [p.key, p.inFlight]),
+  ).toEqual([
     ['AAA', 2],
+    ['BBB', 0],
   ]);
 });
 
@@ -372,12 +382,17 @@ test('an all-clear store has no decisions, queue, or triage but still lists its 
   await task('AAA', 'plain');
   expect(await review()).toEqual({
     decisions: [],
+    goingCold: [],
     lastFinished: null,
+    now: [],
+    // AAA's task is the newest activity, so it leads the rail.
     projects: [
-      { decisions: 0, inFlight: 0, key: 'AAA', name: 'Alpha', triage: 0 },
-      { decisions: 0, inFlight: 0, key: 'BBB', name: 'Bravo', triage: 0 },
+      { decisions: 0, goingCold: 0, inFlight: 0, key: 'AAA', live: 1, name: 'Alpha', triage: 0 },
+      { decisions: 0, goingCold: 0, inFlight: 0, key: 'BBB', live: 0, name: 'Bravo', triage: 0 },
     ],
     queue: [],
+    runnable: [],
+    shipped: [],
     triage: [],
   });
 });

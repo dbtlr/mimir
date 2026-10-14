@@ -333,9 +333,13 @@ test('GET /api/review serves the snake_case review envelope', async () => {
   const body = await parse(res);
   expect(Object.keys(body).toSorted()).toEqual([
     'decisions',
+    'going_cold',
     'last_finished',
+    'now',
     'projects',
     'queue',
+    'runnable',
+    'shipped',
     'triage',
   ]);
   expect(body.last_finished).toBeNull();
@@ -348,10 +352,33 @@ test('GET /api/review serves the snake_case review envelope', async () => {
   const row = ((decisions[0]?.rows ?? []) as Rec[])[0];
   expect(row).toMatchObject({ id: task1, question: null, reason: 'under_review', stale: false });
   expect(body.triage).toEqual([]);
-  expect(body.projects).toEqual([
-    { decisions: 1, in_flight: 0, key: 'MMR', name: 'Mimir', triage: 0 },
-    { decisions: 1, in_flight: 0, key: 'NRN', name: 'Norn', triage: 0 },
+  expect(
+    (body.projects as Rec[]).toSorted((a, b) => String(a.key).localeCompare(String(b.key))),
+  ).toEqual([
+    { decisions: 1, going_cold: 0, in_flight: 0, key: 'MMR', live: 2, name: 'Mimir', triage: 0 },
+    { decisions: 1, going_cold: 0, in_flight: 0, key: 'NRN', live: 1, name: 'Norn', triage: 0 },
   ]);
+});
+
+test('GET /api/review serves the cross-project work rows, each with its project key', async () => {
+  await startTask(store, task1);
+  await completeTask(store, otherTask);
+  const body = await parse(await get('/api/review?tz=UTC'));
+  expect((body.now as Rec[]).map((r) => [r.project, r.id])).toEqual([['MMR', task1]]);
+  expect(body.now).toEqual([
+    expect.objectContaining({ project: 'MMR', scratchpads: [], stale: false }),
+  ]);
+  expect(typeof ((body.now as Rec[])[0] as Rec).started_at).toBe('string');
+  expect((body.shipped as Rec[]).map((r) => [r.project, r.id])).toEqual([['NRN', otherTask]]);
+  expect(typeof ((body.shipped as Rec[])[0] as Rec).finished_at).toBe('string');
+  expect(Array.isArray(body.runnable)).toBe(true);
+  expect(body.going_cold).toEqual([]);
+});
+
+test('GET /api/review leaves shipped empty without a zone and refuses an unknown one', async () => {
+  await completeTask(store, task1);
+  expect((await parse(await get('/api/review'))).shipped).toEqual([]);
+  expect((await get('/api/review?tz=Mars/Olympus')).status).toBe(400);
 });
 
 test('GET /api/review names the last finish with its finish time', async () => {

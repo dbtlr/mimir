@@ -92,9 +92,13 @@ export function workReport(overrides: Partial<WireWorkReport> = {}): WireWorkRep
 export function reviewReport(overrides: Partial<WireReviewReport> = {}): WireReviewReport {
   return {
     decisions: [],
+    going_cold: [],
     last_finished: null,
+    now: [],
     projects: [],
     queue: [],
+    runnable: [],
+    shipped: [],
     triage: [],
     ...overrides,
   };

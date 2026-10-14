@@ -842,12 +842,30 @@ export type ReviewProject = ReviewProjectRef & {
   triage: number;
   /** Tasks whose status word is `in_progress`. */
   inFlight: number;
+  /**
+   * Open tasks: every task whose status word is not `done`, `abandoned`, or
+   * `parked` (ready, awaiting, blocked, in progress, under review). The leaf
+   * distribution the project card shows, less the finished and set-aside work.
+   */
+  live: number;
+  /** Tasks past the stale threshold (the length of the project's `goingCold` rows). */
+  goingCold: number;
 };
+
+/** A work-page row on the review page, tagged with the key of the project it belongs to. */
+export type ReviewWorkRow<T> = T & { project: string };
+
+/** A going-cold task on the review page: the work page lists these as bare tasks. */
+export type ReviewColdTask = { project: string; task: NodeView };
 
 /**
  * The console's cross-project review page (ADR 0019 and ADR 0013, MMR-476
- * refinements). `decisions` and `projects` share one project order; `queue`
- * drops the grouping and walks every decision in focus-queue order.
+ * refinements). `decisions` and `triage` are in urgency order; `projects` is
+ * the rail's order (pinned first, then newest activity); `queue` drops the
+ * grouping and walks every decision in focus-queue order. `now`, `shipped`,
+ * `runnable`, and `goingCold` are the work page's rows across every active
+ * project, built by the same rules and in the same order, each tagged with its
+ * project key (MMR-504).
  */
 export type ReviewReport = {
   /** Only projects with at least one decision. */
@@ -856,8 +874,19 @@ export type ReviewReport = {
   queue: string[];
   /** Only projects with something to triage, most first. */
   triage: ReviewTriageGroup[];
-  /** Every active project: decisions first, then by triage count. */
+  /** Every active project: pinned first, then newest activity first, then key. */
   projects: ReviewProject[];
+  /** In-progress tasks, the work page's `now` rows. */
+  now: ReviewWorkRow<WorkNowTask>[];
+  /**
+   * Done or abandoned in the last 7 caller-local days, newest first. Empty when
+   * the caller gave no time zone, since the window cannot be placed.
+   */
+  shipped: ReviewWorkRow<WorkShippedTask>[];
+  /** The work page's `frontier.runnable` rows: groomed, ready, and ranked, in rank order. */
+  runnable: ReviewWorkRow<WorkFrontierTask>[];
+  /** Every stale task, oldest `updated_at` first. */
+  goingCold: ReviewColdTask[];
   /** The newest done or abandoned task across active projects, for the all-clear state; null when none has finished. */
   lastFinished: WorkShippedTask | null;
 };

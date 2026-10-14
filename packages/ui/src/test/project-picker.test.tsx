@@ -29,7 +29,7 @@ const LUM = project({ id: 'LUM', last_activity_at: atDay('02'), title: 'Lumen' }
 const OLD = project({ archived_at: atDay('01'), id: 'OLD', title: 'Retired' });
 
 function decisions(key: string, count: number): WireReviewProject {
-  return { decisions: count, in_flight: 0, key, name: key, triage: 0 };
+  return { decisions: count, going_cold: 0, in_flight: 0, key, live: 0, name: key, triage: 0 };
 }
 
 /** The project with its pin set, when it is the one the write names. */
