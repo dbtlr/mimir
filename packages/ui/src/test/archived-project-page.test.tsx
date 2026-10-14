@@ -126,6 +126,44 @@ describe('an archived project’s address (MMR-506)', () => {
     });
   });
 
+  it('keeps Unarchive disabled until the archived list is fresh, so it cannot be sent twice', async () => {
+    const refetch = Promise.withResolvers<unknown>();
+    const served = apiGet.getMockImplementation();
+    apiSend.mockImplementation(() => {
+      // The write lands, but the archived list's refetch is still in flight.
+      apiGet.mockImplementation((path: string) =>
+        path === '/api/projects?status=archived' ? refetch.promise : served?.(path),
+      );
+      return Promise.resolve({});
+    });
+    const testRouter = renderAt('/p/OLD/tasks');
+
+    const button = await screen.findByRole('button', { name: 'Unarchive Old project' });
+    fireEvent.click(button);
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledTimes(1);
+    });
+    expect(button).toBeDisabled();
+    expect(testRouter.state.location.pathname).toBe('/p/OLD/tasks');
+
+    fireEvent.click(button);
+    expect(apiSend).toHaveBeenCalledTimes(1);
+
+    apiGet.mockImplementation((path: string) =>
+      path === '/api/projects?status=archived'
+        ? Promise.resolve({ items: [], total: 0 })
+        : path === '/api/projects/OLD'
+          ? Promise.resolve({ ...OLD, archived_at: null, status: 'in_progress' })
+          : /\/work\b/.test(path)
+            ? Promise.resolve(workReport())
+            : Promise.resolve(emptyRead(path)),
+    );
+    refetch.resolve({ items: [], total: 0 });
+    await waitFor(() => {
+      expect(testRouter.state.location.pathname).toBe('/p/OLD');
+    });
+  });
+
   it('stays still across poll intervals: no further project reads, and the notice never unmounts', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     renderAt('/p/OLD', createQueryClient());
