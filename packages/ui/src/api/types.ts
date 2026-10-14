@@ -312,7 +312,7 @@ export type WireReviewProject = WireReviewProjectRef & {
   /** Untriaged seeds, plus tasks going cold, plus `doctor` findings. */
   triage: number;
   in_flight: number;
-  /** Open tasks: every task whose status is not done, abandoned, or parked. */
+  /** Open tasks: the `--status live` group (every status but done and abandoned, so parked counts). */
   live: number;
   /** Tasks past the stale threshold. */
   going_cold: number;
@@ -335,7 +335,9 @@ export type WireReviewTriage = {
  * then newest activity); `queue` is every decision's id in focus-queue order, so
  * its length is the decision count. `now`, `shipped`, `runnable`, and
  * `going_cold` (MMR-504) are the work page's rows across every active project,
- * each tagged with its project key. `shipped` needs `?tz=` and is empty without it.
+ * each tagged with its project key. `now` is most recently started first,
+ * `runnable` follows the `projects` order, `going_cold` the longest quiet first,
+ * and `shipped` the newest first. The request needs `?tz=`, which places `shipped`.
  */
 export type WireReviewReport = {
   decisions: { project: WireReviewProjectRef; rows: WireWorkNeedsYou[] }[];

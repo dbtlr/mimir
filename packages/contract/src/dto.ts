@@ -843,9 +843,8 @@ export type ReviewProject = ReviewProjectRef & {
   /** Tasks whose status word is `in_progress`. */
   inFlight: number;
   /**
-   * Open tasks: every task whose status word is not `done`, `abandoned`, or
-   * `parked` (ready, awaiting, blocked, in progress, under review). The leaf
-   * distribution the project card shows, less the finished and set-aside work.
+   * Open tasks: the `--status live` group, every task whose status word is not
+   * `done` or `abandoned`. Parked work counts as live.
    */
   live: number;
   /** Tasks past the stale threshold (the length of the project's `goingCold` rows). */
@@ -876,16 +875,16 @@ export type ReviewReport = {
   triage: ReviewTriageGroup[];
   /** Every active project: pinned first, then newest activity first, then key. */
   projects: ReviewProject[];
-  /** In-progress tasks, the work page's `now` rows. */
+  /** In-progress tasks, the work page's `now` rows, most recently started first. */
   now: ReviewWorkRow<WorkNowTask>[];
   /**
    * Done or abandoned in the last 7 caller-local days, newest first. Empty when
    * the caller gave no time zone, since the window cannot be placed.
    */
   shipped: ReviewWorkRow<WorkShippedTask>[];
-  /** The work page's `frontier.runnable` rows: groomed, ready, and ranked, in rank order. */
+  /** The work page's `frontier.runnable` rows, in `projects` order and then each project's rank. */
   runnable: ReviewWorkRow<WorkFrontierTask>[];
-  /** Every stale task, oldest `updated_at` first. */
+  /** Every stale task, the longest quiet (oldest `updated_at`) first. */
   goingCold: ReviewColdTask[];
   /** The newest done or abandoned task across active projects, for the all-clear state; null when none has finished. */
   lastFinished: WorkShippedTask | null;

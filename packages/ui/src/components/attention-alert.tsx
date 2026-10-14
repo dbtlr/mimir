@@ -146,7 +146,7 @@ function PillFace({ count, words }: { count: number; words: string }) {
  * the last decision to leave does not pull it away mid-use.
  */
 export function AttentionAlert() {
-  const review = useQuery(reviewQuery);
+  const review = useQuery(reviewQuery());
   const desktop = useMediaQuery(DESKTOP);
   const currentId = useCurrentNodeId();
   const href = useRouterState({ select: (state) => state.location.href });

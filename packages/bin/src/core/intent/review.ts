@@ -6,13 +6,12 @@ import type {
   ReviewTriageGroup,
   ReviewWorkRow,
   SeedView,
-  StatusWord,
   WorkNeedsYouReason,
   WorkShippedTask,
 } from '@mimir/contract';
 
 import { recentDaysWindow } from '../dates';
-import { nodeStatusWord } from '../derive';
+import { isTerminalWord, nodeStatusWord } from '../derive';
 import type { Node, Project } from '../model';
 import { listSeedsResolved } from '../seeds/intent';
 import type { Store } from '../store';
@@ -152,9 +151,6 @@ const byRailOrder =
     cmpStr(activity.get(b.key) ?? b.updated_at, activity.get(a.key) ?? a.updated_at) ||
     cmpStr(a.key, b.key);
 
-/** Statuses that are not open work: finished, or set aside. */
-const NOT_LIVE: ReadonlySet<StatusWord> = new Set(['abandoned', 'done', 'parked']);
-
 /** Tag each work-page row with the project its task belongs to. */
 const tagged = <T extends { task: { id: string } }>(rows: readonly T[]): ReviewWorkRow<T>[] =>
   rows.map((row) => ({ ...row, project: projectKeyOf(row.task.id) }));
@@ -170,12 +166,16 @@ const tagged = <T extends { task: { id: string } }>(rows: readonly T[]): ReviewW
  *   first), the tasks going cold, and the findings; most first, then key.
  * - `projects`: every active project in the rail's order (pinned first, then
  *   newest activity), with its decision, triage, in-flight, live, and going-cold
- *   counts.
+ *   counts. `live` is the `--status live` group: every status but done and
+ *   abandoned, so parked work counts.
  * - `now`, `shipped`, `runnable`, `goingCold` (MMR-504): the work page's rows
  *   across every active project. They come from the work page's own section
  *   rules and row builders ({@link classifyWork}), run once over all the
- *   projects' tasks, so a project's rows here equal its work report's. `shipped`
- *   needs `timeZone` to place its window and is empty without one.
+ *   projects' tasks, so a project's rows here equal its work report's. Across
+ *   projects `now` lists the most recently started first, `runnable` follows the
+ *   `projects` order and then each project's rank, `goingCold` the longest quiet
+ *   first, and `shipped` the newest first. `shipped` needs `timeZone` to place
+ *   its window and is empty without one.
  * - `lastFinished`: the newest done or abandoned task, for the page's all-clear
  *   state; null when nothing has finished.
  *
@@ -226,7 +226,7 @@ export async function reviewOf(
       goingCold: coldByProject.get(project.key)?.length ?? 0,
       inFlight: inFlightByProject.get(project.key)?.length ?? 0,
       live: (tasksByProject.get(project.key) ?? []).filter(
-        (n) => !NOT_LIVE.has(nodeStatusWord(set, n)),
+        (n) => !isTerminalWord(nodeStatusWord(set, n)),
       ).length,
       project,
       seeds: seedsByProject.get(project.key) ?? [],
@@ -296,14 +296,21 @@ export async function reviewOf(
       triage: triageCount(f),
     }));
 
+  const railIndex = new Map(reviewProjects.map((p, i) => [p.key, i]));
+
   return {
     decisions,
     goingCold: coldViews.map((task) => ({ project: projectKeyOf(task.id), task })),
     lastFinished,
-    now: tagged(nowRows),
+    now: tagged(nowRows).toSorted((a, b) => cmpStr(b.startedAt, a.startedAt)),
     projects: reviewProjects,
     queue,
-    runnable: tagged(runnableRows),
+    // Project order, then the project's own rank: the rows arrive in one global
+    // rank order, which restricted to a project is that project's rank order, and
+    // the sort is stable.
+    runnable: tagged(runnableRows).toSorted(
+      (a, b) => (railIndex.get(a.project) ?? 0) - (railIndex.get(b.project) ?? 0),
+    ),
     shipped: tagged(shippedRows),
     triage,
   };

@@ -40,7 +40,7 @@ function decision(
 /** Serve the review payload, the archived shelf, and empty collections for every other read. */
 function serve(report: WireReviewReport, archived = [] as ReturnType<typeof project>[]) {
   apiGet.mockImplementation((path: string) => {
-    if (path === '/api/review') {
+    if (path.startsWith('/api/review')) {
       return Promise.resolve(report);
     }
     if (path === '/api/projects?status=archived') {
@@ -282,7 +282,7 @@ describe('the review page at / (ADR 0013, MMR-476 refinement)', () => {
 
   it('does not claim a fresh store before it knows whether projects are archived', async () => {
     apiGet.mockImplementation((path: string) =>
-      path === '/api/review'
+      path.startsWith('/api/review')
         ? Promise.resolve(reviewReport())
         : Promise.reject(new Error('archived read failed')),
     );
@@ -307,7 +307,7 @@ async function openForWrite(before: WireReviewReport, after: WireReviewReport) {
     },
   };
   apiGet.mockImplementation((path: string) => {
-    if (path === '/api/review') {
+    if (path.startsWith('/api/review')) {
       return Promise.resolve(report);
     }
     if (path === '/api/projects') {

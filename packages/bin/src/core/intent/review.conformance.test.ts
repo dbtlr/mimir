@@ -24,6 +24,9 @@ import { cmpStr } from './work';
  * `shipped`, `runnable`, and `goingCold` come from the same builders as the
  * per-project work page, so a project's rows in the review equal that project's
  * work report, and the project list carries the health counts the rail reads.
+ * Across projects the lists have their own order: `now` most recently started
+ * first, `runnable` in project (rail) order then rank, `goingCold` longest quiet
+ * first, `shipped` newest first.
  */
 
 setDefaultTimeout(60_000);
@@ -45,6 +48,9 @@ async function task(store: Store, key: string, phase: string, title: string): Pr
   const node = await createTask(store, { parentId: await nodeIdOf(store, phase), title });
   return `${key}-${String(node.seq)}`;
 }
+
+/** Step past the current millisecond so the next stamp is observably later. */
+const tick = (): Promise<void> => Bun.sleep(5);
 
 async function populate(store: Store, key: string): Promise<Fixture> {
   await createProject(store, { key, name: key });
@@ -69,9 +75,9 @@ async function populate(store: Store, key: string): Promise<Fixture> {
   return { cold, finished, key, phase, runnable, working };
 }
 
-/** The rows as `[project, task id]` pairs in project order. */
+/** The rows as `[project, task id]` pairs, in the order given. */
 const keyed = (rows: readonly { project: string; task: { id: string } }[]) =>
-  rows.toSorted((a, b) => cmpStr(a.project, b.project)).map((r) => [r.project, r.task.id]);
+  rows.map((r) => [r.project, r.task.id]);
 
 /** Drop the `project` field a review row adds, leaving the work page's row shape. */
 const withoutProject = <T extends { project: string }>(row: T): Omit<T, 'project'> => {
@@ -100,19 +106,22 @@ for (const backend of backends) {
   it('each work list spans the active projects, with the project key on every row', async () => {
     const store = await fresh();
     const aaa = await populate(store, 'AAA');
+    await tick();
     const bbb = await populate(store, 'BBB');
+    await rawPatchNode(store, aaa.cold, { updated_at: '2019-01-01T00:00:00.000Z' });
     const report = await review(store);
+    // BBB is newer on every axis but going cold, where AAA has been quiet longer.
     expect(keyed(report.now)).toEqual([
-      ['AAA', aaa.working],
       ['BBB', bbb.working],
+      ['AAA', aaa.working],
     ]);
     expect(keyed(report.shipped)).toEqual([
-      ['AAA', aaa.finished],
       ['BBB', bbb.finished],
+      ['AAA', aaa.finished],
     ]);
     expect(keyed(report.runnable)).toEqual([
-      ['AAA', aaa.runnable],
       ['BBB', bbb.runnable],
+      ['AAA', aaa.runnable],
     ]);
     expect(keyed(report.goingCold)).toEqual([
       ['AAA', aaa.cold],
@@ -147,6 +156,10 @@ for (const backend of backends) {
       await groomTasks(store, [secondRunnable], 'groomed');
       const secondCold = await task(store, key, fx.phase, `${key} second cold`);
       await rawPatchNode(store, secondCold, { updated_at: '2020-02-01T00:00:00.000Z' });
+      // Stale tasks that also sit in another section: going cold repeats them.
+      await rawPatchNode(store, fx.working, { updated_at: LONG_AGO });
+      await rawPatchNode(store, secondRunnable, { updated_at: '2020-03-01T00:00:00.000Z' });
+      await tick();
     }
     const pads = createScratchpadService(store.scratchpads, store.artifacts, store);
     const [anchor] = (await workPageOf(store, 'AAA', { timeZone: TZ })).now;
@@ -160,7 +173,13 @@ for (const backend of backends) {
       expect(page.shipped.length).toBeGreaterThan(1);
       expect(page.frontier.runnable.length).toBeGreaterThan(1);
       expect(page.goingCold.length).toBeGreaterThan(1);
-      expect(mine(report.now)).toEqual(page.now);
+      // The staleness of a task in another section is carried on its row.
+      expect(page.now.some((r) => r.stale)).toBe(true);
+      expect(page.frontier.runnable.some((r) => r.stale)).toBe(true);
+      // The review lists `now` most recently started first; the page lists it in rank order.
+      expect(mine(report.now)).toEqual(
+        page.now.toSorted((a, b) => cmpStr(b.startedAt, a.startedAt)),
+      );
       expect(mine(report.shipped)).toEqual(page.shipped);
       expect(mine(report.runnable)).toEqual(page.frontier.runnable);
       expect(mine(report.goingCold).map((r) => r.task)).toEqual(page.goingCold);
@@ -168,7 +187,62 @@ for (const backend of backends) {
     expect(report.now.some((r) => r.scratchpads.length > 0)).toBe(true);
   });
 
-  it('shipped is newest first across projects and ends with the weekly window', async () => {
+  it('orders the lists across projects: started, project then rank, quiet, newest finish', async () => {
+    const store = await fresh();
+    const fixtures = new Map<string, Fixture>();
+    // AAA, BBB, CCC are created and started in that order.
+    for (const key of ['AAA', 'BBB', 'CCC']) {
+      const fx = await populate(store, key);
+      fixtures.set(key, fx);
+      await groomTasks(
+        store,
+        [await task(store, key, fx.phase, `${key} second runnable`)],
+        'groomed',
+      );
+      await tick();
+    }
+    const at = (key: string): Fixture => {
+      const fx = fixtures.get(key);
+      if (fx === undefined) {
+        throw new Error(`no fixture ${key}`);
+      }
+      return fx;
+    };
+    // Rail order: CCC pinned, then AAA (newest activity), then BBB.
+    await updateProject(store, 'CCC', { pinned: true });
+    await tick();
+    await rawPatchNode(store, at('AAA').cold, { updated_at: '2020-03-01T00:00:00.000Z' });
+    await rawPatchNode(store, at('BBB').cold, { updated_at: '2020-01-01T00:00:00.000Z' });
+    await rawPatchNode(store, at('CCC').cold, { updated_at: '2020-02-01T00:00:00.000Z' });
+    await rawPatchNode(store, at('AAA').finished, { completed_at: '2026-03-02T00:00:00.000Z' });
+    await rawPatchNode(store, at('BBB').finished, { completed_at: '2026-03-03T00:00:00.000Z' });
+    await rawPatchNode(store, at('CCC').finished, { completed_at: '2026-03-01T00:00:00.000Z' });
+    await tick();
+    await annotate(store, at('AAA').working, 'fresh news');
+    const report = await reviewOf(store, new Map(), {
+      asOf: '2026-03-04T00:00:00.000Z',
+      timeZone: TZ,
+    });
+    expect(report.projects.map((p) => p.key)).toEqual(['CCC', 'AAA', 'BBB']);
+    // Most recently started first.
+    expect(report.now.map((r) => r.project)).toEqual(['CCC', 'BBB', 'AAA']);
+    // Project order, then the project's own rank.
+    const runnable = report.runnable.map((r) => r.task.id);
+    const rankOf = async (key: string): Promise<string[]> =>
+      (await workPageOf(store, key, { timeZone: TZ })).frontier.runnable.map((r) => r.task.id);
+    expect(runnable).toEqual([
+      ...(await rankOf('CCC')),
+      ...(await rankOf('AAA')),
+      ...(await rankOf('BBB')),
+    ]);
+    expect(runnable).toHaveLength(6);
+    // Longest quiet first.
+    expect(report.goingCold.map((r) => r.project)).toEqual(['BBB', 'CCC', 'AAA']);
+    // Newest finish first.
+    expect(report.shipped.map((r) => r.project)).toEqual(['BBB', 'AAA', 'CCC']);
+  });
+
+  it('shipped ends with the weekly window', async () => {
     const store = await fresh();
     const aaa = await populate(store, 'AAA');
     const bbb = await populate(store, 'BBB');
@@ -200,18 +274,20 @@ for (const backend of backends) {
     const aaa = await populate(store, 'AAA');
     await populate(store, 'BBB');
     await populate(store, 'CCC');
-    // A parked task is not live work.
+    // `live` is the `--status live` group: parked work counts, finished work does not.
     const parked = await task(store, 'AAA', aaa.phase, 'parked');
     await parkTask(store, parked);
+    const dropped = await task(store, 'AAA', aaa.phase, 'dropped');
+    await abandonTask(store, dropped, 'scope cut');
     await updateProject(store, 'CCC', { pinned: true });
     // AAA moves last, so it leads the unpinned projects.
-    await Bun.sleep(5);
+    await tick();
     await annotate(store, aaa.working, 'fresh news');
     const report = await review(store);
     expect(report.projects.map((p) => p.key)).toEqual(['CCC', 'AAA', 'BBB']);
     const byKey = new Map(report.projects.map((p) => [p.key, p]));
-    // working, runnable, and cold are live; finished and the parked task are not.
-    expect(byKey.get('AAA')).toMatchObject({ goingCold: 1, live: 3 });
+    // AAA: working, runnable, cold, parked. The finished and abandoned tasks are not live.
+    expect(byKey.get('AAA')).toMatchObject({ goingCold: 1, live: 4 });
     expect(byKey.get('BBB')).toMatchObject({ goingCold: 1, live: 3 });
   });
 }

@@ -110,5 +110,5 @@ export function reviewReport(overrides: Partial<WireReviewReport> = {}): WireRev
  * collection for any other path.
  */
 export function emptyRead(path: string): WireReviewReport | { items: []; total: 0 } {
-  return path === '/api/review' ? reviewReport() : { items: [], total: 0 };
+  return path.startsWith('/api/review') ? reviewReport() : { items: [], total: 0 };
 }

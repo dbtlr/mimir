@@ -50,7 +50,7 @@ export function ProjectPicker({
   const [creating, setCreating] = useState(false);
   const searchRef = useRef<HTMLInputElement | null>(null);
   const projects = useQuery(projectsQuery);
-  const review = useQuery(reviewQuery);
+  const review = useQuery(reviewQuery());
   const conn = connectivity([projects]);
   const active = projects.data?.items.find((p) => p.id === projectKey);
   // An archived project's pages still open (as the unavailable notice), so the

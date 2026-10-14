@@ -34,7 +34,7 @@ afterEach(() => {
 /** Serve the review read from `current()`, so a test can change what the next read returns. */
 function serve(current: () => WireReviewReport) {
   apiGet.mockImplementation((p: string) => {
-    if (p === '/api/review') {
+    if (p.startsWith('/api/review')) {
       return Promise.resolve(current());
     }
     // The record pages the alert is opened from.

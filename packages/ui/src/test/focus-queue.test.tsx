@@ -3,6 +3,7 @@ import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/rea
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { browserTimeZone } from '../api/queries';
 import type { WireAnnotation, WireNode, WireReviewReport, WireWorkNeedsYou } from '../api/types';
 import { router } from '../router';
 import { project, reviewReport, task } from './fixtures';
@@ -85,7 +86,7 @@ function serve(
 ) {
   let current = report;
   apiGet.mockImplementation((path: string) => {
-    if (path === '/api/review') {
+    if (path.startsWith('/api/review')) {
       return Promise.resolve(current);
     }
     const node = /^\/api\/nodes\/([^/]+)$/.exec(path);
@@ -137,7 +138,9 @@ function renderAt(path: string, cached?: WireReviewReport) {
   });
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: 5_000 } } });
   if (cached !== undefined) {
-    client.setQueryData(['review'], cached, { updatedAt: NOW - 24 * 60 * 60_000 });
+    client.setQueryData(['review', browserTimeZone()], cached, {
+      updatedAt: NOW - 24 * 60 * 60_000,
+    });
   }
   render(
     <QueryClientProvider client={client}>

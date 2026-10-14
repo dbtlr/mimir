@@ -328,7 +328,7 @@ test('GET /api/review serves the snake_case review envelope', async () => {
   await startTask(store, task1);
   await submitTask(store, task1);
   await blockTask(store, otherTask, 'need a key', 'you');
-  const res = await get('/api/review');
+  const res = await get('/api/review?tz=UTC');
   expect(res.status).toBe(200);
   const body = await parse(res);
   expect(Object.keys(body).toSorted()).toEqual([
@@ -375,15 +375,18 @@ test('GET /api/review serves the cross-project work rows, each with its project 
   expect(body.going_cold).toEqual([]);
 });
 
-test('GET /api/review leaves shipped empty without a zone and refuses an unknown one', async () => {
-  await completeTask(store, task1);
-  expect((await parse(await get('/api/review'))).shipped).toEqual([]);
-  expect((await get('/api/review?tz=Mars/Olympus')).status).toBe(400);
+test('GET /api/review needs the caller timezone, like the work routes', async () => {
+  const missing = await get('/api/review');
+  expect(missing.status).toBe(400);
+  expect(errorCode(await parse(missing))).toBe('validation');
+  const unknown = await get('/api/review?tz=Mars/Olympus');
+  expect(unknown.status).toBe(400);
+  expect(errorCode(await parse(unknown))).toBe('validation');
 });
 
 test('GET /api/review names the last finish with its finish time', async () => {
   await completeTask(store, task1);
-  const body = await parse(await get('/api/review'));
+  const body = await parse(await get('/api/review?tz=UTC'));
   expect(body.last_finished).toMatchObject({ abandon_reason: null, id: task1, stale: false });
   expect(typeof (body.last_finished as Rec).finished_at).toBe('string');
 });
@@ -397,7 +400,7 @@ test('GET /api/review still answers when the doctor scan fails, counting no find
     version: '0.0.0-test',
   });
   try {
-    const res = await fetch(`http://127.0.0.1:${String(failingServer.port)}/api/review`);
+    const res = await fetch(`http://127.0.0.1:${String(failingServer.port)}/api/review?tz=UTC`);
     expect(res.status).toBe(200);
     const triage = (await parse(res)).triage as Rec[];
     expect(triage.map((g) => [(g.project as Rec).key, g.findings])).toEqual([['NRN', 0]]);
@@ -425,7 +428,7 @@ test('GET /api/review counts the injected doctor findings per active project', a
     version: '0.0.0-test',
   });
   try {
-    const res = await fetch(`http://127.0.0.1:${String(doctorServer.port)}/api/review`);
+    const res = await fetch(`http://127.0.0.1:${String(doctorServer.port)}/api/review?tz=UTC`);
     expect(res.status).toBe(200);
     const body = await parse(res);
     const triage = body.triage as Rec[];

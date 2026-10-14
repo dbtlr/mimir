@@ -593,7 +593,7 @@ describe('top bar', () => {
   it('keeps the brand, the jump palette, Needs you, and the theme toggle', async () => {
     const served = apiGet.getMockImplementation();
     apiGet.mockImplementation((path: string) =>
-      path === '/api/review'
+      path.startsWith('/api/review')
         ? Promise.resolve(reviewReport({ queue: ['MMR-52'] }))
         : served?.(path),
     );

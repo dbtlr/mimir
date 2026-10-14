@@ -122,7 +122,7 @@ export class PwaFixture {
         status: 200,
       };
     }
-    if (path === '/api/review') {
+    if (path.startsWith('/api/review')) {
       return {
         body: JSON.stringify({
           decisions: [],

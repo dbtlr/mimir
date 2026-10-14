@@ -270,9 +270,8 @@ tells a task from a container.
 
 `GET /api/review` returns the console's cross-project review across every
 active project (archived projects contribute nothing). It has no CLI or MCP form.
-`?tz=` is the caller's IANA zone, as on the work page: it places the `shipped`
-window. It is optional here, but without it `shipped` is empty, and an unknown
-zone is a 400 `validation`.
+`?tz=` is required, as on the work routes: it is the caller's IANA zone and
+places the `shipped` window. A missing or unknown zone is a 400 `validation`.
 
 - `decisions`: per project with any, the work page's `needs_you` rows, projects
   in urgency order (leading reason, then newest, then key).
@@ -284,15 +283,16 @@ zone is a 400 `validation`.
 - `now`, `shipped`, `runnable`, `going_cold`: the work page's `now`,
   `shipped`, `frontier.runnable`, and `going_cold` rows across every active
   project. One set of section rules and row builders serves both, so a project's
-  rows here equal its work report's rows, in the same order (project key breaks
-  ties across projects). Every row adds `project`, the project key. A
+  rows here equal its work report's rows. Across projects, `now` lists the most
+  recently started first, `runnable` follows the `projects` order and then each
+  project's own rank, `going_cold` lists the longest quiet first, and `shipped`
+  lists the newest first. Every row adds `project`, the project key. A
   `going_cold` row is the task object with `stale: true`.
 - `projects`: every active project, pinned first, then newest `last_activity_at`
   first, then key. Each carries `key`, `name`, and counts: `decisions`, `triage`
   (untriaged seeds + going cold + `doctor` findings), `in_flight` (status
-  `in_progress`), `live` (open tasks: status other than `done`, `abandoned`, or
-  `parked`, so ready, awaiting, blocked, in progress, and under review all
-  count), and `going_cold` (tasks past the stale threshold).
+  `in_progress`), `live` (the `--status live` group: every status other than
+  `done` and `abandoned`, so parked work counts), and `going_cold` (tasks past the stale threshold).
 
 ## The `service` report (report kind, MMR-59)
 

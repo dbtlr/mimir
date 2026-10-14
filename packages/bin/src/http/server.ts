@@ -295,15 +295,15 @@ function optSeedKind(body: Record<string, unknown>): SeedKind | undefined {
 }
 
 /**
- * The work page's options off the request: the caller's `?tz=` zone, validated.
- * The zone is required — it decides where the shipped days begin, and there is
- * no fallback zone (ADR 0029).
+ * The work page's and review page's options off the request: the caller's
+ * `?tz=` zone, validated. The zone is required — it decides where the shipped
+ * days begin, and there is no fallback zone (ADR 0029).
  */
 function workOptionsOf(req: Request): { timeZone: string } {
   const timeZone = requireTimeZone(new URL(req.url).searchParams.get('tz') ?? undefined);
   if (timeZone === undefined) {
     throw validation(
-      'the work page needs the caller timezone (tz)',
+      'this report needs the caller timezone (tz)',
       'pass an IANA timezone (tz), e.g. America/New_York',
     );
   }
@@ -1375,9 +1375,8 @@ function bindServer(
       '/api/review': {
         GET: (req) =>
           guarded(req, async () => {
-            // `?tz=` places the `shipped` window. It is optional here (a caller
-            // without a zone gets an empty `shipped`), but a bad zone is a 400.
-            const timeZone = requireTimeZone(new URL(req.url).searchParams.get('tz') ?? undefined);
+            // `?tz=` places the `shipped` window, required as on the work routes.
+            const reviewOpts = workOptionsOf(req);
             // The scan runs alongside reviewOf's store load rather than before it.
             const findings = (async (): Promise<ReadonlyMap<string, number>> => {
               try {
@@ -1392,11 +1391,7 @@ function bindServer(
                 return new Map();
               }
             })();
-            return json(
-              reviewToWire(
-                await reviewOf(store, findings, timeZone === undefined ? {} : { timeZone }),
-              ),
-            );
+            return json(reviewToWire(await reviewOf(store, findings, reviewOpts)));
           }),
       },
 
