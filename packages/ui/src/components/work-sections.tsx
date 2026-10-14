@@ -39,7 +39,7 @@ import { NeedsYouRow, RowTail, StartAction, needsYouActions } from './work-rows'
  */
 
 /** An empty section's line: a bold lead and what its emptiness means. */
-function Empty({ lead, children }: { lead: string; children?: ReactNode }) {
+export function Empty({ lead, children }: { lead: string; children?: ReactNode }) {
   return (
     <p className="px-1 py-2 text-xs text-ink-faint">
       <strong className="font-semibold text-ink-dim">{lead}</strong>
@@ -58,7 +58,7 @@ function ContextPart({ children, mono = false }: { children: ReactNode; mono?: b
   );
 }
 
-function NowRow({ row }: { row: WireWorkNow }) {
+export function NowRow({ row }: { row: WireWorkNow }) {
   return (
     <BrowserRow
       to={nodeLink(row.id)}
@@ -299,7 +299,7 @@ function ShippedRow({ row, zone }: { row: WireWorkShipped; zone: string }) {
 }
 
 /** One Shipped day: its first rows, and an in-place "N more" for the rest. */
-function ShippedDayGroup({
+export function ShippedDayGroup({
   label,
   rows,
   zone,

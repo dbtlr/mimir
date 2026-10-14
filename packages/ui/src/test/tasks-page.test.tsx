@@ -79,7 +79,7 @@ function mockApi() {
     if (tree !== undefined) {
       return Promise.resolve(tree);
     }
-    if (path.startsWith('/api/projects')) {
+    if (path.startsWith('/api/projects') && !path.includes('status=archived')) {
       return Promise.resolve({
         items: [
           { id: 'MMR', status: 'in_progress', title: 'Mimir' },
@@ -425,7 +425,7 @@ function mockTerminalApi(
     if (tree !== undefined) {
       return tree;
     }
-    if (path.startsWith('/api/projects')) {
+    if (path.startsWith('/api/projects') && !path.includes('status=archived')) {
       return { items: [{ id: 'MMR', status: 'in_progress', title: 'Mimir' }], total: 1 };
     }
     if (path.startsWith('/api/nodes?')) {

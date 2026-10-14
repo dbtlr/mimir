@@ -333,7 +333,9 @@ export function useUnarchiveProject(key: string) {
     mutationFn: () =>
       apiSend<WireNode>('POST', `/api/projects/${encodeURIComponent(key)}/unarchive`, undefined),
     onError: (err: Error) => toast.error(err.message),
-    onSettled: () => void invalidate(),
+    // Pending until the archived list is fresh: the archived page reads it, so a
+    // stale list would re-offer Unarchive for a project that is already active.
+    onSettled: invalidate,
   });
 }
 

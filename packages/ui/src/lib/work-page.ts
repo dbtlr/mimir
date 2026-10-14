@@ -84,12 +84,19 @@ export function shippedTime(iso: string, zone: string): string {
   }).format(Date.parse(iso));
 }
 
-/** A Shipped day's visible rows and how many the cap hides; `expanded` lifts the cap. */
-export function capDay<T>(rows: readonly T[], expanded: boolean): { shown: T[]; hidden: number } {
-  if (expanded || rows.length <= SHIPPED_DAY_CAP) {
+/**
+ * A list's visible rows and how many the cap hides (a Shipped day's by
+ * default); `expanded` lifts the cap.
+ */
+export function capDay<T>(
+  rows: readonly T[],
+  expanded: boolean,
+  cap = SHIPPED_DAY_CAP,
+): { shown: T[]; hidden: number } {
+  if (expanded || rows.length <= cap) {
     return { hidden: 0, shown: [...rows] };
   }
-  return { hidden: rows.length - SHIPPED_DAY_CAP, shown: rows.slice(0, SHIPPED_DAY_CAP) };
+  return { hidden: rows.length - cap, shown: rows.slice(0, cap) };
 }
 
 /** Does the frontier hold no row at all — not runnable, not one step off, not to groom, not waiting? */

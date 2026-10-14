@@ -28,6 +28,7 @@ function VerbChip({
   disabled,
   primary,
   attention,
+  compact,
 }: {
   children: ReactNode;
   onClick: () => void;
@@ -35,6 +36,8 @@ function VerbChip({
   primary?: boolean;
   /** The ready lane's violet, for its lead verb. */
   attention?: boolean;
+  /** The small chip for a narrow rail, from md up; a phone keeps its touch target. */
+  compact?: boolean;
 }) {
   return (
     <button
@@ -44,6 +47,7 @@ function VerbChip({
       className={cn(
         'inline-flex items-center rounded-md px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-40',
         PHONE_TOUCH_TARGET,
+        compact === true && 'md:px-2 md:py-1 md:text-tag',
         primary
           ? PRIMARY_INK[attention === true ? 'attention' : 'accent']
           : 'font-medium text-ink-dim inset-ring inset-ring-line hover:bg-well-800 hover:text-ink-bright',
@@ -94,6 +98,7 @@ export function SeedVerbs({
   offline,
   withSpawned = true,
   handoff = NO_HANDOFF,
+  compact = false,
   className,
 }: {
   seed: WireSeed;
@@ -104,6 +109,8 @@ export function SeedVerbs({
   withSpawned?: boolean;
   /** The list's focus handoff, when a verb can move the seed out of it. */
   handoff?: RowFocusHandoff;
+  /** Small chips that fit on one line in a narrow rail (the review page's To triage). */
+  compact?: boolean;
   className?: string;
 }) {
   const [pending, setPending] = useState<PendingVerb>(null);
@@ -134,6 +141,7 @@ export function SeedVerbs({
   if (seed.lane === 'ready') {
     chips.push(
       <VerbChip
+        compact={compact}
         key="resolve"
         primary
         attention
@@ -147,7 +155,7 @@ export function SeedVerbs({
     // it as a secondary chip — one primary per lane.
     if (onPromote !== undefined) {
       chips.push(
-        <VerbChip key="promote" disabled={off} onClick={() => onPromote(seed)}>
+        <VerbChip compact={compact} key="promote" disabled={off} onClick={() => onPromote(seed)}>
           Promote again…
         </VerbChip>,
       );
@@ -155,19 +163,24 @@ export function SeedVerbs({
   }
   if (seed.lane === 'parked') {
     chips.push(
-      <VerbChip key="unpark" disabled={off} onClick={() => commit(() => unpark.mutate())}>
+      <VerbChip
+        compact={compact}
+        key="unpark"
+        disabled={off}
+        onClick={() => commit(() => unpark.mutate())}
+      >
         Unpark
       </VerbChip>,
     );
   }
   chips.push(
-    <VerbChip key="reject" disabled={off} onClick={() => setPending('reject')}>
+    <VerbChip compact={compact} key="reject" disabled={off} onClick={() => setPending('reject')}>
       Reject…
     </VerbChip>,
   );
   if (seed.lane === 'untriaged') {
     chips.push(
-      <VerbChip key="park" disabled={off} onClick={() => setPending('park')}>
+      <VerbChip compact={compact} key="park" disabled={off} onClick={() => setPending('park')}>
         Park…
       </VerbChip>,
     );
@@ -177,7 +190,13 @@ export function SeedVerbs({
   // seed is live — a further promote appends another spawned link.
   if (onPromote !== undefined && seed.lane !== 'ready') {
     chips.unshift(
-      <VerbChip key="promote" primary disabled={off} onClick={() => onPromote(seed)}>
+      <VerbChip
+        compact={compact}
+        key="promote"
+        primary
+        disabled={off}
+        onClick={() => onPromote(seed)}
+      >
         {seed.lane === 'untriaged' || seed.lane === 'parked'
           ? 'Promote to task…'
           : 'Promote again…'}

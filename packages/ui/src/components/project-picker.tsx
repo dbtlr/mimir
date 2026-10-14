@@ -202,7 +202,7 @@ export function DecisionCount({ count }: { count: number }) {
   );
 }
 
-/** The mark of a frozen project, as on the archived shelf. */
+/** The mark of a frozen project, as on an archived project’s page. */
 function Snowflake() {
   return (
     <span aria-hidden="true" className="shrink-0 text-tag text-ink-ghost">

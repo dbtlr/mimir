@@ -87,6 +87,10 @@ describe('capDay', () => {
     expect(capDay(rows, true)).toStrictEqual({ hidden: 0, shown: rows });
   });
 
+  it('caps at the width a list asks for', () => {
+    expect(capDay(rows, false, 4)).toStrictEqual({ hidden: 1, shown: [1, 2, 3, 4] });
+  });
+
   it('hides nothing on a day within the cap', () => {
     expect(capDay([1, 2, 3], false)).toStrictEqual({ hidden: 0, shown: [1, 2, 3] });
   });

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import type { MouseEvent, ReactNode } from 'react';
+import { useId, useState } from 'react';
+import type { MouseEvent, ReactNode, Ref } from 'react';
 
 import { cn } from '../lib/cn';
 import { Sheet, SheetClose, SheetContent, SheetTitle } from './ui/sheet';
@@ -16,15 +16,27 @@ export type RailChip = {
 export function RailSection({
   label,
   count,
+  headingRef,
   children,
 }: {
   label: string;
   count?: number;
+  /** Makes the heading focusable, as a landing place for useRowFocusHandoff. */
+  headingRef?: Ref<HTMLHeadingElement>;
   children: ReactNode;
 }) {
+  const headingId = useId();
   return (
-    <section className="flex flex-col gap-2 border-b border-line pb-4 last:border-b-0 last:pb-0">
-      <h2 className="microlabel text-ink-faint">
+    <section
+      aria-labelledby={headingId}
+      className="flex flex-col gap-2 border-b border-line pb-4 last:border-b-0 last:pb-0"
+    >
+      <h2
+        id={headingId}
+        ref={headingRef}
+        tabIndex={headingRef === undefined ? undefined : -1}
+        className="microlabel text-ink-faint focus-visible:outline-2 focus-visible:outline-accent"
+      >
         {label}
         {count !== undefined && ` · ${String(count)}`}
       </h2>
@@ -122,7 +134,10 @@ function RailChips({ chips, label }: { chips: readonly RailChip[]; label: string
  * rail, the same page on desktop and phone. Below `md` the rail folds into
  * chips under the page head, each opening its part of the rail in a bottom
  * sheet. Project, container, task, seed, and artifact pages share it, and so
- * does the review page at `/`, whose rail is the project list (`railLabel`).
+ * does the review page at `/`, whose rail is the project health strip and
+ * _When you have a minute_ (`railLabel`). A page that omits `chips` keeps its
+ * rail on a phone, stacked under the main column: the review page's rail holds
+ * in-place buttons whose dialogs would not survive a bottom sheet closing.
  */
 export function RecordLayout({
   head,
@@ -136,8 +151,8 @@ export function RecordLayout({
   head: ReactNode;
   /** The desktop rail's sections. */
   rail: ReactNode;
-  /** The same rail regrouped as phone chips. */
-  chips: readonly RailChip[];
+  /** The same rail regrouped as phone chips; omitted, the rail stacks under the main column. */
+  chips?: readonly RailChip[];
   /** What the rail is, for assistive technology. */
   railLabel?: string;
   children: ReactNode;
@@ -145,17 +160,20 @@ export function RecordLayout({
 }) {
   return (
     // tabIndex -1: a focus fallback for a control that unmounts itself, such
-    // as the archived shelf after the last project in it is unarchived.
+    // as a row's button once its action moves the row out of the list.
     <main tabIndex={-1} className={cn('min-h-0 flex-1 overflow-y-auto', className)}>
       <div className="mx-auto grid min-h-full w-full max-w-[1200px] grid-cols-1 md:grid-cols-[minmax(0,1fr)_300px]">
         <article className="flex min-w-0 flex-col gap-4 px-4 py-5 md:px-6">
           {head}
-          <RailChips chips={chips} label={railLabel} />
+          {chips !== undefined && <RailChips chips={chips} label={railLabel} />}
           {children}
         </article>
         <aside
           aria-label={railLabel}
-          className="hidden flex-col gap-4 border-l border-line px-4 py-5 md:flex"
+          className={cn(
+            'flex-col gap-4 border-line px-4 py-5 md:flex md:border-l',
+            chips === undefined ? 'flex border-t md:border-t-0' : 'hidden',
+          )}
         >
           {rail}
         </aside>

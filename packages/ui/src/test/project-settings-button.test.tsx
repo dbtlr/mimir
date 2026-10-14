@@ -112,7 +112,7 @@ describe('projectSettings lifecycle (MMR-230)', () => {
     expect(screen.getByText('Lifecycle')).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Archiving freezes the project and hides it everywhere by default — board, picker, tasks, attention. Everything stays readable from the Archived shelf. Reversible any time; nothing is deleted.',
+        'Archiving freezes the project and hides it everywhere by default — board, picker, tasks, attention. Unarchive it from its page, which the project switcher lists under Archived. Reversible any time; nothing is deleted.',
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Archive project' })).toBeEnabled();
@@ -139,7 +139,7 @@ describe('projectSettings lifecycle (MMR-230)', () => {
     expect(screen.getByText('My Project')).toBeInTheDocument();
     expect(opts.action.label).toBe('Unarchive');
     // The undo toast may be the nearest unarchive affordance at archive time
-    // (the durable path is MMR-125's archived shelf) — it must outlive
+    // (the durable path is the archived project's page) — it must outlive
     // sonner's ~4s default.
     expect(opts.duration).toBe(10_000);
     expect(navigate).toHaveBeenCalledWith({ to: '/' });
