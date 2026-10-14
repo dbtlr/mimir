@@ -198,7 +198,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     expect(next).toHaveTextContent('MMR-52');
     expect(next).toHaveTextContent('Screenshot a signed-in page');
     // The list's sections are gone while the queue is open.
-    expect(screen.queryByRole('region', { name: /^Decide/ })).toBeNull();
+    expect(screen.queryByRole('region', { name: /^Needs you/ })).toBeNull();
     expect(screen.getByRole('link', { name: '← Back to the list' }).getAttribute('href')).toBe('/');
   });
 
@@ -299,7 +299,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     const second = await cardFor(block);
     fireEvent.click(within(second).getByRole('button', { name: 'Skip' }));
 
-    await screen.findByRole('region', { name: 'Decide · 2' });
+    await screen.findByRole('region', { name: 'Needs you · 2' });
     expect(testRouter.state.location.href).toBe('/');
     expect(apiSend).not.toHaveBeenCalled();
     expect(screen.getByRole('link', { name: 'Work through these · 2' })).toBeDefined();
@@ -322,7 +322,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     expect(screen.getByText('2 of 2')).toBeDefined();
     expect(screen.queryByRole('region', { name: 'Up next' })).toBeNull();
     fireEvent.click(within(shown).getByRole('button', { name: 'Skip' }));
-    await screen.findByRole('region', { name: 'Decide · 2' });
+    await screen.findByRole('region', { name: 'Needs you · 2' });
   });
 
   it('returns to / when nothing needs you', async () => {

@@ -244,6 +244,7 @@ export function BrowserRow({
   actions,
   demoted = false,
   struck = false,
+  actionsBelow = false,
 }: {
   to: RecordTarget;
   id: string;
@@ -259,12 +260,17 @@ export function BrowserRow({
   demoted?: boolean;
   /** Strike the title through — an abandoned task. */
   struck?: boolean;
+  /** Wrap the actions under the row at every width, for a narrow column (the review rail). */
+  actionsBelow?: boolean;
 }) {
   const idLabel = useId();
   return (
     <div
       data-row-id={id}
-      className="relative flex gap-2.5 rounded-md px-1 py-[7px] transition-colors hover:bg-well-850 has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-accent max-md:flex-wrap"
+      className={cn(
+        'relative flex gap-2.5 rounded-md px-1 py-[7px] transition-colors hover:bg-well-850 has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-accent',
+        actionsBelow ? 'flex-wrap' : 'max-md:flex-wrap',
+      )}
     >
       {leading !== undefined && <span className="flex h-5 shrink-0 items-center">{leading}</span>}
       {/* Two columns: the id keeps its own, and everything after it (a
@@ -304,7 +310,10 @@ export function BrowserRow({
           role="group"
           aria-label={`Actions for ${id}`}
           data-row-actions
-          className="pointer-events-none relative flex shrink-0 items-start gap-2 *:pointer-events-auto max-md:basis-full max-md:justify-end"
+          className={cn(
+            'pointer-events-none relative flex shrink-0 items-start gap-2 *:pointer-events-auto',
+            actionsBelow ? 'basis-full flex-wrap' : 'max-md:basis-full max-md:justify-end',
+          )}
         >
           {actions}
         </div>

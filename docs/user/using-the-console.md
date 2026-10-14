@@ -18,30 +18,42 @@ the installable PWA, and a reverse proxy does too.
 
 ## Review what needs you
 
-The console opens on the review page at `/`. It lists what waits on you
-across every active project, in two sections:
+The console opens on the review page at `/`: the work page for every active
+project at once. Its main column has three sections:
 
-- **Decide** lists the decisions, grouped by project: tasks in review, blocks
-  only you can clear, and tasks that need answers. Decisions hold up agents, so
-  they come first. When nothing waits, the section says so and names how many
-  tasks are in progress and which task finished last. Decisions act in place,
-  as on a work page: Approve and Send back… on a task in review, and Answer…
-  on a task that needs answers. A block has no action here. Clear it outside
-  Mimir, then unblock the task from its page.
-- **Triage when you have a minute** is a table with one row per project. Each
-  row counts untriaged seeds, the age of the oldest one, tasks going cold, and
-  `mimir doctor` findings. Open a row to list its untriaged seeds, oldest
-  first, each with Promote to task…, Reject…, and Park…. The going-cold count
-  opens the project's work page, and the findings count opens its record
-  health.
+- **Needs you** lists the decisions, grouped by project: tasks in review,
+  blocks only you can clear, and tasks that need answers. Decisions hold up
+  agents, so they come first. When nothing waits, the section says so and
+  names how many tasks are in progress and which task finished last. Decisions
+  act in place, as on a work page: Approve and Send back… on a task in review,
+  and Answer… on a task that needs answers. A block has no action here. Clear
+  it outside Mimir, then unblock the task from its page.
+- **Now** lists the tasks in progress across your projects.
+- **Shipped** lists what finished in the last 7 days, grouped by day, newest
+  first.
+
+Every row starts with its task id, which begins with its project key, and
+opens the task.
+
+The rail beside them has two parts:
+
+- **Projects** has one row per active project: its key, its name, the
+  decisions waiting on you (in violet), its open tasks (_live_), and the tasks
+  going cold. Projects you pinned come first, then the rest by most recent
+  activity, as in the project switcher. A row opens the project's work page.
+  Switching, pinning, archiving, and **New project** are in the switcher.
+- **When you have a minute** holds what can wait, in up to four groups. A
+  group with nothing in it is left out. **Runnable now** lists tasks that can
+  start, each with **Start**. **To triage** lists untriaged seeds, each with
+  Promote to task…, Reject…, and Park…. **Going cold** lists tasks nobody has
+  touched in a while, with how long they have been quiet. **Findings** counts
+  the `mimir doctor` findings in each project that has some, and each count
+  opens that project's record health. A long group shows its first five rows
+  and an **N more** control for the rest.
 
 When a row you act on leaves the page, keyboard focus moves to the next row.
-Offline, the row actions are disabled.
-
-The rail lists every active project with its decisions, its triage count, and
-its tasks in progress. Each entry opens the project's work page. Archived
-projects are on a shelf under the list, beside **New project**. On a phone, the
-list is behind the **Projects** chip.
+Offline, the row actions are disabled. On a phone, the rail sits under the
+main column.
 
 The top-bar **Needs you** alert shows how many decisions wait on you. It opens
 a popover (a bottom sheet on a phone) that lists them grouped by project, in

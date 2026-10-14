@@ -4,7 +4,13 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { WireReviewReport, WireSeed, WireWorkNeedsYou } from '../api/types';
+import type {
+  WireNode,
+  WireReviewProject,
+  WireReviewReport,
+  WireSeed,
+  WireWorkNeedsYou,
+} from '../api/types';
 import { router } from '../router';
 import { project, reviewReport, seed, task } from './fixtures';
 
@@ -64,15 +70,74 @@ function renderReview() {
   return client;
 }
 
+const RAIL = 'Projects and spare-minute work';
+
+/** A row's action buttons, grouped and named for the record they act on. */
+const actionsOf = (id: string) => screen.findByRole('group', { name: `Actions for ${id}` });
+
+/** Press a row's button the way a keyboard does: focused first, then activated. */
+const press = async (id: string, name: string) => {
+  const button = within(await actionsOf(id)).getByRole('button', { name });
+  button.focus();
+  fireEvent.click(button);
+};
+
+const lmSeed = seed({ id: 'LM-s4', lane: 'untriaged', project: 'LM', title: 'Plugin hooks' });
+const firstSeed = seed({ id: 'MMR-s25', lane: 'untriaged', title: 'Oldest idea' });
+const secondSeed = seed({ id: 'MMR-s30', lane: 'untriaged', title: 'Newer bug' });
+
 const LM = { key: 'LM', name: 'Loom CLI' };
 const MMR = { key: 'MMR', name: 'Mimir' };
+const NORN = { key: 'NORN', name: 'Norn' };
+
+/** A project's strip row; override the counts a case sets. */
+function stripRow(
+  ref: { key: string; name: string },
+  counts: Partial<WireReviewProject> = {},
+): WireReviewProject {
+  return { ...ref, decisions: 0, going_cold: 0, in_flight: 0, live: 0, triage: 0, ...counts };
+}
 
 const TWO_PROJECTS = [
-  { ...LM, decisions: 1, going_cold: 0, in_flight: 1, live: 0, triage: 0 },
-  { ...MMR, decisions: 2, going_cold: 0, in_flight: 2, live: 0, triage: 3 },
+  stripRow(LM, { decisions: 1, in_flight: 1 }),
+  stripRow(MMR, { decisions: 2, in_flight: 2, triage: 3 }),
 ];
 
-describe('the review page at / (ADR 0013, MMR-476 refinement)', () => {
+/** A task running now, tagged with its project the way the review read tags it. */
+const nowRow = (id: string, extra: Partial<WireNode> = {}) => ({
+  ...task({ id, status: 'in_progress', title: `Running ${id}`, ...extra }),
+  latest_note: null,
+  project: id.split('-')[0]!,
+  scratchpads: [],
+  stale: false,
+  started_at: hoursAgo(1),
+});
+
+const shippedRow = (id: string, at: string, extra: Partial<WireNode> = {}) => ({
+  ...task({ id, status: 'done', title: `Shipped ${id}`, ...extra }),
+  abandon_reason: null,
+  finished_at: at,
+  project: id.split('-')[0]!,
+  stale: false,
+});
+
+const runnableRow = (id: string, title = `Runnable ${id}`) => ({
+  ...task({ grooming: 'groomed', id, status: 'ready', title }),
+  awaiting_on: [],
+  break_down: false,
+  project: id.split('-')[0]!,
+  stale: false,
+});
+
+const coldRow = (id: string, quietDays: number) => ({
+  ...task({ id, status: 'in_progress', title: `Cold ${id}`, updated_at: daysAgo(quietDays) }),
+  project: id.split('-')[0]!,
+});
+
+const getRail = () => screen.getByRole('complementary', { name: RAIL });
+const minute = () => within(getRail()).getByRole('region', { name: /^When you have a minute/ });
+
+describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
   it('heads the page with the decision count and groups decisions by project', async () => {
     serve(
       reviewReport({
@@ -94,8 +159,8 @@ describe('the review page at / (ADR 0013, MMR-476 refinement)', () => {
 
     const head = await screen.findByRole('heading', { level: 1, name: /Needs you/ });
     expect(head.textContent).toContain('3');
-    const decide = screen.getByRole('region', { name: 'Decide · 3' });
-    const groups = within(decide).getAllByRole('region');
+    const needs = screen.getByRole('region', { name: 'Needs you · 3' });
+    const groups = within(needs).getAllByRole('region');
     expect(groups.map((g) => g.getAttribute('aria-label'))).toEqual(['Loom CLI', 'Mimir']);
     expect(within(groups[0]!).getByRole('link', { name: 'Ship the plugin' })).toBeDefined();
     expect(within(groups[0]!).getByText('In review')).toBeDefined();
@@ -105,9 +170,97 @@ describe('the review page at / (ADR 0013, MMR-476 refinement)', () => {
     expect(within(groups[1]!).getByRole('link', { name: /Mimir/ }).getAttribute('href')).toBe(
       '/p/MMR',
     );
+    expect(screen.getByRole('link', { name: 'Work through these · 3' }).getAttribute('href')).toBe(
+      '/?mode=focus',
+    );
   });
 
-  it('says nothing needs you, naming the work in flight and the last finish', async () => {
+  it('orders the main column Needs you, Now, then Shipped', async () => {
+    serve(
+      reviewReport({
+        decisions: [{ project: LM, rows: [decision('LM-196', 'under_review')] }],
+        now: [nowRow('MMR-502')],
+        projects: TWO_PROJECTS,
+        queue: ['LM-196'],
+        shipped: [shippedRow('MMR-497', new Date(NOW).toISOString())],
+      }),
+    );
+    renderReview();
+
+    await screen.findByRole('heading', { level: 1, name: /Needs you/ });
+    const article = screen.getByRole('article');
+    const sections = within(article)
+      .getAllByRole('heading', { level: 2 })
+      .map((h) => h.textContent);
+    expect(sections).toHaveLength(3);
+    expect(sections[0]).toMatch(/^Needs you · 1/);
+    expect(sections[1]).toMatch(/^Now · 1/);
+    expect(sections[2]).toMatch(/^Shipped · 1/);
+  });
+
+  it('lists the work in flight across projects, each row led by its project key', async () => {
+    serve(
+      reviewReport({
+        now: [nowRow('NORN-401', { harness: 'codex' }), nowRow('MMR-502')],
+        projects: TWO_PROJECTS,
+      }),
+    );
+    renderReview();
+
+    const now = await screen.findByRole('region', { name: 'Now · 2' });
+    const rows = now.querySelectorAll('[data-row-id]');
+    expect([...rows].map((r) => r.getAttribute('data-row-id'))).toEqual(['NORN-401', 'MMR-502']);
+    expect(within(now).getByRole('link', { name: 'Running NORN-401' }).getAttribute('href')).toBe(
+      '/p/NORN/401',
+    );
+    expect(within(now).getByText('NORN-401')).toBeDefined();
+    expect(now).toHaveTextContent('Started 1h ago');
+    expect(now).toHaveTextContent('codex');
+  });
+
+  it('says nothing is running when no task is in progress', async () => {
+    serve(reviewReport({ projects: TWO_PROJECTS }));
+    renderReview();
+
+    const now = await screen.findByRole('region', { name: 'Now' });
+    expect(now).toHaveTextContent('Nothing running.');
+  });
+
+  it('groups what shipped by day, newest first, with each row’s project key and finish time', async () => {
+    serve(
+      reviewReport({
+        projects: TWO_PROJECTS,
+        shipped: [
+          shippedRow('MMR-497', new Date(NOW).toISOString()),
+          shippedRow('LM-228', daysAgo(3)),
+          shippedRow('MMR-490', daysAgo(3), { status: 'abandoned', title: 'Dropped idea' }),
+        ],
+      }),
+    );
+    renderReview();
+
+    const shipped = await screen.findByRole('region', { name: 'Shipped · 3' });
+    const days = within(shipped).getAllByRole('heading', { level: 3 });
+    expect(days).toHaveLength(2);
+    expect(days[0]!.textContent).toMatch(/^Today · /);
+    expect(
+      [...shipped.querySelectorAll('[data-row-id]')].map((r) => r.getAttribute('data-row-id')),
+    ).toEqual(['MMR-497', 'LM-228', 'MMR-490']);
+    expect(within(shipped).getByRole('link', { name: 'Shipped LM-228' }).getAttribute('href')).toBe(
+      '/p/LM/228',
+    );
+    expect(shipped).toHaveTextContent('08:00');
+  });
+
+  it('says nothing shipped in the last 7 days', async () => {
+    serve(reviewReport({ projects: TWO_PROJECTS }));
+    renderReview();
+
+    const shipped = await screen.findByRole('region', { name: 'Shipped' });
+    expect(shipped).toHaveTextContent('Nothing shipped in the last 7 days.');
+  });
+
+  it('reads calm when nothing needs you, still showing Now and Shipped', async () => {
     serve(
       reviewReport({
         last_finished: {
@@ -116,10 +269,9 @@ describe('the review page at / (ADR 0013, MMR-476 refinement)', () => {
           finished_at: hoursAgo(2),
           stale: false,
         },
-        projects: [
-          { ...LM, decisions: 0, going_cold: 0, in_flight: 1, live: 0, triage: 0 },
-          { ...MMR, decisions: 0, going_cold: 0, in_flight: 3, live: 0, triage: 0 },
-        ],
+        now: [nowRow('MMR-502')],
+        projects: [stripRow(LM, { in_flight: 1 }), stripRow(MMR, { in_flight: 3 })],
+        shipped: [shippedRow('MMR-474', hoursAgo(2))],
       }),
     );
     renderReview();
@@ -127,70 +279,171 @@ describe('the review page at / (ADR 0013, MMR-476 refinement)', () => {
     await expect(
       screen.findByRole('heading', { level: 1, name: 'Nothing needs you' }),
     ).resolves.toBeDefined();
-    const decide = screen.getByRole('region', { name: 'Decide' });
-    expect(decide.textContent).toContain('Agents are working on 4 tasks.');
-    const last = within(decide).getByRole('link', { name: 'Keep focus in place' });
+    expect(screen.queryByRole('link', { name: /Work through these/ })).toBeNull();
+    const needs = screen.getByRole('region', { name: 'Needs you' });
+    expect(needs.textContent).toContain('Agents are working on 4 tasks.');
+    const last = within(needs).getByRole('link', { name: 'Keep focus in place' });
     expect(last.getAttribute('href')).toBe('/p/MMR/474');
-    expect(decide.textContent).toContain('2h ago');
+    expect(needs.textContent).toContain('2h ago');
+    expect(screen.getByRole('region', { name: 'Now · 1' })).toBeDefined();
+    expect(screen.getByRole('region', { name: 'Shipped · 1' })).toBeDefined();
   });
 
   it('names a quiet board plainly when nothing is in flight or finished', async () => {
-    serve(
-      reviewReport({
-        projects: [{ ...MMR, decisions: 0, going_cold: 0, in_flight: 0, live: 0, triage: 0 }],
-      }),
-    );
+    serve(reviewReport({ projects: [stripRow(MMR)] }));
     renderReview();
 
     await screen.findByRole('heading', { level: 1, name: 'Nothing needs you' });
-    const decide = screen.getByRole('region', { name: 'Decide' });
-    expect(decide.textContent).toContain('No task is in progress.');
-    expect(decide.textContent).not.toContain('Last finished');
+    const needs = screen.getByRole('region', { name: 'Needs you' });
+    expect(needs.textContent).toContain('No task is in progress.');
+    expect(needs.textContent).not.toContain('Last finished');
   });
 
-  it('tallies triage per project, linking going cold and findings to where they are handled', async () => {
+  it('asks for the review in the browser’s time zone', async () => {
+    serve(reviewReport({ projects: TWO_PROJECTS }));
+    renderReview();
+
+    await screen.findByRole('heading', { level: 1 });
+    expect(apiGet.mock.calls.map(([path]) => path as string)).toContain(
+      '/api/review?tz=America%2FNew_York',
+    );
+  });
+});
+
+describe('the review rail: the project health strip', () => {
+  it('lists every project in report order with its decisions, live, and cold counts', async () => {
     serve(
       reviewReport({
-        projects: TWO_PROJECTS,
-        triage: [
-          {
-            findings: 12,
-            going_cold: 4,
-            project: MMR,
-            seeds: [
-              seed({
-                created_at: daysAgo(60),
-                id: 'MMR-s25',
-                lane: 'untriaged',
-                title: 'Oldest idea',
-              }),
-              seed({ created_at: daysAgo(4), id: 'MMR-s30', kind: 'bug', lane: 'untriaged' }),
-            ],
-          },
-          { findings: 0, going_cold: 2, project: LM, seeds: [] },
+        projects: [
+          stripRow(MMR, { decisions: 2, going_cold: 1, live: 7 }),
+          stripRow(LM, { live: 3 }),
+          stripRow(NORN),
         ],
       }),
     );
     renderReview();
 
-    const table = await screen.findByRole('table', { name: /Triage/ });
-    const [, mimirRow, loomRow] = within(table).getAllByRole('row');
-    const cells = within(mimirRow!).getAllByRole('cell');
-    expect(cells.map((c) => c.textContent)).toEqual(['2', '2mo', '4', '12']);
-    expect(within(mimirRow!).getByRole('link', { name: '4' }).getAttribute('href')).toBe('/p/MMR');
-    expect(within(mimirRow!).getByRole('link', { name: '12' }).getAttribute('href')).toBe(
-      '/doctor?project=MMR',
-    );
-    // A project with nothing to open shows its counts but no disclosure.
-    expect(within(loomRow!).queryByRole('button')).toBeNull();
-    expect(
-      within(loomRow!)
-        .getAllByRole('cell')
-        .map((c) => c.textContent),
-    ).toEqual(['—', '—', '2', '—']);
+    const rail = await screen.findByRole('complementary', { name: RAIL });
+    expect(within(rail).getByRole('heading', { level: 2, name: 'Projects · 3' })).toBeDefined();
+    const list = within(rail).getByRole('list', { name: 'Project health' });
+    const links = within(list).getAllByRole('link');
+    expect(links.map((a) => a.getAttribute('href'))).toEqual(['/p/MMR', '/p/LM', '/p/NORN']);
+    const [mimir, loom, norn] = links;
+    expect(mimir!.textContent).toContain('MMR');
+    expect(mimir!.textContent).toContain('Mimir');
+    expect(mimir!.textContent).toContain('2 decisions');
+    expect(mimir!.textContent).toContain('7 live');
+    expect(mimir!.textContent).toContain('1 cold');
+    // A zero is absent, not nought: the cell is a dash, and a reader hears nothing.
+    expect(loom!.textContent).not.toContain('decision');
+    expect(loom!.textContent).not.toContain('cold');
+    expect(loom!.textContent).toContain('3 live');
+    expect(norn!.textContent).not.toMatch(/decision|live|cold/);
   });
 
-  it("opens a triage row in place to list the project's untriaged seeds, oldest first", async () => {
+  it('is the one project listing: no triage table, archived shelf, or New project on the page', async () => {
+    serve(reviewReport({ projects: TWO_PROJECTS }), [
+      project({ archived_at: daysAgo(30), id: 'OLD', status: 'done', title: 'Old project' }),
+    ]);
+    renderReview();
+
+    await screen.findByRole('list', { name: 'Project health' });
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Archived/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: '+ New project' })).toBeNull();
+    expect(screen.queryByText('Old project')).toBeNull();
+    expect(screen.queryByRole('region', { name: /Triage when you have a minute/ })).toBeNull();
+  });
+
+  it('stacks the rail under the main column on a phone, with no chips', async () => {
+    serve(reviewReport({ projects: TWO_PROJECTS }));
+    renderReview();
+
+    const rail = await screen.findByRole('complementary', { name: RAIL });
+    expect(screen.queryByRole('group', { name: RAIL })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Projects/ })).toBeNull();
+    // Shown at every width: it is not the desktop-only `hidden md:flex` rail.
+    expect(rail.className.split(' ')).not.toContain('hidden');
+    expect(rail.className.split(' ')).toContain('flex');
+    expect(within(rail).getByRole('list', { name: 'Project health' })).toBeDefined();
+  });
+});
+
+describe('the review rail: when you have a minute', () => {
+  it('has the four groups, each omitted when empty', async () => {
+    serve(
+      reviewReport({
+        going_cold: [coldRow('LM-219', 12)],
+        projects: TWO_PROJECTS,
+        runnable: [runnableRow('LM-233', 'Dry-run flag')],
+        triage: [
+          {
+            findings: 3,
+            going_cold: 0,
+            project: MMR,
+            seeds: [seed({ id: 'MMR-s58', lane: 'untriaged', title: 'Name the project' })],
+          },
+        ],
+      }),
+    );
+    renderReview();
+
+    await screen.findByRole('list', { name: 'Project health' });
+    const groups = within(minute())
+      .getAllByRole('region')
+      .map((g) => g.getAttribute('aria-label'));
+    expect(groups).toEqual(['Runnable now', 'To triage', 'Going cold', 'Findings']);
+  });
+
+  it('omits the groups that are empty and counts the rows it lists', async () => {
+    serve(
+      reviewReport({
+        projects: TWO_PROJECTS,
+        runnable: [runnableRow('LM-233'), runnableRow('MMR-12')],
+      }),
+    );
+    renderReview();
+
+    await screen.findByRole('list', { name: 'Project health' });
+    expect(
+      within(getRail()).getByRole('heading', { level: 2, name: 'When you have a minute · 2' }),
+    ).toBeDefined();
+    expect(
+      within(minute())
+        .getAllByRole('region')
+        .map((g) => g.getAttribute('aria-label')),
+    ).toEqual(['Runnable now']);
+  });
+
+  it('shows a quiet line when every group is empty', async () => {
+    serve(reviewReport({ projects: TWO_PROJECTS }));
+    renderReview();
+
+    await screen.findByRole('list', { name: 'Project health' });
+    const section = within(getRail()).getByRole('region', { name: 'When you have a minute' });
+    expect(section).toHaveTextContent('Nothing is waiting for a spare minute.');
+    expect(within(section).queryAllByRole('region')).toHaveLength(0);
+  });
+
+  it('lists runnable tasks across projects, each with Start', async () => {
+    serve(
+      reviewReport({
+        projects: TWO_PROJECTS,
+        runnable: [runnableRow('LM-233', 'Dry-run flag'), runnableRow('NORN-404', 'Orphans')],
+      }),
+    );
+    renderReview();
+
+    await screen.findByRole('list', { name: 'Project health' });
+    const runnable = within(minute()).getByRole('region', { name: 'Runnable now' });
+    expect(within(runnable).getByRole('link', { name: 'Dry-run flag' }).getAttribute('href')).toBe(
+      '/p/LM/233',
+    );
+    expect(within(runnable).getByText('NORN-404')).toBeDefined();
+    expect(within(runnable).getAllByRole('button', { name: 'Start' })).toHaveLength(2);
+  });
+
+  it('lists untriaged seeds across projects in the read’s order', async () => {
     serve(
       reviewReport({
         projects: TWO_PROJECTS,
@@ -200,75 +453,89 @@ describe('the review page at / (ADR 0013, MMR-476 refinement)', () => {
             going_cold: 0,
             project: MMR,
             seeds: [
-              seed({
-                created_at: daysAgo(60),
-                id: 'MMR-s25',
-                lane: 'untriaged',
-                title: 'Oldest idea',
-              }),
-              seed({
-                created_at: daysAgo(4),
-                id: 'MMR-s30',
-                lane: 'untriaged',
-                title: 'Newer bug',
-              }),
+              seed({ id: 'MMR-s25', lane: 'untriaged', title: 'Oldest idea' }),
+              seed({ id: 'MMR-s30', lane: 'untriaged', title: 'Newer bug' }),
             ],
           },
+          { findings: 0, going_cold: 0, project: LM, seeds: [lmSeed] },
         ],
       }),
     );
     renderReview();
 
-    const toggle = await screen.findByRole('button', { name: /Mimir/ });
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.queryByRole('link', { name: 'Oldest idea' })).toBeNull();
-    await userEvent.click(toggle);
-    expect(toggle.getAttribute('aria-expanded')).toBe('true');
-    const seeds = screen.getByRole('region', { name: 'Untriaged seeds in Mimir' });
-    const links = within(seeds).getAllByRole('link');
-    expect(links.map((l) => l.textContent)).toEqual(['Oldest idea', 'Newer bug']);
+    await screen.findByRole('list', { name: 'Project health' });
+    const triageGroup = within(minute()).getByRole('region', { name: 'To triage' });
+    const links = within(triageGroup).getAllByRole('link');
+    expect(links.map((l) => l.textContent)).toEqual(['Oldest idea', 'Newer bug', 'Plugin hooks']);
     expect(links[0]!.getAttribute('href')).toBe('/p/MMR/s25');
-    await userEvent.click(toggle);
-    expect(screen.queryByRole('region', { name: 'Untriaged seeds in Mimir' })).toBeNull();
+    const labels = within(await actionsOf('MMR-s25'))
+      .getAllByRole('button')
+      .map((b) => b.textContent);
+    expect(labels).toStrictEqual(['Promote to task…', 'Reject…', 'Park…']);
   });
 
-  it('lists every project in the rail with its decisions, triage, and work in flight', async () => {
-    serve(reviewReport({ projects: TWO_PROJECTS }), [
-      project({ archived_at: daysAgo(30), id: 'OLD', status: 'done', title: 'Old project' }),
-    ]);
+  it('lists tasks going cold with how long they have been quiet', async () => {
+    serve(
+      reviewReport({
+        going_cold: [coldRow('LM-219', 12), coldRow('NORN-79', 9)],
+        projects: TWO_PROJECTS,
+      }),
+    );
     renderReview();
 
-    const rail = await screen.findByRole('complementary', { name: 'Project list' });
-    const list = await within(rail).findByRole('list', { name: 'Projects' });
-    const items = within(list).getAllByRole('link');
-    expect(items.map((a) => a.getAttribute('href'))).toEqual(['/p/LM', '/p/MMR']);
-    expect(items[1]!.textContent).toContain('2 decisions');
-    expect(items[1]!.textContent).toContain('3 to triage');
-    expect(items[1]!.textContent).toContain('2 live');
-    expect(items[0]!.textContent).not.toContain('to triage');
-    expect(within(rail).getByRole('button', { name: /Archived, 1 project/ })).toBeDefined();
-    await userEvent.click(within(rail).getByRole('button', { name: '+ New project' }));
-    await expect(screen.findByRole('dialog', { name: /New project/ })).resolves.toBeDefined();
+    await screen.findByRole('list', { name: 'Project health' });
+    const cold = within(minute()).getByRole('region', { name: 'Going cold' });
+    expect(within(cold).getByRole('link', { name: 'Cold LM-219' }).getAttribute('href')).toBe(
+      '/p/LM/219',
+    );
+    expect(cold).toHaveTextContent('12d quiet');
+    expect(cold).toHaveTextContent('9d quiet');
   });
 
-  it('folds the project list into a Projects chip and sheet on a phone', async () => {
-    serve(reviewReport({ projects: TWO_PROJECTS }), [
-      project({ archived_at: daysAgo(30), id: 'OLD', status: 'done', title: 'Old project' }),
-    ]);
+  it('counts findings per project, each linking to that project’s record health', async () => {
+    serve(
+      reviewReport({
+        projects: TWO_PROJECTS,
+        triage: [
+          { findings: 12, going_cold: 4, project: MMR, seeds: [] },
+          { findings: 0, going_cold: 2, project: LM, seeds: [] },
+          { findings: 1, going_cold: 0, project: NORN, seeds: [] },
+        ],
+      }),
+    );
     renderReview();
 
-    const chips = await screen.findByRole('group', { name: 'Project list' });
-    await userEvent.click(within(chips).getByRole('button', { name: /^Projects/ }));
-    const sheet = await screen.findByRole('dialog', { name: 'Projects' });
-    expect(
-      within(sheet)
-        .getAllByRole('link')
-        .map((a) => a.getAttribute('href')),
-    ).toEqual(['/p/LM', '/p/MMR']);
-    // Unfolding the archived shelf reveals it in place; it does not close the sheet.
-    await userEvent.click(within(sheet).getByRole('button', { name: /Archived, 1 project/ }));
-    expect(screen.getByRole('dialog', { name: 'Projects' })).toBeDefined();
-    expect(within(sheet).getByText('Old project')).toBeDefined();
+    await screen.findByRole('list', { name: 'Project health' });
+    const findings = within(minute()).getByRole('region', { name: 'Findings' });
+    const links = within(findings).getAllByRole('link');
+    expect(links.map((a) => a.getAttribute('href'))).toEqual([
+      '/doctor?project=MMR',
+      '/doctor?project=NORN',
+    ]);
+    expect(links[0]).toHaveTextContent('12 findings');
+    expect(links[1]).toHaveTextContent('1 finding');
+    // A project with only cold tasks has no findings row, and cold tasks list from `going_cold`.
+    expect(within(findings).queryByText('LM')).toBeNull();
+    expect(within(minute()).queryByRole('region', { name: 'Going cold' })).toBeNull();
+  });
+
+  it('shows the first few rows of a long group and the rest on request', async () => {
+    serve(
+      reviewReport({
+        projects: TWO_PROJECTS,
+        runnable: ['LM-1', 'LM-2', 'LM-3', 'LM-4', 'LM-5', 'LM-6', 'LM-7'].map((id) =>
+          runnableRow(id),
+        ),
+      }),
+    );
+    renderReview();
+
+    await screen.findByRole('list', { name: 'Project health' });
+    const runnable = within(minute()).getByRole('region', { name: 'Runnable now' });
+    expect(within(runnable).getAllByRole('button', { name: 'Start' })).toHaveLength(5);
+    await userEvent.click(within(runnable).getByRole('button', { name: 'Show 2 more runnable' }));
+    expect(within(runnable).getAllByRole('button', { name: 'Start' })).toHaveLength(7);
+    expect(within(runnable).queryByRole('button', { name: /more runnable/ })).toBeNull();
   });
 
   it('offers a fresh store its first project', async () => {
@@ -276,7 +543,7 @@ describe('the review page at / (ADR 0013, MMR-476 refinement)', () => {
     renderReview();
 
     await expect(screen.findByText('No projects yet.')).resolves.toBeDefined();
-    expect(screen.queryByRole('region', { name: /Decide/ })).toBeNull();
+    expect(screen.queryByRole('region', { name: /Needs you/ })).toBeNull();
     expect(screen.getAllByRole('button', { name: '+ New project' }).length).toBeGreaterThan(0);
   });
 
@@ -328,16 +595,6 @@ async function openForWrite(before: WireReviewReport, after: WireReviewReport) {
   return serving;
 }
 
-/** A row's action buttons, grouped and named for the record they act on. */
-const actionsOf = (id: string) => screen.findByRole('group', { name: `Actions for ${id}` });
-
-/** Press a row's button the way a keyboard does: focused first, then activated. */
-const press = async (id: string, name: string) => {
-  const button = within(await actionsOf(id)).getByRole('button', { name });
-  button.focus();
-  fireEvent.click(button);
-};
-
 const verdict = decision('LM-196', 'under_review', { title: 'Ship the plugin' });
 const block = decision('MMR-52', 'blocked', { hold_reason: 'Needs an API token' });
 const question = decision('MMR-480', 'needs_answers', { question: 'Skip, or drop it?' });
@@ -356,7 +613,7 @@ function decisionsFor(rows: { lm?: WireWorkNeedsYou[]; mmr?: WireWorkNeedsYou[] 
 }
 
 describe('review page decisions act in place (MMR-479)', () => {
-  it('approves a verdict, and the row leaves Decide', async () => {
+  it('approves a verdict, and the row leaves Needs you', async () => {
     await openForWrite(decisionsFor({ lm: [verdict] }), decisionsFor({}));
 
     fireEvent.click(within(await actionsOf('LM-196')).getByRole('button', { name: 'Approve' }));
@@ -462,7 +719,7 @@ describe('review page decisions act in place (MMR-479)', () => {
     });
   });
 
-  it('lands on the Decide heading when no decision follows the row that left', async () => {
+  it('lands on the Needs you heading when no decision follows the row that left', async () => {
     await openForWrite(
       decisionsFor({ lm: [verdict], mmr: [question] }),
       decisionsFor({ lm: [verdict] }),
@@ -477,16 +734,12 @@ describe('review page decisions act in place (MMR-479)', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 2, name: /^Decide · 1/ })).toHaveFocus();
+      expect(screen.getByRole('heading', { level: 2, name: /^Needs you · 1/ })).toHaveFocus();
     });
   });
 });
 
-const lmSeed = seed({ id: 'LM-s4', lane: 'untriaged', project: 'LM', title: 'Plugin hooks' });
-const firstSeed = seed({ id: 'MMR-s25', lane: 'untriaged', title: 'Oldest idea' });
-const secondSeed = seed({ id: 'MMR-s30', lane: 'untriaged', title: 'Newer bug' });
-
-/** Triage rows for LM's and MMR's untriaged seeds; a project with none drops out. */
+/** The read with LM's and MMR's untriaged seeds; a project with none drops out. */
 function triage(rows: { lm?: WireSeed[]; mmr?: WireSeed[] }) {
   return reviewReport({
     projects: TWO_PROJECTS,
@@ -497,17 +750,9 @@ function triage(rows: { lm?: WireSeed[]; mmr?: WireSeed[] }) {
   });
 }
 
-/** Open each named project's triage row to list its seeds. */
-async function expand(...names: string[]) {
-  for (const name of names) {
-    fireEvent.click(await screen.findByRole('button', { name: new RegExp(name) }));
-  }
-}
-
-describe('review page seed triage acts in place (MMR-479)', () => {
+describe('review page seed triage acts in place (MMR-479, MMR-506)', () => {
   it('offers Promote to task…, Reject…, and Park… on each untriaged seed', async () => {
     await openForWrite(triage({ mmr: [firstSeed] }), triage({}));
-    await expand('Mimir');
 
     const labels = within(await actionsOf('MMR-s25'))
       .getAllByRole('button')
@@ -517,7 +762,6 @@ describe('review page seed triage acts in place (MMR-479)', () => {
 
   it('parks a seed with a reason, and it leaves the list', async () => {
     await openForWrite(triage({ mmr: [firstSeed, secondSeed] }), triage({ mmr: [secondSeed] }));
-    await expand('Mimir');
 
     fireEvent.click(within(await actionsOf('MMR-s25')).getByRole('button', { name: 'Park…' }));
     const dialog = await screen.findByRole('dialog', { name: 'Park seed' });
@@ -537,7 +781,6 @@ describe('review page seed triage acts in place (MMR-479)', () => {
 
   it('rejects a seed with the reason it requires', async () => {
     await openForWrite(triage({ mmr: [firstSeed] }), triage({}));
-    await expand('Mimir');
 
     fireEvent.click(within(await actionsOf('MMR-s25')).getByRole('button', { name: 'Reject…' }));
     const dialog = await screen.findByRole('dialog', { name: 'Reject seed' });
@@ -553,7 +796,6 @@ describe('review page seed triage acts in place (MMR-479)', () => {
 
   it('opens the promote sheet with the seed’s title', async () => {
     await openForWrite(triage({ mmr: [firstSeed] }), triage({}));
-    await expand('Mimir');
 
     fireEvent.click(
       within(await actionsOf('MMR-s25')).getByRole('button', { name: 'Promote to task…' }),
@@ -567,7 +809,6 @@ describe('review page seed triage acts in place (MMR-479)', () => {
       triage({ lm: [lmSeed], mmr: [firstSeed, secondSeed] }),
       triage({ mmr: [firstSeed, secondSeed] }),
     );
-    await expand('Loom CLI', 'Mimir');
 
     await press('LM-s4', 'Park…');
     const dialog = await screen.findByRole('dialog', { name: 'Park seed' });
@@ -584,7 +825,6 @@ describe('review page seed triage acts in place (MMR-479)', () => {
 
   it('lands on the next seed after a promote moves its seed out of triage', async () => {
     await openForWrite(triage({ mmr: [firstSeed, secondSeed] }), triage({ mmr: [secondSeed] }));
-    await expand('Mimir');
 
     await press('MMR-s25', 'Promote to task…');
     const promote = await screen.findByRole('button', { name: 'Promote ↵' });
@@ -602,9 +842,8 @@ describe('review page seed triage acts in place (MMR-479)', () => {
     });
   });
 
-  it('lands on the Triage heading when no seed follows the one that left', async () => {
+  it('lands on the When you have a minute heading when no seed follows the one that left', async () => {
     await openForWrite(triage({ lm: [lmSeed], mmr: [firstSeed] }), triage({ lm: [lmSeed] }));
-    await expand('Loom CLI', 'Mimir');
 
     await press('MMR-s25', 'Reject…');
     const dialog = await screen.findByRole('dialog', { name: 'Reject seed' });
@@ -613,14 +852,13 @@ describe('review page seed triage acts in place (MMR-479)', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('heading', { level: 2, name: /^Triage when you have a minute/ }),
+        screen.getByRole('heading', { level: 2, name: /^When you have a minute/ }),
       ).toHaveFocus();
     });
   });
 
-  it('keeps the Triage heading for focus when the last seed on the page leaves', async () => {
+  it('keeps the rail heading for focus when the last seed on the page leaves', async () => {
     await openForWrite(triage({ mmr: [firstSeed] }), triage({}));
-    await expand('Mimir');
 
     await press('MMR-s25', 'Reject…');
     const dialog = await screen.findByRole('dialog', { name: 'Reject seed' });
@@ -629,15 +867,14 @@ describe('review page seed triage acts in place (MMR-479)', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('heading', { level: 2, name: /^Triage when you have a minute/ }),
+        screen.getByRole('heading', { level: 2, name: /^When you have a minute/ }),
       ).toHaveFocus();
     });
-    expect(screen.getByText('Nothing left to triage.')).toBeDefined();
+    expect(screen.getByText('Nothing is waiting for a spare minute.')).toBeDefined();
   });
 
   it('moves nothing for a cancelled promote’s seed when it leaves later', async () => {
     const serving = await openForWrite(triage({ mmr: [firstSeed, secondSeed] }), triage({}));
-    await expand('Mimir');
 
     await press('MMR-s25', 'Promote to task…');
     await screen.findByDisplayValue('Oldest idea');
@@ -661,7 +898,6 @@ describe('review page seed triage acts in place (MMR-479)', () => {
     );
     const promoted = Promise.withResolvers<object>();
     apiSend.mockReturnValue(promoted.promise);
-    await expand('Mimir');
 
     await press('MMR-s25', 'Promote to task…');
     const promote = await screen.findByRole('button', { name: 'Promote ↵' });
@@ -692,7 +928,6 @@ describe('review page seed triage acts in place (MMR-479)', () => {
     );
     const promoted = Promise.withResolvers<object>();
     apiSend.mockReturnValue(promoted.promise);
-    await expand('Mimir');
 
     await press('MMR-s25', 'Promote to task…');
     const promote = await screen.findByRole('button', { name: 'Promote ↵' });
@@ -714,21 +949,69 @@ describe('review page seed triage acts in place (MMR-479)', () => {
     });
     expect(document.body).toHaveFocus();
   });
+});
 
-  it('lists a project afresh, closed, when it returns to triage', async () => {
-    const serving = await openForWrite(triage({ mmr: [firstSeed] }), triage({}));
-    await expand('Mimir');
+/** The read with runnable tasks and, optionally, untriaged seeds after them. */
+function runnables(ids: string[], seeds: WireSeed[] = []) {
+  return reviewReport({
+    projects: TWO_PROJECTS,
+    runnable: ids.map((id) => runnableRow(id)),
+    triage: seeds.length === 0 ? [] : [{ findings: 0, going_cold: 0, project: MMR, seeds }],
+  });
+}
 
-    fireEvent.click(within(await actionsOf('MMR-s25')).getByRole('button', { name: 'Park…' }));
-    fireEvent.click(
-      within(await screen.findByRole('dialog', { name: 'Park seed' })).getByRole('button', {
-        name: 'Park',
-      }),
-    );
-    await screen.findByText('Nothing left to triage.');
-    await serving.poll(triage({ mmr: [secondSeed] }));
+describe('review page runnable tasks start in place (MMR-506)', () => {
+  it('starts a runnable task, and it leaves the group', async () => {
+    await openForWrite(runnables(['LM-233', 'MMR-12']), runnables(['MMR-12']));
 
-    const toggle = await screen.findByRole('button', { name: /Mimir/ });
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(within(await actionsOf('LM-233')).getByRole('button', { name: 'Start' }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/LM-233/start', undefined);
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('link', { name: 'Runnable LM-233' })).toBeNull();
+    });
+    expect(screen.getByRole('link', { name: 'Runnable MMR-12' })).toBeDefined();
+  });
+
+  it('lands on the next runnable task’s Start when one starts', async () => {
+    await openForWrite(runnables(['LM-233', 'MMR-12']), runnables(['MMR-12']));
+
+    await press('LM-233', 'Start');
+
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole('group', { name: 'Actions for MMR-12' })).getByRole('button', {
+          name: 'Start',
+        }),
+      ).toHaveFocus();
+    });
+  });
+
+  it('lands on the first seed when the last runnable task starts', async () => {
+    await openForWrite(runnables(['LM-233'], [firstSeed]), runnables([], [firstSeed]));
+
+    await press('LM-233', 'Start');
+
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole('group', { name: 'Actions for MMR-s25' })).getByRole('button', {
+          name: 'Promote to task…',
+        }),
+      ).toHaveFocus();
+    });
+  });
+
+  it('lands on the rail heading when nothing follows the last row', async () => {
+    await openForWrite(runnables(['LM-233']), runnables([]));
+
+    await press('LM-233', 'Start');
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { level: 2, name: /^When you have a minute/ }),
+      ).toHaveFocus();
+    });
   });
 });

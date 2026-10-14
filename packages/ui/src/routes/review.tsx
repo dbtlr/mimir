@@ -1,51 +1,45 @@
-import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useState } from 'react';
 
-import { promoteSeedKey } from '../api/mutations';
-import { archivedProjectsQuery, reviewQuery } from '../api/queries';
-import type {
-  WireNode,
-  WireReviewProject,
-  WireReviewReport,
-  WireReviewTriage,
-  WireSeed,
-} from '../api/types';
-import { ArchivedShelf } from '../components/archived-shelf';
-import { BrowserGroup, BrowserRow } from '../components/browser-list';
-import { DecisionGroups, PROJECT_LINK } from '../components/decision-groups';
+import { archivedProjectsQuery, browserTimeZone, reviewQuery } from '../api/queries';
+import type { WireReviewReport } from '../api/types';
+import { BrowserGroup } from '../components/browser-list';
+import { DecisionGroups } from '../components/decision-groups';
 import { FocusQueue } from '../components/focus-queue';
 import { NewProjectSheet } from '../components/new-project-sheet';
 import { OfflineBanner } from '../components/offline-banner';
-import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
-import { SeedKindChip } from '../components/seed-kind-chip';
-import { SeedPromoteSheet } from '../components/seed-promote-sheet';
-import { SeedVerbs } from '../components/seed-verbs';
+import { RecordLayout, RecordPending } from '../components/record-layout';
+import { ReviewRail } from '../components/review-rail';
 import { ActionButton, actionButtonVariants } from '../components/ui/action-button';
+import { Empty, NowRow, ShippedDayGroup } from '../components/work-sections';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
-import { nodeLink, seedLink } from '../lib/record-url';
-import { ago, relativeTime } from '../lib/time';
+import { nodeLink } from '../lib/record-url';
+import { ago } from '../lib/time';
 import { useRowFocusHandoff } from '../lib/use-row-focus-handoff';
-import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
+import { groupShippedByDay } from '../lib/work-page';
 import { reviewRoute } from '../router';
 
 /*
- * `/` — the review page (ADR 0013 and ADR 0019, MMR-476 refinements): what
- * needs the operator across every active project. Decide lists the decisions
- * grouped by project; Triage tallies what can wait for a spare minute; the
- * rail is the project list. One read (`/api/review`) feeds all three, and the
- * top-bar alert reads the same entry, so their counts never disagree.
+ * `/` — the review page (ADR 0013 and ADR 0019, MMR-503 refinement): the work
+ * page's cross-project counterpart. The main column is Needs you (the decisions,
+ * grouped by project), Now, and Shipped, in the work page's row style; the rail
+ * holds the project health strip and what can wait for a spare minute. One read
+ * (`/api/review`) feeds all of it, and the top-bar alert reads the same entry,
+ * so their counts never disagree.
  *
  * Rows act in place (MMR-479): a decision carries the work page's verdict or
- * answer, and a listed seed its triage verbs. When an acted-on row leaves,
- * keyboard focus moves on to the next row in its section, across project
- * groups, or to the section's heading when none follows.
+ * answer, a runnable task its Start, and a listed seed its triage verbs. When
+ * an acted-on row leaves, keyboard focus moves on to the next row in its
+ * section, or to the section's heading when none follows.
  */
 
-/** `1 decision` / `2 decisions` — a count with its noun, singular at one. */
-const counted = (n: number, one: string, many = `${one}s`): string =>
-  `${String(n)} ${n === 1 ? one : many}`;
+/** `1 task` / `2 tasks` — a count with its noun, singular at one. */
+const counted = (n: number, one: string): string => `${String(n)} ${n === 1 ? one : `${one}s`}`;
+
+/** What the rail is, for assistive technology. */
+const RAIL_LABEL = 'Projects and spare-minute work';
 
 function ReviewHead({ count }: { count: number }) {
   return (
@@ -61,7 +55,7 @@ function ReviewHead({ count }: { count: number }) {
           )}
         </h1>
         <p className="text-meta text-ink-dim">
-          Decisions block agents, so they lead. Triage can wait for a spare minute.
+          Decisions block agents, so they lead. The rail holds what can wait.
         </p>
       </div>
       {count > 0 && (
@@ -80,7 +74,7 @@ function ReviewHead({ count }: { count: number }) {
   );
 }
 
-/** Decide's all-clear: nothing waits, so name the work in flight and the last finish. */
+/** Needs you's all-clear: nothing waits, so name the work in flight and the last finish. */
 function AllClear({
   inFlight,
   last,
@@ -110,7 +104,7 @@ function AllClear({
   );
 }
 
-function DecideSection({ report, offline }: { report: WireReviewReport; offline: boolean }) {
+function NeedsYouSection({ report, offline }: { report: WireReviewReport; offline: boolean }) {
   const count = report.queue.length;
   const inFlight = report.projects.reduce((n, p) => n + p.in_flight, 0);
   const { handoff, headingRef } = useRowFocusHandoff(
@@ -118,7 +112,7 @@ function DecideSection({ report, offline }: { report: WireReviewReport; offline:
   );
   return (
     <BrowserGroup
-      label="Decide"
+      label="Needs you"
       count={count > 0 ? count : undefined}
       hint="Only your action moves these."
       labelClassName="text-attention-foreground"
@@ -133,374 +127,40 @@ function DecideSection({ report, offline }: { report: WireReviewReport; offline:
   );
 }
 
-/** A triage cell at zero: the count is absent, not nought. */
-const NONE = <span className="text-ink-ghost">—</span>;
-
-const COUNT_LINK =
-  'rounded-sm font-mono underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-accent';
-
-/** Whether a review read still lists a seed for triage. */
-const listsSeed = (report: WireReviewReport | undefined, id: string): boolean =>
-  report?.triage.some((group) => group.seeds.some((seed) => seed.id === id)) ?? false;
-
-/**
- * A listed seed's triage verbs: Promote to task…, Reject…, and Park…. Promote
- * arms the focus handoff as its sheet opens. The sheet closes itself after a
- * promote, one render before the refreshed rows (a promote stays pending until
- * the refetches land, but the query renders them on its next notify), so the
- * close reads the cached review: a seed it no longer lists is leaving, and the
- * handoff stays armed for it. A sheet closed while its promote is still in
- * flight leaves that call to the promote's end: one that fails with the seed
- * still listed disarms. A sheet closed without a promote disarms.
- */
-function SeedTriageActions({
-  seed,
-  offline,
-  handoff,
-}: {
-  seed: WireSeed;
-  offline: boolean;
-  handoff: RowFocusHandoff;
-}) {
-  const queryClient = useQueryClient();
-  const [promoting, setPromoting] = useState(false);
-  const inFlight = useIsMutating({ mutationKey: promoteSeedKey(seed.id) }) > 0;
-  const closedMidWrite = useRef(false);
-  /** Disarm unless the cached review has dropped the seed, which is leaving. */
-  const disarmIfListed = () => {
-    if (listsSeed(queryClient.getQueryData(reviewQuery().queryKey), seed.id)) {
-      handoff.disarm(seed.id);
-    }
-  };
-  useEffect(() => {
-    if (closedMidWrite.current && !inFlight) {
-      closedMidWrite.current = false;
-      disarmIfListed();
-    }
-  });
-  return (
-    <>
-      <SeedVerbs
-        seed={seed}
-        offline={offline}
-        handoff={handoff}
-        withSpawned={false}
-        onPromote={() => {
-          handoff.arm(seed.id);
-          setPromoting(true);
-        }}
-      />
-      {promoting && (
-        <SeedPromoteSheet
-          seed={seed}
-          open
-          offline={offline}
-          onOpenChange={(next) => {
-            if (next) {
-              return;
-            }
-            setPromoting(false);
-            if (queryClient.isMutating({ mutationKey: promoteSeedKey(seed.id) }) > 0) {
-              closedMidWrite.current = true;
-            } else {
-              disarmIfListed();
-            }
-          }}
-        />
-      )}
-    </>
-  );
-}
-
-/** One project's triage row, which opens in place to list its untriaged seeds. */
-function TriageRow({
-  group,
-  open,
-  onToggle,
-  offline,
-  handoff,
-}: {
-  group: WireReviewTriage;
-  open: boolean;
-  onToggle: () => void;
-  offline: boolean;
-  handoff: RowFocusHandoff;
-}) {
-  const seedsId = useId();
-  const { project, seeds } = group;
-  const [oldest] = seeds;
-  const label = (
-    <span className="flex min-w-0 items-baseline gap-2">
-      <span className="font-mono text-mono-id text-accent-foreground">{project.key}</span>
-      <span className="min-w-0 text-meta text-ink">{project.name}</span>
-    </span>
-  );
-  return (
-    <>
-      <tr className="border-b border-line">
-        <th scope="row" className="py-1.5 pr-3 text-left font-normal">
-          {seeds.length > 0 ? (
-            <button
-              type="button"
-              aria-expanded={open}
-              aria-controls={open ? seedsId : undefined}
-              onClick={onToggle}
-              className={cn(PROJECT_LINK, 'flex min-h-9 items-center gap-2 text-left')}
-            >
-              <span aria-hidden className="w-2 text-micro text-ink-faint">
-                {open ? '⌄' : '›'}
-              </span>
-              {label}
-            </button>
-          ) : (
-            <span className="flex min-h-9 items-center gap-2">
-              <span aria-hidden className="w-2" />
-              {label}
-            </span>
-          )}
-        </th>
-        <td className="px-1.5 text-right md:px-2 font-mono text-mono-id text-ink-dim">
-          {seeds.length === 0 ? NONE : seeds.length}
-        </td>
-        <td className="px-1.5 text-right md:px-2 font-mono text-mono-id text-ink-faint">
-          {oldest === undefined ? NONE : relativeTime(oldest.created_at)}
-        </td>
-        <td className="px-1.5 text-right md:px-2 text-mono-id text-cold">
-          {group.going_cold === 0 ? (
-            NONE
-          ) : (
-            <Link to="/p/$key" params={{ key: project.key }} className={COUNT_LINK}>
-              {group.going_cold}
-            </Link>
-          )}
-        </td>
-        <td className="pl-1.5 text-right md:pl-2 text-mono-id text-status-in-progress-foreground">
-          {group.findings === 0 ? (
-            NONE
-          ) : (
-            <Link to="/doctor" search={{ project: project.key }} className={COUNT_LINK}>
-              {group.findings}
-            </Link>
-          )}
-        </td>
-      </tr>
-      {open && (
-        <tr id={seedsId} className="border-b border-line">
-          <td colSpan={5} className="pb-2 pl-4">
-            <section aria-label={`Untriaged seeds in ${project.name}`}>
-              {seeds.map((seed) => (
-                <BrowserRow
-                  key={seed.id}
-                  to={seedLink(seed.id)}
-                  id={seed.id}
-                  title={seed.title}
-                  beforeTitle={<SeedKindChip kind={seed.kind} />}
-                  lede={seed.lede}
-                  meta={`filed ${ago(seed.created_at)}`}
-                  actions={<SeedTriageActions seed={seed} offline={offline} handoff={handoff} />}
-                />
-              ))}
-            </section>
-          </td>
-        </tr>
-      )}
-    </>
-  );
-}
-
-/** Triage's heading hint: the cross-project totals that are not zero. */
-function triageSummary(triage: readonly WireReviewTriage[]): string {
-  const seeds = triage.reduce((n, t) => n + t.seeds.length, 0);
-  const cold = triage.reduce((n, t) => n + t.going_cold, 0);
-  const findings = triage.reduce((n, t) => n + t.findings, 0);
-  return [
-    seeds > 0 && counted(seeds, 'seed'),
-    cold > 0 && `${String(cold)} going cold`,
-    findings > 0 && counted(findings, 'finding'),
-  ]
-    .filter((part) => part !== false)
-    .join(' · ');
-}
-
-const COLUMN =
-  'px-1.5 pb-1.5 text-right font-mono text-micro font-semibold tracking-[0.06em] whitespace-nowrap uppercase md:px-2 md:tracking-[0.13em]';
-
-/**
- * Untriaged seeds, going cold, and findings per project: nothing here stops an
- * agent. The opened rows are kept here, so focus can move from a seed that
- * leaves to the next listed seed, in its project or the next opened one. A
- * project closes once it has no seeds, so one that returns lists afresh. The
- * section is absent while nothing waits, but once shown it stays, saying so,
- * so focus has its heading to land on when the last row leaves.
- */
-function TriageSection({
-  triage,
-  offline,
-}: {
-  triage: readonly WireReviewTriage[];
-  offline: boolean;
-}) {
-  const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
-  const [shown, setShown] = useState(triage.length > 0);
-  if (triage.length > 0 && !shown) {
-    setShown(true);
-  }
-  const withSeeds = new Set(triage.filter((g) => g.seeds.length > 0).map((g) => g.project.key));
-  if ([...opened].some((key) => !withSeeds.has(key))) {
-    setOpened(new Set([...opened].filter((key) => withSeeds.has(key))));
-  }
-  const isOpen = (group: WireReviewTriage) => opened.has(group.project.key);
-  const { handoff, headingRef } = useRowFocusHandoff(
-    triage.filter(isOpen).flatMap((group) => group.seeds.map((seed) => seed.id)),
-  );
-  const toggle = (key: string) => {
-    setOpened((keys) => {
-      const next = new Set(keys);
-      if (!next.delete(key)) {
-        next.add(key);
-      }
-      return next;
-    });
-  };
-  if (triage.length === 0 && !shown) {
-    return null;
-  }
+/** The tasks in progress across active projects; a row's id leads with its project key. */
+function NowSection({ rows }: { rows: WireReviewReport['now'] }) {
   return (
     <BrowserGroup
-      label="Triage when you have a minute"
-      hint={triage.length === 0 ? undefined : triageSummary(triage)}
-      headingRef={headingRef}
+      label="Now"
+      count={rows.length > 0 ? rows.length : undefined}
+      hint="What’s going on right now?"
     >
-      {triage.length === 0 ? (
-        <p className="px-1 py-2 text-xs text-ink-faint">
-          <strong className="font-semibold text-ink-dim">Nothing left to triage.</strong>
-        </p>
+      {rows.length === 0 ? (
+        <Empty lead="Nothing running.">No task is in progress.</Empty>
       ) : (
-        <div className="overflow-x-auto">
-          <table aria-label="Triage" className="w-full border-collapse">
-            <thead className="text-ink-faint">
-              <tr className="border-b border-line">
-                <th scope="col" className={cn(COLUMN, 'pl-0 text-left')}>
-                  Project
-                </th>
-                <th scope="col" className={COLUMN}>
-                  Seeds
-                </th>
-                <th scope="col" className={COLUMN}>
-                  Oldest
-                </th>
-                <th scope="col" className={COLUMN}>
-                  {/* A phone has no width for the full label. */}
-                  <span className="md:hidden">Cold</span>
-                  <span className="max-md:hidden">Going cold</span>
-                </th>
-                <th scope="col" className={cn(COLUMN, 'pr-0')}>
-                  Findings
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {triage.map((group) => (
-                <TriageRow
-                  key={group.project.key}
-                  group={group}
-                  open={isOpen(group)}
-                  onToggle={() => toggle(group.project.key)}
-                  offline={offline}
-                  handoff={handoff}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        rows.map((row) => <NowRow key={row.id} row={row} />)
       )}
     </BrowserGroup>
   );
 }
 
-/** A count in the project list, with its noun for a screen reader and a hover title. */
-function ListCount({
-  n,
-  one,
-  many,
-  className,
-}: {
-  n: number;
-  one: string;
-  many?: string;
-  className: string;
-}) {
-  const words = counted(n, one, many);
+/** What landed in the last 7 days across active projects, grouped by day as on the work page. */
+function ShippedSection({ rows }: { rows: WireReviewReport['shipped'] }) {
+  const zone = browserTimeZone();
   return (
-    <span title={words} className={cn('font-mono text-mono-id', className)}>
-      {n}
-      <span className="sr-only">{words.slice(String(n).length)}</span>
-    </span>
-  );
-}
-
-/**
- * The rail: every active project in the review order, each opening its work
- * page with its decisions, triage, and work in flight; then the archived
- * shelf and the New project action.
- */
-function ProjectList({
-  projects,
-  archived,
-  offline,
-  onCreate,
-}: {
-  projects: readonly WireReviewProject[];
-  archived: WireNode[];
-  offline: boolean;
-  onCreate: () => void;
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <ul aria-label="Projects" className="flex flex-col">
-        {projects.map((p) => (
-          <li key={p.key}>
-            <Link
-              to="/p/$key"
-              params={{ key: p.key }}
-              className={cn(
-                PROJECT_LINK,
-                'flex min-h-9 items-baseline gap-2 px-1 py-1 hover:bg-well-850',
-              )}
-            >
-              <span className="w-12 shrink-0 font-mono text-mono-id text-accent-foreground">
-                {p.key}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-meta text-ink">{p.name}</span>
-              {p.in_flight > 0 && (
-                <span className="shrink-0 text-micro text-status-in-progress-foreground">
-                  {p.in_flight} live
-                </span>
-              )}
-              {p.triage > 0 && (
-                <ListCount
-                  n={p.triage}
-                  one="to triage"
-                  many="to triage"
-                  className="text-ink-faint"
-                />
-              )}
-              {p.decisions > 0 && (
-                <ListCount
-                  n={p.decisions}
-                  one="decision"
-                  className="font-semibold text-attention-foreground"
-                />
-              )}
-            </Link>
-          </li>
-        ))}
-      </ul>
-      <ArchivedShelf projects={archived} offline={offline} />
-      <ActionButton className="self-start px-3.5 py-1.5" disabled={offline} onClick={onCreate}>
-        + New project
-      </ActionButton>
-    </div>
+    <BrowserGroup
+      label="Shipped"
+      count={rows.length > 0 ? rows.length : undefined}
+      hint="What landed in the last 7 days?"
+    >
+      {rows.length === 0 ? (
+        <Empty lead="Nothing shipped in the last 7 days." />
+      ) : (
+        groupShippedByDay(rows, zone).map((day) => (
+          <ShippedDayGroup key={day.day} label={day.label} rows={day.rows} zone={zone} />
+        ))
+      )}
+    </BrowserGroup>
   );
 }
 
@@ -510,7 +170,6 @@ export function ReviewPage() {
   const review = useQuery(reviewQuery());
   const archived = useQuery(archivedProjectsQuery);
   const conn = connectivity([review, archived]);
-  const archivedProjects = archived.data?.items ?? [];
   const sheet = <NewProjectSheet open={creating} onOpenChange={setCreating} />;
 
   if (review.data === undefined) {
@@ -554,28 +213,19 @@ export function ReviewPage() {
     );
   }
 
-  const projectList = (
-    <ProjectList
-      projects={report.projects}
-      archived={archivedProjects}
-      offline={conn.offline}
-      onCreate={() => setCreating(true)}
-    />
-  );
   return (
     <>
       <OfflineBanner {...conn} />
       <RecordLayout
         head={<ReviewHead count={report.queue.length} />}
-        rail={<RailSection label="Projects">{projectList}</RailSection>}
-        railLabel="Project list"
-        chips={[{ content: projectList, count: report.projects.length, label: 'Projects' }]}
+        rail={<ReviewRail report={report} offline={conn.offline} />}
+        railLabel={RAIL_LABEL}
         className={cn(conn.offline && 'offline-demoted')}
       >
-        <DecideSection report={report} offline={conn.offline} />
-        <TriageSection triage={report.triage} offline={conn.offline} />
+        <NeedsYouSection report={report} offline={conn.offline} />
+        <NowSection rows={report.now} />
+        <ShippedSection rows={report.shipped} />
       </RecordLayout>
-      {sheet}
     </>
   );
 }
