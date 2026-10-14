@@ -17,6 +17,36 @@ and are compiled into a new release section at each cut
 ([ADR 0022](docs/decisions/0022-changelog-fragments-compiled-at-cut.md));
 `bun run changelog:compile` previews the pending section.
 
+## v0.25.0 - 2026-10-14
+
+### Added
+
+- **Projects report their latest activity** (MMR-494). Every project read and the project list carry `last_activity_at`: the newest instant across the project's own row, tasks, transitions, annotations, seeds, artifacts, and scratchpads, falling back to the project's `updated_at` when it has no children. It rides HTTP, MCP, and the CLI `json`, `jsonl`, and `records` output; the console will use it to order the project switcher.
+- **Projects can be pinned** (MMR-493). Every project now carries a `pinned` flag in the store, so a pin follows you across devices and the console can list pinned projects first. Set it with `mimir update KEY --pinned` (`--not-pinned` unpins), the MCP `update` tool's `pinned` argument, or `PATCH /api/projects/KEY` with `{"pinned": true}`; project reads and the project list carry `pinned`, and `mimir get KEY` shows a `pinned` row while it is set. Only a project can be pinned; a task, container, seed, or artifact refuses it. Schema migration `0005_project_pinned` adds the column to both backends (existing projects read unpinned), and the store transfer document moves to version 4, still importing versions 1 to 3.
+- **The sidebar header opens a searchable project switcher** (MMR-497). It lists pinned projects first, then the rest by most recent activity, each with its decision count and a pin you toggle with Alt+P or a click, without leaving the page. Type to filter by key or title, use the arrows and Enter to switch, and Escape to close. Switching keeps your section, so Tasks on one project opens Tasks on the next. Archived projects sit in a folded section, and the header shows "N elsewhere" when other projects have decisions waiting.
+- **The review report carries cross-project work rows** (MMR-504). `GET /api/review` adds `now`, `shipped`, `runnable`, and `going_cold` across every active project, built by the work page's own rules and each row tagged with its `project` key. Each project in `projects` adds `live` (the `--status live` group) and `going_cold` counts, and the list is now ordered pinned first, then by latest activity. The route now requires the caller's `?tz=`, as the work routes do, which places `shipped`.
+
+### Changed
+
+- **The work page's direction clamps to six lines** (MMR-484). A long direction no longer pushes the rest of the rail off screen; when it overflows, **Read more** opens the full text in the reading pane.
+- **The top bar marks the active section** (MMR-485). Tasks, Artifacts, and Seeds wear the accent wash while you are in them, including under a project filter, and so does the matching item in the phone overflow menu.
+- **A project's rail splits About from Artifacts** (MMR-486). About shows the description, or points at project settings when there is none. Artifacts get their own section listing the five newest; a project with more than five also gets an **All N artifacts** link to the artifact browser filtered to the project. A container lists the artifacts attached to it.
+- **Needs you opens a popover of decisions** (MMR-498). The top-bar alert no longer jumps to the review page. It opens a popover, or a bottom sheet on a phone, listing the decisions grouped by project with **Approve**, **Send back…**, and **Answer…** in place. The decision for the page you are on is marked, and links lead to the review page and to **Work through these**.
+- **The tasks, seeds, and artifacts browsers move under their project** (MMR-495). They are now `/p/KEY/tasks`, `/p/KEY/seeds`, and `/p/KEY/artifacts`, and no longer carry a project filter chip, because the address names the project. The old `/tasks`, `/seeds`, and `/artifacts` redirect: with `?project=KEY` to that project's browser keeping the other filters, and bare to the current project's, which is the project you are in, else the last one you visited on this device, else the first in the switcher. With no projects they open the review page. The top bar's Tasks, Artifacts, and Seeds links point at the current project.
+- **The console has a project sidebar** (MMR-496). A sidebar on the left frames every page for the current project: a header that names it and opens the project menu, **Work**, **Tasks**, **Seeds**, and **Artifacts** with the active one marked, and the project's initiative and phase outline, which marks where the open record sits. It replaces the record page breadcrumb and the work page rail's Structure section. Below 1024px wide, such as a phone or a small tablet, it is a drawer behind a button in the top bar, and a link to the parent stands above a record's ID. The top bar now holds the brand, the jump palette, **Needs you**, and the theme toggle. The work page's **All tasks** link moves from the rail to the foot of its sections, and the rail's Other views section is gone.
+- **The switcher offers All projects, and `/` reads as All projects** (MMR-505). The project switcher opens on an **All projects** option, with the decisions across every project, that leads to `/`. On `/` and `/doctor` the sidebar's header reads **All projects** and only **Work** (`/`) sits under it, with no outline, Tasks, Seeds, or Artifacts. The phone drawer does the same. Bare `/tasks`, `/seeds`, and `/artifacts` still open the last project you visited.
+- **The root page is a cross-project work page** (MMR-506). `/` now shows Needs you, Now, and Shipped across every active project in the work page's row style, with a rail of the project health strip (decisions, live, and going-cold counts per project, each linking to its work page) and a _When you have a minute_ section: runnable tasks with Start, untriaged seeds with their triage verbs, tasks going cold, and `doctor` findings per project. The per-project triage table and the project rail's archived shelf and New project button are gone from the page; the switcher has both.
+- **An archived project's page offers Unarchive** (MMR-506). Opening an archived project from the switcher now names it as archived, with the date, and offers **Unarchive**, which lands on its work page. A key that names no project still shows the unavailable notice.
+
+### Removed
+
+- **The board view is gone** (MMR-487). `/p/KEY/board`, its swimlane bands, and drag-to-reorder are removed from the console, along with the rail's Board link; the work page and the `/tasks` browser cover the same ground. `mimir reorder` and the reorder API are unchanged.
+
+### Fixed
+
+- **A wrapping task title no longer pulls its chips under the id** (MMR-488). Task, artifact, and seed rows keep the id in its own column, and the title and its chips wrap within theirs.
+- **Links in the timeline are clickable and open in a new tab** (MMR-490). A URL in a transition reason or a hold callout is now a link, and external links in notes, descriptions, direction, and artifacts open in a new tab instead of navigating away from the console.
+
 ## v0.24.0 - 2026-10-13
 
 ### Added
