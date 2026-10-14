@@ -1,6 +1,5 @@
 import { expect, test } from 'bun:test';
 
-import { PGlite } from '@electric-sql/pglite';
 import { Kysely, sql } from 'kysely';
 
 import { MimirError } from '../errors';
@@ -11,9 +10,10 @@ import { statements as groomingStatements } from './migrations/0002-grooming';
 import { statements as blockOwnerStatements } from './migrations/0003-block-owner';
 import { statements as seedParkedStatements } from './migrations/0004-seed-parked';
 import { createPgliteDialect } from './pglite';
+import { createEmptyPglite } from './testing';
 
-function freshDb(): Kysely<DB> {
-  return new Kysely<DB>({ dialect: createPgliteDialect(new PGlite()) });
+async function freshDb(): Promise<Kysely<DB>> {
+  return new Kysely<DB>({ dialect: createPgliteDialect(await createEmptyPglite()) });
 }
 
 async function refusalOf(action: Promise<unknown>): Promise<MimirError> {
@@ -28,7 +28,7 @@ async function refusalOf(action: Promise<unknown>): Promise<MimirError> {
 }
 
 test('a fresh database carries no schema version and refuses every read', async () => {
-  const db = freshDb();
+  const db = await freshDb();
   try {
     expect(await readSchemaVersion(db)).toBeNull();
     const refusal = await refusalOf(assertSchemaCurrent(db));
@@ -40,7 +40,7 @@ test('a fresh database carries no schema version and refuses every read', async 
 });
 
 test('an upgrade names the migrations it applied and lands the current version', async () => {
-  const db = freshDb();
+  const db = await freshDb();
   try {
     expect(await upgradeSchema(db)).toEqual({
       applied: [
@@ -67,7 +67,7 @@ test('an upgrade names the migrations it applied and lands the current version',
 });
 
 test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NULL, bogus values rejected', async () => {
-  const db = freshDb();
+  const db = await freshDb();
   try {
     // The store as the previous binary left it: only 0001, with live rows.
     for (const statement of initStatements) {
@@ -112,7 +112,7 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
 });
 
 test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by their upstream, everything else NULL, bogus values rejected', async () => {
-  const db = freshDb();
+  const db = await freshDb();
   try {
     // The store as the previous binary left it: 0001 + 0002, with live rows.
     for (const statement of [...initStatements, ...groomingStatements]) {
@@ -161,7 +161,7 @@ test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by
 });
 
 test('0004_seed_parked upgrades a version-3 store: seeds keep their lifecycle, parked is admitted, bogus values rejected', async () => {
-  const db = freshDb();
+  const db = await freshDb();
   try {
     // The store as the previous binary left it: 0001–0003, with a seed.
     for (const statement of [...initStatements, ...groomingStatements, ...blockOwnerStatements]) {
@@ -207,7 +207,7 @@ test('0004_seed_parked upgrades a version-3 store: seeds keep their lifecycle, p
 });
 
 test('0005_project_pinned upgrades a version-4 store: projects keep their data and read unpinned, NULL is rejected', async () => {
-  const db = freshDb();
+  const db = await freshDb();
   try {
     // The store as the previous binary left it: 0001–0004, with two projects.
     for (const statement of [
@@ -255,7 +255,7 @@ test('0005_project_pinned upgrades a version-4 store: projects keep their data a
 });
 
 test('a schema newer than the binary is refused, and never downgraded', async () => {
-  const db = freshDb();
+  const db = await freshDb();
   try {
     await upgradeSchema(db);
     await db
@@ -274,7 +274,7 @@ test('a schema newer than the binary is refused, and never downgraded', async ()
 });
 
 test('a schema older than the binary is refused, and points at the explicit upgrade', async () => {
-  const db = freshDb();
+  const db = await freshDb();
   try {
     await upgradeSchema(db);
     await db.deleteFrom('schema_version').execute();
@@ -291,7 +291,7 @@ test('a schema older than the binary is refused, and points at the explicit upgr
 });
 
 test('an upgrade skips a migration whose version is already recorded', async () => {
-  const db = freshDb();
+  const db = await freshDb();
   try {
     // The state the LOSER of an upgrade race sees when it re-reads inside the
     // advisory lock: the version is already there, so the migration must not
@@ -320,7 +320,7 @@ test('an upgrade skips a migration whose version is already recorded', async () 
 });
 
 test('seed_history.kind is constrained to the transition-kind vocabulary', async () => {
-  const db = freshDb();
+  const db = await freshDb();
   try {
     await upgradeSchema(db);
     await db

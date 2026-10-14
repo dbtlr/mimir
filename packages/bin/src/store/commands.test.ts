@@ -1,11 +1,11 @@
 import { expect, test } from 'bun:test';
 
-import { PGlite } from '@electric-sql/pglite';
 import { Kysely, sql } from 'kysely';
 
 import { fakeIo } from '../cli/testing';
 import type { DB, PostgresHandle, UpgradeReport } from '../core/store-postgres/index';
 import { createPgliteDialect } from '../core/store-postgres/pglite';
+import { createEmptyPglite } from '../core/store-postgres/testing';
 import { SCHEMA_VERSION } from '../core/store-sql/migrator';
 import { openSqlite } from '../core/store-sqlite/index';
 import type { GlobalConfig } from '../service/config';
@@ -22,8 +22,8 @@ import { cmdStore } from './commands';
 
 type Injected = { deps: (config: GlobalConfig) => StoreDeps; db: Kysely<DB>; opened: string[] };
 
-function injected(): Injected {
-  const db = new Kysely<DB>({ dialect: createPgliteDialect(new PGlite()) });
+async function injected(): Promise<Injected> {
+  const db = new Kysely<DB>({ dialect: createPgliteDialect(await createEmptyPglite()) });
   const opened: string[] = [];
   const open = (url: string): PostgresHandle => {
     opened.push(url);
@@ -59,7 +59,7 @@ const POSTGRES = config({ backend: 'postgres', url: 'postgres://localhost/mimir'
 
 test('store upgrade on the default sqlite install opens the database and reports the migration', async () => {
   const io = fakeIo();
-  const pg = injected();
+  const pg = await injected();
   try {
     // The absent fence is the sqlite default; opening the file migrates it.
     expect(await cmdStore(['store', 'upgrade'], {}, io, pg.deps(config({})), 'json', noStore)).toBe(
@@ -84,7 +84,7 @@ test('store upgrade on the default sqlite install opens the database and reports
 
 test('store upgrade creates the schema, then reports it already current', async () => {
   const io = fakeIo();
-  const pg = injected();
+  const pg = await injected();
   try {
     expect(
       await cmdStore(['store', 'upgrade'], {}, io, pg.deps(POSTGRES), 'records', noStore),
@@ -106,7 +106,7 @@ test('store upgrade creates the schema, then reports it already current', async 
 
 test('json format emits the upgrade report', async () => {
   const io = fakeIo();
-  const pg = injected();
+  const pg = await injected();
   try {
     expect(await cmdStore(['store', 'upgrade'], {}, io, pg.deps(POSTGRES), 'json', noStore)).toBe(
       0,
@@ -130,7 +130,7 @@ test('json format emits the upgrade report', async () => {
 
 test('a postgres install with no url refuses by naming the key', async () => {
   const io = fakeIo();
-  const pg = injected();
+  const pg = await injected();
   let message = '';
   try {
     await cmdStore(
@@ -151,7 +151,7 @@ test('a postgres install with no url refuses by naming the key', async () => {
 
 test('an unusable [store] section is fatal here too', async () => {
   const io = fakeIo();
-  const pg = injected();
+  const pg = await injected();
   let message = '';
   try {
     await cmdStore(
@@ -171,7 +171,7 @@ test('an unusable [store] section is fatal here too', async () => {
 
 test('a schema newer than the binary is the migrator refusal, not a silent downgrade', async () => {
   const io = fakeIo();
-  const pg = injected();
+  const pg = await injected();
   try {
     await cmdStore(['store', 'upgrade'], {}, io, pg.deps(POSTGRES), 'records', noStore);
     await sql
@@ -198,7 +198,7 @@ test('a schema newer than the binary is the migrator refusal, not a silent downg
 
 test('an unknown subcommand is a usage error naming every subcommand', async () => {
   const io = fakeIo();
-  const pg = injected();
+  const pg = await injected();
   let message = '';
   try {
     await cmdStore(['store', 'wat'], {}, io, pg.deps(POSTGRES), 'records', noStore);
@@ -211,7 +211,7 @@ test('an unknown subcommand is a usage error naming every subcommand', async () 
 
 test('store upgrade rejects a surplus positional before opening anything', async () => {
   const io = fakeIo();
-  const pg = injected();
+  const pg = await injected();
   let message = '';
   try {
     await cmdStore(['store', 'upgrade', 'extra'], {}, io, pg.deps(POSTGRES), 'records', noStore);

@@ -22,15 +22,64 @@ export type PostgresTestStore = {
   close: () => Promise<void>;
 };
 
-export async function createPgliteTestStore(): Promise<PostgresTestStore> {
-  const db = new Kysely<DB>({ dialect: createPgliteDialect(new PGlite()) });
+/**
+ * Data directories the fixtures boot from, each built once per test process.
+ *
+ * A fresh `new PGlite()` runs initdb, several times slower than booting from a
+ * dumped data directory. Every fixture still gets its own database; only the
+ * starting state is shared, and a snapshot is never written to. A failure to
+ * build one stays cached: it is deterministic, so every fixture reports it.
+ */
+let emptySnapshot: Promise<Blob> | undefined;
+let migratedSnapshot: Promise<Blob> | undefined;
+
+async function dumpOf(pg: PGlite): Promise<Blob> {
   try {
-    await upgradeSchema(db);
-  } catch (error) {
-    await db.destroy();
-    throw error;
+    // Flush to the data files so each boot from the dump skips WAL recovery.
+    await pg.exec('checkpoint');
+    return await pg.dumpDataDir('none');
+  } finally {
+    await pg.close();
   }
-  return { close: () => db.destroy(), db, store: createPostgresStore(db) };
+}
+
+function emptyDataDir(): Promise<Blob> {
+  emptySnapshot ??= dumpOf(new PGlite());
+  return emptySnapshot;
+}
+
+function migratedDataDir(): Promise<Blob> {
+  migratedSnapshot ??= (async () => {
+    const pg = await createEmptyPglite();
+    try {
+      // Not destroyed: destroying the Kysely handle would close `pg` before the dump.
+      await upgradeSchema(new Kysely<DB>({ dialect: createPgliteDialect(pg) }));
+    } catch (error) {
+      await pg.close();
+      throw error;
+    }
+    return dumpOf(pg);
+  })();
+  return migratedSnapshot;
+}
+
+/** A fresh, empty Postgres database in this process: no schema, nothing migrated. */
+export async function createEmptyPglite(): Promise<PGlite> {
+  return new PGlite({ loadDataDir: await emptyDataDir() });
+}
+
+export async function createPgliteTestStore(): Promise<PostgresTestStore> {
+  const pg = new PGlite({ loadDataDir: await migratedDataDir() });
+  const db = new Kysely<DB>({ dialect: createPgliteDialect(pg) });
+  // Kysely's destroy is a no-op on a handle that never ran a query, so close
+  // the database itself too: a closed store must refuse what follows.
+  const close = async () => {
+    await db.destroy();
+    if (!pg.closed) {
+      await pg.close();
+    }
+  };
+  return { close, db, store: createPostgresStore(db) };
 }
 
 /**
