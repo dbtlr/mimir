@@ -289,6 +289,9 @@ export type WireWorkShipped = {
 } & WireNode;
 
 /** The work page for a project or one container's subtree. */
+/** A going-cold row: the task, flagged `stale` (always `true` here) like the other work rows. */
+export type WireWorkGoingCold = WireNode & { stale: boolean };
+
 export type WireWorkReport = {
   scope: WorkScope;
   now: WireWorkNow[];
@@ -300,7 +303,7 @@ export type WireWorkReport = {
     waiting_on_others: WireWorkWaiting[];
   };
   shipped: WireWorkShipped[];
-  going_cold: WireNode[];
+  going_cold: WireWorkGoingCold[];
 };
 
 /** A project as the review page names it. */
@@ -347,7 +350,7 @@ export type WireReviewReport = {
   now: WireReviewRow<WireWorkNow>[];
   shipped: WireReviewRow<WireWorkShipped>[];
   runnable: WireReviewRow<WireWorkFrontier>[];
-  going_cold: WireReviewRow<WireNode>[];
+  going_cold: WireReviewRow<WireWorkGoingCold>[];
   /** The newest done or abandoned task across active projects; null when none has finished. */
   last_finished: WireWorkShipped | null;
 };
