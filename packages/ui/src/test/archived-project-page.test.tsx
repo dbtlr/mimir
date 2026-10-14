@@ -129,12 +129,13 @@ describe('an archived project’s address (MMR-506)', () => {
   it('keeps Unarchive disabled until the archived list is fresh, so it cannot be sent twice', async () => {
     const refetch = Promise.withResolvers<unknown>();
     const served = apiGet.getMockImplementation();
-    apiSend.mockImplementation(() => {
+    const send = apiSend.getMockImplementation();
+    apiSend.mockImplementation((...args: unknown[]) => {
       // The write lands, but the archived list's refetch is still in flight.
       apiGet.mockImplementation((path: string) =>
         path === '/api/projects?status=archived' ? refetch.promise : served?.(path),
       );
-      return Promise.resolve({});
+      return send?.(...args);
     });
     const testRouter = renderAt('/p/OLD/tasks');
 
@@ -149,15 +150,9 @@ describe('an archived project’s address (MMR-506)', () => {
     fireEvent.click(button);
     expect(apiSend).toHaveBeenCalledTimes(1);
 
-    apiGet.mockImplementation((path: string) =>
-      path === '/api/projects?status=archived'
-        ? Promise.resolve({ items: [], total: 0 })
-        : path === '/api/projects/OLD'
-          ? Promise.resolve({ ...OLD, archived_at: null, status: 'in_progress' })
-          : /\/work\b/.test(path)
-            ? Promise.resolve(workReport())
-            : Promise.resolve(emptyRead(path)),
-    );
+    if (served !== undefined) {
+      apiGet.mockImplementation(served);
+    }
     refetch.resolve({ items: [], total: 0 });
     await waitFor(() => {
       expect(testRouter.state.location.pathname).toBe('/p/OLD');
