@@ -54,6 +54,7 @@ export function SeedTriageActions({
         offline={offline}
         handoff={handoff}
         withSpawned={false}
+        compact
         onPromote={() => {
           handoff.arm(seed.id);
           setPromoting(true);

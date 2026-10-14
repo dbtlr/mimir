@@ -188,7 +188,7 @@ export type WireNode = {
   distribution?: Distribution;
   /** Per-project leaf-task status tally (MMR-105) — the project card's vitals panel. */
   leaf_counts?: Distribution;
-  /** Per-project artifact tally (MMR-125) — the archived shelf's count line. */
+  /** Per-project artifact tally (MMR-125) — a project's count line. */
   artifact_count?: number;
   tags?: WireTag[];
   annotations?: WireAnnotation[];

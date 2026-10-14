@@ -160,7 +160,7 @@ export function RecordLayout({
 }) {
   return (
     // tabIndex -1: a focus fallback for a control that unmounts itself, such
-    // as the archived shelf after the last project in it is unarchived.
+    // as a row's button once its action moves the row out of the list.
     <main tabIndex={-1} className={cn('min-h-0 flex-1 overflow-y-auto', className)}>
       <div className="mx-auto grid min-h-full w-full max-w-[1200px] grid-cols-1 md:grid-cols-[minmax(0,1fr)_300px]">
         <article className="flex min-w-0 flex-col gap-4 px-4 py-5 md:px-6">

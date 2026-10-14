@@ -42,7 +42,7 @@ export function ProjectSettingsButton({
         // Shared MMR-125 undo toast, held for 10s (longer than the ~4s
         // default): with no confirm, this toast may still be the nearest
         // unarchive affordance at the moment of archive — give the operator a
-        // real window to catch it. The archived shelf is the durable path.
+        // real window to catch it. The archived project's page is the durable path.
         archivedUndoToast(project.title, () => unarchive.mutate(undefined), { duration: 10_000 });
         void navigate({ to: '/' });
       },
@@ -90,8 +90,8 @@ export function ProjectSettingsButton({
                 <h3 className="microlabel text-ink-faint">Lifecycle</h3>
                 <p id={lifecycleCopyId} className="text-[12.5px] leading-[1.65] text-ink-dim">
                   Archiving freezes the project and hides it everywhere by default — board, picker,
-                  tasks, attention. Everything stays readable from the Archived shelf. Reversible
-                  any time; nothing is deleted.
+                  tasks, attention. Unarchive it from its page, which the project switcher lists
+                  under Archived. Reversible any time; nothing is deleted.
                 </p>
                 <button
                   type="button"

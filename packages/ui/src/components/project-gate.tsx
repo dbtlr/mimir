@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 import { isNotFound } from '../api/errors';
 import { projectQuery } from '../api/queries';
-import { ProjectUnavailablePage } from '../routes/not-found';
+import { UnavailableProject } from './project-unavailable';
 
 /**
  * Shows `children` unless the server answers 404 for the project (archived or
@@ -15,7 +15,7 @@ import { ProjectUnavailablePage } from '../routes/not-found';
 export function ProjectGate({ projectKey, children }: { projectKey: string; children: ReactNode }) {
   const project = useQuery(projectQuery(projectKey));
   if (isNotFound(project.error)) {
-    return <ProjectUnavailablePage projectKey={projectKey} />;
+    return <UnavailableProject projectKey={projectKey} />;
   }
   return children;
 }

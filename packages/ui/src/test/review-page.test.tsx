@@ -132,6 +132,7 @@ const runnableRow = (id: string, title = `Runnable ${id}`) => ({
 const coldRow = (id: string, quietDays: number) => ({
   ...task({ id, status: 'in_progress', title: `Cold ${id}`, updated_at: daysAgo(quietDays) }),
   project: id.split('-')[0]!,
+  stale: true,
 });
 
 const getRail = () => screen.getByRole('complementary', { name: RAIL });
@@ -355,6 +356,19 @@ describe('the review rail: the project health strip', () => {
     expect(screen.queryByRole('region', { name: /Triage when you have a minute/ })).toBeNull();
   });
 
+  it('drops the strip when every project is archived, leaving no empty headers', async () => {
+    serve(reviewReport(), [
+      project({ archived_at: daysAgo(30), id: 'OLD', status: 'done', title: 'Old project' }),
+    ]);
+    renderReview();
+
+    await screen.findByRole('heading', { level: 1, name: 'Nothing needs you' });
+    const rail = getRail();
+    expect(within(rail).queryByRole('list', { name: 'Project health' })).toBeNull();
+    expect(within(rail).queryByRole('heading', { name: /^Projects/ })).toBeNull();
+    expect(within(rail).getByRole('region', { name: 'When you have a minute' })).toBeDefined();
+  });
+
   it('stacks the rail under the main column on a phone, with no chips', async () => {
     serve(reviewReport({ projects: TWO_PROJECTS }));
     renderReview();
@@ -362,9 +376,7 @@ describe('the review rail: the project health strip', () => {
     const rail = await screen.findByRole('complementary', { name: RAIL });
     expect(screen.queryByRole('group', { name: RAIL })).toBeNull();
     expect(screen.queryByRole('button', { name: /^Projects/ })).toBeNull();
-    // Shown at every width: it is not the desktop-only `hidden md:flex` rail.
-    expect(rail.className.split(' ')).not.toContain('hidden');
-    expect(rail.className.split(' ')).toContain('flex');
+    // With no chips to fold into, the rail's own sections are the way to them.
     expect(within(rail).getByRole('list', { name: 'Project health' })).toBeDefined();
   });
 });

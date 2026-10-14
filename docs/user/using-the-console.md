@@ -41,7 +41,9 @@ The rail beside them has two parts:
   decisions waiting on you (in violet), its open tasks (_live_), and the tasks
   going cold. Projects you pinned come first, then the rest by most recent
   activity, as in the project switcher. A row opens the project's work page.
-  Switching, pinning, archiving, and **New project** are in the switcher.
+  Switching, pinning, and **New project** are in the switcher. Archive a
+  project from its settings, and unarchive it from its page in the switcher's
+  **Archived** section.
 - **When you have a minute** holds what can wait, in up to four groups. A
   group with nothing in it is left out. **Runnable now** lists tasks that can
   start, each with **Start**. **To triage** lists untriaged seeds, each with
@@ -139,8 +141,9 @@ Artifacts back. With no projects, there is no sidebar; the review page offers
   pin or unpin the highlighted project, or click the pin icon on its row; either
   works without leaving the page, and a pin is saved with the project, so it
   follows you to other devices. Archived projects are in a folded **Archived**
-  section at the bottom; they open to their unavailable notice and cannot be
-  pinned.
+  section at the bottom; they cannot be pinned, and they open to a page that
+  names the project as archived and offers **Unarchive**, which returns you to
+  its work page.
   **New project** ends the list.
 - **Work** opens the project's work page (on All projects, `/`). Under it, an outline lists the
   project's initiatives and phases, each with its done-over-total count, ∞

@@ -55,9 +55,10 @@ export const projectsQuery = queryOptions({
 });
 
 /**
- * The archived shelf (MMR-125): frozen projects behind the `?status=archived`
- * door (ADR 0015), under the review page's project list. Keyed under
- * `['projects']` so every write's invalidation refreshes the shelf.
+ * The archived projects (MMR-125): frozen projects behind the `?status=archived`
+ * door (ADR 0015), which the switcher folds away and an archived project's
+ * page reads to offer Unarchive. Keyed under `['projects']` so every write's
+ * invalidation refreshes them.
  */
 export const archivedProjectsQuery = queryOptions({
   queryFn: () => apiGet<Collection<WireNode>>('/api/projects?status=archived'),

@@ -3,12 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { isNotFound } from '../api/errors';
 import { doctorQuery, projectQuery } from '../api/queries';
 import { OfflineBanner } from '../components/offline-banner';
+import { UnavailableProject } from '../components/project-unavailable';
 import { RecordPending } from '../components/record-layout';
 import { WorkPage } from '../components/work-page';
 import { connectivity } from '../lib/connectivity';
 import { useRememberRecord } from '../lib/recent-records';
 import { projectRoute } from '../router';
-import { ProjectUnavailablePage } from './not-found';
 
 /**
  * `/p/$key` — the project opens as its work page (ADR 0013, MMR-467
@@ -30,7 +30,7 @@ export function ProjectPage() {
   // Archived-404 semantics (ADR 0015): the server answered, so this is not
   // "offline"; the project query keeps polling, so an unarchive heals.
   if (isNotFound(project.error)) {
-    return <ProjectUnavailablePage projectKey={key} />;
+    return <UnavailableProject projectKey={key} />;
   }
 
   if (project.data === undefined) {

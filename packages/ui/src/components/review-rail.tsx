@@ -43,15 +43,20 @@ function StripCount({
     );
   }
   return (
-    <span title={noun(n)} className={cn('text-right font-mono text-mono-id', className)}>
+    <span
+      title={noun(n)}
+      className={cn('text-right font-mono text-mono-id tabular-nums', className)}
+    >
       {n}
       <span className="sr-only"> {noun(n)}</span>
     </span>
   );
 }
 
+// The rail is narrow: the three count columns stay tight (two tabular digits
+// at the count size) so the name column gets the width.
 const STRIP_COLUMNS =
-  'grid grid-cols-[3.25rem_minmax(0,1fr)_2rem_2rem_2rem] items-baseline gap-x-2';
+  'grid grid-cols-[2.75rem_minmax(0,1fr)_1.75rem_1.75rem_1.75rem] items-baseline gap-x-1.5';
 
 /**
  * One row per active project in the report's order (pinned first, then the
@@ -59,6 +64,10 @@ const STRIP_COLUMNS =
  * ("live"), and the tasks going cold. A row opens the project's work page.
  */
 function HealthStrip({ projects }: { projects: readonly WireReviewProject[] }) {
+  // With every project archived there is nothing to list, and headers alone mislead.
+  if (projects.length === 0) {
+    return null;
+  }
   return (
     <RailSection label="Projects" count={projects.length}>
       <div aria-hidden className={cn(STRIP_COLUMNS, 'px-1 font-mono text-micro text-ink-faint')}>
@@ -81,7 +90,9 @@ function HealthStrip({ projects }: { projects: readonly WireReviewProject[] }) {
               )}
             >
               <span className="font-mono text-mono-id text-accent-foreground">{p.key}</span>
-              <span className="min-w-0 truncate text-meta text-ink">{p.name}</span>
+              <span title={p.name} className="min-w-0 truncate text-meta text-ink">
+                {p.name}
+              </span>
               <StripCount
                 n={p.decisions}
                 noun={(n) => (n === 1 ? '1 decision' : `${String(n)} decisions`)}
