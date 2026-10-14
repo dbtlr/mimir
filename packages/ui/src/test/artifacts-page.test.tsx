@@ -36,7 +36,7 @@ function renderArtifactsPage(url = '/p/MMR/artifacts') {
 /** Serve the given artifact rows (total = rows) and one project, MMR. */
 function serveRows(items: WireArtifactSummary[]) {
   apiGet.mockImplementation((path: string) => {
-    if (path.startsWith('/api/projects')) {
+    if (path.startsWith('/api/projects') && !path.includes('status=archived')) {
       return Promise.resolve({ items: [{ id: 'MMR', status: 'ready' }], total: 1 });
     }
     if (path.startsWith('/api/artifacts?')) {
@@ -157,7 +157,7 @@ describe('artifactsPage', () => {
 
   it('scrolling the page pulls the next window, so every artifact is reachable', async () => {
     apiGet.mockImplementation((path: string) => {
-      if (path.startsWith('/api/projects')) {
+      if (path.startsWith('/api/projects') && !path.includes('status=archived')) {
         return Promise.resolve({ items: [], total: 0 });
       }
       if (path.startsWith('/api/artifacts?')) {

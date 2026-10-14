@@ -23,7 +23,7 @@ function mockApi() {
     if (path === '/api/health') {
       return Promise.resolve({ schema: 1, status: 'ok', version: '0.0.0' });
     }
-    if (path.startsWith('/api/projects')) {
+    if (path.startsWith('/api/projects') && !path.includes('status=archived')) {
       return Promise.resolve({
         items: [
           { id: 'MMR', status: 'in_progress', title: 'Mimir' },

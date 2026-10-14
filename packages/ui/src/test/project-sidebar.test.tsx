@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
+import { ApiError } from '../api/errors';
 import { browserTimeZone } from '../api/queries';
 import type { WireNode, WireReviewProject, WireTreeNode } from '../api/types';
 import { subtreeOf } from '../lib/ancestry';
@@ -466,6 +467,47 @@ describe('sidebar outline', () => {
     );
     renderAt('/p/MMR');
     await expect(screen.findByText('Couldn’t load the structure.')).resolves.toBeInTheDocument();
+  });
+});
+
+describe('sidebar on an archived project (MMR-506)', () => {
+  const OLD = project({
+    archived_at: '2026-09-30T15:00:00.000Z',
+    id: 'OLD',
+    status: 'done',
+    title: 'Old project',
+  });
+
+  /** `OLD` is archived: its record and tree 404, and the archived list names it. */
+  function serveArchived() {
+    const served = apiGet.getMockImplementation();
+    apiGet.mockImplementation((path: string) => {
+      if (path === '/api/projects?status=archived') {
+        return Promise.resolve({ items: [OLD], total: 1 });
+      }
+      if (path.startsWith('/api/projects/OLD')) {
+        return Promise.reject(new ApiError(`GET ${path} → 404`, 404));
+      }
+      return served?.(path);
+    });
+  }
+
+  it('keeps the header and offers only Work, with no outline, browsers, or error line', async () => {
+    serveArchived();
+    renderAt('/p/OLD');
+
+    const nav = await sidebar();
+    expect(within(nav).getByRole('button', { name: /OLD/ })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(within(nav).getByRole('link', { name: 'Work' })).toBeInTheDocument();
+    });
+    expect(
+      within(nav)
+        .getAllByRole('link')
+        .map((l) => l.textContent),
+    ).toStrictEqual(['Work']);
+    expect(within(nav).queryByRole('navigation', { name: 'Outline' })).toBeNull();
+    expect(within(nav).queryByText('Couldn’t load the structure.')).toBeNull();
   });
 });
 

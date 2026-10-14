@@ -8,6 +8,7 @@ import { RecordPending } from '../components/record-layout';
 import { WorkPage } from '../components/work-page';
 import { connectivity } from '../lib/connectivity';
 import { useRememberRecord } from '../lib/recent-records';
+import { useArchivedProject } from '../lib/use-archived-project';
 import { projectRoute } from '../router';
 
 /**
@@ -18,7 +19,11 @@ import { projectRoute } from '../router';
  */
 export function ProjectPage() {
   const { key } = projectRoute.useParams();
-  const project = useQuery(projectQuery(key));
+  // An archived project's record 404s (ADR 0015). Once the archived list names
+  // the key, stop asking for it, so a retry or poll cannot swap the notice for
+  // the loading skeleton.
+  const archived = useArchivedProject(key);
+  const project = useQuery({ ...projectQuery(key), enabled: archived === undefined });
   // The doctor read counts findings; a miss only thins the page, so it does not
   // count toward connectivity.
   const health = useQuery(doctorQuery(key));
@@ -29,7 +34,7 @@ export function ProjectPage() {
 
   // Archived-404 semantics (ADR 0015): the server answered, so this is not
   // "offline"; the project query keeps polling, so an unarchive heals.
-  if (isNotFound(project.error)) {
+  if (archived !== undefined || isNotFound(project.error)) {
     return <UnavailableProject projectKey={key} />;
   }
 

@@ -6,6 +6,7 @@ import { archivedProjectsQuery } from '../api/queries';
 import type { WireNode } from '../api/types';
 import { connectivity } from '../lib/connectivity';
 import { calendarDate } from '../lib/time';
+import { useArchivedProject } from '../lib/use-archived-project';
 import { ProjectUnavailablePage } from '../routes/not-found';
 import { RecordPending } from './record-layout';
 import { ActionButton } from './ui/action-button';
@@ -36,8 +37,8 @@ function ArchivedProjectPage({ project, offline }: { project: WireNode; offline:
         </span>
       </div>
       <p className="text-xs leading-relaxed text-ink-dim">
-        This project is frozen. It is hidden from the board and every default view, and nothing is
-        deleted. Unarchive it to work in it again.
+        This project is frozen. It is hidden from the switcher’s active list, the review page, and
+        every other default view, and nothing is deleted. Unarchive it to work in it again.
       </p>
       <div className="flex items-center gap-4">
         <ActionButton
@@ -72,7 +73,7 @@ function ArchivedProjectPage({ project, offline }: { project: WireNode; offline:
 export function UnavailableProject({ projectKey }: { projectKey: string }) {
   const archived = useQuery(archivedProjectsQuery);
   const { offline } = connectivity([archived]);
-  const match = archived.data?.items.find((p) => p.id === projectKey);
+  const match = useArchivedProject(projectKey);
   if (match !== undefined) {
     return <ArchivedProjectPage project={match} offline={offline} />;
   }

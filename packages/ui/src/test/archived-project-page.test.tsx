@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
+import { createQueryClient } from '../api/query-client';
 import { router } from '../router';
 import { emptyRead, project, workReport } from './fixtures';
 
@@ -45,17 +46,20 @@ function serve() {
   });
 }
 
-function renderAt(initial: string) {
+/** How many reads of the archived project's own routes the page has made. */
+const projectReads = () =>
+  apiGet.mock.calls.filter(([path]) => String(path).startsWith('/api/projects/OLD')).length;
+
+const quietClient = () =>
+  new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } });
+
+function renderAt(initial: string, client = quietClient()) {
   const testRouter = createRouter({
     history: createMemoryHistory({ initialEntries: [initial] }),
     routeTree: router.routeTree,
   });
   render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } })
-      }
-    >
+    <QueryClientProvider client={client}>
       <RouterProvider router={testRouter} />
     </QueryClientProvider>,
   );
@@ -66,6 +70,10 @@ beforeEach(() => {
   apiGet.mockReset();
   apiSend.mockReset();
   serve();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('an archived project’s address (MMR-506)', () => {
@@ -80,6 +88,15 @@ describe('an archived project’s address (MMR-506)', () => {
     expect(screen.getByText(/❄ 2026-09-30/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Unarchive Old project' })).toBeEnabled();
     expect(screen.queryByRole('heading', { name: 'Project unavailable' })).toBeNull();
+  });
+
+  it('says what archiving hid without naming the retired board', async () => {
+    renderAt('/p/OLD');
+
+    const notice = await screen.findByText(/This project is frozen/);
+    expect(notice).toHaveTextContent('switcher’s active list');
+    expect(notice).toHaveTextContent('review page');
+    expect(notice).not.toHaveTextContent('board');
   });
 
   it('says so under its browsers too', async () => {
@@ -107,6 +124,28 @@ describe('an archived project’s address (MMR-506)', () => {
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: /^Unarchive/ })).toBeNull();
     });
+  });
+
+  it('stays still across poll intervals: no further project reads, and the notice never unmounts', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderAt('/p/OLD', createQueryClient());
+    const unarchive = await screen.findByRole('button', { name: 'Unarchive Old project' });
+    const removed: Node[] = [];
+    const watch = new MutationObserver((records) => {
+      removed.push(...records.flatMap((r) => [...r.removedNodes]));
+    });
+    watch.observe(document.body, { childList: true, subtree: true });
+    // Let any first-load retry settle, then count the reads from here on.
+    await vi.advanceTimersByTimeAsync(5000);
+    const before = projectReads();
+
+    await vi.advanceTimersByTimeAsync(35_000);
+    watch.disconnect();
+
+    expect(projectReads()).toBe(before);
+    expect(unarchive.isConnected).toBe(true);
+    expect(removed.some((node) => node.contains(unarchive))).toBe(false);
+    expect(screen.queryByRole('heading', { name: 'Project unavailable' })).toBeNull();
   });
 
   it('keeps the unavailable page for a key that names no project', async () => {

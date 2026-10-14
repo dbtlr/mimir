@@ -9,6 +9,7 @@ import { cn } from '../lib/cn';
 import { isSectionPage, openRecordId, sectionOfPath } from '../lib/project-sidebar';
 import type { SidebarContext } from '../lib/project-sidebar';
 import { nodeLink } from '../lib/record-url';
+import { useArchivedProject } from '../lib/use-archived-project';
 import { buildOutline } from '../lib/work-page';
 import type { OutlineEntry, OutlineTally } from '../lib/work-page';
 import { ProjectPicker } from './project-picker';
@@ -197,7 +198,14 @@ function ProjectBody({ projectKey, onNavigate }: { projectKey: string; onNavigat
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // The tree is the whole board, so it is read once rather than polled, as on
   // the record pages; a console write invalidates it.
-  const tree = useQuery({ ...treeQuery(projectKey), refetchInterval: false });
+  // An archived project's tree 404s (ADR 0015), and so do its browsers: the
+  // sidebar offers only Work, which is the page that says so and can undo it.
+  const archived = useArchivedProject(projectKey);
+  const tree = useQuery({
+    ...treeQuery(projectKey),
+    enabled: archived === undefined,
+    refetchInterval: false,
+  });
   const openId = openRecordId(pathname);
   // The page reads this record already, so it is in the cache: a task's page is
   // Tasks as soon as the record lands, and whether or not the tree does.
@@ -219,6 +227,9 @@ function ProjectBody({ projectKey, onNavigate }: { projectKey: string; onNavigat
       />
     );
   };
+  if (archived !== undefined) {
+    return sectionLink(WORK);
+  }
   return (
     <>
       {sectionLink(WORK)}
