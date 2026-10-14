@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, vi } from 'vitest';
 
@@ -10,6 +10,8 @@ import {
   useCreateProject,
   useDepend,
   useMoveNode,
+  usePendingPins,
+  usePinProject,
   useTag,
   useTransition,
   useUnarchiveProject,
@@ -269,5 +271,69 @@ describe('authoring mutation hooks', () => {
         undefined,
       ),
     );
+  });
+});
+
+function pins() {
+  return renderHook(() => ({ mutation: usePinProject(), pending: usePendingPins() }), {
+    wrapper: wrapper(new QueryClient()),
+  });
+}
+
+describe('usePinProject (MMR-497)', () => {
+  it('PATCHes the flag and reports it pending until the write settles', async () => {
+    const held = Promise.withResolvers<object>();
+    apiSend.mockReturnValue(held.promise);
+    const { result } = pins();
+    act(() => {
+      result.current.mutation.mutate({ key: 'MMR', pinned: true });
+    });
+    await waitFor(() => {
+      expect(result.current.pending.get('MMR')).toBe(true);
+    });
+    expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/MMR', { pinned: true });
+    held.resolve({});
+    await waitFor(() => {
+      expect(result.current.pending.size).toBe(0);
+    });
+  });
+
+  it('drops a failed pin from the pending set and toasts, touching no cache', async () => {
+    apiSend.mockRejectedValue(new Error('read only'));
+    const { result } = pins();
+    act(() => {
+      result.current.mutation.mutate({ key: 'MMR', pinned: true });
+    });
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('read only');
+    });
+    await waitFor(() => {
+      expect(result.current.pending.size).toBe(0);
+    });
+  });
+
+  it('keeps each pin until its own write settles, so one failing leaves the other pending', async () => {
+    const first = Promise.withResolvers<object>();
+    const second = Promise.withResolvers<object>();
+    apiSend.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    const { result } = pins();
+    act(() => {
+      result.current.mutation.mutate({ key: 'MMR', pinned: true });
+      result.current.mutation.mutate({ key: 'NRN', pinned: false });
+    });
+    await waitFor(() => {
+      expect([...result.current.pending]).toStrictEqual([
+        ['MMR', true],
+        ['NRN', false],
+      ]);
+    });
+    first.reject(new Error('read only'));
+    await waitFor(() => {
+      expect([...result.current.pending]).toStrictEqual([['NRN', false]]);
+    });
+    second.resolve({});
+    await waitFor(() => {
+      expect(result.current.pending.size).toBe(0);
+    });
   });
 });

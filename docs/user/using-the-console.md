@@ -105,12 +105,25 @@ On a phone, the rail folds into chips that open bottom sheets.
 
 A sidebar on the left frames every page for the current project. The current
 project is the one in the address, else the last one you visited on this
-device, else the first in the project menu. With no projects, there is no
+device, else the first in the project switcher. With no projects, there is no
 sidebar; the review page offers **New project**.
 
-- **The header** names the project by key and title. Choose it to open the
-  project menu, which lists every project with its ready count and ends with
-  **New project**.
+- **The header** names the project by key and title. When other projects have
+  decisions waiting, it adds "N elsewhere" in violet. Choose it to open the
+  project switcher.
+- **The switcher** lists pinned projects first, then the rest by most recent
+  activity. Each row shows the project's key and title, a violet count of its
+  decisions when it has any, and a mark on the project you are in. Type to
+  filter by key or title, press the up and down arrows to move, and press Enter
+  to switch. Switching keeps your section: from `/p/MMR/tasks` it opens the
+  new project's Tasks, and from a record it opens the new project's work page.
+  Escape closes the switcher and returns focus to the header. Press Alt+P to
+  pin or unpin the highlighted project, or click the pin icon on its row; either
+  works without leaving the page, and a pin is saved with the project, so it
+  follows you to other devices. Archived projects are in a folded **Archived**
+  section at the bottom; they open to their unavailable notice and cannot be
+  pinned.
+  **New project** ends the list.
 - **Work** opens the project's work page. Under it, an outline lists the
   project's initiatives and phases, each with its done-over-total count, ∞
   when open-ended, or _parked_. Finished initiatives fold into one line you can

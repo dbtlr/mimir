@@ -224,11 +224,11 @@ describe('sidebar names the current project', () => {
     );
   });
 
-  it('opens the project menu from the header, with a way to start a new project', async () => {
+  it('opens the project switcher from the header, with a way to start a new project', async () => {
     renderAt('/p/MMR');
     await userEvent.click(await screen.findByRole('button', { name: /MMR.*Mimir/ }));
     await expect(
-      screen.findByRole('menuitem', { name: '+ New project' }),
+      screen.findByRole('button', { name: '+ New project' }),
     ).resolves.toBeInTheDocument();
   });
 
