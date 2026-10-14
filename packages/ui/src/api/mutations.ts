@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 
 import type { TransitionVerb } from '../lib/transitions';
 import { apiSend } from './client';
+import { projectsQuery } from './queries';
 import type { WireNode, WireSeed } from './types';
 
 /** Every read key a write can stale. Broad invalidation is fine — the server is loopback. */
@@ -239,6 +240,37 @@ export function useUpdateProject(key: string) {
     mutationFn: (fields: UpdateProjectInput) =>
       apiSend<WireNode>('PATCH', `/api/projects/${encodeURIComponent(key)}`, fields),
     onError: (err: Error) => toast.error(err.message),
+    onSettled: () => void invalidate(),
+  });
+}
+
+/**
+ * Pin or unpin a project (MMR-497): `PATCH /api/projects/KEY {pinned}`. The
+ * switcher reorders the moment the pin is clicked, so the flag flips in the
+ * cached project list first; a failed write puts the list back and toasts.
+ */
+export function usePinProject(key: string) {
+  const qc = useQueryClient();
+  const invalidate = useInvalidateOnWrite();
+  return useMutation({
+    mutationFn: (pinned: boolean) =>
+      apiSend<WireNode>('PATCH', `/api/projects/${encodeURIComponent(key)}`, { pinned }),
+    onError: (err: Error, _pinned, previous) => {
+      toast.error(err.message);
+      if (previous !== undefined) {
+        qc.setQueryData(projectsQuery.queryKey, previous);
+      }
+    },
+    onMutate: async (pinned: boolean) => {
+      await qc.cancelQueries({ queryKey: projectsQuery.queryKey });
+      const previous = qc.getQueryData(projectsQuery.queryKey);
+      qc.setQueryData(projectsQuery.queryKey, (list) =>
+        list === undefined
+          ? list
+          : { ...list, items: list.items.map((p) => (p.id === key ? { ...p, pinned } : p)) },
+      );
+      return previous;
+    },
     onSettled: () => void invalidate(),
   });
 }

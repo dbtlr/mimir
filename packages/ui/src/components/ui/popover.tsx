@@ -18,13 +18,18 @@ export function PopoverTrigger(props: ComponentProps<typeof Popover.Trigger>) {
 }
 
 export function PopoverContent({
+  align = 'end',
   className,
   children,
   ...props
-}: ComponentProps<typeof Popover.Popup> & { children: ReactNode }) {
+}: ComponentProps<typeof Popover.Popup> & {
+  children: ReactNode;
+  /** Which edge of the trigger the panel lines up with; the end by default. */
+  align?: ComponentProps<typeof Popover.Positioner>['align'];
+}) {
   return (
     <Popover.Portal>
-      <Popover.Positioner align="end" sideOffset={8} className="z-50">
+      <Popover.Positioner align={align} sideOffset={8} className="z-50">
         <Popover.Popup
           className={cn(
             'flex max-h-[min(70dvh,640px)] w-[min(440px,calc(100vw-2rem))] flex-col rounded-lg border border-line-bright bg-well-900 shadow-2xl outline-none',

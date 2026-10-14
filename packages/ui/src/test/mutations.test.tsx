@@ -10,6 +10,7 @@ import {
   useCreateProject,
   useDepend,
   useMoveNode,
+  usePinProject,
   useTag,
   useTransition,
   useUnarchiveProject,
@@ -18,6 +19,9 @@ import {
   useUpdateNode,
   useUpdateProject,
 } from '../api/mutations';
+import { projectsQuery } from '../api/queries';
+import type { WireNode } from '../api/types';
+import { project } from './fixtures';
 
 const { apiSend } = vi.hoisted(() => ({ apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiSend }));
@@ -269,5 +273,39 @@ describe('authoring mutation hooks', () => {
         undefined,
       ),
     );
+  });
+});
+
+function seededProjects() {
+  const client = new QueryClient();
+  const items = [project({ id: 'MMR', pinned: false })];
+  client.setQueryData(projectsQuery.queryKey, { items, total: 1 });
+  return client;
+}
+
+const pinnedInCache = (client: QueryClient) =>
+  client.getQueryData<{ items: WireNode[] }>(projectsQuery.queryKey)?.items[0]?.pinned;
+
+describe('usePinProject (MMR-497)', () => {
+  it('PATCHes the flag and flips it in the cached list before the server answers', async () => {
+    apiSend.mockReturnValue(Promise.withResolvers().promise);
+    const client = seededProjects();
+    const { result } = renderHook(() => usePinProject('MMR'), { wrapper: wrapper(client) });
+    result.current.mutate(true);
+    await waitFor(() => {
+      expect(pinnedInCache(client)).toBe(true);
+    });
+    expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/MMR', { pinned: true });
+  });
+
+  it('puts the flag back and toasts when the write fails', async () => {
+    apiSend.mockRejectedValue(new Error('read only'));
+    const client = seededProjects();
+    const { result } = renderHook(() => usePinProject('MMR'), { wrapper: wrapper(client) });
+    result.current.mutate(true);
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('read only');
+    });
+    expect(pinnedInCache(client)).toBe(false);
   });
 });
