@@ -262,7 +262,8 @@ function SwitcherPanel({
   const archivedId = useId();
   const [query, setQuery] = useState('');
   // The highlight follows its project while the list reorders or refreshes,
-  // and falls back to the first row when that project is filtered out.
+  // and falls back to the first row when that project is filtered out. Null
+  // means untouched: it rests on the current context.
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [announcement, setAnnouncement] = useState('');
@@ -280,12 +281,15 @@ function SwitcherPanel({
   // All projects leads the list, but only while no search narrows it to projects.
   const showAll = query.trim() === '';
   const keys = [...(showAll ? [ALL_PROJECTS_KEY] : []), ...rows.map((r) => r.id)];
-  const activeIndex = Math.max(0, keys.indexOf(activeKey ?? ''));
+  const projectKey = context.kind === 'project' ? context.key : undefined;
+  // Until the operator moves it, the highlight rests on where they are, so
+  // Enter stays put; a typed search highlights its first match instead.
+  const restingKey = showAll ? (projectKey ?? ALL_PROJECTS_KEY) : '';
+  const activeIndex = Math.max(0, keys.indexOf(activeKey ?? restingKey));
   const activeOption = keys.at(activeIndex);
   const active = rows.find((r) => r.id === activeOption);
   const optionId = (key: string) => `${listId}-${key === ALL_PROJECTS_KEY ? 'all' : key}`;
   const activeOptionId = activeOption === undefined ? undefined : optionId(activeOption);
-  const projectKey = context.kind === 'project' ? context.key : undefined;
   const message = emptyMessage({
     failed: projects.isError,
     hasRows: pinned.length + rest.length > 0 || archivedRows.length > 0,

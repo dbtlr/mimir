@@ -188,7 +188,7 @@ describe('switcher order and groups', () => {
     const testRouter = renderAt('/p/NRN');
     await openSwitcher();
     await userEvent.click(await screen.findByRole('button', { name: /Archived/ }));
-    await userEvent.keyboard('{ArrowUp}{Enter}');
+    await userEvent.keyboard('{ArrowUp}{ArrowUp}{Enter}');
     await waitFor(() => {
       expect(testRouter.state.location.pathname).toBe('/p/OLD');
     });
@@ -271,7 +271,7 @@ describe('switcher pinning', () => {
     const search = await openSwitcher();
     expect(search).toHaveAttribute('aria-keyshortcuts', 'Alt+P');
     apiSend.mockReturnValueOnce(held.promise);
-    await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{Alt>}p{/Alt}');
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{Alt>}p{/Alt}');
     expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/LUM', { pinned: true });
     await waitFor(() => {
       expect(keysInOrder()).toStrictEqual(['NRN', 'LUM', 'MMR']);
@@ -289,7 +289,7 @@ describe('switcher pinning', () => {
     renderAt('/p/NRN/tasks', client);
     await openSwitcher();
     apiSend.mockReturnValueOnce(held.promise);
-    await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{Alt>}p{/Alt}');
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{Alt>}p{/Alt}');
     await waitFor(() => {
       expect(keysInOrder()).toStrictEqual(['NRN', 'LUM', 'MMR']);
     });
@@ -304,7 +304,7 @@ describe('switcher pinning', () => {
     renderAt('/p/NRN');
     await openSwitcher();
     apiSend.mockRejectedValueOnce(new Error('read only'));
-    await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{Alt>}p{/Alt}');
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{Alt>}p{/Alt}');
     await waitFor(() => {
       expect(keysInOrder()).toStrictEqual(['NRN', 'MMR', 'LUM']);
     });
@@ -316,7 +316,7 @@ describe('switcher pinning', () => {
     await openSwitcher();
     const live = screen.getByRole('status');
     expect(live).toHaveAttribute('aria-live', 'polite');
-    await userEvent.keyboard('{ArrowDown}{Alt>}p{/Alt}');
+    await userEvent.keyboard('{Alt>}p{/Alt}');
     expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/NRN', { pinned: false });
     expect(live).toHaveTextContent('Unpinned NRN');
     await waitFor(() => {
@@ -342,7 +342,7 @@ describe('switcher pinning', () => {
   it('keeps the highlight on its project when a pin reorders the list', async () => {
     const testRouter = renderAt('/p/NRN/tasks');
     await openSwitcher();
-    await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{Alt>}p{/Alt}');
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{Alt>}p{/Alt}');
     await waitFor(() => {
       expect(keysInOrder()).toStrictEqual(['NRN', 'LUM', 'MMR']);
     });
@@ -370,7 +370,7 @@ describe('switcher pinning', () => {
     renderAt('/p/NRN');
     await openSwitcher();
     const scroll = vi.spyOn(Element.prototype, 'scrollIntoView');
-    await userEvent.keyboard('{ArrowDown}{ArrowDown}');
+    await userEvent.keyboard('{ArrowDown}');
     expect(scroll.mock.contexts.at(-1)).toBe(optionOf('MMR'));
     scroll.mockRestore();
   });
@@ -380,8 +380,8 @@ describe('switcher keyboard', () => {
   it('moves the active row with the arrows and switches on Enter, keeping the section', async () => {
     const testRouter = renderAt('/p/NRN/tasks');
     await openSwitcher();
-    expect(activeKeys()).toStrictEqual(['ALL']);
-    await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}');
+    expect(activeKeys()).toStrictEqual(['NRN']);
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}');
     expect(activeKeys()).toStrictEqual(['LUM']);
     await userEvent.keyboard('{ArrowUp}');
     expect(activeKeys()).toStrictEqual(['MMR']);
@@ -431,13 +431,12 @@ describe('switcher keyboard', () => {
 });
 
 describe('switcher All projects option (MMR-505)', () => {
-  it('is the first option, above Pinned, and the highlighted one on open', async () => {
+  it('is the first option, above Pinned', async () => {
     renderAt('/p/NRN');
     await openSwitcher();
     const options = within(listbox()).getAllByRole('option');
     expect(options[0]).toBe(allOption());
     expect(options[0]).toHaveTextContent(ALL);
-    expect(activeKeys()).toStrictEqual(['ALL']);
     expect(allOption().compareDocumentPosition(optionOf('NRN'))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
@@ -448,7 +447,8 @@ describe('switcher All projects option (MMR-505)', () => {
     renderAt('/p/NRN');
     await openSwitcher();
     expect(allOption().querySelector('[data-pin]')).toBeNull();
-    await userEvent.keyboard('{Alt>}p{/Alt}');
+    await userEvent.keyboard('{ArrowUp}{Alt>}p{/Alt}');
+    expect(activeKeys()).toStrictEqual(['ALL']);
     expect(apiSend).not.toHaveBeenCalled();
   });
 
@@ -499,10 +499,10 @@ describe('switcher All projects option (MMR-505)', () => {
     expect(testRouter.state.location.pathname).toBe('/');
   });
 
-  it('opens with Enter, being the highlighted option', async () => {
+  it('opens with Enter once highlighted with ArrowUp from the first project', async () => {
     const testRouter = renderAt('/p/NRN/seeds');
     await openSwitcher();
-    await userEvent.keyboard('{Enter}');
+    await userEvent.keyboard('{ArrowUp}{Enter}');
     await waitFor(() => {
       expect(testRouter.state.location.pathname).toBe('/');
     });
@@ -511,12 +511,45 @@ describe('switcher All projects option (MMR-505)', () => {
   it('is reachable by ArrowUp from the first project, and wraps from the last', async () => {
     renderAt('/p/NRN');
     await openSwitcher();
-    await userEvent.keyboard('{ArrowDown}');
     expect(activeKeys()).toStrictEqual(['NRN']);
     await userEvent.keyboard('{ArrowUp}');
     expect(activeKeys()).toStrictEqual(['ALL']);
     await userEvent.keyboard('{ArrowUp}');
     expect(activeKeys()).toStrictEqual(['LUM']);
+  });
+
+  it.each([
+    ['/p/NRN', 'NRN'],
+    ['/p/MMR/tasks', 'MMR'],
+    ['/', 'ALL'],
+    ['/doctor', 'ALL'],
+  ])('opens with the current context highlighted on %s', async (path, expected) => {
+    renderAt(path);
+    await openSwitcher(path.startsWith('/p/') ? expected : 'All');
+    expect(activeKeys()).toStrictEqual([expected]);
+  });
+
+  it('does not leave the page on Enter when opened on a project page', async () => {
+    const testRouter = renderAt('/p/MMR/tasks');
+    await openSwitcher('MMR');
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox', { name: 'Projects' })).toBeNull();
+    });
+    expect(testRouter.state.location.pathname).toBe('/p/MMR/tasks');
+  });
+
+  it('highlights the first match, not the current project, once a search is typed', async () => {
+    renderAt('/p/NRN');
+    await openSwitcher();
+    await userEvent.keyboard('m');
+    expect(activeKeys()).toStrictEqual(['MMR']);
+  });
+
+  it('starts on the first option when the current project is not listed', async () => {
+    renderAt('/p/OLD');
+    await openSwitcher('OLD');
+    expect(activeKeys()).toStrictEqual(['ALL']);
   });
 
   it('is hidden while a search is typed, and back when it is cleared', async () => {

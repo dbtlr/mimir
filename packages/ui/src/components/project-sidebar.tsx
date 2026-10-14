@@ -255,6 +255,11 @@ function AllProjectsBody({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+/** What the sidebar's landmarks and drawer are called: the context they frame. */
+function landmarkLabel(context: SidebarContext): string {
+  return context.kind === 'all' ? 'All projects' : 'Project';
+}
+
 /** The sidebar's content for its context: the switcher header, then the context's sections. */
 function SidebarBody({
   context,
@@ -264,7 +269,7 @@ function SidebarBody({
   onNavigate?: () => void;
 }) {
   return (
-    <nav aria-label="Project" className="flex flex-col gap-0.5">
+    <nav aria-label={landmarkLabel(context)} className="flex flex-col gap-0.5">
       <div className="mb-2">
         <ProjectPicker context={context} onNavigate={onNavigate} />
       </div>
@@ -281,7 +286,7 @@ function SidebarBody({
 export function ProjectSidebar({ context }: { context: SidebarContext }) {
   return (
     <aside
-      aria-label="Project"
+      aria-label={landmarkLabel(context)}
       className="w-64 shrink-0 overflow-y-auto border-r border-line bg-well-950 p-2.5"
     >
       <SidebarBody context={context} />
@@ -328,7 +333,7 @@ export function ProjectDrawer({ context }: { context: SidebarContext }) {
           className="fixed inset-0 z-40 bg-well-950/60 transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0"
         />
         <Dialog.Popup
-          aria-label="Project"
+          aria-label={landmarkLabel(context)}
           className="fixed inset-y-0 left-0 z-50 w-[300px] max-w-[88vw] overflow-y-auto border-r border-line bg-well-950 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl outline-none transition-transform duration-200 ease-out data-[ending-style]:-translate-x-full data-[starting-style]:-translate-x-full"
         >
           <SidebarBody

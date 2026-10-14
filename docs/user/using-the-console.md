@@ -154,8 +154,10 @@ palette, **Needs you**, and the theme toggle.
 
 Each project has three browsers, at `/p/KEY/tasks`, `/p/KEY/seeds`, and
 `/p/KEY/artifacts`. The sidebar links to the project you are in. The old
-addresses `/tasks`, `/seeds`, and `/artifacts` still work: with `?project=KEY` they open that project's browser, and without it they
-open the last project you visited on this device, else the first in the project switcher. With no projects at all they open the review page.
+addresses `/tasks`, `/seeds`, and `/artifacts` still work: with `?project=KEY`
+they open that project's browser, and without it they open the last project
+you visited on this device, else the first in the project switcher. With no
+projects at all they open the review page.
 
 - **Tasks** for the project's tasks, grouped by status, with
   **Live** and **Finished** views and a search over titles and IDs;

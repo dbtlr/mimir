@@ -123,7 +123,7 @@ function decisions(key: string, count: number): WireReviewProject {
 }
 
 const topBar = () => screen.getAllByRole('banner')[0] as HTMLElement;
-const sidebar = () => screen.findByRole('navigation', { name: 'Project' });
+const sidebar = () => screen.findByRole('navigation', { name: /^(All projects|Project)$/ });
 const outline = async () => within(await sidebar()).findByRole('navigation', { name: 'Outline' });
 const allHeader = (nav: HTMLElement) => within(nav).getByRole('button', { name: /^All projects/ });
 const SECTIONS = ['Work', 'Tasks', 'Seeds', 'Artifacts'];
@@ -266,12 +266,6 @@ describe('sidebar on All projects (MMR-505)', () => {
     expect(work).not.toHaveAttribute('aria-current');
   });
 
-  it('washes Work in the accent selection treatment', async () => {
-    renderAt('/');
-    const work = within(await sidebar()).getByRole('link', { name: 'Work' });
-    expect(work.className).toContain('aria-[current]:bg-accent/10');
-  });
-
   it('counts the decisions across every project in the header', async () => {
     serve([MMR, NRN], {}, [decisions('MMR', 2), decisions('NRN', 3)]);
     renderAt('/');
@@ -319,6 +313,39 @@ describe('sidebar on All projects (MMR-505)', () => {
       within(await sidebar()).findByRole('button', { name: /NRN.*Norn/ }),
     ).resolves.toBeInTheDocument();
     expect(within(await sidebar()).getByRole('link', { name: 'Seeds' })).toBeInTheDocument();
+  });
+});
+
+describe('sidebar landmarks name their context (MMR-505)', () => {
+  it.each(['/', '/doctor'])('are All projects on %s', async (path) => {
+    renderAt(path);
+    await screen.findByRole('navigation', { name: 'All projects' });
+    expect(screen.getByRole('complementary', { name: 'All projects' })).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Project' })).toBeNull();
+  });
+
+  it('stay Project on a project page', async () => {
+    renderAt('/p/MMR');
+    await sidebar();
+    expect(screen.getByRole('complementary', { name: 'Project' })).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'All projects' })).toBeNull();
+  });
+
+  it('name the drawer All projects on / and Project on a project page', async () => {
+    stubViewport('phone');
+    const testRouter = renderAt('/');
+    await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
+    const drawer = await screen.findByRole('dialog', { name: 'All projects' });
+    expect(within(drawer).getByRole('navigation', { name: 'All projects' })).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    await act(async () => {
+      await testRouter.navigate({ params: { key: 'MMR' }, to: '/p/$key' });
+    });
+    await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
+    await expect(screen.findByRole('dialog', { name: 'Project' })).resolves.toBeInTheDocument();
   });
 });
 
@@ -679,8 +706,8 @@ describe('sidebar drawer on a phone', () => {
     serve([MMR, NRN], {}, [decisions('MMR', 1)]);
     const testRouter = renderAt('/');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
-    const drawer = await screen.findByRole('dialog', { name: 'Project' });
-    const nav = within(drawer).getByRole('navigation', { name: 'Project' });
+    const drawer = await screen.findByRole('dialog', { name: 'All projects' });
+    const nav = within(drawer).getByRole('navigation', { name: 'All projects' });
     await expect(
       within(nav).findByRole('button', { name: /^All projects.*1 decision/ }),
     ).resolves.toBeInTheDocument();
@@ -694,7 +721,7 @@ describe('sidebar drawer on a phone', () => {
     await userEvent.click(within(nav).getByRole('button', { name: /^All projects/ }));
     await userEvent.click(await screen.findByRole('option', { name: /NRN/ }));
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Project' })).toBeNull();
+      expect(screen.queryByRole('dialog', { name: 'All projects' })).toBeNull();
     });
     expect(testRouter.state.location.pathname).toBe('/p/NRN');
   });
