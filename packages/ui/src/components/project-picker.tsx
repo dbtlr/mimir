@@ -3,12 +3,17 @@ import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode, RefObject } from 'react';
 
-import { usePinProject } from '../api/mutations';
+import { usePendingPins, usePinProject } from '../api/mutations';
 import { archivedProjectsQuery, projectsQuery, reviewQuery } from '../api/queries';
 import type { WireNode } from '../api/types';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
-import { filterProjects, groupProjects, projectSwitchTarget } from '../lib/project-switcher';
+import {
+  filterProjects,
+  groupProjects,
+  overlayPins,
+  projectSwitchTarget,
+} from '../lib/project-switcher';
 import { NewProjectSheet } from './new-project-sheet';
 import { StatusDot } from './status-dot';
 import { PopoverContent, PopoverRoot, PopoverTrigger } from './ui/popover';
@@ -200,8 +205,10 @@ function SwitcherPanel({
   const projects = useQuery(projectsQuery);
   const archived = useQuery(archivedProjectsQuery);
   const pin = usePinProject();
+  const pendingPins = usePendingPins();
 
-  const groups = groupProjects(projects.data?.items ?? []);
+  // A pin in flight shows as already made; the server's list catches up on settle.
+  const groups = groupProjects(overlayPins(projects.data?.items ?? [], pendingPins));
   const pinned = filterProjects(groups.pinned, query);
   const rest = filterProjects(groups.rest, query);
   const archivedRows = filterProjects(archived.data?.items ?? [], query);

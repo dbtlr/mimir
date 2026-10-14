@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, vi } from 'vitest';
 
@@ -10,6 +10,7 @@ import {
   useCreateProject,
   useDepend,
   useMoveNode,
+  usePendingPins,
   usePinProject,
   useTag,
   useTransition,
@@ -19,9 +20,6 @@ import {
   useUpdateNode,
   useUpdateProject,
 } from '../api/mutations';
-import { projectsQuery } from '../api/queries';
-import type { WireNode } from '../api/types';
-import { project } from './fixtures';
 
 const { apiSend } = vi.hoisted(() => ({ apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiSend }));
@@ -276,63 +274,66 @@ describe('authoring mutation hooks', () => {
   });
 });
 
-function seededProjects() {
-  const client = new QueryClient();
-  const items = [project({ id: 'MMR', pinned: false }), project({ id: 'NRN', pinned: false })];
-  client.setQueryData(projectsQuery.queryKey, { items, total: items.length });
-  return client;
+function pins() {
+  return renderHook(() => ({ mutation: usePinProject(), pending: usePendingPins() }), {
+    wrapper: wrapper(new QueryClient()),
+  });
 }
 
-const pinnedInCache = (client: QueryClient, key = 'MMR') =>
-  client
-    .getQueryData<{ items: WireNode[] }>(projectsQuery.queryKey)
-    ?.items.find((p) => p.id === key)?.pinned;
-
 describe('usePinProject (MMR-497)', () => {
-  it('PATCHes the flag and flips it in the cached list before the server answers', async () => {
-    apiSend.mockReturnValue(Promise.withResolvers().promise);
-    const client = seededProjects();
-    const { result } = renderHook(() => usePinProject(), { wrapper: wrapper(client) });
-    result.current.mutate({ key: 'MMR', pinned: true });
+  it('PATCHes the flag and reports it pending until the write settles', async () => {
+    const held = Promise.withResolvers<object>();
+    apiSend.mockReturnValue(held.promise);
+    const { result } = pins();
+    act(() => {
+      result.current.mutation.mutate({ key: 'MMR', pinned: true });
+    });
     await waitFor(() => {
-      expect(pinnedInCache(client)).toBe(true);
+      expect(result.current.pending.get('MMR')).toBe(true);
     });
     expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/MMR', { pinned: true });
+    held.resolve({});
+    await waitFor(() => {
+      expect(result.current.pending.size).toBe(0);
+    });
   });
 
-  it('puts the flag back and toasts when the write fails', async () => {
+  it('drops a failed pin from the pending set and toasts, touching no cache', async () => {
     apiSend.mockRejectedValue(new Error('read only'));
-    const client = seededProjects();
-    const { result } = renderHook(() => usePinProject(), { wrapper: wrapper(client) });
-    result.current.mutate({ key: 'MMR', pinned: true });
+    const { result } = pins();
+    act(() => {
+      result.current.mutation.mutate({ key: 'MMR', pinned: true });
+    });
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('read only');
     });
-    expect(pinnedInCache(client)).toBe(false);
+    await waitFor(() => {
+      expect(result.current.pending.size).toBe(0);
+    });
   });
 
-  it('restores only the failed project and refetches once the last pin settles', async () => {
+  it('keeps each pin until its own write settles, so one failing leaves the other pending', async () => {
     const first = Promise.withResolvers<object>();
     const second = Promise.withResolvers<object>();
     apiSend.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
-    const client = seededProjects();
-    const invalidate = vi.spyOn(client, 'invalidateQueries');
-    const { result } = renderHook(() => usePinProject(), { wrapper: wrapper(client) });
-    result.current.mutate({ key: 'MMR', pinned: true });
-    result.current.mutate({ key: 'NRN', pinned: true });
+    const { result } = pins();
+    act(() => {
+      result.current.mutation.mutate({ key: 'MMR', pinned: true });
+      result.current.mutation.mutate({ key: 'NRN', pinned: false });
+    });
     await waitFor(() => {
-      expect(pinnedInCache(client, 'NRN')).toBe(true);
+      expect([...result.current.pending]).toStrictEqual([
+        ['MMR', true],
+        ['NRN', false],
+      ]);
+    });
+    first.reject(new Error('read only'));
+    await waitFor(() => {
+      expect([...result.current.pending]).toStrictEqual([['NRN', false]]);
     });
     second.resolve({});
     await waitFor(() => {
-      expect(client.isMutating()).toBe(1);
+      expect(result.current.pending.size).toBe(0);
     });
-    expect(invalidate).not.toHaveBeenCalled();
-    first.reject(new Error('read only'));
-    await waitFor(() => {
-      expect(invalidate).toHaveBeenCalled();
-    });
-    expect(pinnedInCache(client, 'MMR')).toBe(false);
-    expect(pinnedInCache(client, 'NRN')).toBe(true);
   });
 });

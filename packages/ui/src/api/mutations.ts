@@ -1,11 +1,11 @@
 import type { Grooming } from '@mimir/contract';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useMutationState, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import type { TransitionVerb } from '../lib/transitions';
 import { apiSend } from './client';
 import { projectsQuery } from './queries';
-import type { Collection, WireNode, WireSeed } from './types';
+import type { WireNode, WireSeed } from './types';
 
 /** Every read key a write can stale. Broad invalidation is fine — the server is loopback. */
 const WRITE_KEYS: readonly (readonly string[])[] = [
@@ -244,56 +244,52 @@ export function useUpdateProject(key: string) {
   });
 }
 
+/** The key under which every pin mutation runs, so the switcher can find the pending ones. */
 const PIN_MUTATION = ['pin-project'] as const;
 
-type PinInput = { key: string; pinned: boolean };
-/** What a pin overwrote, so a failure can put it back. */
-type PinContext = { wasPinned: boolean };
+export type PinInput = { key: string; pinned: boolean };
 
-/** The list with one project's pin set; any other project, or no list yet, passes through. */
-function withPinned(
-  list: Collection<WireNode> | undefined,
-  key: string,
-  pinned: boolean,
-): Collection<WireNode> | undefined {
-  const setOne = (p: WireNode): WireNode => (p.id === key ? { ...p, pinned } : p);
-  return list === undefined ? list : { ...list, items: list.items.map(setOne) };
-}
+const isPinInput = (value: unknown): value is PinInput =>
+  typeof value === 'object' &&
+  value !== null &&
+  'key' in value &&
+  typeof value.key === 'string' &&
+  'pinned' in value &&
+  typeof value.pinned === 'boolean';
 
 /**
  * Pin or unpin a project (MMR-497): `PATCH /api/projects/KEY {pinned}`. The
- * switcher reorders the moment a pin is chosen, so the flag flips in the cached
- * project list first. A failed write puts back only that project's flag and
- * toasts, so pins still in flight keep theirs; the lists refetch once the last
- * pin in flight settles, not while an older read could overwrite a newer pin.
+ * switcher shows a pin the moment it is chosen by laying `usePendingPins` over
+ * the server's list, not by writing the cache, so a background poll cannot
+ * undo it. A failed write toasts and its pin simply drops out of the pending
+ * set. The mutation stays pending until the project list has refetched, so the
+ * row never shows the server's older value in between.
  */
 export function usePinProject() {
   const qc = useQueryClient();
   const invalidate = useInvalidateOnWrite();
-  return useMutation<WireNode, Error, PinInput, PinContext>({
-    mutationFn: ({ key, pinned }) =>
+  return useMutation({
+    mutationFn: ({ key, pinned }: PinInput) =>
       apiSend<WireNode>('PATCH', `/api/projects/${encodeURIComponent(key)}`, { pinned }),
     mutationKey: PIN_MUTATION,
-    onError: (err, { key }, before) => {
+    onError: (err: Error) => {
       toast.error(err.message);
-      if (before !== undefined) {
-        const { wasPinned } = before;
-        qc.setQueryData(projectsQuery.queryKey, (list) => withPinned(list, key, wasPinned));
-      }
     },
-    onMutate: async ({ key, pinned }) => {
-      await qc.cancelQueries({ queryKey: projectsQuery.queryKey });
-      const before = qc.getQueryData(projectsQuery.queryKey)?.items.find((p) => p.id === key);
-      qc.setQueryData(projectsQuery.queryKey, (list) => withPinned(list, key, pinned));
-      return { wasPinned: before?.pinned === true };
-    },
-    onSettled: () => {
-      // This mutation still counts while it settles, so one means it is the last.
-      if (qc.isMutating({ mutationKey: PIN_MUTATION }) === 1) {
-        void invalidate();
-      }
+    onSettled: async () => {
+      void invalidate();
+      // Only the project list gates the pending state: it is what the pin overlays.
+      await qc.invalidateQueries({ queryKey: projectsQuery.queryKey });
     },
   });
+}
+
+/** The pins in flight, as the flag each project is on its way to; the latest pin per project wins. */
+export function usePendingPins(): ReadonlyMap<string, boolean> {
+  const pending = useMutationState({
+    filters: { mutationKey: PIN_MUTATION, status: 'pending' },
+    select: (mutation) => mutation.state.variables,
+  });
+  return new Map(pending.filter(isPinInput).map(({ key, pinned }) => [key, pinned]));
 }
 
 /**

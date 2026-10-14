@@ -27,6 +27,23 @@ export function groupProjects<T extends Switchable>(
   };
 }
 
+/** One project carrying the pin it is on its way to, if it has one in flight. */
+function withPendingPin<T extends Pick<WireNode, 'id'> & { pinned?: boolean | null }>(
+  project: T,
+  pins: ReadonlyMap<string, boolean>,
+): T {
+  const pinned = pins.get(project.id);
+  return pinned === undefined ? project : { ...project, pinned };
+}
+
+/** The list with every pin in flight laid over what the server last said. */
+export function overlayPins<T extends Pick<WireNode, 'id'> & { pinned?: boolean | null }>(
+  projects: readonly T[],
+  pins: ReadonlyMap<string, boolean>,
+): T[] {
+  return projects.map((project) => withPendingPin(project, pins));
+}
+
 /** The projects whose key or title contains the query, ignoring case; an empty query keeps all. */
 export function filterProjects<T extends Pick<WireNode, 'id' | 'title'>>(
   projects: readonly T[],

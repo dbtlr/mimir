@@ -78,17 +78,16 @@ function serve(world: Partial<World> = {}) {
   });
 }
 
-function renderAt(initial: string) {
+const newClient = () =>
+  new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } });
+
+function renderAt(initial: string, client = newClient()) {
   const testRouter = createRouter({
     history: createMemoryHistory({ initialEntries: [initial] }),
     routeTree: router.routeTree,
   });
   render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } })
-      }
-    >
+    <QueryClientProvider client={client}>
       <RouterProvider router={testRouter} />
     </QueryClientProvider>,
   );
@@ -278,6 +277,34 @@ describe('switcher pinning', () => {
     expect(search).toHaveFocus();
     expect(testRouter.state.location.pathname).toBe('/p/NRN/tasks');
     held.resolve({});
+  });
+
+  it('keeps a pending pin when a background poll returns the older list', async () => {
+    const held = Promise.withResolvers<object>();
+    const client = newClient();
+    renderAt('/p/NRN/tasks', client);
+    await openSwitcher();
+    apiSend.mockReturnValueOnce(held.promise);
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{Alt>}p{/Alt}');
+    await waitFor(() => {
+      expect(keysInOrder()).toStrictEqual(['NRN', 'LUM', 'MMR']);
+    });
+    // The server still lists LUM unpinned: the write has not committed.
+    await act(() => client.refetchQueries({ queryKey: ['projects'] }));
+    expect(keysInOrder()).toStrictEqual(['NRN', 'LUM', 'MMR']);
+    expect(optionOf('LUM')).toHaveAccessibleName(/pinned/);
+    held.resolve({});
+  });
+
+  it('falls back to the server’s list when the pin fails', async () => {
+    renderAt('/p/NRN');
+    await openSwitcher();
+    apiSend.mockRejectedValueOnce(new Error('read only'));
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{Alt>}p{/Alt}');
+    await waitFor(() => {
+      expect(keysInOrder()).toStrictEqual(['NRN', 'MMR', 'LUM']);
+    });
+    expect(optionOf('LUM')).not.toHaveAccessibleName(/pinned/);
   });
 
   it('unpins a pinned row and announces both changes politely', async () => {

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { filterProjects, groupProjects, projectSwitchTarget } from '../lib/project-switcher';
+import {
+  filterProjects,
+  groupProjects,
+  overlayPins,
+  projectSwitchTarget,
+} from '../lib/project-switcher';
 import { project } from './fixtures';
 
 const atDay = (day: string) => `2026-09-${day}T00:00:00.000Z`;
@@ -65,4 +70,27 @@ describe('projectSwitchTarget', () => {
       });
     },
   );
+});
+
+describe('overlayPins', () => {
+  it('sets the pin each pending write is heading for and leaves the others', () => {
+    const list = [
+      project({ id: 'A', pinned: false }),
+      project({ id: 'B', pinned: true }),
+      project({ id: 'C', pinned: false }),
+    ];
+    const shown = overlayPins(
+      list,
+      new Map([
+        ['A', true],
+        ['B', false],
+      ]),
+    );
+    expect(shown.map((p) => [p.id, p.pinned])).toStrictEqual([
+      ['A', true],
+      ['B', false],
+      ['C', false],
+    ]);
+    expect(list[0]?.pinned).toBe(false);
+  });
 });
