@@ -117,10 +117,12 @@ sidebar; the review page offers **New project**.
   filter by key or title, press the up and down arrows to move, and press Enter
   to switch. Switching keeps your section: from `/p/MMR/tasks` it opens the
   new project's Tasks, and from a record it opens the new project's work page.
-  Escape closes the switcher and returns focus to the header. The pin button on
-  a row pins or unpins that project without leaving the page; a pin is saved
-  with the project, so it follows you to other devices. Archived projects are
-  in a folded **Archived** section at the bottom, read-only and with no pin.
+  Escape closes the switcher and returns focus to the header. Press Alt+P to
+  pin or unpin the highlighted project, or click the pin icon on its row; either
+  works without leaving the page, and a pin is saved with the project, so it
+  follows you to other devices. Archived projects are in a folded **Archived**
+  section at the bottom; they open to their unavailable notice and cannot be
+  pinned.
   **New project** ends the list.
 - **Work** opens the project's work page. Under it, an outline lists the
   project's initiatives and phases, each with its done-over-total count, ∞

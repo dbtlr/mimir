@@ -278,20 +278,22 @@ describe('authoring mutation hooks', () => {
 
 function seededProjects() {
   const client = new QueryClient();
-  const items = [project({ id: 'MMR', pinned: false })];
-  client.setQueryData(projectsQuery.queryKey, { items, total: 1 });
+  const items = [project({ id: 'MMR', pinned: false }), project({ id: 'NRN', pinned: false })];
+  client.setQueryData(projectsQuery.queryKey, { items, total: items.length });
   return client;
 }
 
-const pinnedInCache = (client: QueryClient) =>
-  client.getQueryData<{ items: WireNode[] }>(projectsQuery.queryKey)?.items[0]?.pinned;
+const pinnedInCache = (client: QueryClient, key = 'MMR') =>
+  client
+    .getQueryData<{ items: WireNode[] }>(projectsQuery.queryKey)
+    ?.items.find((p) => p.id === key)?.pinned;
 
 describe('usePinProject (MMR-497)', () => {
   it('PATCHes the flag and flips it in the cached list before the server answers', async () => {
     apiSend.mockReturnValue(Promise.withResolvers().promise);
     const client = seededProjects();
-    const { result } = renderHook(() => usePinProject('MMR'), { wrapper: wrapper(client) });
-    result.current.mutate(true);
+    const { result } = renderHook(() => usePinProject(), { wrapper: wrapper(client) });
+    result.current.mutate({ key: 'MMR', pinned: true });
     await waitFor(() => {
       expect(pinnedInCache(client)).toBe(true);
     });
@@ -301,11 +303,36 @@ describe('usePinProject (MMR-497)', () => {
   it('puts the flag back and toasts when the write fails', async () => {
     apiSend.mockRejectedValue(new Error('read only'));
     const client = seededProjects();
-    const { result } = renderHook(() => usePinProject('MMR'), { wrapper: wrapper(client) });
-    result.current.mutate(true);
+    const { result } = renderHook(() => usePinProject(), { wrapper: wrapper(client) });
+    result.current.mutate({ key: 'MMR', pinned: true });
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('read only');
     });
     expect(pinnedInCache(client)).toBe(false);
+  });
+
+  it('restores only the failed project and refetches once the last pin settles', async () => {
+    const first = Promise.withResolvers<object>();
+    const second = Promise.withResolvers<object>();
+    apiSend.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    const client = seededProjects();
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    const { result } = renderHook(() => usePinProject(), { wrapper: wrapper(client) });
+    result.current.mutate({ key: 'MMR', pinned: true });
+    result.current.mutate({ key: 'NRN', pinned: true });
+    await waitFor(() => {
+      expect(pinnedInCache(client, 'NRN')).toBe(true);
+    });
+    second.resolve({});
+    await waitFor(() => {
+      expect(client.isMutating()).toBe(1);
+    });
+    expect(invalidate).not.toHaveBeenCalled();
+    first.reject(new Error('read only'));
+    await waitFor(() => {
+      expect(invalidate).toHaveBeenCalled();
+    });
+    expect(pinnedInCache(client, 'MMR')).toBe(false);
+    expect(pinnedInCache(client, 'NRN')).toBe(true);
   });
 });

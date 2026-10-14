@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
@@ -98,6 +98,12 @@ function renderAt(initial: string) {
 /** The header button of the project the page shows. */
 const header = (key = 'NRN') => screen.findByRole('button', { name: new RegExp(`^${key}`) });
 
+/** Open the switcher of a picker rendered on its own (no sidebar around it). */
+async function openSwitcherFromButton() {
+  await userEvent.click(screen.getByRole('button', { name: /NRN/ }));
+  return screen.findByRole('combobox', { name: 'Find a project' });
+}
+
 async function openSwitcher(key?: string) {
   await userEvent.click(await header(key));
   return screen.findByRole('combobox', { name: 'Find a project' });
@@ -112,6 +118,8 @@ const optionOf = (key: string) => {
   expect(found).toBeDefined();
   return found as HTMLElement;
 };
+const pinIcon = (key: string) => optionOf(key).querySelector('[data-pin]');
+const archivedList = () => screen.getByRole('listbox', { name: 'Archived projects' });
 const activeKeys = () =>
   within(listbox())
     .getAllByRole('option')
@@ -155,19 +163,38 @@ describe('switcher order and groups', () => {
     expect(within(listbox()).queryByRole('group', { name: 'Pinned' })).toBeNull();
   });
 
-  it('keeps archived projects in a collapsed section with no pin toggle', async () => {
-    renderAt('/p/NRN');
+  it('keeps archived projects in a collapsed section, openable but with no pin', async () => {
+    const testRouter = renderAt('/p/NRN/tasks');
     await openSwitcher();
-    expect(within(listbox()).queryByText('Retired')).toBeNull();
+    expect(screen.queryByRole('listbox', { name: 'Archived projects' })).toBeNull();
     const disclosure = await screen.findByRole('button', { name: /Archived/ });
     expect(disclosure).toHaveAttribute('aria-expanded', 'false');
     await userEvent.click(disclosure);
     expect(disclosure).toHaveAttribute('aria-expanded', 'true');
-    const archived = screen.getByText('Retired').closest('li');
-    expect(archived).not.toBeNull();
-    expect(archived).toHaveTextContent('OLD');
-    expect(screen.queryByRole('button', { name: /Pin OLD/ })).toBeNull();
+    const archived = within(archivedList()).getByRole('option', { name: /OLD/ });
+    expect(archived).toHaveTextContent('Retired');
+    expect(archived.querySelector('[data-pin]')).toBeNull();
     expect(keysInOrder()).toStrictEqual(['NRN', 'MMR', 'LUM']);
+    await userEvent.click(archived);
+    await waitFor(() => {
+      expect(testRouter.state.location.pathname).toBe('/p/OLD/tasks');
+    });
+  });
+
+  it('reaches an expanded archived project with the arrow keys', async () => {
+    const testRouter = renderAt('/p/NRN');
+    await openSwitcher();
+    await userEvent.click(await screen.findByRole('button', { name: /Archived/ }));
+    await userEvent.keyboard('{ArrowUp}{Enter}');
+    await waitFor(() => {
+      expect(testRouter.state.location.pathname).toBe('/p/OLD');
+    });
+  });
+
+  it('names an archived current project in the header, with the snowflake', async () => {
+    renderAt('/p/OLD');
+    const button = await screen.findByRole('button', { name: /^OLD.*Retired/ });
+    expect(button).toHaveTextContent('❄');
   });
 
   it('marks the current project and shows a decision count only where there is one', async () => {
@@ -197,54 +224,124 @@ describe('switcher search', () => {
     expect(keysInOrder()).toStrictEqual(['MMR']);
   });
 
-  it('says so when nothing matches', async () => {
+  it('says so when nothing matches a search', async () => {
     renderAt('/p/NRN');
     await openSwitcher();
     await userEvent.keyboard('zzz');
     expect(keysInOrder()).toStrictEqual([]);
     expect(screen.getByText(/No project matches/)).toBeInTheDocument();
   });
+
+  it('does nothing on Enter when nothing matches', async () => {
+    const testRouter = renderAt('/p/NRN/tasks');
+    await openSwitcher();
+    await userEvent.keyboard('zzz{Enter}');
+    expect(testRouter.state.location.pathname).toBe('/p/NRN/tasks');
+    expect(screen.getByRole('combobox', { name: 'Find a project' })).toBeInTheDocument();
+  });
+
+  it('says it is loading, not that nothing matches, before the list arrives', async () => {
+    apiGet.mockImplementation((path: string) =>
+      path === '/api/projects' ? Promise.withResolvers().promise : Promise.resolve(emptyRead(path)),
+    );
+    await renderInRouter(<ProjectPicker projectKey="NRN" />);
+    await openSwitcherFromButton();
+    await expect(screen.findByText('Loading projects…')).resolves.toBeInTheDocument();
+    expect(screen.queryByText(/No project matches/)).toBeNull();
+  });
+
+  it('says the list is unavailable when the read fails', async () => {
+    apiGet.mockRejectedValue(new Error('unreachable'));
+    await renderInRouter(
+      <ProjectPicker projectKey="NRN" />,
+      new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+    );
+    await openSwitcherFromButton();
+    await expect(screen.findByText('Couldn’t load the projects.')).resolves.toBeInTheDocument();
+  });
 });
 
-describe('switcher pin toggle', () => {
-  it('pins in place: sends the PATCH, reorders at once, and does not navigate', async () => {
+describe('switcher pinning', () => {
+  it('pins the highlighted row with Alt+P: PATCH, reorder at once, no navigation', async () => {
     const held = Promise.withResolvers<object>();
-    renderAt('/p/NRN/tasks');
-    await openSwitcher();
+    const testRouter = renderAt('/p/NRN/tasks');
+    const search = await openSwitcher();
+    expect(search).toHaveAttribute('aria-keyshortcuts', 'Alt+P');
     apiSend.mockReturnValueOnce(held.promise);
-    const pin = within(listbox()).getByRole('button', { name: 'Pin LUM' });
-    expect(pin).toHaveAttribute('aria-pressed', 'false');
-    await userEvent.click(pin);
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{Alt>}p{/Alt}');
     expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/LUM', { pinned: true });
     await waitFor(() => {
       expect(keysInOrder()).toStrictEqual(['NRN', 'LUM', 'MMR']);
     });
-    expect(within(listbox()).getByRole('button', { name: 'Unpin LUM' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(screen.getByRole('combobox', { name: 'Find a project' })).toHaveFocus();
+    expect(optionOf('LUM')).toHaveAccessibleName(/LUM.*pinned/);
+    expect(optionOf('MMR')).not.toHaveAccessibleName(/pinned/);
+    expect(search).toHaveFocus();
+    expect(testRouter.state.location.pathname).toBe('/p/NRN/tasks');
     held.resolve({});
   });
 
-  it('unpins a pinned project', async () => {
+  it('unpins a pinned row and announces both changes politely', async () => {
     renderAt('/p/NRN');
     await openSwitcher();
-    await userEvent.click(within(listbox()).getByRole('button', { name: 'Unpin NRN' }));
+    const live = screen.getByRole('status');
+    expect(live).toHaveAttribute('aria-live', 'polite');
+    await userEvent.keyboard('{Alt>}p{/Alt}');
     expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/NRN', { pinned: false });
+    expect(live).toHaveTextContent('Unpinned NRN');
     await waitFor(() => {
       expect(keysInOrder()).toStrictEqual(['MMR', 'NRN', 'LUM']);
     });
+    await userEvent.keyboard('{Alt>}p{/Alt}');
+    expect(live).toHaveTextContent('Pinned NRN');
   });
 
-  it('stays on the current page after a pin', async () => {
+  it('toggles with a click on the pin icon, without navigating', async () => {
     const testRouter = renderAt('/p/NRN/tasks');
     await openSwitcher();
-    await userEvent.click(within(listbox()).getByRole('button', { name: 'Pin MMR' }));
+    const icon = pinIcon('MMR');
+    expect(icon).not.toBeNull();
+    await userEvent.click(icon as Element);
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalled();
+      expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/MMR', { pinned: true });
     });
     expect(testRouter.state.location.pathname).toBe('/p/NRN/tasks');
+    expect(screen.getByRole('combobox', { name: 'Find a project' })).toHaveFocus();
+  });
+
+  it('keeps the highlight on its project when a pin reorders the list', async () => {
+    const testRouter = renderAt('/p/NRN/tasks');
+    await openSwitcher();
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{Alt>}p{/Alt}');
+    await waitFor(() => {
+      expect(keysInOrder()).toStrictEqual(['NRN', 'LUM', 'MMR']);
+    });
+    expect(activeKeys()).toStrictEqual(['LUM']);
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => {
+      expect(testRouter.state.location.pathname).toBe('/p/LUM/tasks');
+    });
+  });
+
+  it('puts no focusable control inside an option', async () => {
+    renderAt('/p/NRN');
+    await openSwitcher();
+    await userEvent.click(await screen.findByRole('button', { name: /Archived/ }));
+    const options = [
+      ...within(listbox()).getAllByRole('option'),
+      ...within(archivedList()).getAllByRole('option'),
+    ];
+    for (const option of options) {
+      expect(option.querySelectorAll('button, a, input, select, textarea')).toHaveLength(0);
+    }
+  });
+
+  it('scrolls the highlighted row into view', async () => {
+    renderAt('/p/NRN');
+    await openSwitcher();
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView');
+    await userEvent.keyboard('{ArrowDown}');
+    expect(scroll.mock.contexts.at(-1)).toBe(optionOf('MMR'));
+    scroll.mockRestore();
   });
 });
 
@@ -307,6 +404,7 @@ describe('switcher header', () => {
     serve({ review: [decisions('NRN', 4), decisions('MMR', 2), decisions('LUM', 1)] });
     renderAt('/p/NRN');
     await expect(screen.findByText('3 elsewhere')).resolves.toBeInTheDocument();
+    expect(screen.getByText('3 decisions in other projects')).toHaveClass('sr-only');
   });
 
   it('says nothing about elsewhere when only this project has decisions', async () => {
@@ -337,7 +435,7 @@ describe('switcher New project entry (MMR-230)', () => {
       <ProjectPicker projectKey="NRN" />,
       new QueryClient({ defaultOptions: { queries: { retry: false } } }),
     );
-    await userEvent.click(screen.getByRole('button', { name: /NRN/ }));
+    await openSwitcherFromButton();
     const add = await screen.findByRole('button', { name: /new project/i });
     await waitFor(() => {
       expect(add).toBeDisabled();
@@ -345,7 +443,37 @@ describe('switcher New project entry (MMR-230)', () => {
   });
 });
 
+describe('switcher while offline', () => {
+  it('does not pin', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    await renderInRouter(<ProjectPicker projectKey="NRN" />, client);
+    await openSwitcherFromButton();
+    await screen.findByRole('option', { name: /MMR/ });
+    apiGet.mockRejectedValue(new Error('unreachable'));
+    await act(() => client.invalidateQueries({ queryKey: ['projects'] }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /new project/i })).toBeDisabled();
+    });
+    await userEvent.keyboard('{Alt>}p{/Alt}');
+    await userEvent.click(pinIcon('MMR') as Element);
+    expect(apiSend).not.toHaveBeenCalled();
+  });
+});
+
 describe('switcher in the phone drawer', () => {
+  it('closes on Escape without closing the drawer', async () => {
+    stubViewport('phone');
+    renderAt('/p/NRN/tasks');
+    await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
+    await userEvent.click(await header());
+    await screen.findByRole('combobox', { name: 'Find a project' });
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox', { name: 'Projects' })).toBeNull();
+    });
+    expect(screen.getByRole('dialog', { name: 'Project' })).toBeInTheDocument();
+  });
+
   it('opens inside the drawer and switches project', async () => {
     stubViewport('phone');
     const testRouter = renderAt('/p/NRN/tasks');

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode, RefObject } from 'react';
 
 import { usePinProject } from '../api/mutations';
@@ -17,9 +17,9 @@ import { PopoverContent, PopoverRoot, PopoverTrigger } from './ui/popover';
  * The project switcher: the sidebar's header (MMR-496, MMR-497). Its button
  * names the current project and, when other projects have decisions waiting,
  * says how many. It opens a searchable popover: pinned projects first, then
- * the rest by recent activity, each with its decision count and a pin toggle;
- * archived projects fold away at the bottom. A trailing "+ New project" row
- * opens the create-project sheet (MMR-230).
+ * the rest by recent activity, each with its decision count; archived projects
+ * fold away at the bottom. A trailing "+ New project" row opens the
+ * create-project sheet (MMR-230).
  *
  * The same popover opens inside the phone drawer; `onNavigate` lets the drawer
  * close behind a pick.
@@ -40,7 +40,16 @@ export function ProjectPicker({
   const projects = useQuery(projectsQuery);
   const review = useQuery(reviewQuery);
   const conn = connectivity([projects]);
-  const current = projects.data?.items.find((p) => p.id === projectKey);
+  const active = projects.data?.items.find((p) => p.id === projectKey);
+  // An archived project's pages still open (as the unavailable notice), so the
+  // header names it from the archived list once the active list lacks it.
+  const archived = useQuery({
+    ...archivedProjectsQuery,
+    enabled: projects.isSuccess && active === undefined,
+  });
+  const frozen =
+    active === undefined ? archived.data?.items.find((p) => p.id === projectKey) : undefined;
+  const current = active ?? frozen;
   const decisionsByKey = new Map(review.data?.projects.map((p) => [p.key, p.decisions]));
   const elsewhere = [...decisionsByKey]
     .filter(([key]) => key !== projectKey)
@@ -59,14 +68,30 @@ export function ProjectPicker({
     <>
       <PopoverRoot open={open} onOpenChange={setOpen}>
         <PopoverTrigger className="group flex w-full items-center gap-2 rounded-lg bg-well-850 px-2.5 py-2 text-left inset-ring inset-ring-line-bright transition-colors hover:bg-well-800 focus-visible:outline-2 focus-visible:outline-accent data-[popup-open]:inset-ring-accent/45">
-          {current !== undefined && <StatusDot status={current.status} />}
-          <span className="font-mono text-meta font-bold text-ink-bright">{projectKey}</span>
-          <span className="min-w-0 flex-1 truncate text-body font-semibold text-ink-bright">
+          {active !== undefined && <StatusDot status={active.status} />}
+          {frozen !== undefined && <Snowflake />}
+          <span
+            className={cn(
+              'font-mono text-meta font-bold text-ink-bright',
+              frozen !== undefined && 'text-ink-faint',
+            )}
+          >
+            {projectKey}
+          </span>
+          <span
+            className={cn(
+              'min-w-0 flex-1 truncate text-body font-semibold text-ink-bright',
+              frozen !== undefined && 'text-ink-faint',
+            )}
+          >
             {current?.title}
           </span>
           {elsewhere > 0 && (
             <span className="flex shrink-0 items-center gap-1 text-micro font-semibold text-attention-foreground before:size-1.5 before:rounded-full before:bg-attention">
-              {elsewhere} elsewhere
+              <span aria-hidden="true">{elsewhere} elsewhere</span>
+              <span className="sr-only">
+                {elsewhere} {elsewhere === 1 ? 'decision' : 'decisions'} in other projects
+              </span>
             </span>
           )}
           <svg
@@ -111,12 +136,43 @@ export function ProjectPicker({
   );
 }
 
+/** The mark of a frozen project, as on the archived shelf. */
+function Snowflake() {
+  return (
+    <span aria-hidden="true" className="shrink-0 text-tag text-ink-ghost">
+      ❄
+    </span>
+  );
+}
+
 const SEARCH_LABEL = 'Find a project';
+
+/** What the list says in place of rows, or undefined when it has rows or nothing to say. */
+function emptyMessage(input: {
+  query: string;
+  hasRows: boolean;
+  failed: boolean;
+  loading: boolean;
+}): string | undefined {
+  const { query, hasRows, failed, loading } = input;
+  if (hasRows) {
+    return undefined;
+  }
+  const typed = query.trim();
+  if (typed !== '') {
+    return `No project matches “${typed}”.`;
+  }
+  if (failed) {
+    return 'Couldn’t load the projects.';
+  }
+  return loading ? 'Loading projects…' : undefined;
+}
 
 /**
  * The popover's body: the search box (a combobox that owns the keyboard), the
  * listbox of pinned then recent projects, the folded archive, and the New
- * project row. Focus stays in the search box; the arrows move the active row.
+ * project row. Focus stays in the search box; the arrows move the highlighted
+ * row, Enter opens it, and Alt+P pins it. A row holds no control of its own.
  */
 function SwitcherPanel({
   projectKey,
@@ -134,67 +190,98 @@ function SwitcherPanel({
   onNew: () => void;
 }) {
   const listId = useId();
+  const archivedId = useId();
   const [query, setQuery] = useState('');
-  const [activeIndex, setActiveIndex] = useState(0);
+  // The highlight follows its project while the list reorders or refreshes,
+  // and falls back to the first row when that project is filtered out.
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [announcement, setAnnouncement] = useState('');
   const projects = useQuery(projectsQuery);
   const archived = useQuery(archivedProjectsQuery);
+  const pin = usePinProject();
 
   const groups = groupProjects(projects.data?.items ?? []);
   const pinned = filterProjects(groups.pinned, query);
   const rest = filterProjects(groups.rest, query);
-  const rows = [...pinned, ...rest];
   const archivedRows = filterProjects(archived.data?.items ?? [], query);
-  const active = rows[Math.min(activeIndex, rows.length - 1)];
+  const rows = [...pinned, ...rest, ...(showArchived ? archivedRows : [])];
+  const activeIndex = Math.max(
+    0,
+    rows.findIndex((r) => r.id === activeKey),
+  );
+  const active = rows.at(activeIndex);
+  const optionId = (key: string) => `${listId}-${key}`;
+  const activeOptionId = active === undefined ? undefined : optionId(active.id);
+  const message = emptyMessage({
+    failed: projects.isError,
+    hasRows: pinned.length + rest.length > 0 || archivedRows.length > 0,
+    loading: projects.isPending,
+    query,
+  });
 
-  const move = (step: number) => {
-    if (rows.length > 0) {
-      setActiveIndex((i) => (Math.min(i, rows.length - 1) + step + rows.length) % rows.length);
+  // The input keeps focus, so the list scrolls the highlighted row into view.
+  useEffect(() => {
+    if (activeOptionId !== undefined) {
+      document.getElementById(activeOptionId)?.scrollIntoView({ block: 'nearest' });
     }
+  }, [activeOptionId]);
+
+  const togglePin = (project: WireNode) => {
+    // Archived projects cannot be written, and nothing saves offline.
+    if (offline || project.archived_at != null) {
+      return;
+    }
+    const next = project.pinned !== true;
+    pin.mutate({ key: project.id, pinned: next });
+    setActiveKey(project.id);
+    setAnnouncement(`${next ? 'Pinned' : 'Unpinned'} ${project.id}`);
+    searchRef.current?.focus();
   };
+
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.nativeEvent.isComposing) {
       return;
     }
-    switch (event.key) {
-      case 'ArrowDown': {
-        event.preventDefault();
-        move(1);
-        break;
+    if (event.altKey && event.code === 'KeyP') {
+      event.preventDefault();
+      if (active !== undefined) {
+        togglePin(active);
       }
-      case 'ArrowUp': {
-        event.preventDefault();
-        move(-1);
-        break;
-      }
-      case 'Enter': {
-        event.preventDefault();
-        if (active !== undefined) {
-          onPick(active.id);
-        }
-        break;
-      }
-      default: {
-        break;
+      return;
+    }
+    const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
+    if (step !== undefined) {
+      event.preventDefault();
+      setActiveKey(rows.at((activeIndex + step) % rows.length)?.id ?? null);
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      if (active !== undefined) {
+        onPick(active.id);
       }
     }
   };
 
-  const rowProps = (p: WireNode) => ({
-    active: p.id === active?.id,
-    current: p.id === projectKey,
-    decisions: decisions.get(p.id) ?? 0,
-    id: `${listId}-${p.id}`,
-    offline,
-    onActivate: () => {
-      setActiveIndex(rows.findIndex((r) => r.id === p.id));
-    },
-    onPick: () => {
-      onPick(p.id);
-    },
-    onPinned: () => searchRef.current?.focus(),
-    project: p,
-  });
+  const row = (p: WireNode) => (
+    <ProjectOption
+      key={p.id}
+      project={p}
+      id={optionId(p.id)}
+      active={p.id === active?.id}
+      current={p.id === projectKey}
+      decisions={decisions.get(p.id) ?? 0}
+      pinnable={!offline}
+      onActivate={() => {
+        setActiveKey(p.id);
+      }}
+      onPick={() => {
+        onPick(p.id);
+      }}
+      onTogglePin={() => {
+        togglePin(p);
+      }}
+    />
+  );
 
   return (
     <>
@@ -208,48 +295,42 @@ function SwitcherPanel({
             role="combobox"
             aria-label={SEARCH_LABEL}
             aria-expanded="true"
-            aria-controls={listId}
+            aria-controls={showArchived ? `${listId} ${archivedId}` : listId}
             aria-autocomplete="list"
-            aria-activedescendant={active === undefined ? undefined : `${listId}-${active.id}`}
+            aria-activedescendant={activeOptionId}
+            aria-keyshortcuts="Alt+P"
             autoComplete="off"
             spellCheck={false}
             placeholder={SEARCH_LABEL}
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
-              setActiveIndex(0);
+              setActiveKey(null);
             }}
             onKeyDown={onKeyDown}
             className="min-w-0 flex-1 bg-transparent text-meta text-ink-bright outline-none placeholder:text-ink-faint"
           />
-          <kbd className="shrink-0 font-mono text-micro text-ink-ghost max-md:hidden">↑↓ ↵</kbd>
+          <kbd className="shrink-0 font-mono text-micro text-ink-ghost max-md:hidden">↑↓ ↵ ⌥P</kbd>
         </div>
       </div>
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
       <div className="min-h-0 overflow-y-auto px-1.5 pb-1.5">
         <div id={listId} role="listbox" aria-label="Projects">
-          {pinned.length > 0 && (
-            <Group label="Pinned">
-              {pinned.map((p) => (
-                <ProjectRow key={p.id} {...rowProps(p)} />
-              ))}
-            </Group>
-          )}
-          {rest.length > 0 && (
-            <Group label="Recent">
-              {rest.map((p) => (
-                <ProjectRow key={p.id} {...rowProps(p)} />
-              ))}
-            </Group>
-          )}
+          {pinned.length > 0 && <Group label="Pinned">{pinned.map(row)}</Group>}
+          {rest.length > 0 && <Group label="Recent">{rest.map(row)}</Group>}
         </div>
-        {rows.length === 0 && archivedRows.length === 0 && (
-          <p className="px-2 py-3 text-xs text-ink-dim">No project matches “{query.trim()}”.</p>
-        )}
+        {message !== undefined && <p className="px-2 py-3 text-xs text-ink-dim">{message}</p>}
         {archivedRows.length > 0 && (
           <div className="mt-1">
             <button
               type="button"
               aria-expanded={showArchived}
+              // Keep focus in the search box, so the keys still drive the list.
+              onMouseDown={(event) => {
+                event.preventDefault();
+              }}
               onClick={() => {
                 setShowArchived((v) => !v);
               }}
@@ -259,17 +340,9 @@ function SwitcherPanel({
               Archived · {archivedRows.length}
             </button>
             {showArchived && (
-              <ul className="flex flex-col gap-px">
-                {archivedRows.map((p) => (
-                  <li
-                    key={p.id}
-                    className="flex min-w-0 items-center gap-2 px-2 py-1.5 text-meta text-ink-ghost"
-                  >
-                    <span className="w-10 shrink-0 font-mono text-mono-id font-bold">{p.id}</span>
-                    <span className="min-w-0 flex-1 truncate">{p.title}</span>
-                  </li>
-                ))}
-              </ul>
+              <div id={archivedId} role="listbox" aria-label="Archived projects">
+                {archivedRows.map(row)}
+              </div>
             )}
           </div>
         )}
@@ -302,35 +375,37 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /**
- * One project in the listbox. Clicking it, or Enter while it is active, picks
- * it. The pin toggle is a control inside the row that never picks.
+ * One project in a listbox. It takes only the pointer: a click opens it, and
+ * the pin icon, a pointer-only affordance, toggles the pin. The keyboard does
+ * both from the search box (Enter, Alt+P). An archived project opens but
+ * carries no pin.
  */
-function ProjectRow({
+function ProjectOption({
   project,
   id,
   active,
   current,
   decisions,
-  offline,
+  pinnable,
   onActivate,
   onPick,
-  onPinned,
+  onTogglePin,
 }: {
   project: WireNode;
   id: string;
   active: boolean;
   current: boolean;
   decisions: number;
-  offline: boolean;
+  pinnable: boolean;
   onActivate: () => void;
   onPick: () => void;
-  onPinned: () => void;
+  onTogglePin: () => void;
 }) {
-  const pin = usePinProject(project.id);
+  const frozen = project.archived_at != null;
   const pinned = project.pinned === true;
   return (
-    // The search box owns the keyboard (aria-activedescendant), so the row only
-    // needs the pointer: click picks, moving over it makes it the active row.
+    // The search box owns focus and the keys (aria-activedescendant); a row
+    // takes only the pointer.
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events
     <div
       id={id}
@@ -339,17 +414,26 @@ function ProjectRow({
       aria-selected={active}
       aria-current={current ? 'true' : undefined}
       data-project={project.id}
-      data-active={active ? '' : undefined}
+      // Keep focus in the search box, so the keys still drive the list after a click.
+      onMouseDown={(event) => {
+        event.preventDefault();
+      }}
       onClick={onPick}
       onPointerMove={onActivate}
       className={cn(
-        'group/row flex min-w-0 cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-meta text-ink-dim max-md:py-2.5',
-        'data-[active]:bg-well-800',
+        'group/row flex min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-meta text-ink-dim max-md:py-2.5',
+        'aria-selected:bg-well-800',
         'aria-[current]:bg-accent/10 aria-[current]:text-ink-bright aria-[current]:inset-ring aria-[current]:inset-ring-accent/28',
+        frozen && 'text-ink-ghost',
       )}
     >
-      <StatusDot status={project.status} />
-      <span className="w-10 shrink-0 font-mono text-meta font-bold text-ink-bright">
+      {frozen ? <Snowflake /> : <StatusDot status={project.status} />}
+      <span
+        className={cn(
+          'w-10 shrink-0 font-mono text-meta font-bold',
+          frozen ? 'text-ink-ghost' : 'text-ink-bright',
+        )}
+      >
         {project.id}
       </span>
       <span className="min-w-0 flex-1 truncate">{project.title}</span>
@@ -361,36 +445,38 @@ function ProjectRow({
           {decisions}
         </span>
       )}
-      <button
-        type="button"
-        aria-pressed={pinned}
-        aria-label={`${pinned ? 'Unpin' : 'Pin'} ${project.id}`}
-        disabled={offline}
-        onClick={(event) => {
-          event.stopPropagation();
-          pin.mutate(!pinned);
-          onPinned();
-        }}
-        className={cn(
-          'flex size-7 shrink-0 items-center justify-center rounded text-ink-faint transition-colors hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent max-md:size-9',
-          'md:opacity-0 md:group-data-[active]/row:opacity-100 md:group-hover/row:opacity-100 md:focus-visible:opacity-100',
-          'aria-pressed:text-accent aria-pressed:opacity-100',
-        )}
-      >
-        <svg
-          width="13"
-          height="13"
-          viewBox="0 0 24 24"
-          fill={pinned ? 'currentColor' : 'none'}
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+      {pinned && <span className="sr-only">, pinned</span>}
+      {!frozen && (
+        // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+        <span
           aria-hidden="true"
+          data-pin=""
+          onClick={(event) => {
+            event.stopPropagation();
+            onTogglePin();
+          }}
+          className={cn(
+            'flex size-7 shrink-0 items-center justify-center rounded text-ink-faint transition-colors hover:text-ink-bright max-md:size-9',
+            !pinned &&
+              'md:opacity-0 md:group-aria-selected/row:opacity-100 md:group-hover/row:opacity-100',
+            pinned && 'text-accent',
+            !pinnable && 'opacity-40',
+          )}
         >
-          <path d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
-        </svg>
-      </button>
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill={pinned ? 'currentColor' : 'none'}
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+          </svg>
+        </span>
+      )}
     </div>
   );
 }

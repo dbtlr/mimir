@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import type { TransitionVerb } from '../lib/transitions';
 import { apiSend } from './client';
 import { projectsQuery } from './queries';
-import type { WireNode, WireSeed } from './types';
+import type { Collection, WireNode, WireSeed } from './types';
 
 /** Every read key a write can stale. Broad invalidation is fine — the server is loopback. */
 const WRITE_KEYS: readonly (readonly string[])[] = [
@@ -244,34 +244,55 @@ export function useUpdateProject(key: string) {
   });
 }
 
+const PIN_MUTATION = ['pin-project'] as const;
+
+type PinInput = { key: string; pinned: boolean };
+/** What a pin overwrote, so a failure can put it back. */
+type PinContext = { wasPinned: boolean };
+
+/** The list with one project's pin set; any other project, or no list yet, passes through. */
+function withPinned(
+  list: Collection<WireNode> | undefined,
+  key: string,
+  pinned: boolean,
+): Collection<WireNode> | undefined {
+  const setOne = (p: WireNode): WireNode => (p.id === key ? { ...p, pinned } : p);
+  return list === undefined ? list : { ...list, items: list.items.map(setOne) };
+}
+
 /**
  * Pin or unpin a project (MMR-497): `PATCH /api/projects/KEY {pinned}`. The
- * switcher reorders the moment the pin is clicked, so the flag flips in the
- * cached project list first; a failed write puts the list back and toasts.
+ * switcher reorders the moment a pin is chosen, so the flag flips in the cached
+ * project list first. A failed write puts back only that project's flag and
+ * toasts, so pins still in flight keep theirs; the lists refetch once the last
+ * pin in flight settles, not while an older read could overwrite a newer pin.
  */
-export function usePinProject(key: string) {
+export function usePinProject() {
   const qc = useQueryClient();
   const invalidate = useInvalidateOnWrite();
-  return useMutation({
-    mutationFn: (pinned: boolean) =>
+  return useMutation<WireNode, Error, PinInput, PinContext>({
+    mutationFn: ({ key, pinned }) =>
       apiSend<WireNode>('PATCH', `/api/projects/${encodeURIComponent(key)}`, { pinned }),
-    onError: (err: Error, _pinned, previous) => {
+    mutationKey: PIN_MUTATION,
+    onError: (err, { key }, before) => {
       toast.error(err.message);
-      if (previous !== undefined) {
-        qc.setQueryData(projectsQuery.queryKey, previous);
+      if (before !== undefined) {
+        const { wasPinned } = before;
+        qc.setQueryData(projectsQuery.queryKey, (list) => withPinned(list, key, wasPinned));
       }
     },
-    onMutate: async (pinned: boolean) => {
+    onMutate: async ({ key, pinned }) => {
       await qc.cancelQueries({ queryKey: projectsQuery.queryKey });
-      const previous = qc.getQueryData(projectsQuery.queryKey);
-      qc.setQueryData(projectsQuery.queryKey, (list) =>
-        list === undefined
-          ? list
-          : { ...list, items: list.items.map((p) => (p.id === key ? { ...p, pinned } : p)) },
-      );
-      return previous;
+      const before = qc.getQueryData(projectsQuery.queryKey)?.items.find((p) => p.id === key);
+      qc.setQueryData(projectsQuery.queryKey, (list) => withPinned(list, key, pinned));
+      return { wasPinned: before?.pinned === true };
     },
-    onSettled: () => void invalidate(),
+    onSettled: () => {
+      // This mutation still counts while it settles, so one means it is the last.
+      if (qc.isMutating({ mutationKey: PIN_MUTATION }) === 1) {
+        void invalidate();
+      }
+    },
   });
 }
 
