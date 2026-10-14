@@ -389,7 +389,9 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
   });
 });
 
-const rowCount = () => screen.queryAllByRole('link', { name: /^Finished \d+$/ }).length;
+// A text query, not a role query: naming 100+ row links costs ~150ms a call,
+// which under full-suite load pushed the Show more test past its timeout.
+const rowCount = () => screen.queryAllByText(/^Finished \d+$/, { selector: 'a' }).length;
 const showMore = () => screen.queryByRole('button', { name: 'Show more' });
 
 /** The `limit` of every terminal list read so far, in request order. */
