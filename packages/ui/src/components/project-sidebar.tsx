@@ -169,7 +169,9 @@ function Outline({
         <OutlineRow key={entry.id} entry={entry} onNavigate={onNavigate} />
       ))}
       {outline.finished.count > 0 && (
-        <details open={insideFold}>
+        // The sidebar outlives page changes and the fold toggles natively, so
+        // keying on the open record re-asserts `open` on every navigation.
+        <details key={openId ?? 'none'} open={insideFold}>
           <summary className="cursor-pointer rounded-sm px-2 py-1 text-xs text-ink-faint focus-visible:outline-2 focus-visible:outline-accent max-lg:py-2">
             {outline.finished.count} finished{' '}
             {outline.finished.count === 1 ? 'initiative' : 'initiatives'}

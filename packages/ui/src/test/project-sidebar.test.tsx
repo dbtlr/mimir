@@ -329,6 +329,20 @@ describe('sidebar outline', () => {
     expect(nav.querySelector('details')).toHaveAttribute('open');
   });
 
+  it('reopens a fold shut by hand when the next open record is inside it too', async () => {
+    const testRouter = renderAt('/p/MMR/6');
+    const nav = await outline();
+    await within(nav).findByRole('link', { name: /phase MMR-6/ });
+    await userEvent.click(within(nav).getByText('1 finished initiative'));
+    expect(nav.querySelector('details')).not.toHaveAttribute('open');
+
+    await act(async () => {
+      await testRouter.navigate({ params: { key: 'MMR', seq: '5' }, to: '/p/$key/$seq' });
+    });
+    await within(nav).findByRole('link', { name: /initiative MMR-5/ });
+    expect(nav.querySelector('details')).toHaveAttribute('open');
+  });
+
   it('keeps the fold shut otherwise', async () => {
     renderAt('/p/MMR/2');
     const nav = await outline();
