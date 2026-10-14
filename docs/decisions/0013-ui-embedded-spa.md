@@ -613,8 +613,8 @@ sidebar rule for pages outside a project is revised:
   already lists archived projects and offers _New project_.
 - **The switcher gains an _All projects_ entry, first in its list, that leads
   to `/`.** On `/` and `/doctor` the sidebar's context is All projects: its
-  header reads _All projects_, and only _Work_ (which is `/`, marked current)
-  sits under it. This revises the MMR-492 rule that, on a page outside a
+  header reads _All projects_, and only _Work_ (which is `/`, marked current
+  on `/`) sits under it. This revises the MMR-492 rule that, on a page outside a
   project, the current project is the last one visited. Bare `/tasks`,
   `/seeds`, and `/artifacts` still redirect to the last visited project's
   browser.

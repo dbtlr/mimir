@@ -7,6 +7,7 @@ import { nodeQuery, treeQuery } from '../api/queries';
 import type { WireTreeNode } from '../api/types';
 import { cn } from '../lib/cn';
 import { isSectionPage, openRecordId, sectionOfPath } from '../lib/project-sidebar';
+import type { SidebarContext } from '../lib/project-sidebar';
 import { nodeLink } from '../lib/record-url';
 import { buildOutline } from '../lib/work-page';
 import type { OutlineEntry, OutlineTally } from '../lib/work-page';
@@ -17,9 +18,11 @@ import { Skeleton } from './ui/skeleton';
 /*
  * The shell's project sidebar (ADR 0013, MMR-492 refinement): the current
  * project's switcher header, its sections, and its initiative and phase
- * outline, which marks the open record's place. From `lg` up it sits beside
- * the page; below that it folds into a drawer behind a top-bar button, because
- * a record page's own rail needs the width a tablet has.
+ * outline, which marks the open record's place. Outside a project (`/`,
+ * `/doctor`) its context is All projects (MMR-505): a header reading so, and
+ * only Work, which is `/`. From `lg` up it sits beside the page; below that it
+ * folds into a drawer behind a top-bar button, because a record page's own
+ * rail needs the width a tablet has.
  */
 
 /**
@@ -186,11 +189,11 @@ function Outline({
 }
 
 /**
- * The sidebar's content: the switcher header, then Work with the outline under
- * it, then the browsers. `onNavigate` fires when a pick moves the page, so the
- * drawer can close behind it.
+ * A project's sidebar content: the switcher header, then Work with the outline
+ * under it, then the browsers. `onNavigate` fires when a pick moves the page,
+ * so the drawer can close behind it.
  */
-function SidebarBody({ projectKey, onNavigate }: { projectKey: string; onNavigate?: () => void }) {
+function ProjectBody({ projectKey, onNavigate }: { projectKey: string; onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // The tree is the whole board, so it is read once rather than polled, as on
   // the record pages; a console write invalidates it.
@@ -217,10 +220,7 @@ function SidebarBody({ projectKey, onNavigate }: { projectKey: string; onNavigat
     );
   };
   return (
-    <nav aria-label="Project" className="flex flex-col gap-0.5">
-      <div className="mb-2">
-        <ProjectPicker projectKey={projectKey} onNavigate={onNavigate} />
-      </div>
+    <>
       {sectionLink(WORK)}
       <Outline
         tree={tree.data}
@@ -229,18 +229,67 @@ function SidebarBody({ projectKey, onNavigate }: { projectKey: string; onNavigat
         onNavigate={onNavigate}
       />
       {BROWSERS.map(sectionLink)}
+    </>
+  );
+}
+
+/**
+ * The All projects sidebar content: Work, which is `/`. The router marks it the
+ * page on `/` (and not on `/doctor`). A line says where the rest went.
+ */
+function AllProjectsBody({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <>
+      <Link
+        to="/"
+        activeOptions={{ exact: true, includeSearch: false }}
+        onClick={onNavigate}
+        className={cn(ROW, 'py-1.5 text-meta max-lg:py-2.5', SECTION_CURRENT)}
+      >
+        Work
+      </Link>
+      <p className="px-2 py-1.5 text-xs text-ink-faint">
+        Choose a project in the switcher for its outline, tasks, seeds, and artifacts.
+      </p>
+    </>
+  );
+}
+
+/** What the sidebar's landmarks and drawer are called: the context they frame. */
+function landmarkLabel(context: SidebarContext): string {
+  return context.kind === 'all' ? 'All projects' : 'Project';
+}
+
+/** The sidebar's content for its context: the switcher header, then the context's sections. */
+function SidebarBody({
+  context,
+  onNavigate,
+}: {
+  context: SidebarContext;
+  onNavigate?: () => void;
+}) {
+  return (
+    <nav aria-label={landmarkLabel(context)} className="flex flex-col gap-0.5">
+      <div className="mb-2">
+        <ProjectPicker context={context} onNavigate={onNavigate} />
+      </div>
+      {context.kind === 'project' ? (
+        <ProjectBody projectKey={context.key} onNavigate={onNavigate} />
+      ) : (
+        <AllProjectsBody onNavigate={onNavigate} />
+      )}
     </nav>
   );
 }
 
 /** The desktop sidebar: a fixed-width column beside the page. */
-export function ProjectSidebar({ projectKey }: { projectKey: string }) {
+export function ProjectSidebar({ context }: { context: SidebarContext }) {
   return (
     <aside
-      aria-label="Project"
+      aria-label={landmarkLabel(context)}
       className="w-64 shrink-0 overflow-y-auto border-r border-line bg-well-950 p-2.5"
     >
-      <SidebarBody projectKey={projectKey} />
+      <SidebarBody context={context} />
     </aside>
   );
 }
@@ -251,7 +300,7 @@ export function ProjectSidebar({ projectKey }: { projectKey: string }) {
  * focus back to the button; choosing something, or any other move to another
  * page (Back, the jump palette), closes it too.
  */
-export function ProjectDrawer({ projectKey }: { projectKey: string }) {
+export function ProjectDrawer({ context }: { context: SidebarContext }) {
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [seenPath, setSeenPath] = useState(pathname);
@@ -284,11 +333,11 @@ export function ProjectDrawer({ projectKey }: { projectKey: string }) {
           className="fixed inset-0 z-40 bg-well-950/60 transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0"
         />
         <Dialog.Popup
-          aria-label="Project"
+          aria-label={landmarkLabel(context)}
           className="fixed inset-y-0 left-0 z-50 w-[300px] max-w-[88vw] overflow-y-auto border-r border-line bg-well-950 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-2xl outline-none transition-transform duration-200 ease-out data-[ending-style]:-translate-x-full data-[starting-style]:-translate-x-full"
         >
           <SidebarBody
-            projectKey={projectKey}
+            context={context}
             onNavigate={() => {
               setOpen(false);
             }}

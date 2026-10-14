@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { isSectionPage, openRecordId, sectionOfPath } from '../lib/project-sidebar';
+import {
+  isSectionPage,
+  openRecordId,
+  sectionOfPath,
+  sidebarContextOf,
+} from '../lib/project-sidebar';
 
 describe('sectionOfPath', () => {
   it.each([
@@ -51,4 +56,14 @@ describe('openRecordId', () => {
       expect(openRecordId(path)).toBeUndefined();
     },
   );
+});
+
+describe('sidebarContextOf (MMR-505)', () => {
+  it.each(['/p/MMR', '/p/MMR/tasks', '/p/MMR/417'])('%s frames its project', (path) => {
+    expect(sidebarContextOf(path)).toStrictEqual({ key: 'MMR', kind: 'project' });
+  });
+
+  it.each(['/', '/doctor', '/tasks', '/nowhere'])('%s frames All projects', (path) => {
+    expect(sidebarContextOf(path)).toStrictEqual({ kind: 'all' });
+  });
 });

@@ -103,15 +103,21 @@ On a phone, the rail folds into chips that open bottom sheets.
 
 ## Find your way with the sidebar
 
-A sidebar on the left frames every page for the current project. The current
-project is the one in the address, else the last one you visited on this
-device, else the first in the project switcher. With no projects, there is no
-sidebar; the review page offers **New project**.
+A sidebar on the left frames every page. On a project's pages it frames that
+project. On `/` and `/doctor`, which belong to no project, it frames All
+projects: the header reads **All projects** with a violet count of the
+decisions waiting across every project, and only **Work** sits under it, which
+is `/`. Choose a project in the switcher to get its outline, Tasks, Seeds, and
+Artifacts back. With no projects, there is no sidebar; the review page offers
+**New project**.
 
 - **The header** names the project by key and title. When other projects have
   decisions waiting, it adds "N elsewhere" in violet. Choose it to open the
   project switcher.
-- **The switcher** lists pinned projects first, then the rest by most recent
+- **The switcher** opens on **All projects**, which leads to `/` and is marked
+  when you are on `/` or `/doctor`. It carries a violet count of the decisions
+  across every project and no pin, and it is hidden while you type a search.
+  Below it are pinned projects first, then the rest by most recent
   activity. Each row shows the project's key and title, a violet count of its
   decisions when it has any, and a mark on the project you are in. Type to
   filter by key or title, press the up and down arrows to move, and press Enter
@@ -124,7 +130,7 @@ sidebar; the review page offers **New project**.
   section at the bottom; they open to their unavailable notice and cannot be
   pinned.
   **New project** ends the list.
-- **Work** opens the project's work page. Under it, an outline lists the
+- **Work** opens the project's work page (on All projects, `/`). Under it, an outline lists the
   project's initiatives and phases, each with its done-over-total count, ∞
   when open-ended, or _parked_. Finished initiatives fold into one line you can
   open. Tasks are not in the outline unless you have one open.
@@ -147,9 +153,11 @@ palette, **Needs you**, and the theme toggle.
 ## Browse a project's records
 
 Each project has three browsers, at `/p/KEY/tasks`, `/p/KEY/seeds`, and
-`/p/KEY/artifacts`. The sidebar links to the current project's. The old
-addresses `/tasks`, `/seeds`, and `/artifacts` still work: with `?project=KEY` they open that project's browser, and without it they
-open the current project's. With no projects at all they open the review page.
+`/p/KEY/artifacts`. The sidebar links to the project you are in. The old
+addresses `/tasks`, `/seeds`, and `/artifacts` still work: with `?project=KEY`
+they open that project's browser, and without it they open the last project
+you visited on this device, else the first in the project switcher. With no
+projects at all they open the review page.
 
 - **Tasks** for the project's tasks, grouped by status, with
   **Live** and **Finished** views and a search over titles and IDs;
