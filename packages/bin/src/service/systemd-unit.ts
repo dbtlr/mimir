@@ -13,9 +13,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
+import { IS_PRODUCTION, runtimePaths } from '@mimir/core';
 import { parsePort } from '@mimir/helpers';
 
-import { IS_PRODUCTION, runtimePaths } from '../env';
 import { SERVE_LOG_FILE } from './events';
 import type { ServeUnitOptions } from './units';
 

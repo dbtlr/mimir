@@ -4,7 +4,8 @@
  * KeepAlive restarts a killed process, so honest stop is bootout (plist stays
  * on disk); restart is kickstart -k; a nonzero `print` means not loaded.
  */
-import type { MimirError } from '../core';
+import type { MimirError } from '@mimir/core';
+
 import type { Exec, ExecResult } from '../exec';
 import { supervisorError } from './supervisor';
 import type { ServiceInfo, Supervisor } from './supervisor';

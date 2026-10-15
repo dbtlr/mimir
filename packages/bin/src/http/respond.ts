@@ -1,5 +1,5 @@
-import { MimirError, validation } from '../core';
-import type { ErrorCode } from '../core';
+import { MimirError, validation } from '@mimir/core';
+import type { ErrorCode } from '@mimir/core';
 
 /**
  * Response plumbing for the resource envelope: JSON rendering, the error

@@ -1,11 +1,16 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
+import {
+  attachArtifact,
+  createInitiative,
+  createPhase,
+  createProject,
+  createTask,
+} from '@mimir/core';
+import type { Store } from '@mimir/core';
+import { createTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
 import type { Server } from 'bun';
 
-import { createInitiative, createPhase, createProject, createTask } from '../core/create';
-import { attachArtifact } from '../core/mutations';
-import type { Store } from '../core/store';
-import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
 import { createServer } from './server';
 
 let store: Store;

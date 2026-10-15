@@ -8,8 +8,8 @@
  * (records/table/ids) emit a Norn-style glyph line + optional note line.
  */
 import type { ValueWarning } from '@mimir/contract';
+import { MimirError } from '@mimir/core';
 
-import { MimirError } from '../core';
 import type { Io } from '../presentation';
 
 /** A bad invocation (parse failure, unknown verb, invalid flag value). Exit 2. */

@@ -31,17 +31,20 @@ for fixtures, snapshots, and candidate migration tests.
 
 One core, thin transports, in a Bun workspace. `packages/contract`
 (`@mimir/contract`) is the dependency-free type leaf — the wire vocabulary
-every consumer parses. `packages/bin` (`@mimir/bin`) is the binary: `src/core`
-is the domain logic (derivation, rank, mutation verbs, intent layer) over the
-`Store` seam; `src/core/store-sql` is the one SQL store, written once, with
-`src/core/store-sqlite` (the default local file) and `src/core/store-postgres`
-(the shared database) supplying each dialect's connection, DDL, and column
-encodings;
+every consumer parses. `packages/core` (`@mimir/core`) is the domain logic
+(derivation, rank, mutation verbs, intent layer) over the `Store` seam, plus
+the store backends, the doctor, the installation record, and the runtime
+config; `src/store-sql` is the one SQL store, written once, with
+`src/store-sqlite` (the default local file) and `src/store-postgres` (the
+shared database) supplying each dialect's connection, DDL, and column
+encodings. Its public surface is the entry `src/index.ts`; test fixtures sit
+behind `@mimir/core/testing`. `packages/bin` (`@mimir/bin`) is the binary:
 `src/cli`, `src/mcp`, and `src/http` are the transports; `src/main.ts` is the
 composition root. `packages/ui` (`@mimir/ui`) is the operator-console SPA,
-embedded in the binary at build time. Inside the binary the layering
-`contract ← core ← transports` is enforced by an oxlint rule — `core` may not
-import a transport, and transports may not import each other.
+embedded in the binary at build time. The layering
+`contract ← core ← bin` is enforced by an oxlint rule — `@mimir/core` may not
+import `@mimir/bin`, bin reaches core only through its two entries, and
+transports may not import each other.
 
 ## Pull requests
 

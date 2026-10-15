@@ -2,22 +2,20 @@
   "name": "@mimir/bin",
   "version": "0.26.0-next",
   "private": true,
-  "description": "The mimir binary — core and the three transports (CLI, MCP, HTTP) over a SQLite or Postgres store.",
+  "description": "The mimir binary — the three transports (CLI, MCP, HTTP) over @mimir/core.",
   "bin": {
     "mimir": "./src/main.ts"
   },
   "type": "module",
   "dependencies": {
     "@mimir/contract": "workspace:*",
+    "@mimir/core": "workspace:*",
     "@mimir/helpers": "workspace:*",
     "@modelcontextprotocol/sdk": "1.32.1",
     "kysely": "0.29.6",
-    "mdast-util-from-markdown": "2.1.0",
-    "pg": "8.23.1",
     "zod": "4.6.6"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.8",
-    "@types/pg": "8.23.1"
+    "@electric-sql/pglite": "0.5.8"
   }
 }

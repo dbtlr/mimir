@@ -3,10 +3,10 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import type { Store } from '@mimir/core';
+import { createTestStore, inertStore } from '@mimir/core/testing';
 import type { Server } from 'bun';
 
-import type { Store } from '../core';
-import { createTestStore, inertStore } from '../testing/store';
 import { createServer } from './server';
 import type { UiAssetMap } from './static';
 

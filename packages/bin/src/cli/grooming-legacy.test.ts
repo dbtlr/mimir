@@ -1,12 +1,11 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
+import { createInitiative, createPhase, createProject, createTask } from '@mimir/core';
+import type { Store } from '@mimir/core';
+import { createSqliteTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
+import type { SqliteTestStore } from '@mimir/core/testing';
 import { parseJson } from '@mimir/helpers';
 
-import { createInitiative, createPhase, createProject, createTask } from '../core';
-import type { Store } from '../core';
-import { createSqliteTestStore } from '../core/store-sqlite/testing';
-import type { SqliteTestStore } from '../core/store-sqlite/testing';
-import { nodeIdOf, projectIdOf } from '../testing/store';
 import { runCli } from './run';
 import { fakeIo } from './testing';
 

@@ -1,10 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 
 import type { DateOp } from '@mimir/contract';
-import type { Server } from 'bun';
-
-import { runCli } from './cli/run';
-import { fakeIo } from './cli/testing';
 import {
   attachArtifact,
   createInitiative,
@@ -18,11 +14,15 @@ import {
   getArtifact,
   listSeeds,
   withinWindow,
-} from './core';
-import type { Store } from './core';
+} from '@mimir/core';
+import type { Store } from '@mimir/core';
+import { createTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
+import type { Server } from 'bun';
+
+import { runCli } from './cli/run';
+import { fakeIo } from './cli/testing';
 import { createServer } from './http/server';
 import { toolArtifacts, toolList, toolSeeds } from './mcp/tools';
-import { createTestStore, nodeIdOf, projectIdOf } from './testing/store';
 
 /**
  * The date-query conformance suite (ADR 0029) — the registry-driven proof that

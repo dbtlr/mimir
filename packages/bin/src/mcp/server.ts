@@ -19,6 +19,8 @@ import type {
   OpFact,
   ProjectStatusSelector,
 } from '@mimir/contract';
+import { OP_SPECS, SPEC_UPDATE_FIELDS, specUpdateFields } from '@mimir/core';
+import type { SpecUpdateField, Store } from '@mimir/core';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
@@ -27,8 +29,6 @@ import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import type { ZodRawShape } from 'zod';
 
-import { OP_SPECS, specUpdateFields, SPEC_UPDATE_FIELDS } from '../core';
-import type { SpecUpdateField, Store } from '../core';
 import {
   toolAnnotate,
   toolAttach,

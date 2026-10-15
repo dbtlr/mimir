@@ -3,9 +3,9 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { MimirError } from '../core/errors';
+import { MimirError, readConfig } from '@mimir/core';
+
 import type { ServiceDeps } from '../service';
-import { readConfig } from '../service/config';
 import type { ServiceInfo, Supervisor } from '../service/launchd';
 import { plistFor } from '../service/plist';
 import { SERVE_LABEL } from '../service/units';

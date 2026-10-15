@@ -7,16 +7,16 @@
 
 import { PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
 import type { Priority, Size } from '@mimir/contract';
-import { isMember } from '@mimir/helpers';
-
 import {
-  MimirError,
   dateFilterWindows,
+  MimirError,
   parseDateFilterTokens,
   requireTimeZone,
   systemTimeZone,
-} from '../core';
-import type { DateFilter } from '../core';
+} from '@mimir/core';
+import type { DateFilter } from '@mimir/core';
+import { isMember } from '@mimir/helpers';
+
 import { usage } from './errors';
 
 /** Re-raise a core refusal as a CLI usage error (exit 2), hint intact. */

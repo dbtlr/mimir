@@ -1,3 +1,20 @@
+import {
+  buildStore,
+  DEFAULT_PORT,
+  envPort,
+  INSTALLATION_PROTOCOL_RESPONSE,
+  IS_PRODUCTION,
+  MimirError,
+  openInstallationSqlite,
+  openPostgres,
+  runInstallationCommand,
+  supervisorScope,
+  systemTimeZone,
+  warnConfigPermissions,
+  withConfigDoctor,
+} from '@mimir/core';
+import type { BuiltStore, DoctorBackend, Store } from '@mimir/core';
+
 /**
  * Entry point + composition root. Unlike the transport layers, `main` may wire
  * the store and transports together. It builds the store, then dispatches:
@@ -16,16 +33,7 @@
  */
 import { findBinding, runCli } from './cli';
 import type { Io } from './cli';
-import { systemTimeZone } from './core';
-import type { Store } from './core';
-import { MimirError } from './core/errors';
-import { openPostgres } from './core/store-postgres/index';
-import { warnConfigPermissions, withConfigDoctor } from './doctor/config-permissions';
-import type { DoctorBackend } from './doctor/contract';
-import { DEFAULT_PORT, IS_PRODUCTION, envPort, supervisorScope } from './env';
 import { createServer } from './http';
-import { runInstallationCommand } from './installation/command';
-import { INSTALLATION_PROTOCOL_RESPONSE } from './installation/protocol';
 import { serveStdio } from './mcp';
 import { parseServeArgs } from './serve-args';
 import {
@@ -50,9 +58,6 @@ import {
   unitLabels,
 } from './service';
 import type { ServeUnitOptions, ServiceDeps, SupervisorScope } from './service';
-import { buildStore } from './store-backend';
-import type { BuiltStore } from './store-backend';
-import { openInstallationSqlite } from './store-sqlite-backend';
 import type { StoreDeps } from './store/commands';
 import { VERSION } from './version';
 

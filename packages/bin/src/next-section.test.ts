@@ -1,9 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
-import type { Server } from 'bun';
-
-import { runCli } from './cli/run';
-import { fakeIo } from './cli/testing';
 import {
   attachArtifact,
   createInitiative,
@@ -14,11 +10,15 @@ import {
   getNode,
   updateNode,
   updateProject,
-} from './core';
-import type { Store } from './core';
+} from '@mimir/core';
+import type { Store } from '@mimir/core';
+import { createTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
+import type { Server } from 'bun';
+
+import { runCli } from './cli/run';
+import { fakeIo } from './cli/testing';
 import { createServer } from './http/server';
 import { toolUpdate } from './mcp/tools';
-import { createTestStore, nodeIdOf, projectIdOf } from './testing/store';
 
 /**
  * The owned `## Next` direction narrative (MMR-321, ADR 0026 Decision 2), end to

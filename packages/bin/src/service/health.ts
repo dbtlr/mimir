@@ -1,13 +1,5 @@
-import { z } from 'zod';
-
-/** The owned `/api/health` wire response, shared by its producer and consumer. */
-export const healthSchema = z.object({
-  schema: z.number().int().nonnegative(),
-  status: z.literal('ok'),
-  version: z.string(),
-});
-
-export type Health = z.infer<typeof healthSchema>;
+import { healthSchema } from '@mimir/core';
+import type { Health } from '@mimir/core';
 
 /** A malformed or foreign responder is the same as no health response. */
 export function parseHealth(value: unknown): Health | undefined {

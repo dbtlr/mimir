@@ -4,7 +4,8 @@
  * against the CLI's own surface. Not bundled in production output.
  */
 
-import type { Store } from '../core';
+import type { Store } from '@mimir/core';
+
 import { COMMAND_HELP } from './help';
 import { runCli } from './run';
 import { fakeIo } from './testing';

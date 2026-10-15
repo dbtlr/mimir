@@ -29,13 +29,13 @@ import type { Stats } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 import type { SeedLane, StatusWord, TaskStatusWord } from '@mimir/contract';
-
 import {
   abandonTask,
   annotate,
   archiveProject,
   attachArtifact,
   blockTask,
+  buildSqliteStore,
   completeTask,
   createInitiative,
   createPhase,
@@ -49,8 +49,8 @@ import {
   isStale,
   listSeeds,
   nodeStatusWord,
-  parkTask,
   parkSeed,
+  parkTask,
   promoteSeed,
   renderId,
   seedLane,
@@ -60,9 +60,8 @@ import {
   transitionSeed,
   updateNode,
   updateProject,
-} from '../src/core';
-import type { Store } from '../src/core';
-import { buildSqliteStore } from '../src/store-sqlite-backend';
+} from '@mimir/core';
+import type { Store } from '@mimir/core';
 
 /** How far back the "going cold" cohort is stamped — comfortably past the 14-day
  * stale threshold so backdated in_progress/ready tasks read as stale. */

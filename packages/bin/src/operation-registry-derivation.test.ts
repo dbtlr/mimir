@@ -2,6 +2,8 @@ import { expect, test } from 'bun:test';
 
 import { OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
 import type { OpFact } from '@mimir/contract';
+import { assertOpFields, OP_SPECS } from '@mimir/core';
+import { inertStore } from '@mimir/core/testing';
 import { z } from 'zod';
 
 import {
@@ -11,10 +13,8 @@ import {
   uniformFlagSpec,
   uniformSummary,
 } from './cli/help';
-import { assertOpFields, OP_SPECS } from './core';
 import { uniformRoutes } from './http/server';
 import { buildMcpServer, uniformToolDescription, uniformToolSchema } from './mcp/server';
-import { inertStore } from './testing/store';
 
 /**
  * The three transport surfaces for the twelve uniform verbs derive from one

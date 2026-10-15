@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
+import { createInitiative, createPhase, createProject } from '@mimir/core';
+import type { Store } from '@mimir/core';
+import { createTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
 import type { Server } from 'bun';
 
-import { createInitiative, createPhase, createProject } from '../core';
-import type { Store } from '../core';
-import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
 import { createServer } from './server';
 
 /**

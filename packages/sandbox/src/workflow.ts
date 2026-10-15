@@ -16,9 +16,9 @@ import { dirname, join, resolve } from 'node:path';
 
 import { z } from 'zod';
 
-import { installBinary, readInstallationAt } from '../../bin/src/installation/index';
-import { readDatabaseAuthority } from '../../bin/src/sandbox-authority';
-import type { DatabaseSandboxAuthority } from '../../bin/src/sandbox-authority';
+import { installBinary, readInstallationAt } from '../../core/src/installation/index';
+import { readDatabaseAuthority } from '../../core/src/sandbox-authority';
+import type { DatabaseSandboxAuthority } from '../../core/src/sandbox-authority';
 import { InterruptedError, command, hashFile, isolatedEnvironment, privateJson } from './process';
 import { removeSandboxUnits } from './sandbox-units';
 import { latestSnapshot, snapshotSchema } from './snapshot';
@@ -336,7 +336,7 @@ export class Sandbox {
         result: fixture,
         runtime: Bun.version,
         sourceSha256: await hashFile(
-          join(this.repository, 'packages/bin/src/testing/conformance.ts'),
+          join(this.repository, 'packages/core/src/testing/conformance.ts'),
         ),
         workerSha256: await hashFile(
           join(this.repository, 'packages/bin/scripts/sandbox-store.ts'),
@@ -603,8 +603,8 @@ export class Sandbox {
         [
           process.execPath,
           'test',
-          'packages/bin/src/core/store-postgres/postgres.integration.test.ts',
-          'packages/bin/src/store-backend.test.ts',
+          'packages/core/src/store-postgres/postgres.integration.test.ts',
+          'packages/core/src/store-backend.test.ts',
         ],
         { cwd: this.repository, env: this.env(authority), timeout: 600_000 },
       );

@@ -1,5 +1,5 @@
 /** Service supervision + self-update (MMR-47, MMR-54). main wires realServiceDeps. */
-export { acceptedHosts, serveBanner } from './address';
+export { acceptedHosts, serveBanner } from '@mimir/core';
 export {
   DEFAULT_STORE_BACKEND,
   type ConfigPatch,
@@ -10,7 +10,7 @@ export {
   serveProblemWarning,
   writeConfig,
   writeServePort,
-} from './config';
+} from '@mimir/core';
 export {
   cmdSelfUpdate,
   cmdService,
@@ -18,7 +18,7 @@ export {
   type ServiceDeps,
   type ServiceUnit,
 } from './commands';
-export { type Health, healthSchema, parseHealth, probeHealth } from './health';
+export { parseHealth, probeHealth } from './health';
 export { EVENTS_FILE, SERVE_LOG_FILE } from './events';
 export { LaunchdSupervisor, bunExec } from './launchd';
 export { plistFor, plistPathFor, readServePlistPort } from './plist';

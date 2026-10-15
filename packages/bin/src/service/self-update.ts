@@ -9,9 +9,12 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 
-import { MimirError } from '../core';
-import { readInstallationAt, registerInstallation } from '../installation';
-import { requireInstallationProtocol } from '../installation/protocol';
+import {
+  MimirError,
+  readInstallationAt,
+  registerInstallation,
+  requireInstallationProtocol,
+} from '@mimir/core';
 
 export type Fetcher = (url: string) => Promise<Response>;
 

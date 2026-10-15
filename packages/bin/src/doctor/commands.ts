@@ -1,3 +1,5 @@
+import type { DoctorBackend, DoctorFinding, DoctorScopeMatch } from '@mimir/core';
+
 /**
  * The `mimir doctor` command (MMR-166) — ask the store backend for its
  * diagnosis and report it. The backend owns every check (ADR 0030 Decision 6);
@@ -15,7 +17,6 @@
  */
 import type { Format, Io } from '../presentation';
 import { ok, warn } from '../presentation';
-import type { DoctorBackend, DoctorFinding, DoctorScopeMatch } from './contract';
 
 /** One finding as the human line the CLI prints to stderr, e.g. `[warn] node: message (where)`. */
 export function findingLine(f: DoctorFinding): string {

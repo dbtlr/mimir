@@ -5,13 +5,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { Scratchpad } from '@mimir/contract';
+import { buildSqliteStore, createInitiative, createProject, SQLITE_FILE } from '@mimir/core';
+import type { ArtifactStore, ScratchpadStore } from '@mimir/core';
+import { createPgliteTestStore } from '@mimir/core/testing';
 
-import { createInitiative, createProject } from '../core';
-import type { ArtifactStore } from '../core/artifacts/store';
-import type { ScratchpadStore } from '../core/scratchpads/store';
-import { createPgliteTestStore } from '../core/store-postgres/testing';
-import { SQLITE_FILE } from '../core/store-sqlite/client';
-import { buildSqliteStore } from '../store-sqlite-backend';
 import { runCli } from './run';
 import { fakeIo } from './testing';
 

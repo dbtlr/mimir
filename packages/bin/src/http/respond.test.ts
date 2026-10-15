@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
-import { notFound } from '../core';
+import { notFound } from '@mimir/core';
+
 import { errorResponse } from './respond';
 
 /**

@@ -1,9 +1,8 @@
 /** Two help tiers: `-h` terse (synopsis + flags), `--help` fuller with examples. */
 import { isTerminalLifecycle, OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
 import type { DataFieldKey, OpChoice, OpFact, UniformVerb } from '@mimir/contract';
+import { specUpdateFields, DEFAULT_PORT, IS_PRODUCTION } from '@mimir/core';
 
-import { specUpdateFields } from '../core';
-import { DEFAULT_PORT, IS_PRODUCTION } from '../env';
 import { bold, color } from '../presentation';
 import { updateFieldFlags } from './mutations';
 

@@ -4,13 +4,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { SEED_LANE_VALUES, STATUS_WORD_VALUES } from '@mimir/contract';
+import {
+  buildSqliteStore,
+  deriveSet,
+  isStale,
+  listSeeds,
+  nodeStatusWord,
+  seedLane,
+} from '@mimir/core';
+import type { BuiltStore, Node, Store } from '@mimir/core';
 
-import { deriveSet, isStale, listSeeds, nodeStatusWord } from '../src/core';
-import type { Store } from '../src/core';
-import type { Node } from '../src/core/model';
-import { seedLane } from '../src/core/seeds';
-import type { BuiltStore } from '../src/store-backend';
-import { buildSqliteStore } from '../src/store-sqlite-backend';
 import { generateDocsFixture } from './generate-docs-fixture';
 
 /**

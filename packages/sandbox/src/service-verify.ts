@@ -25,9 +25,9 @@ import { join, resolve } from 'node:path';
 
 import { z } from 'zod';
 
-import { installBinary } from '../../bin/src/installation/index';
-import { readSandboxAuthority } from '../../bin/src/sandbox-authority';
 import { SERVE_LABEL, unitLabels } from '../../bin/src/service/units';
+import { installBinary } from '../../core/src/installation/index';
+import { readSandboxAuthority } from '../../core/src/sandbox-authority';
 import { attempt, command, hashFile, isolatedEnvironment, privateJson } from './process';
 import { removeSandboxUnits } from './sandbox-units';
 import { verifyServiceLifecycle } from './service-lifecycle';

@@ -19,18 +19,19 @@
  */
 import { existsSync } from 'node:fs';
 
-import { arrow, ok, warn } from '../presentation';
-import type { Format, Io } from '../presentation';
-import { cmdService, hasSupervisor } from '../service';
-import type { ServiceDeps } from '../service';
 import {
+  assertUsableStoreConfig,
   DEFAULT_STORE_BACKEND,
   isUnparseableConfig,
   readConfig,
   writeConfig,
-} from '../service/config';
-import type { GlobalConfig, StoreBackend } from '../service/config';
-import { assertUsableStoreConfig } from '../store-backend';
+} from '@mimir/core';
+import type { GlobalConfig, StoreBackend } from '@mimir/core';
+
+import { arrow, ok, warn } from '../presentation';
+import type { Format, Io } from '../presentation';
+import { cmdService, hasSupervisor } from '../service';
+import type { ServiceDeps } from '../service';
 import { usage } from './errors';
 
 export type SetupDeps = {

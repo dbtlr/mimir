@@ -1,8 +1,8 @@
 import { afterEach, expect, test } from 'bun:test';
 
+import { inertStore } from '@mimir/core/testing';
 import type { Server } from 'bun';
 
-import { inertStore } from '../testing/store';
 import { createServer } from './server';
 
 /**

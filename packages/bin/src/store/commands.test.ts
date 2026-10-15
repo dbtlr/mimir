@@ -1,14 +1,11 @@
 import { expect, test } from 'bun:test';
 
+import { openSqlite, SCHEMA_VERSION } from '@mimir/core';
+import type { DB, GlobalConfig, PostgresHandle, UpgradeReport } from '@mimir/core';
+import { createPgliteDialect, createEmptyPglite } from '@mimir/core/testing';
 import { Kysely, sql } from 'kysely';
 
 import { fakeIo } from '../cli/testing';
-import type { DB, PostgresHandle, UpgradeReport } from '../core/store-postgres/index';
-import { createPgliteDialect } from '../core/store-postgres/pglite';
-import { createEmptyPglite } from '../core/store-postgres/testing';
-import { SCHEMA_VERSION } from '../core/store-sql/migrator';
-import { openSqlite } from '../core/store-sqlite/index';
-import type { GlobalConfig } from '../service/config';
 import type { StoreDeps } from './commands';
 import { cmdStore } from './commands';
 

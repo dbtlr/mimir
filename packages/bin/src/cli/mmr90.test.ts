@@ -4,11 +4,11 @@
  */
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
+import { createInitiative, createPhase, createProject, createTask, nodeTree } from '@mimir/core';
+import type { Store } from '@mimir/core';
+import { createTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
 import { parseJson } from '@mimir/helpers';
 
-import { createInitiative, createPhase, createProject, createTask, nodeTree } from '../core';
-import type { Store } from '../core';
-import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
 import { runCli } from './run';
 import { fakeIo } from './testing';
 

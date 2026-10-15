@@ -14,9 +14,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseTransferDocument } from '../../bin/src/core/transfer-validate';
-import { readInstallationAt } from '../../bin/src/installation';
-import { readSandboxAuthority } from '../../bin/src/sandbox-authority';
+import { readInstallationAt } from '../../core/src/installation/index';
+import { readSandboxAuthority } from '../../core/src/sandbox-authority';
+import { parseTransferDocument } from '../../core/src/transfer-validate';
 import { Sandbox } from './workflow';
 
 const repository = fileURLToPath(new URL('../../../', import.meta.url));

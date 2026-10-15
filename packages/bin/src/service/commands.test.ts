@@ -3,13 +3,12 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { MimirError, PROD_PORT, readConfig, readServeConfig } from '@mimir/core';
+import { protocolCandidate } from '@mimir/core/testing';
+
 import { fakeIo } from '../cli/testing';
-import { MimirError } from '../core';
-import { PROD_PORT } from '../env';
-import { protocolCandidate } from '../installation/test-fixtures';
 import type { ServiceDeps } from './commands';
 import { cmdSelfUpdate, cmdService } from './commands';
-import { readConfig, readServeConfig } from './config';
 import { recentEvents } from './events';
 import type { ServiceInfo, Supervisor } from './launchd';
 import { plistFor } from './plist';

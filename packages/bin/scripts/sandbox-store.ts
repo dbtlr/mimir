@@ -1,6 +1,5 @@
-import { sandboxAuthorityFromEnvironment } from '../src/sandbox-authority';
-import { buildStore } from '../src/store-backend';
-import { seedWorkingSet } from '../src/testing/conformance';
+import { sandboxAuthorityFromEnvironment, buildStore } from '@mimir/core';
+import { seedWorkingSet } from '@mimir/core/testing';
 
 // This worker is only launched with a generated sandbox authority, never a URL.
 if (sandboxAuthorityFromEnvironment() === undefined) {

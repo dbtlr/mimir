@@ -3,9 +3,10 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createInitiative, createPhase, createProject, createTask } from '../core';
-import type { Store } from '../core';
-import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
+import { createInitiative, createPhase, createProject, createTask } from '@mimir/core';
+import type { Store } from '@mimir/core';
+import { createTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
+
 import { BINDING_FILE, findBinding, parseBinding, writeBinding } from './binding';
 import { runCli } from './run';
 import { fakeIo } from './testing';

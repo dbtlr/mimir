@@ -2,11 +2,6 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 import { HANDLE_FIELD_KEYS } from '@mimir/contract';
 import type { NodeType } from '@mimir/contract';
-import type { Server } from 'bun';
-
-import { updateFieldFlags } from './cli/mutations';
-import { runCli } from './cli/run';
-import { fakeIo } from './cli/testing';
 import {
   createInitiative,
   createPhase,
@@ -17,11 +12,16 @@ import {
   fileSeed,
   findNodeInSet,
   SPEC_UPDATE_FIELDS,
-} from './core';
-import type { SpecUpdateField, Store } from './core';
+} from '@mimir/core';
+import type { SpecUpdateField, Store } from '@mimir/core';
+import { createTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
+import type { Server } from 'bun';
+
+import { updateFieldFlags } from './cli/mutations';
+import { runCli } from './cli/run';
+import { fakeIo } from './cli/testing';
 import { createServer } from './http/server';
 import { toolCreate, toolUpdate } from './mcp/tools';
-import { createTestStore, nodeIdOf, projectIdOf } from './testing/store';
 
 /**
  * The route-level propagation pin (ADR 0025, MMR-315): deriving only the ACCEPTED

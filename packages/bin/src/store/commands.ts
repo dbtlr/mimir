@@ -23,19 +23,26 @@
  */
 import { existsSync, statSync, writeFileSync } from 'node:fs';
 
+import {
+  assertUsableStoreConfig,
+  canonicalJson,
+  DEFAULT_STORE_BACKEND,
+  postgresUrlMissing,
+  upgradeSchema,
+} from '@mimir/core';
+import type {
+  GlobalConfig,
+  ImportMode,
+  ImportReport,
+  PostgresHandle,
+  SqliteHandle,
+  Store,
+  UpgradeReport,
+} from '@mimir/core';
+
 import { usage } from '../cli/errors';
-import type { ImportMode, ImportReport } from '../core/export';
-import { canonicalJson } from '../core/export';
-import type { Store } from '../core/store';
-import type { PostgresHandle, UpgradeReport } from '../core/store-postgres/index';
-import { upgradeSchema } from '../core/store-postgres/index';
-import type { SqliteHandle } from '../core/store-sqlite/index';
 import { ok } from '../presentation';
 import type { Format, Io } from '../presentation';
-import type { GlobalConfig } from '../service/config';
-import { DEFAULT_STORE_BACKEND } from '../service/config';
-import { assertUsableStoreConfig } from '../store-backend';
-import { postgresUrlMissing } from '../store-postgres-backend';
 
 export type StoreDeps = {
   /** The global config — the backend fence and the connection URL. */
