@@ -6,6 +6,10 @@ date: 2026-07-18
 
 # ADR 0025: Descriptor-driven registration
 
+> **Amended by [ADR 0034](0034-engine-interface-and-trpc-wire.md).** Descriptors
+> re-derive from the Engine interface. This record stays in force until the phase
+> that moves registration onto the Engine lands.
+
 The two dominant change vectors fan out mechanically across the codebase.
 Adding one uniform lifecycle verb (`reopen`) cost ~90 source lines, ~46 of
 them spread across six transport files restating the same few facts — verb
