@@ -106,3 +106,13 @@ A choice is not a data field: it has no `update` marker and is not stored
 under its own name. That separates it from the existing `fields` hook, which
 only carries update-marked spec fields. A verb takes at most one choice; a
 second option is the signal that the verb has stopped being uniform.
+
+## Refinement (2026-10-15, MMR-513): descriptors re-derive from the Engine (ADR 0034)
+
+The registry's facts will derive from the Engine interface defined in
+[ADR 0034](0034-engine-interface-and-trpc-wire.md) rather than from their own
+tables. The current tables govern until the phase that moves registration onto
+the Engine lands. That phase decides where each fact (subject id kind, reason
+policy, transition, summary, core binding, choice) lives on the Engine side,
+whether as method metadata or as annotations on the zod schemas, and records
+the mapping in a refinement here.
