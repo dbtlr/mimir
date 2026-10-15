@@ -30,6 +30,7 @@ export class RemoteEngine implements Engine {
   }
 }
 
+/** Reconstruct domain refusals; network and protocol failures keep their transport identity. */
 async function domainResult<T>(result: Promise<T>): Promise<T> {
   try {
     return await result;

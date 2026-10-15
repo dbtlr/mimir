@@ -52,6 +52,7 @@ export type EngineProcedures = {
       }>;
 };
 
+/** Adapt an Engine without giving the router access to a Store. */
 export function createEngineRouter(engine: Engine) {
   const procedures = {
     done: procedure
