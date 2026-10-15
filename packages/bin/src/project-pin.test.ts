@@ -244,3 +244,49 @@ test('HTTP refuses a pin on a node, a seed, and an artifact', async () => {
   }
   expect(await pinsOf()).toEqual({ MMR: false, OPS: false });
 });
+
+// ── Only a project can be renamed with --name (MMR-499) ────────────────────
+
+test('the CLI refuses --name on a task, a container, a seed, and an artifact', async () => {
+  for (const ref of [taskRef, phaseRef]) {
+    const out = await cli(['update', ref, '--name', 'x'], 1);
+    expect(out).toContain("--name doesn't apply to a task or container");
+    expect(out).toContain('only a project can be renamed');
+  }
+  // A seed's refusal is the usage class (exit 2), as for every project-only flag.
+  expect(await cli(['update', seedRef, '--name', 'x'], 2)).toContain(
+    "--name doesn't apply to a seed",
+  );
+  expect(await cli(['update', artifactRef, '--name', 'x'], 1)).toContain(
+    "--name doesn't apply to an artifact",
+  );
+  expect((await getNode(store, taskRef)).title).toBe('task');
+});
+
+test('the CLI still renames a project with --name', async () => {
+  await cli(['update', 'MMR', '--name', 'Renamed']);
+  expect((await getNode(store, 'MMR')).title).toBe('Renamed');
+});
+
+test('MCP refuses name on a task, a container, a seed, and an artifact', async () => {
+  for (const ref of [taskRef, phaseRef, seedRef, artifactRef]) {
+    const result = await toolUpdate(store, { id: ref, name: 'x' });
+    expect(result.isError, ref).toBe(true);
+    expect(result.content[0]?.text, ref).toContain('only a project can be renamed');
+  }
+  expect((await getNode(store, taskRef)).title).toBe('task');
+});
+
+test('HTTP refuses name on a node, a seed, and an artifact', async () => {
+  for (const path of [
+    `nodes/${taskRef}`,
+    `nodes/${phaseRef}`,
+    `seeds/${seedRef}`,
+    `artifacts/${artifactRef}`,
+  ]) {
+    const res = await patch(path, { name: 'x' });
+    expect(res.status, path).toBe(400);
+    expect(JSON.stringify(res.json), path).toContain('name');
+  }
+  expect((await getNode(store, taskRef)).title).toBe('task');
+});

@@ -38,7 +38,7 @@ import {
   parseWireField,
   UPSTREAM_CLEAR,
   notFound,
-  pinRefusal,
+  projectOnlyRefusal,
   promoteSeed,
   releasedByArchive,
   reorder,
@@ -383,11 +383,11 @@ export async function cmdReorder(c: Ctx): Promise<number> {
 export async function cmdUpdate(c: Ctx): Promise<number> {
   const token = requirePos(c, 1, 'update');
   const kind = parseIdentity(token)?.kind;
-  // Only a project can be pinned (MMR-493). Refused here, before any branch
+  // Only a project can be pinned (MMR-493) or renamed (MMR-499). Refused here, before any branch
   // reads its own flags, so every non-project target answers in one voice; a
   // seed's refusal is usage-class (exit 2), like its other node-only flags.
   if (kind !== undefined) {
-    rejectPinFlags(c, kind, kind === 'seed' ? usage : validation);
+    rejectProjectOnlyFlags(c, kind, kind === 'seed' ? usage : validation);
   }
   if (parseIdentity(token)?.kind === 'artifact') {
     return await cmdUpdateArtifact(c, token);
@@ -721,15 +721,22 @@ function pinnedFlag(c: Ctx): boolean | undefined {
   return off ? false : undefined;
 }
 
-/** Refuse a pin flag aimed at anything but a project (MMR-493), naming the flag given. */
-function rejectPinFlags(
+/** The project-only update flags (pin MMR-493, name MMR-499) and what each lets only a project do. */
+const PROJECT_ONLY_FLAGS = [
+  ['pinned', 'pinned'],
+  ['not-pinned', 'pinned'],
+  ['name', 'renamed'],
+] as const;
+
+/** Refuse a project-only flag aimed at anything but a project, naming the flag given. */
+function rejectProjectOnlyFlags(
   c: Ctx,
   kind: NonNullable<ReturnType<typeof parseIdentity>>['kind'],
   fail: (message: string) => Error,
 ): void {
-  for (const flag of ['pinned', 'not-pinned'] as const) {
-    if (c.values[flag] === true) {
-      const refusal = pinRefusal(kind, `--${flag}`);
+  for (const [flag, rule] of PROJECT_ONLY_FLAGS) {
+    if (c.values[flag] !== undefined && c.values[flag] !== false) {
+      const refusal = projectOnlyRefusal(kind, `--${flag}`, rule);
       if (refusal !== null) {
         throw fail(refusal);
       }

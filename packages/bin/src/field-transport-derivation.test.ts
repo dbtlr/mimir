@@ -86,6 +86,8 @@ test('golden: the advertised update/create schemas are pinned exactly', () => {
       externalRef: { type: 'string' },
       id: { type: 'string' },
       kind: { enum: ['idea', 'bug', 'feature'], type: 'string' },
+      // The project rename (MMR-499) is hand-listed: a project-only arg, not a spec field.
+      name: { type: 'string' },
       next: { type: 'string' },
       openEnded: { type: 'boolean' },
       // The project pin (MMR-493) is hand-listed beside `next`, not a spec field.

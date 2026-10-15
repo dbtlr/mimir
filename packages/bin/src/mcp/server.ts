@@ -781,12 +781,14 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       description: z.string().optional(),
       id: z.string(),
       kind: SEED_KIND.optional(),
+      name: z.string().optional(),
       next: z.string().optional(),
       pinned: z.boolean().optional(),
       title: z.string().optional(),
     }),
     (args: {
       id: string;
+      name?: string;
       title?: string;
       description?: string;
       next?: string;

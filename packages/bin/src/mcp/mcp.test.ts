@@ -948,6 +948,27 @@ test('toolUpdate on a bare project KEY renames and patches description', async (
   expect(v.description).toBe('details');
 });
 
+test('update over the wire renames a project and refuses name on a task (MMR-499)', async () => {
+  const { client, close } = await connectClient(store);
+  try {
+    const renamed = (await client.callTool({
+      arguments: { id: 'MMR', name: 'Renamed' },
+      name: 'update',
+    })) as ToolCall;
+    expect(renamed.isError).toBeFalsy();
+    expect(parseJson<{ title: string }>(callText(renamed)).title).toBe('Renamed');
+
+    const refused = (await client.callTool({
+      arguments: { id: taskRef, name: 'x' },
+      name: 'update',
+    })) as ToolCall;
+    expect(refused.isError).toBe(true);
+    expect(callText(refused)).toContain('only a project can be renamed');
+  } finally {
+    await close();
+  }
+});
+
 test('toolUpdate project rejects node-only flags', async () => {
   const res = await toolUpdate(store, { id: 'MMR', priority: 'p1' });
   expect(res.isError).toBe(true);
