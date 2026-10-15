@@ -14,7 +14,7 @@ type Override = LintOverride;
  *     `packages/core/**` is the domain core it builds on — `node` is the
  *     closest shipped target (allows `node:` builtins). NOTE: there is no
  *     `bun` target yet, so `bun:*` imports and the `Bun` global are not covered.
- *   - `packages/contract/**` is pure types under the browser baseline (no glob).
+ *   - `packages/contract/**` and `packages/wire/**` use the browser baseline.
  *
  * The React SPA (`packages/ui`) does NOT use toolingConfig's `react` target.
  * That target enables react/react-perf/jsx-a11y as a bundle and activates their
@@ -49,6 +49,16 @@ const coreEntryOnly = {
 const noBinImports = {
   group: ['@mimir/bin', '@mimir/bin/**', '**/bin', '**/bin/**'],
   message: 'Layer boundary: @mimir/core may not import from @mimir/bin (contract <- core <- bin).',
+};
+
+const noWireImports = {
+  group: ['@mimir/wire', '@mimir/wire/**', '**/wire/src', '**/wire/src/**'],
+  message: 'Layer boundary: contract and core may not import the wire transport.',
+};
+
+const noCoreImports = {
+  group: ['@mimir/core', '@mimir/core/**', '**/core', '**/core/**'],
+  message: 'Layer boundary: contract and wire depend on the Engine contract, not core.',
 };
 
 /** Restrict `files` to the given import `patterns`. */
@@ -121,6 +131,19 @@ const uiLintOverride: Override = {
 };
 
 const layerOverrides: Override[] = [
+  restrict(['packages/contract/**', 'packages/wire/**'], [noBinImports, noCoreImports]),
+  restrict(
+    ['packages/wire/src/client.ts'],
+    [
+      noBinImports,
+      noCoreImports,
+      {
+        allowTypeImports: true,
+        group: ['./server', '@mimir/wire/server', '@trpc/server', '@trpc/server/**'],
+        message: 'Layer boundary: the remote client imports server types only.',
+      },
+    ],
+  ),
   restrict(['packages/bin/**'], [coreEntryOnly]),
   forbid(['packages/bin/src/cli/**'], ['mcp', 'http']),
   forbid(['packages/bin/src/mcp/**'], ['cli', 'http']),
@@ -131,7 +154,9 @@ const layerOverrides: Override[] = [
   { files: ['**/*.test.ts'], rules: { 'no-restricted-imports': 'off' } },
   // The core/bin direction holds for tests too: core tests may not import bin,
   // and bin tests still reach core only through its entries.
-  restrict(['packages/core/**'], [noBinImports]),
+  restrict(['packages/core/**'], [noBinImports, noWireImports]),
+  restrict(['packages/contract/**'], [noBinImports, noCoreImports, noWireImports]),
+  restrict(['packages/wire/**/*.test.ts'], [coreEntryOnly, noBinImports]),
   restrict(['packages/bin/**/*.test.ts'], [coreEntryOnly]),
   // Tests legitimately force bad/loose types — to drive error paths, assert over
   // untyped HTTP responses, narrow DOM queries — so unsafe assertions are allowed

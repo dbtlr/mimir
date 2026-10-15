@@ -1,0 +1,21 @@
+{
+  "name": "@mimir/wire",
+  "version": "0.26.0-next",
+  "private": true,
+  "description": "The tRPC adapter and remote implementation of the Mimir Engine.",
+  "type": "module",
+  "exports": {
+    "./server": "./src/server.ts",
+    "./client": "./src/client.ts"
+  },
+  "dependencies": {
+    "@mimir/contract": "workspace:*",
+    "@trpc/client": "11.19.0",
+    "@trpc/server": "11.19.0",
+    "superjson": "2.2.6"
+  },
+  "devDependencies": {
+    "@mimir/core": "workspace:*",
+    "zod": "4.6.6"
+  }
+}

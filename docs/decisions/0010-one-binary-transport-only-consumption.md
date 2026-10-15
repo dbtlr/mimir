@@ -67,3 +67,14 @@ from `core`; the `MimirError` class stays behind the transports) and the
 `{items}` collection-envelope type (ADR 0012's cursor-room contract, declared
 once). Types and `*_VALUES` tuples only — no zod (it remains an MCP-SDK
 requirement internal to that transport), no route map, no client SDK.
+
+## Refinement (2026-10-15 — Engine schemas and shared error identity)
+
+[ADR 0034](0034-engine-interface-and-trpc-wire.md) takes effect for the first
+two Engine methods, `getNode` and `done`. The contract package now includes
+zod schemas and the `MimirError` class, superseding the MMR-15 types-only rule
+and the restriction that the error class stays in core. Core re-exports the
+same class. A remote client can reconstruct a domain refusal without importing
+core or a store. The private `@mimir/wire` package has separate server and
+client entries; existing binary transports retain their current paths until
+their migration phase.

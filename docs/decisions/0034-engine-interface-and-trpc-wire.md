@@ -105,3 +105,23 @@ against a local store or a remote host through the same interface.
   reverses ADR 0010's MMR-15 rule ("no zod, no route map, no client SDK") for
   that package. It takes effect with the phase that adds the Engine schemas,
   which also updates the package description.
+
+## Refinement (2026-10-15 — the first two methods)
+
+`getNode` and `done` are the first Engine methods. Both return the node
+projection with `Date` timestamps, including timestamps nested in requested
+facets. Existing intent DTOs remain string-valued, preserving current CLI,
+MCP, and HTTP output. `getNode` retains its existing facet defaults; `done`
+returns the existing write-echo facet set over the completed row.
+
+The tRPC adapter and `RemoteEngine` live in `@mimir/wire`, under separate
+server and client entries. Superjson encodes values in both directions so
+dates and explicit `undefined` survive without a second set of wire DTOs.
+The procedure table's input and output types derive from the Engine, with
+compile-time assertions covering the inferred router surface.
+
+`MimirError` lives in the contract package and is re-exported by core. The
+adapter carries its code, message, and optional hint; `RemoteEngine`
+reconstructs the same class. Transport failures remain transport errors.
+Existing transports are migrated in later tasks; this increment does not
+change their routing or store ownership.
