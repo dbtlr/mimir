@@ -4,26 +4,15 @@
  * integrity; these cover the *behavioral* invariants it can't express
  * (parent type-correctness, cycle-freedom, named-target existence).
  *
- * `ErrorCode` itself is wire vocabulary and lives in `@mimir/contract`;
- * re-exported here for the core's own raisers.
+ * The error class and code live in `@mimir/contract` so a RemoteEngine can
+ * reconstruct the same error without importing the store-owning core.
  */
 // re-exported AND used locally — a plain `export … from` wouldn't bind it here
 // oxlint-disable-next-line unicorn/prefer-export-from
-import type { ErrorCode } from '@mimir/contract';
+import { MimirError } from '@mimir/contract';
 
-export type { ErrorCode };
-
-export class MimirError extends Error {
-  readonly code: ErrorCode;
-  readonly hint?: string;
-
-  constructor(code: ErrorCode, message: string, hint?: string) {
-    super(message);
-    this.name = 'MimirError';
-    this.code = code;
-    this.hint = hint;
-  }
-}
+export type { ErrorCode } from '@mimir/contract';
+export { MimirError };
 
 export const notFound = (message: string, hint?: string): MimirError =>
   new MimirError('not_found', message, hint);

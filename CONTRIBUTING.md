@@ -30,8 +30,8 @@ for fixtures, snapshots, and candidate migration tests.
 ## Project shape
 
 One core, thin transports, in a Bun workspace. `packages/contract`
-(`@mimir/contract`) is the dependency-free type leaf — the wire vocabulary
-every consumer parses. `packages/core` (`@mimir/core`) is the domain logic
+(`@mimir/contract`) is the transport-free leaf — DTOs, enums, zod Engine schemas,
+and the shared `MimirError` class. `packages/core` (`@mimir/core`) is the domain logic
 (derivation, rank, mutation verbs, intent layer) over the `Store` seam, plus
 the store backends, the doctor, the installation record, and the runtime
 config; `src/store-sql` is the one SQL store, written once, with
@@ -45,6 +45,17 @@ embedded in the binary at build time. The layering
 `contract ← core ← bin` is enforced by an oxlint rule — `@mimir/core` may not
 import `@mimir/bin`, bin reaches core only through its two entries, and
 transports may not import each other.
+
+The client/host split starts with `Engine.getNode` and `Engine.done`.
+`LocalEngine` owns a `Store` and delegates to the existing domain functions;
+`@mimir/wire/server` adapts an Engine to tRPC, and `@mimir/wire/client` provides
+the store-free `RemoteEngine`. The two wire entries share only types across
+the client/server boundary. Engine inputs and outputs come from contract
+schemas, and the procedure table is checked against the Engine's methods.
+Superjson preserves `Date` values and explicit `undefined` across the wire.
+Engine timestamps, including nested facet timestamps, are `Date` values;
+the existing intent DTOs and CLI, MCP, and HTTP renderings keep strings.
+Existing transports keep their direct-call paths until their migration phase.
 
 ## Pull requests
 

@@ -1,12 +1,13 @@
 /**
  * Wire-envelope types — the shapes every machine consumer parses byte-for-byte
- * (CLI `--json` callers, the UI over the HTTP API). The classes that *raise*
- * errors stay behind the transports in `core`; only the rendered shapes live
- * here (contract holds what crosses the wire; core holds what guards it).
+ * (CLI `--json` callers, the UI over the HTTP API). The shared domain error
+ * identity and its schema live in `errors`; core owns the rules that raise it.
  */
 
-/** Stable category carried by every rendered error (output-contract reference). */
-export type ErrorCode = 'not_found' | 'validation' | 'conflict' | 'invariant';
+// oxlint-disable-next-line unicorn/prefer-export-from
+import type { ErrorCode } from './errors';
+
+export type { ErrorCode };
 
 /**
  * The error envelope: `{"error":{code,message,hint?}}` on stderr (CLI) or as

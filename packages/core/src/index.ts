@@ -7,6 +7,7 @@
  * never a transport. Test fixtures live behind `@mimir/core/testing`.
  */
 export * from './create';
+export * from './engine';
 export * from './field-spec';
 export * from './ops';
 export * from './mutations';
