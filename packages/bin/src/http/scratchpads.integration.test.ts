@@ -1,17 +1,17 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 
-import { parseJson } from '@mimir/helpers';
-import type { Server } from 'bun';
-
 import {
   createInitiative,
   createPhase,
   createProject,
   createScratchpadService,
   createTask,
-} from '../core';
-import type { Store } from '../core';
-import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
+} from '@mimir/core';
+import type { Store } from '@mimir/core';
+import { createTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
+import { parseJson } from '@mimir/helpers';
+import type { Server } from 'bun';
+
 import { createServer } from './server';
 
 type Rec = Record<string, unknown>;

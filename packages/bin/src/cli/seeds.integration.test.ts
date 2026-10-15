@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
-import { parseJson } from '@mimir/helpers';
-
 import {
   createInitiative,
   createPhase,
@@ -10,9 +8,11 @@ import {
   deriveSet,
   findNodeInSet,
   resolveProjectKeyInSet,
-} from '../core';
-import type { Store } from '../core';
-import { createTestStore } from '../testing/store';
+} from '@mimir/core';
+import type { Store } from '@mimir/core';
+import { createTestStore } from '@mimir/core/testing';
+import { parseJson } from '@mimir/helpers';
+
 import { runCli } from './run';
 import { fakeIo } from './testing';
 

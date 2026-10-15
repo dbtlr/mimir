@@ -13,17 +13,11 @@
  * The `json` (pretty array) / `jsonl` (one finding per line) formats emit
  * findings on stdout, same exit-0 contract.
  */
+import { findingLine } from '@mimir/core';
+import type { DoctorBackend, DoctorScopeMatch } from '@mimir/core';
+
 import type { Format, Io } from '../presentation';
 import { ok, warn } from '../presentation';
-import type { DoctorBackend, DoctorFinding, DoctorScopeMatch } from './contract';
-
-/** One finding as the human line the CLI prints to stderr, e.g. `[warn] node: message (where)`. */
-export function findingLine(f: DoctorFinding): string {
-  // Tier-1 short spelling (`[err]`/`[warn]`, never `[error]`), so `error` never
-  // reads as a `warn`. The wire `severity` field keeps its `error`/`warn` vocabulary.
-  const tag = f.severity === 'error' ? 'err' : f.severity;
-  return `[${tag}] ${f.node}: ${f.message} (${f.where})`;
-}
 
 /** An absent or stale project scope must never read as a clean scan. */
 function warnEmptyScope(io: Io, match: DoctorScopeMatch): void {

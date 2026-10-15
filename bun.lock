@@ -22,8 +22,26 @@
       },
       "dependencies": {
         "@mimir/contract": "workspace:*",
+        "@mimir/core": "workspace:*",
         "@mimir/helpers": "workspace:*",
         "@modelcontextprotocol/sdk": "1.32.1",
+        "kysely": "0.29.6",
+        "zod": "4.6.6",
+      },
+      "devDependencies": {
+        "@electric-sql/pglite": "0.5.8",
+      },
+    },
+    "packages/contract": {
+      "name": "@mimir/contract",
+      "version": "0.5.0",
+    },
+    "packages/core": {
+      "name": "@mimir/core",
+      "version": "0.26.0-next",
+      "dependencies": {
+        "@mimir/contract": "workspace:*",
+        "@mimir/helpers": "workspace:*",
         "kysely": "0.29.6",
         "mdast-util-from-markdown": "2.1.0",
         "pg": "8.23.1",
@@ -33,10 +51,6 @@
         "@electric-sql/pglite": "0.5.8",
         "@types/pg": "8.23.1",
       },
-    },
-    "packages/contract": {
-      "name": "@mimir/contract",
-      "version": "0.5.0",
     },
     "packages/helpers": {
       "name": "@mimir/helpers",
@@ -356,6 +370,8 @@
     "@mimir/bin": ["@mimir/bin@workspace:packages/bin"],
 
     "@mimir/contract": ["@mimir/contract@workspace:packages/contract"],
+
+    "@mimir/core": ["@mimir/core@workspace:packages/core"],
 
     "@mimir/helpers": ["@mimir/helpers@workspace:packages/helpers"],
 

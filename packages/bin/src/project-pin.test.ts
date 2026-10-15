@@ -1,9 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
-import type { Server } from 'bun';
-
-import { runCli } from './cli/run';
-import { fakeIo } from './cli/testing';
 import {
   attachArtifact,
   createInitiative,
@@ -14,11 +10,15 @@ import {
   getNode,
   listProjects,
   updateProject,
-} from './core';
-import type { Store } from './core';
+} from '@mimir/core';
+import type { Store } from '@mimir/core';
+import { createTestStore, projectIdOf } from '@mimir/core/testing';
+import type { Server } from 'bun';
+
+import { runCli } from './cli/run';
+import { fakeIo } from './cli/testing';
 import { createServer } from './http/server';
 import { toolProjects, toolUpdate } from './mcp/tools';
-import { createTestStore, projectIdOf } from './testing/store';
 
 /**
  * The project pin (MMR-493), end to end: the operator's "keep this one at hand"

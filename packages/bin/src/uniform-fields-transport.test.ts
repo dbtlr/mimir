@@ -1,11 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 import { OP_FACTS } from '@mimir/contract';
-import type { Server } from 'bun';
-
-import { updateFieldFlags } from './cli/mutations';
-import { runCli } from './cli/run';
-import { fakeIo } from './cli/testing';
 import {
   createInitiative,
   createPhase,
@@ -14,11 +9,16 @@ import {
   deriveSet,
   findNodeInSet,
   specUpdateFields,
-} from './core';
-import type { SpecUpdateField, Store } from './core';
+} from '@mimir/core';
+import type { SpecUpdateField, Store } from '@mimir/core';
+import { createTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
+import type { Server } from 'bun';
+
+import { updateFieldFlags } from './cli/mutations';
+import { runCli } from './cli/run';
+import { fakeIo } from './cli/testing';
 import { createServer } from './http/server';
 import { toolUniform } from './mcp/tools';
-import { createTestStore, nodeIdOf, projectIdOf } from './testing/store';
 
 /**
  * The uniform-verb extra-args propagation pin (ADR 0026, MMR-320) — the verb

@@ -1,10 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
-import { parseJson } from '@mimir/helpers';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
-
 import {
   createInitiative,
   createPhase,
@@ -13,9 +8,14 @@ import {
   deriveSet,
   findNodeInSet,
   getArtifact,
-} from '../core';
-import type { Store } from '../core';
-import { createTestStore, inertStore, nodeIdOf, projectIdOf } from '../testing/store';
+} from '@mimir/core';
+import type { Store } from '@mimir/core';
+import { createTestStore, inertStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
+import { parseJson } from '@mimir/helpers';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
+
 import { buildMcpServer } from './server';
 import {
   toolAnnotate,

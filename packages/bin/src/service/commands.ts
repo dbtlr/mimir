@@ -11,16 +11,21 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname } from 'node:path';
 
+import {
+  assertUsableStoreConfig,
+  consoleUrl,
+  isUnparseableConfig,
+  MimirError,
+  probeHost,
+  serveProblemWarning,
+  writeServePort,
+} from '@mimir/core';
+import type { GlobalConfig, Health, SupervisorScope } from '@mimir/core';
 import { formatInstant, isMember } from '@mimir/helpers';
 
 import { usage } from '../cli/errors';
-import { MimirError } from '../core';
 import type { Format, Io } from '../presentation';
 import { arrow, ok, warn } from '../presentation';
-import { assertUsableStoreConfig } from '../store-backend';
-import { consoleUrl, probeHost } from './address';
-import { isUnparseableConfig, serveProblemWarning, writeServePort } from './config';
-import type { GlobalConfig } from './config';
 import { appendEvent, recentEvents } from './events';
 import type { ServiceEventName } from './events';
 import { formatSelfUpdateJson, formatServiceActionsJson, formatServiceStatusJson } from './format';
@@ -32,7 +37,6 @@ import type {
   UnitName,
   UnitStatus,
 } from './format';
-import type { Health } from './health';
 import {
   assetName,
   compareSemver,
@@ -47,7 +51,6 @@ import {
 import type { Fetcher } from './self-update';
 import type { Supervisor } from './supervisor';
 import { mayDrive } from './units';
-import type { SupervisorScope } from './units';
 
 export type UpdateSelection = {
   /** Include prereleases — resolve the newest build on the next-version line (--next). */

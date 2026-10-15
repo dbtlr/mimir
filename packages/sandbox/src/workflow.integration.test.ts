@@ -17,8 +17,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { registerInstallation } from '../../bin/src/installation';
-import { readDatabaseAuthority } from '../../bin/src/sandbox-authority';
+import { registerInstallation } from '../../core/src/installation/index';
+import { readDatabaseAuthority } from '../../core/src/sandbox-authority';
 import { Sandbox } from './workflow';
 
 const repository = fileURLToPath(new URL('../../../', import.meta.url));

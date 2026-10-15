@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 
-import { parseJson } from '@mimir/helpers';
-import type { Server } from 'bun';
-
 import {
   abandonTask,
   annotate,
@@ -17,12 +14,15 @@ import {
   deriveSet,
   findNodeInSet,
   groomTasks,
+  SCHEMA_VERSION,
   startTask,
   submitTask,
-} from '../core';
-import type { Store } from '../core';
-import { SCHEMA_VERSION } from '../core/store-sql/migrator';
-import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
+} from '@mimir/core';
+import type { Store } from '@mimir/core';
+import { createTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
+import { parseJson } from '@mimir/helpers';
+import type { Server } from 'bun';
+
 import { createServer } from './server';
 
 /**

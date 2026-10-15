@@ -1,13 +1,13 @@
 import { expect, test } from 'bun:test';
 
+import { SPEC_UPDATE_FIELDS } from '@mimir/core';
+import type { SpecUpdateField, UpdateFieldKey } from '@mimir/core';
+import { inertStore } from '@mimir/core/testing';
 import { z } from 'zod';
 
 import { updateFieldFlags } from './cli/mutations';
-import { SPEC_UPDATE_FIELDS } from './core';
-import type { SpecUpdateField, UpdateFieldKey } from './core';
 import { nodeBodyFields } from './http/server';
 import { buildMcpServer, fieldInputShape } from './mcp/server';
-import { inertStore } from './testing/store';
 
 /**
  * The three field transport surfaces derive from one field spec (ADR 0025,

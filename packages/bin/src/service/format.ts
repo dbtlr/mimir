@@ -5,7 +5,8 @@
  * the command layer computes. Human (`table`/`records`) rendering lives here
  * too so commands.ts returns data, not prose.
  */
-import { emitWire } from '../core';
+import { emitWire } from '@mimir/core';
+
 import type { ServiceEvent } from './events';
 
 export type ServiceHealth = {

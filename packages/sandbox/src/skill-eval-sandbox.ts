@@ -20,8 +20,8 @@ import {
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { installBinary } from '../../bin/src/installation/index';
-import { readSandboxAuthority } from '../../bin/src/sandbox-authority';
+import { installBinary } from '../../core/src/installation/index';
+import { readSandboxAuthority } from '../../core/src/sandbox-authority';
 import { command, isolatedEnvironment } from './process';
 
 export type Harness = 'claude' | 'codex';

@@ -3,7 +3,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { Store } from '../core';
+import type { Store } from '@mimir/core';
+
 import { runCli } from './run';
 import { SKILL_FILES, skillDirFor } from './skill-assets';
 import { fakeIo } from './testing';

@@ -10,8 +10,9 @@ type Override = LintOverride;
  * vite-plus centralizes lint/fmt here — per-package `lint` blocks are ignored
  * (only Vite/Vitest/build config is honored per package). `toolingConfig`'s
  * `node`/`react` take glob lists to scope each target to its package:
- *   - `packages/bin/**`  is the Bun binary (core/CLI/MCP/HTTP) — `node` is
- *     the closest shipped target (allows `node:` builtins). NOTE: there is no
+ *   - `packages/bin/**` is the Bun binary (CLI/MCP/HTTP transports) and
+ *     `packages/core/**` is the domain core it builds on — `node` is the
+ *     closest shipped target (allows `node:` builtins). NOTE: there is no
  *     `bun` target yet, so `bun:*` imports and the `Bun` global are not covered.
  *   - `packages/contract/**` is pure types under the browser baseline (no glob).
  *
@@ -24,36 +25,47 @@ type Override = LintOverride;
  * keep correctness like rules-of-hooks). Re-enable one at a time there.
  *
  * Layer-boundary enforcement (the one thing toolingConfig can't express) rides
- * through `lint.overrides`. Inside `@mimir/bin` the flow is
- * `contract ← core ← transports`:
- *   - `core` may import `contract` — the store backends (`core/store-sql/**`
- *     and its dialects) live inside core, never transports.
- *   - transports import `core` + `contract`, never each other.
- * `main.ts` is the composition root and is intentionally unrestricted.
+ * through `lint.overrides`. The flow is `contract ← @mimir/core ← @mimir/bin`:
+ *   - `@mimir/core` (`packages/core`) never imports `@mimir/bin`, tests included.
+ *   - `@mimir/bin` reaches core only through its entries, `@mimir/core` and
+ *     `@mimir/core/testing` — never a deep path.
+ *   - Inside bin, transports (cli, mcp, http) never import each other.
+ *     `main.ts` is the composition root and is intentionally unrestricted
+ *     among transports.
  *
- * Patterns match the relative import specifiers we actually write (`../core/x`,
- * `../../core/y`); `**` spans the leading `..` segments. Brace/extglob `@(...)`
+ * Patterns match the relative import specifiers we actually write (`../cli/x`,
+ * `../../bin/y`); `**` spans the leading `..` segments. Brace/extglob `@(...)`
  * forms are avoided — oxlint silently ignores them in `overrides[].files`.
  */
 const layerGroups = (layer: string): string[] => [`**/${layer}`, `**/${layer}/**`];
 
-/** Forbid `files` from importing the `layers` given — a layer boundary. */
-const forbid = (files: string[], layers: string[]): Override => ({
+/** The only paths into core a bin file may import: its two entries. */
+const coreEntryOnly = {
+  group: ['@mimir/core/*', '!@mimir/core/testing', '**/core/src', '**/core/src/**'],
+  message: 'Layer boundary: bin reaches core only through @mimir/core or @mimir/core/testing.',
+};
+
+/** Core never reaches up into bin, by package name or by relative path. */
+const noBinImports = {
+  group: ['@mimir/bin', '@mimir/bin/**', '**/bin', '**/bin/**'],
+  message: 'Layer boundary: @mimir/core may not import from @mimir/bin (contract <- core <- bin).',
+};
+
+/** Restrict `files` to the given import `patterns`. */
+const restrict = (files: string[], patterns: object[]): Override => ({
   files,
-  rules: {
-    'no-restricted-imports': [
-      'error',
-      {
-        patterns: [
-          {
-            group: layers.flatMap(layerGroups),
-            message: `Layer boundary: ${files[0]} may not import from ${layers.join(', ')} (contract <- core <- transports).`,
-          },
-        ],
-      },
-    ],
-  },
+  rules: { 'no-restricted-imports': ['error', { patterns }] },
 });
+
+/** Forbid `files` from importing the transport `layers` given, and core's internals. */
+const forbid = (files: string[], layers: string[]): Override =>
+  restrict(files, [
+    {
+      group: layers.flatMap(layerGroups),
+      message: `Layer boundary: ${files[0]} may not import from ${layers.join(', ')} (transports never import each other).`,
+    },
+    coreEntryOnly,
+  ]);
 
 /**
  * Conformance backlog — @dbtlr/tooling's rules are best practices we adopt.
@@ -109,7 +121,7 @@ const uiLintOverride: Override = {
 };
 
 const layerOverrides: Override[] = [
-  forbid(['packages/bin/src/core/**'], ['cli', 'mcp', 'http']),
+  restrict(['packages/bin/**'], [coreEntryOnly]),
   forbid(['packages/bin/src/cli/**'], ['mcp', 'http']),
   forbid(['packages/bin/src/mcp/**'], ['cli', 'http']),
   forbid(['packages/bin/src/http/**'], ['cli', 'mcp']),
@@ -117,6 +129,10 @@ const layerOverrides: Override[] = [
   // `testing/store`, cross-layer assertions); the boundary constrains shipped
   // code, not tests.
   { files: ['**/*.test.ts'], rules: { 'no-restricted-imports': 'off' } },
+  // The core/bin direction holds for tests too: core tests may not import bin,
+  // and bin tests still reach core only through its entries.
+  restrict(['packages/core/**'], [noBinImports]),
+  restrict(['packages/bin/**/*.test.ts'], [coreEntryOnly]),
   // Tests legitimately force bad/loose types — to drive error paths, assert over
   // untyped HTTP responses, narrow DOM queries — so unsafe assertions are allowed
   // in test files (they own both ends; the safety bar is for shipped code).
@@ -154,7 +170,7 @@ export default defineConfig({
         rules: { ...quarantinedRules, ...styleOptOuts },
       },
       node: {
-        files: ['packages/bin/**', 'packages/sandbox/**'],
+        files: ['packages/bin/**', 'packages/core/**', 'packages/sandbox/**'],
         // Synchronous filesystem access is deliberate in this local-first CLI.
         rules: { 'node/no-sync': 'off' },
       },

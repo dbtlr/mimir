@@ -1,3 +1,4 @@
+import { hostnameOf } from '@mimir/core';
 import type { Serve, Server } from 'bun';
 
 import { json } from './respond';
@@ -22,20 +23,6 @@ import { json } from './respond';
 
 /** Names a rebinding page can never present: they are not the page's domain. */
 const LOOPBACK_HOSTS: readonly string[] = ['localhost', '127.0.0.1', '[::1]'];
-
-/**
- * A Host header's hostname, lowercased, without its port. Anything after the
- * name other than `:<digits>` is not a Host a browser sends, so the whole
- * header comes back unchanged and matches no accepted name.
- */
-export function hostnameOf(host: string): string {
-  const lower = host.trim().toLowerCase();
-  const end = lower.startsWith('[') ? lower.indexOf(']') + 1 : lower.indexOf(':');
-  if (end <= 0) {
-    return lower;
-  }
-  return /^(:\d+)?$/.test(lower.slice(end)) ? lower.slice(0, end) : lower;
-}
 
 /** Methods that never write: a browser's cross-origin GET and HEAD stay unreadable. */
 const SAFE_METHODS: ReadonlySet<string> = new Set(['GET', 'HEAD']);

@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, spyOn, test } from 'bun:test';
 
+import { acceptedHosts } from '@mimir/core';
+import { inertStore } from '@mimir/core/testing';
 import type { Server } from 'bun';
 
-import { acceptedHosts } from '../service/address';
-import { inertStore } from '../testing/store';
 import { isCrossOriginWrite } from './host';
 import { createServer } from './server';
 

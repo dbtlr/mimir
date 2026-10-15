@@ -1,11 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
+import { createProject } from '@mimir/core';
+import type { DoctorBackend, Store } from '@mimir/core';
+import { createTestStore } from '@mimir/core/testing';
 import type { Server } from 'bun';
 
-import { createProject } from '../core';
-import type { Store } from '../core';
-import type { DoctorBackend } from '../doctor/contract';
-import { createTestStore } from '../testing/store';
 import { createServer } from './server';
 
 /** The /api/doctor record-health facet (MMR-185) end-to-end over a real store,

@@ -1,5 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 
+import { attachArtifact, createInitiative, createProject, createTask, depend } from '@mimir/core';
+import type { Store } from '@mimir/core';
+import { createTestStore } from '@mimir/core/testing';
 import { parseJson } from '@mimir/helpers';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
@@ -7,11 +10,8 @@ import type { Server } from 'bun';
 
 import { runCli } from './cli/run';
 import { fakeIo } from './cli/testing';
-import { createInitiative, createProject, createTask, attachArtifact, depend } from './core';
-import type { Store } from './core';
 import { createServer } from './http/server';
 import { buildMcpServer } from './mcp/server';
-import { createTestStore } from './testing/store';
 
 /**
  * Cross-record search (MMR-447) over the three transports: the same query must

@@ -1,9 +1,9 @@
 import { expect, test } from 'bun:test';
 
-import type { StoreExport } from '../core/export';
-import { canonicalJson } from '../core/export';
-import { createSqliteTestStore } from '../core/store-sqlite/testing';
-import { withoutStamp } from '../testing/conformance';
+import { canonicalJson } from '@mimir/core';
+import type { StoreExport } from '@mimir/core';
+import { createSqliteTestStore, withoutStamp } from '@mimir/core/testing';
+
 import fixture from './fixtures/v0.20-norn-export.json';
 
 /**

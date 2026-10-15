@@ -12,14 +12,12 @@ import {
   SEED_STATUS_SELECTOR_VALUES,
 } from '@mimir/contract';
 import type { DataFieldKey, Grooming, OpTransition, SeedKind, UniformVerb } from '@mimir/contract';
-import { isMember } from '@mimir/helpers';
-
 import {
   annotate,
   applyUpdateFields,
+  asSeedKind,
   attachArtifact,
   createNode,
-  asSeedKind,
   depend,
   deriveSet,
   fileSeed,
@@ -27,25 +25,24 @@ import {
   groomTasks,
   inapplicableUpdateFields,
   listSeeds,
-  SEED_DATE_FIELD,
   moveNode,
+  notFound,
   OPS,
-  seedOpFor,
   parseIdentity,
   parseOpChoice,
   parseSeedRef,
   parseUpstreamField,
   parseWireField,
-  UPSTREAM_CLEAR,
-  notFound,
   projectOnlyRefusal,
   promoteSeed,
   releasedByArchive,
   reorder,
   resolveAttachTargets,
+  resolveBoard,
   resolveEntityTokenInSet,
   resolveNodeTokenInSet,
-  resolveBoard,
+  SEED_DATE_FIELD,
+  seedOpFor,
   specUpdateFields,
   tagEntities,
   transitionSeed,
@@ -56,8 +53,9 @@ import {
   updateNode,
   updateProject,
   updateSeed,
+  UPSTREAM_CLEAR,
   validation,
-} from '../core';
+} from '@mimir/core';
 import type {
   ArtifactUpdateFields,
   NarrowUpdateKind,
@@ -70,7 +68,9 @@ import type {
   UpdateProjectFields,
   UpdateSeedFields,
   WireValue,
-} from '../core';
+} from '@mimir/core';
+import { isMember } from '@mimir/helpers';
+
 import { arrow, ok } from '../presentation';
 import type { Format, Io } from '../presentation';
 import { CREATE_DASH_TITLE_HINT, usage } from './errors';

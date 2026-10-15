@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
-import { parseJson } from '@mimir/helpers';
-
 import {
   annotate,
   attachArtifact,
@@ -17,9 +15,11 @@ import {
   startTask,
   updateNode,
   updateProject,
-} from '../core';
-import type { Store } from '../core';
-import { createTestStore, nodeIdOf, projectIdOf } from '../testing/store';
+} from '@mimir/core';
+import type { Store } from '@mimir/core';
+import { createTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
+import { parseJson } from '@mimir/helpers';
+
 import { UsageError, exitCodeFor, renderError } from './errors';
 import { runCli } from './run';
 import { fakeIo } from './testing';

@@ -3,13 +3,12 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { createInitiative, createProject, createTask } from '@mimir/core';
+import type { GlobalConfig, ImportOptions, ImportReport, Store, StoreExport } from '@mimir/core';
+import { createPgliteTestStore } from '@mimir/core/testing';
+import type { PostgresTestStore } from '@mimir/core/testing';
+
 import { fakeIo } from '../cli/testing';
-import { createInitiative, createProject, createTask } from '../core/create';
-import type { ImportOptions, ImportReport, StoreExport } from '../core/export';
-import type { Store } from '../core/store';
-import type { PostgresTestStore } from '../core/store-postgres/testing';
-import { createPgliteTestStore } from '../core/store-postgres/testing';
-import type { GlobalConfig } from '../service/config';
 import type { StoreDeps } from './commands';
 import { cmdStore } from './commands';
 

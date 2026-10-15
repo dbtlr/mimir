@@ -1,13 +1,13 @@
 import type { Scratchpad } from '@mimir/contract';
-import { formatInstant, relativeTime } from '@mimir/helpers';
-
 import {
   compareScratchpadRows,
   createScratchpadService,
   scratchpadReceiptToWire,
   scratchpadRowToWire,
-} from '../core';
-import type { ArtifactRecord, Store } from '../core';
+} from '@mimir/core';
+import type { ArtifactRecord, Store } from '@mimir/core';
+import { formatInstant, relativeTime } from '@mimir/helpers';
+
 import type { Format, Io } from '../presentation';
 import { usage } from './errors';
 

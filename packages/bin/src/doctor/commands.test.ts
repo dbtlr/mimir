@@ -1,8 +1,9 @@
 import { expect, test } from 'bun:test';
 
+import type { DoctorBackend, DoctorFinding } from '@mimir/core';
+
 import { fakeIo } from '../cli/testing';
 import { cmdDoctor } from './commands';
-import type { DoctorBackend, DoctorFinding } from './contract';
 
 /**
  * `cmdDoctor` against the backend-neutral contract (ADR 0030 Decision 6). These

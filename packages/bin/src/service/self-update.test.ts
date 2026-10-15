@@ -11,8 +11,9 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { readInstallationAt, registerInstallation } from '../installation';
-import { protocolCandidate } from '../installation/test-fixtures';
+import { readInstallationAt, registerInstallation } from '@mimir/core';
+import { protocolCandidate } from '@mimir/core/testing';
+
 import {
   assetName,
   compareSemver,

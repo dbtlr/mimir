@@ -7,11 +7,9 @@
  * owns, so a sandbox can exercise the real supervisor without ever addressing
  * the live daemon.
  */
-import type { UnitName } from './format';
+import type { SupervisorScope } from '@mimir/core';
 
-/** Which installation is asking to drive the host supervisor. `none` is a source
- *  run or an unregistered binary: it may read unit state but never mutate it. */
-export type SupervisorScope = { kind: 'live' } | { kind: 'sandbox'; id: string } | { kind: 'none' };
+import type { UnitName } from './format';
 
 const LABEL_PREFIX = 'com.dbtlr.mimir';
 export const SERVE_LABEL = `${LABEL_PREFIX}.serve`;

@@ -33,7 +33,7 @@ status:
 
 A `409` from the HTTP surface carries one of two codes, and only one of them
 means trouble. `invariant` is the broken-store signal: raised by the SQL store
-(`packages/bin/src/core/store-sql/*`) when its own
+(`packages/core/src/store-sql/*`) when its own
 consistency guarantees are violated (the schema is missing or does not match
 this binary, a scratchpad produced more than one artifact, and so on); the
 message on the envelope says what failed, and its remedy line says what to do

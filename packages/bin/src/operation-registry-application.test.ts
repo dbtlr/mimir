@@ -2,10 +2,6 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 import { OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
 import type { TaskStatusWord, UniformVerb } from '@mimir/contract';
-import type { Server } from 'bun';
-
-import { runCli } from './cli/run';
-import { fakeIo } from './cli/testing';
 import {
   archiveProject,
   blockTask,
@@ -20,11 +16,15 @@ import {
   parkTask,
   startTask,
   submitTask,
-} from './core';
-import type { Store } from './core';
+} from '@mimir/core';
+import type { Store } from '@mimir/core';
+import { createTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
+import type { Server } from 'bun';
+
+import { runCli } from './cli/run';
+import { fakeIo } from './cli/testing';
 import { createServer } from './http/server';
 import { toolUniform } from './mcp/tools';
-import { createTestStore, nodeIdOf, projectIdOf } from './testing/store';
 
 /**
  * The route-level propagation pin for the operation registry (ADR 0025, MMR-316)

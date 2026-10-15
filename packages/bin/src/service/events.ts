@@ -8,9 +8,8 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { runtimePaths } from '@mimir/core';
 import { parseJson } from '@mimir/helpers';
-
-import { runtimePaths } from '../env';
 
 export type ServiceEventName =
   | 'install'

@@ -1,0 +1,24 @@
+{
+  "name": "@mimir/core",
+  "version": "0.26.0-next",
+  "private": true,
+  "description": "Mimir's transport-agnostic core: domain logic, the SQLite and Postgres store backends, the doctor, the installation record, and runtime config. The binary's transports build on this package's entry and nothing else.",
+  "type": "module",
+  "module": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
+  },
+  "dependencies": {
+    "@mimir/contract": "workspace:*",
+    "@mimir/helpers": "workspace:*",
+    "kysely": "0.29.6",
+    "mdast-util-from-markdown": "2.1.0",
+    "pg": "8.23.1",
+    "zod": "4.6.6"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@types/pg": "8.23.1"
+  }
+}

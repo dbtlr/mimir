@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test';
 
+import type { SupervisorScope } from '@mimir/core';
+
 import { SERVE_LABEL, mayDrive, unitLabels } from './units';
-import type { SupervisorScope } from './units';
 
 const SANDBOX_ID = '1234abcd-1234-4234-8234-123456789012';
 const OTHER_SANDBOX_ID = '87654321-4321-4321-8321-210987654321';

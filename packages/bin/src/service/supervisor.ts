@@ -3,7 +3,8 @@
  * launchd (macOS) and systemd user units (Linux) implement it; each instance is
  * bound to one unit name, which the per-installation naming in ./units derives.
  */
-import { MimirError } from '../core';
+import { MimirError } from '@mimir/core';
+
 import type { ExecResult } from '../exec';
 
 export type ServiceInfo = {

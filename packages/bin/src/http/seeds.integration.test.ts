@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
-import type { Server } from 'bun';
-
 import {
   createInitiative,
   createPhase,
@@ -9,9 +7,11 @@ import {
   deriveSet,
   findNodeInSet,
   resolveProjectKeyInSet,
-} from '../core';
-import type { Store } from '../core';
-import { createTestStore } from '../testing/store';
+} from '@mimir/core';
+import type { Store } from '@mimir/core';
+import { createTestStore } from '@mimir/core/testing';
+import type { Server } from 'bun';
+
 import { createServer } from './server';
 
 /** The /api/seeds resource (MMR-245) end-to-end over a real store. */
