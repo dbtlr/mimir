@@ -112,4 +112,7 @@ second option is the signal that the verb has stopped being uniform.
 The registry's facts will derive from the Engine interface defined in
 [ADR 0034](0034-engine-interface-and-trpc-wire.md) rather than from their own
 tables. The current tables govern until the phase that moves registration onto
-the Engine lands.
+the Engine lands. That phase decides where each fact (subject id kind, reason
+policy, transition, summary, core binding, choice) lives on the Engine side,
+whether as method metadata or as annotations on the zod schemas, and records
+the mapping in a refinement here.
