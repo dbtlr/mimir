@@ -93,7 +93,7 @@ import {
   updateNode,
   parseFilterToken,
   parseIdentity,
-  pinRefusal,
+  projectOnlyRefusal,
   updateProject,
   validation,
 } from '../core';
@@ -794,12 +794,20 @@ export type UpdateToolArgs = {
 
 export function toolUpdate(store: Store, args: UpdateToolArgs): Promise<ToolResult> {
   return guard(async () => {
-    // Only a project can be pinned (MMR-493); refuse it before any write.
+    // Only a project can be pinned (MMR-493) or renamed (MMR-499); refuse either
+    // before any write.
     const identity = parseIdentity(args.id);
-    if (args.pinned !== undefined && identity !== null) {
-      const refusal = pinRefusal(identity.kind, 'pinned');
-      if (refusal !== null) {
-        throw validation(refusal);
+    if (identity !== null) {
+      const projectOnly = [
+        ['pinned', args.pinned, 'pinned'],
+        ['name', args.name, 'renamed'],
+      ] as const;
+      for (const [subject, value, rule] of projectOnly) {
+        const refusal =
+          value === undefined ? null : projectOnlyRefusal(identity.kind, subject, rule);
+        if (refusal !== null) {
+          throw validation(refusal);
+        }
       }
     }
     if (parseIdentity(args.id)?.kind === 'artifact') {
