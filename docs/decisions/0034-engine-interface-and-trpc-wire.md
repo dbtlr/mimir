@@ -62,21 +62,24 @@ against a local store or a remote host through the same interface.
 - **Splitting domain from transport checks gives both engines the same
   rules.** A local CLI call and a remote one reach the same validation. Token,
   version, and rate-limit concerns exist only where there is a network.
-- **One owner per store removes the cross-writer problem.** Two processes
-  writing one SQLite file, or a host and a direct client writing one board,
-  would need the guarantees ADR 0023 and ADR 0030 decline to give.
+- **One owner per store keeps coordination inside one boundary.** SQLite's
+  WAL and `BEGIN IMMEDIATE` locking (ADR 0032) serialize writers only when
+  every process shares one machine's filesystem, and a container or VM
+  boundary breaks that. A direct client writing a board that a host also owns
+  would bypass the host's token check and version gate.
 
 ## Considered and rejected
 
 - **The CLI over the existing `/api`.** The CLI renders core view types.
   `/api` returns untyped snake_case resource envelopes (ADR 0012). Counted
-  against the code, the CLI's board-reading verbs `next`, `status`, and
-  `triage` have no route, and `tree` is routed only for projects. The earlier
-  estimate of thirteen unrouted verbs is wrong; the routes cover the uniform
-  lifecycle verbs, which the registry generates (ADR 0025), and most of the
-  rest. The count is not the deciding point. Re-plumbing every verb's
-  rendering from envelopes back to view types would build the typed surface
-  this record defines, with the weaker envelope as its base. ADR 0030 rejected
+  against the code, `next`, `status`, and `triage` have no route. `tree` is
+  routed only for projects, and `tag` and `untag` only for nodes. `triage` is
+  a board reconciliation that writes annotations, not a read. This corrects
+  ADR 0030's statement that every other work verb has a route. The routes
+  cover the uniform lifecycle verbs, which the registry generates (ADR 0025),
+  and most of the rest, but the count is not the deciding point. Re-plumbing
+  every verb's rendering from envelopes back to view types would build the
+  typed surface this record defines, with the weaker envelope as its base. ADR 0030 rejected
   a remote CLI over `/api` for the same reason.
 - **The tRPC router as the Engine.** Making procedures the interface ties the
   domain to tRPC, so a local CLI would run an in-process tRPC caller to reach
@@ -85,13 +88,20 @@ against a local store or a remote host through the same interface.
 
 ## Consequences
 
-- Amends [ADR 0025](0025-descriptor-driven-registration.md): the descriptors
-  that drive CLI, MCP, and HTTP registration re-derive from the Engine
-  interface rather than from their own tables. The amendment lands with the
-  phase that moves registration onto the Engine.
-- ADR 0010 (single binary), ADR 0012 (resource envelope and network-mode
-  guards), ADR 0013 (embedded SPA), and ADR 0030 (direct Postgres bridge) are
-  expected to change as the Engine replaces the direct-call transports. Each
-  is amended by the phase that changes it, not by this record.
-- `@mimir/contract` gains the Engine's input and output schemas. Console view
-  types move there from the HTTP layer.
+- Amends [ADR 0025](0025-descriptor-driven-registration.md) (dated refinement
+  there): the descriptors that drive CLI, MCP, and HTTP registration
+  re-derive from the Engine interface rather than from their own tables. The
+  current tables govern until the implementing phase lands.
+- ADR 0010 (single binary, and the MMR-15 contract-package rule), ADR 0012
+  (resource envelope and network-mode guards), ADR 0013 (embedded SPA), ADR
+  0023 (the 1.0 client/host topology), ADR 0030 (direct Postgres bridge), and
+  ADR 0032 (CLI and `mimir serve` sharing a local SQLite store) are expected
+  to change as the Engine replaces the direct-call transports. Each is
+  amended by the phase that changes it, not by this record. ADR 0030's
+  shared-Postgres embedded mode and ADR 0032's CLI-plus-serve sharing stay in
+  force until the phases that retire them; Decision 8 takes effect with them.
+- `@mimir/contract` gains a zod runtime dependency and the Engine's input and
+  output schemas, and console view types move there from the HTTP layer. This
+  reverses ADR 0010's MMR-15 rule ("no zod, no route map, no client SDK") for
+  that package. It takes effect with the phase that adds the Engine schemas,
+  which also updates the package description.

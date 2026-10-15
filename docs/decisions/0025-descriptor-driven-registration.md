@@ -6,10 +6,6 @@ date: 2026-07-18
 
 # ADR 0025: Descriptor-driven registration
 
-> **Amended by [ADR 0034](0034-engine-interface-and-trpc-wire.md).** Descriptors
-> re-derive from the Engine interface. This record stays in force until the phase
-> that moves registration onto the Engine lands.
-
 The two dominant change vectors fan out mechanically across the codebase.
 Adding one uniform lifecycle verb (`reopen`) cost ~90 source lines, ~46 of
 them spread across six transport files restating the same few facts — verb
@@ -110,3 +106,10 @@ A choice is not a data field: it has no `update` marker and is not stored
 under its own name. That separates it from the existing `fields` hook, which
 only carries update-marked spec fields. A verb takes at most one choice; a
 second option is the signal that the verb has stopped being uniform.
+
+## Refinement (2026-10-15, MMR-513): descriptors re-derive from the Engine (ADR 0034)
+
+The registry's facts will derive from the Engine interface defined in
+[ADR 0034](0034-engine-interface-and-trpc-wire.md) rather than from their own
+tables. The current tables govern until the phase that moves registration onto
+the Engine lands.
