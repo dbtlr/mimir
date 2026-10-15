@@ -47,7 +47,7 @@ const coreEntryOnly = {
 
 /** Core never reaches up into bin, by package name or by relative path. */
 const noBinImports = {
-  group: ['@mimir/bin', '@mimir/bin/**', '**/bin/src', '**/bin/src/**'],
+  group: ['@mimir/bin', '@mimir/bin/**', '**/bin', '**/bin/**'],
   message: 'Layer boundary: @mimir/core may not import from @mimir/bin (contract <- core <- bin).',
 };
 

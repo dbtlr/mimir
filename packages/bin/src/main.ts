@@ -1,20 +1,3 @@
-import {
-  buildStore,
-  DEFAULT_PORT,
-  envPort,
-  INSTALLATION_PROTOCOL_RESPONSE,
-  IS_PRODUCTION,
-  MimirError,
-  openInstallationSqlite,
-  openPostgres,
-  runInstallationCommand,
-  supervisorScope,
-  systemTimeZone,
-  warnConfigPermissions,
-  withConfigDoctor,
-} from '@mimir/core';
-import type { BuiltStore, DoctorBackend, Store } from '@mimir/core';
-
 /**
  * Entry point + composition root. Unlike the transport layers, `main` may wire
  * the store and transports together. It builds the store, then dispatches:
@@ -31,6 +14,24 @@ import type { BuiltStore, DoctorBackend, Store } from '@mimir/core';
  * which renders that verb's `COMMAND_HELP` descriptor without ever touching
  * the store (MMR-294).
  */
+
+import {
+  buildStore,
+  DEFAULT_PORT,
+  envPort,
+  INSTALLATION_PROTOCOL_RESPONSE,
+  IS_PRODUCTION,
+  MimirError,
+  openInstallationSqlite,
+  openPostgres,
+  runInstallationCommand,
+  supervisorScope,
+  systemTimeZone,
+  warnConfigPermissions,
+  withConfigDoctor,
+} from '@mimir/core';
+import type { BuiltStore, DoctorBackend, Store, SupervisorScope } from '@mimir/core';
+
 import { findBinding, runCli } from './cli';
 import type { Io } from './cli';
 import { createServer } from './http';
@@ -57,7 +58,7 @@ import {
   systemdUnitPathFor,
   unitLabels,
 } from './service';
-import type { ServeUnitOptions, ServiceDeps, SupervisorScope } from './service';
+import type { ServeUnitOptions, ServiceDeps } from './service';
 import type { StoreDeps } from './store/commands';
 import { VERSION } from './version';
 

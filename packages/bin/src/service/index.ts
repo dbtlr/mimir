@@ -25,10 +25,4 @@ export { plistFor, plistPathFor, readServePlistPort } from './plist';
 export { manualFetch } from './self-update';
 export { SystemdSupervisor } from './systemd';
 export { readServeUnitPort, serveUnitFor, systemdUnitPathFor } from './systemd-unit';
-export {
-  SERVE_LABEL,
-  type ServeUnitOptions,
-  type SupervisorScope,
-  mayDrive,
-  unitLabels,
-} from './units';
+export { SERVE_LABEL, type ServeUnitOptions, mayDrive, unitLabels } from './units';

@@ -11,8 +11,6 @@ import type { SupervisorScope } from '@mimir/core';
 
 import type { UnitName } from './format';
 
-export type { SupervisorScope } from '@mimir/core';
-
 const LABEL_PREFIX = 'com.dbtlr.mimir';
 export const SERVE_LABEL = `${LABEL_PREFIX}.serve`;
 

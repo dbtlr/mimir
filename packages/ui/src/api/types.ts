@@ -28,7 +28,7 @@ import type {
  * names. Field *values* (status words, priorities, verdicts, refs…) are the
  * contract's types verbatim — only the casing of facet field names differs,
  * because the contract deliberately keeps the internal camelCase `NodeView`
- * separate from the rendered wire (see `@mimir/bin` core/format.ts).
+ * separate from the rendered wire (see `@mimir/core` format.ts).
  */
 
 export type WireDeps = {
@@ -201,7 +201,7 @@ export type WireNode = {
 
 /**
  * A grooming-queue seed (MMR-247) as the wire serves it — the contract's
- * `SeedView` in snake_case (mirrors `seedToWire` in `@mimir/bin` core/format.ts).
+ * `SeedView` in snake_case (mirrors `seedToWire` in `@mimir/core` format.ts).
  * `lane` is served, not derived: consume it directly (MMR-245). `requester` is
  * null when self-filed (rendered "you"); `spawned` lists surviving work-node
  * stems; `ready_to_resolve` is the derived promoted-and-all-work-settled flag.
@@ -246,7 +246,7 @@ export type WireScratchpadRow = {
 /**
  * The work page's rows (`GET /api/projects/:key/work`, `GET /api/nodes/:id/work`,
  * MMR-469) — each is the lean node object with its section's fields folded on,
- * snake_case as `workToWire` in `@mimir/bin` core/format.ts renders them. A row
+ * snake_case as `workToWire` in `@mimir/core` format.ts renders them. A row
  * can be stale in any section but Shipped, which only ever carries `false`.
  */
 export type WireWorkNow = {

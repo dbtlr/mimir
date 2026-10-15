@@ -20,7 +20,7 @@ import {
   serveProblemWarning,
   writeServePort,
 } from '@mimir/core';
-import type { GlobalConfig, Health } from '@mimir/core';
+import type { GlobalConfig, Health, SupervisorScope } from '@mimir/core';
 import { formatInstant, isMember } from '@mimir/helpers';
 
 import { usage } from '../cli/errors';
@@ -51,7 +51,6 @@ import {
 import type { Fetcher } from './self-update';
 import type { Supervisor } from './supervisor';
 import { mayDrive } from './units';
-import type { SupervisorScope } from './units';
 
 export type UpdateSelection = {
   /** Include prereleases — resolve the newest build on the next-version line (--next). */
