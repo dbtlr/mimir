@@ -186,8 +186,25 @@ dialect-parameterized SQL store. Postgres keeps every property this ADR gives it
 including the explicit schema gate. Norn's automatic vault upgrade, accepted
 above, retires with the Norn backend.
 
+## Refinement (2026-10-15, MMR-528): the container host migrates on boot
+
+[ADR 0035](0035-tanstack-start-container-host.md) gives the container host
+schema authority over its store. Decision 5's explicit-command requirement
+continues to govern direct Postgres CLIs, but the host migrates Postgres on
+startup before serving. SQLite also migrates on host startup. A failed
+migration prevents serving, and a schema newer than the host supports refuses
+startup. Updating the host first applies the release's migrations, then the
+CLIs that share the database are updated.
+
+A direct Postgres CLI never migrates implicitly and refuses a newer schema
+until updated. A remote CLI never opens the host's store. ADR 0032's local
+SQLite migration-on-open behavior is unchanged. Existing direct Postgres
+installations keep the bridge until their ownership cutover; accepting the
+host design does not migrate them or change their opening behavior.
+
 ## Changelog
 
 - 2026-09-17: Clarified shared import validation and its compatibility boundaries.
 - 2026-10-03: Accepted Norn's automatic vault schema upgrade.
 - 2026-10-03: Named Postgres the hosted tier beside SQLite (ADR 0032).
+- 2026-10-15: Granted the container host boot-time schema authority while retaining the direct Postgres CLI gate (ADR 0035).
