@@ -78,6 +78,7 @@ async function ready(container: string, port = 64647): Promise<string> {
   );
 }
 
+/** Require Docker's own probe result, since an HTTP listener alone is insufficient. */
 async function healthy(container: string) {
   for (let attempt = 0; attempt < 80; attempt++) {
     const status = await docker([

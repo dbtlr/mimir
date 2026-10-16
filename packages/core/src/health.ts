@@ -11,6 +11,7 @@ export const healthSchema = z.object({
 
 export type Health = z.infer<typeof healthSchema>;
 
+/** Use the supported schema so liveness never depends on a database query. */
 export function healthOf(version: string): Health {
   return { schema: SCHEMA_VERSION, status: 'ok', version };
 }

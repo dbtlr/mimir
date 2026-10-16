@@ -5,6 +5,7 @@ import { definePlugin } from 'nitro';
 import { hostConfig } from './config';
 import { closeHost, hostRuntime } from './runtime';
 
+/** Share one readiness and guard snapshot across every dispatched route. */
 async function startHost() {
   try {
     // Prerendering must remain data-free, but it still uses the network guards.
