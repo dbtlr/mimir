@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
-/** The owned `/api/health` wire response, shared by its producer and consumer. */
+import { SCHEMA_VERSION } from './store-sql/migrator';
+
+/** The health wire response, shared by the host and CLI transports. */
 export const healthSchema = z.object({
   schema: z.number().int().nonnegative(),
   status: z.literal('ok'),
@@ -8,3 +10,7 @@ export const healthSchema = z.object({
 });
 
 export type Health = z.infer<typeof healthSchema>;
+
+export function healthOf(version: string): Health {
+  return { schema: SCHEMA_VERSION, status: 'ok', version };
+}

@@ -62,7 +62,7 @@ async function ready(container: string, port = 64647): Promise<string> {
   let health = 'no response';
   for (let attempt = 0; attempt < 80; attempt++) {
     try {
-      const response = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(500) });
+      const response = await fetch(`${base}/health`, { signal: AbortSignal.timeout(500) });
       const contentType = response.headers.get('content-type') ?? 'no content type';
       health = `${response.status} ${contentType}`;
       if (response.ok && contentType.includes('application/json')) {
@@ -76,6 +76,23 @@ async function ready(container: string, port = 64647): Promise<string> {
   throw new Error(
     `container health did not become ready (${health}): ${await docker(['logs', container])}`,
   );
+}
+
+async function healthy(container: string) {
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const status = await docker([
+      'inspect',
+      '--format',
+      '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}',
+      container,
+    ]);
+    if (status !== 'starting') {
+      expect(status, `Docker health for ${container}`).toBe('healthy');
+      return;
+    }
+    await Bun.sleep(250);
+  }
+  throw new Error(`Docker health stayed starting: ${await docker(['logs', container])}`);
 }
 
 test('the host image persists SQLite and migrates Postgres before serving', async () => {
@@ -104,16 +121,94 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
         '127.0.0.1::64647',
         '--volume',
         `${volume}:/data`,
+        '--env',
+        'MIMIR_HOSTS=allowed.example',
+        '--env',
+        'MIMIR_URL=https://public.example',
+        '--env',
+        'TSS_PRERENDERING=true',
         ...user,
         image,
       ]);
       return ready(container);
     };
     let base = await run(name);
+    expect(await docker(['logs', name])).toContain('applied migration 0005_project_pinned');
+    for (const path of [
+      '/',
+      '/_shell.html',
+      '/icons/mimir.svg',
+      '/assets/missing.js',
+      '/api/health',
+      '/trpc',
+      '/_serverFn/missing',
+      '/health',
+    ]) {
+      const refused = await fetch(`${base}${path}`, { headers: { host: 'unlisted.example' } });
+      expect(refused.status, path).toBe(403);
+      expect(await refused.json(), path).toMatchObject({ error: { code: 'forbidden_host' } });
+      const crossOrigin = await fetch(`${base}${path}`, {
+        headers: { origin: 'https://evil.example' },
+        method: 'POST',
+      });
+      expect(crossOrigin.status, path).toBe(403);
+      expect(await crossOrigin.json(), path).toMatchObject({ error: { code: 'forbidden_origin' } });
+    }
     const version = z
       .object({ version: z.string() })
       .parse(await Bun.file(new URL('../../bin/package.json', import.meta.url)).json()).version;
     expect(await api(base, '/api/health')).toMatchObject({ status: 'ok', version });
+    expect(await api(base, '/health')).toEqual({ schema: 5, status: 'ok', version });
+    const healthHead = await fetch(`${base}/health`, { method: 'HEAD' });
+    expect(healthHead.status).toBe(200);
+    expect(await healthHead.text()).toBe('');
+    expect(healthHead.headers.get('cache-control')).toBe('no-store');
+    await healthy(name);
+    const [, ...healthCommand] = z
+      .tuple([z.literal('CMD'), z.literal('bun'), z.literal('-e'), z.string()])
+      .parse(
+        JSON.parse(
+          await docker(['inspect', '--format', '{{json .Config.Healthcheck.Test}}', name]),
+        ),
+      );
+    const invalidHealth = await docker([
+      'exec',
+      name,
+      'bun',
+      '-e',
+      `
+      const exits = [];
+      for (const body of ['<!doctype html><title>SPA fallback</title>', '{"status":"failed"}']) {
+        const server = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => new Response(body) });
+        try {
+          const child = Bun.spawn(${JSON.stringify(healthCommand)}, {
+            env: { ...process.env, MIMIR_PORT: String(server.port) },
+            stdout: 'ignore', stderr: 'ignore',
+          });
+          exits.push(await child.exited);
+        } finally {
+          await server.stop(true);
+        }
+      }
+      console.log(JSON.stringify(exits));
+    `,
+    ]);
+    expect(invalidHealth).toBe('[1,1]');
+    for (const host of ['allowed.example', 'public.example']) {
+      const response = await fetch(`${base}/api/health`, { headers: { host } });
+      expect(response.status, host).toBe(200);
+    }
+    for (const [key, headers] of [
+      ['CLI', {}],
+      ['WEB', { origin: base, 'sec-fetch-site': 'same-origin' }],
+    ] satisfies [string, Record<string, string>][]) {
+      const response = await fetch(`${base}/api/projects`, {
+        body: JSON.stringify({ key, name: key }),
+        headers: { 'content-type': 'application/json', ...headers },
+        method: 'POST',
+      });
+      expect(response.status, key).toBe(201);
+    }
 
     expect(
       await api(base, '/api/projects', {
@@ -281,6 +376,8 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
         '--env',
         'MIMIR_PORT=12345',
         '--env',
+        'MIMIR_URL=https://public.example',
+        '--env',
         'MIMIR_DATABASE_URL_FILE=/run/secrets/database-url',
         '--mount',
         `type=bind,src=${secret},dst=/run/secrets/database-url,readonly`,
@@ -289,6 +386,17 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     };
     await runPostgresHost();
     base = await ready(postgresHost, 12345);
+    await healthy(postgresHost);
+    const arbitraryHost = await fetch(`${base}/health`, { headers: { host: 'unlisted.example' } });
+    expect(arbitraryHost.status).toBe(200);
+    const crossOriginWithoutAllowlist = await fetch(`${base}/`, {
+      headers: { origin: 'https://evil.example' },
+      method: 'POST',
+    });
+    expect(crossOriginWithoutAllowlist.status).toBe(403);
+    expect(await crossOriginWithoutAllowlist.json()).toMatchObject({
+      error: { code: 'forbidden_origin' },
+    });
     expect(await api(base, '/api/projects')).toMatchObject({ items: [] });
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0005_project_pinned');
     await docker(['rm', '--force', postgresHost]);

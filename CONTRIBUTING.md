@@ -86,7 +86,12 @@ migrations, and refuses a newer schema with an instruction to update the image.
 Development defaults to `.dev/host` beneath `packages/host` and port `64747`,
 separate from the live console origin. Use the
 [sandbox host launcher](docs/guides/development-sandboxes.md) for owned Postgres.
-`MIMIR_HOSTS` and `MIMIR_URL` are validated now; middleware over all host routes,
+The shared network guards cover every host route, including static assets.
+`MIMIR_HOSTS` enables optional Host filtering; `MIMIR_URL` adds its hostname only
+when filtering is enabled. Cross-origin writes are always refused. `/health`
+reports the build and supported schema without querying the store, and Docker
+probes its JSON response with Bun. `/api/doctor` keeps the store's diagnostic
+facet without CLI configuration findings.
 tRPC, image publishing, and deployment remain later migration work. The existing CLI installation and
 `mimir serve` workflows remain available.
 

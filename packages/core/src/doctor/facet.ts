@@ -5,10 +5,9 @@
  * chip the Record-health panel shows. Read-only: it names the row a human fixes
  * at the database; it never writes.
  *
- * The backend builds it (ADR 0030 Decision 6) from the one diagnosis it also
- * hands the CLI, and `withConfigDoctor` adds the config-file findings to both
- * through {@link withFindings}, so the panel can never drift from what
- * `mimir doctor` reports.
+ * The backend builds it (ADR 0030 Decision 6) from the diagnosis it also hands
+ * the CLI. CLI installations add configuration findings with `withConfigDoctor`
+ * through {@link withFindings}; the container host uses the store facet directly.
  */
 import type { DoctorFinding, DoctorScopeMatch } from './contract';
 

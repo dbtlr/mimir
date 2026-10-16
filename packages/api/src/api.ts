@@ -41,6 +41,7 @@ import {
   getNode,
   getSeed,
   groomTasks,
+  healthOf,
   listNodes,
   listProjects,
   listSeeds,
@@ -74,7 +75,6 @@ import {
   resolveProjectKeyInSet,
   reviewOf,
   reviewToWire,
-  SCHEMA_VERSION,
   scratchpadReceiptToWire,
   scratchpadRowToWire,
   scratchpadToWire,
@@ -108,7 +108,6 @@ import type {
   SpecUpdateField,
   Store,
   UpdateFields,
-  Health,
 } from '@mimir/core';
 import { isMember } from '@mimir/helpers';
 
@@ -771,12 +770,7 @@ function apiRoutes(store: Store, opts: ApiOptions): ApiRoutes {
       // `version` is the daemon's build (MMR-57); `schema` is the store
       // schema it reads and writes — together the console's stale-binary signal
       // (MMR-260): a running UI bundle compares its own build against this.
-      GET: () =>
-        json({
-          schema: SCHEMA_VERSION,
-          status: 'ok',
-          version: opts.version,
-        } satisfies Health),
+      GET: () => json(healthOf(opts.version)),
     },
 
     '/api/nodes': {
