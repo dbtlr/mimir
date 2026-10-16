@@ -27,7 +27,7 @@ let dir: string;
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'mimir-ui-assets-'));
-  writeFileSync(join(dir, 'index.html'), '<!doctype html><title>Mimir</title>');
+  writeFileSync(join(dir, '_shell.html'), '<!doctype html><title>Mimir</title>');
   writeFileSync(join(dir, 'app-abc123.js'), "console.log('mimir')");
 });
 
@@ -41,15 +41,15 @@ afterEach(async () => {
 
 function fixtureAssets(): UiAssetMap {
   return {
+    '/_shell.html': {
+      file: join(dir, '_shell.html'),
+      immutable: false,
+      type: 'text/html; charset=utf-8',
+    },
     '/assets/app-abc123.js': {
       file: join(dir, 'app-abc123.js'),
       immutable: true,
       type: 'text/javascript; charset=utf-8',
-    },
-    '/index.html': {
-      file: join(dir, 'index.html'),
-      immutable: false,
-      type: 'text/html; charset=utf-8',
     },
   };
 }
@@ -68,7 +68,7 @@ test('serves an exact asset with content-type and immutable caching', async () =
   expect(await res.text()).toBe("console.log('mimir')");
 });
 
-test('serves index.html at / without immutable caching', async () => {
+test('serves _shell.html at / without immutable caching', async () => {
   const base = start(fixtureAssets());
   const res = await fetch(`${base}/`);
   expect(res.status).toBe(200);
@@ -77,7 +77,7 @@ test('serves index.html at / without immutable caching', async () => {
   expect(await res.text()).toContain('<title>Mimir</title>');
 });
 
-test('any non-/api miss falls back to index.html — the SPA owns its routes', async () => {
+test('any non-/api miss falls back to _shell.html — the SPA owns its routes', async () => {
   const base = start(fixtureAssets());
   for (const path of ['/p/MMR', '/p/MMR?view=tree&node=MMR-16', '/nope']) {
     const res = await fetch(`${base}${path}`);

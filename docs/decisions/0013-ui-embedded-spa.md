@@ -629,3 +629,31 @@ Considered and rejected:
   no rail.** It loses the at-a-glance health of each project.
 - **Rows grouped under project subheads in every section.** It repeats the
   project list in each section.
+
+## Refinement (2026-10-16, MMR-529): Start builds the shared shell and adds a container runtime
+
+[ADR 0035](0035-tanstack-start-container-host.md) refines the original rejection
+of a meta-framework and a second distributable. The host needs its own runtime
+and release boundary, independent of the CLI's installation and service lifecycle.
+The console remains a client-rendered SPA with TanStack Query fetching its data.
+
+`packages/ui` becomes `packages/host` (`@mimir/host`). TanStack Start runs in
+SPA mode on Nitro's Bun preset and prerenders a data-free `_shell.html`.
+Client routes remain code-based in `src/router.tsx`, behind Start's router
+entry. Start's generated route tree supplies the document shell and server
+routes. Server rendering does not read the store.
+
+The PWA precaches the final `packages/host/.output/public` output and uses
+`/_shell.html` for navigation fallback. `/api`, `/trpc`, `/_serverFn`, and
+`/health` are excluded. The service worker caches the shell, never API data.
+The offline-read and no-offline-write rules remain in force.
+
+The container mounts the transitional `/api` dispatcher from `@mimir/api`
+over its SQLite store. The same dispatcher serves `mimir serve`. The compiled
+binary embeds the final public assets and uses the prerendered shell as its
+SPA fallback, so its console stays bundled with its binary.
+
+This slice adds a container runtime without retiring `mimir serve`, changing
+CLI installation, or completing the host cutover. ADR 0035 governs the later
+configuration, transport, distribution, and ownership changes. Its validation
+boundary applies to this integration slice.

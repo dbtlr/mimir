@@ -1,0 +1,17 @@
+.git
+**/node_modules
+**/dist
+**/.output
+**/.tanstack
+**/.dev
+**/test-results
+**/playwright-report
+.claude
+.codex
+.superpowers
+.mcp.json
+.saga.local.json
+packages/bin/src/http/ui-assets.generated.ts
+
+.env
+.env.*

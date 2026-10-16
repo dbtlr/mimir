@@ -12,17 +12,18 @@
     "assets": "bun packages/bin/scripts/generate-ui-assets.ts",
     "changelog:compile": "bun packages/bin/scripts/compile-changelog.ts",
     "fixtures:docs": "bun packages/bin/scripts/generate-docs-fixture.ts",
-    "build:ui": "bun run --cwd packages/ui build",
-    "dev:ui": "bun run --cwd packages/ui dev",
+    "build:ui": "bun run --cwd packages/host build",
+    "dev:ui": "bun run --cwd packages/host dev",
     "check": "bun run assets && vp check",
-    "test": "bun run assets && bun test packages/bin packages/core packages/helpers packages/sandbox packages/wire",
-    "test:pwa": "bun run --cwd packages/ui test:pwa",
-    "test:ui": "bun run --cwd packages/ui test",
+    "test": "bun run assets && bun test packages/bin packages/core packages/helpers packages/sandbox packages/wire packages/api packages/host/src/server",
+    "test:pwa": "bun run --cwd packages/host test:pwa",
+    "test:ui": "bun run --cwd packages/host test",
     "verify": "bun run check && bun run test && bun run test:ui",
     "build": "bun run build:ui && bun run assets && bun build packages/bin/src/main.ts --compile --outfile dist/mimir",
     "sandbox": "bun packages/sandbox/src/main.ts",
     "test:postgres": "bun run sandbox test",
-    "test:sandbox": "bun run build && MIMIR_SANDBOX_LIFECYCLE_TEST=1 bun test packages/sandbox/src/workflow.integration.test.ts packages/sandbox/src/installer.integration.test.ts"
+    "test:sandbox": "bun run build && MIMIR_SANDBOX_LIFECYCLE_TEST=1 bun test packages/sandbox/src/workflow.integration.test.ts packages/sandbox/src/installer.integration.test.ts",
+    "test:host": "bun test packages/host/scripts/dev.integration.test.ts packages/host/scripts/container.integration.test.ts"
   },
   "dependencies": {
     "vite": "^8.3.4"

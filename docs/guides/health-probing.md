@@ -21,7 +21,7 @@ only when scripting something status doesn't cover.
 ## Reading a 409
 
 Every store-backed endpoint runs through a shared error envelope
-(`packages/bin/src/http/respond.ts`). The envelope's `code` maps to an HTTP
+(`packages/api/src/respond.ts`). The envelope's `code` maps to an HTTP
 status:
 
 | code         | HTTP status |

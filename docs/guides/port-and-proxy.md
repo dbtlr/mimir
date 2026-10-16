@@ -207,6 +207,6 @@ its own units. There is no environment override that grants this authority to a 
 `packages/core/src/env.ts` (`MIMIR_PORT` parsing),
 `packages/core/src/config.ts` (`[serve]` config read/write),
 `packages/core/src/address.ts` (`bind` and `url` handling),
-`packages/bin/src/http/host.ts` (the accepted-host guard and the cross-origin
+`packages/api/src/host.ts` (the accepted-host guard and the cross-origin
 write check),
 `packages/bin/src/service/plist.ts` (the generated unit — no `--port`).

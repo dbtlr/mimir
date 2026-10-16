@@ -115,6 +115,9 @@ or the CLI's service installation commands to run.
 
 ## Validation and migration boundary
 
+The following boundary records the state at acceptance on 2026-10-15. The
+dated validation addendum below records the subsequent implementation evidence.
+
 This accepted record governs the host implementation. It does not claim the
 container or its PWA integration is already implemented. MMR-529 must first
 prove that `vite-plugin-pwa` precaches Start's prerendered shell and that the
@@ -153,3 +156,23 @@ ADR 0034 requires. Their current rules are not retired by accepting this record.
 
 - [TanStack Start SPA mode](https://tanstack.com/start/latest/docs/framework/react/guide/spa-mode)
 - [Nitro's Bun runtime preset](https://nitro.build/deploy/runtimes/bun)
+
+## Validation addendum (2026-10-16, MMR-529): local container and PWA slice
+
+The local SQLite integration slice has passed its container and PWA checks:
+
+- `bun run test:host` builds the root Dockerfile and runs the image with
+  a disposable SQLite volume, a read-only root filesystem, and a random
+  loopback port. The check exercises the review API, node reads, task
+  completion, console routes, and the served PWA assets. It verifies persisted
+  work after restart and with a `--user 0:0` override. API misses retain the
+  JSON error envelope, and the transitional API refuses cross-origin writes.
+- `bun run test:pwa` exercises the browser update lifecycle across two Start
+  builds. The checks verify shell precaching, waiting-worker activation, and
+  the update flow. The service worker uses Start's prerendered `_shell.html`.
+
+This evidence establishes the selected local stack and transitional `/api`
+path. Full environment configuration, Postgres authority, middleware over
+every host route, image publication, and the ownership cutover remain later
+work. The current CLI installation and `mimir serve` boundaries remain in
+force. The PWA browser lane remains a manual check outside CI.

@@ -23,9 +23,23 @@ bun run test:sandbox   # build and native snapshot rehearsal
 
 `verify` is `bun run check` (oxfmt + oxlint + type-aware typecheck, zero-warning)
 plus binary and UI tests. SQLite-backed suites use in-memory databases (a temporary file
-where the file itself is under test) and need nothing installed. Postgres unit tests use PGlite. The two disposable-server commands need
-Docker; CI runs all three gates. See the [sandbox guide](docs/guides/development-sandboxes.md)
+where the file itself is under test) and need nothing installed. Postgres unit tests use PGlite.
+The Postgres and sandbox lanes need Docker; CI runs both alongside `verify`.
+See the [sandbox guide](docs/guides/development-sandboxes.md)
 for fixtures, snapshots, and candidate migration tests.
+
+For host and PWA changes, run the local integration gates:
+
+```bash
+bun run test:host      # dev browser and disposable SQLite container checks
+bun run test:pwa       # browser update lifecycle across two host builds
+```
+
+`test:host` also runs in CI. It checks the isolated development server and
+needs Docker for the image checks. It uses a temporary volume and a random loopback
+port, then removes its containers, volume, and image. `test:pwa` is a manual
+browser lane outside `verify` and CI. Browser checks need Chromium:
+`bun run --cwd packages/host playwright install chromium`.
 
 ## Project shape
 
@@ -40,11 +54,33 @@ shared database) supplying each dialect's connection, DDL, and column
 encodings. Its public surface is the entry `src/index.ts`; test fixtures sit
 behind `@mimir/core/testing`. `packages/bin` (`@mimir/bin`) is the binary:
 `src/cli`, `src/mcp`, and `src/http` are the transports; `src/main.ts` is the
-composition root. `packages/ui` (`@mimir/ui`) is the operator-console SPA,
-embedded in the binary at build time. The layering
+composition root. `packages/api` (`@mimir/api`) owns the transitional `/api`
+route table, request dispatcher, response envelope, and HTTP guards. Both the
+binary and the host use this package. Its handlers take standard `Request`
+objects and explicit route parameters. The layering
 `contract ← core ← bin` is enforced by an oxlint rule — `@mimir/core` may not
 import `@mimir/bin`, bin reaches core only through its two entries, and
 transports may not import each other.
+
+`packages/host` (`@mimir/host`) contains the operator console and the TanStack
+Start host. Start runs in SPA mode on Nitro's Bun preset. The client routes
+remain code-based in `src/router.tsx`, behind `src/start-router.tsx`.
+`src/start-routes` supplies Start's generated route tree, including the `/api/$`
+server route. The host imports `@mimir/api`, never `@mimir/bin`.
+
+`bun run build:ui` builds the host and prerenders a data-free `_shell.html`.
+The final client assets and PWA output live in `packages/host/.output/public`.
+The service worker precaches that shell and excludes `/api`, `/trpc`,
+`/_serverFn`, and `/health` from navigation fallback. `bun run build` embeds
+those same public assets in the compiled binary for `mimir serve`.
+
+The root `Dockerfile` builds a separate host runtime from `oven/bun:1.4.3`.
+It runs as the `bun` user, stores SQLite under the `/data` volume through
+`MIMIR_DATA_DIR`, and listens on port `64647`. This is the local SQLite
+integration slice described in [ADR 0035](docs/decisions/0035-tanstack-start-container-host.md).
+Full host configuration, Postgres, network middleware, tRPC, image publishing,
+and deployment remain later migration work. The existing CLI installation and
+`mimir serve` workflows remain available.
 
 The client/host split starts with `Engine.getNode` and `Engine.done`.
 `LocalEngine` owns a `Store` and delegates to the existing domain functions;

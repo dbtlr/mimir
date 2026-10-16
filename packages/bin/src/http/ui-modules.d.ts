@@ -1,6 +1,6 @@
 /**
  * Ambient modules for the generated asset manifest's Bun file-type imports
- * (`import x from "../../../ui/dist/..." with { type: "file" }`): each import
+ * (`import x from "../../../host/.output/public/..." with { type: "file" }`): each import
  * resolves to a path string `Bun.file` can open — embedded in the binary
  * after `bun build --compile`, on disk otherwise.
  */

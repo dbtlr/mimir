@@ -8,6 +8,7 @@
   },
   "type": "module",
   "dependencies": {
+    "@mimir/api": "workspace:*",
     "@mimir/contract": "workspace:*",
     "@mimir/core": "workspace:*",
     "@mimir/helpers": "workspace:*",
