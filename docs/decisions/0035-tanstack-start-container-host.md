@@ -40,6 +40,12 @@ access through tRPC when device pairing lands. Console functions do not
 require a device token. Host filtering and cross-origin checks still apply
 to both surfaces, but neither check authenticates a caller.
 
+Any client that can reach the unauthenticated host has full Engine authority
+over its store. Port publishing must restrict access to the single-user
+tailnet. Exposure beyond that tailnet is outside this decision's accepted
+posture. Neither the optional Host allowlist nor the cross-origin write check
+replaces that network boundary.
+
 The existing `/api` handler is a transitional pass-through inside the host.
 It preserves the current console contract until the console moves to server
 functions, then leaves with that migration. It is not a second permanent API.
