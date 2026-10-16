@@ -1,15 +1,13 @@
 /**
- * The `mimir serve` port facts. A leaf with no imports, so the console's Vite
- * config can import it by path: its config loader leaves workspace packages to
- * Node, which cannot resolve the package barrel.
+ * Shared server ports. This dependency-free leaf is also safe for build configuration.
  */
 
 /** The port the live installation's `mimir serve` binds by default. */
 export const PROD_PORT = 64647;
 
 /**
- * The port any other `mimir serve` binds by default — a from-source or sandbox
- * run. The dev console's Vite proxy forwards `/api` here (MMR-426).
+ * The default for source and sandbox servers. A separate origin keeps
+ * development stores apart from the live console and its cached data.
  */
 export const DEV_PORT = 64747;
 

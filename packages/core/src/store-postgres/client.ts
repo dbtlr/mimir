@@ -9,10 +9,9 @@ import type { DB } from '../store-sql/schema';
  * The real-Postgres connection (ADR 0030) — a `pg` pool behind Kysely's
  * PostgreSQL dialect.
  *
- * The URL comes from `[store] url` in the global config and nowhere else: a
- * shared store is an operator decision recorded in a file, not an ambient
- * environment variable that makes the same command mean two things on two
- * machines.
+ * The CLI supplies `[store] url` from installation configuration. The host
+ * supplies its validated environment configuration (ADR 0035). Both pass the
+ * same authority check before a pool can exist.
  */
 
 export type PostgresHandle = {

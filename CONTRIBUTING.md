@@ -36,8 +36,8 @@ bun run test:pwa       # browser update lifecycle across two host builds
 ```
 
 `test:host` also runs in CI. It checks the isolated development server and
-needs Docker for the image checks. It uses a temporary volume and a random loopback
-port, then removes its containers, volume, and image. `test:pwa` is a manual
+needs Docker for the SQLite and Postgres image checks. It uses a temporary volume, an owned Postgres container, and random loopback
+ports, then removes its containers, network, volume, and image. `test:pwa` is a manual
 browser lane outside `verify` and CI. Browser checks need Chromium:
 `bun run --cwd packages/host playwright install chromium`.
 
@@ -75,11 +75,19 @@ The service worker precaches that shell and excludes `/api`, `/trpc`,
 those same public assets in the compiled binary for `mimir serve`.
 
 The root `Dockerfile` builds a separate host runtime from `oven/bun:1.4.3`.
-It runs as the `bun` user, stores SQLite under the `/data` volume through
-`MIMIR_DATA_DIR`, and listens on port `64647`. This is the local SQLite
-integration slice described in [ADR 0035](docs/decisions/0035-tanstack-start-container-host.md).
-Full host configuration, Postgres, network middleware, tRPC, image publishing,
-and deployment remain later migration work. The existing CLI installation and
+It runs as the `bun` user and reads validated environment configuration at boot,
+without reading the CLI's `config.toml`. SQLite defaults to `/data` in the image;
+`MIMIR_DATABASE_URL` or `MIMIR_DATABASE_URL_FILE` selects Postgres. Setting both
+refuses startup. `MIMIR_PORT` defaults to `64647`.
+
+The image build defines Postgres authority; runtime environment variables cannot
+grant it to development hosts. The host migrates before serving, logs applied
+migrations, and refuses a newer schema with an instruction to update the image.
+Development defaults to `.dev/host` beneath `packages/host` and port `64747`,
+separate from the live console origin. Use the
+[sandbox host launcher](docs/guides/development-sandboxes.md) for owned Postgres.
+`MIMIR_HOSTS` and `MIMIR_URL` are validated now; middleware over all host routes,
+tRPC, image publishing, and deployment remain later migration work. The existing CLI installation and
 `mimir serve` workflows remain available.
 
 The host API is unauthenticated: every reachable client can read and mutate

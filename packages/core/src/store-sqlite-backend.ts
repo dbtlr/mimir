@@ -22,8 +22,11 @@ import {
 
 /** Build the SQLite store for this process over the installation's database
  * file, migrating it forward on open. */
-export async function buildSqliteStore(path: string = sqliteStorePath()): Promise<BuiltStore> {
-  return builtOver(await openInstallationSqlite(path));
+export async function buildSqliteStore(
+  path: string = sqliteStorePath(),
+  onMigration?: (name: string) => void,
+): Promise<BuiltStore> {
+  return builtOver(await openInstallationSqlite(path, onMigration));
 }
 
 /** The store, its doctor facet, and its release over one open handle. */
@@ -40,9 +43,12 @@ function builtOver(handle: SqliteHandle): BuiltStore {
  * and `store upgrade` share. A fresh installation's data directory may not
  * exist until this first open.
  */
-export function openInstallationSqlite(path: string = sqliteStorePath()): Promise<SqliteHandle> {
+export function openInstallationSqlite(
+  path: string = sqliteStorePath(),
+  onMigration?: (name: string) => void,
+): Promise<SqliteHandle> {
   mkdirSync(dirname(path), { recursive: true });
-  return openSqlite(path);
+  return openSqlite(path, { onMigration });
 }
 
 /**

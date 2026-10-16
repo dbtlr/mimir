@@ -6,7 +6,10 @@ async function startHost() {
   try {
     await hostRuntime();
   } catch (error) {
-    console.error('host: cannot open a writable SQLite store under MIMIR_DATA_DIR', error);
+    console.error(
+      'host: startup refused:',
+      error instanceof Error ? error.message : 'store open failed',
+    );
     process.exit(1);
   }
 }

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { readSandboxAuthority, assertSandboxPostgresUrl } from './sandbox-authority';
+import { openPostgres } from './store-postgres/client';
 
 function fixture() {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'mimir-authority-')));
@@ -104,6 +105,35 @@ test('sandbox configuration cannot be a symlink to an external installation', ()
     symlinkSync(external, join(f.value.paths.config, 'config.toml'));
     expect(() => readSandboxAuthority(f.file)).toThrow('sandbox');
   } finally {
+    f.close();
+  }
+});
+
+test('a development process may create a pool only for its sandbox endpoint', () => {
+  const f = fixture();
+  const saved = process.env.MIMIR_SANDBOX_AUTHORITY;
+  process.env.MIMIR_SANDBOX_AUTHORITY = f.file;
+  try {
+    expect(() =>
+      openPostgres(f.value.postgresUrl, {
+        createPool: () => {
+          throw new Error('sandbox pool admitted');
+        },
+      }),
+    ).toThrow('sandbox pool admitted');
+    expect(() =>
+      openPostgres('postgres://live:secret@production.invalid/live', {
+        createPool: () => {
+          throw new Error('unexpected pool');
+        },
+      }),
+    ).toThrow('does not match sandbox authority');
+  } finally {
+    if (saved === undefined) {
+      delete process.env.MIMIR_SANDBOX_AUTHORITY;
+    } else {
+      process.env.MIMIR_SANDBOX_AUTHORITY = saved;
+    }
     f.close();
   }
 });

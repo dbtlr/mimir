@@ -163,6 +163,25 @@ before and after the run. Passing runs are deleted unless `--keep` is given.
 Failed runs keep their sandbox, including `transcript.jsonl`, and the summary
 prints where.
 
+## Run the development host against Postgres
+
+```sh
+bun run sandbox host <sandbox-id>
+bun run sandbox host <sandbox-id> --port 6543
+```
+
+`host` checks the existing sandbox's authority, Docker daemon identity, and
+container ownership before starting `packages/host` in development mode. It
+supplies only that sandbox's generated Postgres endpoint. Ambient `MIMIR_*`
+and `PG*` variables are cleared, including database secret files and host
+configuration. The development host still checks the supplied endpoint against
+the authority file before opening a connection.
+
+The server binds to `127.0.0.1`, defaults to port `64747`, and refuses an occupied
+port. Logs stream to the terminal. Press Ctrl+C to stop the server and its child
+processes; the sandbox remains available. A session stops after twelve hours.
+Use `sandbox destroy <sandbox-id>` when the sandbox is no longer needed.
+
 ## Configure the snapshot source
 
 Create the local, ignored `.dev/sandbox.json` configuration:

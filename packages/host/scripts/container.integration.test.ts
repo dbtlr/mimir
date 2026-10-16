@@ -2,9 +2,14 @@
 
 import { expect, test } from 'bun:test';
 import { randomUUID } from 'node:crypto';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { z } from 'zod';
+
+import { POSTGRES_IMAGE } from '../../sandbox/src/workflow';
 
 const repository = fileURLToPath(new URL('../../..', import.meta.url));
 
@@ -48,8 +53,8 @@ async function api(
   return response.json();
 }
 
-async function ready(container: string): Promise<string> {
-  const address = await docker(['port', container, '64647/tcp']);
+async function ready(container: string, port = 64647): Promise<string> {
+  const address = await docker(['port', container, `${port}/tcp`]);
   if (!/^127\.0\.0\.1:\d+$/.test(address)) {
     throw new Error(`expected one ephemeral loopback port, got ${JSON.stringify(address)}`);
   }
@@ -73,11 +78,16 @@ async function ready(container: string): Promise<string> {
   );
 }
 
-test('the read-only host image serves the console and PWA over persistent SQLite', async () => {
+test('the host image persists SQLite and migrates Postgres before serving', async () => {
   const name = `mimir-host-test-${randomUUID()}`;
   const image = `${name}:test`;
   const volume = `${name}-data`;
   const rootContainer = `${name}-root`;
+  const postgres = `${name}-postgres`;
+  const network = `${name}-network`;
+  const postgresHost = `${name}-pg-host`;
+  const secretDirectory = await mkdtemp(join(tmpdir(), 'mimir-host-secret-'));
+  const password = randomUUID();
   const refusedContainers = [`${name}-unwritable`, `${name}-invalid`];
   const node = z.object({ id: z.string(), status: z.string(), title: z.string() });
   try {
@@ -207,6 +217,107 @@ test('the read-only host image serves the console and PWA over persistent SQLite
       }),
     ).toMatchObject({ status: 'in_progress' });
     await docker(['rm', '--force', rootContainer]);
+
+    // This lane owns its database and network; no external URL is accepted.
+    await docker(['network', 'create', network]);
+    await docker([
+      'run',
+      '--detach',
+      '--name',
+      postgres,
+      '--network',
+      network,
+      '--label',
+      `dev.mimir.host-test=${name}`,
+      '--env',
+      `POSTGRES_PASSWORD=${password}`,
+      '--env',
+      'POSTGRES_USER=mimir_sandbox',
+      '--env',
+      'POSTGRES_DB=mimir_sandbox',
+      POSTGRES_IMAGE,
+    ]);
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if (
+        await docker([
+          'exec',
+          postgres,
+          'pg_isready',
+          '-h',
+          '127.0.0.1',
+          '-U',
+          'mimir_sandbox',
+        ]).then(
+          () => true,
+          () => false,
+        )
+      ) {
+        break;
+      }
+      if (attempt === 99) {
+        throw new Error(
+          `Postgres container did not become ready: ${await docker(['logs', postgres])}`,
+        );
+      }
+      await Bun.sleep(100);
+    }
+    const secret = join(secretDirectory, 'database-url');
+    await writeFile(
+      secret,
+      `postgres://mimir_sandbox:${password}@${postgres}:5432/mimir_sandbox\n`,
+      { mode: 0o644 },
+    );
+    const runPostgresHost = async () => {
+      await docker([
+        'run',
+        '--detach',
+        '--read-only',
+        '--name',
+        postgresHost,
+        '--network',
+        network,
+        '--publish',
+        '127.0.0.1::12345',
+        '--env',
+        'MIMIR_PORT=12345',
+        '--env',
+        'MIMIR_DATABASE_URL_FILE=/run/secrets/database-url',
+        '--mount',
+        `type=bind,src=${secret},dst=/run/secrets/database-url,readonly`,
+        image,
+      ]);
+    };
+    await runPostgresHost();
+    base = await ready(postgresHost, 12345);
+    expect(await api(base, '/api/projects')).toMatchObject({ items: [] });
+    expect(await docker(['logs', postgresHost])).toContain('applied migration 0005_project_pinned');
+    await docker(['rm', '--force', postgresHost]);
+    const sql = async (statement: string) =>
+      docker([
+        'exec',
+        postgres,
+        'psql',
+        '-U',
+        'mimir_sandbox',
+        '-d',
+        'mimir_sandbox',
+        '-v',
+        'ON_ERROR_STOP=1',
+        '-c',
+        statement,
+      ]);
+    await sql(
+      'ALTER TABLE project DROP COLUMN pinned; DELETE FROM schema_version WHERE version = 5;',
+    );
+    await runPostgresHost();
+    base = await ready(postgresHost, 12345);
+    expect(await api(base, '/api/projects')).toMatchObject({ items: [] });
+    expect(await docker(['logs', postgresHost])).toContain('applied migration 0005_project_pinned');
+    await docker(['rm', '--force', postgresHost]);
+    await sql('INSERT INTO schema_version (version, applied_at) VALUES (6, now());');
+    await runPostgresHost();
+    expect(await docker(['wait', postgresHost], 10_000)).not.toBe('0');
+    expect(await docker(['logs', postgresHost])).toContain('update the image');
     for (const [index, container] of refusedContainers.entries()) {
       await docker([
         'run',
@@ -227,11 +338,13 @@ test('the read-only host image serves the console and PWA over persistent SQLite
     }
   } finally {
     await Promise.all(
-      [name, rootContainer, ...refusedContainers].map(async (container) => {
+      [name, rootContainer, postgresHost, postgres, ...refusedContainers].map(async (container) => {
         await docker(['rm', '--force', container]).catch(() => undefined);
       }),
     );
+    await docker(['network', 'rm', network]).catch(() => undefined);
+    await rm(secretDirectory, { force: true, recursive: true });
     await docker(['volume', 'rm', volume]).catch(() => undefined);
     await docker(['image', 'rm', '--force', image]).catch(() => undefined);
   }
-}, 180_000);
+}, 240_000);

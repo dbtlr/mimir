@@ -1,3 +1,4 @@
+import { MIMIR_HOST_AUTHORITY } from './host-authority';
 import { readInstallation } from './installation';
 import {
   assertSandboxPostgresUrl,
@@ -7,6 +8,9 @@ import {
 
 /** Enforce authority before a pg pool exists, including migrations and test workers. */
 export function assertPostgresAccess(url: string): void {
+  if (MIMIR_HOST_AUTHORITY) {
+    return;
+  }
   const installation = readInstallation();
   if (installation?.mode === 'live') {
     return;

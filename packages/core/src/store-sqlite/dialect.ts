@@ -139,6 +139,9 @@ export function readSchemaVersion(ex: Executor): Promise<number | null> {
 }
 
 /** Apply every pending migration; refuse a schema newer than this binary's. */
-export function upgradeSchema(db: Kysely<DB>): Promise<UpgradeReport> {
-  return upgradeSqlSchema(db, sqliteDialect);
+export function upgradeSchema(
+  db: Kysely<DB>,
+  onMigration?: (name: string) => void,
+): Promise<UpgradeReport> {
+  return upgradeSqlSchema(db, sqliteDialect, onMigration);
 }

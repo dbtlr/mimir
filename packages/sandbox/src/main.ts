@@ -4,6 +4,7 @@ import { Application, Command } from '@loomcli/core';
 import { help } from '@loomcli/plugins/help';
 import { z } from 'zod';
 
+import { hostPort } from './host';
 import { SERVICE_VERIFY_TARGETS, ServiceVerifier } from './service-verify';
 import { HARNESSES, SkillEval } from './skill-eval';
 import { snapshotSchema } from './snapshot';
@@ -104,6 +105,17 @@ const application = new Application('sandbox', {
       .argument('id', { description: 'Sandbox ID.', required: true })
       .action(async ({ args, passthrough, out }) => {
         await out.print(await sandbox.run(args.id, passthrough));
+      }),
+  )
+  .command(
+    new Command('host', {
+      description:
+        'Run the development host against an owned sandbox, bound to loopback. Stops after twelve hours; interruption leaves the sandbox available.',
+    })
+      .argument('id', { description: 'Sandbox ID.', required: true })
+      .option('port', { description: `Listening port (default ${hostPort()}).`, type: 'string' })
+      .action(async ({ args, options }) => {
+        await sandbox.host(args.id, options.port);
       }),
   )
   .command(

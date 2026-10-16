@@ -19,6 +19,7 @@ import { z } from 'zod';
 import { installBinary, readInstallationAt } from '../../core/src/installation/index';
 import { readDatabaseAuthority } from '../../core/src/sandbox-authority';
 import type { DatabaseSandboxAuthority } from '../../core/src/sandbox-authority';
+import { hostPort, launchHost } from './host';
 import { InterruptedError, command, hashFile, isolatedEnvironment, privateJson } from './process';
 import { removeSandboxUnits } from './sandbox-units';
 import { latestSnapshot, snapshotSchema } from './snapshot';
@@ -95,6 +96,11 @@ export class Sandbox {
       XDG_CONFIG_HOME: dirname(authority.paths.config),
       XDG_DATA_HOME: dirname(authority.paths.data),
     };
+  }
+  async host(id: string, port?: string): Promise<void> {
+    hostPort(port);
+    const authority = await this.load(id);
+    await launchHost(this.repository, authority, { port });
   }
   private async worker(authority: Authority, operation: 'seed' | 'verify'): Promise<string> {
     return command([process.execPath, 'run', 'packages/bin/scripts/sandbox-store.ts', operation], {

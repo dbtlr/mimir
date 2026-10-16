@@ -1,6 +1,5 @@
-import { resolve } from 'node:path';
-
 import { BUILD_VERSION } from '../lib/build-version';
+import { hostConfig } from './config';
 import { openHost } from './host';
 
 declare global {
@@ -11,10 +10,7 @@ declare global {
 
 /** Development defaults to a disposable store; the image names its /data volume. */
 export function hostRuntime() {
-  globalThis.mimirHostRuntime ??= openHost(
-    process.env.MIMIR_DATA_DIR ?? resolve('.dev/host'),
-    BUILD_VERSION,
-  );
+  globalThis.mimirHostRuntime ??= openRuntime();
   return globalThis.mimirHostRuntime;
 }
 
@@ -25,4 +21,8 @@ export async function handleApi(request: Request) {
 export async function closeHost() {
   await (await globalThis.mimirHostRuntime)?.close();
   globalThis.mimirHostRuntime = undefined;
+}
+
+async function openRuntime() {
+  return openHost(await hostConfig(), BUILD_VERSION);
 }
