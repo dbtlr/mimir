@@ -1,0 +1,16 @@
+{
+  "name": "@mimir/api",
+  "version": "0.26.0-next",
+  "private": true,
+  "description": "Transitional resource-envelope HTTP API shared by the host and compiled binary.",
+  "type": "module",
+  "module": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@mimir/contract": "workspace:*",
+    "@mimir/core": "workspace:*",
+    "@mimir/helpers": "workspace:*"
+  }
+}

@@ -16,7 +16,7 @@ type Override = LintOverride;
  *     `bun` target yet, so `bun:*` imports and the `Bun` global are not covered.
  *   - `packages/contract/**` and `packages/wire/**` use the browser baseline.
  *
- * The React SPA (`packages/ui`) does NOT use toolingConfig's `react` target.
+ * The React SPA (`packages/host`) does NOT use toolingConfig's `react` target.
  * That target enables react/react-perf/jsx-a11y as a bundle and activates their
  * rules via the `perf`/`correctness` categories; because vite-plus orders the
  * target's override last, a consumer cannot turn individual rules back off from
@@ -109,7 +109,7 @@ const styleOptOuts: Record<string, 'off'> = {
  * react-perf / jsx-a11y / react-style rules. Re-enable one at a time here.
  */
 const uiLintOverride: Override = {
-  files: ['packages/ui/**'],
+  files: ['packages/host/**'],
   plugins: ['react', 'react-perf', 'jsx-a11y'],
   // react plugins are enabled here (the ui override), so these must be disabled at
   // the same scope to win. No-count entries are the react-target defaults we keep;
@@ -145,6 +145,7 @@ const layerOverrides: Override[] = [
     ],
   ),
   restrict(['packages/bin/**'], [coreEntryOnly]),
+  restrict(['packages/host/**', 'packages/api/**'], [noBinImports, coreEntryOnly]),
   forbid(['packages/bin/src/cli/**'], ['mcp', 'http']),
   forbid(['packages/bin/src/mcp/**'], ['cli', 'http']),
   forbid(['packages/bin/src/http/**'], ['cli', 'mcp']),
@@ -168,11 +169,15 @@ const layerOverrides: Override[] = [
   // The UI's vite config is a Node/Bun build script, not shipped browser code —
   // it reads packages/bin/package.json to stamp the bundle's build version
   // (MMR-260) alongside the binary's own MIMIR_BUILD_VERSION define.
-  { files: ['packages/ui/vite.config.ts'], rules: { 'import/no-nodejs-modules': 'off' } },
+  { files: ['packages/host/vite.config.ts'], rules: { 'import/no-nodejs-modules': 'off' } },
   // Playwright/build fixtures execute under Bun and own isolated temporary
   // directories; they are not part of the browser bundle.
   {
-    files: ['packages/ui/e2e/**', 'packages/ui/playwright.config.ts', 'packages/ui/scripts/**'],
+    files: [
+      'packages/host/e2e/**',
+      'packages/host/playwright.config.ts',
+      'packages/host/scripts/**',
+    ],
     rules: {
       'import/no-nodejs-modules': 'off',
       'promise/avoid-new': 'off',
@@ -186,16 +191,22 @@ export default defineConfig({
   plugins: [
     toolingPlugin({
       fmt: {
-        // machine-written (scripts/generate-ui-assets.ts) and gitignored
-        ignores: ['**/*.generated.ts'],
+        // Machine-written asset manifests, route trees, and build output.
+        ignores: ['**/*.generated.ts', '**/routeTree.gen.ts', '**/.output/**'],
       },
       lint: {
-        ignores: ['dist/**', '**/*.generated.ts'],
+        ignores: ['dist/**', '**/*.generated.ts', '**/routeTree.gen.ts', '**/.output/**'],
         overrides: layerOverrides,
         rules: { ...quarantinedRules, ...styleOptOuts },
       },
       node: {
-        files: ['packages/bin/**', 'packages/core/**', 'packages/sandbox/**'],
+        files: [
+          'packages/bin/**',
+          'packages/core/**',
+          'packages/sandbox/**',
+          'packages/api/**',
+          'packages/host/src/server/**',
+        ],
         // Synchronous filesystem access is deliberate in this local-first CLI.
         rules: { 'node/no-sync': 'off' },
       },

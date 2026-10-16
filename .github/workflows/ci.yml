@@ -41,5 +41,11 @@ jobs:
       - name: Test sandbox snapshot rehearsal
         run: bun run test:sandbox
 
+      - name: Install host browser
+        run: bun run --cwd packages/host playwright install --with-deps chromium
+
+      - name: Test host
+        run: bun run test:host
+
       - name: Test UI
         run: bun run test:ui

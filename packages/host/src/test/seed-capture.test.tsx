@@ -1,0 +1,127 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, vi } from 'vitest';
+
+import { routeTree } from '../router';
+import { emptyRead } from './fixtures';
+
+const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet, apiSend }));
+const { toast } = vi.hoisted(() => ({
+  toast: { error: vi.fn(), success: vi.fn() },
+}));
+vi.mock('sonner', () => ({ Toaster: () => null, toast }));
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+function mockApi() {
+  apiGet.mockImplementation((path: string) => {
+    if (path === '/api/health') {
+      return Promise.resolve({ schema: 1, status: 'ok', version: '0.0.0' });
+    }
+    if (path.startsWith('/api/projects') && !path.includes('status=archived')) {
+      return Promise.resolve({
+        items: [
+          { id: 'MMR', status: 'in_progress', title: 'Mimir' },
+          { id: 'NRN', status: 'ready', title: 'Norn' },
+        ],
+        total: 2,
+      });
+    }
+    if (path.startsWith('/api/seeds?')) {
+      return Promise.resolve(emptyRead(path));
+    }
+    return Promise.resolve(emptyRead(path));
+  });
+}
+
+function renderApp(initial = '/p/MMR/seeds') {
+  const testRouter = createRouter({
+    history: createMemoryHistory({ initialEntries: [initial] }),
+    routeTree,
+  });
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } })
+      }
+    >
+      <RouterProvider router={testRouter} />
+    </QueryClientProvider>,
+  );
+  return testRouter;
+}
+
+describe('seed capture popover (12c, MMR-247)', () => {
+  it('files the right body (project/title/kind, no requester) and resets on success', async () => {
+    mockApi();
+    apiSend.mockResolvedValue({ id: 'MMR-s7' });
+    renderApp();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
+    // the popover is up
+    await screen.findByLabelText('Seed');
+
+    await user.click(screen.getByRole('button', { name: 'bug' }));
+    await user.type(screen.getByLabelText('Seed'), 'Tree lens loses scroll');
+    await user.click(screen.getByRole('button', { name: 'File ↵' }));
+
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds', {
+        kind: 'bug',
+        project: 'MMR',
+        title: 'Tree lens loses scroll',
+      });
+    });
+    // never carries requester — a console-filed seed is self-filed
+    const body = apiSend.mock.calls[0]?.[2] as Record<string, unknown>;
+    expect(body).not.toHaveProperty('requester');
+    // success toasts and the popover closes (fields reset behind it)
+    expect(toast.success).toHaveBeenCalledWith('Filed MMR-s7');
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Seed')).toBeNull();
+    });
+  });
+
+  it('enter files; Shift+Enter adds a body line — the whole blob rides `title` (MMR-263)', async () => {
+    mockApi();
+    apiSend.mockResolvedValue({ id: 'MMR-s8' });
+    renderApp();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
+    const field = await screen.findByLabelText('Seed');
+    await user.click(screen.getByRole('button', { name: 'bug' }));
+
+    await user.type(field, 'title line');
+    // Shift+Enter inserts a newline — it must NOT file.
+    await user.keyboard('{Shift>}{Enter}{/Shift}');
+    await user.type(field, 'body line');
+    expect(apiSend).not.toHaveBeenCalled();
+
+    // A bare Enter files the whole capture blob as `title` (server splits it).
+    await user.keyboard('{Enter}');
+    await waitFor(() => {
+      expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds', {
+        kind: 'bug',
+        project: 'MMR',
+        title: 'title line\nbody line',
+      });
+    });
+  });
+
+  it('opens on the global `s` hotkey', async () => {
+    mockApi();
+    renderApp();
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: 'Seeds' });
+
+    await user.keyboard('s');
+    await expect(screen.findByLabelText('Seed')).resolves.toBeDefined();
+  });
+});

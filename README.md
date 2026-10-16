@@ -137,7 +137,9 @@ workspace and `bun run mimir serve --store .dev/fixtures/docs.sqlite` serves it.
 See [writing style](docs/writing-style.md#refresh-screenshots).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the project structure and review
-process.
+process. The source tree also builds a TanStack Start host image for the local
+SQLite integration slice. Its current boundary is documented in
+[the project structure](CONTRIBUTING.md#project-shape).
 
 ## License
 
