@@ -17,10 +17,14 @@ export function hostEnvironment(
 }
 
 export function hostPort(port?: string): string {
-  if (port !== undefined && parsePort(port) === null) {
+  if (port === undefined) {
+    return String(DEV_PORT);
+  }
+  const parsed = parsePort(port);
+  if (parsed === null) {
     throw new Error('--port must be an integer from 1 to 65535');
   }
-  return port ?? String(DEV_PORT);
+  return String(parsed);
 }
 
 export async function launchHost(
@@ -45,7 +49,7 @@ export async function launchHost(
       detached: true,
       env,
       stderr: 'inherit',
-      stdin: 'inherit',
+      stdin: 'ignore',
       stdout: 'inherit',
     },
   );

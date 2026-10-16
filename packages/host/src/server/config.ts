@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 
 import { isHostName, normalizeServeUrl } from '@mimir/core';
 import type { ServeConfig, StoreConfig } from '@mimir/core';
+import { parse } from 'pg-connection-string';
 
 /** Read and validate host configuration without consulting CLI configuration. */
 export async function readHostConfig(env: NodeJS.ProcessEnv = process.env) {
@@ -21,13 +22,16 @@ export async function readHostConfig(env: NodeJS.ProcessEnv = process.env) {
   }
   const store: StoreConfig = { backend: 'sqlite' };
   if (url !== undefined) {
-    const parsed = URL.parse(url);
-    if (
-      parsed === null ||
-      !['postgres:', 'postgresql:'].includes(parsed.protocol) ||
-      parsed.hostname === '' ||
-      /[\r\n\0]/.test(url)
-    ) {
+    try {
+      if (!/^postgres(?:ql)?:\/\//i.test(url) || /[\r\n\0]/.test(url)) {
+        throw new Error('invalid Postgres URL');
+      }
+      // Match the driver's socket and credential syntax instead of WHATWG URL rules.
+      const { host } = parse(url);
+      if (!host || /[\r\n\0]/.test(host) || (!host.startsWith('/') && /\s/.test(host))) {
+        throw new Error('Postgres URL must name a host or socket directory');
+      }
+    } catch {
       throw new Error(`${urlVariable} must contain a Postgres connection URL`);
     }
     store.backend = 'postgres';

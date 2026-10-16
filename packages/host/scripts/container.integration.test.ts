@@ -254,6 +254,11 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
       ) {
         break;
       }
+      if (attempt === 99) {
+        throw new Error(
+          `Postgres container did not become ready: ${await docker(['logs', postgres])}`,
+        );
+      }
       await Bun.sleep(100);
     }
     const secret = join(secretDirectory, 'database-url');

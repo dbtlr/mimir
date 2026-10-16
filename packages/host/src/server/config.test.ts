@@ -85,3 +85,32 @@ test('host bundles share one validated boot snapshot even if the secret changes'
     await rm(root, { force: true, recursive: true });
   }
 });
+
+test('host accepts the driver-supported Unix socket URL forms', async () => {
+  for (const url of [
+    'postgres:///db?host=/var/run/postgresql',
+    'postgresql://user@/db?host=/run/pg',
+  ]) {
+    expect((await readHostConfig({ MIMIR_DATABASE_URL: url })).store).toEqual({
+      backend: 'postgres',
+      url,
+    });
+  }
+});
+
+test('Postgres configuration names its effective endpoint instead of using driver ambient defaults', async () => {
+  for (const url of [
+    'postgres://',
+    'postgres:///db',
+    'postgres://u:p@/db',
+    'postgres://ho st/db',
+  ]) {
+    let refusal: unknown;
+    try {
+      await readHostConfig({ MIMIR_DATABASE_URL: url });
+    } catch (error) {
+      refusal = error;
+    }
+    expect(refusal instanceof Error ? refusal.message : '').toContain('MIMIR_DATABASE_URL');
+  }
+});

@@ -89,3 +89,44 @@ test('sandbox host timeout stops descendants and retains the sandbox', async () 
 test('sandbox host defaults to the isolated development port', () => {
   expect(hostEnvironment(authority).MIMIR_PORT).toBe('64747');
 });
+
+test('sandbox passes a canonical decimal port to the host', () => {
+  for (const [raw, decimal] of [
+    ['0x1999', '6553'],
+    ['1e3', '1000'],
+    [' 6543 ', '6543'],
+    ['6543.0', '6543'],
+  ]) {
+    expect(hostEnvironment(authority, raw).MIMIR_PORT).toBe(decimal);
+  }
+});
+
+test('a detached sandbox host does not consume launcher stdin', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-stdin-'));
+  try {
+    const host = join(root, 'packages', 'host');
+    await mkdir(host, { recursive: true });
+    await writeFile(join(host, 'package.json'), JSON.stringify({ scripts: { dev: 'bun dev.ts' } }));
+    await writeFile(join(host, 'dev.ts'), "await Bun.write('input.txt', await Bun.stdin.text());");
+    const module = new URL('host.ts', import.meta.url).pathname;
+    const child = Bun.spawn(
+      [
+        process.execPath,
+        '-e',
+        `import { launchHost } from ${JSON.stringify(module)}; await launchHost(${JSON.stringify(root)}, ${JSON.stringify(authority)}, { timeout: 3000 });`,
+      ],
+      { stderr: 'pipe', stdin: 'pipe', stdout: 'pipe' },
+    );
+    await child.stdin.write('terminal input');
+    await child.stdin.end();
+    const [exit, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stderr).text(),
+      new Response(child.stdout).text(),
+    ]);
+    expect(exit, stderr).toBe(0);
+    expect(await Bun.file(join(host, 'input.txt')).text()).toBe('');
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});

@@ -126,6 +126,11 @@ export default defineConfig({
     // Start and Nitro load absolute server entries from workspace dependencies.
     fs: { allow: [searchForWorkspaceRoot(fileURLToPath(new URL('.', import.meta.url)))] },
   },
+  // The driver also requires this parser from CommonJS in Start's server bundle.
+  ssr: {
+    noExternal: ['pg-connection-string'],
+    optimizeDeps: { include: ['pg-connection-string'] },
+  },
   // Lint/fmt are centralized in the root vite.config; this member carries only
   // build + test. The jsdom test env comes from @dbtlr/tooling's testReact().
   test: {
