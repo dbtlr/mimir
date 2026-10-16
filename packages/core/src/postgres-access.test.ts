@@ -59,10 +59,20 @@ test('only the compiled image constant admits the host before pool construction'
       `import { openPostgres } from ${JSON.stringify(client)};\ntry { openPostgres('postgres://user:secret@production.invalid/db', { createPool: () => { throw new Error('pool admitted'); } }); } catch (error) { console.error(error.message); process.exit(error.message === 'pool admitted' ? 0 : 1); }`,
     );
     const built = await Bun.build({
-      define: { MIMIR_HOST_AUTHORITY: 'true' },
       entrypoints: [entry],
       naming: 'image.mjs',
       outdir: root,
+      plugins: [
+        {
+          name: 'image-authority-module',
+          setup(build) {
+            build.onLoad({ filter: /[\\/]host-authority\.ts$/ }, () => ({
+              contents: 'export const MIMIR_HOST_AUTHORITY = true;',
+              loader: 'ts',
+            }));
+          },
+        },
+      ],
       target: 'bun',
     });
     expect(built.success).toBe(true);
@@ -75,4 +85,19 @@ test('only the compiled image constant admits the host before pool construction'
   } finally {
     await rm(root, { force: true, recursive: true });
   }
+});
+
+test('Bun runtime defines cannot grant authority to source workers', async () => {
+  const source = new URL('postgres-access.ts', import.meta.url).pathname;
+  const script = `import { assertPostgresAccess } from ${JSON.stringify(source)}; try { assertPostgresAccess('postgres://live:secret@production.invalid/live'); process.exit(2); } catch { process.exit(0); }`;
+  const child = Bun.spawn([process.execPath, '-e', script], {
+    env: {
+      ...process.env,
+      BUN_OPTIONS: '--define MIMIR_HOST_AUTHORITY:true',
+      MIMIR_SANDBOX_AUTHORITY: undefined,
+    },
+    stderr: 'pipe',
+    stdout: 'pipe',
+  });
+  expect(await child.exited).toBe(0);
 });

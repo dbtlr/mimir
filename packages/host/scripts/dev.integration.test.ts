@@ -126,3 +126,101 @@ test('the development host serves and renders the kit with an isolated store', a
     await rm(directory, { force: true, recursive: true });
   }
 }, 90_000);
+
+test('the development host refuses an occupied MIMIR_PORT instead of choosing another port', async () => {
+  const reservation = Bun.serve({
+    fetch: () => new Response('reserved'),
+    hostname: '127.0.0.1',
+    port: 0,
+  });
+  const directory = await mkdtemp(join(tmpdir(), 'mimir-dev-port-'));
+  const child = Bun.spawn(
+    [process.execPath, fileURLToPath(new URL('dev.ts', import.meta.url)), '--host', '127.0.0.1'],
+    {
+      cwd: hostRoot,
+      detached: true,
+      env: {
+        ...process.env,
+        MIMIR_DATABASE_URL: undefined,
+        MIMIR_DATABASE_URL_FILE: undefined,
+        MIMIR_DATA_DIR: directory,
+        MIMIR_PORT: String(reservation.port),
+        VITEST: undefined,
+      },
+      stderr: 'pipe',
+      stdin: 'ignore',
+      stdout: 'pipe',
+    },
+  );
+  let timedOut = false;
+  const stop = () => {
+    try {
+      process.kill(-child.pid, 'SIGKILL');
+    } catch {
+      child.kill('SIGKILL');
+    }
+  };
+  const timer = setTimeout(() => {
+    timedOut = true;
+    stop();
+  }, 8000);
+  try {
+    const [exit, stdout, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+    ]);
+    expect(timedOut, `${stdout}\n${stderr}`).toBe(false);
+    expect(exit).not.toBe(0);
+    expect(`${stdout}\n${stderr}`).toContain('already in use');
+  } finally {
+    clearTimeout(timer);
+    stop();
+    await child.exited;
+    await reservation.stop(true);
+    await rm(directory, { force: true, recursive: true });
+  }
+}, 15_000);
+
+test('the development launcher exits when Postgres authority is missing', async () => {
+  const child = Bun.spawn([process.execPath, fileURLToPath(new URL('dev.ts', import.meta.url))], {
+    cwd: hostRoot,
+    detached: true,
+    env: {
+      ...process.env,
+      MIMIR_DATABASE_URL: 'postgres://live:secret@production.invalid/live',
+      MIMIR_DATABASE_URL_FILE: undefined,
+      MIMIR_SANDBOX_AUTHORITY: undefined,
+      VITEST: undefined,
+    },
+    stderr: 'pipe',
+    stdin: 'ignore',
+    stdout: 'pipe',
+  });
+  const stop = () => {
+    try {
+      process.kill(-child.pid, 'SIGKILL');
+    } catch {
+      child.kill('SIGKILL');
+    }
+  };
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    stop();
+  }, 5000);
+  try {
+    const [exit, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stderr).text(),
+      new Response(child.stdout).text(),
+    ]);
+    expect(timedOut).toBe(false);
+    expect(exit).not.toBe(0);
+    expect(stderr).toContain('registered live installation');
+  } finally {
+    clearTimeout(timer);
+    stop();
+    await child.exited;
+  }
+}, 10_000);
