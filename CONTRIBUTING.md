@@ -83,7 +83,8 @@ refuses startup. `MIMIR_PORT` defaults to `64647`.
 The image build defines Postgres authority; runtime environment variables cannot
 grant it to development hosts. The host migrates before serving, logs applied
 migrations, and refuses a newer schema with an instruction to update the image.
-Development defaults to `.dev/host` beneath `packages/host`; use the
+Development defaults to `.dev/host` beneath `packages/host` and port `64747`,
+separate from the live console origin. Use the
 [sandbox host launcher](docs/guides/development-sandboxes.md) for owned Postgres.
 `MIMIR_HOSTS` and `MIMIR_URL` are validated now; middleware over all host routes,
 tRPC, image publishing, and deployment remain later migration work. The existing CLI installation and

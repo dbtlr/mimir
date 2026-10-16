@@ -1,18 +1,17 @@
 import { join } from 'node:path';
 
 import type { DatabaseSandboxAuthority } from '../../core/src/sandbox-authority';
-import { parsePort, PROD_PORT } from '../../helpers/src/ports';
+import { DEV_PORT, parsePort } from '../../helpers/src/ports';
 import { InterruptedError, isolatedEnvironment } from './process';
 
 export function hostEnvironment(
   authority: DatabaseSandboxAuthority,
   port?: string,
 ): NodeJS.ProcessEnv {
-  hostPort(port);
   return {
     ...isolatedEnvironment(),
     MIMIR_DATABASE_URL: authority.postgresUrl,
-    MIMIR_PORT: port,
+    MIMIR_PORT: hostPort(port),
     MIMIR_SANDBOX_AUTHORITY: join(authority.root, 'authority.json'),
   };
 }
@@ -21,7 +20,7 @@ export function hostPort(port?: string): string {
   if (port !== undefined && parsePort(port) === null) {
     throw new Error('--port must be an integer from 1 to 65535');
   }
-  return port ?? String(PROD_PORT);
+  return port ?? String(DEV_PORT);
 }
 
 export async function launchHost(

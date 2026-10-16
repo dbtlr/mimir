@@ -85,3 +85,7 @@ test('sandbox host timeout stops descendants and retains the sandbox', async () 
     await rm(root, { force: true, recursive: true });
   }
 });
+
+test('sandbox host defaults to the isolated development port', () => {
+  expect(hostEnvironment(authority).MIMIR_PORT).toBe('64747');
+});

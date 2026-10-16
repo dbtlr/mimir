@@ -177,7 +177,7 @@ and `PG*` variables are cleared, including database secret files and host
 configuration. The development host still checks the supplied endpoint against
 the authority file before opening a connection.
 
-The server binds to `127.0.0.1`, defaults to port `64647`, and refuses an occupied
+The server binds to `127.0.0.1`, defaults to port `64747`, and refuses an occupied
 port. Logs stream to the terminal. Press Ctrl+C to stop the server and its child
 processes; the sandbox remains available. A session stops after twelve hours.
 Use `sandbox destroy <sandbox-id>` when the sandbox is no longer needed.

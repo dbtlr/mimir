@@ -1,7 +1,10 @@
 import { assertPostgresAccess } from '@mimir/core';
+import { DEV_PORT } from '@mimir/helpers';
 
 import { hostConfig } from '../src/server/config';
 
+// Keep development off the live console origin, including its PWA cache.
+process.env.MIMIR_PORT ??= String(DEV_PORT);
 const config = await hostConfig();
 if (config.store.url !== undefined) {
   assertPostgresAccess(config.store.url);
