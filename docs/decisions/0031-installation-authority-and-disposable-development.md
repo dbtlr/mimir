@@ -200,9 +200,11 @@ for the container host. It reads environment variables rather than an
 installation's `config.toml`: `MIMIR_DATABASE_URL` or
 `MIMIR_DATABASE_URL_FILE` selects Postgres, otherwise SQLite lives under
 `MIMIR_DATA_DIR` (default `/data` in the image). `MIMIR_HOSTS`, `MIMIR_URL`,
-and `MIMIR_PORT` configure the host's network settings. Invalid values refuse
-startup and name the variable. The image's `/data` default does not apply to
-a development host, whose SQLite store stays under isolated `.dev` storage.
+and `MIMIR_PORT` configure the host's network settings. Setting both database
+URL variables refuses startup and names both, with no precedence. Other
+invalid values refuse startup and name the variable. The image's `/data`
+default does not apply to a development host, whose SQLite store stays under
+isolated `.dev` storage.
 
 A host-authority constant set at image build permits the built image to open
 a live Postgres URL. A development host has no such authority: environment

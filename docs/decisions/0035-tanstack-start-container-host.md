@@ -34,6 +34,12 @@ Console server functions and the tRPC server route at `/trpc` call one
 Engine, as ADR 0034 requires. Health at `/health` and the backend-provided
 doctor facet are host concerns outside the Engine.
 
+The console, including its server functions, stays unauthenticated on a
+single-user tailnet. ADR 0034's token check belongs to remote CLI and MCP
+access through tRPC when device pairing lands. Console functions do not
+require a device token. Host filtering and cross-origin checks still apply
+to both surfaces, but neither check authenticates a caller.
+
 The existing `/api` handler is a transitional pass-through inside the host.
 It preserves the current console contract until the console moves to server
 functions, then leaves with that migration. It is not a second permanent API.
@@ -51,7 +57,9 @@ The host does not read the CLI's `config.toml`. Its configuration is:
 | `MIMIR_URL` | Name the public console origin. Setting it does not enable the Host allowlist. |
 | `MIMIR_PORT` | Listening port, default `64647`. |
 
-Invalid configuration refuses startup and names the offending variable.
+Setting both `MIMIR_DATABASE_URL` and `MIMIR_DATABASE_URL_FILE` refuses
+startup and names both variables. Neither value takes precedence. Other
+invalid configuration refuses startup and names the offending variable.
 Container port publishing controls the externally reachable listening address.
 The CLI's `[serve] bind` has no host configuration counterpart.
 
