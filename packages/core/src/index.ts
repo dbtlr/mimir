@@ -40,6 +40,7 @@ export type { ArtifactStore } from './artifacts/store';
 export type { ScratchpadStore } from './scratchpads/store';
 export * from './env';
 export * from './config';
+export { normalizeServeUrl } from './address';
 export {
   acceptedHosts,
   canonicalAddress,

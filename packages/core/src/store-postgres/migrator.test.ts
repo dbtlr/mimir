@@ -356,3 +356,26 @@ test('seed_history.kind is constrained to the transition-kind vocabulary', async
     await db.destroy();
   }
 });
+
+test('migration progress reports committed steps even when a later migration fails', async () => {
+  const db = await freshDb();
+  try {
+    for (const statement of initStatements) {
+      await sql.raw(statement).execute(db);
+    }
+    await sql`INSERT INTO schema_version (version, applied_at) VALUES (1, now())`.execute(db);
+    await sql`ALTER TABLE node ADD COLUMN block_owner text`.execute(db);
+    const applied: string[] = [];
+    let refusal: unknown;
+    try {
+      await upgradeSchema(db, (name) => applied.push(name));
+    } catch (error) {
+      refusal = error;
+    }
+    expect(refusal).toBeInstanceOf(Error);
+    expect(applied).toEqual(['0002_grooming']);
+    expect(await readSchemaVersion(db)).toBe(2);
+  } finally {
+    await db.destroy();
+  }
+});

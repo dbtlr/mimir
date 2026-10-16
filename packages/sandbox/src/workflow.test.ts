@@ -28,6 +28,22 @@ test('destroy rejects an unowned sandbox without calling Docker', async () => {
   }
 });
 
+test('host refuses an invalid port or an unowned sandbox before launching a server', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-owner-'));
+  try {
+    const sandbox = new Sandbox(root);
+    expect(await failure(sandbox.host('../production'))).toContain('Invalid sandbox ID');
+    expect(await failure(sandbox.host('00000000-0000-4000-8000-000000000000'))).toContain(
+      'does not exist',
+    );
+    expect(await failure(sandbox.host('00000000-0000-4000-8000-000000000000', '65536'))).toContain(
+      '--port',
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test('restore rejects a corrupt archive before allocating a sandbox', async () => {
   const root = await mkdtemp(join(tmpdir(), 'mimir-snapshot-test-'));
   try {

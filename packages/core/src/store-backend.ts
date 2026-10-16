@@ -56,6 +56,11 @@ export type StoreOverride = {
   /** A SQLite file to open instead of the installation's own (`serve --store`).
    * It must already exist: opening a typo would create and serve an empty store. */
   file?: string;
+  /** Explicit SQLite location for a store owner, creating and migrating on open. */
+  sqliteFile?: string;
+  /** Designated store owners may upgrade before serving; CLI defaults remain gated. */
+  upgrade?: boolean;
+  onMigration?: (name: string) => void;
 };
 
 /**
@@ -73,7 +78,9 @@ export async function buildStore(
   if (override.file !== undefined) {
     return await buildNamedStore(backend, override.file);
   }
-  return backend === 'postgres' ? await buildPostgresStore(config) : await buildSqliteStore();
+  return backend === 'postgres'
+    ? await buildPostgresStore(config, override)
+    : await buildSqliteStore(override.sqliteFile, override.onMigration);
 }
 
 /** Open the SQLite file a run named — only on a SQLite install, which a named

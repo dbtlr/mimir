@@ -49,7 +49,10 @@ export type SqliteHandle = {
  * old schema intact, and it refuses a store whose schema is newer than this
  * binary's (ADR 0032 Decision 3).
  */
-export function openSqlite(path: string, options: BunSqliteOptions = {}): Promise<SqliteHandle> {
+export function openSqlite(
+  path: string,
+  options: BunSqliteOptions & { onMigration?: (name: string) => void } = {},
+): Promise<SqliteHandle> {
   return open(path, options, 'migrate');
 }
 
@@ -61,7 +64,7 @@ export function openSqlite(path: string, options: BunSqliteOptions = {}): Promis
  */
 export function openExistingSqlite(
   path: string,
-  options: BunSqliteOptions = {},
+  options: BunSqliteOptions & { onMigration?: (name: string) => void } = {},
 ): Promise<SqliteHandle> {
   return open(path, options, 'require-current');
 }
@@ -72,7 +75,7 @@ type SchemaPolicy = 'migrate' | 'require-current';
 
 async function open(
   path: string,
-  options: BunSqliteOptions,
+  options: BunSqliteOptions & { onMigration?: (name: string) => void },
   policy: SchemaPolicy,
 ): Promise<SqliteHandle> {
   const database = new Database(path, {
@@ -100,7 +103,7 @@ async function open(
     await whileBusy(options.writeWaitMs ?? WRITE_WAIT_MS, () =>
       database.run('pragma journal_mode = wal'),
     );
-    const upgrade = await upgradeSchema(db);
+    const upgrade = await upgradeSchema(db, options.onMigration);
     database.run(`pragma busy_timeout = ${String(OPEN_STORE_BUSY_TIMEOUT_MS)}`);
     return { close: () => db.destroy(), db, upgrade };
   } catch (error) {

@@ -17,9 +17,8 @@ import type { DB, Executor } from './schema';
  * misread columns it does not know about) and an older one (it would write
  * columns the other binaries cannot read). `upgradeSchema` is the one act that
  * moves the schema. WHEN it runs is the backend's posture, not this module's:
- * on Postgres a binary NEVER migrates implicitly, and `mimir store upgrade` is
- * the explicit act, run once on one machine after every binary is new enough to
- * live with the result.
+ * direct Postgres CLIs use the explicit `mimir store upgrade` gate. The
+ * designated container host migrates before serving (ADR 0035).
  */
 
 /** The schema version this binary reads and writes. */
@@ -99,7 +98,11 @@ async function runMigration(
  * loser of the race must see the winner's work and apply nothing, not re-run a
  * migration that already landed.
  */
-export async function upgradeSchema(db: Kysely<DB>, dialect: StoreDialect): Promise<UpgradeReport> {
+export async function upgradeSchema(
+  db: Kysely<DB>,
+  dialect: StoreDialect,
+  onMigration?: (name: string) => void,
+): Promise<UpgradeReport> {
   const before = await readSchemaVersion(db, dialect);
   if (before !== null && before > SCHEMA_VERSION) {
     throw invariant(
@@ -122,6 +125,7 @@ export async function upgradeSchema(db: Kysely<DB>, dialect: StoreDialect): Prom
     });
     if (ran) {
       applied.push(migration.name);
+      onMigration?.(migration.name);
     }
   }
   return { applied, from: before ?? 0, to: (await readSchemaVersion(db, dialect)) ?? 0 };

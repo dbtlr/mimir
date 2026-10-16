@@ -5,11 +5,11 @@
   "description": "The Bun container host and operator console.",
   "type": "module",
   "scripts": {
-    "dev": "bun node_modules/vite/bin/vite.js",
+    "dev": "bun scripts/dev.ts",
     "build": "bun node_modules/vite/bin/vite.js build && bun scripts/assert-precache.ts .output/public",
     "test": "vitest run",
     "test:pwa": "playwright test --config playwright.config.ts",
-    "start": "bun .output/server/index.mjs"
+    "start": "bun scripts/start.ts"
   },
   "dependencies": {
     "@base-ui-components/react": "^1.0.0-beta.4",

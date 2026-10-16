@@ -132,6 +132,9 @@ export function assertSchemaCurrent(db: Kysely<DB>): Promise<void> {
 }
 
 /** Apply every pending migration — `mimir store upgrade`, the one explicit act. */
-export function upgradeSchema(db: Kysely<DB>): Promise<UpgradeReport> {
-  return upgradeSqlSchema(db, postgresDialect);
+export function upgradeSchema(
+  db: Kysely<DB>,
+  onMigration?: (name: string) => void,
+): Promise<UpgradeReport> {
+  return upgradeSqlSchema(db, postgresDialect, onMigration);
 }

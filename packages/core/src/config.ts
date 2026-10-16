@@ -139,7 +139,7 @@ function serveSection(raw: unknown): ServeConfig {
 }
 
 /** A bare hostname or bracketed IPv6 literal — a port here would be ignored, so it is refused. */
-function isHostName(value: unknown): value is string {
+export function isHostName(value: unknown): value is string {
   return typeof value === 'string' && /^(\[[0-9a-f:.]+\]|[a-z0-9_.-]+)$/i.test(value);
 }
 

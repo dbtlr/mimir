@@ -80,6 +80,8 @@ for (const plugin of pwaPlugins) {
 export default defineConfig({
   define: {
     MIMIR_BUILD_VERSION: JSON.stringify(process.env.MIMIR_BUILD_VERSION ?? binVersion),
+    MIMIR_HOST_AUTHORITY:
+      process.argv.includes('build') && process.env.MIMIR_IMAGE_BUILD === '1' ? 'true' : 'false',
   },
   plugins: [
     ...(process.env.VITEST === 'true'
@@ -97,6 +99,12 @@ export default defineConfig({
             publicAssets: [
               { baseURL: '/assets', dir: '.output/public/assets', fallthrough: false },
             ],
+            replace: {
+              MIMIR_HOST_AUTHORITY:
+                process.argv.includes('build') && process.env.MIMIR_IMAGE_BUILD === '1'
+                  ? 'true'
+                  : 'false',
+            },
           }),
         ]),
     react(),

@@ -1,7 +1,7 @@
 import type { GlobalConfig } from './config';
 import { configPath } from './config';
 import { createSqlDoctorBackend } from './doctor/sql/backend';
-import type { BuiltStore } from './store-backend';
+import type { BuiltStore, StoreOverride } from './store-backend';
 /**
  * The Postgres backend arm of the store composition root (ADR 0016, ADR 0030).
  * The one place outside `core/store-postgres` that opens
@@ -19,6 +19,7 @@ import {
   createPostgresStore,
   openPostgres,
   postgresDialect,
+  upgradeSchema,
 } from './store-postgres/index';
 
 /**
@@ -33,15 +34,21 @@ export function postgresUrlMissing(): Error {
   );
 }
 
-/** Build the Postgres store for this process, refusing a schema this binary
- * does not read. */
-export async function buildPostgresStore(config: GlobalConfig): Promise<BuiltStore> {
+/** Build the Postgres store for this process, upgrading for a designated store owner or
+ * refusing a schema this caller does not read. */
+export async function buildPostgresStore(
+  config: GlobalConfig,
+  options: Pick<StoreOverride, 'upgrade' | 'onMigration'> = {},
+): Promise<BuiltStore> {
   const url = config.store.url;
   if (url === undefined) {
     throw postgresUrlMissing();
   }
   const handle = openPostgres(url);
   try {
+    if (options.upgrade === true) {
+      await upgradeSchema(handle.db, options.onMigration);
+    }
     await assertSchemaCurrent(handle.db);
   } catch (error) {
     // The gate refused: release the pool before the refusal propagates, or the

@@ -107,6 +107,17 @@ const application = new Application('sandbox', {
       }),
   )
   .command(
+    new Command('host', {
+      description:
+        'Run the development host against an owned sandbox, bound to loopback. Stops after twelve hours; interruption leaves the sandbox available.',
+    })
+      .argument('id', { description: 'Sandbox ID.', required: true })
+      .option('port', { description: 'Listening port (default 64647).', type: 'string' })
+      .action(async ({ args, options }) => {
+        await sandbox.host(args.id, options.port);
+      }),
+  )
+  .command(
     new Command('destroy', { description: 'Remove only resources owned by a sandbox.' })
       .argument('id', { description: 'Sandbox ID.', required: true })
       .action(async ({ args }) => {
