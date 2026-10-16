@@ -69,6 +69,8 @@ remain code-based in `src/router.tsx`, behind `src/start-router.tsx`.
 server route. The host imports `@mimir/api`, never `@mimir/bin`.
 
 `bun run build:ui` builds the host and prerenders a data-free `_shell.html`.
+Prerendering ignores deployment configuration and uses a loopback-only request
+guard. Serving launchers still validate the complete runtime configuration.
 The final client assets and PWA output live in `packages/host/.output/public`.
 The service worker precaches that shell and excludes `/api`, `/trpc`,
 `/_serverFn`, and `/health` from navigation fallback. `bun run build` embeds

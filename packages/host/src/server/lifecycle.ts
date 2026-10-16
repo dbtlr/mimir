@@ -7,11 +7,12 @@ import { closeHost, hostRuntime } from './runtime';
 
 /** Share one readiness and guard snapshot across every dispatched route. */
 async function startHost() {
+  // Prerendering uses a private preview listener and needs no deployment settings.
+  if (process.env.TSS_PRERENDERING === 'true') {
+    return hostGuard([]);
+  }
   try {
-    // Prerendering must remain data-free, but it still uses the network guards.
-    if (process.env.TSS_PRERENDERING !== 'true') {
-      await hostRuntime();
-    }
+    await hostRuntime();
     return hostGuard(acceptedHosts((await hostConfig()).serve));
   } catch (error) {
     console.error(
