@@ -192,3 +192,34 @@ anything is written and never migrated, so a development build cannot upgrade a 
 that owns it. A Postgres installation refuses the flag, because a file cannot
 redirect a database endpoint. Naming a file is a deliberate act, and this
 decision guards against accidental access.
+
+## Refinement (2026-10-15, MMR-528): container configuration and authority
+
+[ADR 0035](0035-tanstack-start-container-host.md) defines a separate authority
+for the container host. It reads environment variables rather than an
+installation's `config.toml`: `MIMIR_DATABASE_URL` or
+`MIMIR_DATABASE_URL_FILE` selects Postgres, otherwise SQLite lives under
+`MIMIR_DATA_DIR` (default `/data` in the image). `MIMIR_HOSTS`, `MIMIR_URL`,
+and `MIMIR_PORT` configure the host's network settings. Setting both database
+URL variables refuses startup and names both, with no precedence. Other
+invalid values refuse startup and name the variable. The image's `/data`
+default does not apply to a development host, whose SQLite store stays under
+isolated `.dev` storage.
+
+A host-authority constant set at image build permits the built image to open
+a live Postgres URL. A development host has no such authority: environment
+variables and secret files cannot grant it. It uses isolated SQLite or an
+owned sandbox, whose Postgres endpoint must match its existing authority.
+This is the same accidental-access boundary as the receipt system, not an
+OS security boundary against modified code.
+
+The host does not require an executable installation receipt. Existing CLI
+executables still do, and their bound directories, store authority, and
+supervisor fences remain unchanged until the tasks that retire those paths.
+This refinement does not authorize a live cutover or remove `serve`.
+
+## Changelog
+
+- 2026-10-01: Scoped supervisor authority and unit names to each installation (MMR-54).
+- 2026-10-03: Allowed a per-run existing SQLite file for serve without granting migration authority (MMR-421).
+- 2026-10-15: Defined the container host's environment configuration and image authority (ADR 0035).

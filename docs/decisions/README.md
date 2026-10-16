@@ -57,6 +57,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0032](0032-sqlite-local-tier-shared-sql-store.md)                | SQLite is the local tier, beside Postgres, on one shared SQL store |
 | [0033](0033-task-grooming-state.md)                               | Tasks carry a stored grooming state                                |
 | [0034](0034-engine-interface-and-trpc-wire.md)                    | The Engine is a plain interface, and the remote wire is tRPC       |
+| [0035](0035-tanstack-start-container-host.md)                    | The host is a TanStack Start container                            |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model
