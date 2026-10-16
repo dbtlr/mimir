@@ -82,6 +82,11 @@ Full host configuration, Postgres, network middleware, tRPC, image publishing,
 and deployment remain later migration work. The existing CLI installation and
 `mimir serve` workflows remain available.
 
+The host API is unauthenticated: every reachable client can read and mutate
+the store. Publish local test ports on loopback
+(`-p 127.0.0.1:64647:64647`). Hosted port publishing must restrict access to
+the single-user tailnet, as ADR 0035 requires.
+
 The client/host split starts with `Engine.getNode` and `Engine.done`.
 `LocalEngine` owns a `Store` and delegates to the existing domain functions;
 `@mimir/wire/server` adapts an Engine to tRPC, and `@mimir/wire/client` provides
