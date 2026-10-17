@@ -56,7 +56,7 @@ export function isCrossOriginWrite(req: Request): boolean {
 /** The refusal for a request this server must not answer; null admits it. */
 export type HostGuard = (req: Request) => Response | null;
 
-/** How many distinct refused names `serve` logs before it stops logging them. */
+/** Bound diagnostics even when a caller keeps inventing refused names. */
 const REFUSAL_LOG_CAP = 64;
 
 /**
@@ -88,8 +88,8 @@ export function hostGuard(hosts: readonly string[] | undefined): HostGuard {
       reported.add(name);
       console.error(
         reported.size < REFUSAL_LOG_CAP
-          ? `⚠ serve: refused a request for host ${JSON.stringify(name)} — add it to [serve] hosts if your proxy forwards it`
-          : `⚠ serve: refused a request for host ${JSON.stringify(name)}; further refused hosts are not logged`,
+          ? `⚠ http: refused a request for host ${JSON.stringify(name)} — add it to the Host allowlist if your proxy forwards it`
+          : `⚠ http: refused a request for host ${JSON.stringify(name)}; further refused hosts are not logged`,
       );
     }
     return json(

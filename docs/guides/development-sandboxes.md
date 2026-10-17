@@ -165,6 +165,11 @@ prints where.
 
 ## Run the development host against Postgres
 
+The host exposes `GET /health` with its build version and supported schema version,
+without querying the store. The container's Docker health check probes this route
+with Bun and honors `MIMIR_PORT`. Record diagnostics remain at `/api/doctor`,
+scoped with `?project=KEY`; they exclude CLI configuration permission findings.
+
 ```sh
 bun run sandbox host <sandbox-id>
 bun run sandbox host <sandbox-id> --port 6543

@@ -18,4 +18,6 @@ RUN mkdir /data && chown bun:bun /data
 USER bun
 VOLUME ["/data"]
 EXPOSE 64647
+HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["bun", "-e", "const response = await fetch('http://127.0.0.1:' + (process.env.MIMIR_PORT ?? '64647') + '/health', { signal: AbortSignal.timeout(2000) }); process.exit(response.ok && (await response.json()).status === 'ok' ? 0 : 1);"]
 CMD ["bun", "scripts/host-start.mjs"]
