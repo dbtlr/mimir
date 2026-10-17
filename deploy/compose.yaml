@@ -1,0 +1,34 @@
+# The Mimir host on one machine, over a SQLite store in a named volume.
+# Guide: docs/guides/host.md. Add compose.postgres.yaml to run it on Postgres.
+#
+#   docker compose -f deploy/compose.yaml up -d
+#
+# Set MIMIR_VERSION to the release you deploy, such as 0.26.0; the default
+# follows the newest published prerelease.
+name: mimir
+
+services:
+  mimir:
+    image: ghcr.io/dbtlr/mimir-host:${MIMIR_VERSION:-next}
+    restart: unless-stopped
+    read_only: true
+    environment:
+      # Optional: the public console origin, and the Host allowlist.
+      # MIMIR_URL: https://box.tail1234.ts.net
+      # MIMIR_HOSTS: ""
+      MIMIR_DATA_DIR: /data
+    volumes:
+      - data:/data
+    ports:
+      # Loopback only. The console is unauthenticated; tailscale serve or a
+      # reverse proxy on this machine is the way in from another device.
+      - 127.0.0.1:64647:64647
+    # The image supplies the probe, a GET of /health over loopback.
+    healthcheck:
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  data:

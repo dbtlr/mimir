@@ -15,3 +15,5 @@ packages/bin/src/http/ui-assets.generated.ts
 
 .env
 .env.*
+deploy/secrets
+deploy/.env
