@@ -5,6 +5,6 @@
   "dependencies": {
     "@loomcli/core": "0.10.0",
     "@loomcli/plugins": "0.10.0",
-    "zod": "4.6.6"
+    "zod": "4.6.7"
   }
 }
