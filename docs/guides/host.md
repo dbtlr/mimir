@@ -51,8 +51,9 @@ instead. If you set it, change the container side of the mapping to match.
 ## Run it on a server against Postgres
 
 The host reads the Postgres URL from a mounted file, so the password stays out
-of the Compose file and the container's environment. Only the published image
-can open a live Postgres URL. A development host refuses one
+of the Compose file and the container's environment. Only an image built from
+the repository's `Dockerfile` can open a live Postgres URL. A development host
+refuses one
 ([ADR 0035](../decisions/0035-tanstack-start-container-host.md#the-image-owns-live-store-authority)).
 
 1. Create `deploy/secrets/` and write the password for the bundled Postgres
@@ -87,6 +88,14 @@ the `depends_on` entry from `compose.postgres.yaml`. Then write that server's
 URL to `deploy/secrets/database-url`. The host creates or migrates the schema
 on start.
 
+The bundled service also listens on `127.0.0.1:5433` of the server, so a CLI
+on the same machine can open the database directly. Its `[store] url` names
+that address with the same password, such as
+`postgres://mimir:<password>@127.0.0.1:5433/mimir`
+([Configure](postgres-store.md#configure)). Set `MIMIR_POSTGRES_PORT` in
+`deploy/.env` to use another port. A CLI on another machine needs a Postgres
+server that it can reach, so use a server you already run.
+
 `MIMIR_DATABASE_URL` takes the URL directly, for a platform that injects it
 as a variable. Setting both `MIMIR_DATABASE_URL` and
 `MIMIR_DATABASE_URL_FILE` refuses startup.
@@ -113,11 +122,14 @@ pass the cross-origin check. `tailscale serve reset` removes the proxy.
 
 ### Use a reverse proxy
 
-A proxy that terminates TLS on the same machine forwards to the loopback port,
-as in this Caddy example:
+A proxy that terminates TLS on the same machine forwards to the loopback port.
+The proxy itself must listen only on the tailnet address, or it puts the
+unauthenticated console on every network the machine is on. In this Caddy
+example, `bind` holds the site to the machine's tailnet address:
 
 ```caddyfile
 mimir.example.local {
+	bind 100.64.0.7
 	reverse_proxy 127.0.0.1:64647
 }
 ```
@@ -126,9 +138,10 @@ A proxy that runs in its own container cannot reach the server's loopback.
 Attach it to the host's Compose network, `mimir_default`, and forward to
 `mimir:64647`.
 
-The proxy owns TLS and any authentication. It must forward the browser's
-`Host` header, which Caddy does by default. A proxy that rewrites `Host` to
-the upstream address makes the host refuse console writes.
+The proxy owns TLS. Authentication at the proxy does not widen the accepted
+boundary, which stays the single-user tailnet. The proxy must forward the
+browser's `Host` header, which Caddy does by default. A proxy that rewrites
+`Host` to the upstream address makes the host refuse console writes.
 
 ## Configure the host
 
@@ -165,8 +178,9 @@ that the store is reachable now. The image's Docker health check probes
 `/health` over loopback every 10 seconds. `docker compose ps` shows the
 result.
 
-A configuration or store failure at boot stops the container, and the log
-names the cause:
+A configuration or store failure at boot exits the host process. With
+`restart: unless-stopped`, Docker restarts the container repeatedly and
+`up --wait` fails. `docker compose logs mimir` names the cause:
 
 ```text
 host: startup refused: MIMIR_PORT must be an integer from 1 to 65535
