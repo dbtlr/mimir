@@ -38,7 +38,7 @@ there is no second cache of project status to keep in sync.
 | Keep temporary context | Resumable Scratchpads with a Journal and Agenda that freeze into Artifacts |
 | Groom new work | Seeds for ideas, bugs, features, and cross-project requests |
 | Resume agent sessions | Direction, execution handles, annotations, and session-summary Artifacts |
-| Operate the store | Record diagnostics, backup by export, service management, and self-update |
+| Operate the store | Record diagnostics, backup by export, and self-update |
 
 ## Five-minute start
 
@@ -51,17 +51,14 @@ curl -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
 For an existing installation without a receipt, use the
 [legacy upgrade procedure](docs/guides/install-location.md#upgrade-an-installation-without-a-receipt).
 
-Choose the store before setup:
+Choose the store before first use:
 
-- **SQLite (default):** Nothing to install. Mimir creates `store.sqlite` in its
-  data directory on first use. Run `mimir setup` to optionally install the
-  local service.
-- **PostgreSQL:** Skip `mimir setup`. Follow the
+- **SQLite (default):** Nothing to install or configure. Mimir creates
+  `store.sqlite` in its data directory on first use.
+- **PostgreSQL:** Follow the
   [Postgres store guide](docs/guides/postgres-store.md) to set `[store] backend`
   to `"postgres"` and `url` in the installation's bound `config.toml`, then run
-  `mimir store upgrade`. Run `mimir serve` directly or under your supervisor.
-  Optional `mimir service install` installs the `serve` unit (launchd on macOS,
-  systemd on Linux).
+  `mimir store upgrade`.
 
 To move a Norn vault from an earlier release into SQLite or PostgreSQL, see
 [Moving from a Norn vault](docs/guides/postgres-store.md#moving-from-a-norn-vault).
@@ -86,14 +83,10 @@ task_id=$(mimir create task "Verify sign-in recovery" --parent "$initiative_id" 
 mimir start "$task_id"
 ```
 
-Run `mimir serve` and open the URL printed at startup to use the operator
-console. The production default is `http://127.0.0.1:64647/`. Mimir listens on
-loopback unless `[serve] bind` says otherwise. To reach the console from
-another device, pick a [network mode](docs/guides/port-and-proxy.md):
-`tailscale serve` is the recommended path, and a direct bind or a reverse proxy
-also work. To harden `serve` against DNS rebinding, list the names it may
-answer to in `[serve] hosts`
-([accepted hosts](docs/guides/port-and-proxy.md#accepted-hosts)).
+The operator console comes from the host container,
+`ghcr.io/dbtlr/mimir-host`. The [host guide](docs/guides/host.md) covers
+running it over SQLite or Postgres, reaching it from another device, and
+upgrading it. The `mimir` binary carries the CLI and the MCP server only.
 
 ## Learn Mimir
 
@@ -105,7 +98,7 @@ answer to in `[serve] hosts`
 - [Use the operator console](docs/user/using-the-console.md)
 - [Work with agents](docs/user/working-with-agents.md)
 
-The [user guide](docs/user/README.md) collects these workflows. Installed-service
+The [user guide](docs/user/README.md) collects these workflows. Host and installation
 operations live in [docs/guides](docs/guides/README.md). The maintained
 [schema](docs/schema-reference.md), [output contract](docs/output-contract-reference.md),
 and [ADRs](docs/decisions/README.md) cover engineering details.
@@ -114,9 +107,9 @@ and [ADRs](docs/decisions/README.md) cover engineering details.
 
 Mimir is pre-release (`0.x`) and built for a single operator. The CLI, MCP,
 HTTP API, and console cover read and write workflows. The console is an
-installable PWA with cached offline reads; writes require a live server and are
+installable PWA with cached offline reads; writes require a live host and are
 not queued offline. Authentication and multi-operator collaboration are outside
-the current binary.
+the current product.
 
 ## Develop
 
@@ -133,7 +126,7 @@ for the native upgrade rehearsal. See the [sandbox guide](docs/guides/developmen
 for fixture, restore, upgrade, and cleanup commands.
 
 For documentation screenshots, `bun run fixtures:docs` generates a demo
-workspace and `bun run mimir serve --store .dev/fixtures/docs.sqlite` serves it.
+workspace that the development host serves.
 See [writing style](docs/writing-style.md#refresh-screenshots).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the project structure and review

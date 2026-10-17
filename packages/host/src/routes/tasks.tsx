@@ -356,7 +356,7 @@ export function TasksPage() {
             {tasks.isPending && loadedTasks === undefined && <Skeleton className="mt-4 h-40" />}
             {tasks.isError && loadedTasks === undefined && (
               <p className="py-4 text-xs text-status-blocked">
-                Unreachable — is `mimir serve` running?
+                Unreachable — is the Mimir host running?
               </p>
             )}
             {loadedTasks !== undefined && groups.length === 0 && (

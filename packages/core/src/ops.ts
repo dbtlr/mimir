@@ -30,7 +30,7 @@ import type { Store } from './store';
  * surface derives from: the CLI's one generic dispatch arm + echo (`cli/run.ts`,
  * `cli/mutations.ts`), the CLI help (terse rows + per-verb descriptors,
  * `cli/help.ts`), the MCP tool registrations (`mcp/server.ts`), and the HTTP
- * action routes (`http/server.ts`). Each verb binds a `run` that delegates to the
+ * action routes (`api/src/api.ts`). Each verb binds a `run` that delegates to the
  * existing core mutation fn; the transition guards stay imperative in those
  * mutations (the registry's `transition` is a descriptive dispatch/render fact,
  * not a state machine). Facts live in the contract so any consumer (including the

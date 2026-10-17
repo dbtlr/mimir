@@ -5,7 +5,7 @@
  *
  * Two handles in one process share the driver's mutex and the event loop, so
  * only separate processes contend on the database's own write lock — the
- * arrangement of the CLI writing while `mimir serve` runs.
+ * arrangement of the CLI writing while the host runs.
  *
  *   create <phase stem>  allocate an identity: a task under that phase.
  *   patch  <node stem>   read-modify-write that node: append an annotation and

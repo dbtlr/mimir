@@ -78,3 +78,17 @@ same class. A remote client can reconstruct a domain refusal without importing
 core or a store. The private `@mimir/wire` package has separate server and
 client entries; existing binary transports retain their current paths until
 their migration phase.
+
+## Refinement (2026-10-17, MMR-536 — one source, two artifacts)
+
+The `mimir` binary carries the CLI and the MCP server over stdio. It no longer
+carries the HTTP API, `mimir serve`, the service commands, or the embedded
+console. The host image, `ghcr.io/dbtlr/mimir-host`
+([ADR 0035](0035-tanstack-start-container-host.md)), serves the console, the
+Engine at `/trpc`, and the transitional `/api`.
+
+Mimir ships from one source tree as two artifacts, the CLI binary and the host
+image, each with its own configuration and update path. Transport-only
+consumption is unchanged: a consumer reaches Mimir through a transport, never
+by importing the core. Decision 1's list of surfaces in one executable no
+longer holds for the HTTP surface.

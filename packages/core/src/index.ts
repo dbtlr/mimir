@@ -40,19 +40,8 @@ export type { ArtifactStore } from './artifacts/store';
 export type { ScratchpadStore } from './scratchpads/store';
 export * from './env';
 export * from './config';
-export { normalizeServeUrl } from './address';
-export {
-  acceptedHosts,
-  canonicalAddress,
-  consoleUrl,
-  DEFAULT_BIND,
-  hostnameOf,
-  isLocalAddress,
-  isWildcard,
-  localAddress,
-  probeHost,
-  serveBanner,
-} from './address';
+export { acceptedHosts, hostnameOf, isHostName, normalizeServeUrl } from './address';
+export type { ServeConfig } from './address';
 export { assertUsableStoreConfig, buildStore } from './store-backend';
 export type { BuiltStore, StoreOverride } from './store-backend';
 export { buildSqliteStore, openInstallationSqlite } from './store-sqlite-backend';

@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 
+import { uniformRoutes } from '@mimir/api';
 import { OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
 import type { OpFact } from '@mimir/contract';
 import { assertOpFields, OP_SPECS } from '@mimir/core';
@@ -13,7 +14,6 @@ import {
   uniformFlagSpec,
   uniformSummary,
 } from './cli/help';
-import { uniformRoutes } from './http/server';
 import { buildMcpServer, uniformToolDescription, uniformToolSchema } from './mcp/server';
 
 /**

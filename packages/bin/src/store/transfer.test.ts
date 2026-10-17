@@ -34,7 +34,7 @@ const DEPS: StoreDeps = {
   openSqlite: () => {
     throw new Error('a transfer verb must not open the store machinery connection');
   },
-  readConfig: (): GlobalConfig => ({ serve: {}, store: {} }),
+  readConfig: (): GlobalConfig => ({ store: {} }),
   readStdin: () => Promise.reject(new Error('this case must not read stdin')),
 };
 

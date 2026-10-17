@@ -146,9 +146,8 @@ const layerOverrides: Override[] = [
   ),
   restrict(['packages/bin/**'], [coreEntryOnly]),
   restrict(['packages/host/**', 'packages/api/**'], [noBinImports, coreEntryOnly]),
-  forbid(['packages/bin/src/cli/**'], ['mcp', 'http']),
-  forbid(['packages/bin/src/mcp/**'], ['cli', 'http']),
-  forbid(['packages/bin/src/http/**'], ['cli', 'mcp']),
+  forbid(['packages/bin/src/cli/**'], ['mcp']),
+  forbid(['packages/bin/src/mcp/**'], ['cli']),
   // Tests legitimately wire layers together (the store fixture from
   // `testing/store`, cross-layer assertions); the boundary constrains shipped
   // code, not tests.
@@ -191,11 +190,11 @@ export default defineConfig({
   plugins: [
     toolingPlugin({
       fmt: {
-        // Machine-written asset manifests, route trees, and build output.
-        ignores: ['**/*.generated.ts', '**/routeTree.gen.ts', '**/.output/**'],
+        // Machine-written route trees and build output.
+        ignores: ['**/routeTree.gen.ts', '**/.output/**'],
       },
       lint: {
-        ignores: ['dist/**', '**/*.generated.ts', '**/routeTree.gen.ts', '**/.output/**'],
+        ignores: ['dist/**', '**/routeTree.gen.ts', '**/.output/**'],
         overrides: layerOverrides,
         rules: { ...quarantinedRules, ...styleOptOuts },
       },

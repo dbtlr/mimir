@@ -16,9 +16,10 @@ _in this repo_.
 1. **Verify green** — `bun run verify` (format · lint · type · test) exits 0 with
    zero warnings. Warnings are errors here; a yellow gate is a red gate.
 2. **Smoke** — run the real artifact against representative data, matched to the
-   surface you touched: CLI through a pseudo-TTY, HTTP via `curl` against a live
-   `mimir serve`, UI via Playwright. Smoke against a throwaway store (a sandbox
-   installation or an isolated `XDG_CONFIG_HOME`), never the live one. Tests are
+   surface you touched: CLI through a pseudo-TTY, HTTP via `curl` against the
+   development host (`bun run dev:ui`), UI via Playwright. Smoke against a
+   throwaway store (a sandbox installation for the CLI, a scratch
+   `MIMIR_DATA_DIR` for the host), never the live one. Tests are
    necessary, not sufficient — smoke is where integration bugs surface.
 3. **CHANGELOG** — the gate that gets skipped. See below.
 4. **Review** — an adversarial whole-branch review (`/code-review` or a fresh

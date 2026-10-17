@@ -45,14 +45,14 @@ export function errorResponse(req: Request, error: unknown): Response {
   // A non-domain error is an internal fault: the envelope ships a house-voice
   // fact + a next move (output-voice.md — library text never ships, and every
   // error points somewhere), while the raw detail is preserved for the operator
-  // on stderr (consistent with how `serve` logs), never in the response.
+  // on stderr (consistent with the rest of the host log), never in the response.
   const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
   const diagnostic = formatDiagnostic({
     detail,
     method: req.method,
     path: new URL(req.url).pathname,
   });
-  console.error(`✗ serve: request did not complete — ${diagnostic}`);
+  console.error(`✗ http: request did not complete — ${diagnostic}`);
   const body = {
     error: {
       code: 'internal',

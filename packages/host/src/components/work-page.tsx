@@ -279,7 +279,7 @@ function WorkBody({
         {/* An answered failure (an HTTP status) says no more than that; only a request that never got an answer asks about the server. */}
         {work.error instanceof ApiError
           ? 'Couldn’t load the work page.'
-          : 'Couldn’t load the work page, and nothing is cached yet — is `mimir serve` running?'}
+          : 'Couldn’t load the work page, and nothing is cached yet — is the Mimir host running?'}
       </p>
     ) : (
       <div className="flex flex-col gap-3" aria-busy>

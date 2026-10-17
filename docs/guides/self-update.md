@@ -1,13 +1,12 @@
 ---
-description: Self-update channels, installation receipt preservation, replacement failures, and service restart behavior.
+description: Self-update channels, installation receipt preservation, and replacement failures.
 ---
 
 # Self-update
 
 `mimir self-update [--next] [--tag <tag>]` replaces the running binary in
 place. A registered installation keeps its configuration, data, and cache
-directories. A registered installation also restarts its own loaded `serve`
-unit (launchd on macOS, systemd on Linux).
+directories.
 
 For an installation without a receipt, use the
 [legacy installation transition](install-location.md#upgrade-an-installation-without-a-receipt)
@@ -53,26 +52,18 @@ candidate file. Receipt-write cleanup also removes its temporary file. An abrupt
 termination or an initial staging-write failure can leave temporary files behind.
 Neither replacement mechanism automatically rolls back a binary after its rename.
 
-## Restart-if-loaded
-
-After replacement, self-update inspects the installation's `serve` unit. If the
-unit is loaded and the installation owns it, it restarts the unit
-(`launchctl kickstart -k` on macOS, `systemctl --user restart` on Linux).
-
-Without that authority, the restart is skipped with a warning.
-A restart failure also produces a warning. In both cases, the binary replacement
-already succeeded.
+## Where self-update applies
 
 Source invocations through a `bun`-prefixed executable refuse self-update.
 An unregistered standalone binary can replace itself, but the replacement does
 not gain installation authority.
 
-The shell installer does not restart services. Its separate transition procedure
-includes an explicit restart for an existing service.
+Self-update replaces the CLI binary only. The host container updates by image
+tag: see [Upgrade the host](host.md#upgrade-the-host-and-the-clis-that-share-its-postgres).
 
 ## Source
 
-[`self-update.ts`](../../packages/bin/src/service/self-update.ts) owns release
+[`release.ts`](../../packages/bin/src/self-update/release.ts) owns release
 selection, checksum verification, and replacement.
-[`commands.ts`](../../packages/bin/src/service/commands.ts) owns the version
-gate, service restart, and event log.
+[`command.ts`](../../packages/bin/src/self-update/command.ts) owns the version
+gate.

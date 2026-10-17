@@ -115,18 +115,13 @@ test('sandbox run refuses installation machinery before opening a sandbox', asyn
   const root = await mkdtemp(join(tmpdir(), 'mimir-run-test-'));
   try {
     const sandbox = new Sandbox(root);
-    expect(await failure(sandbox.run('00000000-0000-4000-8000-000000000000', ['serve']))).toContain(
-      'finite CLI commands',
-    );
     for (const args of [
       ['installation-install', '--mode', 'live'],
       ['self-update'],
-      ['setup'],
-      ['service', 'install'],
-      ['--format', 'json', 'service', 'install'],
+      ['--format', 'json', 'self-update'],
     ]) {
       expect(await failure(sandbox.run('00000000-0000-4000-8000-000000000000', args))).toContain(
-        'installation and service machinery is disabled',
+        'installation machinery is disabled',
       );
     }
   } finally {

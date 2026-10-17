@@ -1,14 +1,14 @@
 /**
  * The config-file permission check. `[store] url` can carry Postgres
  * credentials, and the file decides which store every command opens, so it must
- * be neither readable nor writable by group or others. `writeConfig` writes it
- * 0600; the gap this closes is the hand-edited or copied config that kept a
- * looser mode. Mode bits alone are not enough: whoever owns the file, or can
- * rename entries in a directory above it, can swap in a config of their own, so
- * the check also walks the path's owners and directory modes. It is an install
- * check, not a record check: it reads the config file, not the store, so it sits
- * beside the backend contract and is composed onto a backend's diagnosis rather
- * than implemented by each backend. A warning, never an error (ADR 0017).
+ * be neither readable nor writable by group or others. The file is hand-edited
+ * or copied, so it can keep a looser mode than 0600. Mode bits alone are not
+ * enough: whoever owns the file, or can rename entries in a directory above it,
+ * can swap in a config of their own, so the check also walks the path's owners
+ * and directory modes. It is an install check, not a record check: it reads the
+ * config file, not the store, so it sits beside the backend contract and is
+ * composed onto a backend's diagnosis rather than implemented by each backend.
+ * A warning, never an error (ADR 0017).
  */
 import type { ConfigPathStat } from '../config';
 import { configFileMode, configPathStats, readConfig } from '../config';

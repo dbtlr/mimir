@@ -163,12 +163,11 @@ test('per-command help never acquires the store (MMR-118, MMR-39)', async () => 
   }
 });
 
-test('skill/service/self-update print their own command help, not the top-level fallback (MMR-286)', async () => {
+test('skill/self-update print their own command help, not the top-level fallback (MMR-286)', async () => {
   // Machinery-plane verbs — previously undocumented in COMMAND_HELP, so `-h`
   // fell through to the top-level dump. Each now carries a descriptor.
   for (const [verb, usage] of [
     ['skill', 'mimir skill install'],
-    ['service', 'mimir service <sub>'],
     ['self-update', 'mimir self-update'],
   ] as const) {
     const io = fakeIo(true);
@@ -195,58 +194,12 @@ test('store is unavailable without injected deps, and never opens a store (ADR 0
   expect(io.err.join('\n')).toContain('store is unavailable in this context');
 });
 
-test("service <sub> -h renders that subcommand's own page, not the group page (MMR-299)", async () => {
-  for (const [sub, usage] of [
-    ['install', 'mimir service install ['],
-    ['uninstall', 'mimir service uninstall ['],
-    ['start', 'mimir service start ['],
-    ['stop', 'mimir service stop ['],
-    ['restart', 'mimir service restart ['],
-    ['status', 'mimir service status'],
-  ] as const) {
-    const io = fakeIo(true);
-    expect(await runCli(['service', sub, '-h'], neverStore, io)).toBe(0);
-    const out = io.out.join('');
-    expect(out).toContain(usage);
-    expect(out).not.toContain('mimir service <sub>'); // not the group descriptor
-  }
-});
-
-test('bare service -h still renders the group page listing every subcommand (MMR-299)', async () => {
-  const io = fakeIo(true);
-  expect(await runCli(['service', '-h'], neverStore, io)).toBe(0);
-  const out = io.out.join('');
-  expect(out).toContain('mimir service <sub>');
-  expect(out).toContain('install | uninstall | start | stop | restart | status');
-});
-
-test('service install --help adds worked examples; -h omits them (MMR-299)', async () => {
-  const terse = fakeIo(true);
-  expect(await runCli(['service', 'install', '-h'], neverStore, terse)).toBe(0);
-  const terseOut = terse.out.join('');
-  expect(terseOut).toContain('--port');
-  expect(terseOut).not.toContain('examples:');
-
-  const full = fakeIo(true);
-  expect(await runCli(['service', 'install', '--help'], neverStore, full)).toBe(0);
-  const fullOut = full.out.join('');
-  expect(fullOut).toContain('examples:');
-  expect(fullOut).toContain('mimir service install --port 4100');
-});
-
-test('service subcommand help never acquires the store (MMR-299, MMR-39)', async () => {
-  for (const sub of ['install', 'uninstall', 'start', 'stop', 'restart', 'status']) {
-    expect(await runCli(['service', sub, '-h'], neverStore, fakeIo(true))).toBe(0);
-  }
-});
-
-test('serve/mcp/version print their own command help, not the top-level fallback (MMR-294)', async () => {
-  // These three are machinery loners intercepted ahead of runCli in `main`
+test('mcp/version print their own command help, not the top-level fallback (MMR-294)', async () => {
+  // These two are machinery loners intercepted ahead of runCli in `main`
   // (ADR 0024) — the interception itself is proven by the from-source smoke,
   // not here. This covers the registry + dispatch half: once `main` lets
   // `-h`/`--help` fall through, runCli must render the verb's own help.
   for (const [verb, usage] of [
-    ['serve', 'mimir serve ['],
     ['mcp', 'mimir mcp'],
     ['version', 'mimir version'],
   ] as const) {
@@ -258,8 +211,8 @@ test('serve/mcp/version print their own command help, not the top-level fallback
   }
 });
 
-test('serve/mcp/version --help adds examples; -h omits them (MMR-294)', async () => {
-  for (const verb of ['serve', 'mcp', 'version']) {
+test('mcp/version --help adds examples; -h omits them (MMR-294)', async () => {
+  for (const verb of ['mcp', 'version']) {
     const terse = fakeIo(true);
     expect(await runCli([verb, '-h'], neverStore, terse)).toBe(0);
     expect(terse.out.join('')).not.toContain('examples:');
@@ -270,27 +223,49 @@ test('serve/mcp/version --help adds examples; -h omits them (MMR-294)', async ()
   }
 });
 
-test('serve/mcp/version help never acquires the store (MMR-294, MMR-39)', async () => {
-  for (const verb of ['serve', 'mcp', 'version']) {
+test('mcp/version help never acquires the store (MMR-294, MMR-39)', async () => {
+  for (const verb of ['mcp', 'version']) {
     expect(await runCli([verb, '-h'], neverStore, fakeIo(true))).toBe(0);
     expect(await runCli([verb, '--help'], neverStore, fakeIo(true))).toBe(0);
   }
 });
 
-test('serve --help renders even alongside its other flags, never a parse error (MMR-294)', async () => {
-  // --no-hunt/--port are only ever read via argv.includes/indexOf in `main`,
-  // but they still have to survive runCli's strict parseArgs on the -h/--help
-  // fall-through (serve's own descriptor advertises --no-hunt as an example).
-  for (const argv of [
-    ['serve', '--no-hunt', '--help'],
-    ['serve', '-h', '--no-hunt'],
-    ['serve', '--port', '4100', '--help'],
-  ]) {
+// `serve`, `service`, and `setup` left the binary when the console moved to the
+// host container. Each is an unknown command that names its replacement, even
+// with help requested, and none touches the store.
+const RETIRED_SERVE_HINT =
+  'the console and /api are served by the mimir host container — see docs/guides/host.md';
+const RETIRED_SETUP_HINT =
+  'setup is retired — the SQLite store is created on first use and Postgres is set in the [store] config section — see docs/user/getting-started.md';
+
+test('retired verbs exit 2 as unknown commands with a hint naming the replacement', async () => {
+  for (const [argv, hint] of [
+    [['serve'], RETIRED_SERVE_HINT],
+    [['serve', '--port', '4100', '--no-hunt'], RETIRED_SERVE_HINT],
+    [['serve', '-h'], RETIRED_SERVE_HINT],
+    [['serve', '--help'], RETIRED_SERVE_HINT],
+    [['service', 'status'], RETIRED_SERVE_HINT],
+    [['service', 'install', '--port', '4100'], RETIRED_SERVE_HINT],
+    [['service', '--help'], RETIRED_SERVE_HINT],
+    [['setup'], RETIRED_SETUP_HINT],
+    [['setup', '--install-service', '-y'], RETIRED_SETUP_HINT],
+    [['setup', '-h'], RETIRED_SETUP_HINT],
+  ] as const) {
     const io = fakeIo(true);
-    expect(await runCli(argv, neverStore, io)).toBe(0);
-    expect(io.out.join('')).toContain('mimir serve [');
-    expect(io.err.join('')).toBe('');
+    expect(await runCli([...argv], neverStore, io)).toBe(2);
+    expect(io.err.join('')).toContain(`unknown command: ${argv[0]}`);
+    expect(io.err.join('')).toContain(hint);
+    expect(io.out.join('')).toBe('');
   }
+});
+
+test('a retired verb renders its hint in the structured error envelope too', async () => {
+  const io = fakeIo(true);
+  expect(await runCli(['serve', '--format', 'json'], neverStore, io)).toBe(2);
+  const parsed = JSON.parse(io.err.join('') || io.out.join(''));
+  expect(parsed.error.code).toBe('usage');
+  expect(parsed.error.message).toBe('unknown command: serve');
+  expect(parsed.error.hint).toBe(RETIRED_SERVE_HINT);
 });
 
 test('an unknown verb hard-errors (exit 2) even with -h/--help — never the help fallthrough (MMR-211)', async () => {
@@ -512,7 +487,7 @@ test('the JSON envelope carries the synthesized message, never the raw library t
 });
 
 test('deps-gated verbs are recognized, not "unknown command" — guards COMMANDS/switch drift (MMR-211)', async () => {
-  for (const verb of ['setup', 'service', 'doctor', 'self-update', 'skill', 'bind']) {
+  for (const verb of ['doctor', 'self-update', 'skill', 'bind']) {
     const io = fakeIo(true);
     await runCli([verb], neverStore, io);
     expect(`${io.err.join('')}${io.out.join('')}`).not.toContain('unknown command');

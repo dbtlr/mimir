@@ -70,8 +70,9 @@ matches the binary:
 - **Older schema than the binary.** Run `store upgrade` on one machine. Every
   binary that shares the database must then be at least that version.
 
-`mimir serve` refuses at startup under the same rule, so the console never
-runs against a mismatched schema.
+The host container migrates its store before it serves and refuses a schema
+newer than its image, so the console never runs against a mismatched schema.
+See [Upgrade the host](host.md#upgrade-the-host-and-the-clis-that-share-its-postgres).
 
 ## What changes on a Postgres install
 
@@ -213,7 +214,7 @@ finishes a partial run of one document, it does not merge two different ones.
 
 ### Removing a leftover snapshot timer
 
-A v0.20 install that ran `mimir setup --install-snapshot` also has a snapshot
+A v0.20 install that enabled the snapshot timer has a snapshot
 timer unit, which this release no longer manages. It runs a command that no
 longer exists, so remove it by hand.
 

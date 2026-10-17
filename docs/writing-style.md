@@ -41,10 +41,10 @@ Verify user-facing behavior against its owning surface before publishing:
 | --- | --- |
 | CLI commands and flags | `bun run mimir --help` and command help |
 | Agent tools | `packages/bin/src/mcp/server.ts` |
-| HTTP behavior | `packages/api/src/api.ts`, `packages/bin/src/http/server.ts`, and integration tests |
+| HTTP behavior | `packages/api/src/api.ts`, `packages/host/src/start-routes`, and integration tests |
 | Console workflows | `packages/host/src/router.tsx`, components, and mutations |
 | Stored model and invariants | `docs/schema-reference.md` and accepted ADRs |
-| Installation and service behavior | `install.sh` and `docs/guides/` |
+| Installation and host behavior | `install.sh` and `docs/guides/` |
 
 Prefer workflow examples over exhaustive command listings. CLI help owns exact
 syntax; guides own intent, sequence, and the reason a workflow matters.
@@ -52,16 +52,17 @@ syntax; guides own intent, sequence, and the reason a workflow matters.
 ## Refresh screenshots
 
 Screenshots use a generated demo workspace, never a personal store. Generate
-it, then serve the console from it:
+it into a data directory, then serve the console from it with the development
+host:
 
 ```sh
-bun run fixtures:docs
-bun run mimir serve --store .dev/fixtures/docs.sqlite
+bun run fixtures:docs .dev/fixtures/docs/store.sqlite
+MIMIR_DATA_DIR="$PWD/.dev/fixtures/docs" bun run dev:ui
 ```
 
-The generator writes `.dev/fixtures/docs.sqlite`, which no installation opens on
-its own. It replaces a previous fixture and refuses any other store. Restart
-`serve` after regenerating: a running server keeps the replaced file open.
+The generator replaces a previous fixture and refuses any other store. The
+development host listens on port `64747`. Restart it after regenerating: a
+running host keeps the replaced file open.
 
 Capture a dark 1440 × 900 viewport after the page settles:
 

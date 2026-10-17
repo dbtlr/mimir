@@ -1,12 +1,12 @@
 import { expect, test } from 'bun:test';
 
+import { nodeBodyFields } from '@mimir/api';
 import { SPEC_UPDATE_FIELDS } from '@mimir/core';
 import type { SpecUpdateField, UpdateFieldKey } from '@mimir/core';
 import { inertStore } from '@mimir/core/testing';
 import { z } from 'zod';
 
 import { updateFieldFlags } from './cli/mutations';
-import { nodeBodyFields } from './http/server';
 import { buildMcpServer, fieldInputShape } from './mcp/server';
 
 /**

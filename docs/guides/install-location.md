@@ -7,9 +7,7 @@ description: Choose an installation path and register a legacy installation whil
 Install `mimir` to `~/.local/bin`, the `install.sh` default. To select another
 directory, set `MIMIR_INSTALL_DIR` when you run the installer.
 
-On macOS, use a path on the boot volume. A launchd process cannot reliably load
-the binary from a `noowners` volume, including some external and network mounts.
-An interactive shell can hide this problem because the same binary runs there.
+Keep the binary on a local disk, not on a network volume.
 
 The installer places a receipt beside the canonical binary path:
 `mimir.installation.json`. The receipt binds the executable path and SHA-256
@@ -70,7 +68,6 @@ directories instead of the existing board.
 
 6. Verify that `mimir.installation.json` exists beside the installed binary.
 7. From a bound repository, run `mimir overview` to verify the expected board.
-8. If the service was running, run `mimir service restart`.
 
 The XDG values are roots: the installer appends `/mimir` to each one. Unset roots
 default to `$HOME/.config`, `$HOME/.local/share`, and `$HOME/.cache`, respectively.
@@ -83,8 +80,7 @@ release. The selected candidate must support installation protocol version 1.
 An older candidate is refused before replacement.
 
 Registration preserves the configuration file, board, and caches at those paths.
-The transition does not require `mimir setup`, a board reset, or a data import.
-The shell installer does not restart an existing service.
+The transition does not require a board reset or a data import.
 
 ## Repeat installation and relocation
 
@@ -94,8 +90,7 @@ installation. [Self-update](self-update.md) preserves the same bindings.
 
 To relocate the binary, run the installer with the new `MIMIR_INSTALL_DIR` and
 the existing XDG roots. At a new target path without a receipt, the installer
-creates a separate registration. If you use launchd, run `mimir service install`
-through the new binary to update the `serve` unit's executable path.
+creates a separate registration.
 
 Do not copy a binary and its receipt to a new path. A receipt with a different
 canonical path or executable digest fails validation before normal state access.

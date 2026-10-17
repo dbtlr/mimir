@@ -16,9 +16,12 @@ import { Database } from 'bun:sqlite';
  * `bun run`): the "going cold" cohort is created ~20 days in the past so the
  * 14-day stale threshold fires, then the clock is restored for the fresh work.
  *
- * Run: `bun run fixtures:docs [target-file]` (default `.dev/fixtures/docs.sqlite`),
- * then `bun run mimir serve --store <target-file>`. The default sits outside
- * every installation's data directory, so no installation opens it unasked.
+ * Run: `bun run fixtures:docs [target-file]` (default
+ * `.dev/fixtures/docs/store.sqlite`), then serve it with the development host:
+ * `MIMIR_DATA_DIR=<target directory> bun run dev:ui`. The host opens
+ * `store.sqlite` from its data directory, so keep that file name. The default
+ * sits outside every installation's data directory, so no installation opens it
+ * unasked.
  *
  * The {@link Board} helper carries canonical project keys and node stems through
  * every operation, matching the runtime store seam.
@@ -69,8 +72,8 @@ const COLD_EPOCH_DAYS = 20;
 
 /** Default target — under the gitignored `.dev/` dev tree, and beside rather
  * than at the from-source store (`.dev/store.sqlite`), so no installation opens
- * it unless `serve --store` names it. */
-const DEFAULT_TARGET = join('.dev', 'fixtures', 'docs.sqlite');
+ * it unless a host is pointed at its directory. */
+const DEFAULT_TARGET = join('.dev', 'fixtures', 'docs', 'store.sqlite');
 
 /**
  * The projects this generator creates. The replace guard keys on them: an
@@ -828,8 +831,8 @@ async function main(): Promise<number> {
     );
     return 1;
   }
-  console.log('\nserve it:');
-  console.log(`  bun run mimir serve --store ${summary.storePath}`);
+  console.log('\nserve it with the development host:');
+  console.log(`  MIMIR_DATA_DIR=${dirname(summary.storePath)} bun run dev:ui`);
   return 0;
 }
 

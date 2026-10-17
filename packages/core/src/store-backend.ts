@@ -1,4 +1,4 @@
-import type { GlobalConfig, StoreBackend } from './config';
+import type { GlobalConfig } from './config';
 import { configPath, DEFAULT_STORE_BACKEND, readRuntimeConfig } from './config';
 import type { DoctorBackend } from './doctor/contract';
 import { invariant } from './errors';
@@ -15,7 +15,7 @@ import { invariant } from './errors';
  */
 import type { Store } from './store';
 import { buildPostgresStore } from './store-postgres-backend';
-import { buildNamedSqliteStore, buildSqliteStore } from './store-sqlite-backend';
+import { buildSqliteStore } from './store-sqlite-backend';
 
 export type BuiltStore = {
   store: Store;
@@ -53,9 +53,6 @@ const STORE_REMEDIES: Record<NonNullable<GlobalConfig['store']['problem']>, stri
 
 /** What a single run may override about the store it opens. */
 export type StoreOverride = {
-  /** A SQLite file to open instead of the installation's own (`serve --store`).
-   * It must already exist: opening a typo would create and serve an empty store. */
-  file?: string;
   /** Explicit SQLite location for a store owner, creating and migrating on open. */
   sqliteFile?: string;
   /** Designated store owners may upgrade before serving; CLI defaults remain gated. */
@@ -65,9 +62,9 @@ export type StoreOverride = {
 
 /**
  * Build the store for this process. An open failure (a newer schema, an
- * unreadable or foreign database file, an unreachable server) propagates so `serve` fails fast and a supervisor retries.
- * A `[store]` section that parsed to nothing usable is FATAL on the same terms
- * — see {@link assertUsableStoreConfig}.
+ * unreadable or foreign database file, an unreachable server) propagates so the
+ * caller fails fast. A `[store]` section that parsed to nothing usable is FATAL
+ * on the same terms — see {@link assertUsableStoreConfig}.
  */
 export async function buildStore(
   config: GlobalConfig = readRuntimeConfig(),
@@ -75,22 +72,7 @@ export async function buildStore(
 ): Promise<BuiltStore> {
   assertUsableStoreConfig(config);
   const backend = config.store.backend ?? DEFAULT_STORE_BACKEND;
-  if (override.file !== undefined) {
-    return await buildNamedStore(backend, override.file);
-  }
   return backend === 'postgres'
     ? await buildPostgresStore(config, override)
     : await buildSqliteStore(override.sqliteFile, override.onMigration);
-}
-
-/** Open the SQLite file a run named — only on a SQLite install, which a named
- * file cannot redirect to another backend. */
-async function buildNamedStore(backend: StoreBackend, file: string): Promise<BuiltStore> {
-  if (backend !== 'sqlite') {
-    throw invariant(
-      `--store names a SQLite file, but this install runs the ${backend} backend`,
-      'drop --store, or run it from a SQLite install or a source checkout',
-    );
-  }
-  return await buildNamedSqliteStore(file);
 }

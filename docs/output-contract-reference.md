@@ -120,7 +120,7 @@ One **flat, closed** vocabulary on every selection front-end — _the dot-facet 
 
 _Layout style_ — the styled formats `records` + `table` (colors, icons, spacing) — is **evolvable and never parsed**; the _structural contract_ (`ids`/`json`/`jsonl`) is a **versioned promise**. Structured formats never emit ANSI; set-returning commands lead with a count.
 
-**`isTTY` governs _decoration_ only, never _information_ (`MMR-87`).** The default is `table` for a set, `records` for a single node — **the same fields whether interactive or piped**; a pipe only drops the ANSI (color is already suppressed by `plain = NO_COLOR || !isTTY`). `ids`/`json`/`jsonl` are **explicit `-f` opt-ins**: `ids` for a genuine shell pipeline, `json`/`jsonl` to parse the embedded facet arrays. The non-TTY consumer is overwhelmingly an agent reading to decide (the ADR 0011 skill path), for whom bare ids carry no decision information; the old "pipe → `ids`" default optimized for a `| xargs` consumer that barely exists. (`status` is json everywhere; the `service`/`self-update` **report** keeps its split — prose in a terminal, json piped — see `MMR-59`.)
+**`isTTY` governs _decoration_ only, never _information_ (`MMR-87`).** The default is `table` for a set, `records` for a single node — **the same fields whether interactive or piped**; a pipe only drops the ANSI (color is already suppressed by `plain = NO_COLOR || !isTTY`). `ids`/`json`/`jsonl` are **explicit `-f` opt-ins**: `ids` for a genuine shell pipeline, `json`/`jsonl` to parse the embedded facet arrays. The non-TTY consumer is overwhelmingly an agent reading to decide (the ADR 0011 skill path), for whom bare ids carry no decision information; the old "pipe → `ids`" default optimized for a `| xargs` consumer that barely exists. (`status` is json everywhere; the `self-update` **report** keeps its split — prose in a terminal, json piped — see `MMR-59`.)
 
 | format    | role                                                                                                                                   | stable?                     |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
@@ -154,7 +154,7 @@ Adopt Norn's tool-agnostic **primitives** (count line, record block, table rows,
 
 ## The `overview` composite (report kind, MMR-278)
 
-`mimir overview [-s KEY]` is a **`report`-kind** read (like `triage`/`service`):
+`mimir overview [-s KEY]` is a **`report`-kind** read (like `triage`):
 styled sections in a terminal, one JSON envelope when piped — `-f json` forces
 the envelope, `-f records` forces the sections. The set formats are category
 errors here: `-f table`, `-f jsonl`, and `-f ids` are **usage** (exit 2) with a
@@ -294,23 +294,6 @@ places the `shipped` window. A missing or unknown zone is a 400 `validation`.
   `in_progress`), `live` (the `--status live` group: every status other than
   `done` and `abandoned`, so parked work counts), and `going_cold` (tasks past the stale threshold).
 
-## The `service` report (report kind, MMR-59)
-
-`mimir service status` emits `{ config, recent_events, units }`, on one line
-under `jsonl`. Each `units`
-entry carries `unit`, `loaded`, `running`, `pid`, `unit_file`, and `log`,
-plus the serve daemon's `port`, `console_url`, `health`, and `config_problems`.
-`console_url` is `[serve] url` when it is set, else the address that reaches the
-daemon from this machine. `config_problems` lists each ignored `[serve]` key,
-such as `invalid-port` or `invalid-bind`, and is empty when none was. The other
-service verbs emit `{ actions: [...] }` under `json` and one bare action object
-per line under `jsonl`. Each action carries `action`, `ok`, and `unit`;
-`install` adds `port` and `paths: { config, log, unit_file }`.
-
-`unit_file` is the supervisor's unit file: a launchd plist on macOS, a systemd
-user unit on Linux. Earlier builds named it `plist` on every platform; that
-key is gone (MMR-397, MMR-428).
-
 ## Doctor diagnostics
 
 `mimir doctor [-s KEY] [--format …]` is read-only and non-gating. A successful
@@ -413,7 +396,7 @@ Journal and Agenda. A list row has the Overview's active-Scratchpad row shape,
 including `linked_work`, on HTTP, MCP, and the CLI's structured formats. Every existing-Scratchpad mutation requires
 `expected_updated_at`; create takes no token. The collection accepts
 `?project=KEY` to scope one board and `?project=all` for every board. Unlike the
-CLI, an absent parameter reads every board because the daemon has no bound
+CLI, an absent parameter reads every board because the host has no bound
 scope.
 
 - **IDs** are `KEY-seq` (nodes) / bare `KEY` (projects), resolved in the transport; **`--parent` is polymorphic** (bare KEY = project; KEY-seq = node). Lists are comma-separated (CLI) / arrays (MCP). MCP mirrors these as **named args** — no positionals, no files/stdin (`content` is a required arg).

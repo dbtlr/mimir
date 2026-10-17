@@ -1,6 +1,6 @@
 /**
- * The one fetch seam. Every request is same-origin: production serves the SPA
- * from `mimir serve` itself, and `vite dev` proxies `/api` to it (MMR-426).
+ * The one fetch seam. Every request is same-origin: the host serves both the
+ * console and `/api`.
  */
 import { ApiError } from './errors';
 

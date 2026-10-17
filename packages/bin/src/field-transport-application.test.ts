@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
+import { serveApi } from '@mimir/api/testing';
 import { HANDLE_FIELD_KEYS } from '@mimir/contract';
 import type { NodeType } from '@mimir/contract';
 import {
@@ -20,7 +21,6 @@ import type { Server } from 'bun';
 import { updateFieldFlags } from './cli/mutations';
 import { runCli } from './cli/run';
 import { fakeIo } from './cli/testing';
-import { createServer } from './http/server';
 import { toolCreate, toolUpdate } from './mcp/tools';
 
 /**
@@ -63,7 +63,7 @@ beforeEach(async () => {
     title: 'a seed',
   });
   seedId = seed.id;
-  server = createServer(store, { port: 0, version: '0.0.0-test' });
+  server = serveApi(store, { version: '0.0.0-test' });
   base = `http://127.0.0.1:${String(server.port)}`;
 });
 

@@ -140,8 +140,8 @@ async function artifactDetailToWire(
  * The HTTP transport — the resource envelope (ADR 0012): conventional,
  * extensible REST over the core for the operator-console UI. Reads are
  * resource-shaped; writes are the core verbs as action sub-routes (`PATCH` is
- * exactly the dumb `update`). Plain HTTP on loopback unless `[serve] bind`
- * says otherwise — TLS and auth belong to whatever fronts it.
+ * exactly the dumb `update`). Plain HTTP — TLS and auth belong to whatever
+ * fronts it.
  *
  * Route-level contract: `MMR-14`'s annotations. Collections return envelope
  * objects (`{items: […]}`) so cursor metadata can arrive later non-breaking.
@@ -1273,7 +1273,7 @@ function apiRoutes(store: Store, opts: ApiOptions): ApiRoutes {
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
               console.error(
-                `⚠ serve: doctor scan failed; the review page counts no findings — ${message}`,
+                `⚠ http: doctor scan failed; the review page counts no findings — ${message}`,
               );
               return new Map();
             }

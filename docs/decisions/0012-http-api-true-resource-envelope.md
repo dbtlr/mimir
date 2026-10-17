@@ -77,7 +77,7 @@ are there for an operator who wants them.
   is always on: Caddy and `tailscale serve` both keep the browser's `Host`, so
   it needs no configuration in any mode.
 - **Four network modes** are documented in the
-  [port and proxy guide](../guides/port-and-proxy.md): local only (the
+  [host guide](../guides/host.md#reach-it-from-another-device): local only (the
   default), `tailscale serve` (the recommended remote path), direct network
   (`bind`), and a reverse proxy.
 

@@ -20,8 +20,8 @@ the console to supervise the portfolio.
 ## Reference material
 
 The guides explain intent and workflow. Run `mimir <command> --help` for exact
-flags and examples. Use the [operations guides](../guides/README.md) for service
-management, health probes, updates, ports, and installation paths.
+flags and examples. Use the [operations guides](../guides/README.md) for the host
+container, updates, and installation paths.
 
 The [schema reference](../schema-reference.md),
 [output contract](../output-contract-reference.md), and

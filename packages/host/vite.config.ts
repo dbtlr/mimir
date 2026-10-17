@@ -32,10 +32,9 @@ function readVersion(pkgPath: URL): string {
 const binVersion = readVersion(new URL('../bin/package.json', import.meta.url));
 
 /**
- * Start's final `.output/public` assets also embed in the binary for
- * `mimir serve` (ADR 0013). The PWA layer is app-shell
- * only — precache the shell so the installed app always opens; data freshness
- * is TanStack Query's job, never the service worker's.
+ * The PWA layer is app-shell only — precache the shell so the installed app
+ * always opens; data freshness is TanStack Query's job, never the service
+ * worker's.
  */
 // VitePWA is a plugin factory, despite its third-party name.
 // oxlint-disable-next-line new-cap

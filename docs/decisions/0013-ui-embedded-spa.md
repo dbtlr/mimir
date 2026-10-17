@@ -657,3 +657,16 @@ This slice adds a container runtime without retiring `mimir serve`, changing
 CLI installation, or completing the host cutover. ADR 0035 governs the later
 configuration, transport, distribution, and ownership changes. Its validation
 boundary applies to this integration slice.
+
+## Refinement (2026-10-17, MMR-536): the Start host serves the console, and the binary embeds none
+
+Decision 1 embedded the SPA in the compiled binary and served it from
+`mimir serve`. The console is now served by the Start host
+([ADR 0035](0035-tanstack-start-container-host.md)), and the binary neither
+embeds nor serves it. `mimir serve` is removed, and `bun run build` no longer
+builds the UI into the binary. The MMR-529 refinement's embedded-assets
+paragraph is superseded.
+
+The console's shape is unchanged: a client-rendered SPA with offline reads and
+no offline write queue. Its version is the host image's version.
+[Run the Mimir host](../guides/host.md) covers running it.

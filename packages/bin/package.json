@@ -2,13 +2,12 @@
   "name": "@mimir/bin",
   "version": "0.26.0-next",
   "private": true,
-  "description": "The mimir binary — the three transports (CLI, MCP, HTTP) over @mimir/core.",
+  "description": "The mimir binary — the CLI and MCP transports over @mimir/core.",
   "bin": {
     "mimir": "./src/main.ts"
   },
   "type": "module",
   "dependencies": {
-    "@mimir/api": "workspace:*",
     "@mimir/contract": "workspace:*",
     "@mimir/core": "workspace:*",
     "@mimir/helpers": "workspace:*",
@@ -17,6 +16,7 @@
     "zod": "4.6.6"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.8"
+    "@electric-sql/pglite": "0.5.8",
+    "@mimir/api": "workspace:*"
   }
 }

@@ -383,7 +383,7 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
     apiGet.mockRejectedValue(new Error('down'));
     renderTasks();
     await expect(
-      screen.findByText(/Unreachable — is `mimir serve` running\?/),
+      screen.findByText(/Unreachable — is the Mimir host running\?/),
     ).resolves.toBeDefined();
     expect(screen.getByRole('button', { name: '+ New task' })).toHaveProperty('disabled', true);
   });

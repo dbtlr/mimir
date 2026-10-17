@@ -43,7 +43,6 @@ import {
   parseFilterToken,
   parseIdentity,
   searchRecords,
-  sqliteStorePath,
   statusOfNode,
   treeToWire,
 } from '@mimir/core';
@@ -53,8 +52,8 @@ import { isMember } from '@mimir/helpers';
 import { cmdDoctor } from '../doctor/commands';
 import { arrow, FORMATS, ok, warn } from '../presentation';
 import type { Format, Io } from '../presentation';
-import { cmdSelfUpdate, cmdService } from '../service';
-import type { ServiceDeps } from '../service';
+import { cmdSelfUpdate } from '../self-update';
+import type { SelfUpdateDeps } from '../self-update';
 import { cmdStore } from '../store/commands';
 import type { StoreDeps } from '../store/commands';
 import { BINDING_FILE, writeBinding } from './binding';
@@ -105,7 +104,6 @@ import {
 } from './render';
 import { resolveProject } from './resolve';
 import { cmdScratch, scratchSubcommand } from './scratch';
-import { cmdSetup } from './setup';
 import { SKILL_AGENTS, SKILL_FILES, skillDirFor } from './skill-assets';
 
 // Deliberately grouped query-flags-then-write-flags (see the divider comment),
@@ -182,11 +180,6 @@ const OPTIONS = {
   global: { type: 'boolean' },
   local: { type: 'boolean' },
   agent: { type: 'string' },
-  // service flag
-  port: { type: 'string' },
-  'no-hunt': { type: 'boolean' },
-  // setup wizard (MMR-145)
-  'install-service': { type: 'boolean' },
   upstream: { type: 'string' },
   // `create task --groomed` (ADR 0033): born groomed, for tasks carved from a finished design
   groomed: { type: 'boolean' },
@@ -222,15 +215,30 @@ const OPTIONS = {
  *
  * Derived from the `COMMAND_HELP` descriptor registry (single source) rather
  * than re-listed: every documented verb, dropping the space-keyed
- * `create <type>` subcommand descriptors. `serve`/`mcp`/`version` are
- * intercepted upstream in `main` for a bare invocation; a `-h`/`--help` on
- * any of them falls through here instead, rendering that verb's
- * `COMMAND_HELP` descriptor without ever touching the store (MMR-294). The
- * switch in `runCli` keeps a defensive `default:` for any drift.
+ * `create <type>` subcommand descriptors. `mcp`/`version` are intercepted
+ * upstream in `main` for a bare invocation; a `-h`/`--help` on either falls
+ * through here instead, rendering that verb's `COMMAND_HELP` descriptor
+ * without ever touching the store (MMR-294). The switch in `runCli` keeps a
+ * defensive `default:` for any drift.
  */
 const COMMANDS: ReadonlySet<string> = new Set(
   Object.keys(COMMAND_HELP).filter((key) => !key.includes(' ')),
 );
+
+/**
+ * Verbs the binary no longer has, each with the hint that names what replaced
+ * it. They have no `COMMAND_HELP` descriptor, so they fall into the
+ * unknown-command path — with or without `-h`/`--help`, and without touching
+ * the store — and that path renders the hint in place of a typo suggestion.
+ */
+const HOST_HINT =
+  'the console and /api are served by the mimir host container — see docs/guides/host.md';
+const RETIRED_COMMANDS: Readonly<Record<string, string>> = {
+  serve: HOST_HINT,
+  service: HOST_HINT,
+  setup:
+    'setup is retired — the SQLite store is created on first use and Postgres is set in the [store] config section — see docs/user/getting-started.md',
+};
 
 /**
  * Flags parsed globally (there is one options table) but owned by exactly ONE
@@ -592,8 +600,8 @@ const FLAG_SPELLINGS: readonly string[] = Object.entries(OPTIONS).flatMap(([name
 export type Defaults = {
   scope?: string;
   cwd?: string;
-  /** Real service/self-update edges; absent where supervision is unavailable (tests). */
-  service?: ServiceDeps;
+  /** Real self-update edges (the binary, its version, the release fetcher); absent in tests. */
+  selfUpdate?: SelfUpdateDeps;
   /** Real store-machinery edges (the config + the Postgres pool); absent where
    * the store is unavailable (tests). */
   store?: StoreDeps;
@@ -685,9 +693,6 @@ export async function runCli(
     global?: boolean;
     local?: boolean;
     agent?: string;
-    port?: string;
-    'no-hunt'?: boolean;
-    'install-service'?: boolean;
     upstream?: string;
     groomed?: boolean;
     kind?: string;
@@ -1156,25 +1161,6 @@ export async function runCli(
         }
         return 0;
       }
-      case 'setup': {
-        if (defaults.service === undefined) {
-          throw usage('setup is unavailable in this context');
-        }
-        const format = pickFormat(values.format, 'report', ctx);
-        return await cmdSetup(
-          { installService: values['install-service'], port: values.port, yes: values.yes },
-          ctx,
-          { service: defaults.service, sqlitePath: sqliteStorePath() },
-          format,
-        );
-      }
-      case 'service': {
-        if (defaults.service === undefined) {
-          throw usage('service is unavailable in this context');
-        }
-        const format = pickFormat(values.format, 'report', ctx);
-        return await cmdService(positionals, { port: values.port }, ctx, defaults.service, format);
-      }
       case 'store': {
         if (defaults.store === undefined) {
           throw usage('store is unavailable in this context');
@@ -1206,13 +1192,13 @@ export async function runCli(
         );
       }
       case 'self-update': {
-        if (defaults.service === undefined) {
+        if (defaults.selfUpdate === undefined) {
           throw usage('self-update is unavailable in this context');
         }
         const format = pickFormat(values.format, 'report', ctx);
         return await cmdSelfUpdate(
           ctx,
-          defaults.service,
+          defaults.selfUpdate,
           { next: values.next === true, tag: values.tag?.at(-1) },
           format,
         );
@@ -1323,9 +1309,10 @@ function lenientPositionals(argv: string[]): string[] {
 function renderUnknownCommand(command: string, argv: string[], io: Io): number {
   const near = nearest(command, COMMANDS);
   const hint =
-    near !== undefined
+    RETIRED_COMMANDS[command] ??
+    (near !== undefined
       ? `did you mean '${near}'? (or run 'mimir --help' to see the commands)`
-      : "run 'mimir --help' to see the commands";
+      : "run 'mimir --help' to see the commands");
   renderError(usage(`unknown command: ${command}`, hint), errorFormat(argv), io);
   return 2;
 }
@@ -1514,7 +1501,7 @@ function pickFormat(
   if (kind === 'status') {
     return 'json';
   }
-  // `report` (service status / self-update) keeps its MMR-59 split: json when
+  // `report` (self-update) keeps its MMR-59 split: json when
   // piped, human prose in a terminal.
   if (kind === 'report') {
     return io.isTTY ? 'records' : 'json';
