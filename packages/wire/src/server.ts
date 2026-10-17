@@ -75,7 +75,11 @@ export function createEngineRouter(engine: Engine) {
 
 export type EngineRouter = ReturnType<typeof createEngineRouter>;
 
-/** A Fetch adapter; hosts supply the store-owning Engine and mount the endpoint. */
+/**
+ * A Fetch adapter over the host's store-owning Engine.
+ * The mounting host must apply request guards before dispatch, including
+ * configured Host filtering and cross-origin write checks.
+ */
 export function createEngineHandler(engine: Engine, endpoint = '/trpc') {
   const router = createEngineRouter(engine);
   return (req: Request) =>
