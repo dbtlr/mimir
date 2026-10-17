@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 
 import { engineSchemas } from '@mimir/contract';
 import {
@@ -126,16 +126,14 @@ test('an archived project retains its conflict code and recovery hint', async ()
   expect(actual.hint).toContain('unarchive');
 });
 
-test('explicit undefined is preserved and non-domain failures stay transport errors', async () => {
+test('explicit undefined survives serialization as an own property', async () => {
   const read = local.getNode.bind(local);
   const getNode = async (input: Parameters<LocalEngine['getNode']>[0]) => ({
     ...(await read(input)),
     next: undefined,
   });
   const handle = createEngineHandler({
-    done: async () => {
-      throw new Error('host failure');
-    },
+    done: local.done.bind(local),
     getNode,
   });
   const client = new RemoteEngine({
@@ -148,12 +146,48 @@ test('explicit undefined is preserved and non-domain failures stay transport err
   const actual = await client.getNode({ id });
   expect(Object.hasOwn(actual, 'next')).toBe(true);
   expect(actual).toEqual(await getNode({ id }));
+});
+
+test('unexpected wire faults log their details without sending library text or stacks', async () => {
+  const fault = new Error('driver private detail\nforged log\u2028next line');
+  const log = spyOn(console, 'error').mockReturnValue(undefined);
+  const handle = createEngineHandler({
+    done: async () => {
+      throw fault;
+    },
+    getNode: local.getNode.bind(local),
+  });
+  const client = new RemoteEngine({
+    fetch: async (input, init) => {
+      const response = await handle(new Request(input, init));
+      return { json: () => response.json(), ok: response.ok };
+    },
+    url: 'http://engine.test/trpc',
+  });
   try {
-    await client.done({ id });
-    throw new Error('expected a transport failure');
-  } catch (error) {
-    expect(error).not.toBeInstanceOf(MimirError);
-    expect(error).toHaveProperty('name', 'TRPCClientError');
+    const failure: unknown = await client.done({ id }).catch((error: unknown) => error);
+    expect(failure).toHaveProperty('name', 'TRPCClientError');
+    expect(failure).not.toBeInstanceOf(MimirError);
+    expect(failure).toHaveProperty('message', 'the request did not complete');
+    expect(failure).toHaveProperty('data.hint', "run 'mimir doctor'");
+    expect(failure).toHaveProperty('data.code', 'INTERNAL_SERVER_ERROR');
+    expect(failure).toHaveProperty('data.mimirError', null);
+    expect(failure).not.toHaveProperty('data.stack');
+    expect(log).toHaveBeenCalledTimes(1);
+    const line: unknown = log.mock.calls[0]?.[0];
+    expect(typeof line).toBe('string');
+    if (typeof line !== 'string') {
+      throw new Error('missing fault diagnostic');
+    }
+    expect(line).toContain('driver private detail');
+    expect(line).toContain('"method":"POST"');
+    expect(line).toContain('"path":"/trpc/done"');
+    expect(line).not.toMatch(/[\n\r\u2028\u2029]/);
+    const beforeRefusal = log.mock.calls.length;
+    await errorOf(client.getNode({ id: 'NOPE' }));
+    expect(log).toHaveBeenCalledTimes(beforeRefusal);
+  } finally {
+    log.mockRestore();
   }
 });
 

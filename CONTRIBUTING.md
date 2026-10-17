@@ -99,6 +99,9 @@ facet without CLI configuration findings.
 `/trpc` serves the Engine through the same host guards. Token and version gates
 arrive with device pairing; image publishing and deployment remain later migration work.
 The existing CLI installation and `mimir serve` workflows remain available.
+Unexpected API and tRPC faults log structured diagnostics on stderr. tRPC replies
+omit stacks and replace internal library messages with a generic failure and doctor hint;
+domain errors retain their codes, messages, and hints.
 
 The host API is unauthenticated: every reachable client can read and mutate
 the store. Publish local test ports on loopback

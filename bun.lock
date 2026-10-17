@@ -132,6 +132,7 @@
       "version": "0.26.0-next",
       "dependencies": {
         "@mimir/contract": "workspace:*",
+        "@mimir/helpers": "workspace:*",
         "@trpc/client": "11.19.0",
         "@trpc/server": "11.19.0",
         "superjson": "2.2.6",
