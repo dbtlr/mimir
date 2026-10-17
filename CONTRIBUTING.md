@@ -66,7 +66,9 @@ transports may not import each other.
 Start host. Start runs in SPA mode on Nitro's Bun preset. The client routes
 remain code-based in `src/router.tsx`, behind `src/start-router.tsx`.
 `src/start-routes` supplies Start's generated route tree, including the `/api/$`
-server route. The host imports `@mimir/api`, never `@mimir/bin`.
+and `/trpc/$` server routes. The host imports `@mimir/api` and `@mimir/wire/server`,
+never `@mimir/bin`. One host runtime shares a store and `LocalEngine` across the
+server bundles; `hostRuntime()` exposes the Engine for console server functions.
 
 `bun run build:ui` builds the host and prerenders a data-free `_shell.html`.
 Prerendering ignores deployment configuration and uses a loopback-only request
@@ -94,8 +96,9 @@ when filtering is enabled. Cross-origin writes are always refused. `/health`
 reports the build and supported schema without querying the store, and Docker
 probes its JSON response with Bun. `/api/doctor` keeps the store's diagnostic
 facet without CLI configuration findings.
-tRPC, image publishing, and deployment remain later migration work. The existing CLI installation and
-`mimir serve` workflows remain available.
+`/trpc` serves the Engine through the same host guards. Token and version gates
+arrive with device pairing; image publishing and deployment remain later migration work.
+The existing CLI installation and `mimir serve` workflows remain available.
 
 The host API is unauthenticated: every reachable client can read and mutate
 the store. Publish local test ports on loopback
