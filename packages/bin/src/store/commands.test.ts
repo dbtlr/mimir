@@ -43,7 +43,7 @@ async function injected(): Promise<Injected> {
 }
 
 function config(store: GlobalConfig['store']): GlobalConfig {
-  return { serve: {}, store };
+  return { store };
 }
 
 /** `store upgrade` moves a schema, never data: it must never reach for the

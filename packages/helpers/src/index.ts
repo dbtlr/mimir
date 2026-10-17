@@ -12,7 +12,7 @@
  */
 
 export { formatDiagnostic } from './diagnostics';
-export { DEV_PORT, PROD_PORT, parsePort } from './ports';
+export { DEV_PORT, parsePort } from './ports';
 export { UNREADABLE, ago, formatDay, formatInstant, relativeTime } from './time';
 
 /** Minimal Standard Schema v1 surface — inlined to keep this package dependency-free. */

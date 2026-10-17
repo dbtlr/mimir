@@ -49,7 +49,7 @@ export function openPostgres(url: string, options: OpenOptions = {}): PostgresHa
   // idle-session timeout fires, the network drops — and `pg` reports that on the
   // pool rather than on any one query. An EventEmitter with no `error` listener
   // RETHROWS, so without this a fault the next query simply reconnects past
-  // would instead take down `mimir serve` or the MCP session holding the store.
+  // would instead take down the host or the MCP session holding the store.
   pool.on('error', (error: Error) => {
     log(`the postgres store lost an idle connection: ${error.message}`);
   });

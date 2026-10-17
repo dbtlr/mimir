@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
+import { serveApi } from '@mimir/api/testing';
 import {
   attachArtifact,
   createInitiative,
@@ -17,7 +18,6 @@ import type { Server } from 'bun';
 
 import { runCli } from './cli/run';
 import { fakeIo } from './cli/testing';
-import { createServer } from './http/server';
 import { toolUpdate } from './mcp/tools';
 
 /**
@@ -58,7 +58,7 @@ beforeEach(async () => {
     .id;
   artifactRef = (await attachArtifact(store, { content: 'frozen', projectId, title: 'note' }))
     .renderedId;
-  server = createServer(store, { port: 0, version: '0.0.0-test' });
+  server = serveApi(store, { version: '0.0.0-test' });
   base = `http://127.0.0.1:${String(server.port)}`;
 });
 

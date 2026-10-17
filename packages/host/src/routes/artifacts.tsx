@@ -89,7 +89,7 @@ export function ArtifactsPage() {
             {artifacts.isFetchingNextPage && <Skeleton className="mt-2 h-10" />}
             {artifacts.isError && artifacts.data === undefined && (
               <p className="py-4 text-xs text-status-blocked">
-                Unreachable — is `mimir serve` running?
+                Unreachable — is the Mimir host running?
               </p>
             )}
           </BrowserPage>

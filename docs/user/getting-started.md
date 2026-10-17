@@ -3,24 +3,21 @@
 This guide takes Mimir from a fresh install to a repository an agent can resume
 without reconstructing work state from chat history.
 
-## Install and set up
+## Install
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
-mimir setup
 ```
 
 The standalone binary does not require Bun or any other program. By default
 Mimir keeps work state in one SQLite file, `store.sqlite`, in its data
-directory. Mimir creates the file on first use.
-
-On the default store, setup asks only whether to install the local service.
-Setup is safe to run again. See the [operations guides](../guides/README.md)
-for service details.
+directory. Mimir creates the file on first use, so no setup step follows the
+install.
 
 A team that shares one board across machines can use a PostgreSQL database
-instead. See the [Postgres store guide](../guides/postgres-store.md). Back up
-either store with `mimir store export <file>`.
+instead by setting the `[store]` section of the configuration. See the
+[Postgres store guide](../guides/postgres-store.md). Back up either store with
+`mimir store export <file>`.
 
 ## Create a project
 
@@ -94,9 +91,7 @@ long session.
 
 ## Open the console
 
-```sh
-mimir serve
-```
-
-Open the URL printed at startup. The console shows all projects and provides
-the operator's path for inspection, authoring, lifecycle changes, and grooming.
+The console comes from the Mimir host container, not the `mimir` binary. Follow
+the [host guide](../guides/host.md) to run it, then open its URL. The console
+shows all projects and provides the operator's path for inspection, authoring,
+lifecycle changes, and grooming.

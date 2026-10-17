@@ -2,25 +2,15 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { DEV_PORT, PROD_PORT, parsePort } from '@mimir/helpers';
-
 import { readInstallation } from './installation';
 import { readSandboxAuthority, sandboxAuthorityFromEnvironment } from './sandbox-authority';
 import { SQLITE_FILE } from './store-sqlite/client';
-
-/** Which installation this process is, for the supervisor fence (service/units):
- *  only a registered installation may drive the host supervisor, and a sandbox
- *  only under its own sandbox-scoped unit names. `none` is a source or
- *  unregistered run: it may read unit state but never mutate it. */
-export type SupervisorScope = { kind: 'live' } | { kind: 'sandbox'; id: string } | { kind: 'none' };
 
 // Installer dispatch has no store access and must run before binding resolution.
 const installing =
   process.argv[2] === 'installation-install' || process.argv[2] === 'installation-protocol';
 const installation = installing ? undefined : readInstallation();
 export const IS_PRODUCTION = installation?.mode === 'live';
-export { DEV_PORT, PROD_PORT } from '@mimir/helpers';
-export const DEFAULT_PORT = IS_PRODUCTION ? PROD_PORT : DEV_PORT;
 
 export function runtimePaths(): { config: string; data: string; cache: string } {
   if (installation?.mode === 'live') {
@@ -49,37 +39,7 @@ export function runtimePaths(): { config: string; data: string; cache: string } 
   return { cache: join(root, 'cache', 'mimir'), config: join(root, 'config', 'mimir'), data: root };
 }
 
-/** Which installation this process is, for the supervisor fence (service/units):
- *  only a registered installation may drive the host supervisor, and a sandbox
- *  only under its own sandbox-scoped unit names. */
-export function supervisorScope(): SupervisorScope {
-  if (installation?.mode === 'live') {
-    return { kind: 'live' };
-  }
-  if (installation?.mode === 'sandbox') {
-    return { id: readSandboxAuthority(installation.sandboxAuthority).id, kind: 'sandbox' };
-  }
-  return { kind: 'none' };
-}
-
 /** The local SQLite store's database file (ADR 0032): one per installation. */
 export function sqliteStorePath(): string {
   return join(runtimePaths().data, SQLITE_FILE);
-}
-
-/**
- * The `MIMIR_PORT` override for the port seam. Tolerant
- * like the config reader: an unset var yields `undefined` (use the next source),
- * a malformed one yields `null` so the caller can warn and fall through rather
- * than bind a bogus port.
- *
- * - unset → `undefined`
- * - a valid integer in 1–65535 → that number
- * - anything else → `null`
- */
-export function envPort(raw = process.env.MIMIR_PORT): number | null | undefined {
-  if (raw === undefined) {
-    return undefined;
-  }
-  return parsePort(raw);
 }

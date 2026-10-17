@@ -53,10 +53,10 @@ config; `src/store-sql` is the one SQL store, written once, with
 shared database) supplying each dialect's connection, DDL, and column
 encodings. Its public surface is the entry `src/index.ts`; test fixtures sit
 behind `@mimir/core/testing`. `packages/bin` (`@mimir/bin`) is the binary:
-`src/cli`, `src/mcp`, and `src/http` are the transports; `src/main.ts` is the
+`src/cli` and `src/mcp` are the transports; `src/main.ts` is the
 composition root. `packages/api` (`@mimir/api`) owns the transitional `/api`
-route table, request dispatcher, response envelope, and HTTP guards. Both the
-binary and the host use this package. Its handlers take standard `Request`
+route table, request dispatcher, response envelope, and HTTP guards. The host
+uses this package. Its handlers take standard `Request`
 objects and explicit route parameters. The layering
 `contract ← core ← bin` is enforced by an oxlint rule — `@mimir/core` may not
 import `@mimir/bin`, bin reaches core only through its two entries, and
@@ -75,8 +75,8 @@ Prerendering ignores deployment configuration and uses a loopback-only request
 guard. Serving launchers still validate the complete runtime configuration.
 The final client assets and PWA output live in `packages/host/.output/public`.
 The service worker precaches that shell and excludes `/api`, `/trpc`,
-`/_serverFn`, and `/health` from navigation fallback. `bun run build` embeds
-those same public assets in the compiled binary for `mimir serve`.
+`/_serverFn`, and `/health` from navigation fallback. The compiled `mimir`
+binary does not embed them: the console ships only in the host image.
 
 The root `Dockerfile` builds a separate host runtime from `oven/bun:1.4.3`.
 It runs as the `bun` user and reads validated environment configuration at boot,
@@ -97,8 +97,7 @@ reports the build and supported schema without querying the store, and Docker
 probes its JSON response with Bun. `/api/doctor` keeps the store's diagnostic
 facet without CLI configuration findings.
 `/trpc` serves the Engine through the same host guards. Token and version gates
-arrive with device pairing; image publishing and deployment remain later migration work.
-The existing CLI installation and `mimir serve` workflows remain available.
+arrive with device pairing.
 Unexpected API and tRPC faults log structured diagnostics on stderr. tRPC replies
 omit stacks and replace internal library messages with a generic failure and doctor hint;
 domain errors retain their codes, messages, and hints.

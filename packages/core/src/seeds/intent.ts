@@ -310,7 +310,7 @@ export async function listSeedsResolved(
  *
  * The lede is decorative, so a REJECTED batch read (a transport-level fault)
  * must not abort the queue: the live rows degrade to `lede: null` and the fault is noted on stderr —
- * the one channel every transport shares (CLI terminal, serve daemon log, MCP
+ * the one channel every transport shares (CLI terminal, host log, MCP
  * server stderr) without a wire change — so the degradation is diagnosable, not
  * silent (ADR 0017's diagnosability rule). */
 async function attachLede(store: Store, views: SeedView[]): Promise<void> {

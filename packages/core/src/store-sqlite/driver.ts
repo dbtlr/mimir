@@ -27,7 +27,7 @@ import { conflict, invariant } from '../errors';
  *
  * It waits here, asynchronously, not in SQLite's busy timeout: `bun:sqlite` is
  * synchronous, so a busy timeout spent waiting on another process's lock would
- * stall every request `mimir serve` holds for as long as the wait lasts.
+ * stall every request the host holds for as long as the wait lasts.
  *
  * A transaction asked for `read only` opens deferred: in WAL mode it reads one
  * snapshot and never contends with a writer.

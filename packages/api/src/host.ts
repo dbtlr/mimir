@@ -3,11 +3,10 @@ import { hostnameOf } from '@mimir/core';
 import { json } from './respond';
 
 /**
- * The Host guard (MMR-425). `serve` binds loopback by default, but a page
- * whose domain rebinds to 127.0.0.1 is same-origin with the daemon — the bind
- * alone does not keep it out. Such a
- * page still sends its own name as `Host`, so an operator who sets
- * `[serve] hosts` gets a daemon that answers only the loopback names and the
+ * The Host guard (MMR-425). A page whose domain rebinds to 127.0.0.1 is
+ * same-origin with a loopback-bound server — the bind alone does not keep it
+ * out. Such a page still sends its own name as `Host`, so an operator who sets
+ * `MIMIR_HOSTS` gets a host that answers only the loopback names and the
  * listed hosts. The check is opt-in (MMR-432): without `hosts`, every name an
  * install is reached by (an IP, a MagicDNS name, a proxy host) just works.
  * `X-Forwarded-Host` is never consulted: a same-origin page can set it.
@@ -15,7 +14,7 @@ import { json } from './respond';
  * The same guard always refuses writes from another origin (MMR-426). The API grants
  * no CORS, so another page cannot read it, but a browser still sends a
  * "simple" POST (a `text/plain` body, no preflight) from any origin, and the
- * Host of that request is the daemon's own. Every current browser marks such
+ * Host of that request is the server's own. Every current browser marks such
  * a write with `Sec-Fetch-Site` or `Origin`, so a write either one shows as
  * cross-origin is refused. The CLI, agents, and other clients send no Origin and pass.
  */

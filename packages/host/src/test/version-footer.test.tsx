@@ -46,25 +46,25 @@ function renderFooter(controller = updateFixture().controller) {
 }
 
 describe('versionFooter (MMR-260)', () => {
-  it('renders the daemon-reported version once /api/health answers', async () => {
+  it('renders the host-reported version once /api/health answers', async () => {
     apiGet.mockResolvedValue({ schema: 4, status: 'ok', version: '0.13.0-next.68' });
     renderFooter();
     await expect(screen.findByText('0.13.0-next.68')).resolves.toBeDefined();
     await expect(
-      screen.findByTitle('daemon 0.13.0-next.68 · console 0.13.0-next.68'),
+      screen.findByTitle('host 0.13.0-next.68 · console 0.13.0-next.68'),
     ).resolves.toHaveAttribute('data-testid', 'console-version');
     expect(screen.queryByText(/update available/)).toBeNull();
   });
 
-  it('renders the bundle version before the daemon answers', () => {
+  it('renders the bundle version before the host answers', () => {
     apiGet.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
     renderFooter();
     // synchronous assertion: the query is still pending, so the fallback
-    // (the bundle's own version) is on screen, not the not-yet-fetched daemon's.
+    // (the bundle's own version) is on screen, not the not-yet-fetched host's.
     expect(screen.getByText('0.13.0-next.68')).toBeDefined();
   });
 
-  it('offers the shared refresh action when the daemon reports a different version', async () => {
+  it('offers the shared refresh action when the host reports a different version', async () => {
     apiGet.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
     const { controller, effects } = updateFixture();
     renderFooter(controller);

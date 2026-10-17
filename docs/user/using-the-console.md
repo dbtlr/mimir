@@ -4,15 +4,11 @@ The console is the operator's view across agent-driven work. It shows current
 state from the same core used by the CLI and MCP server, then provides focused
 authoring and lifecycle controls.
 
-```sh
-mimir serve
-```
-
-Open the URL printed at startup. The installed production profile defaults to
-`http://127.0.0.1:64647/`. The server binds to loopback unless `[serve] bind`
-says otherwise. For access from another device, pick a
-[network mode](../guides/port-and-proxy.md): `tailscale serve` keeps HTTPS and
-the installable PWA, and a reverse proxy does too.
+The host container serves the console. Follow the
+[host guide](../guides/host.md) to run it, then open `http://localhost:64647/`.
+For access from another device, `tailscale serve` keeps HTTPS and the
+installable PWA, and a
+[reverse proxy](../guides/host.md#use-a-reverse-proxy) does too.
 
 ![Mimir project work page with the project sidebar and outline, and a rail of direction, about, and artifacts](../assets/console-project.png)
 

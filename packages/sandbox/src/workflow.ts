@@ -21,7 +21,6 @@ import { readDatabaseAuthority } from '../../core/src/sandbox-authority';
 import type { DatabaseSandboxAuthority } from '../../core/src/sandbox-authority';
 import { hostPort, launchHost } from './host';
 import { InterruptedError, command, hashFile, isolatedEnvironment, privateJson } from './process';
-import { removeSandboxUnits } from './sandbox-units';
 import { latestSnapshot, snapshotSchema } from './snapshot';
 
 export const POSTGRES_IMAGE =
@@ -398,25 +397,13 @@ export class Sandbox {
       throw new Error('Supply Mimir arguments after --.');
     }
     const verb = args[0];
-    if (verb === 'serve') {
-      throw new Error(
-        `Sandbox run is for finite CLI commands. Start the registered sandbox candidate ${join(owner.root, 'bin', 'mimir')} directly for an interactive server.`,
-      );
-    }
     if (
       !verb ||
       verb.startsWith('-') ||
-      new Set([
-        'installation-install',
-        'installation-protocol',
-        'self-update',
-        'setup',
-        'service',
-        'skill',
-      ]).has(verb)
+      new Set(['installation-install', 'installation-protocol', 'self-update', 'skill']).has(verb)
     ) {
       throw new Error(
-        'Sandbox run accepts finite work and store commands; installation and service machinery is disabled. Put the command before options.',
+        'Sandbox run accepts finite work and store commands; installation machinery is disabled. Put the command before options.',
       );
     }
     await this.record(id, 'run', 'running', { args });
@@ -690,9 +677,6 @@ export class Sandbox {
       }
       await command(['docker', 'rm', '--force', '--volumes', target], { cwd: this.repository });
     }
-    // A registered sandbox may have installed supervisor units under its own
-    // names; unload them before their executable disappears.
-    await removeSandboxUnits(id, root);
     await rm(root, { recursive: true });
   }
 }

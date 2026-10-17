@@ -77,7 +77,7 @@ are there for an operator who wants them.
   is always on: Caddy and `tailscale serve` both keep the browser's `Host`, so
   it needs no configuration in any mode.
 - **Four network modes** are documented in the
-  [port and proxy guide](../guides/port-and-proxy.md): local only (the
+  [host guide](../guides/host.md#reach-it-from-another-device): local only (the
   default), `tailscale serve` (the recommended remote path), direct network
   (`bind`), and a reverse proxy.
 
@@ -106,3 +106,13 @@ Consequences: without `hosts`, a page whose domain rebinds to the daemon's
 address can read and write the board; the guide says when to set it. Invalid
 `bind`, `url`, and `hosts` values degrade with a warning rather than stopping
 `serve`, as `port` already did.
+
+## Refinement (2026-10-17, MMR-536): the host serves the envelope
+
+The `mimir` binary no longer serves HTTP, so the `[serve]` section and its
+`bind`, `port`, `hosts`, and `url` keys are gone. The host container serves the
+resource envelope as its transitional `/api` (ADR 0035). Its Host allowlist and
+public origin come from `MIMIR_HOSTS` and `MIMIR_URL`, and the published port
+mapping replaces `bind`. The cross-origin write check stays always on. The
+network modes are documented in the
+[host guide](../guides/host.md#reach-it-from-another-device).

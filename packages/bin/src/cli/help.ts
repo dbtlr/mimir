@@ -1,14 +1,10 @@
 /** Two help tiers: `-h` terse (synopsis + flags), `--help` fuller with examples. */
 import { isTerminalLifecycle, OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
 import type { DataFieldKey, OpChoice, OpFact, UniformVerb } from '@mimir/contract';
-import { specUpdateFields, DEFAULT_PORT, IS_PRODUCTION } from '@mimir/core';
+import { specUpdateFields } from '@mimir/core';
 
 import { bold, color } from '../presentation';
 import { updateFieldFlags } from './mutations';
-
-const PORT_PRECEDENCE = IS_PRODUCTION
-  ? `--port > MIMIR_PORT > config [serve] port > ${String(DEFAULT_PORT)}`
-  : `--port > MIMIR_PORT > dev default ${String(DEFAULT_PORT)}`;
 
 // ─── Uniform-verb help derivation (ADR 0025 Decision 4) ─────────────────────
 // The twelve uniform verbs' terse rows and per-command descriptors derive from
@@ -250,13 +246,6 @@ options:
                           clears one)
 
 machinery commands (the installation, host, or store — not the work itself):
-  service <sub> [serve]   supervise the serve daemon as a launchd (macOS) or
-                          systemd user (Linux) unit: install [--port <n>] ·
-                          uninstall · start · stop · restart · status.
-                          --port writes the installation config. only a
-                          registered installation can mutate the real
-                          supervisor, and only its own unit; status stays
-                          available
   store upgrade | export <file> | import <file> [--apply] [--resume]
                           upgrade applies pending schema migrations (SQLite
                           migrates on open; Postgres is the one explicit
@@ -267,25 +256,12 @@ machinery commands (the installation, host, or store — not the work itself):
   skill install [--global|--local] [--agent claude|codex]
                           install the agent skill (default: --global, claude;
                           claude → .claude/skills, codex → .agents/skills)
-  setup [--install-service] [--port <n>] [-y]
-                          interactive first-install + reconfiguration wizard:
-                          write the config and install the background service.
-                          The store needs no setup (SQLite is created on first
-                          use). Prefills current values; re-runnable.
-                          Non-interactively takes flags + -y.
-  serve [--port <n>] [--no-hunt] [--store <file>]
-                          HTTP API + console (on [serve] bind, else
-                          loopback; port: ${PORT_PRECEDENCE}; a
-                          taken port hunts upward unless --no-hunt — the
-                          startup line names the bound URL; --store serves an
-                          existing SQLite file instead of this install's store)
   mcp                     the agent envelope over stdio (MCP transport)
   version                 print the installed version
   self-update [--next] [--tag <tag>]
-                          download + verify a release, replace this binary,
-                          restart the service if loaded. default: latest
-                          official; --next: latest incl. prereleases; --tag:
-                          an exact tag (e.g. v0.6.0-next.5)
+                          download + verify a release and replace this binary.
+                          default: latest official; --next: latest including
+                          prereleases; --tag: an exact tag (e.g. v0.6.0-next.5)
   doctor                  run store diagnostics and report problems for a human
                           to fix (exits 0; findings are output). scoped by -s
 `;
@@ -989,45 +965,12 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       "an explicit-run reconciliation pass over ONE board (MMR-246): (a) surfaces new/untriaged seeds, (b) flags promoted seeds whose spawned work has all settled (ready to resolve — never auto-closed), and (c) over the board's own tasks whose upstream seed went terminal, appends an idempotent annotation recording the resolution and suggests unblock. WRITES the check-(c) annotations by default (running it is the intent); NEVER transitions anything (unblock/resolve stay suggestions); --dry-run previews. A report, never a gate — always exits 0. Idempotent: a re-run recognizes its own annotations and is a no-op. Self-contained per board (timer/eventual-consistency mode deferred)",
     usage: 'mimir triage [KEY] [--dry-run] [--format <fmt>]',
   },
-  // ── setup wizard (MMR-145) ──
-  setup: {
-    examples: [
-      'mimir setup                          # interactive first install / reconfigure',
-      'mimir setup --install-service -y     # install the serve unit non-interactively',
-      'mimir setup --install-service --port 4100 -y',
-    ],
-    flags: [
-      ['--install-service', 'install/update the serve unit (launchd or systemd)'],
-      ['--port <n>', 'serve port to persist (honored by serve even without the unit)'],
-      ['-y, --yes', 'run non-interactively from flags (required when not a TTY)'],
-    ],
-    summary:
-      'first-install + reconfiguration wizard — write the global config and install/update the background service if you opt in (removal is `service uninstall`). The store needs no setup: SQLite is created on first use, Postgres is configured by [store]. Prefills current values; safe to re-run',
-    usage: 'mimir setup [--install-service] [--port <n>] [-y]',
-  },
   // ── machinery loners (MMR-294) ──
-  // `serve`/`mcp`/`version` are intercepted in `main` before CLI dispatch
+  // `mcp`/`version` are intercepted in `main` before CLI dispatch
   // (ADR 0024's loner rule) — a bare invocation never reaches here. These
   // descriptors exist so `<verb> -h`/`--help` still renders like every other
-  // command instead of starting the server or hanging on stdio: `main`
-  // recognizes the help flags and falls through to this registry rather than
-  // intercepting.
-  serve: {
-    examples: [
-      'mimir serve                    # bind the default/configured port, hunting if taken',
-      'mimir serve --port 4100        # bind an explicit port',
-      'mimir serve --no-hunt          # fail instead of hunting when the port is taken',
-      'mimir serve --store .dev/fixtures/docs.sqlite  # serve the docs fixture',
-    ],
-    flags: [
-      ['--port <n>', `bind port (${PORT_PRECEDENCE})`],
-      ['--no-hunt', 'fail instead of hunting upward when the port is taken'],
-      ['--store <file>', 'serve an existing SQLite store file instead of the installation store'],
-    ],
-    summary:
-      'HTTP API + console (on [serve] bind, else loopback) — long-running; a taken port hunts upward unless --no-hunt',
-    usage: 'mimir serve [--port <n>] [--no-hunt] [--store <file>]',
-  },
+  // command instead of hanging on stdio: `main` recognizes the help flags and
+  // falls through to this registry rather than intercepting.
   mcp: {
     examples: ['mimir mcp                      # run as an MCP stdio server'],
     summary:
@@ -1038,70 +981,6 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     examples: ['mimir version', 'mimir --version                # flag alias'],
     summary: 'print the installed version',
     usage: 'mimir version',
-  },
-  // ── service supervision (MMR-286) ──
-  // Bare `service -h` renders this group page; each subcommand below gets its
-  // own targeted page (MMR-299) via the `"service <sub>"` key `helpForCommand`
-  // resolves first.
-  service: {
-    args: [
-      ['<sub>', 'install | uninstall | start | stop | restart | status'],
-      ['[unit]', 'serve — the one unit (default: serve)'],
-    ],
-    examples: [
-      'mimir service install                 # install the serve unit',
-      'mimir service status                  # report the unit and its health',
-      'mimir service restart                 # restart the serve daemon',
-    ],
-    flags: [['--port <n>', 'install: serve port to persist (the installation config)']],
-    summary:
-      "supervise the serve daemon as a launchd (macOS) or systemd user (Linux) unit — install/uninstall/start/stop/restart/status. only a registered installation can mutate the real supervisor, and only its own unit; status stays available. run `mimir service <sub> -h` for a sub's own flags",
-    usage: 'mimir service <sub> [unit]',
-  },
-  // ── service subcommands (MMR-299) ──
-  'service install': {
-    args: [['[unit]', 'serve — the one unit (default: serve)']],
-    examples: [
-      'mimir service install                 # install the serve unit',
-      'mimir service install --port 4100     # install serve, persisting the port',
-    ],
-    flags: [['--port <n>', 'serve port to persist (the installation config)']],
-    summary:
-      'install the serve unit (launchd or systemd). --port persists to the installation config. requires a registered installation',
-    usage: 'mimir service install [unit] [--port <n>]',
-  },
-  'service uninstall': {
-    args: [['[unit]', 'serve — the one unit (default: serve)']],
-    examples: ['mimir service uninstall               # tear down the serve unit'],
-    summary: 'tear down the serve unit — config and logs kept. requires a registered installation',
-    usage: 'mimir service uninstall [unit]',
-  },
-  'service start': {
-    args: [['[unit]', 'serve — the one unit (default: serve)']],
-    examples: ['mimir service start                   # start the serve unit'],
-    summary:
-      'start the installed serve unit — a not-installed unit is a reported no-op. requires a registered installation',
-    usage: 'mimir service start [unit]',
-  },
-  'service stop': {
-    args: [['[unit]', 'serve — the one unit (default: serve)']],
-    examples: ['mimir service stop                    # stop the serve unit'],
-    summary:
-      'stop the installed serve unit — a not-installed unit is a reported no-op. requires a registered installation',
-    usage: 'mimir service stop [unit]',
-  },
-  'service restart': {
-    args: [['[unit]', 'serve — the one unit (default: serve)']],
-    examples: ['mimir service restart                 # restart the serve unit'],
-    summary:
-      'restart the installed serve unit — a not-installed unit is a reported no-op. requires a registered installation',
-    usage: 'mimir service restart [unit]',
-  },
-  'service status': {
-    examples: ['mimir service status                  # report the unit and its health'],
-    summary:
-      "report the serve unit's state (loaded/running, port + health) plus recent events — a read; never mutates, no dev-build refusal",
-    usage: 'mimir service status',
   },
   // ── shared-store schema (ADR 0030) ──
   store: {
@@ -1149,8 +1028,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--next', 'latest release, including prereleases'],
       ['--tag <tag>', 'an exact tag (e.g. v0.6.0-next.5)'],
     ],
-    summary:
-      'download + verify a release, replace this binary, and restart the service if loaded (default: latest official)',
+    summary: 'download + verify a release and replace this binary (default: latest official)',
     usage: 'mimir self-update [--next] [--tag <tag>]',
   },
   // ── store diagnostics (MMR-166) ──
@@ -1215,10 +1093,10 @@ export function renderCommandHelp(h: CommandHelp, full: boolean, plain: boolean)
 /**
  * Per-command help text, or undefined when the command has no descriptor (the
  * caller falls back to the top-level help). A group verb dispatches on its
- * subcommand — `create task` → the task descriptor, `service install` → the
+ * subcommand — `create task` → the task descriptor, `scratch create` → the
  * install descriptor — when a `"<command> <sub>"` entry exists in
  * `COMMAND_HELP`; otherwise the bare command's own (group) descriptor
- * renders, so `create -h` / `service -h` still work with no subcommand given.
+ * renders, so `create -h` / `scratch -h` still work with no subcommand given.
  * `plain` threads render.ts's color contract through to
  * {@link renderCommandHelp} (MMR-300).
  */
@@ -1305,7 +1183,7 @@ function colorFlags(line: string): string {
 }
 
 /** Color the leading whitespace-delimited token (a bare verb name — `next`,
- * `service`, …) and flag-color the remainder of the line. */
+ * `store`, …) and flag-color the remainder of the line. */
 function highlightLeadToken(line: string): string {
   const m = /^(\s*)(\S+)/.exec(line);
   if (m === null) {

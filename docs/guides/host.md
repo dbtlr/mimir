@@ -150,6 +150,15 @@ boundary, which stays the single-user tailnet. The proxy must forward the
 browser's `Host` header, which Caddy does by default. A proxy that rewrites
 `Host` to the upstream address makes the host refuse console writes.
 
+### Publish on a network address
+
+Publishing the port on a LAN or internet address opens the board to anyone who
+can reach it, with no authentication. To listen on one address instead of every
+interface, put the address in the mapping, such as the machine's tailnet
+address (`100.64.0.7:8080:64647`). Plain HTTP on an address other than loopback
+is not a secure context, so the console works as a page but does not install as
+a PWA or keep offline reads.
+
 ## Configure the host
 
 The host reads these variables at start and refuses startup with a message
@@ -172,6 +181,11 @@ reach the console by, such as the `ts.net` name or the proxy's name. The log
 names each refused hostname once. `MIMIR_URL` alone does not turn on the
 allowlist.
 
+Binding loopback does not stop DNS rebinding: a web page whose domain resolves
+to `127.0.0.1` is same-origin with the host, and it sends its own name as the
+`Host` header. Set `MIMIR_HOSTS` when the machine that runs the console's
+browser also browses untrusted sites.
+
 The host always refuses a browser write from another origin, with the
 `forbidden_origin` error. The CLI and other clients that send no `Origin`
 header pass.
@@ -193,9 +207,31 @@ A configuration or store failure at boot exits the host process. With
 host: startup refused: MIMIR_PORT must be an integer from 1 to 65535
 ```
 
-`GET /api/doctor` reports the record findings that `mimir doctor` reports.
+`GET /api/health` returns the same body as `/health`. `GET /api/doctor` reports the record findings that `mimir doctor` reports.
 Any store-backed request, such as `GET /api/projects`, proves that the store
 answers now.
+
+## Read an error from the API
+
+Every store-backed `/api` endpoint answers failures in one envelope. Its `code`
+maps to an HTTP status:
+
+| code         | HTTP status |
+| ------------ | ----------- |
+| `validation` | 400         |
+| `not_found`  | 404         |
+| `conflict`   | 409         |
+| `invariant`  | 409         |
+| `internal`   | 500         |
+
+A `409` carries one of two codes, and only one of them means trouble.
+`invariant` is the broken-store signal: the store raises it when its own
+consistency guarantees fail, such as a missing schema or one that does not match
+the host. The message says what failed and the remedy line says what to do.
+`conflict` is an ordinary state clash, such as a duplicate key or a write
+refused because the state already moved. Adjust the request instead of
+repairing the store. A `400` is an ordinary refusal of a malformed request. A `500` with `internal`
+means the request did not complete; the host log carries the detail.
 
 ## Upgrade the host and the CLIs that share its Postgres
 
@@ -271,4 +307,5 @@ docker compose -f deploy/compose.yaml start mimir
 `packages/host/src/server/host.ts` (store open and migration),
 `packages/host/src/server/lifecycle.ts` (the guards and startup refusal),
 `packages/api/src/host.ts` (the Host allowlist and the cross-origin write
-check), `packages/host/src/start-routes/health.ts` (`/health`).
+check), `packages/api/src/respond.ts` (the error envelope),
+`packages/host/src/start-routes/health.ts` (`/health`).

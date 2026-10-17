@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
+import { serveApi } from '@mimir/api/testing';
 import { OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
 import type { TaskStatusWord, UniformVerb } from '@mimir/contract';
 import {
@@ -23,7 +24,6 @@ import type { Server } from 'bun';
 
 import { runCli } from './cli/run';
 import { fakeIo } from './cli/testing';
-import { createServer } from './http/server';
 import { toolUniform } from './mcp/tools';
 
 /**
@@ -51,7 +51,7 @@ beforeEach(async () => {
   const initId = await nodeIdOf(store, `MMR-${String(init.seq)}`);
   const phase = await createPhase(store, { parentId: initId, title: 'phase' });
   phaseId = await nodeIdOf(store, `MMR-${String(phase.seq)}`);
-  server = createServer(store, { port: 0, version: '0.0.0-test' });
+  server = serveApi(store, { version: '0.0.0-test' });
   base = `http://127.0.0.1:${String(server.port)}`;
 });
 

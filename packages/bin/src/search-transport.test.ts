@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 
+import { serveApi } from '@mimir/api/testing';
 import { attachArtifact, createInitiative, createProject, createTask, depend } from '@mimir/core';
 import type { Store } from '@mimir/core';
 import { createTestStore } from '@mimir/core/testing';
@@ -10,7 +11,6 @@ import type { Server } from 'bun';
 
 import { runCli } from './cli/run';
 import { fakeIo } from './cli/testing';
-import { createServer } from './http/server';
 import { buildMcpServer } from './mcp/server';
 
 /**
@@ -49,7 +49,7 @@ beforeAll(async () => {
   const norn = await createInitiative(store, { projectId: 'NOR', title: 'Knowledge' });
   await createTask(store, { parentId: norn.id, title: 'Vault' });
 
-  server = createServer(store, { hunt: false, port: 0, version: '0.0.0-test' });
+  server = serveApi(store, { version: '0.0.0-test' });
   base = `http://127.0.0.1:${String(server.port)}`;
 });
 

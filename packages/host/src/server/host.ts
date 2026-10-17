@@ -32,7 +32,7 @@ export async function openHost(
   }
   try {
     const built = await buildStore(
-      { serve: config.serve, store: config.store },
+      { store: config.store },
       {
         onMigration: (name) => log(`host: applied migration ${name}`),
         sqliteFile: join(config.dataDirectory, SQLITE_FILE),

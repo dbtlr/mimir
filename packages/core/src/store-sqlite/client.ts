@@ -4,7 +4,6 @@ import { Kysely, sql } from 'kysely';
 
 import { invariant } from '../errors';
 import type { UpgradeReport } from '../store-sql/migrator';
-import { assertSchemaCurrent } from '../store-sql/migrator';
 import type { DB } from '../store-sql/schema';
 import { readSchemaVersion, sqliteDialect, upgradeSchema } from './dialect';
 import type { BunSqliteOptions } from './driver';
@@ -49,37 +48,12 @@ export type SqliteHandle = {
  * old schema intact, and it refuses a store whose schema is newer than this
  * binary's (ADR 0032 Decision 3).
  */
-export function openSqlite(
+export async function openSqlite(
   path: string,
   options: BunSqliteOptions & { onMigration?: (name: string) => void } = {},
-): Promise<SqliteHandle> {
-  return open(path, options, 'migrate');
-}
-
-/**
- * Open the existing SQLite store at `path` without creating or migrating it: a
- * missing file, a file that is not a Mimir store, or a schema other than this
- * binary's is refused before anything writes to it. For a file a run names
- * rather than the installation's own store.
- */
-export function openExistingSqlite(
-  path: string,
-  options: BunSqliteOptions & { onMigration?: (name: string) => void } = {},
-): Promise<SqliteHandle> {
-  return open(path, options, 'require-current');
-}
-
-/** How an open treats the schema it finds: migrate it forward, or refuse
- * anything but this binary's version. */
-type SchemaPolicy = 'migrate' | 'require-current';
-
-async function open(
-  path: string,
-  options: BunSqliteOptions & { onMigration?: (name: string) => void },
-  policy: SchemaPolicy,
 ): Promise<SqliteHandle> {
   const database = new Database(path, {
-    create: policy === 'migrate',
+    create: true,
     readwrite: true,
     strict: true,
   });
@@ -90,12 +64,8 @@ async function open(
   const db = new Kysely<DB>({ dialect: createBunSqliteDialect(database, options) });
   try {
     // Before the journal mode, which does write: a refused file is left
-    // exactly as it was found. Requiring the current schema is a plain read
-    // that also refuses a foreign file; the foreign check takes the write lock,
-    // which would initialize an empty file.
-    await (policy === 'require-current'
-      ? assertSchemaCurrent(db, sqliteDialect)
-      : refuseForeignDatabase(db, path));
+    // exactly as it was found.
+    await refuseForeignDatabase(db, path);
     // WAL lets a reader keep its snapshot while a writer commits. It is a
     // property of the file, so this is a no-op after the first open.
     // The switch needs the file to itself, and SQLite can refuse it at once

@@ -270,7 +270,7 @@ function PaletteBody({
   }
   let notice: string | undefined;
   if (searching && search.isError) {
-    notice = 'Search is unreachable — is `mimir serve` running?';
+    notice = 'Search is unreachable — is the Mimir host running?';
   } else if (searching && !waiting && choices.length === 0) {
     notice = `No records match “${query.trim()}”.`;
   }

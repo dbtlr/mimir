@@ -244,7 +244,7 @@ export function SeedsPage() {
             )}
             {seeds.isError && !loaded && (
               <p className="p-4 text-xs text-status-blocked">
-                Unreachable — is `mimir serve` running?
+                Unreachable — is the Mimir host running?
               </p>
             )}
           </BrowserPage>

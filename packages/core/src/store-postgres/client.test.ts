@@ -70,7 +70,7 @@ function opened(): {
 test('the pool bounds how long a connection request waits', async () => {
   // Pool exhaustion and an unreachable server both present as "no connection
   // available". Without a timeout the caller waits for one indefinitely, so a
-  // `mimir serve` that ran out of connections would hang rather than refuse.
+  // process that ran out of connections would hang rather than refuse.
   const handle = opened();
   try {
     expect(handle.config.connectionTimeoutMillis).toBe(5000);
@@ -82,7 +82,7 @@ test('the pool bounds how long a connection request waits', async () => {
 test('an idle-client fault is logged, not thrown at the process', async () => {
   // `pg` emits `error` on the POOL when an idle connection dies (a server
   // restart, an idle-session timeout, a dropped network). An EventEmitter with
-  // no `error` listener rethrows, which would take down `mimir serve` or an MCP
+  // no `error` listener rethrows, which would take down the host or an MCP
   // session over a fault the next query simply retries past.
   const handle = opened();
   try {

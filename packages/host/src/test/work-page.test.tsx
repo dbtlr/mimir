@@ -488,7 +488,7 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
     await open(scope, new TypeError('fetch failed'));
 
     await expect(screen.findByText(/couldn’t load the work page/i)).resolves.toHaveTextContent(
-      'is `mimir serve` running?',
+      'is the Mimir host running?',
     );
     const rail = screen.getByRole('complementary', { name: 'Record details' });
     expect(within(rail).getByText(scope.record.next?.split('\n')[0] ?? '')).toBeDefined();
@@ -499,7 +499,7 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
 
     const message = await screen.findByText(/couldn’t load the work page/i);
     expect(message).toHaveTextContent('Couldn’t load the work page.');
-    expect(message).not.toHaveTextContent('mimir serve');
+    expect(message).not.toHaveTextContent('host running');
   });
 });
 

@@ -13,7 +13,7 @@ beforeAll(async () => {
   const probe = join(root, 'probe.ts');
   writeFileSync(
     probe,
-    `import { runtimePaths, IS_PRODUCTION, supervisorScope } from ${JSON.stringify(join(sourceRoot, 'env.ts'))};\nif (process.argv[2] === 'installation-protocol') console.log('{"installationProtocol":1}'); else console.log(JSON.stringify({paths:runtimePaths(),live:IS_PRODUCTION,scope:supervisorScope()}));`,
+    `import { runtimePaths, IS_PRODUCTION } from ${JSON.stringify(join(sourceRoot, 'env.ts'))};\nif (process.argv[2] === 'installation-protocol') console.log('{"installationProtocol":1}'); else console.log(JSON.stringify({paths:runtimePaths(),live:IS_PRODUCTION}));`,
   );
   const build = Bun.spawn(
     [
@@ -60,8 +60,6 @@ test('compiled production profile alone cannot select live paths', async () => {
       config: join(root, '.dev/config/mimir'),
       data: join(root, '.dev'),
     },
-    // No installation: the supervisor fence grants no unit at all.
-    scope: { kind: 'none' },
   });
 });
 test('registered compiled executable ignores ambient XDG and rejects replacement', async () => {
@@ -78,7 +76,6 @@ test('registered compiled executable ignores ambient XDG and rejects replacement
   expect(JSON.parse((await run(executable)).stdout)).toEqual({
     live: true,
     paths,
-    scope: { kind: 'live' },
   });
   const copied = join(root, 'copied');
   copyFileSync(executable, copied);
@@ -88,7 +85,7 @@ test('registered compiled executable ignores ambient XDG and rejects replacement
   expect(denied.stderr).toContain('does not match');
 });
 
-test('a registered sandbox installation is scoped to its own sandbox id', async () => {
+test('a registered sandbox installation resolves the paths of its sandbox authority', async () => {
   const sandboxRoot = join(root, 'vault-sandbox');
   const paths = {
     cache: join(sandboxRoot, 'cache', 'mimir'),
@@ -111,7 +108,6 @@ test('a registered sandbox installation is scoped to its own sandbox id', async 
   expect(JSON.parse((await run(executable)).stdout)).toEqual({
     live: false,
     paths,
-    scope: { id, kind: 'sandbox' },
   });
 });
 

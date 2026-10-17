@@ -30,7 +30,6 @@
         "mimir": "./src/main.ts",
       },
       "dependencies": {
-        "@mimir/api": "workspace:*",
         "@mimir/contract": "workspace:*",
         "@mimir/core": "workspace:*",
         "@mimir/helpers": "workspace:*",
@@ -40,6 +39,7 @@
       },
       "devDependencies": {
         "@electric-sql/pglite": "0.5.8",
+        "@mimir/api": "workspace:*",
       },
     },
     "packages/contract": {

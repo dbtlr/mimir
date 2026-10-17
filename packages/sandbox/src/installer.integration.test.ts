@@ -68,7 +68,7 @@ test.skipIf(process.env.MIMIR_SANDBOX_LIFECYCLE_TEST !== '1')(
       const cache = join(authority.paths.cache, 'preserved.json');
       const logs = join(authority.paths.data, 'logs');
       await mkdir(logs, { recursive: true });
-      const events = join(logs, 'service-events.jsonl');
+      const events = join(logs, 'preserved-events.jsonl');
       await writeFile(cache, '{"fixture":"legacy-cache"}\n');
       await writeFile(events, '{"event":"legacy-fixture"}\n');
       const files = [join(authority.paths.config, 'config.toml'), binding, cache, events];

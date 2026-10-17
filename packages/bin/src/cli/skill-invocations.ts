@@ -217,17 +217,7 @@ const SELECTION_FLAGS = [
  * (they refuse as "unavailable"), `version` is answered before the runner, and
  * `skill install` would really write into $HOME — a side effect, not a parse.
  */
-const STATIC_ONLY_VERBS = new Set([
-  'setup',
-  'service',
-  'store',
-  'doctor',
-  'self-update',
-  'skill',
-  'serve',
-  'mcp',
-  'version',
-]);
+const STATIC_ONLY_VERBS = new Set(['store', 'doctor', 'self-update', 'skill', 'mcp', 'version']);
 
 const isPlaceholder = (word: string): boolean =>
   (word.startsWith('<') && word.endsWith('>')) || word.startsWith('$') || word === '…';

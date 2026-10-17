@@ -75,7 +75,7 @@ export function DoctorPage() {
 
         {doctor.isError && facet === undefined && (
           <p className="text-xs text-status-blocked">
-            Unreachable, and nothing cached yet — is `mimir serve` running?
+            Unreachable, and nothing cached yet — is the Mimir host running?
           </p>
         )}
 

@@ -15,7 +15,7 @@ import type { DoctorBackend, DoctorDiagnosis } from './contract';
 import type { DoctorFacet } from './facet';
 
 const WITH_URL = '[store]\nbackend = "postgres"\nurl = "postgres://u:secret@db.example/mimir"\n';
-const WITHOUT_URL = '[serve]\nport = 4600\n';
+const WITHOUT_URL = '[store]\nbackend = "sqlite"\n';
 
 let dir: string;
 let file: string;

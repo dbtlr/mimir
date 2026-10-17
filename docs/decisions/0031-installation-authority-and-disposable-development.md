@@ -223,3 +223,15 @@ This refinement does not authorize a live cutover or remove `serve`.
 - 2026-10-01: Scoped supervisor authority and unit names to each installation (MMR-54).
 - 2026-10-03: Allowed a per-run existing SQLite file for serve without granting migration authority (MMR-421).
 - 2026-10-15: Defined the container host's environment configuration and image authority (ADR 0035).
+
+## Refinement (2026-10-17, MMR-536): no supervised units, no named store
+
+The `mimir` binary no longer installs or drives supervisor units, so the
+service lifecycle rules above, the sandbox `service-verify` command, and its
+workflow are retired. Self-update replaces the binary and restarts nothing.
+
+`mimir serve --store <file>` is retired with `serve`. The docs fixture is
+generated into its own directory and opened by the development host through
+`MIMIR_DATA_DIR`. The host migrates a store before serving it (ADR 0035), so the
+fixture is regenerated rather than protected from migration. No installation's
+command opens the fixture, which keeps the boundary this decision guards.

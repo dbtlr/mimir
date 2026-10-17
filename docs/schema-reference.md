@@ -317,7 +317,7 @@ Migrations are a static, ordered list carried in the binary (`core/store-sql/mig
 - **SQLite migrates on open.** The store is one file, `store.sqlite`, in the installation's data directory. Opening creates it when absent, runs it in WAL mode with foreign keys enforced, and applies every pending migration. A file that holds tables but no schema version is refused as not a Mimir store, and the file is left as found.
 - **PostgreSQL migrates only on `mimir store upgrade`.** A fresh database has no schema, and every other command refuses until the version matches the binary exactly, in either direction. The upgrade runs under a lock so two machines upgrading at once serialize, and it re-reads the version inside the lock so the loser applies nothing. See the [Postgres store guide](guides/postgres-store.md).
 
-`/api/health` reports `schema` as the schema version this binary expects. `mimir doctor` reports a `schema-version` finding when the database's version differs. On Postgres that is a normal rollout state — one machine has run `store upgrade` and another has not — not a hand edit.
+The host's `/api/health` reports `schema` as the schema version it expects. `mimir doctor` reports a `schema-version` finding when the database's version differs. On Postgres that is a normal rollout state — one machine has run `store upgrade` and another has not — not a hand edit.
 
 ## Transfer document
 
