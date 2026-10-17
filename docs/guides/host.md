@@ -56,11 +56,11 @@ the repository's `Dockerfile` can open a live Postgres URL. A development host
 refuses one
 ([ADR 0035](../decisions/0035-tanstack-start-container-host.md#the-image-owns-live-store-authority)).
 
-1. Create `deploy/secrets/` and write the password for the bundled Postgres
-   service:
+1. Create `deploy/secrets/` closed to other users, and write the password for
+   the bundled Postgres service:
 
    ```sh
-   mkdir -p deploy/secrets
+   mkdir -m 700 -p deploy/secrets
    openssl rand -hex 24 > deploy/secrets/postgres-password
    ```
 
@@ -71,17 +71,23 @@ refuses one
    printf 'postgres://mimir:%s@postgres:5432/mimir\n' "$(cat deploy/secrets/postgres-password)" > deploy/secrets/database-url
    ```
 
-3. Start both services:
+3. Make both files readable inside the containers:
+
+   ```sh
+   chmod 644 deploy/secrets/*
+   ```
+
+4. Start both services:
 
    ```sh
    docker compose -f deploy/compose.yaml -f deploy/compose.postgres.yaml up -d --wait
    ```
 
 Compose mounts each secret file with its permissions from the server. The host
-runs as the image's `bun` user, UID 1000, so `database-url` must be readable
-by that UID. Make it readable with `chmod 644` inside a directory that only
-you can enter, or `chown 1000` it. Git ignores `deploy/secrets/`, and the
-image build ignores it too.
+runs as the image's `bun` user, UID 1000, and Postgres reads its password as
+its own user, so each file must be readable inside its container. The `700`
+directory keeps the readable files private from other accounts on the server.
+Git ignores `deploy/secrets/`, and the image build ignores it too.
 
 To use a Postgres server you already run, remove the `postgres` service and
 the `depends_on` entry from `compose.postgres.yaml`. Then write that server's
