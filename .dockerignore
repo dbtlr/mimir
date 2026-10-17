@@ -11,7 +11,6 @@
 .superpowers
 .mcp.json
 .saga.local.json
-packages/bin/src/http/ui-assets.generated.ts
 
 .env
 .env.*

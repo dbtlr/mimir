@@ -25,7 +25,7 @@ import type {
  */
 export const POLL_MS = 10_000;
 
-/** The footer's stale-binary check (MMR-260): the daemon's build + store schema. */
+/** The footer's stale-binary check (MMR-260): the host's build + store schema. */
 export const healthQuery = queryOptions({
   queryFn: () => apiGet<WireHealth>('/api/health'),
   queryKey: ['health'],

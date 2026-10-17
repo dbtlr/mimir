@@ -260,8 +260,8 @@ machinery commands (the installation, host, or store — not the work itself):
   version                 print the installed version
   self-update [--next] [--tag <tag>]
                           download + verify a release and replace this binary.
-                          default: latest official; --next: latest incl. prereleases; --tag:
-                          an exact tag (e.g. v0.6.0-next.5)
+                          default: latest official; --next: latest including
+                          prereleases; --tag: an exact tag (e.g. v0.6.0-next.5)
   doctor                  run store diagnostics and report problems for a human
                           to fix (exits 0; findings are output). scoped by -s
 `;

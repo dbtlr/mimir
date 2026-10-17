@@ -767,7 +767,7 @@ function apiRoutes(store: Store, opts: ApiOptions): ApiRoutes {
     },
 
     '/api/health': {
-      // `version` is the daemon's build (MMR-57); `schema` is the store
+      // `version` is the host's build (MMR-57); `schema` is the store
       // schema it reads and writes — together the console's stale-binary signal
       // (MMR-260): a running UI bundle compares its own build against this.
       GET: () => json(healthOf(opts.version)),

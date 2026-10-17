@@ -176,3 +176,10 @@ path. Full environment configuration, Postgres authority, middleware over
 every host route, image publication, and the ownership cutover remain later
 work. The current CLI installation and `mimir serve` boundaries remain in
 force. The PWA browser lane remains a manual check outside CI.
+
+## Addendum (2026-10-17, MMR-536): serve is retired
+
+The `mimir serve` boundaries this decision left in force no longer exist: the
+binary dropped `serve`, the service commands, and the embedded console. The host
+container is the only server of the console and `/api`. CLI installations keep
+ADR 0030's Postgres bridge and ADR 0032's local SQLite rules.

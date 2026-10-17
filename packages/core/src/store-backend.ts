@@ -31,8 +31,7 @@ export type BuiltStore = {
  * fall back to creating and writing a local store. The remedy names the key that actually went wrong —
  * a bad URL is not fixed by re-reading the list of backends.
  *
- * Shared with `store upgrade` and `setup`, which read the same section for the
- * same fence; `file` names the config the section came from.
+ * Shared with `store upgrade`, which reads the same section for the same fence; `file` names the config the section came from.
  */
 export function assertUsableStoreConfig(config: GlobalConfig, file: string = configPath()): void {
   const problem = config.store.problem;

@@ -7,7 +7,7 @@ import { usePwaUpdate } from './pwa-update-provider';
 /**
  * The always-reachable build signal (MMR-260): a days-old binary serves a
  * baked-in bundle with no other way to tell "stale binary" from "broken
- * design." Renders the daemon's reported version (falling back to the loaded
+ * design." Renders the host's reported version (falling back to the loaded
  * bundle's own when unreachable) and, when the two disagree, a quiet
  * "update available" hint — the reload/restart is on the operator, this is
  * only the tell. Deliberately achromatic (ADR 0019 §1): a version mismatch is
@@ -27,7 +27,7 @@ export function VersionFooter() {
         title={
           serverVersion === undefined
             ? `console ${BUILD_VERSION}`
-            : `daemon ${serverVersion} · console ${BUILD_VERSION}`
+            : `host ${serverVersion} · console ${BUILD_VERSION}`
         }
       >
         {serverVersion ?? BUILD_VERSION}
@@ -36,7 +36,7 @@ export function VersionFooter() {
         <button
           type="button"
           className="rounded text-micro text-ink-dim underline decoration-ink-ghost underline-offset-2 hover:text-ink-bright focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
-          title={`This console bundle (${BUILD_VERSION}) doesn't match the running daemon (${serverVersion}) — reload to converge; if the console is the newer side, restart or update the daemon instead.`}
+          title={`This console bundle (${BUILD_VERSION}) doesn't match the running host (${serverVersion}) — reload to converge; if the console is the newer side, update the host instead.`}
           disabled={update.phase === 'applying'}
           onClick={() => void update.refreshNow()}
         >

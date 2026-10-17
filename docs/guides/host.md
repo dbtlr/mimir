@@ -207,7 +207,7 @@ A configuration or store failure at boot exits the host process. With
 host: startup refused: MIMIR_PORT must be an integer from 1 to 65535
 ```
 
-`GET /api/health` returns the same body. `GET /api/doctor` reports the record findings that `mimir doctor` reports.
+`GET /api/health` returns the same body as `/health`. `GET /api/doctor` reports the record findings that `mimir doctor` reports.
 Any store-backed request, such as `GET /api/projects`, proves that the store
 answers now.
 
@@ -222,6 +222,7 @@ maps to an HTTP status:
 | `not_found`  | 404         |
 | `conflict`   | 409         |
 | `invariant`  | 409         |
+| `internal`   | 500         |
 
 A `409` carries one of two codes, and only one of them means trouble.
 `invariant` is the broken-store signal: the store raises it when its own
@@ -229,7 +230,8 @@ consistency guarantees fail, such as a missing schema or one that does not match
 the host. The message says what failed and the remedy line says what to do.
 `conflict` is an ordinary state clash, such as a duplicate key or a write
 refused because the state already moved. Adjust the request instead of
-repairing the store. A `400` is an ordinary refusal of a malformed request.
+repairing the store. A `400` is an ordinary refusal of a malformed request. A `500` with `internal`
+means the request did not complete; the host log carries the detail.
 
 ## Upgrade the host and the CLIs that share its Postgres
 
