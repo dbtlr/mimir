@@ -4,7 +4,8 @@ COPY . .
 RUN bun install --frozen-lockfile
 # Only this isolated build context enables the host authority module.
 RUN printf 'export const MIMIR_HOST_AUTHORITY = true;\n' > packages/core/src/host-authority.ts
-RUN bun run build:ui
+ARG MIMIR_BUILD_VERSION
+RUN if [ -n "$MIMIR_BUILD_VERSION" ]; then export MIMIR_BUILD_VERSION; else unset MIMIR_BUILD_VERSION; fi; bun run build:ui
 RUN bun build packages/host/scripts/start.ts --target bun --external ../.output/server/index.mjs --outfile /app/scripts/host-start.mjs
 
 FROM oven/bun:1.4.3 AS runtime

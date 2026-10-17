@@ -47,9 +47,9 @@ jobs:
 
           # Build-affecting paths — keep in sync with prerelease.yml's path filter
           # (GitHub Actions can't share a filter across workflows). A change outside
-          # these can't affect the shipped binary, so it needs no changelog entry.
+          # these can't affect a shipped binary or image, so no entry is needed.
           changed=$(git diff --name-only "${base}...HEAD")
-          if ! echo "$changed" | grep -qE '^(packages/|skills/mimir/|package\.json$|bun\.lock$|install\.sh$|\.github/workflows/(release|prerelease)\.yml$)'; then
+          if ! echo "$changed" | grep -qE '^(packages/|skills/mimir/|package\.json$|bun\.lock$|Dockerfile$|\.dockerignore$|install\.sh$|\.github/workflows/(release|prerelease)\.yml$)'; then
             echo "No build-affecting paths changed — changelog fragment not required."
             exit 0
           fi
@@ -116,5 +116,6 @@ jobs:
         if: steps.gate.outputs.parse == 'true'
         run: |
           set -euo pipefail
-          # shellcheck disable=SC2046 -- fragment paths are flat slugs, no spaces
+          # Fragment paths are flat slugs without spaces.
+          # shellcheck disable=SC2046
           bun packages/bin/scripts/compile-changelog.ts --check $(tr '\n' ' ' < "$RUNNER_TEMP/fragments.txt")

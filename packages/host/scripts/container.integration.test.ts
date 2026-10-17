@@ -109,8 +109,12 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
   const password = randomUUID();
   const refusedContainers = [`${name}-unwritable`, `${name}-invalid`];
   const node = z.object({ id: z.string(), status: z.string(), title: z.string() });
+  const version = '0.0.0-next.533';
   try {
-    await docker(['build', '--quiet', '--tag', image, '.'], 120_000);
+    await docker(
+      ['build', '--quiet', '--build-arg', `MIMIR_BUILD_VERSION=${version}`, '--tag', image, '.'],
+      120_000,
+    );
     await docker(['volume', 'create', volume]);
     const run = async (container: string, user: string[] = []) => {
       await docker([
@@ -158,9 +162,6 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
       expect(crossOrigin.status, path).toBe(403);
       expect(await crossOrigin.json(), path).toMatchObject({ error: { code: 'forbidden_origin' } });
     }
-    const version = z
-      .object({ version: z.string() })
-      .parse(await Bun.file(new URL('../../bin/package.json', import.meta.url)).json()).version;
     expect(await api(base, '/api/health')).toMatchObject({ status: 'ok', version });
     expect(await api(base, '/health')).toEqual({ schema: 5, status: 'ok', version });
     const healthHead = await fetch(`${base}/health`, { method: 'HEAD' });
