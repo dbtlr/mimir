@@ -8,8 +8,9 @@ name: Release
 #
 # Publication is staged (MMR-387): the release is created as a draft, every
 # asset is uploaded with bounded retries and verified by digest, and only the
-# exact complete set flips the draft public. A failed publish leaves the draft
-# behind; re-running the `publish` job resumes from it with the same build
+# exact complete set flips the draft public after the host image is pushed
+# and verified for anonymous pulls on both architectures. A failed publish
+# leaves the draft behind; re-running `publish` resumes with the same build
 # artifacts — no rebuild, no tag change.
 on:
   push:
@@ -27,11 +28,13 @@ on:
       - 'skills/mimir/**'
       - 'package.json'
       - 'bun.lock'
+      - 'Dockerfile'
+      - '.dockerignore'
       - '.github/workflows/release.yml'
       - 'install.sh'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -95,11 +98,132 @@ jobs:
           path: dist/${{ matrix.asset }}
           if-no-files-found: error
 
+  host-image:
+    name: host image
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # Serialize registry writes, including reruns. Version comparison below also
+    # handles older jobs entering the queue after newer jobs have already run.
+    concurrency:
+      group: host-image-${{ startsWith(github.ref, 'refs/tags/v') && 'publication' || github.run_id }}
+      queue: max
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Determine image version and tags
+        id: metadata
+        run: |
+          set -euo pipefail
+          version=$(jq -r .version packages/bin/package.json)
+          channel=
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version="${GITHUB_REF_NAME#v}"
+            channel=latest
+            case "$version" in *-*) channel=next ;; esac
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "channel=${channel}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .tool-versions
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build host image
+        id: image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          tags: ghcr.io/dbtlr/mimir-host:${{ steps.metadata.outputs.version }}
+          build-args: MIMIR_BUILD_VERSION=${{ steps.metadata.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.metadata.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          annotations: index:org.opencontainers.image.version=${{ steps.metadata.outputs.version }}
+
+      # No registry credentials: fleet must be able to pull the package publicly.
+      # A newly created private GHCR package keeps the release unpublished until
+      # its owner changes package visibility to public and re-runs this job.
+      - name: Verify published image architectures and anonymous access
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          IMAGE_VERSION: ${{ steps.metadata.outputs.version }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          image=ghcr.io/dbtlr/mimir-host
+          actual=$(docker buildx imagetools inspect "$image:$IMAGE_VERSION" --format '{{.Manifest.Digest}}')
+          test "$actual" = "$IMAGE_DIGEST"
+          export DOCKER_CONFIG
+          DOCKER_CONFIG=$(mktemp -d)
+          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+          docker manifest inspect "$image:$IMAGE_VERSION" > "$DOCKER_CONFIG/version.json"
+          docker manifest inspect "$image@$IMAGE_DIGEST" > "$DOCKER_CONFIG/digest.json"
+          cmp "$DOCKER_CONFIG/version.json" "$DOCKER_CONFIG/digest.json"
+          jq -e '[.manifests[].platform | select(.os == "linux") | .architecture] | sort == ["amd64", "arm64"]' "$DOCKER_CONFIG/version.json"
+
+      - name: Promote the highest verified version to its channel
+        id: promote
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          IMAGE_CHANNEL: ${{ steps.metadata.outputs.channel }}
+          IMAGE_VERSION: ${{ steps.metadata.outputs.version }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          image=ghcr.io/dbtlr/mimir-host
+          channel="$IMAGE_CHANNEL"
+          temporary=$(mktemp -d)
+          trap 'rm -rf "$temporary"' EXIT
+          if docker buildx imagetools inspect "$image:$channel" --raw > "$temporary/current.json" 2> "$temporary/error"; then
+            current=$(jq -er '.annotations["org.opencontainers.image.version"]' "$temporary/current.json")
+          elif grep -Fq "$image:$channel: not found" "$temporary/error"; then
+            current="$IMAGE_VERSION"
+          else
+            cat "$temporary/error" >&2
+            exit 1
+          fi
+          order=$(bun -e 'console.log(Bun.semver.order(process.argv[1], process.argv[2]))' "$IMAGE_VERSION" "$current")
+          if [ "$order" -lt 0 ]; then
+            echo "Retaining $channel at $current; $IMAGE_VERSION is older."
+            exit 0
+          fi
+          docker buildx imagetools create --tag "$image:$channel" "$image@$IMAGE_DIGEST"
+          actual=$(docker buildx imagetools inspect "$image:$channel" --format '{{.Manifest.Digest}}')
+          test "$actual" = "$IMAGE_DIGEST"
+
   publish:
     name: publish release
-    needs: build
+    needs: [build, host-image]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     # Hard ceiling over the publisher's own bounds: it stops starting retries
     # after a 60-minute budget and one in-flight request can overrun that by
     # its 3-minute deadline, so 90 leaves room for setup and the prune step
@@ -119,6 +243,7 @@ jobs:
       - name: Download binaries
         uses: actions/download-artifact@v8
         with:
+          pattern: mimir-*
           path: dist
           merge-multiple: true
 
@@ -129,6 +254,8 @@ jobs:
           cat SHA256SUMS
 
       - name: Extract changelog notes
+        env:
+          IMAGE_VERSION: ${{ needs.host-image.outputs.version }}
         run: |
           ver="${GITHUB_REF_NAME}"
           awk -v ver="$ver" '
@@ -136,6 +263,8 @@ jobs:
             capture && /^## / { exit }
             capture { print }
           ' CHANGELOG.md > release-notes.md
+          # shellcheck disable=SC2016 # Markdown backticks are literal.
+          printf '\n### Host image\n\n`ghcr.io/dbtlr/mimir-host:%s` (linux/amd64, linux/arm64).\n' "$IMAGE_VERSION" >> release-notes.md
           echo "--- release notes ---"; cat release-notes.md
 
       # Draft → upload (retried, verified) → publish. Exit 1 keeps the draft

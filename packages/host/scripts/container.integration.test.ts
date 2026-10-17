@@ -97,6 +97,35 @@ async function healthy(container: string) {
   throw new Error(`Docker health stayed starting: ${await docker(['logs', container])}`);
 }
 
+test('the host image reports its stamped version rather than runtime overrides', async () => {
+  const name = `mimir-host-version-${randomUUID()}`;
+  const image = `${name}:test`;
+  const version = '0.0.0-next.533';
+  try {
+    await docker(
+      ['build', '--quiet', '--build-arg', `MIMIR_BUILD_VERSION=${version}`, '--tag', image, '.'],
+      120_000,
+    );
+    await docker([
+      'run',
+      '--detach',
+      '--name',
+      name,
+      '--publish',
+      '127.0.0.1::64647',
+      '--env',
+      'MIMIR_BUILD_VERSION=runtime-override',
+      image,
+    ]);
+    const base = await ready(name);
+    expect(await api(base, '/api/health')).toMatchObject({ status: 'ok', version });
+    expect(await api(base, '/health')).toMatchObject({ status: 'ok', version });
+  } finally {
+    await docker(['rm', '--force', name]).catch(() => undefined);
+    await docker(['image', 'rm', '--force', image]).catch(() => undefined);
+  }
+}, 150_000);
+
 test('the host image persists SQLite and migrates Postgres before serving', async () => {
   const name = `mimir-host-test-${randomUUID()}`;
   const image = `${name}:test`;

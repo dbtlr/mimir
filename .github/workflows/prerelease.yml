@@ -12,6 +12,8 @@ on:
       - 'skills/mimir/**'
       - 'package.json'
       - 'bun.lock'
+      - 'Dockerfile'
+      - '.dockerignore'
       - '.github/workflows/release.yml'
       - '.github/workflows/prerelease.yml'
       - 'install.sh'
@@ -51,7 +53,7 @@ jobs:
               # advance it; robust to pruning (we keep the max) and history shape.
               max=0
               for t in $(git tag -l "v${ver}.*"); do
-                n="${t#v${ver}.}"
+                n="${t#v"${ver}".}"
                 case "$n" in (*[!0-9]*) continue ;; esac
                 if [ "$n" -gt "$max" ]; then max="$n"; fi
               done
