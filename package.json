@@ -29,7 +29,7 @@
   },
   "devDependencies": {
     "@dbtlr/tooling": "0.6.0",
-    "@types/bun": "^1.4.2",
+    "@types/bun": "^1.4.3",
     "oxlint": "1.87.0",
     "vite-plus": "^1.1.0"
   },
