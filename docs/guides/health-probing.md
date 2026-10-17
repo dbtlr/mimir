@@ -1,5 +1,8 @@
 # Health probing
 
+> This page covers `mimir serve`, which retires once the host container
+> replaces it. For the host, see [Run the Mimir host](host.md).
+
 ## `/api/health` is a liveness ping, not a store check
 
 `GET /api/health` returns `{ status: 'ok', version, schema }` unconditionally

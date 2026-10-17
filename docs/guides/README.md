@@ -1,12 +1,13 @@
 # Operator guides
 
-Recipes for running a `mimir` install day to day: the launchd and systemd
+Recipes for running a `mimir` install day to day: the host container, the launchd and systemd
 service lifecycle, health probing, self-update, network modes and port, and where the
 binary should live. Each page is self-contained — read the one you need.
 
 | Guide                                       | Covers                                                               |
 | ------------------------------------------- | -------------------------------------------------------------------- |
 | [Service lifecycle](service-lifecycle.md)   | `install` / `uninstall` / `start` / `stop` / `restart` under launchd or systemd |
+| [Mimir host](host.md)                      | Running the host container over SQLite or Postgres, access, health, upgrades, and backups |
 | [Health probing](health-probing.md)         | What `/api/health` does and doesn't tell you; reading a 409          |
 | [Self-update](self-update.md)               | `mimir self-update`'s channels, verification, and restart behavior   |
 | [Network modes and port](port-and-proxy.md) | Local, Tailscale serve, direct network, and reverse-proxy access; `bind` and `url`; port precedence; accepted hosts |

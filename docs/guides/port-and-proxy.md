@@ -4,6 +4,9 @@ description: "Reference for network modes, installation-bound port selection, th
 
 # Network modes and port
 
+> This page covers `mimir serve`, which retires once the host container
+> replaces it. For the host, see [Run the Mimir host](host.md).
+
 `mimir serve` speaks plain HTTP and authenticates no one. It listens on
 loopback by default, so a fresh install reaches the console from its own
 machine with no configuration. Reaching it from another device is a choice
