@@ -8,7 +8,17 @@ import { z } from 'zod';
 const workflowPath = new URL('../../../.github/workflows/release.yml', import.meta.url);
 const stepSchema = z.object({ id: z.string().optional(), run: z.string().optional() });
 const workflowSchema = z.object({
-  jobs: z.object({ 'host-image': z.object({ steps: z.array(stepSchema) }) }),
+  jobs: z.object({
+    'host-image': z.object({
+      needs: z.union([z.string(), z.array(z.string())]).optional(),
+      steps: z.array(stepSchema),
+    }),
+  }),
+});
+
+test('binary test or build failure prevents image publication', async () => {
+  const workflow = workflowSchema.parse(Bun.YAML.parse(await Bun.file(workflowPath).text()));
+  expect(workflow.jobs['host-image'].needs).toContain('build');
 });
 
 test.each([
