@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './start-routes/__root'
 import { Route as HealthRouteImport } from './start-routes/health'
 import { Route as ApiSplatRouteImport } from './start-routes/api.$'
+import { Route as TrpcSplatRouteImport } from './start-routes/trpc.$'
 
 const HealthRoute = HealthRouteImport.update({
   id: '/health',
@@ -22,31 +23,40 @@ const ApiSplatRoute = ApiSplatRouteImport.update({
   path: '/api/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TrpcSplatRoute = TrpcSplatRouteImport.update({
+  id: '/trpc/$',
+  path: '/trpc/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/health': typeof HealthRoute
   '/api/$': typeof ApiSplatRoute
+  '/trpc/$': typeof TrpcSplatRoute
 }
 export interface FileRoutesByTo {
   '/health': typeof HealthRoute
   '/api/$': typeof ApiSplatRoute
+  '/trpc/$': typeof TrpcSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/health': typeof HealthRoute
   '/api/$': typeof ApiSplatRoute
+  '/trpc/$': typeof TrpcSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/health' | '/api/$'
+  fullPaths: '/health' | '/api/$' | '/trpc/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/health' | '/api/$'
-  id: '__root__' | '/health' | '/api/$'
+  to: '/health' | '/api/$' | '/trpc/$'
+  id: '__root__' | '/health' | '/api/$' | '/trpc/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   HealthRoute: typeof HealthRoute
   ApiSplatRoute: typeof ApiSplatRoute
+  TrpcSplatRoute: typeof TrpcSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/trpc/$': {
+      id: '/trpc/$'
+      path: '/trpc/$'
+      fullPath: '/trpc/$'
+      preLoaderRoute: typeof TrpcSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   HealthRoute: HealthRoute,
   ApiSplatRoute: ApiSplatRoute,
+  TrpcSplatRoute: TrpcSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

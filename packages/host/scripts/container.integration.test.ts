@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { RemoteEngine } from '@mimir/wire/client';
 import { z } from 'zod';
 
 import { POSTGRES_IMAGE } from '../../sandbox/src/workflow';
@@ -142,6 +143,8 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
       '/assets/missing.js',
       '/api/health',
       '/trpc',
+      '/trpc/getNode',
+      '/trpc/done',
       '/_serverFn/missing',
       '/health',
     ]) {
@@ -240,10 +243,13 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
       id: task.id,
       title: task.title,
     });
-    expect(await api(base, `/api/nodes/${task.id}/done`, { method: 'POST' })).toMatchObject({
-      id: task.id,
-      status: 'done',
-    });
+    const remote = new RemoteEngine({ url: `${base}/trpc` });
+    const read = await remote.getNode({ id: task.id });
+    expect(read).toMatchObject({ lifecycle: 'todo', title: task.title });
+    expect(read.createdAt).toBeInstanceOf(Date);
+    const completed = await remote.done({ id: task.id });
+    expect(completed.lifecycle).toBe('done');
+    expect(completed.completedAt).toBeInstanceOf(Date);
     expect(await api(base, `/api/nodes/${task.id}`)).toMatchObject({ status: 'done' });
     // Nitro plugins and Start's server bundle must share the same store handle.
     const descriptors = await docker([

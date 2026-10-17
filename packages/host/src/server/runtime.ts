@@ -18,6 +18,10 @@ export async function handleApi(request: Request) {
   return (await hostRuntime()).handle(request);
 }
 
+export async function handleTrpc(request: Request) {
+  return (await hostRuntime()).handleTrpc(request);
+}
+
 export async function closeHost() {
   await (await globalThis.mimirHostRuntime)?.close();
   globalThis.mimirHostRuntime = undefined;

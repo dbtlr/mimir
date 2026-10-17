@@ -3,7 +3,8 @@ import { access, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { createApiHandler } from '@mimir/api';
-import { buildStore, MimirError, SQLITE_FILE } from '@mimir/core';
+import { buildStore, LocalEngine, MimirError, SQLITE_FILE } from '@mimir/core';
+import { createEngineHandler } from '@mimir/wire/server';
 
 import type { HostConfig } from './config';
 
@@ -38,9 +39,12 @@ export async function openHost(
         upgrade: true,
       },
     );
+    const engine = new LocalEngine(built.store);
     return {
       close: built.close,
+      engine,
       handle: createApiHandler(built.store, { doctor: built.doctor.facet, version }),
+      handleTrpc: createEngineHandler(engine),
     };
   } catch (error) {
     if (error instanceof MimirError && error.hint?.includes('newer schema')) {

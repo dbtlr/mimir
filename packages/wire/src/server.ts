@@ -1,5 +1,6 @@
 import { engineSchemas, MimirError, parseEngineInput } from '@mimir/contract';
 import type { Engine, ErrorCode } from '@mimir/contract';
+import { formatDiagnostic } from '@mimir/helpers';
 import { initTRPC, TRPCError } from '@trpc/server';
 import type { TRPCMutationProcedure, TRPCQueryProcedure } from '@trpc/server';
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
@@ -8,15 +9,20 @@ import superjson from 'superjson';
 const t = initTRPC.create({
   errorFormatter({ shape, error }) {
     const cause = error.cause;
+    const internal = error.code === 'INTERNAL_SERVER_ERROR' && !(cause instanceof MimirError);
+    const data = {
+      ...shape.data,
+      hint: internal ? "run 'mimir doctor'" : undefined,
+      mimirError:
+        cause instanceof MimirError
+          ? { code: cause.code, hint: cause.hint, message: cause.message }
+          : null,
+    };
+    delete data.stack;
     return {
       ...shape,
-      data: {
-        ...shape.data,
-        mimirError:
-          cause instanceof MimirError
-            ? { code: cause.code, hint: cause.hint, message: cause.message }
-            : null,
-      },
+      data,
+      message: internal ? 'the request did not complete' : shape.message,
     };
   },
   transformer: superjson,
@@ -69,9 +75,29 @@ export function createEngineRouter(engine: Engine) {
 
 export type EngineRouter = ReturnType<typeof createEngineRouter>;
 
-/** A Fetch adapter; hosts supply the store-owning Engine and mount the endpoint. */
+/**
+ * A Fetch adapter over the host's store-owning Engine.
+ * The mounting host must apply request guards before dispatch, including
+ * configured Host filtering and cross-origin write checks.
+ */
 export function createEngineHandler(engine: Engine, endpoint = '/trpc') {
   const router = createEngineRouter(engine);
   return (req: Request) =>
-    fetchRequestHandler({ createContext: () => ({}), endpoint, req, router });
+    fetchRequestHandler({
+      createContext: () => ({}),
+      endpoint,
+      onError({ error }) {
+        if (error.code === 'INTERNAL_SERVER_ERROR' && !(error.cause instanceof MimirError)) {
+          const cause = error.cause ?? error;
+          const diagnostic = formatDiagnostic({
+            detail: cause.stack ?? cause.message,
+            method: req.method,
+            path: new URL(req.url).pathname,
+          });
+          console.error(`✗ host: request did not complete — ${diagnostic}`);
+        }
+      },
+      req,
+      router,
+    });
 }

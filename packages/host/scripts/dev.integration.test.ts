@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { RemoteEngine } from '@mimir/wire/client';
 import { chromium } from '@playwright/test';
 import type { Browser } from '@playwright/test';
 
@@ -36,6 +37,8 @@ test('the development host serves and renders the kit with an isolated store', a
           MIMIR_DATABASE_URL: undefined,
           MIMIR_DATABASE_URL_FILE: undefined,
           MIMIR_DATA_DIR: directory,
+          MIMIR_HOSTS: '',
+          MIMIR_URL: undefined,
           NODE_ENV: 'development',
           NO_COLOR: '1',
           VITEST: undefined,
@@ -81,6 +84,37 @@ test('the development host serves and renders the kit with an isolated store', a
       expect(projects.status).toBe(200);
       expect(await projects.json()).toMatchObject({ items: [], total: 0 });
       expect(await Bun.file(join(directory, 'store.sqlite')).exists()).toBe(true);
+
+      for (const [path, body] of [
+        ['/api/projects', { key: 'TST', name: 'Start Engine fixture' }],
+        ['/api/nodes', { parent: 'TST', title: 'Start Engine', type: 'initiative' }],
+        ['/api/nodes', { parent: 'TST-1', title: 'Complete through Start', type: 'task' }],
+      ] satisfies [string, object][]) {
+        const response = await fetch(`${base}${path}`, {
+          body: JSON.stringify(body),
+          headers: { 'content-type': 'application/json' },
+          method: 'POST',
+        });
+        expect(response.status).toBe(201);
+      }
+      const remote = new RemoteEngine({ url: `${base}/trpc` });
+      const task = await remote.getNode({ id: 'TST-2' });
+      expect(task).toMatchObject({ lifecycle: 'todo', title: 'Complete through Start' });
+      expect(task.createdAt).toBeInstanceOf(Date);
+      for (const path of ['/trpc/getNode', '/trpc/done']) {
+        const crossOrigin = await fetch(`${base}${path}`, {
+          headers: { origin: 'https://other.example' },
+          method: 'POST',
+        });
+        expect(crossOrigin.status, path).toBe(403);
+        expect(await crossOrigin.json()).toMatchObject({ error: { code: 'forbidden_origin' } });
+      }
+      expect((await remote.getNode({ id: 'TST-2' })).lifecycle).toBe('todo');
+      const completed = await remote.done({ id: 'TST-2' });
+      expect(completed.lifecycle).toBe('done');
+      expect(completed.completedAt).toBeInstanceOf(Date);
+      const detail = await fetch(`${base}/api/nodes/TST-2`);
+      expect(await detail.json()).toMatchObject({ id: 'TST-2', status: 'done' });
 
       const document = await fetch(`${base}/kit`);
       expect(document.status).toBe(200);

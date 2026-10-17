@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { configPath, warnConfigPermissions } from '@mimir/core';
+import { RemoteEngine } from '@mimir/wire/client';
 
 import { readHostConfig } from './config';
 import { openHost } from './host';
@@ -13,6 +14,50 @@ import { openHost } from './host';
 const roots: string[] = [];
 afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { force: true, recursive: true })));
+});
+
+test('the host shares API writes and Engine reads and completions over tRPC', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-engine-'));
+  roots.push(root);
+  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), 'test');
+  const server = Bun.serve({
+    fetch: (request) => host.handleTrpc(request),
+    hostname: '127.0.0.1',
+    port: 0,
+  });
+  try {
+    for (const [path, body] of [
+      ['/api/projects', { key: 'TST', name: 'Engine fixture' }],
+      ['/api/nodes', { parent: 'TST', title: 'Host Engine', type: 'initiative' }],
+      ['/api/nodes', { parent: 'TST-1', title: 'Complete over tRPC', type: 'task' }],
+    ] satisfies [string, object][]) {
+      const response = await host.handle(
+        new Request(new URL(path, server.url), {
+          body: JSON.stringify(body),
+          headers: { 'content-type': 'application/json' },
+          method: 'POST',
+        }),
+      );
+      expect(response.status).toBe(201);
+    }
+    const remote = new RemoteEngine({ url: new URL('/trpc', server.url).href });
+    const read = await remote.getNode({ id: 'TST-2' });
+    expect(read).toMatchObject({ lifecycle: 'todo', title: 'Complete over tRPC' });
+    expect(read.createdAt).toBeInstanceOf(Date);
+    expect(read).toEqual(await host.engine.getNode({ id: 'TST-2' }));
+
+    const completed = await remote.done({ id: 'TST-2' });
+    expect(completed.lifecycle).toBe('done');
+    expect(completed.completedAt).toBeInstanceOf(Date);
+    const api = await host.handle(new Request(new URL('/api/nodes/TST-2', server.url)));
+    expect(await api.json()).toMatchObject({ id: 'TST-2', status: 'done' });
+    expect(await host.engine.getNode({ id: 'TST-2' })).toEqual(
+      await remote.getNode({ id: 'TST-2' }),
+    );
+  } finally {
+    await server.stop(true);
+    await host.close();
+  }
 });
 
 test('host migrates a named SQLite directory and preserves writes after reopening', async () => {
