@@ -136,7 +136,8 @@ mimir.example.local {
 
 A proxy that runs in its own container cannot reach the server's loopback.
 Attach it to the host's Compose network, `mimir_default`, and forward to
-`mimir:64647`.
+`mimir:64647`. Publish the proxy container's ports on the tailnet address
+only, such as `100.64.0.7:443:443`, not on every interface.
 
 The proxy owns TLS. Authentication at the proxy does not widen the accepted
 boundary, which stays the single-user tailnet. The proxy must forward the
