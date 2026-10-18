@@ -237,3 +237,20 @@ test('the as-of input places staleness far in the future', async () => {
   const later = await remote.console.review(input);
   expect(later.goingCold.length).toBeGreaterThan(0);
 });
+
+test('the as-of input reaches the work pages and the overview', async () => {
+  const asOf = new Date('2100-01-01T00:00:00.000Z');
+  const now = [
+    await remote.console.projectWork({ project: 'ENG', timeZone: 'UTC' }),
+    await remote.console.nodeWork({ id: 'ENG-1', timeZone: 'UTC' }),
+    await remote.console.overview({ project: 'ENG' }),
+  ];
+  const later = [
+    await remote.console.projectWork({ asOf, project: 'ENG', timeZone: 'UTC' }),
+    await remote.console.nodeWork({ asOf, id: 'ENG-1', timeZone: 'UTC' }),
+    await remote.console.overview({ asOf, project: 'ENG' }),
+  ];
+  for (const [index, view] of now.entries()) {
+    expect(JSON.stringify(later[index])).not.toBe(JSON.stringify(view));
+  }
+});

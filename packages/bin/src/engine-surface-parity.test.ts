@@ -57,16 +57,22 @@ test('every Engine method is claimed by the CLI or MCP surface', () => {
   expect(Object.keys(engineSchemas).filter((method) => !claimed.has(method))).toEqual([]);
 });
 
+/** Spelling-blind form, so `node_work`, `nodeWork`, and `node-work` compare equal. */
+const flatName = (name: string): string => name.replaceAll(/[^a-z]/gi, '').toLowerCase();
+
 test('console methods are namespaced and registered on neither the CLI nor MCP', () => {
   const tools = mcpToolNames();
-  const claimed = new Set(Object.values(MCP_READS).flat());
+  const toolNames = new Set([...tools].map(flatName));
+  const commandNames = new Set(Object.keys(COMMAND_HELP).map(flatName));
   for (const method of Object.keys(consoleSchemas)) {
     // `console.overview` shares its name with the `overview` tool; the tool runs the project Engine's `overview`.
     expect(method in engineSchemas && method !== 'overview').toBe(false);
-    expect(claimed.has(`console.${method}`)).toBe(false);
     if (method !== 'overview') {
-      expect(tools.has(method)).toBe(false);
-      expect(method in COMMAND_HELP).toBe(false);
+      // Any spelling of the method, bare or `console`-prefixed, would be a console view leaking out.
+      for (const spelling of [flatName(method), `console${flatName(method)}`]) {
+        expect(toolNames.has(spelling)).toBe(false);
+        expect(commandNames.has(spelling)).toBe(false);
+      }
     }
   }
   expect(tools.has('console')).toBe(false);

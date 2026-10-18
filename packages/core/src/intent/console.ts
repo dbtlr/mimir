@@ -104,7 +104,9 @@ export async function reviewPageOf(
       return await findings();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`⚠ http: doctor scan failed; the review page counts no findings — ${message}`);
+      console.error(
+        `⚠ review: doctor scan failed; the review page counts no findings — ${message}`,
+      );
       return new Map();
     }
   })();

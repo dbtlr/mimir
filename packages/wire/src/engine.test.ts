@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 
-import { engineSchemas } from '@mimir/contract';
+import { consoleSchemas, engineSchemas } from '@mimir/contract';
 import type { Engine } from '@mimir/contract';
 import {
   annotate,
@@ -204,6 +204,25 @@ function assertBindings(bindings: Record<string, object>) {
     }
   }
 }
+
+/** The `console.*` namespace has its own bindings: a nested object locally and remotely, dotted procedures on the router. */
+function assertConsoleBindings(bindings: Record<string, object>) {
+  for (const [layer, binding] of Object.entries(bindings)) {
+    for (const method of Object.keys(consoleSchemas)) {
+      const found =
+        layer === 'router'
+          ? Reflect.get(binding, `console.${method}`)
+          : Reflect.get(Reflect.get(binding, 'console') as object, method);
+      if (typeof found !== 'function') {
+        throw new Error(`${layer} is missing Engine.console.${method}`);
+      }
+    }
+  }
+}
+
+test('every console method has a local implementation, router procedure, and remote binding', () => {
+  assertConsoleBindings({ local, remote, router: createEngineRouter(local)._def.procedures });
+});
 
 test('every Engine method has a local implementation, router procedure, and remote binding', () => {
   assertBindings({ local, remote, router: createEngineRouter(local)._def.procedures });
