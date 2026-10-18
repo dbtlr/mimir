@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { bindClone, BINDING_CONFIG_KEY, bindingScope, resolveBinding } from './binding';
 import type { GitPort } from './binding';
 import { LocalEngine } from './engine';
+import { conflict } from './errors';
 import { errorOf } from './testing/conformance';
 import { createTestStore } from './testing/store';
 
@@ -129,10 +130,10 @@ test('bindClone with no usable origin binds without recording a remote', async (
 
 test('bindClone refuses an unknown project, a non-project id, and a failed config write', async () => {
   expect((await errorOf(bindClone(engine, fakeGit(), 'NOPE'))).code).toBe('not_found');
-  expect((await errorOf(bindClone(engine, fakeGit(), 'AAA-1'))).code).toBeOneOf([
-    'not_found',
-    'validation',
-  ]);
+  const phase = await engine.create({ parent: 'AAA', title: 'p', type: 'initiative' });
+  const notProject = await errorOf(bindClone(engine, fakeGit(), phase.id));
+  expect(notProject.code).toBe('validation');
+  expect(notProject.message).toContain('is not a project key');
   const refused = await errorOf(bindClone(engine, fakeGit({ failWrite: true }), 'AAA'));
   expect(refused.message).toContain('git config');
 });
@@ -162,4 +163,35 @@ test('bindingScope is undefined for an unbound clone', async () => {
     () => {},
   );
   expect(await scope()).toBeUndefined();
+});
+
+test('bindingScope tells the user to bind when several projects match the origin', async () => {
+  await engine.updateProject({ id: 'BBB', remote: 'https://github.com/dbtlr/mimir' });
+  const notes: string[] = [];
+  const scope = bindingScope(
+    async () => engine,
+    fakeGit({ origin: 'git@github.com:dbtlr/mimir.git' }),
+    (line) => notes.push(line),
+  );
+  expect(await scope()).toBeUndefined();
+  expect(notes).toHaveLength(1);
+  expect(notes[0]).toContain('AAA, BBB');
+  expect(notes[0]).toContain('mimir bind KEY');
+});
+
+test('bindingScope retries after a failed resolution instead of caching the failure', async () => {
+  let calls = 0;
+  const scope = bindingScope(
+    async () => {
+      calls += 1;
+      if (calls === 1) {
+        throw conflict('connection reset');
+      }
+      return engine;
+    },
+    fakeGit({ origin: 'git@github.com:dbtlr/mimir.git' }),
+    () => {},
+  );
+  expect((await errorOf(scope())).message).toBe('connection reset');
+  expect(await scope()).toBe('AAA');
 });

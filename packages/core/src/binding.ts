@@ -112,11 +112,23 @@ export function bindingScope(
   notify: (line: string) => void,
 ): ScopeSource {
   let resolved: Promise<string | undefined> | undefined;
-  return () => {
-    resolved ??= (async () => {
-      const found = await resolveBinding(await getEngine(), git, notify);
-      return found.state === 'bound' ? found.key : undefined;
-    })();
-    return resolved;
+  const resolve = async (): Promise<string | undefined> => {
+    const found = await resolveBinding(await getEngine(), git, notify);
+    if (found.state === 'unbound' && found.reason === 'ambiguous') {
+      notify(
+        `several projects match the origin (${found.candidates.join(', ')}): run mimir bind KEY`,
+      );
+    }
+    return found.state === 'bound' ? found.key : undefined;
+  };
+  return async () => {
+    resolved ??= resolve();
+    try {
+      return await resolved;
+    } catch (error) {
+      // Cache only a success: a transient failure must not break every later call.
+      resolved = undefined;
+      throw error;
+    }
   };
 }

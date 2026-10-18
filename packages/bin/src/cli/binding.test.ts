@@ -254,3 +254,54 @@ test('no source reads .mimir.toml; the only mention is the note that it is ignor
     .map((file) => file.slice(packages.length + 1));
   expect(mentions).toEqual(['bin/src/cli/bind.ts']);
 });
+
+test('an ordinary command on an ambiguous origin says to bind and stays cross-project', async () => {
+  await engine.updateProject({ id: 'XX', remote: 'https://github.com/dbtlr/mimir' });
+  const dir = clone('twins-next', 'git@github.com:dbtlr/mimir.git');
+  const result = await mimir(dir, 'list', '-f', 'ids');
+  expect(result.io.err.join('\n')).toContain('mimir bind KEY');
+  expect(result.io.err.join('\n')).toContain('MMR, XX');
+  expect(result.io.out.join('\n').split('\n').toSorted()).toEqual(['MMR-3', 'XX-3']);
+});
+
+test('a malformed invocation is refused before scope resolution can open the store (MMR-39)', async () => {
+  const dir = clone('wrong', 'git@github.com:dbtlr/mimir.git');
+  const port = gitPortAt(dir);
+  for (const argv of [
+    ['list', '--status', 'bogus'],
+    ['list', '--size', 'huge'],
+    ['next', '--limit', 'x'],
+    ['artifacts', '--at-or-after', 'created_at:garbage'],
+  ]) {
+    const io = fakeIo();
+    const code = await runCli(argv, () => store, io, {
+      cwd: dir,
+      git: port,
+      scope: bindingScope(
+        async () => {
+          throw new Error('store opened');
+        },
+        port,
+        io.error,
+      ),
+    });
+    expect(code).toBe(2);
+    expect(io.err.join('\n')).not.toContain('store opened');
+  }
+});
+
+test('bare bind answers from git config without opening the store', async () => {
+  const dir = clone('configured', 'git@github.com:dbtlr/mimir.git');
+  git(dir, 'config', 'mimir.project', 'XX');
+  const io = fakeIo();
+  const code = await runCli(
+    ['bind'],
+    () => {
+      throw new Error('store opened');
+    },
+    io,
+    { cwd: dir, git: gitPortAt(dir) },
+  );
+  expect(code).toBe(0);
+  expect(io.out.join('')).toBe('XX');
+});

@@ -817,11 +817,6 @@ export async function runCli(
 
     switch (command) {
       case 'next': {
-        const nextScope = await scopeFor(values.scope);
-        const nextEmptyMsg =
-          nextScope !== undefined
-            ? `No ready tasks in ${nextScope} — mimir list --status awaiting -s ${nextScope} shows what's queued`
-            : "No ready tasks — mimir list --status awaiting shows what's queued";
         // Parsed BEFORE the store is opened (MMR-39): every one of these throws
         // `usage` on a structural fault, and a wrong invocation must not open the
         // store. Inside the call's argument list they were evaluated after
@@ -832,13 +827,18 @@ export async function runCli(
           limit: parseLimit(values.limit),
           priority: parsePriority(values.priority),
           q: values.query,
-          scope: nextScope,
           size: parseSize(values.size),
           timeZone: callerTimeZone(values.tz),
           verdicts: parseVerdicts(values.is, values['not-is']),
         };
+        // Resolved after every structural parse: scope resolution may open the store.
+        const nextScope = await scopeFor(values.scope);
+        const nextEmptyMsg =
+          nextScope !== undefined
+            ? `No ready tasks in ${nextScope} — mimir list --status awaiting -s ${nextScope} shows what's queued`
+            : "No ready tasks — mimir list --status awaiting shows what's queued";
         return runSet(
-          await nextTasks(await getStore(), nextQuery),
+          await nextTasks(await getStore(), { ...nextQuery, scope: nextScope }),
           values.format,
           ctx,
           nextEmptyMsg,
@@ -853,15 +853,16 @@ export async function runCli(
           limit: parseLimit(values.limit),
           priority: parsePriority(values.priority),
           q: values.query,
-          scope: await scopeFor(values.scope),
           size: parseSize(values.size),
           status: parseStatus(values.status),
           tag: values.tag?.[0],
           timeZone: callerTimeZone(values.tz),
           verdicts: parseVerdicts(values.is, values['not-is']),
         };
+        // Resolved after every structural parse: scope resolution may open the store.
+        const listScope = await scopeFor(values.scope);
         return runSet(
-          await listNodes(await getStore(), listQuery),
+          await listNodes(await getStore(), { ...listQuery, scope: listScope }),
           values.format,
           ctx,
           'No tasks match — try --status all, or drop a filter',
@@ -993,7 +994,6 @@ export async function runCli(
         // Unlike `overview`, the artifact feed IS a cross-project set: an unbound
         // invocation and the literal `-s all` both mean the portfolio (ADR 0004 —
         // an artifact is project-anchored but the search never was).
-        const scope = await scopeFor(values.scope);
         const artifactZone = callerTimeZone(values.tz);
         // Every structural fault (bad date, bad offset, bad format) is decided
         // BEFORE the store is acquired — a wrong invocation must never open the
@@ -1003,12 +1003,13 @@ export async function runCli(
           limit: parseLimit(values.limit),
           offset: parseOffset(values.offset),
           q: values.query,
-          scope,
           tag: values.tag?.[0],
           timeZone: artifactZone,
         };
         const format = pickFormat(values.format, 'set', ctx);
-        const result = await listArtifacts(await getStore(), artifactQuery);
+        // Resolved after every structural parse: scope resolution may open the store.
+        const scope = await scopeFor(values.scope);
+        const result = await listArtifacts(await getStore(), { ...artifactQuery, scope });
         // A well-formed query that returns NO ROWS is an empty set at exit 0, with
         // the reason on stderr so stdout stays a clean machine contract (ADR 0009).
         // Keyed off the returned rows, not the total: an `--offset` past the end
@@ -1043,8 +1044,8 @@ export async function runCli(
             `limit is a whole number from 1 to ${String(MAX_SEARCH_LIMIT)}`,
           );
         }
-        const project = await scopeFor(values.scope);
         const format = pickFormat(values.format, 'set', ctx);
+        const project = await scopeFor(values.scope);
         const result = await searchRecords(await getStore(), {
           limit: searchLimit,
           project,
@@ -1161,11 +1162,16 @@ export async function runCli(
         if (git === undefined) {
           throw usage('bind is unavailable in this context');
         }
-        const engine = new LocalEngine(await getStore());
         const key = positionals[1];
         if (key === undefined) {
-          return await cmdBindCheck(engine, git, singleFormat, ctx);
+          // Lazy: a git-config binding answers without opening the store.
+          const lazy = {
+            projectsByRemote: async (args: { remote: string }) =>
+              new LocalEngine(await getStore()).projectsByRemote(args),
+          };
+          return await cmdBindCheck(lazy, git, singleFormat, ctx);
         }
+        const engine = new LocalEngine(await getStore());
         const bound = await bindClone(engine, git, key);
         if (singleFormat === 'json' || singleFormat === 'jsonl') {
           ctx.write(
@@ -1207,7 +1213,16 @@ export async function runCli(
           throw usage('doctor is unavailable in this context');
         }
         const format = pickFormat(values.format, 'report', ctx);
-        return await cmdDoctor(ctx, defaults.doctor, format, await scopeFor(values.scope));
+        // Git config only: auto-binding would open the store outside the
+        // backend's error handling that doctor relies on to report a down store.
+        const doctorScope =
+          values.scope === 'all'
+            ? undefined
+            : (values.scope ??
+              (defaults.git === undefined
+                ? await scopeFor(undefined)
+                : (await defaults.git.readConfig(BINDING_CONFIG_KEY))?.trim() || undefined));
+        return await cmdDoctor(ctx, defaults.doctor, format, doctorScope);
       }
       case 'self-update': {
         if (defaults.selfUpdate === undefined) {
