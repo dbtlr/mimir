@@ -4,8 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
-import { tasksBrowserQuery } from '../api/queries';
-import type { TaskFilters } from '../api/queries';
+import { tasksBrowserQuery } from '../api/browse-queries';
+import type { TaskFilters } from '../api/browse-queries';
 import type { Collection, WireNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { AuthoringSheet } from '../components/authoring-sheet';

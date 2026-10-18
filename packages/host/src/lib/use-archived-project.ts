@@ -1,7 +1,7 @@
+import type { EngineNode } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 
-import { archivedProjectsQuery } from '../api/queries';
-import type { WireNode } from '../api/types';
+import { archivedProjectsQuery } from '../api/shell-queries';
 
 /**
  * The archived project a key names, or undefined while the archived list has
@@ -9,7 +9,7 @@ import type { WireNode } from '../api/types';
  * record, tree, and work) all 404 (ADR 0015), so a page that knows the key is
  * archived stops asking for them and shows the archived notice instead.
  */
-export function useArchivedProject(key: string): WireNode | undefined {
+export function useArchivedProject(key: string): EngineNode | undefined {
   const archived = useQuery(archivedProjectsQuery);
-  return archived.data?.items.find((p) => p.id === key);
+  return archived.data?.find((p) => p.id === key);
 }

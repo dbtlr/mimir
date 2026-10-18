@@ -3,8 +3,8 @@ import { Link, useMatch, useRouterState } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 
-import { reviewQuery } from '../api/queries';
 import type { WireReviewReport } from '../api/types';
+import { reviewQuery } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { nodeIdOf } from '../lib/record-url';

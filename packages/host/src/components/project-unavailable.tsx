@@ -1,9 +1,9 @@
+import type { EngineNode } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 
-import { useUnarchiveProject } from '../api/mutations';
-import { archivedProjectsQuery } from '../api/queries';
-import type { WireNode } from '../api/types';
+import { useUnarchiveProject } from '../api/shell-mutations';
+import { archivedProjectsQuery } from '../api/shell-queries';
 import { connectivity } from '../lib/connectivity';
 import { calendarDate } from '../lib/time';
 import { useArchivedProject } from '../lib/use-archived-project';
@@ -19,10 +19,10 @@ import { ActionButton } from './ui/action-button';
  */
 
 /** An archived project's page: its name, when it was archived, and Unarchive. */
-function ArchivedProjectPage({ project, offline }: { project: WireNode; offline: boolean }) {
+function ArchivedProjectPage({ project, offline }: { project: EngineNode; offline: boolean }) {
   const navigate = useNavigate();
   const unarchive = useUnarchiveProject(project.id);
-  const archivedOn = project.archived_at == null ? undefined : calendarDate(project.archived_at);
+  const archivedOn = project.archivedAt == null ? undefined : calendarDate(project.archivedAt);
   return (
     <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col items-start gap-3 p-5">
       <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1">

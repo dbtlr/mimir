@@ -1,4 +1,4 @@
-import type { StatusWord, TaskStatusWord } from '@mimir/contract';
+import type { EngineNode, StatusWord, TaskStatusWord } from '@mimir/contract';
 import { TASK_STATUS_WORD_VALUES } from '@mimir/contract';
 
 import type { WireNode } from '../api/types';
@@ -110,7 +110,7 @@ export const TASK_STATUS_ORDER: readonly TaskStatusWord[] = STATUS_ORDER.filter(
 );
 
 /** A task has settled once it is done or abandoned. */
-export const isSettledTask = (node: WireNode): boolean =>
+export const isSettledTask = (node: Pick<WireNode, 'status'>): boolean =>
   node.status === 'done' || node.status === 'abandoned';
 
 /**
@@ -119,9 +119,22 @@ export const isSettledTask = (node: WireNode): boolean =>
  * changed. A container's status rolls up from its children, so its last
  * change says nothing about when it settled, and it gets the word alone.
  */
-export function recordStanding(node: WireNode): string {
+export function recordStanding(node: Standing): string {
   const word = STATUS_META[node.status].label.toLowerCase();
+  if (node.type !== 'task' || !isSettledTask(node)) {
+    return word;
+  }
   const settledAt =
-    node.type === 'task' && isSettledTask(node) ? (node.completed_at ?? node.updated_at) : null;
-  return settledAt === null ? word : `${word} ${calendarDate(settledAt)}`;
+    'updatedAt' in node
+      ? (node.completedAt ?? node.updatedAt)
+      : (node.completed_at ?? node.updated_at);
+  return `${word} ${calendarDate(settledAt)}`;
 }
+
+/**
+ * What a record's standing reads: the status and type every node read shares,
+ * and its settle instants in either read's spelling (an `/api` wire record or
+ * an Engine record).
+ */
+type Standing = Pick<WireNode, 'status' | 'type'> &
+  (Pick<WireNode, 'completed_at' | 'updated_at'> | Pick<EngineNode, 'completedAt' | 'updatedAt'>);

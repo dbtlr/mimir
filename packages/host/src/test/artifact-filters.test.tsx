@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, vi } from 'vitest';
 
-import type { ArtifactFilters as Filters } from '../api/queries';
+import type { ArtifactFilters as Filters } from '../api/browse-queries';
 import { ArtifactFilters } from '../components/artifact-filters';
 
 /** A stateful parent mirroring the page: merges each partial into the filters. */

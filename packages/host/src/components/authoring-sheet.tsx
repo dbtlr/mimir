@@ -1,15 +1,18 @@
 import { PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
-import type { Priority, SeedKind, Size } from '@mimir/contract';
+import type { EngineNode, Priority, SeedKind, Size } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode, RefObject } from 'react';
 import { toast } from 'sonner';
 
-import { useCreateNode, useDepend, usePromoteSeed } from '../api/mutations';
-import type { CreateNodeInput, PromoteSeedInput } from '../api/mutations';
-import { projectsQuery, tasksQuery, treeQuery } from '../api/queries';
-import type { WireNode } from '../api/types';
+import { tasksQuery } from '../api/browse-queries';
+import type { DepCandidate } from '../api/browse-queries';
+import { useCreateNode, useDepend } from '../api/node-mutations';
+import type { CreateNodeInput, CreatedNode } from '../api/node-mutations';
+import { usePromoteSeed } from '../api/seed-mutations';
+import type { PromoteSeedInput } from '../api/seed-mutations';
+import { projectsQuery, treeQuery } from '../api/shell-queries';
 import { projectKeyOf } from '../api/types';
 import { cn } from '../lib/cn';
 import { homeOptions } from '../lib/parent-options';
@@ -142,7 +145,7 @@ function AuthoringSheetBody({
   );
   const [parentPick, setParentPick] = useState(prefill?.home ?? '');
   const [homeOpen, setHomeOpen] = useState(false);
-  const [deps, setDeps] = useState<WireNode[]>([]);
+  const [deps, setDeps] = useState<DepCandidate[]>([]);
   const [depSearch, setDepSearch] = useState('');
   const [depQ, setDepQ] = useState('');
   const [depActive, setDepActive] = useState(0);
@@ -156,7 +159,7 @@ function AuthoringSheetBody({
   const [createAnother, setCreateAnother] = useState(false);
   // Partial-failure marker: the node a prior submit created whose depend
   // failed — the next submit retries the attach instead of re-creating.
-  const [created, setCreated] = useState<WireNode | null>(null);
+  const [created, setCreated] = useState<CreatedNode | null>(null);
   const navigate = useNavigate();
   const titleRef = useRef<HTMLInputElement>(null);
   // The description auto-fills from the (late) promote body only until the user
@@ -164,7 +167,7 @@ function AuthoringSheetBody({
   const descriptionTouched = useRef(false);
 
   const projects = useQuery(projectsQuery);
-  const projectItems = projects.data?.items ?? [];
+  const projectItems = projects.data ?? [];
   const projKey = projectPick !== '' ? projectPick : (projectItems[0]?.id ?? '');
   const projTitle = projectItems.find((p) => p.id === projKey)?.title ?? projKey;
 
@@ -374,7 +377,7 @@ function AuthoringSheetBody({
     if (!canCreate) {
       return;
     }
-    let node: WireNode;
+    let node: CreatedNode;
     if (created !== null) {
       // A prior submit already created this node and only the depend failed —
       // retry the attach against it; never re-create (a duplicate node).
@@ -410,7 +413,7 @@ function AuthoringSheetBody({
     }
   }
 
-  function pickDep(n: WireNode | undefined) {
+  function pickDep(n: DepCandidate | undefined) {
     if (n === undefined) {
       return;
     }
@@ -962,7 +965,7 @@ function HomeProjectOptions({
   projKey,
   onPick,
 }: {
-  projectItems: WireNode[];
+  projectItems: EngineNode[];
   projKey: string;
   onPick: (id: string) => void;
 }) {

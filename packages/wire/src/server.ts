@@ -178,6 +178,10 @@ export function createEngineRouter(engine: Engine) {
         .input((value: unknown) => parseEngineInput(consoleSchemas.review.input, value))
         .output(consoleSchemas.review.output)
         .query(({ input }) => engine.console.review(input)),
+      search: procedure
+        .input((value: unknown) => parseEngineInput(consoleSchemas.search.input, value))
+        .output(consoleSchemas.search.output)
+        .query(({ input }) => engine.console.search(input)),
     }),
     getArtifact: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.getArtifact.input, value))

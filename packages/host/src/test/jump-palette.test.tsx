@@ -1,3 +1,4 @@
+import type { EngineSearchHit } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -5,40 +6,29 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
-import type { WireSearchHit } from '../api/types';
+import { consoleSearch } from '../api/fns/shell';
 import { routeTree } from '../router';
+import { engineProject, engineTree, searchHit, searchSet } from './engine-fixtures';
 import { emptyRead, project, task, workReport } from './fixtures';
+import { serveShell } from './shell-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
+vi.mock('../api/fns/shell');
 vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
 
-function hit(
-  overrides: Partial<WireSearchHit> & Pick<WireSearchHit, 'id' | 'title'>,
-): WireSearchHit {
-  return {
-    finished: false,
-    kind: 'task',
-    lifecycle: 'todo',
-    match: 'title',
-    project: 'MMR',
-    updated_at: '2026-10-01T10:00:00.000Z',
-    ...overrides,
-  };
-}
-
-/** What `/api/search` answers, by query. */
-const RESULTS: Record<string, WireSearchHit[]> = {
+/** What the search answers, by query. */
+const RESULTS: Record<string, EngineSearchHit[]> = {
   'MMR-417': [
-    hit({ id: 'MMR-417', match: 'id', title: 'Add the SQLite dialect' }),
-    hit({
+    searchHit({ id: 'MMR-417', match: 'id', title: 'Add the SQLite dialect' }),
+    searchHit({
       id: 'MMR-414',
       kind: 'phase',
       link: 'parent',
       match: 'link',
       title: 'SQLite replaces Norn',
     }),
-    hit({
+    searchHit({
       id: 'MMR-a219',
       kind: 'artifact',
       lifecycle: null,
@@ -48,45 +38,37 @@ const RESULTS: Record<string, WireSearchHit[]> = {
     }),
   ],
   dialect: [
-    hit({ id: 'MMR-417', title: 'Add the SQLite dialect' }),
-    hit({
+    searchHit({ id: 'MMR-417', title: 'Add the SQLite dialect' }),
+    searchHit({
       id: 'MMR-418',
       match: 'description',
       snippet: 'once the dialect seam lands, drop the vault store',
       title: 'Remove the Norn backend',
     }),
   ],
-  norn: [hit({ id: 'MMR-500', title: 'Retire Norn' })],
+  norn: [searchHit({ id: 'MMR-500', title: 'Retire Norn' })],
   sqlite: [
-    hit({ id: 'MMR-417', title: 'Add the SQLite dialect' }),
-    hit({ id: 'MMR-s41', kind: 'seed', lifecycle: 'new', title: 'SQLite locks under load' }),
+    searchHit({ id: 'MMR-417', title: 'Add the SQLite dialect' }),
+    searchHit({ id: 'MMR-s41', kind: 'seed', lifecycle: 'new', title: 'SQLite locks under load' }),
   ],
 };
 
 function mockApi() {
+  serveShell({
+    projects: [engineProject({ id: 'MMR', title: 'Mimir' })],
+    trees: {
+      MMR: engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' }),
+    },
+  });
+  vi.mocked(consoleSearch).mockImplementation(async ({ data }) =>
+    searchSet(RESULTS[data.query] ?? []),
+  );
   apiGet.mockImplementation((path: string) => {
-    if (path === '/api/health') {
+    if (path === '/health') {
       return Promise.resolve({ schema: 1, status: 'ok', version: '0.0.0' });
-    }
-    if (path.startsWith('/api/search?')) {
-      const q = new URLSearchParams(path.slice(path.indexOf('?'))).get('q') ?? '';
-      const items = RESULTS[q] ?? [];
-      return Promise.resolve({ items, total: items.length });
-    }
-    if (path === '/api/projects') {
-      return Promise.resolve({ items: [project({ id: 'MMR', title: 'Mimir' })], total: 1 });
     }
     if (path.startsWith('/api/projects/MMR/work?')) {
       return Promise.resolve(workReport());
-    }
-    if (path === '/api/projects/MMR/tree') {
-      return Promise.resolve({
-        children: [],
-        id: 'MMR',
-        status: 'in_progress',
-        title: 'Mimir',
-        type: 'project',
-      });
     }
     if (path === '/api/projects/MMR') {
       return Promise.resolve(project({ id: 'MMR', title: 'Mimir' }));
@@ -217,7 +199,7 @@ describe('jump palette (MMR-455)', () => {
     await jump(user, 'sqlite');
 
     await screen.findByRole('group', { name: /Titles/ });
-    expect(apiGet).toHaveBeenCalledWith('/api/search?q=sqlite&project=MMR');
+    expect(consoleSearch).toHaveBeenCalledWith({ data: { project: 'MMR', query: 'sqlite' } });
   });
 
   it('says so when nothing matches', async () => {
@@ -281,8 +263,10 @@ describe('jump palette (MMR-455)', () => {
     await jump(user, 'sqlite');
 
     await screen.findByRole('group', { name: /Titles/ });
-    expect(apiGet).toHaveBeenCalledWith('/api/search?q=sqlite');
-    expect(apiGet).not.toHaveBeenCalledWith(expect.stringMatching(/^\/api\/search\?.*project=ZZ/));
+    expect(consoleSearch).toHaveBeenCalledWith({ data: { query: 'sqlite' } });
+    expect(consoleSearch).not.toHaveBeenCalledWith({
+      data: expect.objectContaining({ project: 'ZZ' }),
+    });
   });
 
   it('leaves ⌘K alone off a Mac, where the chord is Ctrl-K', async () => {

@@ -6,10 +6,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { WireSeed } from '../api/types';
 import { routeTree } from '../router';
+import { engineProject } from './engine-fixtures';
 import { emptyRead, seed } from './fixtures';
+import { serveShell } from './shell-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
+vi.mock('../api/fns/shell');
 vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
 
 /** One seed per live lane, plus two terminal rows for the settled fold. */
@@ -37,18 +40,15 @@ const list: WireSeed[] = [
 ];
 
 function mockApi(items: WireSeed[] = list) {
+  serveShell({
+    projects: [
+      engineProject({ id: 'MMR', title: 'Mimir' }),
+      engineProject({ id: 'NRN', status: 'ready', title: 'Norn' }),
+    ],
+  });
   apiGet.mockImplementation((path: string) => {
-    if (path === '/api/health') {
+    if (path === '/health') {
       return Promise.resolve({ schema: 1, status: 'ok', version: '0.0.0' });
-    }
-    if (path.startsWith('/api/projects') && !path.includes('status=archived')) {
-      return Promise.resolve({
-        items: [
-          { id: 'MMR', status: 'in_progress', title: 'Mimir' },
-          { id: 'NRN', status: 'ready', title: 'Norn' },
-        ],
-        total: 2,
-      });
     }
     if (path.startsWith('/api/seeds?')) {
       return Promise.resolve({ items, total: items.length });

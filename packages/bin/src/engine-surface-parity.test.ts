@@ -120,14 +120,19 @@ test('every Engine method is claimed by the CLI or MCP surface', () => {
 /** Spelling-blind form, so `node_work`, `nodeWork`, and `node-work` compare equal. */
 const flatName = (name: string): string => name.replaceAll(/[^a-z]/gi, '').toLowerCase();
 
+/** Console views whose name a project-scoped flat method also carries. */
+const SHARED_CONSOLE_NAMES: ReadonlySet<string> = new Set(['overview', 'search']);
+
 test('console methods are namespaced and registered on neither the CLI nor MCP', () => {
   const tools = mcpToolNames();
   const toolNames = new Set([...tools].map(flatName));
   const commandNames = new Set(Object.keys(COMMAND_HELP).map(flatName));
   for (const method of Object.keys(consoleSchemas)) {
-    // `console.overview` shares its name with the `overview` tool; the tool runs the project Engine's `overview`.
-    expect(method in engineSchemas && method !== 'overview').toBe(false);
-    if (method !== 'overview') {
+    // `console.overview` and `console.search` share their names with the
+    // `overview` and `search` tools; those run the project-scoped flat methods.
+    const shared = SHARED_CONSOLE_NAMES.has(method);
+    expect(method in engineSchemas && !shared).toBe(false);
+    if (!shared) {
       // Any spelling of the method, bare or `console`-prefixed, would be a console view leaking out.
       for (const spelling of [flatName(method), `console${flatName(method)}`]) {
         expect(toolNames.has(spelling)).toBe(false);

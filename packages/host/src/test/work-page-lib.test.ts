@@ -1,6 +1,7 @@
+import type { EngineTree } from '@mimir/contract';
 import { describe, expect, it } from 'vitest';
 
-import type { WireArtifact, WireTreeNode } from '../api/types';
+import type { WireArtifact } from '../api/types';
 import {
   SHIPPED_DAY_CAP,
   buildOutline,
@@ -10,6 +11,7 @@ import {
   newestArtifacts,
   shippedTime,
 } from '../lib/work-page';
+import { engineTree } from './engine-fixtures';
 
 // Mon Oct 12 2026, 23:30 in New York (03:30 UTC on the 13th).
 const NOW = Date.parse('2026-10-13T03:30:00.000Z');
@@ -115,22 +117,12 @@ describe('frontierIsEmpty', () => {
 
 function tn(
   id: string,
-  type: WireTreeNode['type'],
-  status: WireTreeNode['status'],
-  children: WireTreeNode[] = [],
-  extra: Partial<WireTreeNode> = {},
-): WireTreeNode {
-  return {
-    children,
-    created_at: '2026-06-01T10:00:00.000Z',
-    id,
-    parent: null,
-    status,
-    title: id,
-    type,
-    updated_at: '2026-06-01T10:00:00.000Z',
-    ...extra,
-  };
+  type: EngineTree['type'],
+  status: EngineTree['status'],
+  children: EngineTree[] = [],
+  extra: Partial<EngineTree> = {},
+): EngineTree {
+  return engineTree({ id, status, title: id, type, ...extra }, children);
 }
 
 describe('buildOutline', () => {

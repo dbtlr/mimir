@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
-import type { ArtifactFilters as Filters } from '../api/queries';
+import type { ArtifactFilters as Filters } from '../api/browse-queries';
 import { kindTagLabel, kindTagOptions } from '../lib/artifacts';
 import { BrowserSearch, FilterRow, MenuChip, RemovableChip } from './browser-list';
 

@@ -1,19 +1,24 @@
+import type { EngineNode } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
+import { projects, updateProject } from '../api/fns/shell';
 import { browserTimeZone } from '../api/queries';
-import type { WireNode, WireReviewProject } from '../api/types';
+import type { WireReviewProject } from '../api/types';
 import { ProjectPicker } from '../components/project-picker';
 import { routeTree } from '../router';
-import { emptyRead, project, reviewReport, task, workReport } from './fixtures';
+import { engineProject } from './engine-fixtures';
+import { emptyRead, reviewReport, task, workReport } from './fixtures';
 import { renderInRouter } from './router';
+import { failShellReads, serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
 
-const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend }));
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/shell');
 
 /*
  * The sidebar's project switcher (MMR-497, ADR 0013 refinement): a searchable
@@ -22,40 +27,39 @@ vi.mock('../api/client', () => ({ apiGet, apiSend }));
  * pick moves the page.
  */
 
-const atDay = (day: string) => `2026-09-${day}T00:00:00.000Z`;
+const atDay = (day: string) => new Date(`2026-09-${day}T00:00:00.000Z`);
 
-const NRN = project({ id: 'NRN', last_activity_at: atDay('05'), pinned: true, title: 'Norn' });
-const MMR = project({ id: 'MMR', last_activity_at: atDay('09'), title: 'Mimir' });
-const LUM = project({ id: 'LUM', last_activity_at: atDay('02'), title: 'Lumen' });
-const OLD = project({ archived_at: atDay('01'), id: 'OLD', title: 'Retired' });
+const NRN = engineProject({ id: 'NRN', lastActivityAt: atDay('05'), pinned: true, title: 'Norn' });
+const MMR = engineProject({ id: 'MMR', lastActivityAt: atDay('09'), title: 'Mimir' });
+const LUM = engineProject({ id: 'LUM', lastActivityAt: atDay('02'), title: 'Lumen' });
+const OLD = engineProject({ archivedAt: atDay('01'), id: 'OLD', title: 'Retired' });
 
 function decisions(key: string, count: number): WireReviewProject {
   return { decisions: count, going_cold: 0, in_flight: 0, key, live: 0, name: key, triage: 0 };
 }
 
-/** The project with its pin set, when it is the one the write names. */
-function withPin(p: WireNode, key: string | undefined, pinned: boolean): WireNode {
-  return p.id === key ? { ...p, pinned } : p;
-}
-
 type World = {
-  projects: WireNode[];
-  archived: WireNode[];
+  projects: EngineNode[];
+  archived: EngineNode[];
   review: WireReviewProject[];
 };
 
-/** Serve a small world; a PATCH writes the pin into it, as the server would. */
+/** The project with its pin set, when it is the one the write names. */
+function withPin(p: EngineNode, key: string, pinned: boolean | undefined): EngineNode {
+  return p.id === key && pinned !== undefined ? { ...p, pinned } : p;
+}
+
+/** Serve a small world; a pin writes into it, as the host would. */
 function serve(world: Partial<World> = {}) {
-  const state: World = { archived: [OLD], projects: [NRN, MMR, LUM], review: [], ...world };
+  const { review, ...lists } = { archived: [OLD], projects: [NRN, MMR, LUM], review: [], ...world };
+  const shell = serveShell(lists);
+  vi.mocked(updateProject).mockImplementation(async ({ data }) => {
+    shell.projects = shell.projects.map((p) => withPin(p, data.id, data.pinned));
+    return engineProject({ id: data.id });
+  });
   apiGet.mockImplementation((path: string) => {
-    if (path === '/api/projects') {
-      return Promise.resolve({ items: state.projects, total: state.projects.length });
-    }
-    if (path === '/api/projects?status=archived') {
-      return Promise.resolve({ items: state.archived, total: state.archived.length });
-    }
     if (path.startsWith('/api/review')) {
-      return Promise.resolve(reviewReport({ projects: state.review }));
+      return Promise.resolve(reviewReport({ projects: review }));
     }
     if (path.startsWith('/api/doctor') || /^\/api\/projects\/[A-Z]+$/.test(path)) {
       return Promise.withResolvers().promise;
@@ -66,18 +70,18 @@ function serve(world: Partial<World> = {}) {
         record[2] === undefined ? task({ id: record[1], status: 'ready' }) : workReport(),
       );
     }
-    const tree = /^\/api\/projects\/([A-Z]+)\/tree$/.exec(path)?.[1];
-    if (tree !== undefined) {
-      return Promise.resolve({ ...project({ id: tree }), children: [] });
-    }
     return Promise.resolve(emptyRead(path));
   });
-  apiSend.mockImplementation((_method: string, path: string, body: { pinned: boolean }) => {
-    const key = path.split('/').at(-1);
-    state.projects = state.projects.map((p) => withPin(p, key, body.pinned));
-    return Promise.resolve({});
-  });
 }
+
+/** The host is unreachable: every read fails. */
+function unreachable() {
+  apiGet.mockRejectedValue(new Error('unreachable'));
+  failShellReads();
+}
+
+/** The pin write the switcher sends for `key`. */
+const pinWrite = (key: string, pinned: boolean) => ({ data: { id: key, pinned } });
 
 const newClient = () =>
   new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } });
@@ -245,9 +249,7 @@ describe('switcher search', () => {
   });
 
   it('says it is loading, not that nothing matches, before the list arrives', async () => {
-    apiGet.mockImplementation((path: string) =>
-      path === '/api/projects' ? Promise.withResolvers().promise : Promise.resolve(emptyRead(path)),
-    );
+    vi.mocked(projects).mockReturnValue(Promise.withResolvers<EngineNode[]>().promise);
     await renderInRouter(<ProjectPicker context={{ key: 'NRN', kind: 'project' }} />);
     await openSwitcherFromButton();
     await expect(screen.findByText('Loading projects…')).resolves.toBeInTheDocument();
@@ -255,7 +257,7 @@ describe('switcher search', () => {
   });
 
   it('says the list is unavailable when the read fails', async () => {
-    apiGet.mockRejectedValue(new Error('unreachable'));
+    unreachable();
     await renderInRouter(
       <ProjectPicker context={{ key: 'NRN', kind: 'project' }} />,
       new QueryClient({ defaultOptions: { queries: { retry: false } } }),
@@ -266,14 +268,14 @@ describe('switcher search', () => {
 });
 
 describe('switcher pinning', () => {
-  it('pins the highlighted row with Alt+P: PATCH, reorder at once, no navigation', async () => {
-    const held = Promise.withResolvers<object>();
+  it('pins the highlighted row with Alt+P: write, reorder at once, no navigation', async () => {
+    const held = Promise.withResolvers<EngineNode>();
     const testRouter = renderAt('/p/NRN/tasks');
     const search = await openSwitcher();
     expect(search).toHaveAttribute('aria-keyshortcuts', 'Alt+P');
-    apiSend.mockReturnValueOnce(held.promise);
+    vi.mocked(updateProject).mockReturnValueOnce(held.promise);
     await userEvent.keyboard('{ArrowDown}{ArrowDown}{Alt>}p{/Alt}');
-    expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/LUM', { pinned: true });
+    expect(updateProject).toHaveBeenCalledWith(pinWrite('LUM', true));
     await waitFor(() => {
       expect(keysInOrder()).toStrictEqual(['NRN', 'LUM', 'MMR']);
     });
@@ -281,15 +283,15 @@ describe('switcher pinning', () => {
     expect(optionOf('MMR')).not.toHaveAccessibleName(/pinned/);
     expect(search).toHaveFocus();
     expect(testRouter.state.location.pathname).toBe('/p/NRN/tasks');
-    held.resolve({});
+    held.resolve(engineProject());
   });
 
   it('keeps a pending pin when a background poll returns the older list', async () => {
-    const held = Promise.withResolvers<object>();
+    const held = Promise.withResolvers<EngineNode>();
     const client = newClient();
     renderAt('/p/NRN/tasks', client);
     await openSwitcher();
-    apiSend.mockReturnValueOnce(held.promise);
+    vi.mocked(updateProject).mockReturnValueOnce(held.promise);
     await userEvent.keyboard('{ArrowDown}{ArrowDown}{Alt>}p{/Alt}');
     await waitFor(() => {
       expect(keysInOrder()).toStrictEqual(['NRN', 'LUM', 'MMR']);
@@ -298,13 +300,13 @@ describe('switcher pinning', () => {
     await act(() => client.refetchQueries({ queryKey: ['projects'] }));
     expect(keysInOrder()).toStrictEqual(['NRN', 'LUM', 'MMR']);
     expect(optionOf('LUM')).toHaveAccessibleName(/pinned/);
-    held.resolve({});
+    held.resolve(engineProject());
   });
 
   it('falls back to the server’s list when the pin fails', async () => {
     renderAt('/p/NRN');
     await openSwitcher();
-    apiSend.mockRejectedValueOnce(new Error('read only'));
+    vi.mocked(updateProject).mockRejectedValueOnce(new Error('read only'));
     await userEvent.keyboard('{ArrowDown}{ArrowDown}{Alt>}p{/Alt}');
     await waitFor(() => {
       expect(keysInOrder()).toStrictEqual(['NRN', 'MMR', 'LUM']);
@@ -318,7 +320,7 @@ describe('switcher pinning', () => {
     const live = screen.getByRole('status');
     expect(live).toHaveAttribute('aria-live', 'polite');
     await userEvent.keyboard('{Alt>}p{/Alt}');
-    expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/NRN', { pinned: false });
+    expect(updateProject).toHaveBeenCalledWith(pinWrite('NRN', false));
     expect(live).toHaveTextContent('Unpinned NRN');
     await waitFor(() => {
       expect(keysInOrder()).toStrictEqual(['MMR', 'NRN', 'LUM']);
@@ -334,7 +336,7 @@ describe('switcher pinning', () => {
     expect(icon).not.toBeNull();
     await userEvent.click(icon as Element);
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/MMR', { pinned: true });
+      expect(updateProject).toHaveBeenCalledWith(pinWrite('MMR', true));
     });
     expect(testRouter.state.location.pathname).toBe('/p/NRN/tasks');
     expect(screen.getByRole('combobox', { name: 'Find a project' })).toHaveFocus();
@@ -450,7 +452,7 @@ describe('switcher All projects option (MMR-505)', () => {
     expect(allOption().querySelector('[data-pin]')).toBeNull();
     await userEvent.keyboard('{ArrowUp}{Alt>}p{/Alt}');
     expect(activeKeys()).toStrictEqual(['ALL']);
-    expect(apiSend).not.toHaveBeenCalled();
+    expect(updateProject).not.toHaveBeenCalled();
   });
 
   it('shows the decisions across every project', async () => {
@@ -604,7 +606,7 @@ describe('switcher New project entry (MMR-230)', () => {
   });
 
   it('is disabled when the projects query errors (offline)', async () => {
-    apiGet.mockRejectedValue(new Error('unreachable'));
+    unreachable();
     await renderInRouter(
       <ProjectPicker context={{ key: 'NRN', kind: 'project' }} />,
       new QueryClient({ defaultOptions: { queries: { retry: false } } }),
@@ -623,14 +625,14 @@ describe('switcher while offline', () => {
     await renderInRouter(<ProjectPicker context={{ key: 'NRN', kind: 'project' }} />, client);
     await openSwitcherFromButton();
     await screen.findByRole('option', { name: /MMR/ });
-    apiGet.mockRejectedValue(new Error('unreachable'));
+    unreachable();
     await act(() => client.invalidateQueries({ queryKey: ['projects'] }));
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /new project/i })).toBeDisabled();
     });
     await userEvent.keyboard('{Alt>}p{/Alt}');
     await userEvent.click(pinIcon('MMR') as Element);
-    expect(apiSend).not.toHaveBeenCalled();
+    expect(updateProject).not.toHaveBeenCalled();
   });
 });
 

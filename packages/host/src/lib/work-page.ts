@@ -1,4 +1,6 @@
-import type { WireArtifact, WireTreeNode } from '../api/types';
+import type { EngineTree } from '@mimir/contract';
+
+import type { WireArtifact } from '../api/types';
 import { ancestorsOf, subtreeOf } from './ancestry';
 
 /*
@@ -131,7 +133,7 @@ export type OutlineMark = 'current' | 'path';
 export type OutlineEntry = {
   id: string;
   title: string;
-  status: WireTreeNode['status'];
+  status: EngineTree['status'];
   depth: number;
   tally: OutlineTally;
   mark?: OutlineMark;
@@ -144,22 +146,22 @@ export type ProjectOutline = {
   finished: { count: number; entries: OutlineEntry[] };
 };
 
-const isContainer = (node: WireTreeNode): boolean => node.type !== 'task';
+const isContainer = (node: EngineTree): boolean => node.type !== 'task';
 
 /** A finished initiative: done or abandoned. */
-const isFinished = (node: WireTreeNode): boolean =>
+const isFinished = (node: EngineTree): boolean =>
   node.type === 'initiative' && (node.status === 'done' || node.status === 'abandoned');
 
 /**
  * Done over total across a node's direct children, tasks and containers alike.
  * An abandoned child is out of the total, so a finished container reads N/N.
  */
-function childTally(node: WireTreeNode): { done: number; total: number } {
+function childTally(node: EngineTree): { done: number; total: number } {
   const counted = node.children.filter((c) => c.status !== 'abandoned');
   return { done: counted.filter((c) => c.status === 'done').length, total: counted.length };
 }
 
-function tallyOf(node: WireTreeNode): OutlineTally {
+function tallyOf(node: EngineTree): OutlineTally {
   if (node.open_ended === true) {
     return { kind: 'open_ended' };
   }
@@ -183,7 +185,7 @@ function markOf(id: string, place: Place | undefined): OutlineMark | undefined {
 }
 
 /** A container and the containers under it, flattened in tree order. */
-function flatten(node: WireTreeNode, depth: number, place: Place | undefined): OutlineEntry[] {
+function flatten(node: EngineTree, depth: number, place: Place | undefined): OutlineEntry[] {
   return [
     {
       depth,
@@ -203,7 +205,7 @@ function flatten(node: WireTreeNode, depth: number, place: Place | undefined): O
  */
 function withTaskRow(
   entries: OutlineEntry[],
-  task: WireTreeNode,
+  task: EngineTree,
   parentId: string | undefined,
 ): OutlineEntry[] {
   const at = parentId === undefined ? -1 : entries.findIndex((e) => e.id === parentId);
@@ -231,7 +233,7 @@ function withTaskRow(
  * `current` and the containers above it are `path`. A task is not an outline
  * row by nature, so the open one is listed under its nearest container.
  */
-export function buildOutline(tree: WireTreeNode, openId?: string): ProjectOutline {
+export function buildOutline(tree: EngineTree, openId?: string): ProjectOutline {
   const above = openId === undefined ? undefined : ancestorsOf(tree, openId);
   const open = openId === undefined ? undefined : subtreeOf(tree, openId);
   const place: Place | undefined =

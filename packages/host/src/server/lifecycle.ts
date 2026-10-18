@@ -3,6 +3,7 @@ import { acceptedHosts } from '@mimir/core';
 import { definePlugin } from 'nitro';
 
 import { hostConfig } from './config';
+import { guardEveryRoute } from './guard';
 import { closeHost, hostRuntime } from './runtime';
 
 /** Share one readiness and guard snapshot across every dispatched route. */
@@ -26,12 +27,7 @@ async function startHost() {
 export default definePlugin((app) => {
   // Nitro does not await async plugins. Gate every response on the open and
   // terminate explicitly rather than leave a listener with a rejected store.
-  const ready = startHost();
-  const fetch = app.fetch;
-  app.fetch = async (...args: Parameters<typeof fetch>) => {
-    const guard = await ready;
-    // Nitro serves public files before Start, so guard before either dispatches.
-    return guard(args[0]) ?? fetch(...args);
-  };
+  // Nitro serves public files before Start, so guard before either dispatches.
+  app.fetch = guardEveryRoute(app.fetch, startHost());
   app.hooks.hook('close', closeHost);
 });

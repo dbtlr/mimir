@@ -1,25 +1,19 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, vi } from 'vitest';
 
 import {
   useAnnotate,
-  useArchiveProject,
   useCreateNode,
-  useCreateProject,
   useDepend,
   useMoveNode,
-  usePendingPins,
-  usePinProject,
   useTag,
   useTransition,
-  useUnarchiveProject,
   useUndepend,
   useUntag,
   useUpdateNode,
-  useUpdateProject,
-} from '../api/mutations';
+} from '../api/node-mutations';
 
 const { apiSend } = vi.hoisted(() => ({ apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiSend }));
@@ -198,58 +192,6 @@ describe('authoring mutation hooks', () => {
     });
   });
 
-  it('useUpdateProject PATCHes /api/projects/:key with the given fields', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR' });
-    const client = new QueryClient();
-    const { result } = renderHook(() => useUpdateProject('MMR'), { wrapper: wrapper(client) });
-    result.current.mutate({ description: 'A short blurb', title: 'Renamed' });
-    await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/MMR', {
-        description: 'A short blurb',
-        title: 'Renamed',
-      });
-    });
-  });
-
-  it('useCreateProject POSTs /api/projects with key + name (MMR-230)', async () => {
-    apiSend.mockResolvedValue({ id: 'SR' });
-    const client = new QueryClient();
-    const { result } = renderHook(() => useCreateProject(), { wrapper: wrapper(client) });
-    result.current.mutate({ description: 'A relay', key: 'SR', name: 'Signal relay' });
-    await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/projects', {
-        description: 'A relay',
-        key: 'SR',
-        name: 'Signal relay',
-      });
-    });
-  });
-
-  it('useCreateProject toasts the server rejection (dup/invalid key)', async () => {
-    apiSend.mockRejectedValue(new Error('project SR already exists'));
-    const client = new QueryClient();
-    const { result } = renderHook(() => useCreateProject(), { wrapper: wrapper(client) });
-    result.current.mutate({ key: 'SR', name: 'Signal relay' });
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('project SR already exists');
-    });
-  });
-
-  it('useArchiveProject and useUnarchiveProject POST the lifecycle routes (MMR-230)', async () => {
-    apiSend.mockResolvedValue({ id: 'SR' });
-    const client = new QueryClient();
-    const archive = renderHook(() => useArchiveProject('SR'), { wrapper: wrapper(client) });
-    archive.result.current.mutate();
-    await waitFor(() =>
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/projects/SR/archive', undefined),
-    );
-    const unarchive = renderHook(() => useUnarchiveProject('SR'), { wrapper: wrapper(client) });
-    unarchive.result.current.mutate();
-    await waitFor(() =>
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/projects/SR/unarchive', undefined),
-    );
-  });
-
   it('useTag POSTs and useUntag DELETEs the tag route (encoded)', async () => {
     apiSend.mockResolvedValue({ id: 'MMR-9' });
     const client = new QueryClient();
@@ -271,69 +213,5 @@ describe('authoring mutation hooks', () => {
         undefined,
       ),
     );
-  });
-});
-
-function pins() {
-  return renderHook(() => ({ mutation: usePinProject(), pending: usePendingPins() }), {
-    wrapper: wrapper(new QueryClient()),
-  });
-}
-
-describe('usePinProject (MMR-497)', () => {
-  it('PATCHes the flag and reports it pending until the write settles', async () => {
-    const held = Promise.withResolvers<object>();
-    apiSend.mockReturnValue(held.promise);
-    const { result } = pins();
-    act(() => {
-      result.current.mutation.mutate({ key: 'MMR', pinned: true });
-    });
-    await waitFor(() => {
-      expect(result.current.pending.get('MMR')).toBe(true);
-    });
-    expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/MMR', { pinned: true });
-    held.resolve({});
-    await waitFor(() => {
-      expect(result.current.pending.size).toBe(0);
-    });
-  });
-
-  it('drops a failed pin from the pending set and toasts, touching no cache', async () => {
-    apiSend.mockRejectedValue(new Error('read only'));
-    const { result } = pins();
-    act(() => {
-      result.current.mutation.mutate({ key: 'MMR', pinned: true });
-    });
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('read only');
-    });
-    await waitFor(() => {
-      expect(result.current.pending.size).toBe(0);
-    });
-  });
-
-  it('keeps each pin until its own write settles, so one failing leaves the other pending', async () => {
-    const first = Promise.withResolvers<object>();
-    const second = Promise.withResolvers<object>();
-    apiSend.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
-    const { result } = pins();
-    act(() => {
-      result.current.mutation.mutate({ key: 'MMR', pinned: true });
-      result.current.mutation.mutate({ key: 'NRN', pinned: false });
-    });
-    await waitFor(() => {
-      expect([...result.current.pending]).toStrictEqual([
-        ['MMR', true],
-        ['NRN', false],
-      ]);
-    });
-    first.reject(new Error('read only'));
-    await waitFor(() => {
-      expect([...result.current.pending]).toStrictEqual([['NRN', false]]);
-    });
-    second.resolve({});
-    await waitFor(() => {
-      expect(result.current.pending.size).toBe(0);
-    });
   });
 });

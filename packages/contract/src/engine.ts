@@ -20,6 +20,10 @@ export type { UniformArgs } from './engine-node-writes';
 export * from './engine-console';
 
 export type EngineNode = z.output<typeof engineViews.node>;
+/** A node with its whole subtree nested under `children`, as `tree` returns it. */
+export type EngineTree = z.output<typeof engineViews.tree>;
+/** One cross-record search hit, as `search` and `console.search` return it. */
+export type EngineSearchHit = z.output<typeof engineViews.searchSet>['items'][number];
 
 const facets = z.array(z.enum(FACET_NAMES)).optional();
 const count = z.number().int().nonnegative().optional();

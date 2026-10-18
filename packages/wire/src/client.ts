@@ -252,6 +252,7 @@ function consoleBindings(client: TRPCClient<EngineRouter>): ConsoleEngine {
     projectWork: (input: ConsoleInput<'projectWork'>) =>
       domainResult(client.console.projectWork.query(input)),
     review: (input: ConsoleInput<'review'>) => domainResult(client.console.review.query(input)),
+    search: (input: ConsoleInput<'search'>) => domainResult(client.console.search.query(input)),
   };
 }
 

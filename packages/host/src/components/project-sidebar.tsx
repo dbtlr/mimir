@@ -1,10 +1,11 @@
 import { Dialog } from '@base-ui-components/react/dialog';
+import type { EngineTree } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLinkProps, useRouterState } from '@tanstack/react-router';
 import { useState } from 'react';
 
-import { nodeQuery, treeQuery } from '../api/queries';
-import type { WireTreeNode } from '../api/types';
+import { nodeQuery } from '../api/node-queries';
+import { treeQuery } from '../api/shell-queries';
 import { cn } from '../lib/cn';
 import { isSectionPage, openRecordId, sectionOfPath } from '../lib/project-sidebar';
 import type { SidebarContext } from '../lib/project-sidebar';
@@ -150,7 +151,7 @@ function Outline({
   openId,
   onNavigate,
 }: {
-  tree: WireTreeNode | undefined;
+  tree: EngineTree | undefined;
   unavailable: boolean;
   openId: string | undefined;
   onNavigate?: () => void;

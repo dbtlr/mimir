@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 
+import { doctorQuery } from '../api/browse-queries';
 import { isNotFound } from '../api/errors';
-import { doctorQuery, projectQuery } from '../api/queries';
+import { projectQuery } from '../api/node-queries';
 import { OfflineBanner } from '../components/offline-banner';
 import { UnavailableProject } from '../components/project-unavailable';
 import { RecordPending } from '../components/record-layout';

@@ -5,10 +5,13 @@ import { beforeEach, describe, expect, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
 import { routeTree } from '../router';
-import { emptyRead, task, workReport } from './fixtures';
+import { engineProject, engineTree } from './engine-fixtures';
+import { emptyRead, workReport } from './fixtures';
+import { failShellReads, serveShell } from './shell-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
+vi.mock('../api/fns/shell');
 
 function renderProject(key: string, search = '') {
   const testRouter = createRouter({
@@ -29,6 +32,7 @@ describe('project page archived-404 (MMR-230)', () => {
   it('a 404ing project renders the unavailable notice, not a false Offline banner', async () => {
     // Archived-404 semantics: every project-scoped read answers 404, while
     // portfolio reads (shell strips, picker) stay healthy.
+    serveShell({ projects: [engineProject({ id: 'MMR', title: 'Mimir' })] });
     apiGet.mockImplementation((path: string) => {
       if (path.startsWith('/api/projects/SR') || path.includes('project=SR')) {
         return Promise.reject(new ApiError(`GET ${path} → 404`, 404));
@@ -45,6 +49,7 @@ describe('project page archived-404 (MMR-230)', () => {
 
   it('an unreachable server still reads as offline, not as not-found', async () => {
     apiGet.mockRejectedValue(new TypeError('fetch failed'));
+    failShellReads(new TypeError('fetch failed'));
     renderProject('SR');
 
     await expect(screen.findByText(/offline — last synced/i)).resolves.toBeDefined();
@@ -54,25 +59,30 @@ describe('project page archived-404 (MMR-230)', () => {
 
 /** Serve the MMR project with direction, a description, and two top-level children. */
 function serveProject() {
+  serveShell({
+    projects: [engineProject({ id: 'MMR', title: 'Mimir' })],
+    trees: {
+      MMR: engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' }, [
+        engineTree({
+          id: 'MMR-1',
+          parent: 'MMR',
+          status: 'in_progress',
+          title: 'Hosted backends',
+          type: 'initiative',
+        }),
+        engineTree({
+          id: 'MMR-9',
+          parent: 'MMR',
+          status: 'ready',
+          title: 'A loose task',
+          type: 'task',
+        }),
+      ]),
+    },
+  });
   apiGet.mockImplementation((path: string) => {
     if (path.startsWith('/api/projects/MMR/work?')) {
       return Promise.resolve(workReport());
-    }
-    if (path === '/api/projects/MMR/tree') {
-      return Promise.resolve({
-        children: [
-          {
-            ...task({ id: 'MMR-1', status: 'in_progress', title: 'Hosted backends' }),
-            children: [],
-            type: 'initiative',
-          },
-          { ...task({ id: 'MMR-9', status: 'ready', title: 'A loose task' }), children: [] },
-        ],
-        id: 'MMR',
-        status: 'in_progress',
-        title: 'Mimir',
-        type: 'project',
-      });
     }
     if (path === '/api/projects/MMR') {
       return Promise.resolve({

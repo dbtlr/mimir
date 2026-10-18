@@ -1,12 +1,13 @@
-import type { WireTreeNode } from '../api/types';
+/** What the walks read off a tree: ids and the nested children. Any tree read satisfies it. */
+type Tree<T> = { id: string; children: readonly T[] };
 
 /**
  * The containers above `id` in its project tree, outermost first, without the
  * project root — a record page's breadcrumb trail. Undefined when the tree
  * does not hold `id`.
  */
-export function ancestorsOf(root: WireTreeNode, id: string): WireTreeNode[] | undefined {
-  const walk = (node: WireTreeNode, path: WireTreeNode[]): WireTreeNode[] | undefined => {
+export function ancestorsOf<T extends Tree<T>>(root: T, id: string): T[] | undefined {
+  const walk = (node: T, path: T[]): T[] | undefined => {
     for (const child of node.children) {
       if (child.id === id) {
         return path;
@@ -22,7 +23,7 @@ export function ancestorsOf(root: WireTreeNode, id: string): WireTreeNode[] | un
 }
 
 /** The subtree rooted at `id`, or undefined when the tree does not hold it. */
-export function subtreeOf(root: WireTreeNode, id: string): WireTreeNode | undefined {
+export function subtreeOf<T extends Tree<T>>(root: T, id: string): T | undefined {
   if (root.id === id) {
     return root;
   }
@@ -43,11 +44,8 @@ export function subtreeOf(root: WireTreeNode, id: string): WireTreeNode | undefi
  * container that holds the rest counts. Empty when only the project holds
  * them all; undefined when the tree cannot place every one of them.
  */
-export function sharedPathOf(
-  root: WireTreeNode,
-  ids: readonly string[],
-): WireTreeNode[] | undefined {
-  let shared: WireTreeNode[] | undefined;
+export function sharedPathOf<T extends Tree<T>>(root: T, ids: readonly string[]): T[] | undefined {
+  let shared: T[] | undefined;
   for (const id of ids) {
     const above = ancestorsOf(root, id);
     const node = above === undefined ? undefined : subtreeOf(root, id);

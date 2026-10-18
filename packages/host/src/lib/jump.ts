@@ -1,6 +1,4 @@
-import type { SearchLink, SearchMatch, StatusWord } from '@mimir/contract';
-
-import type { WireSearchHit } from '../api/types';
+import type { SearchLink, SearchMatch, StatusWord, EngineSearchHit } from '@mimir/contract';
 
 /**
  * The jump palette's reading of a search result (MMR-455): hits grouped by how
@@ -8,7 +6,7 @@ import type { WireSearchHit } from '../api/types';
  * marked where they occur.
  */
 
-export type HitGroup = { label: string; hits: WireSearchHit[] };
+export type HitGroup = { label: string; hits: EngineSearchHit[] };
 
 const GROUP_LABEL: Record<SearchMatch, string> = {
   description: 'Descriptions',
@@ -20,7 +18,7 @@ const GROUP_LABEL: Record<SearchMatch, string> = {
 const GROUP_ORDER: readonly SearchMatch[] = ['id', 'link', 'title', 'description'];
 
 /** Hits grouped by match, in {@link GROUP_ORDER}; the search's ranking holds inside each group. */
-export function groupHits(hits: readonly WireSearchHit[]): HitGroup[] {
+export function groupHits(hits: readonly EngineSearchHit[]): HitGroup[] {
   return GROUP_ORDER.map((match) => ({
     hits: hits.filter((h) => h.match === match),
     label: GROUP_LABEL[match],
@@ -68,7 +66,7 @@ export function highlightTerms(title: string, query: string): Segment[] {
  * flight or finished. Open work's derived word (ready, blocked, awaiting) is
  * not computed by search, so it shows none.
  */
-export function hitStatus(hit: Pick<WireSearchHit, 'lifecycle'>): StatusWord | undefined {
+export function hitStatus(hit: Pick<EngineSearchHit, 'lifecycle'>): StatusWord | undefined {
   switch (hit.lifecycle) {
     case 'in_progress':
     case 'under_review':

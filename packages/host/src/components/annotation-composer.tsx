@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { useAnnotate } from '../api/mutations';
+import { useAnnotate } from '../api/node-mutations';
 import { ActionButton } from './ui/action-button';
 
 /**

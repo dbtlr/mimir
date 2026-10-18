@@ -256,3 +256,33 @@ put the doctor facet on the wire, so the host keeps it.
 
 `/api/transitions` is not an Engine method. Nothing calls it, and it is
 deleted with `/api`.
+
+## Refinement (2026-10-18 — the console's server functions and its search)
+
+The console reaches the host's Engine through TanStack Start server functions
+(ADR 0035), the first ones serving the shell. Each server function is one
+Engine method on the host's shared `LocalEngine`. It is named after the
+method, validates its input with the method's contract schema, and returns
+the Engine's output with `Date` instants. The handlers reach the Engine
+through a helper typed as the `Engine` interface, not `LocalEngine`, so a
+handler cannot reach a store. A lint boundary keeps the server-function
+modules from importing core or the `/api` handler, which makes Decision 7
+a check rather than a convention. Query policy stays in the console's data
+layer: the facets a read asks for, its cache key, and its polling. Health
+stays the host's `/health` route.
+
+**`console.search` is the jump palette's search.** The palette searches every
+project and ranks the current one first, which the flat `search` cannot do
+under the bare-key rule. `console.search` takes an optional `project` that
+ranks that project first and resolves a bare suffix there, and it spans every
+project otherwise. A blank query is a validation refusal and an unknown
+ranking project is not found, as on `/api/search`. One difference is
+deliberate: `/api/search` reads an empty `project` or the literal `all` as no
+project, while `console.search` takes no project as no project and refuses
+those values as an unknown project, since a structured input has no unset
+field to serialize. The flat `search` keeps the CLI and MCP surface, which
+stays project-scoped.
+
+The console persists its query cache for offline reads. An Engine read
+restored from that snapshot must keep its `Date` instants, so the snapshot
+is encoded with superjson, the codec the tRPC wire already uses.

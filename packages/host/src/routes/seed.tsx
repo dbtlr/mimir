@@ -5,9 +5,11 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { seedQuery, upstreamTasksQuery } from '../api/browse-queries';
 import { isNotFound } from '../api/errors';
-import { useUpdateSeed } from '../api/mutations';
-import { nodeQuery, projectsQuery, seedQuery, upstreamTasksQuery } from '../api/queries';
+import { nodeQuery } from '../api/node-queries';
+import { useUpdateSeed } from '../api/seed-mutations';
+import { projectsQuery } from '../api/shell-queries';
 import type { WireNode, WireSeed } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { DescriptionSection, MetaRow } from '../components/node-record';
@@ -389,7 +391,7 @@ function SeedRecord({ seedId }: { seedId: string }) {
   }
 
   const offline = conn.offline;
-  const titleOf = (key: string) => projects.data?.items.find((p) => p.id === key)?.title;
+  const titleOf = (key: string) => projects.data?.find((p) => p.id === key)?.title;
   const ownerTitle = titleOf(data.project) ?? data.project;
   const spawnedNodes = spawned.map((q) => q.data);
   const outcomes: Outcome[] = [

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { healthQuery } from '../api/queries';
+import { healthQuery } from '../api/shell-queries';
 import { BUILD_VERSION } from '../lib/build-version';
 import { usePwaUpdate } from './pwa-update-provider';
 

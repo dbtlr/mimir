@@ -1,6 +1,6 @@
+import type { EngineTree } from '@mimir/contract';
 import { Link } from '@tanstack/react-router';
 
-import type { WireTreeNode } from '../api/types';
 import { ancestorsOf } from '../lib/ancestry';
 import { nodeLink } from '../lib/record-url';
 
@@ -16,7 +16,7 @@ export function Crumbs({
   nodeId,
 }: {
   projectKey: string;
-  tree?: WireTreeNode;
+  tree?: EngineTree;
   nodeId: string;
 }) {
   const ancestors = tree === undefined ? [] : (ancestorsOf(tree, nodeId) ?? []);

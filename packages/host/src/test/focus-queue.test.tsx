@@ -3,13 +3,17 @@ import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/rea
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { tree } from '../api/fns/shell';
 import { browserTimeZone } from '../api/queries';
 import type { WireAnnotation, WireNode, WireReviewReport, WireWorkNeedsYou } from '../api/types';
 import { routeTree } from '../router';
-import { project, reviewReport, task } from './fixtures';
+import { engineTree } from './engine-fixtures';
+import { reviewReport, task } from './fixtures';
+import { serveShell } from './shell-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
+vi.mock('../api/fns/shell');
 
 const NOW = Date.parse('2026-10-13T12:00:00.000Z');
 
@@ -99,22 +103,22 @@ function serve(
       const items = details[decodeURIComponent(notes[1]!)]?.notes ?? [];
       return Promise.resolve({ items, total: items.length });
     }
-    const tree = /^\/api\/projects\/([^/]+)\/tree$/.exec(path);
-    if (tree !== null) {
-      const key = tree[1]!;
-      const leaves = current.queue
-        .filter((id) => id.startsWith(`${key}-`))
-        .map((id) => Object.assign(task({ id, status: 'ready' }), { children: [] }));
-      const phase = {
-        ...task({ id: `${key}-2`, status: 'in_progress', title: 'Review page', type: 'phase' }),
-        children: leaves,
-      };
-      return Promise.resolve({
-        ...project({ id: key, title: key === 'MMR' ? 'Mimir' : 'Loom CLI' }),
-        children: [phase],
-      });
-    }
     return Promise.resolve({ items: [], total: 0 });
+  });
+  serveShell();
+  vi.mocked(tree).mockImplementation(async ({ data }) => {
+    const key = data.id;
+    const leaves = current.queue
+      .filter((id) => id.startsWith(`${key}-`))
+      .map((id) => engineTree({ id, parent: `${key}-2`, status: 'ready', type: 'task' }));
+    const phase = engineTree(
+      { id: `${key}-2`, parent: key, status: 'in_progress', title: 'Review page', type: 'phase' },
+      leaves,
+    );
+    return engineTree(
+      { id: key, status: 'ready', title: key === 'MMR' ? 'Mimir' : 'Loom CLI', type: 'project' },
+      [phase],
+    );
   });
   apiSend.mockImplementation(() => {
     if (after !== undefined) {

@@ -6,9 +6,11 @@ import { describe, expect, vi } from 'vitest';
 
 import { sanitizePersistedClient } from '../lib/persist';
 import { routeTree } from '../router';
+import { serveShell } from './shell-fns';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/shell');
 
 // A pre-infinite payload: the flat `{ items, total }` collection the artifacts
 // query persisted while it was a plain `useQuery`, before b0755d7 made it
@@ -75,10 +77,8 @@ function renderArtifactsWith(client: QueryClient) {
 
 describe('artifacts route rehydrating a legacy warm cache', () => {
   it('degrades to a clean refetch instead of crashing the route', async () => {
+    serveShell();
     apiGet.mockImplementation((path: string) => {
-      if (path.startsWith('/api/projects')) {
-        return Promise.resolve({ items: [], total: 0 });
-      }
       if (path.startsWith('/api/artifacts?')) {
         return Promise.resolve({
           items: [

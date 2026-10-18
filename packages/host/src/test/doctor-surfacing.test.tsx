@@ -5,10 +5,13 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { WireDoctorFacet } from '../api/types';
 import { routeTree } from '../router';
+import { engineProject, engineTree } from './engine-fixtures';
 import { emptyRead, workReport } from './fixtures';
+import { serveShell } from './shell-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
+vi.mock('../api/fns/shell');
 
 /** A facet with `n` findings on project MMR — surfacing only needs the count. */
 function facet(n: number): WireDoctorFacet {
@@ -34,6 +37,12 @@ function renderAt(path: string) {
 
 describe('record-health surfacing (MMR-185, mock 15b)', () => {
   it('puts an amber findings chip in the project header, linking to the panel', async () => {
+    serveShell({
+      projects: [engineProject({ id: 'MMR', title: 'Mimir' })],
+      trees: {
+        MMR: engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' }),
+      },
+    });
     apiGet.mockImplementation((path: string) => {
       if (path === '/api/projects/MMR') {
         return Promise.resolve({
@@ -41,16 +50,6 @@ describe('record-health surfacing (MMR-185, mock 15b)', () => {
           id: 'MMR',
           status: 'in_progress',
           title: 'Mimir',
-        });
-      }
-      if (path === '/api/projects/MMR/tree') {
-        return Promise.resolve({
-          children: [],
-          distribution: {},
-          id: 'MMR',
-          status: 'in_progress',
-          title: 'Mimir',
-          type: 'project',
         });
       }
       if (path === '/api/doctor?project=MMR') {

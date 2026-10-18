@@ -1,9 +1,9 @@
+import type { EngineNode } from '@mimir/contract';
 import { useForm } from '@tanstack/react-form';
 import { useNavigate } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
-import { useArchiveProject, useUnarchiveProject, useUpdateProject } from '../api/mutations';
-import type { WireNode } from '../api/types';
+import { useArchiveProject, useUnarchiveProject, useUpdateProject } from '../api/shell-mutations';
 import { archivedUndoToast } from './archive-undo-toast';
 import { ActionButton } from './ui/action-button';
 import { Sheet, SheetContent, SheetTitle } from './ui/sheet';
@@ -12,6 +12,9 @@ export type ProjectFormValues = {
   title: string;
   description: string;
 };
+
+/** What the settings read off a project: the fields its form edits. */
+type SettingsProject = Pick<EngineNode, 'id' | 'title' | 'description'>;
 
 /**
  * Modest settings affordance on the project's work page head. Opens a
@@ -25,7 +28,7 @@ export function ProjectSettingsButton({
   project,
   offline,
 }: {
-  project: WireNode;
+  project: SettingsProject;
   offline?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -117,7 +120,7 @@ function ProjectSettingsForm({
   onSubmit,
   onCancel,
 }: {
-  project: WireNode;
+  project: SettingsProject;
   submitting?: boolean;
   onSubmit: (values: ProjectFormValues) => void;
   onCancel: () => void;

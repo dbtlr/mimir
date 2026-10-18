@@ -1,8 +1,8 @@
 import { Dialog } from '@base-ui-components/react/dialog';
 import { useRef, useState } from 'react';
 
-import { useUpdateDirection } from '../api/mutations';
-import type { DirectionTarget } from '../api/mutations';
+import { useUpdateDirection } from '../api/node-mutations';
+import type { DirectionTarget } from '../api/node-mutations';
 import { cn } from '../lib/cn';
 import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { MarkdownBody } from './markdown-body';

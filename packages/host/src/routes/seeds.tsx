@@ -4,8 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useId, useMemo, useState } from 'react';
 
-import { seedsQuery } from '../api/queries';
-import type { SeedFilters } from '../api/queries';
+import { seedsQuery } from '../api/browse-queries';
+import type { SeedFilters } from '../api/browse-queries';
 import type { WireSeed } from '../api/types';
 import {
   BrowserEmpty,

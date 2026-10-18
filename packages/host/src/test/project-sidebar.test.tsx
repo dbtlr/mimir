@@ -1,3 +1,4 @@
+import type { EngineNode, EngineTree } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
@@ -6,16 +7,20 @@ import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
+import { projects, tree } from '../api/fns/shell';
 import { browserTimeZone } from '../api/queries';
-import type { WireNode, WireReviewProject, WireTreeNode } from '../api/types';
+import type { WireReviewProject } from '../api/types';
 import { subtreeOf } from '../lib/ancestry';
 import { rememberProject } from '../lib/current-project';
 import { routeTree } from '../router';
-import { emptyRead, project, reviewReport, task, workReport } from './fixtures';
+import { engineProject, engineTree } from './engine-fixtures';
+import { emptyRead, reviewReport, task, workReport } from './fixtures';
+import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend: vi.fn() }));
+vi.mock('../api/fns/shell');
 
 /*
  * The shell's project sidebar (ADR 0013, MMR-492 refinement): the current
@@ -25,22 +30,12 @@ vi.mock('../api/client', () => ({ apiGet, apiSend: vi.fn() }));
 
 function node(
   id: string,
-  type: WireNode['type'],
-  status: WireNode['status'],
-  children: WireTreeNode[] = [],
-  extra: Partial<WireTreeNode> = {},
-): WireTreeNode {
-  return {
-    children,
-    created_at: '2026-06-01T10:00:00.000Z',
-    id,
-    parent: null,
-    status,
-    title: `${type} ${id}`,
-    type,
-    updated_at: '2026-06-01T10:00:00.000Z',
-    ...extra,
-  };
+  type: EngineTree['type'],
+  status: EngineTree['status'],
+  children: EngineTree[] = [],
+  extra: Partial<EngineTree> = {},
+): EngineTree {
+  return engineTree({ id, status, type, ...extra }, children);
 }
 
 /** MMR: an initiative holding a phase holding a task, a second phase, and a finished initiative. */
@@ -56,19 +51,19 @@ const TREE = node('MMR', 'project', 'in_progress', [
 ]);
 
 function serve(
-  projects: WireNode[],
-  trees: Record<string, WireTreeNode> = {},
+  active: EngineNode[],
+  trees: Record<string, EngineTree> = {},
   review: WireReviewProject[] = [],
 ) {
-  const served: Record<string, WireTreeNode> = {
-    ...Object.fromEntries(projects.map((p) => [p.id, node(p.id, 'project', p.status)])),
-    MMR: TREE,
-    ...trees,
-  };
+  serveShell({
+    projects: active,
+    trees: {
+      ...Object.fromEntries(active.map((p) => [p.id, node(p.id, 'project', p.status)])),
+      MMR: TREE,
+      ...trees,
+    },
+  });
   apiGet.mockImplementation((path: string) => {
-    if (path === '/api/projects') {
-      return Promise.resolve({ items: projects, total: projects.length });
-    }
     if (path.startsWith('/api/review')) {
       return Promise.resolve(reviewReport({ projects: review }));
     }
@@ -92,10 +87,6 @@ function serve(
           : workReport(),
       );
     }
-    const tree = /^\/api\/projects\/([A-Z]+)\/tree$/.exec(path)?.[1];
-    if (tree !== undefined && served[tree] !== undefined) {
-      return Promise.resolve(served[tree]);
-    }
     return Promise.resolve(emptyRead(path));
   });
 }
@@ -117,8 +108,8 @@ function renderAt(initial: string) {
   return testRouter;
 }
 
-const MMR = project({ id: 'MMR', title: 'Mimir' });
-const NRN = project({ id: 'NRN', title: 'Norn' });
+const MMR = engineProject({ id: 'MMR', title: 'Mimir' });
+const NRN = engineProject({ id: 'NRN', title: 'Norn' });
 
 function decisions(key: string, count: number): WireReviewProject {
   return { decisions: count, going_cold: 0, in_flight: 0, key, live: 0, name: key, triage: 0 };
@@ -148,6 +139,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.clearAllMocks();
 });
 
 describe('sidebar sections mark the page (MMR-485, MMR-496)', () => {
@@ -218,7 +210,9 @@ describe('sidebar names the current project', () => {
     renderAt('/');
     await screen.findByRole('link', { name: 'Mimir' });
     await waitFor(() => {
-      expect(apiGet).toHaveBeenCalledWith('/api/projects');
+      expect(projects).toHaveBeenCalledWith({
+        data: { facets: ['distribution', 'tags'], status: 'active' },
+      });
     });
     expect(screen.queryByRole('navigation', { name: 'Project' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Open project menu' })).toBeNull();
@@ -250,7 +244,7 @@ describe('sidebar on All projects (MMR-505)', () => {
           .map((l) => l.textContent),
       ).toStrictEqual(['Work']);
       expect(within(nav).queryByRole('navigation', { name: 'Outline' })).toBeNull();
-      expect(apiGet).not.toHaveBeenCalledWith('/api/projects/MMR/tree');
+      expect(tree).not.toHaveBeenCalled();
     },
   );
 
@@ -461,18 +455,15 @@ describe('sidebar outline', () => {
   });
 
   it('says so when the tree cannot be read', async () => {
-    const served = apiGet.getMockImplementation();
-    apiGet.mockImplementation((path: string) =>
-      path.endsWith('/tree') ? Promise.reject(new Error('down')) : served?.(path),
-    );
+    vi.mocked(tree).mockRejectedValue(new Error('down'));
     renderAt('/p/MMR');
     await expect(screen.findByText('Couldn’t load the structure.')).resolves.toBeInTheDocument();
   });
 });
 
 describe('sidebar on an archived project (MMR-506)', () => {
-  const OLD = project({
-    archived_at: '2026-09-30T15:00:00.000Z',
+  const OLD = engineProject({
+    archivedAt: new Date('2026-09-30T15:00:00.000Z'),
     id: 'OLD',
     status: 'done',
     title: 'Old project',
@@ -481,10 +472,17 @@ describe('sidebar on an archived project (MMR-506)', () => {
   /** `OLD` is archived: its record and tree 404, and the archived list names it. */
   function serveArchived() {
     const served = apiGet.getMockImplementation();
-    apiGet.mockImplementation((path: string) => {
-      if (path === '/api/projects?status=archived') {
-        return Promise.resolve({ items: [OLD], total: 1 });
+    vi.mocked(projects).mockImplementation(async ({ data }) =>
+      data.status === 'archived' ? [OLD] : [MMR],
+    );
+    const servedTree = vi.mocked(tree).getMockImplementation();
+    vi.mocked(tree).mockImplementation(async (options) => {
+      if (options.data.id === 'OLD') {
+        throw new ApiError('tree OLD → 404', 404);
       }
+      return servedTree?.(options) as Promise<EngineTree>;
+    });
+    apiGet.mockImplementation((path: string) => {
       if (path.startsWith('/api/projects/OLD')) {
         return Promise.reject(new ApiError(`GET ${path} → 404`, 404));
       }
@@ -563,10 +561,7 @@ describe('sidebar announces where the page is', () => {
   });
 
   it('puts a task’s page under Tasks from its own record, without the tree', async () => {
-    const served = apiGet.getMockImplementation();
-    apiGet.mockImplementation((path: string) =>
-      path.endsWith('/tree') ? Promise.reject(new Error('down')) : served?.(path),
-    );
+    vi.mocked(tree).mockRejectedValue(new Error('down'));
     renderAt('/p/MMR/3');
     await waitFor(async () => {
       await expect(activeSections()).resolves.toStrictEqual(['Tasks']);
@@ -776,7 +771,9 @@ describe('sidebar drawer on a phone', () => {
     renderAt('/');
     await screen.findByRole('link', { name: 'Mimir' });
     await waitFor(() => {
-      expect(apiGet).toHaveBeenCalledWith('/api/projects');
+      expect(projects).toHaveBeenCalledWith({
+        data: { facets: ['distribution', 'tags'], status: 'active' },
+      });
     });
     expect(screen.queryByRole('button', { name: 'Open project menu' })).toBeNull();
   });

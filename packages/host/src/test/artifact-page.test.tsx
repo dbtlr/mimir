@@ -1,3 +1,4 @@
+import type { EngineTree } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -5,32 +6,27 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
-import type { WireArtifactDetail, WireNode, WireTreeNode } from '../api/types';
+import { tree } from '../api/fns/shell';
+import type { WireArtifactDetail, WireNode } from '../api/types';
 import { routeTree } from '../router';
+import { engineProject, engineTree } from './engine-fixtures';
 import { emptyRead, task } from './fixtures';
+import { serveShell } from './shell-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
+vi.mock('../api/fns/shell');
 vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
 
-const PROJECTS = { items: [{ id: 'MMR', title: 'Mimir', type: 'project' }], total: 1 };
+const PROJECTS = [engineProject({ id: 'MMR', title: 'Mimir' })];
 
 function tn(
   id: string,
-  type: WireTreeNode['type'],
+  type: EngineTree['type'],
   title: string,
-  children: WireTreeNode[] = [],
-): WireTreeNode {
-  return {
-    children,
-    created_at: '2026-06-01T10:00:00.000Z',
-    id,
-    parent: null,
-    status: 'ready',
-    title,
-    type,
-    updated_at: '2026-06-01T10:00:00.000Z',
-  };
+  children: EngineTree[] = [],
+): EngineTree {
+  return engineTree({ id, status: 'ready', title, type }, children);
 }
 
 const TREE = tn('MMR', 'project', 'Mimir', [
@@ -95,17 +91,11 @@ const loose: WireArtifactDetail = {
   title: 'Loose note',
 };
 
-/** Serve one artifact, the project list, its tree, and the given nodes; empty lists elsewhere. */
+/** Serve one artifact and the given nodes; empty lists elsewhere (beforeEach serves the project list and tree). */
 function serve(record: WireArtifactDetail, nodes: WireNode[] = []) {
   apiGet.mockImplementation((path: string) => {
     if (path === `/api/artifacts/${record.id}`) {
       return Promise.resolve(record);
-    }
-    if (path === '/api/projects') {
-      return Promise.resolve(PROJECTS);
-    }
-    if (path === '/api/projects/MMR/tree') {
-      return Promise.resolve(TREE);
     }
     const node = nodes.find((n) => path === `/api/nodes/${n.id}`);
     if (node !== undefined) {
@@ -136,6 +126,7 @@ const rail = () => screen.findByRole('complementary', { name: 'Record details' }
 beforeEach(() => {
   apiGet.mockReset();
   apiSend.mockReset();
+  serveShell({ projects: PROJECTS, trees: { MMR: TREE } });
 });
 
 describe('artifact page (MMR-452)', () => {
@@ -200,13 +191,11 @@ describe('artifact page (MMR-452)', () => {
         if (p === '/api/artifacts/MMR-a232') {
           return Promise.resolve(spec);
         }
-        if (p === '/api/projects/MMR/tree') {
-          return Promise.reject(new Error('tree unreachable'));
-        }
         return p === '/api/nodes/MMR-432'
           ? Promise.resolve(hostTask)
           : Promise.resolve(emptyRead(p));
       });
+      vi.mocked(tree).mockRejectedValue(new Error('tree unreachable'));
       renderAt('/p/MMR/a232');
 
       const nav = await path();

@@ -1,4 +1,4 @@
-import type { WireTreeNode } from '../api/types';
+import type { EngineTree } from '@mimir/contract';
 
 export type ParentOption = {
   id: string;
@@ -20,7 +20,7 @@ export type HomeOption = {
  * phase → any initiative, initiative → the project itself — an empty list
  * here; the caller offers the project level instead.
  */
-export function homeOptions(type: AuthoringType, root: WireTreeNode): HomeOption[] {
+export function homeOptions(type: AuthoringType, root: EngineTree): HomeOption[] {
   if (type === 'initiative') {
     return [];
   }
@@ -56,7 +56,7 @@ export function homeOptions(type: AuthoringType, root: WireTreeNode): HomeOption
 }
 
 /** Valid task parents in tree order: initiatives (depth 0) and their phases (depth 1). */
-export function parentOptions(root: WireTreeNode): ParentOption[] {
+export function parentOptions(root: EngineTree): ParentOption[] {
   return homeOptions('task', root).map(({ depth, id, label, type }) => ({
     depth,
     id,

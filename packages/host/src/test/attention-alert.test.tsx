@@ -7,10 +7,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WireReviewReport, WireWorkNeedsYou } from '../api/types';
 import { routeTree } from '../router';
 import { project, reviewReport, seed, task, workReport } from './fixtures';
+import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
+vi.mock('../api/fns/shell');
 
 /**
  * The top-bar alert (ADR 0019, MMR-476 and MMR-492 refinements): the count of
@@ -33,6 +35,7 @@ afterEach(() => {
 
 /** Serve the review read from `current()`, so a test can change what the next read returns. */
 function serve(current: () => WireReviewReport) {
+  serveShell();
   apiGet.mockImplementation((p: string) => {
     if (p.startsWith('/api/review')) {
       return Promise.resolve(current());
@@ -56,9 +59,6 @@ function serve(current: () => WireReviewReport) {
         distribution: { in_progress: 1, ready: 1 },
         next: 'Ship it.',
       });
-    }
-    if (p.startsWith('/api/projects/MMR/tree')) {
-      return Promise.resolve({ ...project({ id: 'MMR' }), children: [] });
     }
     return Promise.resolve({ items: [], total: 0 });
   });

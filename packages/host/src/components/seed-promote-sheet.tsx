@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
 
-import { seedQuery } from '../api/queries';
+import { seedQuery } from '../api/browse-queries';
 import type { WireSeed } from '../api/types';
 import { AuthoringSheet } from './authoring-sheet';
 import { SeedKindChip } from './seed-kind-chip';

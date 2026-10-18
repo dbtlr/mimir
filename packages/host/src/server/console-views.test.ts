@@ -17,6 +17,7 @@ import {
   LocalEngine,
   overviewToWire,
   reviewToWire,
+  searchHitToWire,
   startTask,
   submitTask,
   workToWire,
@@ -89,6 +90,12 @@ const asCore = (output: unknown): any =>
   // oxlint-disable-next-line unicorn/prefer-structured-clone -- structuredClone keeps Dates; the wire mappers need ISO strings
   JSON.parse(JSON.stringify(output));
 
+/** The `/api/search` body: the hits in wire form and the total, without the set's window fields. */
+function searchToWire(output: unknown): unknown {
+  const { items, total } = asCore(output);
+  return { items: items.map(searchHitToWire), total };
+}
+
 type Case = {
   name: string;
   engine: (engine: ConsoleEngine) => Promise<unknown>;
@@ -126,6 +133,24 @@ const cases: Case[] = [
     name: 'overview',
     route: '/api/projects/ENG/overview',
     wire: (output) => overviewToWire(asCore(output)),
+  },
+  {
+    engine: (engine) => engine.search({ query: 'Ready' }),
+    name: 'search across every project',
+    route: '/api/search?q=Ready',
+    wire: searchToWire,
+  },
+  {
+    engine: (engine) => engine.search({ project: 'OTH', query: 'Ready' }),
+    name: 'search ranking the current project first',
+    route: '/api/search?q=Ready&project=OTH',
+    wire: searchToWire,
+  },
+  {
+    engine: (engine) => engine.search({ query: 'ENG-3' }),
+    name: 'search by id',
+    route: '/api/search?q=ENG-3',
+    wire: searchToWire,
   },
 ];
 
@@ -213,6 +238,13 @@ const refusals: Refusal[] = [
     '/api/projects/NOPE/overview',
     404,
   ],
+  ['search without a query', (e) => e.search({ query: ' ' }), '/api/search?q=%20', 400],
+  [
+    'search ranking an unknown project',
+    (e) => e.search({ project: 'NOPE', query: 'Ready' }),
+    '/api/search?q=Ready&project=NOPE',
+    404,
+  ],
 ];
 
 test.each(refusals)('%s is refused like its route', async (_name, run, route, status) => {
@@ -227,6 +259,15 @@ test.each(refusals)('%s is refused like its route', async (_name, run, route, st
   expect(localError.message).toBe(wireError.message);
   expect(remoteError.code).toBe(localError.code);
   expect(remoteError.message).toBe(localError.message);
+});
+
+test('console.search refuses the spellings /api/search reads as no project', async () => {
+  // The route reads an empty or `all` project as unset; the Engine input has a real unset.
+  for (const project of ['', 'all']) {
+    expect((await api(`/api/search?q=Ready&project=${project}`)).status).toBe(200);
+    const refusal = await errorOf(remote.console.search({ project, query: 'Ready' }));
+    expect<string>(refusal.code).toBe('not_found');
+  }
 });
 
 test('the as-of input places staleness far in the future', async () => {
