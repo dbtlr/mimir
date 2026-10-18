@@ -14,6 +14,15 @@ export {
   overviewScratchpadOf,
   statusOfNode,
 } from './queries';
+export {
+  type FindingsProvider,
+  findingsProviderOf,
+  nodeWorkOf,
+  projectOverviewOf,
+  projectWorkOf,
+  requireWorkTimeZone,
+  reviewPageOf,
+} from './console';
 export { type ReviewOptions, reviewOf } from './review';
 export { type WorkOptions, workPageOf } from './work';
 export {

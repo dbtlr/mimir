@@ -152,8 +152,8 @@ replaces it, and the Loom CLI does not carry it forward.
 
 Tag-scoped rollups (ADR 0005) therefore run within one project. A grouping
 that spans boards is read as `projects` filtered by its tag, followed by one
-read per project. The console's composite views (`console.*`) settle their own
-scope when they become Engine methods.
+read per project. The console's composite views (`console.*`) are exempt from
+the bare-key rule; the 2026-10-18 refinement settles their scope.
 
 Rules that both transports duplicated move into the Engine: `overview`
 requires a project, and `scratchList` applies the shared row order (a staged
@@ -219,3 +219,40 @@ refuse an archived board.
 `seedPark` and `seedUnpark` act on seeds only and stay apart from the uniform
 `park` and `unpark`, which answer a node or a seed by id. The seed-only
 methods give a caller a seed-typed answer without narrowing a union.
+
+## Refinement (2026-10-18 — the console views)
+
+The console's composite views are Engine methods in a `console` namespace:
+`console.review`, `console.projectWork`, `console.nodeWork`, and
+`console.overview`. They cover the review page, the project and container work
+pages, and the project overview. Each is a query, and it returns `Date`
+instants like every other read. The CLI and MCP register no command or tool
+for them, and a parity test keeps `console.*` off both surfaces.
+
+**The bare-key rule governs the CLI and MCP read surface, not `console.*`.**
+A console view takes the scope its page needs. `console.review` spans every
+active project and takes no project argument. `console.projectWork` takes a
+project key. `console.nodeWork` takes an initiative or phase id.
+`console.overview` takes a project key. Core checks each key, so a task id, a
+project key sent to the container route, or an unknown project is refused with
+the same code and message as the matching `/api` route. A page that places a
+shipped window requires the caller's time zone and has no fallback zone (ADR
+0029).
+
+**Core assembles each view once.** The HTTP handlers and the Engine call the
+same core functions, so the key checks, the time-zone requirement, and the
+findings handling cannot drift. Wiring `/api` and the console to the Engine
+stays with the later phases.
+
+**Health and the doctor facet stay host concerns, and core never runs
+doctor.** `console.review` needs per-project finding counts, and `reviewOf`
+already takes them from its caller. The seam is a findings provider, an
+optional `findings` function in the options the host gives `LocalEngine`. The
+host builds it from its doctor facet. Without a provider the page counts no
+findings. A provider that fails counts no findings and logs a warning rather
+than failing the page, as the `/api/review` route does. The alternative was an
+input on the method. It would let any caller assert finding counts and would
+put the doctor facet on the wire, so the host keeps it.
+
+`/api/transitions` is not an Engine method. Nothing calls it, and it is
+deleted with `/api`.

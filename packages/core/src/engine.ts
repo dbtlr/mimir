@@ -1,5 +1,11 @@
-import { engineSchemas, intentViews, parseEngineInput } from '@mimir/contract';
-import type { Engine, EngineInput, Scratchpad } from '@mimir/contract';
+import {
+  consoleIntentViews,
+  consoleSchemas,
+  engineSchemas,
+  intentViews,
+  parseEngineInput,
+} from '@mimir/contract';
+import type { ConsoleEngine, Engine, EngineInput, Scratchpad } from '@mimir/contract';
 
 import {
   annotateEngine,
@@ -29,6 +35,8 @@ import {
   overviewScratchpadOf,
   statusOfNode,
 } from './intent';
+import type { FindingsProvider } from './intent/console';
+import { nodeWorkOf, projectOverviewOf, projectWorkOf, reviewPageOf } from './intent/console';
 import { listProjects, nodeTree } from './resource';
 import { createScratchpadService } from './scratchpads';
 import type { ScratchpadService } from './scratchpads';
@@ -46,13 +54,21 @@ import {
 } from './seeds';
 import type { Store } from './store';
 
+/** What the host supplies to the Engine. Core never runs doctor itself. */
+export type LocalEngineOptions = {
+  /** Per-project `doctor` finding counts for `console.review`; absent counts no findings. */
+  findings?: FindingsProvider;
+};
+
 /** The store-owning Engine; transports use the same methods locally or remotely. */
 export class LocalEngine extends UniformEngineBase implements Engine {
   protected readonly store: Store;
+  readonly console: ConsoleEngine;
 
-  constructor(store: Store) {
+  constructor(store: Store, options: LocalEngineOptions = {}) {
     super();
     this.store = store;
+    this.console = consoleMethods(store, options);
   }
 
   private get scratchpads() {
@@ -354,4 +370,37 @@ export class LocalEngine extends UniformEngineBase implements Engine {
     const opts = parseEngineInput(engineSchemas.triage.input, input);
     return intentViews.triageReport.parse(await triage(this.store, opts));
   }
+}
+
+/** Instants cross core as ISO strings; the page options take them that way. */
+const isoOf = (instant: Date | undefined) => instant?.toISOString();
+
+/** The console's views: core assembles them, the schemas decode their instants into `Date`s. */
+function consoleMethods(store: Store, options: LocalEngineOptions): ConsoleEngine {
+  return {
+    async nodeWork(input) {
+      const { asOf, id, timeZone } = parseEngineInput(consoleSchemas.nodeWork.input, input);
+      return consoleIntentViews.work.parse(
+        await nodeWorkOf(store, id, { asOf: isoOf(asOf), timeZone }),
+      );
+    },
+    async overview(input) {
+      const { asOf, project } = parseEngineInput(consoleSchemas.overview.input, input);
+      return intentViews.overview.parse(
+        await projectOverviewOf(store, project, { asOf: isoOf(asOf) }),
+      );
+    },
+    async projectWork(input) {
+      const { asOf, project, timeZone } = parseEngineInput(consoleSchemas.projectWork.input, input);
+      return consoleIntentViews.work.parse(
+        await projectWorkOf(store, project, { asOf: isoOf(asOf), timeZone }),
+      );
+    },
+    async review(input) {
+      const { asOf, timeZone } = parseEngineInput(consoleSchemas.review.input, input);
+      return consoleIntentViews.review.parse(
+        await reviewPageOf(store, options.findings, { asOf: isoOf(asOf), timeZone }),
+      );
+    },
+  };
 }

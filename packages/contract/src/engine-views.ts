@@ -15,7 +15,7 @@ import {
   TRANSITION_KIND_VALUES,
 } from './enums';
 
-const nodeRefSchema = z.object({
+export const nodeRefSchema = z.object({
   id: z.string(),
   status: z.enum(STATUS_WORD_VALUES).optional(),
   title: z.string().optional(),
@@ -41,7 +41,7 @@ function setSchema<T extends z.ZodType>(item: T) {
 }
 
 /** One projection shape, with timestamps decoded only at the Engine boundary. */
-function nodeSchema<T extends z.ZodType>(instant: T) {
+export function nodeSchema<T extends z.ZodType>(instant: T) {
   return z.object({
     annotations: z.array(z.object({ content: z.string(), createdAt: instant })).optional(),
     archivedAt: instant.nullable().optional(),
@@ -130,7 +130,7 @@ function nodeSchema<T extends z.ZodType>(instant: T) {
   });
 }
 
-function seedSchema<T extends z.ZodType>(instant: T) {
+export function seedSchema<T extends z.ZodType>(instant: T) {
   return z.object({
     createdAt: instant,
     description: z.string().nullable().optional(),

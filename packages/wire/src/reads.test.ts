@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 
 import { engineSchemas } from '@mimir/contract';
-import type { Engine, EngineInput } from '@mimir/contract';
+import type { Engine, EngineInput, EngineMethods } from '@mimir/contract';
 import {
   annotate,
   archiveProject,
@@ -95,8 +95,8 @@ afterAll(async () => fixture.close());
 
 type ReadMethod = Exclude<
   {
-    [K in keyof Engine]: (typeof engineSchemas)[K]['kind'] extends 'query' ? K : never;
-  }[keyof Engine],
+    [K in keyof EngineMethods]: (typeof engineSchemas)[K]['kind'] extends 'query' ? K : never;
+  }[keyof EngineMethods],
   'getNode'
 >;
 type ReadCase<K extends ReadMethod> = {

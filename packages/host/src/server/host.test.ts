@@ -212,3 +212,36 @@ test('host logs applied SQLite migrations and refuses a schema ahead with an ima
   expect(refusal).toBeInstanceOf(Error);
   expect(refusal instanceof Error ? refusal.message : '').toContain('update the image');
 });
+
+const total = (groups: { findings: number }[]) =>
+  groups.reduce((sum, group) => sum + group.findings, 0);
+
+test('the host Engine counts stored record findings in console.review like /api/review', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-review-findings-'));
+  roots.push(root);
+  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), 'test');
+  try {
+    await host.handle(
+      new Request('http://localhost/api/projects', {
+        body: JSON.stringify({ key: 'TST', name: 'Findings fixture' }),
+        headers: { 'content-type': 'application/json' },
+        method: 'POST',
+      }),
+    );
+    const database = new Database(join(root, 'store.sqlite'));
+    try {
+      database.run("UPDATE project SET created_at = 'invalid' WHERE key = 'TST'");
+    } finally {
+      database.close();
+    }
+    const body = (await (
+      await host.handle(new Request('http://localhost/api/review?tz=UTC'))
+    ).json()) as { triage: { findings: number }[] };
+    const viaApi = total(body.triage);
+    expect(viaApi).toBe(1);
+    const page = await host.engine.console.review({ timeZone: 'UTC' });
+    expect(total(page.triage)).toBe(viaApi);
+  } finally {
+    await host.close();
+  }
+});

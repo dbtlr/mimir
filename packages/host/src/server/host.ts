@@ -3,7 +3,7 @@ import { access, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { createApiHandler } from '@mimir/api';
-import { buildStore, LocalEngine, MimirError, SQLITE_FILE } from '@mimir/core';
+import { buildStore, findingsProviderOf, LocalEngine, MimirError, SQLITE_FILE } from '@mimir/core';
 import { createEngineHandler } from '@mimir/wire/server';
 
 import type { HostConfig } from './config';
@@ -39,7 +39,10 @@ export async function openHost(
         upgrade: true,
       },
     );
-    const engine = new LocalEngine(built.store);
+    // The host owns doctor; core only receives the per-project counts console.review shows.
+    const engine = new LocalEngine(built.store, {
+      findings: findingsProviderOf(built.doctor.facet),
+    });
     return {
       close: built.close,
       engine,

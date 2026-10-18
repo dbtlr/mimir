@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, setSystemTime, test } from 'bun:test';
 
 import { engineSchemas, OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
-import type { Engine, EngineInput } from '@mimir/contract';
+import type { Engine, EngineInput, EngineMethods } from '@mimir/contract';
 import {
   annotate,
   archiveProject,
@@ -125,8 +125,8 @@ beforeAll(() => setSystemTime(new Date('2026-03-01T12:00:00.000Z')));
 afterAll(() => setSystemTime());
 
 type WriteMethod = {
-  [K in keyof Engine]: (typeof engineSchemas)[K]['kind'] extends 'mutation' ? K : never;
-}[keyof Engine];
+  [K in keyof EngineMethods]: (typeof engineSchemas)[K]['kind'] extends 'mutation' ? K : never;
+}[keyof EngineMethods];
 type WriteCase = {
   method: WriteMethod;
   label: string;
