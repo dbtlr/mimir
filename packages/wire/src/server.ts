@@ -61,14 +61,66 @@ export type EngineProcedures = {
 /** Adapt an Engine without giving the router access to a Store. */
 export function createEngineRouter(engine: Engine) {
   const procedures = {
+    artifacts: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.artifacts.input, value))
+      .output(engineSchemas.artifacts.output)
+      .query(({ input }) => engine.artifacts(input)),
     done: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.done.input, value))
       .output(engineSchemas.done.output)
       .mutation(({ input }) => engine.done(input)),
+    getArtifact: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.getArtifact.input, value))
+      .output(engineSchemas.getArtifact.output)
+      .query(({ input }) => engine.getArtifact(input)),
     getNode: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.getNode.input, value))
       .output(engineSchemas.getNode.output)
       .query(({ input }) => engine.getNode(input)),
+    getSeed: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.getSeed.input, value))
+      .output(engineSchemas.getSeed.output)
+      .query(({ input }) => engine.getSeed(input)),
+    list: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.list.input, value))
+      .output(engineSchemas.list.output)
+      .query(({ input }) => engine.list(input)),
+    next: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.next.input, value))
+      .output(engineSchemas.next.output)
+      .query(({ input }) => engine.next(input)),
+    overview: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.overview.input, value))
+      .output(engineSchemas.overview.output)
+      .query(({ input }) => engine.overview(input)),
+    projects: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.projects.input, value))
+      .output(engineSchemas.projects.output)
+      .query(({ input }) => engine.projects(input)),
+    scratchGet: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.scratchGet.input, value))
+      .output(engineSchemas.scratchGet.output)
+      .query(({ input }) => engine.scratchGet(input)),
+    scratchList: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.scratchList.input, value))
+      .output(engineSchemas.scratchList.output)
+      .query(({ input }) => engine.scratchList(input)),
+    search: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.search.input, value))
+      .output(engineSchemas.search.output)
+      .query(({ input }) => engine.search(input)),
+    seeds: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.seeds.input, value))
+      .output(engineSchemas.seeds.output)
+      .query(({ input }) => engine.seeds(input)),
+    status: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.status.input, value))
+      .output(engineSchemas.status.output)
+      .query(({ input }) => engine.status(input)),
+    tree: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.tree.input, value))
+      .output(engineSchemas.tree.output)
+      .query(({ input }) => engine.tree(input)),
   } satisfies EngineProcedures;
   return t.router(procedures);
 }

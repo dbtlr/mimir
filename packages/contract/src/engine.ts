@@ -1,140 +1,157 @@
 import { z } from 'zod';
 
 import { FACET_NAMES } from './dto';
-import {
-  BLOCK_OWNER_VALUES,
-  GROOMING_VALUES,
-  HOLD_VALUES,
-  LIFECYCLE_VALUES,
-  NODE_TYPE_VALUES,
-  PRIORITY_VALUES,
-  SIZE_VALUES,
-  STATUS_WORD_VALUES,
-  TRANSITION_KIND_VALUES,
-} from './enums';
+import { engineViews } from './engine-views';
+import { PRIORITY_VALUES, SEED_STATUS_SELECTOR_VALUES, SIZE_VALUES } from './enums';
 import { MimirError } from './errors';
+import {
+  DATE_OP_VALUES,
+  PROJECT_STATUS_SELECTOR_VALUES,
+  QUERY_OP_VALUES,
+  STATUS_SELECTOR_VALUES,
+  VERDICT_VALUES,
+} from './query';
 
-const nodeRefSchema = z.object({
-  id: z.string(),
-  status: z.enum(STATUS_WORD_VALUES).optional(),
-  title: z.string().optional(),
+export { engineViews, intentViews } from './engine-views';
+
+export type EngineNode = z.output<typeof engineViews.node>;
+
+const facets = z.array(z.enum(FACET_NAMES)).optional();
+const count = z.number().int().nonnegative().optional();
+/** Board reads name their project; only `projects` spans boards. */
+const project = z.string().min(1);
+const timeZone = z.string().optional();
+const dates = z
+  .array(z.strictObject({ field: z.string(), op: z.enum(DATE_OP_VALUES), value: z.string() }))
+  .optional();
+
+const nextInput = z.strictObject({
+  facets,
+  filters: z
+    .array(
+      z.strictObject({
+        field: z.string(),
+        op: z.enum(QUERY_OP_VALUES),
+        value: z.string().nullable(),
+      }),
+    )
+    .optional(),
+  limit: count,
+  priority: z.enum(PRIORITY_VALUES).optional(),
+  project,
+  q: z.string().optional(),
+  size: z.enum(SIZE_VALUES).optional(),
+  timeZone,
+  verdicts: z
+    .array(z.strictObject({ negate: z.boolean(), verdict: z.enum(VERDICT_VALUES) }))
+    .optional(),
 });
-const distributionSchema = z.partialRecord(z.enum(STATUS_WORD_VALUES), z.number());
-
-/** One projection shape, with timestamps decoded only at the Engine boundary. */
-function nodeSchema<T extends z.ZodType>(instant: T) {
-  return z.object({
-    annotations: z.array(z.object({ content: z.string(), createdAt: instant })).optional(),
-    archivedAt: instant.nullable().optional(),
-    artifactCount: z.number().optional(),
-    artifacts: z
-      .array(
-        z.object({
-          createdAt: instant,
-          id: z.string(),
-          summary: z.string().optional(),
-          tags: z.array(z.string()),
-          title: z.string(),
-        }),
-      )
-      .optional(),
-    blockOwner: z.enum(BLOCK_OWNER_VALUES).nullable().optional(),
-    branch: z.string().nullable().optional(),
-    children: z.array(nodeRefSchema).optional(),
-    completedAt: instant.nullable().optional(),
-    createdAt: instant,
-    deps: z
-      .object({
-        awaitingOn: z.array(nodeRefSchema.extend({ via: z.string().optional() })),
-        blocking: z.array(nodeRefSchema),
-        dependsOn: z.array(nodeRefSchema),
-      })
-      .optional(),
-    description: z.string().nullable().optional(),
-    distribution: distributionSchema.optional(),
-    externalRef: z.string().nullable().optional(),
-    grooming: z.enum(GROOMING_VALUES).optional(),
-    harness: z.string().nullable().optional(),
-    history: z
-      .array(
-        z.object({
-          at: instant,
-          from: z.string().nullable(),
-          handles: z
-            .object({
-              branch: z.string().optional(),
-              harness: z.string().optional(),
-              host: z.string().optional(),
-              session: z.string().optional(),
-            })
-            .optional(),
-          kind: z.enum(TRANSITION_KIND_VALUES),
-          reason: z.string().nullable(),
-          to: z.string().nullable(),
-        }),
-      )
-      .optional(),
-    hold: z.enum(HOLD_VALUES).optional(),
-    holdReason: z.string().nullable().optional(),
-    home: z
-      .object({
-        parentId: z.string().nullable(),
-        parentOpenEnded: z.boolean().nullable(),
-        parentTitle: z.string().nullable(),
-        projectKey: z.string(),
-      })
-      .optional(),
-    host: z.string().nullable().optional(),
-    id: z.string(),
-    lastActivityAt: instant.optional(),
-    leafCounts: distributionSchema.optional(),
-    lede: z.string().nullable().optional(),
-    lifecycle: z.enum(LIFECYCLE_VALUES).optional(),
-    next: z.string().optional(),
-    open_ended: z.boolean().nullable().optional(),
-    parent: z.string().nullable(),
-    pinned: z.boolean().optional(),
-    priority: z.enum(PRIORITY_VALUES).nullable().optional(),
-    session: z.string().nullable().optional(),
-    size: z.enum(SIZE_VALUES).nullable().optional(),
-    status: z.enum(STATUS_WORD_VALUES),
-    summary: z.string().nullable().optional(),
-    tags: z.array(z.object({ createdAt: instant, tag: z.string() })).optional(),
-    target: z.string().nullable().optional(),
-    title: z.string(),
-    type: z.enum([...NODE_TYPE_VALUES, 'project']),
-    updatedAt: instant,
-    upstream: z.string().nullable().optional(),
-    verdicts: z
-      .object({ blocking: z.boolean(), orphaned: z.boolean(), stale: z.boolean() })
-      .optional(),
-  });
-}
-
-export const engineNodeSchema = nodeSchema(z.date());
-export type EngineNode = z.output<typeof engineNodeSchema>;
-
-/** The existing intent projection stays string-valued for CLI, MCP, and HTTP. */
-export const engineNodeFromViewSchema = nodeSchema(
-  z.iso.datetime().transform((value) => new Date(value)),
-);
+const statusSelector = z.enum(STATUS_SELECTOR_VALUES);
 
 export const engineSchemas = {
+  artifacts: {
+    input: z.strictObject({
+      dates,
+      limit: count,
+      offset: count,
+      project,
+      q: z.string().optional(),
+      tag: z.string().optional(),
+      timeZone,
+    }),
+    kind: 'query',
+    output: engineViews.artifactSet,
+  },
   done: {
     input: z.strictObject({ id: z.string() }),
     kind: 'mutation',
-    output: engineNodeSchema,
+    output: engineViews.node,
+  },
+  getArtifact: {
+    input: z.strictObject({ content: z.boolean().optional(), id: z.string() }),
+    kind: 'query',
+    output: engineViews.artifactDetail,
   },
   getNode: {
-    input: z.strictObject({ facets: z.array(z.enum(FACET_NAMES)).optional(), id: z.string() }),
+    input: z.strictObject({ facets, id: z.string() }),
     kind: 'query',
-    output: engineNodeSchema,
+    output: engineViews.node,
+  },
+  getSeed: {
+    input: z.strictObject({ content: z.boolean().optional(), id: z.string() }),
+    kind: 'query',
+    output: engineViews.seed,
+  },
+  list: {
+    input: nextInput.extend({
+      offset: count,
+      status: z.union([statusSelector, z.array(statusSelector)]).optional(),
+      tag: z.string().optional(),
+    }),
+    kind: 'query',
+    output: engineViews.nodeSet,
+  },
+  next: {
+    input: nextInput,
+    kind: 'query',
+    output: engineViews.nodeSet,
+  },
+  overview: {
+    input: z.strictObject({ asOf: z.date().optional(), project }),
+    kind: 'query',
+    output: engineViews.overview,
+  },
+  projects: {
+    input: z.strictObject({ facets, status: z.enum(PROJECT_STATUS_SELECTOR_VALUES).optional() }),
+    kind: 'query',
+    output: engineViews.nodes,
+  },
+  scratchGet: {
+    input: z.strictObject({ id: z.string() }),
+    kind: 'query',
+    output: engineViews.scratchpad,
+  },
+  scratchList: {
+    input: z.strictObject({ project }),
+    kind: 'query',
+    output: engineViews.scratchpadRows,
+  },
+  search: {
+    input: z.strictObject({ limit: z.number().optional(), project, query: z.string() }),
+    kind: 'query',
+    output: engineViews.searchSet,
+  },
+  seeds: {
+    input: z.strictObject({
+      dates,
+      project,
+      requester: z.string().optional(),
+      sort: z.enum(['asc', 'desc']).optional(),
+      status: z.enum(SEED_STATUS_SELECTOR_VALUES).optional(),
+      timeZone,
+    }),
+    kind: 'query',
+    output: engineViews.seeds,
+  },
+  status: {
+    input: z.strictObject({ id: z.string() }),
+    kind: 'query',
+    output: engineViews.status,
+  },
+  tree: {
+    input: z.strictObject({ facets, id: z.string() }),
+    kind: 'query',
+    output: engineViews.tree,
   },
 } as const;
 
+type EngineSchemas = typeof engineSchemas;
+export type EngineInput<K extends keyof EngineSchemas> = z.input<EngineSchemas[K]['input']>;
+export type EngineOutput<K extends keyof EngineSchemas> = z.output<EngineSchemas[K]['output']>;
+
+/** One method per operation, typed by its contract schemas. */
 export type Engine = {
-  getNode: (input: z.input<typeof engineSchemas.getNode.input>) => Promise<EngineNode>;
-  done: (input: z.input<typeof engineSchemas.done.input>) => Promise<EngineNode>;
+  [K in keyof EngineSchemas]: (input: EngineInput<K>) => Promise<EngineOutput<K>>;
 };
 
 /** Both implementations report malformed method input as the same domain error. */

@@ -125,3 +125,32 @@ adapter carries its code, message, and optional hint; `RemoteEngine`
 reconstructs the same class. Transport failures remain transport errors.
 Existing transports are migrated in later tasks; this increment does not
 change their routing or store ownership.
+
+## Refinement (2026-10-17 — the read methods and project-scoped reads)
+
+Every CLI and MCP read is an Engine method: `next`, `list`, `projects`,
+`getNode`, `getArtifact`, `getSeed`, `status`, `tree`, `overview`,
+`artifacts`, `search`, `seeds`, `scratchList`, and `scratchGet`. Inputs are
+the structured options core already takes. Field filters, date filters, and
+verdicts are objects, and the caller's time zone is a field. Parsing flag text
+and routing an id by its grammar stay in the client. One read gets one method
+per record kind, so `get` is three methods with three output types.
+
+**Board reads name their project.** `next`, `list`, `overview`, `artifacts`,
+`search`, `seeds`, and `scratchList` require a project in their input schema.
+A missing project is a validation refusal, not a scan of every board. Reads by
+id need no scope, because the id names its project. `projects` is the only
+read that spans projects. A client resolves its own binding into the project
+it sends and refuses before calling when it has none. All-project reads gave
+wrong answers when a caller forgot its scope, and their cost grows with every
+project on the store. The current CLI's `-s all` remains until the Loom CLI
+replaces it, and the Loom CLI does not carry it forward.
+
+Tag-scoped rollups (ADR 0005) therefore run within one project. A grouping
+that spans boards is read as `projects` filtered by its tag, followed by one
+read per project. The console's composite views (`console.*`) settle their own
+scope when they become Engine methods.
+
+Rules that both transports duplicated move into the Engine: `overview`
+requires a project, and `scratchList` applies the shared row order (a staged
+freeze first, then newest first).

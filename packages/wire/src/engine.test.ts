@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test';
 
 import { engineSchemas } from '@mimir/contract';
+import type { Engine } from '@mimir/contract';
 import {
   annotate,
   archiveProject,
@@ -132,10 +133,7 @@ test('explicit undefined survives serialization as an own property', async () =>
     ...(await read(input)),
     next: undefined,
   });
-  const handle = createEngineHandler({
-    done: local.done.bind(local),
-    getNode,
-  });
+  const handle = createEngineHandler(withOverride(local, { getNode }));
   const client = new RemoteEngine({
     fetch: async (input, init) => {
       const response = await handle(new Request(input, init));
@@ -151,12 +149,13 @@ test('explicit undefined survives serialization as an own property', async () =>
 test('unexpected wire faults log their details without sending library text or stacks', async () => {
   const fault = new Error('driver private detail\nforged log\u2028next line');
   const log = spyOn(console, 'error').mockReturnValue(undefined);
-  const handle = createEngineHandler({
-    done: async () => {
-      throw fault;
-    },
-    getNode: local.getNode.bind(local),
-  });
+  const handle = createEngineHandler(
+    withOverride(local, {
+      done: async () => {
+        throw fault;
+      },
+    }),
+  );
   const client = new RemoteEngine({
     fetch: async (input, init) => {
       const response = await handle(new Request(input, init));
@@ -190,6 +189,11 @@ test('unexpected wire faults log their details without sending library text or s
     log.mockRestore();
   }
 });
+
+/** The full Engine with one method replaced, for wire-behavior probes. */
+function withOverride(engine: Engine, override: Partial<Engine>): Engine {
+  return Object.assign(Object.create(engine) as Engine, override);
+}
 
 function assertBindings(bindings: Record<string, object>) {
   for (const [layer, binding] of Object.entries(bindings)) {
