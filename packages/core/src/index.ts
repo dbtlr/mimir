@@ -24,6 +24,7 @@ export { projectOnlyRefusal } from './project-only';
 export * from './resource';
 export * from './errors';
 export * from './binding';
+export { gitPortAt } from './git-port';
 export * from './remote';
 export * from './status';
 export * from './intent';

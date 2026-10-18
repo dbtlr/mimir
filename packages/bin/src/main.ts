@@ -18,6 +18,7 @@ import {
   bindingScope,
   buildStore,
   configPath,
+  gitPortAt,
   INSTALLATION_PROTOCOL_RESPONSE,
   LocalEngine,
   openInstallationSqlite,
@@ -32,7 +33,6 @@ import type { BuiltStore, DoctorBackend, Store } from '@mimir/core';
 
 import { runCli } from './cli';
 import type { Io } from './cli';
-import { gitPortAt } from './git-port';
 import { serveStdio } from './mcp';
 import { manualFetch } from './self-update';
 import type { SelfUpdateDeps } from './self-update';

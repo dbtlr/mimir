@@ -324,3 +324,6 @@ export const engineViews = viewSchemas(z.date());
 
 /** The string-valued core projections, decoded into Engine outputs by `LocalEngine`. */
 export const intentViews = viewSchemas(z.iso.datetime().transform((value) => new Date(value)));
+
+/** Engine outputs encoded back into the string-valued projections a transport renders. */
+export const intentEncoders = viewSchemas(z.date().transform((value) => value.toISOString()));
