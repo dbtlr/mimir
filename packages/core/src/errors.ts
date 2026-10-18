@@ -13,13 +13,11 @@ import { MimirError } from '@mimir/contract';
 
 export type { ErrorCode } from '@mimir/contract';
 export { MimirError };
+export { projectNotFound } from '@mimir/contract';
 
 export const notFound = (message: string, hint?: string): MimirError =>
   new MimirError('not_found', message, hint);
 
-/** Canonical project-miss — token-as-subject; all transports emit the same hint. */
-export const projectNotFound = (key: string): MimirError =>
-  notFound(`${key} doesn't exist`, `create it: mimir create project "Name" --key ${key} -y`);
 export const validation = (message: string, hint?: string): MimirError =>
   new MimirError('validation', message, hint);
 export const conflict = (message: string, hint?: string): MimirError =>

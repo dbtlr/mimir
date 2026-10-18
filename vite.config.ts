@@ -74,6 +74,16 @@ const cliNoBin = {
   message: 'Layer boundary: @mimir/cli may not import @mimir/bin; the parity harness alone does.',
 };
 
+/**
+ * The CLI's test-support modules build stores and run the old binary, so the
+ * shipped modules may not import them: they would reach core around the Engine.
+ */
+const cliNoTesting = {
+  group: ['**/testing', '**/testing/**'],
+  message:
+    'Layer boundary: only tests import packages/cli/src/testing; it reaches core and the old binary.',
+};
+
 const noCoreImports = {
   group: ['@mimir/core', '@mimir/core/**', '**/core', '**/core/**'],
   message: 'Layer boundary: contract and wire depend on the Engine contract, not core.',
@@ -189,8 +199,8 @@ const layerOverrides: Override[] = [
   restrict(['packages/host/src/api/fns/engine.ts'], [noBinImports, serverFnBoundary(false)]),
   forbid(['packages/bin/src/cli/**'], ['mcp']),
   forbid(['packages/bin/src/mcp/**'], ['cli']),
-  restrict(['packages/cli/**'], [cliNoCore, cliNoBin]),
-  restrict(['packages/cli/src/app.ts'], [cliNoBin, coreEntryOnly]),
+  restrict(['packages/cli/**'], [cliNoCore, cliNoBin, cliNoTesting]),
+  restrict(['packages/cli/src/app.ts'], [cliNoBin, cliNoTesting, coreEntryOnly]),
   // Tests legitimately wire layers together (the store fixture from
   // `testing/store`, cross-layer assertions); the boundary constrains shipped
   // code, not tests.
@@ -201,8 +211,9 @@ const layerOverrides: Override[] = [
   restrict(['packages/contract/**'], [noBinImports, noCoreImports, noWireImports]),
   restrict(['packages/wire/**/*.test.ts'], [coreEntryOnly, noBinImports]),
   restrict(['packages/bin/**/*.test.ts'], [coreEntryOnly]),
-  // The CLI's tests and test fixtures build stores and run the old CLI for the
-  // parity harness; they still reach core only through its entries.
+  // The CLI's tests and test-support modules build stores and run the old CLI
+  // for the parity harness; they still reach core only through its entries.
+  // Shipped CLI modules may not import them (cliNoTesting above).
   restrict(['packages/cli/**/*.test.ts', 'packages/cli/src/testing/**'], [coreEntryOnly]),
   // Tests legitimately force bad/loose types — to drive error paths, assert over
   // untyped HTTP responses, narrow DOM queries — so unsafe assertions are allowed

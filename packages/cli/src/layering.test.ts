@@ -17,8 +17,18 @@ afterEach(() => {
   rmSync(probe, { force: true });
 });
 
+/**
+ * Lint one file with the default formatter pinned. Under GitHub Actions, vp
+ * lint otherwise writes annotations, which drop the rule's custom message that
+ * each case reads.
+ */
 function lint(path: string): { status: number | null; output: string } {
-  const run = spawnSync('bun', ['x', 'vp', 'lint', path], { cwd: repository, encoding: 'utf8' });
+  const { GITHUB_ACTIONS: _annotations, ...env } = process.env;
+  const run = spawnSync('bun', ['x', 'vp', 'lint', '--format', 'default', path], {
+    cwd: repository,
+    encoding: 'utf8',
+    env,
+  });
   return { output: `${run.stdout}${run.stderr}`, status: run.status };
 }
 
@@ -34,6 +44,13 @@ test('a command module that imports the old binary is refused', () => {
   const run = lint(probe);
   expect(run.status).not.toBe(0);
   expect(run.output).toContain('@mimir/cli may not import @mimir/bin');
+});
+
+test('a command module that imports the test-support helpers is refused', () => {
+  writeFileSync(probe, "export { parityBoard } from '../testing/fixture';\n");
+  const run = lint(probe);
+  expect(run.status).not.toBe(0);
+  expect(run.output).toContain('only tests import packages/cli/src/testing');
 });
 
 test('the composition root imports core, and a command the contract, cleanly', () => {

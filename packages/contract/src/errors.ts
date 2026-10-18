@@ -21,3 +21,11 @@ export class MimirError extends Error {
     this.hint = hint;
   }
 }
+
+/** Canonical project-miss — token-as-subject; all transports emit the same hint. */
+export const projectNotFound = (key: string): MimirError =>
+  new MimirError(
+    'not_found',
+    `${key} doesn't exist`,
+    `create it: mimir create project "Name" --key ${key} -y`,
+  );

@@ -21,6 +21,14 @@ const next = (name: string, options: ParityCase['options'] = {}, bound?: string)
   ...(bound === undefined ? {} : { bound }),
 });
 
+/** A case both CLIs run as this literal argv, the new one through Loom's parser. */
+const argv = (line: string, tty?: true): ParityCase => ({
+  argv: line.split(' '),
+  name: `next argv: ${line.replace(/^next /, '')}${tty ? ' (terminal)' : ''}`,
+  path: ['next'],
+  ...(tty ? { tty } : {}),
+});
+
 const CASES: ParityCase[] = [
   // The ready set, through every format.
   next('next -s MMR', { scope: 'MMR' }),
@@ -122,8 +130,33 @@ const CASES: ParityCase[] = [
   next('next -s MMR --tz Mars/Base', { scope: 'MMR', tz: 'Mars/Base' }),
   next('next -s MMR --col bogus', { col: ['bogus'], scope: 'MMR' }),
   next('next -s NOPE', { scope: 'NOPE' }),
+  // A scope not shaped like a key is a missing project, not a schema fault.
+  next('next -s mmr', { scope: 'mmr' }),
+  next('next -s XX-1', { scope: 'XX-1' }),
+  next('next -s A -f json', { format: 'json', scope: 'A' }),
+  next('next -s ABCDEFGHIJKLMNOP', { scope: 'ABCDEFGHIJKLMNOP' }),
+  next('next -s ""', { scope: '' }),
   // Faults Loom's parser raises.
   next('next -s MMR --bogus', { bogus: true, scope: 'MMR' }),
+  // Through Loom's parser, as a shell spells them.
+  argv('next -s MMR'),
+  argv('next -s MMR -f json'),
+  argv('next --scope MMR --priority p1 --format ids'),
+  argv('next -s MMR --eq priority:p1 --eq tag:alpha -f ids'),
+  argv('next -s MMR -p zz'),
+  argv('next -s MMR -p zz -f json'),
+  argv('next -s mmr'),
+  argv('next -s MMR --bogus -f json'),
+  // Invocations the old CLI accepted and Loom's parser refuses.
+  argv('next -s MMR -p p1 -p p2 -f ids'),
+  argv('next -s MMR --ascii --ascii'),
+  argv('next extra -s MMR'),
+  argv('-s MMR next -f ids'),
+  // On a color terminal.
+  argv('next -s MMR', true),
+  argv('next -s MMR -f records', true),
+  argv('next -s XX -p p0', true),
+  argv('next -s MMR --ascii', true),
 ];
 
 test.each(CASES)('parity: $name', async (c) => {

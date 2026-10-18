@@ -30,7 +30,9 @@ grammar and wire codecs the CLI shares with the other transports, such as the
 `FIELD:VALUE` filter parser and the node wire mapper. A command reads work
 state through the Engine alone. An oxlint rule refuses an import of
 `@mimir/core` outside `src/app.ts`, and an import of `@mimir/bin` outside the
-package's tests.
+package's tests. The test-support modules under `src/testing` are the one
+exemption: they build stores and run the old CLI for the parity harness, so
+the same rule refuses an import of them outside the tests.
 
 ### Help is generated
 
@@ -76,12 +78,15 @@ the old envelope `{"error":{"code","message","hint"}}`.
 A board read takes its project from `-s KEY` or from the clone binding. The
 Engine reads one board at a time (ADR 0034), so `-s all` is retired. An
 unbound clone with no `-s` is refused with a usage error that names both
-ways to supply the project.
+ways to supply the project. A project name not shaped like a key is refused as a
+missing project, `not-found` with the create hint, as the old CLI refused it.
 
 ### A parity harness holds each port to the old CLI
 
 Each ported command passes a parity harness. A case runs through the old
-CLI's `runCli` and the new CLI's `app.invoke` over one store, piped:
+CLI's `runCli` and the new CLI over one store. Most cases run the new CLI by
+name through `app.invoke`, piped; argv cases run a literal argv through
+Loom's parser, piped or on a color terminal. The two must agree:
 
 - `json`, `jsonl`, and `ids` output and exit codes are byte-identical;
 - `table` and `records` output may differ only by the lines an entry in a
@@ -89,10 +94,18 @@ CLI's `runCli` and the new CLI's `app.invoke` over one store, piped:
 - a failure compares by exit code, code, message, and hints, except a fault
   Loom's parser raises, which a difference entry names and which compares by
   exit code alone;
+- an argv the old CLI accepted and Loom's parser refuses, such as a repeated
+  single-value option, a stray positional, or `-s` before the verb, is a
+  difference entry of its own, which requires exit 2 and a code of Loom's;
 - help is pinned, never compared.
 
-An entry that matches no case fails its command's parity test, so the list
-does not go stale.
+Two differences every case carries are normalized rather than listed: through
+argv, help's plugin appends a `Run "mimir <cmd> --help"` pointer as the last
+hint of every usage failure, and on a terminal Loom closes each style with its
+own reset (`\e[22m` after bold, `\e[39m` after a color) where the old CLI
+wrote `\e[0m`. A Loom entry whose new failure carries a Mimir code, or whose
+failures match, fails its case, and an entry that matches no case fails its
+command's parity test, so the list does not go stale.
 
 ### Loom generates the MCP contract
 

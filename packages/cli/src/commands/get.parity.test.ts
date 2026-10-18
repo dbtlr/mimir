@@ -21,6 +21,14 @@ const get = (name: string, id: string | undefined, options: ParityCase['options'
   path: ['get'],
 });
 
+/** A case both CLIs run as this literal argv, the new one through Loom's parser. */
+const argv = (rest: string, tty?: true): ParityCase => ({
+  argv: ['get', ...rest.split(' ')],
+  name: `get argv: ${rest}${tty ? ' (terminal)' : ''}`,
+  path: ['get'],
+  ...(tty ? { tty } : {}),
+});
+
 const CASES: ParityCase[] = [
   // A task, through every format.
   get('get MMR-3', 'MMR-3'),
@@ -76,6 +84,20 @@ const CASES: ParityCase[] = [
   get('get (no id)', undefined),
   get('get MMR-3 --tz UTC', 'MMR-3', { tz: 'UTC' }),
   get('get MMR-3 -f yaml', 'MMR-3', { format: 'yaml' }),
+  // Through Loom's parser, as a shell spells them.
+  argv('MMR-3'),
+  argv('MMR-3 -f json'),
+  argv('MMR-3 --format ids'),
+  argv('MMR-3 --col lede'),
+  argv('MMR-3 --col bogus'),
+  argv('NOPE -f json'),
+  // Invocations the old CLI accepted and Loom's parser refuses.
+  argv('MMR-3 -f json -f ids'),
+  argv('MMR-3 extra'),
+  // On a color terminal.
+  argv('MMR-3', true),
+  argv('MMR-3 -f table', true),
+  argv('MMR-a1', true),
 ];
 
 test.each(CASES)('parity: $name', async (c) => {
