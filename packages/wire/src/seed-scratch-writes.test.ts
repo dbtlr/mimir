@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 import { engineSchemas } from '@mimir/contract';
-import type { Engine, EngineInput, ErrorCode } from '@mimir/contract';
+import type { Engine, EngineInput, EngineMethods, ErrorCode } from '@mimir/contract';
 import {
   archiveProject,
   createInitiative,
@@ -24,8 +24,8 @@ import { createEngineHandler } from './server';
  */
 type WriteMethod = Extract<
   {
-    [K in keyof Engine]: (typeof engineSchemas)[K]['kind'] extends 'mutation' ? K : never;
-  }[keyof Engine],
+    [K in keyof EngineMethods]: (typeof engineSchemas)[K]['kind'] extends 'mutation' ? K : never;
+  }[keyof EngineMethods],
   `seed${string}` | `scratch${string}` | 'triage'
 >;
 const SEED_SCRATCH_WRITE = /^(?:seed|scratch)[A-Z]|^triage$/;
