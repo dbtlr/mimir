@@ -191,7 +191,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
       .object({ version: z.string() })
       .parse(await Bun.file(new URL('../../bin/package.json', import.meta.url)).json()).version;
     expect(await api(base, '/api/health')).toMatchObject({ status: 'ok', version });
-    expect(await api(base, '/health')).toEqual({ schema: 5, status: 'ok', version });
+    expect(await api(base, '/health')).toEqual({ schema: 6, status: 'ok', version });
     const healthHead = await fetch(`${base}/health`, { method: 'HEAD' });
     expect(healthHead.status).toBe(200);
     expect(await healthHead.text()).toBe('');
@@ -435,6 +435,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     });
     expect(await api(base, '/api/projects')).toMatchObject({ items: [] });
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0005_project_pinned');
+    expect(await docker(['logs', postgresHost])).toContain('applied migration 0006_project_remote');
     await docker(['rm', '--force', postgresHost]);
     const sql = async (statement: string) =>
       docker([
@@ -451,14 +452,14 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
         statement,
       ]);
     await sql(
-      'ALTER TABLE project DROP COLUMN pinned; DELETE FROM schema_version WHERE version = 5;',
+      'ALTER TABLE project DROP COLUMN remote; ALTER TABLE project DROP COLUMN pinned; DELETE FROM schema_version WHERE version >= 5;',
     );
     await runPostgresHost();
     base = await ready(postgresHost, 12345);
     expect(await api(base, '/api/projects')).toMatchObject({ items: [] });
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0005_project_pinned');
     await docker(['rm', '--force', postgresHost]);
-    await sql('INSERT INTO schema_version (version, applied_at) VALUES (6, now());');
+    await sql('INSERT INTO schema_version (version, applied_at) VALUES (7, now());');
     await runPostgresHost();
     expect(await docker(['wait', postgresHost], 10_000)).not.toBe('0');
     expect(await docker(['logs', postgresHost])).toContain('update the image');
