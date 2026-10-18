@@ -112,7 +112,12 @@ The Engine carries every CLI and MCP read (`next`, `list`, `projects`,
 `artifacts`, `search`, `seeds`, `scratchList`, `scratchGet`) and every node
 write (`create`, `update`, `updateProject`, `annotate`, `attach`, `depend`,
 `undepend`, `move`, `reorder`, `groom`, `tag`, `untag`, and the twelve uniform
-verbs, which are derived from the operation facts). Board reads name their project; only `projects` spans projects.
+verbs, which are derived from the operation facts), plus every seed write
+(`seedCreate`, `seedPromote`, `seedResolve`, `seedReject`, `seedPark`,
+`seedUnpark`, `seedUpdate`, `triage`) and Scratchpad write (`scratchCreate`,
+`scratchUpdate`, `scratchCheckpoint`, `scratchAgendaAdd`,
+`scratchAgendaComplete`, `scratchAgendaSupersede`, `scratchFreeze`,
+`scratchDiscard`). Board reads name their project; only `projects` spans projects.
 `LocalEngine` owns a `Store` and delegates to the existing domain functions;
 `@mimir/wire/server` adapts an Engine to tRPC, and `@mimir/wire/client` provides
 the store-free `RemoteEngine`. The two wire entries share only types across

@@ -155,6 +155,69 @@ export class RemoteEngine extends UniformEngineBase implements Engine {
   updateProject(input: EngineInput<'updateProject'>) {
     return domainResult(this.client.updateProject.mutate(input));
   }
+  scratchAgendaAdd(input: EngineInput<'scratchAgendaAdd'>) {
+    return domainResult(this.client.scratchAgendaAdd.mutate(input));
+  }
+
+  scratchAgendaComplete(input: EngineInput<'scratchAgendaComplete'>) {
+    return domainResult(this.client.scratchAgendaComplete.mutate(input));
+  }
+
+  scratchAgendaSupersede(input: EngineInput<'scratchAgendaSupersede'>) {
+    return domainResult(this.client.scratchAgendaSupersede.mutate(input));
+  }
+
+  scratchCheckpoint(input: EngineInput<'scratchCheckpoint'>) {
+    return domainResult(this.client.scratchCheckpoint.mutate(input));
+  }
+
+  scratchCreate(input: EngineInput<'scratchCreate'>) {
+    return domainResult(this.client.scratchCreate.mutate(input));
+  }
+
+  scratchDiscard(input: EngineInput<'scratchDiscard'>) {
+    return domainResult(this.client.scratchDiscard.mutate(input));
+  }
+
+  scratchFreeze(input: EngineInput<'scratchFreeze'>) {
+    return domainResult(this.client.scratchFreeze.mutate(input));
+  }
+
+  scratchUpdate(input: EngineInput<'scratchUpdate'>) {
+    return domainResult(this.client.scratchUpdate.mutate(input));
+  }
+
+  seedCreate(input: EngineInput<'seedCreate'>) {
+    return domainResult(this.client.seedCreate.mutate(input));
+  }
+
+  seedPark(input: EngineInput<'seedPark'>) {
+    return domainResult(this.client.seedPark.mutate(input));
+  }
+
+  seedPromote(input: EngineInput<'seedPromote'>) {
+    return domainResult(this.client.seedPromote.mutate(input));
+  }
+
+  seedReject(input: EngineInput<'seedReject'>) {
+    return domainResult(this.client.seedReject.mutate(input));
+  }
+
+  seedResolve(input: EngineInput<'seedResolve'>) {
+    return domainResult(this.client.seedResolve.mutate(input));
+  }
+
+  seedUnpark(input: EngineInput<'seedUnpark'>) {
+    return domainResult(this.client.seedUnpark.mutate(input));
+  }
+
+  seedUpdate(input: EngineInput<'seedUpdate'>) {
+    return domainResult(this.client.seedUpdate.mutate(input));
+  }
+
+  triage(input: EngineInput<'triage'>) {
+    return domainResult(this.client.triage.mutate(input));
+  }
 }
 
 function isMutation(value: unknown): value is { mutate: (input: unknown) => Promise<unknown> } {

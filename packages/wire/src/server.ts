@@ -168,6 +168,36 @@ export function createEngineRouter(engine: Engine) {
       .input((value: unknown) => parseEngineInput(engineSchemas.projects.input, value))
       .output(engineSchemas.projects.output)
       .query(({ input }) => engine.projects(input)),
+    scratchAgendaAdd: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.scratchAgendaAdd.input, value))
+      .output(engineSchemas.scratchAgendaAdd.output)
+      .mutation(({ input }) => engine.scratchAgendaAdd(input)),
+    scratchAgendaComplete: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.scratchAgendaComplete.input, value))
+      .output(engineSchemas.scratchAgendaComplete.output)
+      .mutation(({ input }) => engine.scratchAgendaComplete(input)),
+    scratchAgendaSupersede: procedure
+      .input((value: unknown) =>
+        parseEngineInput(engineSchemas.scratchAgendaSupersede.input, value),
+      )
+      .output(engineSchemas.scratchAgendaSupersede.output)
+      .mutation(({ input }) => engine.scratchAgendaSupersede(input)),
+    scratchCheckpoint: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.scratchCheckpoint.input, value))
+      .output(engineSchemas.scratchCheckpoint.output)
+      .mutation(({ input }) => engine.scratchCheckpoint(input)),
+    scratchCreate: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.scratchCreate.input, value))
+      .output(engineSchemas.scratchCreate.output)
+      .mutation(({ input }) => engine.scratchCreate(input)),
+    scratchDiscard: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.scratchDiscard.input, value))
+      .output(engineSchemas.scratchDiscard.output)
+      .mutation(({ input }) => engine.scratchDiscard(input)),
+    scratchFreeze: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.scratchFreeze.input, value))
+      .output(engineSchemas.scratchFreeze.output)
+      .mutation(({ input }) => engine.scratchFreeze(input)),
     scratchGet: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.scratchGet.input, value))
       .output(engineSchemas.scratchGet.output)
@@ -176,10 +206,42 @@ export function createEngineRouter(engine: Engine) {
       .input((value: unknown) => parseEngineInput(engineSchemas.scratchList.input, value))
       .output(engineSchemas.scratchList.output)
       .query(({ input }) => engine.scratchList(input)),
+    scratchUpdate: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.scratchUpdate.input, value))
+      .output(engineSchemas.scratchUpdate.output)
+      .mutation(({ input }) => engine.scratchUpdate(input)),
     search: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.search.input, value))
       .output(engineSchemas.search.output)
       .query(({ input }) => engine.search(input)),
+    seedCreate: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.seedCreate.input, value))
+      .output(engineSchemas.seedCreate.output)
+      .mutation(({ input }) => engine.seedCreate(input)),
+    seedPark: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.seedPark.input, value))
+      .output(engineSchemas.seedPark.output)
+      .mutation(({ input }) => engine.seedPark(input)),
+    seedPromote: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.seedPromote.input, value))
+      .output(engineSchemas.seedPromote.output)
+      .mutation(({ input }) => engine.seedPromote(input)),
+    seedReject: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.seedReject.input, value))
+      .output(engineSchemas.seedReject.output)
+      .mutation(({ input }) => engine.seedReject(input)),
+    seedResolve: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.seedResolve.input, value))
+      .output(engineSchemas.seedResolve.output)
+      .mutation(({ input }) => engine.seedResolve(input)),
+    seedUnpark: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.seedUnpark.input, value))
+      .output(engineSchemas.seedUnpark.output)
+      .mutation(({ input }) => engine.seedUnpark(input)),
+    seedUpdate: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.seedUpdate.input, value))
+      .output(engineSchemas.seedUpdate.output)
+      .mutation(({ input }) => engine.seedUpdate(input)),
     seeds: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.seeds.input, value))
       .output(engineSchemas.seeds.output)
@@ -192,6 +254,10 @@ export function createEngineRouter(engine: Engine) {
       .input((value: unknown) => parseEngineInput(engineSchemas.tree.input, value))
       .output(engineSchemas.tree.output)
       .query(({ input }) => engine.tree(input)),
+    triage: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.triage.input, value))
+      .output(engineSchemas.triage.output)
+      .mutation(({ input }) => engine.triage(input)),
     ...nodeWriteProcedures(engine),
   } satisfies EngineProcedures;
   return t.router(procedures);

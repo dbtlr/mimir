@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { FACET_NAMES } from './dto';
 import { nodeWriteSchemas } from './engine-node-writes';
+import { seedScratchSchemas } from './engine-seed-scratch';
 import { engineViews } from './engine-views';
 import { PRIORITY_VALUES, SEED_STATUS_SELECTOR_VALUES, SIZE_VALUES } from './enums';
 import { MimirError } from './errors';
@@ -143,6 +144,7 @@ export const engineSchemas = {
     output: engineViews.tree,
   },
   ...nodeWriteSchemas(project),
+  ...seedScratchSchemas(project),
 } as const;
 
 type EngineSchemas = typeof engineSchemas;
