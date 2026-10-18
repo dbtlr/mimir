@@ -193,7 +193,7 @@ const writes: WriteCase[] = [
       type: 'task',
       upstream: 'ENG-s1',
     }),
-    (node) => {
+    async (node, _ids, read) => {
       expect(node.type).toBe('task');
       expect(node.priority).toBe('p1');
       expect(node.size).toBe('small');
@@ -201,6 +201,8 @@ const writes: WriteCase[] = [
       expect(node.branch).toBe('feat/x');
       expect(node.upstream).toBe('ENG-s1');
       expect(node.tags?.map((tag) => tag.tag)).toBeUndefined();
+      const full = await read.getNode({ facets: ['tags'], id: node.id });
+      expect(full.tags?.map((tag) => tag.tag)).toEqual(['new']);
     },
   ),
   write(
@@ -301,13 +303,19 @@ const writes: WriteCase[] = [
     'reorder',
     'to the top',
     (ids) => ({ id: ids.startedTask, position: 'top' }),
-    (node) => expect(node.id).toBeString(),
+    async (node, ids, read) => {
+      const tree = await read.tree({ id: ids.phase });
+      expect(tree.children?.[0]?.id).toBe(node.id);
+    },
   ),
   write(
     'reorder',
     'after a sibling',
     (ids) => ({ id: ids.todoTask, position: 'after', ref: ids.taggedTask }),
-    (node) => expect(node.id).toBeString(),
+    async (node, ids, read) => {
+      const order = (await read.tree({ id: ids.phase })).children?.map((child) => child.id) ?? [];
+      expect(order.indexOf(node.id)).toBe(order.indexOf(ids.taggedTask) + 1);
+    },
   ),
   write(
     'groom',
@@ -326,8 +334,15 @@ const writes: WriteCase[] = [
     'tag',
     'a task and a project',
     (ids) => ({ ids: [ids.todoTask, 'ENG'], tags: ['alpha', 'beta'] }),
-    (result, ids) =>
-      expect(result).toEqual({ ids: [ids.todoTask, 'ENG'], tags: ['alpha', 'beta'] }),
+    async (result, ids, read) => {
+      expect(result).toEqual({ ids: [ids.todoTask, 'ENG'], tags: ['alpha', 'beta'] });
+      const task = await read.getNode({ facets: ['tags'], id: ids.todoTask });
+      expect(task.tags?.map((tag) => tag.tag).toSorted()).toEqual(['alpha', 'beta']);
+      const project = await read.tree({ facets: ['tags'], id: 'ENG' });
+      expect(project.tags?.map((tag) => tag.tag)).toEqual(
+        expect.arrayContaining(['alpha', 'beta']),
+      );
+    },
   ),
   write(
     'untag',
@@ -499,6 +514,54 @@ type Refusal = {
 };
 
 const refusals: Refusal[] = [
+  {
+    code: 'validation',
+    input: (ids: Ids) => ({ parent: ids.phase, title: 'U', type: 'task', upstream: 'none' }),
+    label: 'the none upstream sentinel',
+    method: 'create',
+  },
+  {
+    code: 'validation',
+    input: (ids: Ids) => ({ parent: ids.phase, title: 'U', type: 'task', upstream: 'garbage' }),
+    label: 'a malformed upstream',
+    method: 'create',
+  },
+  {
+    code: 'validation',
+    input: () => ({ id: 'ENG', title: 'x' }),
+    label: 'a project key',
+    method: 'update',
+  },
+  {
+    code: 'validation',
+    input: () => ({ id: 'ENG' }),
+    label: 'a project key on a task verb',
+    method: 'done',
+  },
+  {
+    code: 'validation',
+    input: (ids: Ids) => ({ id: ids.todoTask }),
+    label: 'a task that is not under review',
+    method: 'return',
+  },
+  {
+    code: 'validation',
+    input: (ids: Ids) => ({ id: ids.doneTask }),
+    label: 'a done task',
+    method: 'abandon',
+  },
+  {
+    code: 'validation',
+    input: (ids: Ids) => ({ id: ids.todoTask }),
+    label: 'a task that is not finished',
+    method: 'reopen',
+  },
+  {
+    code: 'validation',
+    input: (ids: Ids) => ({ id: ids.parkedTask }),
+    label: 'an already parked task',
+    method: 'park',
+  },
   {
     code: 'conflict',
     input: () => ({ key: 'ENG', name: 'Again', type: 'project' }),
@@ -789,6 +852,17 @@ test('a refused write leaves the store unchanged', async () => {
       fixture.remote.groom({ ids: [fixture.ids.todoTask, 'ENG-99'], state: 'groomed' }),
     );
     expect(await fixture.local.getNode({ id: fixture.ids.todoTask })).toStrictEqual(before);
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('block names the shared choice wording and hint for an unknown owner', async () => {
+  const fixture = await buildFixture();
+  try {
+    const error = await errorOf(fixture.remote.block({ id: fixture.ids.todoTask, on: 'nobody' }));
+    expect(error.message).toBe('invalid on: nobody');
+    expect(error.hint).toBe('block on takes one of: you, others');
   } finally {
     await fixture.close();
   }

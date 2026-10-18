@@ -38,9 +38,9 @@ type FieldsShape<V extends UniformVerb> =
     : unknown;
 type ChoiceShape<V extends UniformVerb> =
   Fact<V> extends {
-    choice: { name: infer N extends string; values: readonly (infer C extends string)[] };
+    choice: { name: infer N extends string };
   }
-    ? Record<N, z.ZodOptional<z.ZodEnum<{ [P in C]: P }>>>
+    ? Record<N, z.ZodOptional<z.ZodString>>
     : unknown;
 /** The input fields a uniform verb's fact declares, beyond its subject id. */
 type UniformShape<V extends UniformVerb> = { id: z.ZodString } & ReasonShape<V> &
@@ -84,7 +84,8 @@ function uniformSchema(verb: UniformVerb, project: z.ZodString) {
     }
   }
   if ('choice' in fact) {
-    shape[fact.choice.name] = z.enum(fact.choice.values).optional();
+    // Left a string so the shared parseOpChoice owns the refusal wording.
+    shape[fact.choice.name] = z.string().optional();
   }
   return {
     input: z.strictObject(shape),

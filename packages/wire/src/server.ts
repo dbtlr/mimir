@@ -1,5 +1,5 @@
 import { engineSchemas, MimirError, parseEngineInput, UNIFORM_VERBS } from '@mimir/contract';
-import type { Engine, EngineNode, ErrorCode, UniformVerb } from '@mimir/contract';
+import type { Engine, EngineOutput, ErrorCode, UniformVerb } from '@mimir/contract';
 import { formatDiagnostic } from '@mimir/helpers';
 import { initTRPC, TRPCError } from '@trpc/server';
 import type { TRPCMutationProcedure, TRPCQueryProcedure } from '@trpc/server';
@@ -63,7 +63,7 @@ type UniformProcedures = Pick<EngineProcedures, UniformVerb>;
 
 function uniformProcedures(engine: Engine): UniformProcedures {
   const entries = UNIFORM_VERBS.map((verb) => {
-    const run = (input: unknown): Promise<EngineNode> =>
+    const run = (input: unknown): Promise<EngineOutput<UniformVerb>> =>
       Reflect.apply(Reflect.get(engine, verb), engine, [input]);
     return [
       verb,
@@ -71,10 +71,11 @@ function uniformProcedures(engine: Engine): UniformProcedures {
         .input((value: unknown) => parseEngineInput(engineSchemas[verb].input, value))
         .output(engineSchemas[verb].output)
         .mutation(({ input }) => run(input)),
-    ];
+    ] as const;
   });
   // Built by iterating exactly UNIFORM_VERBS, so the table has every uniform procedure.
-  return Object.fromEntries(entries);
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return Object.fromEntries(entries) as unknown as UniformProcedures;
 }
 
 /** The node writes' procedures (MMR-517): twelve explicit ones plus the derived uniform verbs. */

@@ -19,7 +19,7 @@ import type {
 import { createNode } from './create';
 import { deriveSet } from './derive';
 import { notFound, validation } from './errors';
-import { isSeedRef } from './ids';
+import { isSeedRef, parseIdentity } from './ids';
 import { getArtifact, nodeViewById, projectViewOf } from './intent';
 import type { Project } from './model';
 import {
@@ -68,8 +68,25 @@ function requireText(value: string, what: string) {
   }
 }
 
+/** The Engine takes `upstream` as a seed id or null; the CLI's 'none' sentinel stays in the CLI. */
+function requireSeedUpstream(upstream: string | null | undefined) {
+  if (typeof upstream === 'string' && !isSeedRef(upstream)) {
+    throw validation(`upstream expects a seed id (KEY-sN) or null to clear, got ${upstream}`);
+  }
+}
+
+/** A project key is not a node id: point the caller at the project-scoped method. */
+function refuseProjectKey(id: string, instead: string) {
+  if (parseIdentity(id)?.kind === 'project') {
+    throw validation(`${id} is a project, not a node`, `use ${instead} for a project`);
+  }
+}
+
 export async function createEngine(store: Store, input: EngineInput<'create'>) {
   const parsed = parseEngineInput(engineSchemas.create.input, input);
+  if (parsed.type === 'task') {
+    requireSeedUpstream(parsed.upstream);
+  }
   if (parsed.type === 'project') {
     return projectEcho(store, await createNode(store, parsed));
   }
@@ -79,11 +96,8 @@ export async function createEngine(store: Store, input: EngineInput<'create'>) {
 
 export async function updateEngine(store: Store, input: EngineInput<'update'>) {
   const { id, ...fields } = parseEngineInput(engineSchemas.update.input, input);
-  if (typeof fields.upstream === 'string' && !isSeedRef(fields.upstream)) {
-    throw validation(
-      `upstream expects a seed id (KEY-sN) or null to clear, got ${fields.upstream}`,
-    );
-  }
+  refuseProjectKey(id, 'updateProject');
+  requireSeedUpstream(fields.upstream);
   await updateNode(store, id, fields);
   return nodeEcho(store, id);
 }
@@ -198,6 +212,9 @@ function handleArgs(args: UniformArgs, declared: readonly DataFieldKey[]): Handl
 async function uniformEngine(store: Store, verb: UniformVerb, input: unknown) {
   const spec = OPS[verb];
   const args: UniformArgs = parseEngineInput(engineSchemas[verb].input, input);
+  if (spec.subject === 'task') {
+    refuseProjectKey(args.id, 'archive or unarchive');
+  }
   const seedRun = seedOpFor(verb, args.id);
   if (seedRun !== undefined) {
     return intentViews.seed.parse(await seedRun(store, args.id, args.reason));
