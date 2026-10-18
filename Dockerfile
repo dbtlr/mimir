@@ -1,4 +1,5 @@
-FROM oven/bun:1.4.3 AS build
+# The build output is platform-independent JavaScript, so build natively rather than under QEMU emulation.
+FROM --platform=$BUILDPLATFORM oven/bun:1.4.3 AS build
 WORKDIR /app
 COPY . .
 RUN bun install --frozen-lockfile
