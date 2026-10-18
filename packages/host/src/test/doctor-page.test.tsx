@@ -10,11 +10,13 @@ import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { emptyRead } from './fixtures';
 import { serveShell } from './shell-fns';
+import { serveViews } from './views-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
+vi.mock('../api/fns/views');
 // The shell renders sonner's Toaster; the panel fires toast.success/error — stub
 // both so the copy-outcome assertions read the mock, not the DOM.
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
@@ -22,6 +24,7 @@ vi.mock('sonner', () => ({ Toaster: () => null, toast }));
 
 // The page sits in the shell, which reads the project lists; none exist here.
 beforeEach(() => {
+  serveViews();
   serveShell();
 });
 

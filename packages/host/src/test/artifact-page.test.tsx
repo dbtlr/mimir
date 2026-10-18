@@ -15,11 +15,13 @@ import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
 import { emptyRead, task } from './fixtures';
 import { serveShell } from './shell-fns';
+import { serveViews } from './views-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
+vi.mock('../api/fns/views');
 vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
 
 const PROJECTS = [engineProject({ id: 'MMR', title: 'Mimir' })];
@@ -122,6 +124,7 @@ const path = () => screen.findByRole('navigation', { name: 'Path' });
 const rail = () => screen.findByRole('complementary', { name: 'Record details' });
 
 beforeEach(() => {
+  serveViews();
   apiGet.mockReset();
   apiSend.mockReset();
   serveShell({ projects: PROJECTS, trees: { MMR: TREE } });

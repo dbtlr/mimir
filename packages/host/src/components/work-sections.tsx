@@ -1,16 +1,16 @@
+import type { EngineNode } from '@mimir/contract';
 import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import type {
-  WireNode,
-  WireWorkFrontier,
-  WireWorkNeedsYou,
-  WireWorkNow,
-  WireWorkReport,
-  WireWorkShipped,
-  WireWorkWaiting,
-} from '../api/types';
+  FrontierTask,
+  NeedsYouTask,
+  NowTask,
+  ShippedTask,
+  WaitingTask,
+  WorkReport,
+} from '../api/view-queries';
 import { cn } from '../lib/cn';
 import { nodeLink } from '../lib/record-url';
 import { ago, relativeTime } from '../lib/time';
@@ -58,25 +58,25 @@ function ContextPart({ children, mono = false }: { children: ReactNode; mono?: b
   );
 }
 
-export function NowRow({ row }: { row: WireWorkNow }) {
+export function NowRow({ row }: { row: NowTask }) {
   return (
     <BrowserRow
-      to={nodeLink(row.id)}
-      id={row.id}
-      title={row.title}
-      leading={<StatusDot status={row.status} />}
+      to={nodeLink(row.task.id)}
+      id={row.task.id}
+      title={row.task.title}
+      leading={<StatusDot status={row.task.status} />}
       afterTitle={<RowTail row={row} />}
       meta={
         <div className="flex flex-col gap-0.5">
           <p className="flex flex-wrap items-baseline gap-x-1.5">
-            <span>Started {ago(row.started_at)}</span>
-            {row.harness != null && <ContextPart>{row.harness}</ContextPart>}
-            {row.branch != null && <ContextPart mono>{row.branch}</ContextPart>}
+            <span>Started {ago(row.startedAt)}</span>
+            {row.task.harness != null && <ContextPart>{row.task.harness}</ContextPart>}
+            {row.task.branch != null && <ContextPart mono>{row.task.branch}</ContextPart>}
             {row.scratchpads.length > 0 && <ContextPart>Scratchpad open</ContextPart>}
           </p>
-          {row.latest_note !== null && (
+          {row.latestNote !== null && (
             <p className="line-clamp-2 text-meta text-ink-dim">
-              Latest note, {ago(row.latest_note.created_at)}: “{row.latest_note.content}”
+              Latest note, {ago(row.latestNote.createdAt)}: “{row.latestNote.content}”
             </p>
           )}
         </div>
@@ -85,7 +85,7 @@ export function NowRow({ row }: { row: WireWorkNow }) {
   );
 }
 
-function NowSection({ rows }: { rows: readonly WireWorkNow[] }) {
+function NowSection({ rows }: { rows: readonly NowTask[] }) {
   return (
     <BrowserGroup
       label="Now"
@@ -95,20 +95,14 @@ function NowSection({ rows }: { rows: readonly WireWorkNow[] }) {
       {rows.length === 0 ? (
         <Empty lead="Nothing running.">No task is in progress.</Empty>
       ) : (
-        rows.map((row) => <NowRow key={row.id} row={row} />)
+        rows.map((row) => <NowRow key={row.task.id} row={row} />)
       )}
     </BrowserGroup>
   );
 }
 
-function NeedsYouSection({
-  rows,
-  offline,
-}: {
-  rows: readonly WireWorkNeedsYou[];
-  offline: boolean;
-}) {
-  const { handoff, headingRef } = useRowFocusHandoff(rows.map((row) => row.id));
+function NeedsYouSection({ rows, offline }: { rows: readonly NeedsYouTask[]; offline: boolean }) {
+  const { handoff, headingRef } = useRowFocusHandoff(rows.map((row) => row.task.id));
   return (
     <BrowserGroup
       label="Needs you"
@@ -121,7 +115,11 @@ function NeedsYouSection({
         <Empty lead="Nothing needs you.">No reviews, blocks, or questions are waiting.</Empty>
       ) : (
         rows.map((row) => (
-          <NeedsYouRow key={row.id} row={row} actions={needsYouActions(row, offline, handoff)} />
+          <NeedsYouRow
+            key={row.task.id}
+            row={row}
+            actions={needsYouActions(row, offline, handoff)}
+          />
         ))
       )}
     </BrowserGroup>
@@ -129,17 +127,19 @@ function NeedsYouSection({
 }
 
 /** A frontier row: its grooming chip and size, and what a container to break down is. */
-function FrontierRow({ row, actions }: { row: WireWorkFrontier; actions?: ReactNode }) {
+function FrontierRow({ row, actions }: { row: FrontierTask; actions?: ReactNode }) {
   return (
     <BrowserRow
-      to={nodeLink(row.id)}
-      id={row.id}
-      title={row.title}
-      leading={<StatusDot status={row.status} />}
-      beforeTitle={row.break_down && <span className="microlabel text-ink-faint">{row.type}</span>}
+      to={nodeLink(row.task.id)}
+      id={row.task.id}
+      title={row.task.title}
+      leading={<StatusDot status={row.task.status} />}
+      beforeTitle={
+        row.breakDown && <span className="microlabel text-ink-faint">{row.task.type}</span>
+      }
       afterTitle={
         <>
-          {row.break_down && <Badge variant="outline">break down</Badge>}
+          {row.breakDown && <Badge variant="outline">break down</Badge>}
           <RowTail row={row} />
         </>
       }
@@ -160,7 +160,7 @@ function SubgroupHeading({ name, hint }: { name: string; hint: string }) {
   );
 }
 
-function UnlockGroup({ group }: { group: WireWorkReport['frontier']['next_to_unlock'][number] }) {
+function UnlockGroup({ group }: { group: WorkReport['frontier']['nextToUnlock'][number] }) {
   return (
     <div className="mt-1.5">
       <p className="mb-0.5 flex flex-wrap items-baseline gap-x-1.5 text-tag">
@@ -176,23 +176,23 @@ function UnlockGroup({ group }: { group: WireWorkReport['frontier']['next_to_unl
         )}
       </p>
       {group.tasks.map((row) => (
-        <FrontierRow key={row.id} row={row} />
+        <FrontierRow key={row.task.id} row={row} />
       ))}
     </div>
   );
 }
 
-function WaitingRow({ row }: { row: WireWorkWaiting }) {
+function WaitingRow({ row }: { row: WaitingTask }) {
   return (
     <BrowserRow
-      to={nodeLink(row.id)}
-      id={row.id}
-      title={row.title}
-      leading={<StatusDot status={row.status} />}
+      to={nodeLink(row.task.id)}
+      id={row.task.id}
+      title={row.task.title}
+      leading={<StatusDot status={row.task.status} />}
       afterTitle={<RowTail row={row} />}
       meta={
-        row.block_reason === null ? undefined : (
-          <span className="text-meta text-ink-dim">{row.block_reason}</span>
+        row.blockReason === null ? undefined : (
+          <span className="text-meta text-ink-dim">{row.blockReason}</span>
         )
       }
     />
@@ -206,13 +206,13 @@ function FrontierSection({
   home,
   offline,
 }: {
-  frontier: WireWorkReport['frontier'];
+  frontier: WorkReport['frontier'];
   projectKey: string;
   home?: string;
   offline: boolean;
 }) {
-  const unlock = frontier.next_to_unlock.filter((g) => g.tasks.length > 0);
-  const { handoff, headingRef } = useRowFocusHandoff(frontier.runnable.map((row) => row.id));
+  const unlock = frontier.nextToUnlock.filter((g) => g.tasks.length > 0);
+  const { handoff, headingRef } = useRowFocusHandoff(frontier.runnable.map((row) => row.task.id));
   return (
     <BrowserGroup label="Frontier" hint="What’s next, and who can take it?" headingRef={headingRef}>
       {frontierIsEmpty(frontier) ? (
@@ -229,9 +229,9 @@ function FrontierSection({
             ) : (
               frontier.runnable.map((row) => (
                 <FrontierRow
-                  key={row.id}
+                  key={row.task.id}
                   row={row}
-                  actions={<StartAction id={row.id} offline={offline} handoff={handoff} />}
+                  actions={<StartAction id={row.task.id} offline={offline} handoff={handoff} />}
                 />
               ))
             )}
@@ -247,22 +247,22 @@ function FrontierSection({
               ))}
             </section>
           )}
-          {frontier.to_groom.length > 0 && (
+          {frontier.toGroom.length > 0 && (
             <section aria-label="To groom">
               <SubgroupHeading name="To groom" hint="not groomed, ready or one step away" />
-              {frontier.to_groom.map((row) => (
-                <FrontierRow key={row.id} row={row} />
+              {frontier.toGroom.map((row) => (
+                <FrontierRow key={row.task.id} row={row} />
               ))}
             </section>
           )}
-          {frontier.waiting_on_others.length > 0 && (
+          {frontier.waitingOnOthers.length > 0 && (
             <details>
               <summary className="microlabel cursor-pointer text-ink-faint focus-visible:outline-2 focus-visible:outline-accent">
-                Waiting on others · {frontier.waiting_on_others.length}
+                Waiting on others · {frontier.waitingOnOthers.length}
               </summary>
               <div className="mt-1">
-                {frontier.waiting_on_others.map((row) => (
-                  <WaitingRow key={row.id} row={row} />
+                {frontier.waitingOnOthers.map((row) => (
+                  <WaitingRow key={row.task.id} row={row} />
                 ))}
               </div>
             </details>
@@ -273,24 +273,24 @@ function FrontierSection({
   );
 }
 
-function ShippedRow({ row, zone }: { row: WireWorkShipped; zone: string }) {
-  const abandoned = row.status === 'abandoned';
+function ShippedRow({ row, zone }: { row: ShippedTask; zone: string }) {
+  const abandoned = row.task.status === 'abandoned';
   return (
     <BrowserRow
-      to={nodeLink(row.id)}
-      id={row.id}
-      title={row.title}
-      leading={<StatusDot status={row.status} />}
+      to={nodeLink(row.task.id)}
+      id={row.task.id}
+      title={row.task.title}
+      leading={<StatusDot status={row.task.status} />}
       struck={abandoned}
       afterTitle={
         <span className="ml-auto font-mono text-mono-id text-ink-faint">
-          {shippedTime(row.finished_at, zone)}
+          {shippedTime(row.finishedAt, zone)}
         </span>
       }
       meta={
         abandoned ? (
           <span className="text-meta text-ink-dim">
-            Abandoned{row.abandon_reason === null ? '' : `: ${row.abandon_reason}`}
+            Abandoned{row.abandonReason === null ? '' : `: ${row.abandonReason}`}
           </span>
         ) : undefined
       }
@@ -305,7 +305,7 @@ export function ShippedDayGroup({
   zone,
 }: {
   label: string;
-  rows: readonly WireWorkShipped[];
+  rows: readonly ShippedTask[];
   zone: string;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -324,7 +324,7 @@ export function ShippedDayGroup({
     <div ref={dayRef} className="mt-1.5">
       <h3 className="mb-0.5 font-mono text-tag text-ink-faint">{label}</h3>
       {shown.map((row) => (
-        <ShippedRow key={row.id} row={row} zone={zone} />
+        <ShippedRow key={row.task.id} row={row} zone={zone} />
       ))}
       {hidden > 0 && (
         <button
@@ -351,7 +351,7 @@ function ShippedSection({
   projectKey,
   zone,
 }: {
-  rows: readonly WireWorkShipped[];
+  rows: readonly ShippedTask[];
   projectKey: string;
   zone: string;
 }) {
@@ -381,7 +381,7 @@ function ShippedSection({
   );
 }
 
-function GoingColdSection({ rows }: { rows: readonly WireNode[] }) {
+function GoingColdSection({ rows }: { rows: readonly EngineNode[] }) {
   return (
     <BrowserGroup
       label="Going cold"
@@ -399,7 +399,7 @@ function GoingColdSection({ rows }: { rows: readonly WireNode[] }) {
             title={row.title}
             leading={<StatusDot status={row.status} />}
             afterTitle={<StaleBadge />}
-            meta={<span>⧗ {relativeTime(row.updated_at)} quiet</span>}
+            meta={<span>⧗ {relativeTime(row.updatedAt)} quiet</span>}
           />
         ))
       )}
@@ -420,7 +420,7 @@ export function WorkSections({
   zone,
   offline,
 }: {
-  report: WireWorkReport;
+  report: WorkReport;
   projectKey: string;
   home?: string;
   zone: string;
@@ -429,7 +429,7 @@ export function WorkSections({
   return (
     <div className="flex flex-col">
       <NowSection rows={report.now} />
-      <NeedsYouSection rows={report.needs_you} offline={offline} />
+      <NeedsYouSection rows={report.needsYou} offline={offline} />
       <FrontierSection
         frontier={report.frontier}
         projectKey={projectKey}
@@ -437,7 +437,7 @@ export function WorkSections({
         offline={offline}
       />
       <ShippedSection rows={report.shipped} projectKey={projectKey} zone={zone} />
-      <GoingColdSection rows={report.going_cold} />
+      <GoingColdSection rows={report.goingCold} />
       {/* The other lens on the scope: its tasks in the browser, past the five sections. */}
       <Link
         to="/p/$key/tasks"

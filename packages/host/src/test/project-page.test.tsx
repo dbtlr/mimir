@@ -7,16 +7,19 @@ import { ApiError } from '../api/errors';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
-import { emptyRead, workReport } from './fixtures';
+import { emptyRead } from './fixtures';
 import { failShellReads, serveShell } from './shell-fns';
+import { serveViews } from './views-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
+vi.mock('../api/fns/views');
 
 beforeEach(() => {
   serveBrowse();
+  serveViews();
 });
 
 function renderProject(key: string, search = '') {
@@ -87,9 +90,6 @@ function serveProject() {
     },
   });
   apiGet.mockImplementation((path: string) => {
-    if (path.startsWith('/api/projects/MMR/work?')) {
-      return Promise.resolve(workReport());
-    }
     if (path === '/api/projects/MMR') {
       return Promise.resolve({
         description: 'The **work** tool.',

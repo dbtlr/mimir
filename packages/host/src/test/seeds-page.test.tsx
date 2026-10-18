@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EngineSeed } from '../api/browse-queries';
 import { seeds } from '../api/fns/browse';
@@ -12,11 +12,17 @@ import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { emptyRead } from './fixtures';
 import { serveShell } from './shell-fns';
+import { serveViews } from './views-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
+vi.mock('../api/fns/views');
+
+beforeEach(() => {
+  serveViews();
+});
 vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
 
 /** One seed per live lane, plus two terminal rows for the settled fold. */

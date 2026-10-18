@@ -1,9 +1,9 @@
-import type { Grooming } from '@mimir/contract';
+import type { EngineNode, Grooming } from '@mimir/contract';
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useTransition } from '../api/node-mutations';
-import type { WireNode, WireWorkNeedsYou } from '../api/types';
+import type { NeedsYouTask } from '../api/view-queries';
 import { visibleGrooming } from '../lib/grooming';
 import { nodeLink } from '../lib/record-url';
 import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
@@ -33,22 +33,22 @@ const ATTENTION_RULE = 'border-l-2 border-attention pl-2';
 /** A row's trailing chips: grooming (while it still reads one), size, and stale. */
 export function RowTail({
   row,
-  grooming = visibleGrooming(row),
+  grooming = visibleGrooming(row.task),
 }: {
-  row: WireNode & { stale: boolean };
+  row: { task: Pick<EngineNode, 'grooming' | 'lifecycle' | 'size' | 'type'>; stale: boolean };
   grooming?: Grooming;
 }) {
   return (
     <>
       {grooming !== undefined && <GroomingBadge state={grooming} />}
-      {row.size != null && <SizeBadge size={row.size} />}
+      {row.task.size != null && <SizeBadge size={row.task.size} />}
       {row.stale && <StaleBadge />}
     </>
   );
 }
 
 /** Why a row needs the operator: in review, a block they can clear, or a question to answer. */
-function NeedsYouReason({ row }: { row: WireWorkNeedsYou }) {
+function NeedsYouReason({ row }: { row: NeedsYouTask }) {
   const label = {
     blocked: 'Blocked · yours',
     needs_answers: undefined,
@@ -69,19 +69,19 @@ export function NeedsYouRow({
   actions,
   current = false,
 }: {
-  row: WireWorkNeedsYou;
+  row: NeedsYouTask;
   actions?: ReactNode;
   /** The row is the record on the page the operator is looking at. */
   current?: boolean;
 }) {
-  const holdReason = row.reason === 'blocked' ? row.hold_reason?.trim() : undefined;
+  const holdReason = row.reason === 'blocked' ? row.task.holdReason?.trim() : undefined;
   return (
     <div className={ATTENTION_RULE}>
       <BrowserRow
-        to={nodeLink(row.id)}
-        id={row.id}
-        title={row.title}
-        leading={<StatusDot status={row.status} />}
+        to={nodeLink(row.task.id)}
+        id={row.task.id}
+        title={row.task.title}
+        leading={<StatusDot status={row.task.status} />}
         beforeTitle={
           <>
             <NeedsYouReason row={row} />
@@ -232,15 +232,17 @@ function AnswerAction({
 
 /** What a needs-you row offers: a verdict, an answer, or nothing for a block. */
 export function needsYouActions(
-  row: WireWorkNeedsYou,
+  row: NeedsYouTask,
   offline: boolean,
   handoff: RowFocusHandoff,
 ): ReactNode {
   if (row.reason === 'under_review') {
-    return <VerdictActions id={row.id} offline={offline} handoff={handoff} />;
+    return <VerdictActions id={row.task.id} offline={offline} handoff={handoff} />;
   }
   if (row.reason === 'needs_answers') {
-    return <AnswerAction id={row.id} question={row.question} offline={offline} handoff={handoff} />;
+    return (
+      <AnswerAction id={row.task.id} question={row.question} offline={offline} handoff={handoff} />
+    );
   }
   return undefined;
 }

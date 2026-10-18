@@ -10,13 +10,15 @@ import { consoleSearch } from '../api/fns/shell';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree, searchHit, searchSet } from './engine-fixtures';
-import { emptyRead, project, task, workReport } from './fixtures';
+import { emptyRead, project, task } from './fixtures';
 import { serveShell } from './shell-fns';
+import { serveViews } from './views-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
+vi.mock('../api/fns/views');
 vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
 
 /** What the search answers, by query. */
@@ -68,9 +70,6 @@ function mockApi() {
   apiGet.mockImplementation((path: string) => {
     if (path === '/health') {
       return Promise.resolve({ schema: 1, status: 'ok', version: '0.0.0' });
-    }
-    if (path.startsWith('/api/projects/MMR/work?')) {
-      return Promise.resolve(workReport());
     }
     if (path === '/api/projects/MMR') {
       return Promise.resolve(project({ id: 'MMR', title: 'Mimir' }));
@@ -125,6 +124,7 @@ async function openFromButton(user: ReturnType<typeof userEvent.setup>) {
 
 beforeEach(() => {
   serveBrowse();
+  serveViews();
   localStorage.clear();
   mockApi();
 });

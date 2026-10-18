@@ -6,29 +6,36 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getSeed, seedPark, seedPromote, seedReject } from '../api/fns/browse';
+import { review } from '../api/fns/views';
 import type { PromotedSeed } from '../api/seed-mutations';
-import type {
-  WireNode,
-  WireReviewProject,
-  WireReviewReport,
-  WireSeed,
-  WireWorkNeedsYou,
-} from '../api/types';
+import type { NeedsYouTask, ReviewReport, TriageSeed } from '../api/view-queries';
 import { routeTree } from '../router';
 import { engineSeed } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
-import { reviewReport, seed, task } from './fixtures';
 import { failShellReads, serveShell } from './shell-fns';
+import {
+  engineReview,
+  frontierRow,
+  needsYouRow,
+  nowRow as makeNowRow,
+  shippedRow as makeShippedRow,
+  stripRow,
+  tagged,
+  triageSeed,
+  workTask,
+} from './views-fixtures';
+import { serveViews } from './views-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
+vi.mock('../api/fns/views');
 
 const NOW = Date.parse('2026-10-13T12:00:00.000Z');
-const hoursAgo = (h: number) => new Date(NOW - h * 60 * 60_000).toISOString();
-const daysAgo = (d: number) => new Date(NOW - d * 24 * 60 * 60_000).toISOString();
+const hoursAgo = (h: number) => new Date(NOW - h * 60 * 60_000);
+const daysAgo = (d: number) => new Date(NOW - d * 24 * 60 * 60_000);
 
 beforeEach(() => {
   serveBrowse();
@@ -44,23 +51,20 @@ afterEach(() => {
 
 function decision(
   id: string,
-  reason: WireWorkNeedsYou['reason'],
-  extra: Partial<WireWorkNeedsYou> = {},
-): WireWorkNeedsYou {
+  reason: NeedsYouTask['reason'],
+  extra: { title?: string; holdReason?: string; question?: string } = {},
+): NeedsYouTask {
   const status = { blocked: 'blocked', needs_answers: 'ready', under_review: 'under_review' }[
     reason
-  ] as WireWorkNeedsYou['status'];
-  return { ...task({ id, status }), question: null, reason, stale: false, ...extra };
+  ] as EngineNode['status'];
+  const { question = null, ...node } = extra;
+  return needsYouRow({ id, status, ...node }, reason, { question });
 }
 
-/** Serve the review payload, the archived shelf, and empty collections for every other read. */
-function serve(report: WireReviewReport, archived: EngineNode[] = []) {
-  apiGet.mockImplementation((path: string) => {
-    if (path.startsWith('/api/review')) {
-      return Promise.resolve(report);
-    }
-    return Promise.resolve({ items: [], total: 0 });
-  });
+/** Serve the review report, the archived shelf, and empty collections for every other read. */
+function serve(report: ReviewReport, archived: EngineNode[] = []) {
+  apiGet.mockResolvedValue({ items: [], total: 0 });
+  serveViews({ review: report });
   serveShell({ archived });
 }
 
@@ -90,57 +94,37 @@ const press = async (id: string, name: string) => {
   fireEvent.click(button);
 };
 
-const lmSeed = seed({ id: 'LM-s4', lane: 'untriaged', project: 'LM', title: 'Plugin hooks' });
-const firstSeed = seed({ id: 'MMR-s25', lane: 'untriaged', title: 'Oldest idea' });
-const secondSeed = seed({ id: 'MMR-s30', lane: 'untriaged', title: 'Newer bug' });
+const lmSeed = triageSeed({ id: 'LM-s4', project: 'LM', title: 'Plugin hooks' });
+const firstSeed = triageSeed({ id: 'MMR-s25', title: 'Oldest idea' });
+const secondSeed = triageSeed({ id: 'MMR-s30', title: 'Newer bug' });
 
 const LM = { key: 'LM', name: 'Loom CLI' };
 const MMR = { key: 'MMR', name: 'Mimir' };
 const NORN = { key: 'NORN', name: 'Norn' };
 
-/** A project's strip row; override the counts a case sets. */
-function stripRow(
-  ref: { key: string; name: string },
-  counts: Partial<WireReviewProject> = {},
-): WireReviewProject {
-  return { ...ref, decisions: 0, going_cold: 0, in_flight: 0, live: 0, triage: 0, ...counts };
-}
-
 const TWO_PROJECTS = [
-  stripRow(LM, { decisions: 1, in_flight: 1 }),
-  stripRow(MMR, { decisions: 2, in_flight: 2, triage: 3 }),
+  stripRow(LM, { decisions: 1, inFlight: 1 }),
+  stripRow(MMR, { decisions: 2, inFlight: 2, triage: 3 }),
 ];
 
 /** A task running now, tagged with its project the way the review read tags it. */
-const nowRow = (id: string, extra: Partial<WireNode> = {}) => ({
-  ...task({ id, status: 'in_progress', title: `Running ${id}`, ...extra }),
-  latest_note: null,
-  project: id.split('-')[0]!,
-  scratchpads: [],
-  stale: false,
-  started_at: hoursAgo(1),
-});
+const nowRow = (id: string, extra: Partial<EngineNode> = {}) =>
+  tagged(makeNowRow({ id, title: `Running ${id}`, ...extra }, { startedAt: hoursAgo(1) }));
 
-const shippedRow = (id: string, at: string, extra: Partial<WireNode> = {}) => ({
-  ...task({ id, status: 'done', title: `Shipped ${id}`, ...extra }),
-  abandon_reason: null,
-  finished_at: at,
-  project: id.split('-')[0]!,
-  stale: false,
-});
+const shippedRow = (id: string, at: Date, extra: Partial<EngineNode> = {}) =>
+  tagged(makeShippedRow({ id, title: `Shipped ${id}`, ...extra }, at));
 
-const runnableRow = (id: string, title = `Runnable ${id}`) => ({
-  ...task({ grooming: 'groomed', id, status: 'ready', title }),
-  awaiting_on: [],
-  break_down: false,
-  project: id.split('-')[0]!,
-  stale: false,
-});
+const runnableRow = (id: string, title = `Runnable ${id}`) =>
+  tagged(frontierRow({ grooming: 'groomed', id, status: 'ready', title }));
 
 const coldRow = (id: string, quietDays: number) => ({
-  ...task({ id, status: 'in_progress', title: `Cold ${id}`, updated_at: daysAgo(quietDays) }),
   project: id.split('-')[0]!,
-  stale: true,
+  task: workTask({
+    id,
+    status: 'in_progress',
+    title: `Cold ${id}`,
+    updatedAt: daysAgo(quietDays),
+  }),
 });
 
 const getRail = () => screen.getByRole('complementary', { name: RAIL });
@@ -149,13 +133,13 @@ const minute = () => within(getRail()).getByRole('region', { name: /^When you ha
 describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
   it('heads the page with the decision count and groups decisions by project', async () => {
     serve(
-      reviewReport({
+      engineReview({
         decisions: [
           { project: LM, rows: [decision('LM-196', 'under_review', { title: 'Ship the plugin' })] },
           {
             project: MMR,
             rows: [
-              decision('MMR-52', 'blocked', { hold_reason: 'Needs an API token' }),
+              decision('MMR-52', 'blocked', { holdReason: 'Needs an API token' }),
               decision('MMR-480', 'needs_answers', { question: 'Skip to the end, or drop it?' }),
             ],
           },
@@ -186,12 +170,12 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
 
   it('orders the main column Needs you, Now, then Shipped', async () => {
     serve(
-      reviewReport({
+      engineReview({
         decisions: [{ project: LM, rows: [decision('LM-196', 'under_review')] }],
         now: [nowRow('MMR-502')],
         projects: TWO_PROJECTS,
         queue: ['LM-196'],
-        shipped: [shippedRow('MMR-497', new Date(NOW).toISOString())],
+        shipped: [shippedRow('MMR-497', new Date(NOW))],
       }),
     );
     renderReview();
@@ -209,7 +193,7 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
 
   it('lists the work in flight across projects, each row led by its project key', async () => {
     serve(
-      reviewReport({
+      engineReview({
         now: [nowRow('NORN-401', { harness: 'codex' }), nowRow('MMR-502')],
         projects: TWO_PROJECTS,
       }),
@@ -228,7 +212,7 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
   });
 
   it('says nothing is running when no task is in progress', async () => {
-    serve(reviewReport({ projects: TWO_PROJECTS }));
+    serve(engineReview({ projects: TWO_PROJECTS }));
     renderReview();
 
     const now = await screen.findByRole('region', { name: 'Now' });
@@ -237,10 +221,10 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
 
   it('groups what shipped by day, newest first, with each row’s project key and finish time', async () => {
     serve(
-      reviewReport({
+      engineReview({
         projects: TWO_PROJECTS,
         shipped: [
-          shippedRow('MMR-497', new Date(NOW).toISOString()),
+          shippedRow('MMR-497', new Date(NOW)),
           shippedRow('LM-228', daysAgo(3)),
           shippedRow('MMR-490', daysAgo(3), { status: 'abandoned', title: 'Dropped idea' }),
         ],
@@ -262,7 +246,7 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
   });
 
   it('says nothing shipped in the last 7 days', async () => {
-    serve(reviewReport({ projects: TWO_PROJECTS }));
+    serve(engineReview({ projects: TWO_PROJECTS }));
     renderReview();
 
     const shipped = await screen.findByRole('region', { name: 'Shipped' });
@@ -271,15 +255,10 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
 
   it('reads calm when nothing needs you, still showing Now and Shipped', async () => {
     serve(
-      reviewReport({
-        last_finished: {
-          ...task({ id: 'MMR-474', status: 'done', title: 'Keep focus in place' }),
-          abandon_reason: null,
-          finished_at: hoursAgo(2),
-          stale: false,
-        },
+      engineReview({
+        lastFinished: makeShippedRow({ id: 'MMR-474', title: 'Keep focus in place' }, hoursAgo(2)),
         now: [nowRow('MMR-502')],
-        projects: [stripRow(LM, { in_flight: 1 }), stripRow(MMR, { in_flight: 3 })],
+        projects: [stripRow(LM, { inFlight: 1 }), stripRow(MMR, { inFlight: 3 })],
         shipped: [shippedRow('MMR-474', hoursAgo(2))],
       }),
     );
@@ -299,7 +278,7 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
   });
 
   it('names a quiet board plainly when nothing is in flight or finished', async () => {
-    serve(reviewReport({ projects: [stripRow(MMR)] }));
+    serve(engineReview({ projects: [stripRow(MMR)] }));
     renderReview();
 
     await screen.findByRole('heading', { level: 1, name: 'Nothing needs you' });
@@ -309,22 +288,20 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
   });
 
   it('asks for the review in the browser’s time zone', async () => {
-    serve(reviewReport({ projects: TWO_PROJECTS }));
+    serve(engineReview({ projects: TWO_PROJECTS }));
     renderReview();
 
     await screen.findByRole('heading', { level: 1 });
-    expect(apiGet.mock.calls.map(([path]) => path as string)).toContain(
-      '/api/review?tz=America%2FNew_York',
-    );
+    expect(review).toHaveBeenCalledWith({ data: { timeZone: 'America/New_York' } });
   });
 });
 
 describe('the review rail: the project health strip', () => {
   it('lists every project in report order with its decisions, live, and cold counts', async () => {
     serve(
-      reviewReport({
+      engineReview({
         projects: [
-          stripRow(MMR, { decisions: 2, going_cold: 1, live: 7 }),
+          stripRow(MMR, { decisions: 2, goingCold: 1, live: 7 }),
           stripRow(LM, { live: 3 }),
           stripRow(NORN),
         ],
@@ -351,9 +328,9 @@ describe('the review rail: the project health strip', () => {
   });
 
   it('is the one project listing: no triage table, archived shelf, or New project on the page', async () => {
-    serve(reviewReport({ projects: TWO_PROJECTS }), [
+    serve(engineReview({ projects: TWO_PROJECTS }), [
       engineProject({
-        archivedAt: new Date(daysAgo(30)),
+        archivedAt: daysAgo(30),
         id: 'OLD',
         status: 'done',
         title: 'Old project',
@@ -370,9 +347,9 @@ describe('the review rail: the project health strip', () => {
   });
 
   it('drops the strip when every project is archived, leaving no empty headers', async () => {
-    serve(reviewReport(), [
+    serve(engineReview(), [
       engineProject({
-        archivedAt: new Date(daysAgo(30)),
+        archivedAt: daysAgo(30),
         id: 'OLD',
         status: 'done',
         title: 'Old project',
@@ -388,7 +365,7 @@ describe('the review rail: the project health strip', () => {
   });
 
   it('stacks the rail under the main column on a phone, with no chips', async () => {
-    serve(reviewReport({ projects: TWO_PROJECTS }));
+    serve(engineReview({ projects: TWO_PROJECTS }));
     renderReview();
 
     const rail = await screen.findByRole('complementary', { name: RAIL });
@@ -402,16 +379,16 @@ describe('the review rail: the project health strip', () => {
 describe('the review rail: when you have a minute', () => {
   it('has the four groups, each omitted when empty', async () => {
     serve(
-      reviewReport({
-        going_cold: [coldRow('LM-219', 12)],
+      engineReview({
+        goingCold: [coldRow('LM-219', 12)],
         projects: TWO_PROJECTS,
         runnable: [runnableRow('LM-233', 'Dry-run flag')],
         triage: [
           {
             findings: 3,
-            going_cold: 0,
+            goingCold: 0,
             project: MMR,
-            seeds: [seed({ id: 'MMR-s58', lane: 'untriaged', title: 'Name the project' })],
+            seeds: [triageSeed({ id: 'MMR-s58', title: 'Name the project' })],
           },
         ],
       }),
@@ -427,7 +404,7 @@ describe('the review rail: when you have a minute', () => {
 
   it('omits the groups that are empty and counts the rows it lists', async () => {
     serve(
-      reviewReport({
+      engineReview({
         projects: TWO_PROJECTS,
         runnable: [runnableRow('LM-233'), runnableRow('MMR-12')],
       }),
@@ -446,7 +423,7 @@ describe('the review rail: when you have a minute', () => {
   });
 
   it('shows a quiet line when every group is empty', async () => {
-    serve(reviewReport({ projects: TWO_PROJECTS }));
+    serve(engineReview({ projects: TWO_PROJECTS }));
     renderReview();
 
     await screen.findByRole('list', { name: 'Project health' });
@@ -457,7 +434,7 @@ describe('the review rail: when you have a minute', () => {
 
   it('lists runnable tasks across projects, each with Start', async () => {
     serve(
-      reviewReport({
+      engineReview({
         projects: TWO_PROJECTS,
         runnable: [runnableRow('LM-233', 'Dry-run flag'), runnableRow('NORN-404', 'Orphans')],
       }),
@@ -475,19 +452,19 @@ describe('the review rail: when you have a minute', () => {
 
   it('lists untriaged seeds across projects in the read’s order', async () => {
     serve(
-      reviewReport({
+      engineReview({
         projects: TWO_PROJECTS,
         triage: [
           {
             findings: 0,
-            going_cold: 0,
+            goingCold: 0,
             project: MMR,
             seeds: [
-              seed({ id: 'MMR-s25', lane: 'untriaged', title: 'Oldest idea' }),
-              seed({ id: 'MMR-s30', lane: 'untriaged', title: 'Newer bug' }),
+              triageSeed({ id: 'MMR-s25', title: 'Oldest idea' }),
+              triageSeed({ id: 'MMR-s30', title: 'Newer bug' }),
             ],
           },
-          { findings: 0, going_cold: 0, project: LM, seeds: [lmSeed] },
+          { findings: 0, goingCold: 0, project: LM, seeds: [lmSeed] },
         ],
       }),
     );
@@ -506,8 +483,8 @@ describe('the review rail: when you have a minute', () => {
 
   it('lists tasks going cold with how long they have been quiet', async () => {
     serve(
-      reviewReport({
-        going_cold: [coldRow('LM-219', 12), coldRow('NORN-79', 9)],
+      engineReview({
+        goingCold: [coldRow('LM-219', 12), coldRow('NORN-79', 9)],
         projects: TWO_PROJECTS,
       }),
     );
@@ -524,12 +501,12 @@ describe('the review rail: when you have a minute', () => {
 
   it('counts findings per project, each linking to that project’s record health', async () => {
     serve(
-      reviewReport({
+      engineReview({
         projects: TWO_PROJECTS,
         triage: [
-          { findings: 12, going_cold: 4, project: MMR, seeds: [] },
-          { findings: 0, going_cold: 2, project: LM, seeds: [] },
-          { findings: 1, going_cold: 0, project: NORN, seeds: [] },
+          { findings: 12, goingCold: 4, project: MMR, seeds: [] },
+          { findings: 0, goingCold: 2, project: LM, seeds: [] },
+          { findings: 1, goingCold: 0, project: NORN, seeds: [] },
         ],
       }),
     );
@@ -551,7 +528,7 @@ describe('the review rail: when you have a minute', () => {
 
   it('shows the first few rows of a long group and the rest on request', async () => {
     serve(
-      reviewReport({
+      engineReview({
         projects: TWO_PROJECTS,
         runnable: ['LM-1', 'LM-2', 'LM-3', 'LM-4', 'LM-5', 'LM-6', 'LM-7'].map((id) =>
           runnableRow(id),
@@ -569,7 +546,7 @@ describe('the review rail: when you have a minute', () => {
   });
 
   it('offers a fresh store its first project', async () => {
-    serve(reviewReport());
+    serve(engineReview());
     renderReview();
 
     await expect(screen.findByText('No projects yet.')).resolves.toBeDefined();
@@ -578,11 +555,8 @@ describe('the review rail: when you have a minute', () => {
   });
 
   it('does not claim a fresh store before it knows whether projects are archived', async () => {
-    apiGet.mockImplementation((path: string) =>
-      path.startsWith('/api/review')
-        ? Promise.resolve(reviewReport())
-        : Promise.reject(new Error('archived read failed')),
-    );
+    apiGet.mockRejectedValue(new Error('archived read failed'));
+    serveViews({ review: engineReview() });
     failShellReads(new Error('archived read failed'));
     renderReview();
 
@@ -595,21 +569,16 @@ describe('the review rail: when you have a minute', () => {
  * Serve `before` as the review read until a write lands, then `after`, with the
  * reads the promote sheet makes for its home (MMR's tree, with one initiative).
  */
-async function openForWrite(before: WireReviewReport, after: WireReviewReport) {
-  let report = before;
+async function openForWrite(before: ReviewReport, after: ReviewReport) {
+  apiGet.mockResolvedValue({ items: [], total: 0 });
+  const views = serveViews({ review: before });
   const serving = {
     /** Serve `next` from the next review read, as a poll would. */
-    poll: (next: WireReviewReport) => {
-      report = next;
+    poll: (next: ReviewReport) => {
+      views.review = next;
       return client.invalidateQueries({ queryKey: ['review'] });
     },
   };
-  apiGet.mockImplementation((path: string) => {
-    if (path.startsWith('/api/review')) {
-      return Promise.resolve(report);
-    }
-    return Promise.resolve({ items: [], total: 0 });
-  });
   serveShell({
     projects: [engineProject({ id: 'MMR', title: 'Mimir' })],
     trees: {
@@ -619,7 +588,7 @@ async function openForWrite(before: WireReviewReport, after: WireReviewReport) {
     },
   });
   apiSend.mockImplementation(() => {
-    report = after;
+    views.review = after;
     return Promise.resolve({});
   });
   // The seed writes land as the task writes do; the promote sheet reads the seed's body.
@@ -646,19 +615,19 @@ async function openForWrite(before: WireReviewReport, after: WireReviewReport) {
 }
 
 const verdict = decision('LM-196', 'under_review', { title: 'Ship the plugin' });
-const block = decision('MMR-52', 'blocked', { hold_reason: 'Needs an API token' });
+const block = decision('MMR-52', 'blocked', { holdReason: 'Needs an API token' });
 const question = decision('MMR-480', 'needs_answers', { question: 'Skip, or drop it?' });
 
 /** Decisions in two project groups: LM's verdict, then MMR's block and question. */
-function decisionsFor(rows: { lm?: WireWorkNeedsYou[]; mmr?: WireWorkNeedsYou[] }) {
+function decisionsFor(rows: { lm?: NeedsYouTask[]; mmr?: NeedsYouTask[] }) {
   const decisions = [
     { project: LM, rows: rows.lm ?? [] },
     { project: MMR, rows: rows.mmr ?? [] },
   ].filter((group) => group.rows.length > 0);
-  return reviewReport({
+  return engineReview({
     decisions,
     projects: TWO_PROJECTS,
-    queue: decisions.flatMap((group) => group.rows.map((row) => row.id)),
+    queue: decisions.flatMap((group) => group.rows.map((row) => row.task.id)),
   });
 }
 
@@ -765,7 +734,7 @@ describe('review page decisions act in place (MMR-479)', () => {
     await press('LM-196', 'Approve');
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: block.title })).toHaveFocus();
+      expect(screen.getByRole('link', { name: block.task.title })).toHaveFocus();
     });
   });
 
@@ -797,12 +766,12 @@ const promotion = (id: string): PromotedSeed => ({
 });
 
 /** The read with LM's and MMR's untriaged seeds; a project with none drops out. */
-function triage(rows: { lm?: WireSeed[]; mmr?: WireSeed[] }) {
-  return reviewReport({
+function triage(rows: { lm?: TriageSeed[]; mmr?: TriageSeed[] }) {
+  return engineReview({
     projects: TWO_PROJECTS,
     triage: [
-      { findings: 0, going_cold: 0, project: LM, seeds: rows.lm ?? [] },
-      { findings: 0, going_cold: 0, project: MMR, seeds: rows.mmr ?? [] },
+      { findings: 0, goingCold: 0, project: LM, seeds: rows.lm ?? [] },
+      { findings: 0, goingCold: 0, project: MMR, seeds: rows.mmr ?? [] },
     ].filter((group) => group.seeds.length > 0),
   });
 }
@@ -1007,11 +976,11 @@ describe('review page seed triage acts in place (MMR-479, MMR-506)', () => {
 });
 
 /** The read with runnable tasks and, optionally, untriaged seeds after them. */
-function runnables(ids: string[], seeds: WireSeed[] = []) {
-  return reviewReport({
+function runnables(ids: string[], seeds: TriageSeed[] = []) {
+  return engineReview({
     projects: TWO_PROJECTS,
     runnable: ids.map((id) => runnableRow(id)),
-    triage: seeds.length === 0 ? [] : [{ findings: 0, going_cold: 0, project: MMR, seeds }],
+    triage: seeds.length === 0 ? [] : [{ findings: 0, goingCold: 0, project: MMR, seeds }],
   });
 }
 

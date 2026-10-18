@@ -6,21 +6,25 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { projects, updateProject } from '../api/fns/shell';
+import { review } from '../api/fns/views';
 import { browserTimeZone } from '../api/queries';
-import type { WireReviewProject } from '../api/types';
+import type { ReviewReport } from '../api/view-queries';
 import { ProjectPicker } from '../components/project-picker';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
-import { emptyRead, reviewReport, task, workReport } from './fixtures';
+import { emptyRead, task } from './fixtures';
 import { renderInRouter } from './router';
 import { failShellReads, serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
+import { engineReview, stripRow } from './views-fixtures';
+import { serveViews } from './views-fns';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
+vi.mock('../api/fns/views');
 
 /*
  * The sidebar's project switcher (MMR-497, ADR 0013 refinement): a searchable
@@ -36,14 +40,14 @@ const MMR = engineProject({ id: 'MMR', lastActivityAt: atDay('09'), title: 'Mimi
 const LUM = engineProject({ id: 'LUM', lastActivityAt: atDay('02'), title: 'Lumen' });
 const OLD = engineProject({ archivedAt: atDay('01'), id: 'OLD', title: 'Retired' });
 
-function decisions(key: string, count: number): WireReviewProject {
-  return { decisions: count, going_cold: 0, in_flight: 0, key, live: 0, name: key, triage: 0 };
+function decisions(key: string, count: number): ReviewReport['projects'][number] {
+  return stripRow({ key, name: key }, { decisions: count });
 }
 
 type World = {
   projects: EngineNode[];
   archived: EngineNode[];
-  review: WireReviewProject[];
+  review: ReviewReport['projects'];
 };
 
 /** The project with its pin set, when it is the one the write names. */
@@ -53,24 +57,25 @@ function withPin(p: EngineNode, key: string, pinned: boolean | undefined): Engin
 
 /** Serve a small world; a pin writes into it, as the host would. */
 function serve(world: Partial<World> = {}) {
-  const { review, ...lists } = { archived: [OLD], projects: [NRN, MMR, LUM], review: [], ...world };
+  const { review: decisionRows, ...lists } = {
+    archived: [OLD],
+    projects: [NRN, MMR, LUM],
+    review: [],
+    ...world,
+  };
   const shell = serveShell(lists);
+  serveViews({ review: engineReview({ projects: decisionRows }) });
   vi.mocked(updateProject).mockImplementation(async ({ data }) => {
     shell.projects = shell.projects.map((p) => withPin(p, data.id, data.pinned));
     return engineProject({ id: data.id });
   });
   apiGet.mockImplementation((path: string) => {
-    if (path.startsWith('/api/review')) {
-      return Promise.resolve(reviewReport({ projects: review }));
-    }
     if (path.startsWith('/api/doctor') || /^\/api\/projects\/[A-Z]+$/.test(path)) {
       return Promise.withResolvers().promise;
     }
-    const record = /^\/api\/nodes\/([A-Z]+-\d+)(\/work\?.*)?$/.exec(path);
+    const record = /^\/api\/nodes\/([A-Z]+-\d+)$/.exec(path);
     if (record?.[1] !== undefined) {
-      return Promise.resolve(
-        record[2] === undefined ? task({ id: record[1], status: 'ready' }) : workReport(),
-      );
+      return Promise.resolve(task({ id: record[1], status: 'ready' }));
     }
     return Promise.resolve(emptyRead(path));
   });
@@ -79,6 +84,7 @@ function serve(world: Partial<World> = {}) {
 /** The host is unreachable: every read fails. */
 function unreachable() {
   apiGet.mockRejectedValue(new Error('unreachable'));
+  vi.mocked(review).mockRejectedValue(new Error('unreachable'));
   failShellReads();
 }
 
@@ -142,6 +148,7 @@ const keysInOrder = () =>
 
 beforeEach(() => {
   serveBrowse();
+  serveViews();
   localStorage.clear();
   stubViewport('desktop');
   serve();
@@ -589,9 +596,7 @@ describe('switcher header', () => {
     renderAt('/p/NRN');
     await header();
     await waitFor(() => {
-      expect(apiGet).toHaveBeenCalledWith(
-        `/api/review?tz=${encodeURIComponent(browserTimeZone())}`,
-      );
+      expect(review).toHaveBeenCalledWith({ data: { timeZone: browserTimeZone() } });
     });
     expect(screen.queryByText(/elsewhere/)).toBeNull();
   });

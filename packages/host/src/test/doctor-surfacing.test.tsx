@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { doctor } from '../api/fns/browse';
 import type { RecordHealth } from '../api/fns/browse';
@@ -9,13 +9,19 @@ import { routeTree } from '../router';
 import { recordHealth } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
-import { emptyRead, workReport } from './fixtures';
+import { emptyRead } from './fixtures';
 import { serveShell } from './shell-fns';
+import { serveViews } from './views-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
+vi.mock('../api/fns/views');
+
+beforeEach(() => {
+  serveViews();
+});
 
 /** A facet with `n` findings on project MMR — surfacing only needs the count. */
 function facet(n: number): RecordHealth {
@@ -53,9 +59,6 @@ describe('record-health surfacing (MMR-185, mock 15b)', () => {
           status: 'in_progress',
           title: 'Mimir',
         });
-      }
-      if (path.startsWith('/api/projects/MMR/work?')) {
-        return Promise.resolve(workReport());
       }
       return Promise.resolve(emptyRead(path));
     });

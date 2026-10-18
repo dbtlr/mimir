@@ -17,7 +17,7 @@ import { engineTree } from './engine-fixtures';
 const NOW = Date.parse('2026-10-13T03:30:00.000Z');
 const NY = 'America/New_York';
 
-const shipped = (id: string, at: string) => ({ finished_at: at, id });
+const shipped = (id: string, at: string) => ({ finishedAt: new Date(at), id });
 
 describe('groupShippedByDay', () => {
   it('groups by calendar day in the given zone, newest day first, labelled Today and Yesterday', () => {
@@ -72,8 +72,8 @@ describe('groupShippedByDay', () => {
 
 describe('shippedTime', () => {
   it('reads the finish as a 24-hour HH:MM in the zone', () => {
-    expect(shippedTime('2026-10-12T14:05:00.000Z', NY)).toBe('10:05');
-    expect(shippedTime('2026-10-13T04:00:00.000Z', NY)).toBe('00:00');
+    expect(shippedTime(new Date('2026-10-12T14:05:00.000Z'), NY)).toBe('10:05');
+    expect(shippedTime(new Date('2026-10-13T04:00:00.000Z'), NY)).toBe('00:00');
   });
 });
 
@@ -99,7 +99,7 @@ describe('capDay', () => {
 });
 
 describe('frontierIsEmpty', () => {
-  const empty = { next_to_unlock: [], runnable: [], to_groom: [], waiting_on_others: [] };
+  const empty = { nextToUnlock: [], runnable: [], toGroom: [], waitingOnOthers: [] };
 
   it('is true when every list is empty', () => {
     expect(frontierIsEmpty(empty)).toBe(true);
@@ -107,9 +107,9 @@ describe('frontierIsEmpty', () => {
 
   it.each([
     ['runnable', { runnable: [1] }],
-    ['to_groom', { to_groom: [1] }],
-    ['waiting_on_others', { waiting_on_others: [1] }],
-    ['next_to_unlock', { next_to_unlock: [{ tasks: [1] }] }],
+    ['toGroom', { toGroom: [1] }],
+    ['waitingOnOthers', { waitingOnOthers: [1] }],
+    ['nextToUnlock', { nextToUnlock: [{ tasks: [1] }] }],
   ])('is false when %s holds a row', (_list, rows) => {
     expect(frontierIsEmpty({ ...empty, ...rows })).toBe(false);
   });

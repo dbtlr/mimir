@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, vi } from 'vitest';
+import { beforeEach, describe, expect, vi } from 'vitest';
 
 import type { ArtifactSummary } from '../api/browse-queries';
 import { artifacts } from '../api/fns/browse';
@@ -11,11 +11,17 @@ import { engineArtifact } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { serveShell } from './shell-fns';
+import { serveViews } from './views-fns';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
+vi.mock('../api/fns/views');
+
+beforeEach(() => {
+  serveViews();
+});
 
 const summary = (n: number, over: Partial<ArtifactSummary> = {}): ArtifactSummary =>
   engineArtifact({

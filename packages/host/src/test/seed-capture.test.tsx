@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { seedCreate } from '../api/fns/browse';
 import { routeTree } from '../router';
@@ -11,11 +11,17 @@ import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { emptyRead } from './fixtures';
 import { serveShell } from './shell-fns';
+import { serveViews } from './views-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
+vi.mock('../api/fns/views');
+
+beforeEach(() => {
+  serveViews();
+});
 const { toast } = vi.hoisted(() => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));

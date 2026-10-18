@@ -3,8 +3,8 @@ import { Link, useMatch, useRouterState } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 
-import type { WireReviewReport } from '../api/types';
 import { reviewQuery } from '../api/view-queries';
+import type { ReviewReport } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { nodeIdOf } from '../lib/record-url';
@@ -60,7 +60,7 @@ function NeedsYouPanel({
   onNavigate,
   close,
 }: {
-  report: WireReviewReport;
+  report: ReviewReport;
   offline: boolean;
   currentId: string | undefined;
   onNavigate: () => void;
@@ -68,7 +68,7 @@ function NeedsYouPanel({
 }) {
   const count = report.queue.length;
   const { handoff, headingRef } = useRowFocusHandoff(
-    report.decisions.flatMap((group) => group.rows.map((row) => row.id)),
+    report.decisions.flatMap((group) => group.rows.map((row) => row.task.id)),
   );
   return (
     // The panel is a click boundary, not a control: following any link in it

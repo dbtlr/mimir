@@ -5,8 +5,8 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { annotationsQuery, nodeQuery } from '../api/node-queries';
 import { treeQuery } from '../api/shell-queries';
 import { projectKeyOf } from '../api/types';
-import type { WireReviewReport, WireWorkNeedsYou } from '../api/types';
 import { reviewQuery } from '../api/view-queries';
+import type { NeedsYouTask, ReviewReport } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import { nodeLink } from '../lib/record-url';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
@@ -32,7 +32,7 @@ import { needsYouActions } from './work-rows';
  */
 
 /** Why a decision needs the operator, in the card's words. */
-const REASON: Record<WireWorkNeedsYou['reason'], string> = {
+const REASON: Record<NeedsYouTask['reason'], string> = {
   blocked: 'Blocked · yours',
   needs_answers: 'Needs answers',
   under_review: 'In review',
@@ -42,8 +42,8 @@ const REASON: Record<WireWorkNeedsYou['reason'], string> = {
 const NO_HANDOFF: RowFocusHandoff = { arm: () => {}, disarm: () => {} };
 
 /** Every decision on the live review read, by task id. */
-function liveDecisions(report: WireReviewReport): Map<string, WireWorkNeedsYou> {
-  return new Map(report.decisions.flatMap((group) => group.rows.map((row) => [row.id, row])));
+function liveDecisions(report: ReviewReport): Map<string, NeedsYouTask> {
+  return new Map(report.decisions.flatMap((group) => group.rows.map((row) => [row.task.id, row])));
 }
 
 export function FocusQueue({ offline }: { offline: boolean }) {
@@ -59,7 +59,7 @@ export function FocusQueue({ offline }: { offline: boolean }) {
   if (fixed === null && report !== undefined && settled) {
     setFixed(report.queue);
   }
-  const live = report === undefined ? new Map<string, WireWorkNeedsYou>() : liveDecisions(report);
+  const live = report === undefined ? new Map<string, NeedsYouTask>() : liveDecisions(report);
   const index = fixed?.findIndex((id, i) => i >= cursor && live.has(id)) ?? -1;
   if (index > cursor) {
     setCursor(index);
@@ -100,7 +100,7 @@ export function FocusQueue({ offline }: { offline: boolean }) {
         </span>
       </div>
       <FocusCard
-        key={current.id}
+        key={current.task.id}
         row={current}
         offline={offline}
         onSkip={() => setCursor(index + 1)}
@@ -110,11 +110,11 @@ export function FocusQueue({ offline }: { offline: boolean }) {
           <h2 className="microlabel text-ink-faint">Up next</h2>
           <p className="flex flex-wrap items-baseline gap-x-2 text-meta text-ink-dim">
             <span className="font-mono text-mono-id text-accent-foreground">
-              {projectKeyOf(next.id)}
+              {projectKeyOf(next.task.id)}
             </span>
             <span className="microlabel text-attention-foreground">{REASON[next.reason]}</span>
-            <span className="font-mono text-mono-id">{next.id}</span>
-            <span className="min-w-0 truncate">{next.title}</span>
+            <span className="font-mono text-mono-id">{next.task.id}</span>
+            <span className="min-w-0 truncate">{next.task.title}</span>
           </p>
         </section>
       )}
@@ -134,16 +134,16 @@ function FocusCard({
   offline,
   onSkip,
 }: {
-  row: WireWorkNeedsYou;
+  row: NeedsYouTask;
   offline: boolean;
   onSkip: () => void;
 }) {
   const titleId = useId();
   const actionsRef = useRef<HTMLDivElement>(null);
-  const projectKey = projectKeyOf(row.id);
-  const node = useQuery(nodeQuery(row.id));
+  const projectKey = projectKeyOf(row.task.id);
+  const node = useQuery(nodeQuery(row.task.id));
   const annotations = useQuery({
-    ...annotationsQuery(row.id),
+    ...annotationsQuery(row.task.id),
     enabled: row.reason === 'under_review',
   });
   const tree = useQuery({ ...treeQuery(projectKey), refetchInterval: false });
@@ -162,7 +162,7 @@ function FocusCard({
     row.reason === 'under_review'
       ? verdictSummary(node.data?.history, annotations.data?.items)
       : undefined;
-  const holdReason = row.reason === 'blocked' ? row.hold_reason?.trim() : undefined;
+  const holdReason = row.reason === 'blocked' ? row.task.holdReason?.trim() : undefined;
   return (
     <section
       aria-labelledby={titleId}
@@ -171,12 +171,12 @@ function FocusCard({
       <p className="flex flex-wrap items-baseline gap-x-2">
         <span className="font-mono text-mono-id text-accent-foreground">{projectKey}</span>
         <span className="microlabel text-attention-foreground">{REASON[row.reason]}</span>
-        <span className="font-mono text-mono-id text-ink-dim">{row.id}</span>
+        <span className="font-mono text-mono-id text-ink-dim">{row.task.id}</span>
       </p>
       <h2 id={titleId} className="text-dossier font-semibold text-ink-bright">
-        {row.title}
+        {row.task.title}
       </h2>
-      <Crumbs projectKey={projectKey} tree={tree.data} nodeId={row.id} />
+      <Crumbs projectKey={projectKey} tree={tree.data} nodeId={row.task.id} />
       {row.question !== null && (
         <Context label="Latest question" className="border-attention">
           <span className="whitespace-pre-line text-attention-foreground">{row.question}</span>
@@ -205,7 +205,7 @@ function FocusCard({
       <div
         ref={actionsRef}
         role="group"
-        aria-label={`Actions for ${row.id}`}
+        aria-label={`Actions for ${row.task.id}`}
         className="flex flex-wrap gap-2"
       >
         {needsYouActions(row, offline, NO_HANDOFF)}
@@ -213,7 +213,7 @@ function FocusCard({
           Skip
         </ActionButton>
         <Link
-          {...nodeLink(row.id)}
+          {...nodeLink(row.task.id)}
           className={cn(
             actionButtonVariants({ size: 'sm', variant: 'outline' }),
             'max-md:min-h-11',

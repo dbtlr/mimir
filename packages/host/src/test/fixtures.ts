@@ -1,6 +1,6 @@
 // Shared test fixtures module, not a test body.
 // oxlint-disable vitest/require-hook
-import type { WireNode, WireReviewReport, WireSeed, WireWorkReport } from '../api/types';
+import type { WireNode, WireReviewReport, WireSeed } from '../api/types';
 
 let seq = 100;
 
@@ -73,19 +73,6 @@ export const NOW = Date.parse('2026-06-11T12:00:00.000Z');
 /** ISO timestamp `days` days before {@link NOW}. */
 export function daysAgo(days: number): string {
   return new Date(NOW - days * 24 * 60 * 60 * 1000).toISOString();
-}
-
-/** A work page's wire payload (MMR-469) with every section empty; override the ones a case fills. */
-export function workReport(overrides: Partial<WireWorkReport> = {}): WireWorkReport {
-  return {
-    frontier: { next_to_unlock: [], runnable: [], to_groom: [], waiting_on_others: [] },
-    going_cold: [],
-    needs_you: [],
-    now: [],
-    scope: { id: 'MMR', kind: 'project', title: 'Mimir' },
-    shipped: [],
-    ...overrides,
-  };
 }
 
 /** The review page's wire payload (MMR-477) with nothing in it; override the parts a case fills. */

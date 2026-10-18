@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, vi } from 'vitest';
+import { beforeEach, describe, expect, vi } from 'vitest';
 
 import { FINISHED_PAGE_SIZE } from '../api/browse-queries';
 import { list } from '../api/fns/browse';
@@ -13,11 +13,17 @@ import { failBrowseReads, serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { emptyRead, task } from './fixtures';
 import { serveShell } from './shell-fns';
+import { serveViews } from './views-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
+vi.mock('../api/fns/views');
+
+beforeEach(() => {
+  serveViews();
+});
 
 /** A home facet under project MMR; `open` marks the parent as a standing home. */
 function home(parentTitle: string, open = false): NonNullable<EngineNode['home']> {

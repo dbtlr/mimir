@@ -1,26 +1,39 @@
-import type { EngineTree } from '@mimir/contract';
+import { MimirError } from '@mimir/contract';
+import type { EngineNode, EngineTree } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError } from '../api/errors';
-import type { WireArtifact, WireNode, WireWorkReport } from '../api/types';
+import { HostFaultError } from '../api/errors';
+import { nodeWork, projectWork } from '../api/fns/views';
+import type { WireArtifact, WireNode } from '../api/types';
+import type { NeedsYouTask, WorkReport } from '../api/view-queries';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineTree } from './engine-fixtures';
-import { emptyRead, task, workReport } from './fixtures';
+import { emptyRead, task } from './fixtures';
 import { serveShell } from './shell-fns';
+import {
+  engineWork,
+  frontierRow as makeFrontierRow,
+  needsYouRow,
+  nowRow as makeNowRow,
+  shippedRow as makeShippedRow,
+  workTask,
+} from './views-fixtures';
+import { serveViews } from './views-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
+vi.mock('../api/fns/views');
 
 // Mon Oct 12 2026, 18:00 in the suite's pinned zone (America/New_York).
 const NOW = Date.parse('2026-10-12T22:00:00.000Z');
-const minutesAgo = (m: number) => new Date(NOW - m * 60_000).toISOString();
-const daysAgo = (d: number) => new Date(NOW - d * 24 * 60 * 60_000).toISOString();
+const minutesAgo = (m: number) => new Date(NOW - m * 60_000);
+const daysAgo = (d: number) => new Date(NOW - d * 24 * 60 * 60_000);
 
 beforeEach(() => {
   serveBrowse();
@@ -99,39 +112,49 @@ type Scope = {
   record: WireNode;
   recordPath: string;
   url: string;
-  workPath: string;
+  /** The server function the scope's work page reads, and the input it sends. */
+  work: typeof projectWork | typeof nodeWork;
+  asked: object;
+  /** Where the world holds the scope's work report. */
+  world: (
+    report: WorkReport,
+  ) => { projects: Record<string, WorkReport> } | { nodes: Record<string, WorkReport> };
 };
 
 const PROJECT_SCOPE: Scope = {
+  asked: { data: { project: 'MMR', timeZone: 'America/New_York' } },
   name: 'project',
   record: PROJECT,
   recordPath: '/api/projects/MMR',
   url: '/p/MMR',
-  workPath: '/api/projects/MMR/work',
+  work: projectWork,
+  world: (report) => ({ projects: { MMR: report } }),
 };
 
 const PHASE_SCOPE: Scope = {
+  asked: { data: { id: 'MMR-105', timeZone: 'America/New_York' } },
   name: 'phase',
   record: PHASE,
   recordPath: '/api/nodes/MMR-105',
   url: '/p/MMR/105',
-  workPath: '/api/nodes/MMR-105/work',
+  work: nodeWork,
+  world: (report) => ({ nodes: { 'MMR-105': report } }),
 };
 
 const SCOPES = [PROJECT_SCOPE, PHASE_SCOPE];
 
-/** Serve the scope's record, the project tree, and `report` at its work route. */
-function serve(scope: Scope, report: WireWorkReport | Error = workReport(), tree = TREE) {
-  apiGet.mockImplementation((path: string) => {
-    if (path.startsWith(`${scope.workPath}?`)) {
-      return report instanceof Error ? Promise.reject(report) : Promise.resolve(report);
-    }
-    if (path === scope.recordPath) {
-      return Promise.resolve(scope.record);
-    }
-    return Promise.resolve(emptyRead(path));
-  });
+/** Serve the scope's record, the project tree, and `report` as its work read. */
+function serve(scope: Scope, report: WorkReport | Error = engineWork(), tree = TREE) {
+  apiGet.mockImplementation((path: string) =>
+    path === scope.recordPath ? Promise.resolve(scope.record) : Promise.resolve(emptyRead(path)),
+  );
   serveShell({ trees: { MMR: tree } });
+  if (report instanceof Error) {
+    serveViews();
+    vi.mocked(scope.work).mockRejectedValue(report);
+  } else {
+    serveViews(scope.world(report));
+  }
 }
 
 function renderAt(url: string) {
@@ -150,7 +173,7 @@ function renderAt(url: string) {
 }
 
 /** Serve `report` for the scope, open its page, and wait for the title. */
-async function open(scope: Scope, report?: WireWorkReport | Error, tree?: EngineTree) {
+async function open(scope: Scope, report?: WorkReport | Error, tree?: EngineTree) {
   serve(scope, report, tree);
   const testRouter = renderAt(scope.url);
   await screen.findByRole('heading', { level: 1, name: scope.record.title });
@@ -164,77 +187,58 @@ const actionsOf = (id: string) => screen.findByRole('group', { name: `Actions fo
 const hrefOf = (within_: HTMLElement, name: string | RegExp) =>
   within(within_).getByRole('link', { name }).getAttribute('href');
 
-const nowRow = {
-  ...task({
-    branch: 'feat/dialect',
-    harness: 'claude-code',
-    id: 'MMR-11',
-    status: 'in_progress',
-    title: 'Wire the dialect',
-  }),
-  latest_note: { content: 'Seam extracted', created_at: minutesAgo(9) },
-  scratchpads: [{ id: 'MMR-p1', title: 'Cutover episode' }],
-  stale: false,
-  started_at: minutesAgo(41),
-};
+const nowRow = makeNowRow(
+  { branch: 'feat/dialect', harness: 'claude-code', id: 'MMR-11', title: 'Wire the dialect' },
+  {
+    latestNote: { content: 'Seam extracted', createdAt: minutesAgo(9) },
+    scratchpads: [{ id: 'MMR-p1', title: 'Cutover episode' }],
+    startedAt: minutesAgo(41),
+  },
+);
 
-const reviewRow = {
-  ...task({ id: 'MMR-12', status: 'under_review', title: 'Extract the seam' }),
-  question: null,
-  reason: 'under_review' as const,
-  stale: false,
-};
+const reviewRow = needsYouRow(
+  { id: 'MMR-12', status: 'under_review', title: 'Extract the seam' },
+  'under_review',
+);
 
-const blockedRow = {
-  ...task({
-    block_owner: 'you',
+const blockedRow = needsYouRow(
+  {
+    blockOwner: 'you',
     hold: 'blocked',
-    hold_reason: 'Waiting on your sign-off',
+    holdReason: 'Waiting on your sign-off',
     id: 'MMR-13',
     status: 'blocked',
     title: 'Record health copy',
-  }),
-  question: null,
-  reason: 'blocked' as const,
-  stale: false,
-};
+  },
+  'blocked',
+);
 
-const answersRow = {
-  ...task({
+const answersRow = needsYouRow(
+  {
     grooming: 'needs_answers',
     id: 'MMR-14',
     status: 'ready',
     title: 'Refuse to open unmigrated stores',
-  }),
-  question: 'Should it refuse, or warn?',
-  reason: 'needs_answers' as const,
-  stale: false,
-};
+  },
+  'needs_answers',
+  { question: 'Should it refuse, or warn?' },
+);
 
-const frontierRow = (id: string, title: string, extra: Partial<WireNode> = {}) => ({
-  ...task({ grooming: 'groomed', id, status: 'ready', title, ...extra }),
-  awaiting_on: [],
-  break_down: false,
-  stale: false,
-});
+const frontierRow = (id: string, title: string, extra: Partial<EngineNode> = {}) =>
+  makeFrontierRow({ grooming: 'groomed', id, status: 'ready', title, ...extra });
 
-const shippedRow = (id: string, at: string, extra: Partial<WireNode> = {}) => ({
-  ...task({ id, status: 'done', title: `Shipped ${id}`, ...extra }),
-  abandon_reason: null,
-  finished_at: at,
-  stale: false,
-});
+const shippedRow = (id: string, at: string | Date, extra: Partial<EngineNode> = {}) =>
+  makeShippedRow({ id, title: `Shipped ${id}`, ...extra }, new Date(at));
 
 describe.each(SCOPES)('work page sections, $name', (scope) => {
-  it('asks for its own work route, in the browser’s time zone', async () => {
+  it('asks for its own work read, in the browser’s time zone', async () => {
     await open(scope);
 
-    const asked = apiGet.mock.calls.map(([path]) => path as string);
-    expect(asked).toContain(`${scope.workPath}?tz=America%2FNew_York`);
+    expect(scope.work).toHaveBeenCalledWith(scope.asked);
   });
 
   it('lists what is running, with when it started, where, and its latest note', async () => {
-    await open(scope, workReport({ now: [nowRow] }));
+    await open(scope, engineWork({ now: [nowRow] }));
 
     const now = await section('Now · 1');
     expect(hrefOf(now, 'Wire the dialect')).toBe('/p/MMR/11');
@@ -246,7 +250,7 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
   });
 
   it('lists what needs you with why, and the question a needs-answers task asks', async () => {
-    await open(scope, workReport({ needs_you: [reviewRow, blockedRow, answersRow] }));
+    await open(scope, engineWork({ needsYou: [reviewRow, blockedRow, answersRow] }));
 
     const needs = await section('Needs you · 3');
     expect(hrefOf(needs, 'Extract the seam')).toBe('/p/MMR/12');
@@ -264,31 +268,28 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
   it('splits the frontier: runnable, next to unlock under its prerequisite, and to groom', async () => {
     await open(
       scope,
-      workReport({
+      engineWork({
         frontier: {
-          next_to_unlock: [
+          nextToUnlock: [
             {
               prerequisite: { id: 'MMR-11', status: 'in_progress', title: 'Wire the dialect' },
               tasks: [
                 {
                   ...frontierRow('MMR-21', 'Remove the old backend', { size: 'large' }),
-                  awaiting_on: ['MMR-11'],
+                  awaitingOn: ['MMR-11'],
                 },
               ],
             },
           ],
           runnable: [frontierRow('MMR-20', 'Add the SQLite dialect')],
-          to_groom: [
+          toGroom: [
             frontierRow('MMR-22', 'Triage the flaky suite', { grooming: 'not_groomed' }),
-            {
-              ...task({ id: 'MMR-23', status: 'new', title: 'Hosted backends' }),
-              awaiting_on: [],
-              break_down: true,
-              stale: false,
-              type: 'initiative' as const,
-            },
+            makeFrontierRow(
+              { id: 'MMR-23', status: 'new', title: 'Hosted backends', type: 'initiative' },
+              { breakDown: true },
+            ),
           ],
-          waiting_on_others: [],
+          waitingOnOthers: [],
         },
       }),
     );
@@ -319,22 +320,22 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
   it('folds what waits on others until opened, each row with its reason', async () => {
     await open(
       scope,
-      workReport({
+      engineWork({
         frontier: {
-          next_to_unlock: [],
+          nextToUnlock: [],
           runnable: [],
-          to_groom: [],
-          waiting_on_others: [
+          toGroom: [],
+          waitingOnOthers: [
             {
-              ...task({
-                block_owner: 'others',
+              blockReason: 'Vendor has not replied',
+              stale: false,
+              task: workTask({
+                blockOwner: 'others',
                 hold: 'blocked',
                 id: 'MMR-24',
                 status: 'blocked',
                 title: 'Vendor key rotation',
               }),
-              block_reason: 'Vendor has not replied',
-              stale: false,
             },
           ],
         },
@@ -356,7 +357,7 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
   it('groups what shipped by day, caps a day at three until expanded, and strikes an abandoned task', async () => {
     await open(
       scope,
-      workReport({
+      engineWork({
         shipped: [
           shippedRow('MMR-31', '2026-10-12T20:30:00.000Z'),
           shippedRow('MMR-32', '2026-10-12T19:00:00.000Z'),
@@ -369,7 +370,7 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
               status: 'abandoned',
               title: 'Converge needs consent',
             }),
-            abandon_reason: 'moot under ADR 0032',
+            abandonReason: 'moot under ADR 0032',
           },
         ],
       }),
@@ -404,9 +405,9 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
     const stale = { ...frontierRow('MMR-20', 'Add the SQLite dialect'), stale: true };
     await open(
       scope,
-      workReport({
-        frontier: { next_to_unlock: [], runnable: [stale], to_groom: [], waiting_on_others: [] },
-        going_cold: [{ ...stale, updated_at: daysAgo(20) }],
+      engineWork({
+        frontier: { nextToUnlock: [], runnable: [stale], toGroom: [], waitingOnOthers: [] },
+        goingCold: [{ ...stale.task, updatedAt: daysAgo(20) }],
       }),
     );
 
@@ -450,16 +451,21 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
   it('keeps Runnable now, with its hint, when the other frontier groups are empty', async () => {
     await open(
       scope,
-      workReport({
+      engineWork({
         frontier: {
-          next_to_unlock: [],
+          nextToUnlock: [],
           runnable: [],
-          to_groom: [],
-          waiting_on_others: [
+          toGroom: [],
+          waitingOnOthers: [
             {
-              ...task({ hold: 'blocked', id: 'MMR-24', status: 'blocked', title: 'Vendor key' }),
-              block_reason: null,
+              blockReason: null,
               stale: false,
+              task: workTask({
+                hold: 'blocked',
+                id: 'MMR-24',
+                status: 'blocked',
+                title: 'Vendor key',
+              }),
             },
           ],
         },
@@ -474,10 +480,7 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
 
   it('shows skeletons while the work read is pending', async () => {
     serve(scope);
-    const served = apiGet.getMockImplementation();
-    apiGet.mockImplementation((path: string) =>
-      path.startsWith(`${scope.workPath}?`) ? Promise.withResolvers().promise : served?.(path),
-    );
+    vi.mocked(scope.work).mockReturnValue(Promise.withResolvers<WorkReport>().promise);
     renderAt(scope.url);
 
     await screen.findByRole('heading', { level: 1, name: scope.record.title });
@@ -495,13 +498,19 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
     expect(within(rail).getByText(scope.record.next?.split('\n')[0] ?? '')).toBeDefined();
   });
 
-  it('does not ask whether the server is running when it answered with a failure', async () => {
-    await open(scope, new ApiError('GET → 500', 500));
+  it.each([
+    ['an Engine refusal', new MimirError('validation', 'timeZone is not a time zone')],
+    ['a host fault', new HostFaultError()],
+  ])(
+    'does not ask whether the server is running when it answered with %s',
+    async (_kind, error) => {
+      await open(scope, error);
 
-    const message = await screen.findByText(/couldn’t load the work page/i);
-    expect(message).toHaveTextContent('Couldn’t load the work page.');
-    expect(message).not.toHaveTextContent('host running');
-  });
+      const message = await screen.findByText(/couldn’t load the work page/i);
+      expect(message).toHaveTextContent('Couldn’t load the work page.');
+      expect(message).not.toHaveTextContent('host running');
+    },
+  );
 });
 
 describe.each(SCOPES)('work page rail, $name', (scope) => {
@@ -591,15 +600,11 @@ describe.each(SCOPES)('work page rail, $name', (scope) => {
  * Serve `before` at the project's work route until a write lands, then `after`,
  * the way the server's next read reflects the action.
  */
-async function openForWrite(before: WireWorkReport, after: WireWorkReport) {
-  let report = before;
+async function openForWrite(before: WorkReport, after: WorkReport) {
   serve(PROJECT_SCOPE);
-  const served = apiGet.getMockImplementation();
-  apiGet.mockImplementation((path: string) =>
-    path.startsWith(`${PROJECT_SCOPE.workPath}?`) ? Promise.resolve(report) : served?.(path),
-  );
+  const views = serveViews({ projects: { MMR: before } });
   apiSend.mockImplementation(() => {
-    report = after;
+    views.projects.MMR = after;
     return Promise.resolve({});
   });
   renderAt(PROJECT_SCOPE.url);
@@ -608,31 +613,21 @@ async function openForWrite(before: WireWorkReport, after: WireWorkReport) {
 
 /** Accept writes, and hold the project's next work read until the test resolves it. */
 function holdRefresh() {
-  const refresh = Promise.withResolvers<WireWorkReport>();
-  const served = apiGet.getMockImplementation();
-  apiGet.mockImplementation((path: string) =>
-    path.startsWith(`${PROJECT_SCOPE.workPath}?`) ? refresh.promise : served?.(path),
-  );
+  const refresh = Promise.withResolvers<WorkReport>();
+  vi.mocked(projectWork).mockReturnValue(refresh.promise);
   apiSend.mockResolvedValue({});
   return refresh;
 }
 
-const runningAs = (row: { id: string; title: string }) => ({
-  ...nowRow,
-  branch: null,
-  harness: null,
-  id: row.id,
-  latest_note: null,
-  scratchpads: [],
-  title: row.title,
-});
+const runningAs = (row: { task: { id: string; title: string } }) =>
+  makeNowRow({ id: row.task.id, title: row.task.title });
 
 describe('work page row actions', () => {
   it('starts a runnable task, which then shows under Now', async () => {
     const runnable = frontierRow('MMR-20', 'Add the SQLite dialect');
     await openForWrite(
-      workReport({ frontier: { ...workReport().frontier, runnable: [runnable] } }),
-      workReport({ now: [runningAs(runnable)] }),
+      engineWork({ frontier: { ...engineWork().frontier, runnable: [runnable] } }),
+      engineWork({ now: [runningAs(runnable)] }),
     );
 
     fireEvent.click(within(await actionsOf('MMR-20')).getByRole('button', { name: 'Start' }));
@@ -647,8 +642,8 @@ describe('work page row actions', () => {
 
   it('approves a task in review, which then shows under Shipped', async () => {
     await openForWrite(
-      workReport({ needs_you: [reviewRow] }),
-      workReport({ shipped: [shippedRow('MMR-12', minutesAgo(1), { title: 'Extract the seam' })] }),
+      engineWork({ needsYou: [reviewRow] }),
+      engineWork({ shipped: [shippedRow('MMR-12', minutesAgo(1), { title: 'Extract the seam' })] }),
     );
 
     fireEvent.click(within(await actionsOf('MMR-12')).getByRole('button', { name: 'Approve' }));
@@ -663,8 +658,8 @@ describe('work page row actions', () => {
 
   it('sends a task in review back with a reason, and it returns to Now', async () => {
     await openForWrite(
-      workReport({ needs_you: [reviewRow] }),
-      workReport({ now: [runningAs(reviewRow)] }),
+      engineWork({ needsYou: [reviewRow] }),
+      engineWork({ now: [runningAs(reviewRow)] }),
     );
 
     fireEvent.click(within(await actionsOf('MMR-12')).getByRole('button', { name: 'Send back…' }));
@@ -686,10 +681,10 @@ describe('work page row actions', () => {
 
   it('answers a question and sets the grooming state, and the task moves to the frontier', async () => {
     await openForWrite(
-      workReport({ needs_you: [answersRow] }),
-      workReport({
+      engineWork({ needsYou: [answersRow] }),
+      engineWork({
         frontier: {
-          ...workReport().frontier,
+          ...engineWork().frontier,
           runnable: [frontierRow('MMR-14', 'Refuse to open unmigrated stores')],
         },
       }),
@@ -720,8 +715,8 @@ describe('work page row actions', () => {
 
   it('sends a task back with no body when no reason is given', async () => {
     await openForWrite(
-      workReport({ needs_you: [reviewRow] }),
-      workReport({ now: [runningAs(reviewRow)] }),
+      engineWork({ needsYou: [reviewRow] }),
+      engineWork({ now: [runningAs(reviewRow)] }),
     );
 
     fireEvent.click(within(await actionsOf('MMR-12')).getByRole('button', { name: 'Send back…' }));
@@ -734,7 +729,7 @@ describe('work page row actions', () => {
   });
 
   it('keeps a row’s buttons off until the sections have refreshed, so one tap writes once', async () => {
-    await open(PROJECT_SCOPE, workReport({ needs_you: [reviewRow] }));
+    await open(PROJECT_SCOPE, engineWork({ needsYou: [reviewRow] }));
     // The write lands, but the refreshed sections are still on their way.
     const refresh = holdRefresh();
 
@@ -748,12 +743,12 @@ describe('work page row actions', () => {
       within(await actionsOf('MMR-12')).getByRole('button', { name: 'Send back…' }),
     ).toBeDisabled();
 
-    refresh.resolve(workReport());
+    refresh.resolve(engineWork());
     await expect(section('Needs you')).resolves.toHaveTextContent('Nothing needs you.');
   });
 
   it('keeps the answer dialog open until the sections have refreshed', async () => {
-    await open(PROJECT_SCOPE, workReport({ needs_you: [answersRow] }));
+    await open(PROJECT_SCOPE, engineWork({ needsYou: [answersRow] }));
     const refresh = holdRefresh();
 
     fireEvent.click(within(await actionsOf('MMR-14')).getByRole('button', { name: 'Answer…' }));
@@ -768,14 +763,14 @@ describe('work page row actions', () => {
     });
     expect(within(dialog).getByRole('button', { name: 'Answer' })).toBeDisabled();
 
-    refresh.resolve(workReport());
+    refresh.resolve(engineWork());
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
     });
   });
 
   it('asks for what is still open when the answer keeps the task at needs answers', async () => {
-    await open(PROJECT_SCOPE, workReport({ needs_you: [answersRow] }));
+    await open(PROJECT_SCOPE, engineWork({ needsYou: [answersRow] }));
 
     fireEvent.click(within(await actionsOf('MMR-14')).getByRole('button', { name: 'Answer…' }));
     const dialog = await screen.findByRole('dialog', { name: 'Answer' });
@@ -788,7 +783,7 @@ describe('work page row actions', () => {
   });
 
   it('needs both an answer and a chosen state before it answers', async () => {
-    await open(PROJECT_SCOPE, workReport({ needs_you: [answersRow] }));
+    await open(PROJECT_SCOPE, engineWork({ needsYou: [answersRow] }));
 
     fireEvent.click(within(await actionsOf('MMR-14')).getByRole('button', { name: 'Answer…' }));
     const dialog = await screen.findByRole('dialog', { name: 'Answer' });
@@ -812,10 +807,10 @@ describe('work page row actions', () => {
   });
 });
 
-const secondReview = {
-  ...reviewRow,
-  ...task({ id: 'MMR-15', status: 'under_review', title: 'Name the seam' }),
-};
+const secondReview = needsYouRow(
+  { id: 'MMR-15', status: 'under_review', title: 'Name the seam' },
+  'under_review',
+);
 /** Press a row's button the way a keyboard does: focused first, then activated. */
 const press = async (id: string, name: string) => {
   const button = within(await actionsOf(id)).getByRole('button', { name });
@@ -826,8 +821,8 @@ const press = async (id: string, name: string) => {
 describe('work page focus after an acted-on row moves away', () => {
   it('lands on the next row’s actions after Approve moves a row out of Needs you', async () => {
     await openForWrite(
-      workReport({ needs_you: [reviewRow, secondReview] }),
-      workReport({ needs_you: [secondReview] }),
+      engineWork({ needsYou: [reviewRow, secondReview] }),
+      engineWork({ needsYou: [secondReview] }),
     );
 
     await press('MMR-12', 'Approve');
@@ -842,8 +837,8 @@ describe('work page focus after an acted-on row moves away', () => {
 
   it('lands on the section heading when the moved row had no row after it', async () => {
     await openForWrite(
-      workReport({ needs_you: [secondReview, reviewRow] }),
-      workReport({ needs_you: [secondReview] }),
+      engineWork({ needsYou: [secondReview, reviewRow] }),
+      engineWork({ needsYou: [secondReview] }),
     );
 
     await press('MMR-12', 'Approve');
@@ -856,10 +851,10 @@ describe('work page focus after an acted-on row moves away', () => {
   it('lands on the next runnable row’s Start after Start moves a row to Now', async () => {
     const first = frontierRow('MMR-20', 'Add the SQLite dialect');
     const second = frontierRow('MMR-21', 'Add the Postgres dialect');
-    const runnable = (rows: (typeof first)[]) => ({ ...workReport().frontier, runnable: rows });
+    const runnable = (rows: (typeof first)[]) => ({ ...engineWork().frontier, runnable: rows });
     await openForWrite(
-      workReport({ frontier: runnable([first, second]) }),
-      workReport({ frontier: runnable([second]), now: [runningAs(first)] }),
+      engineWork({ frontier: runnable([first, second]) }),
+      engineWork({ frontier: runnable([second]), now: [runningAs(first)] }),
     );
 
     await press('MMR-20', 'Start');
@@ -875,8 +870,8 @@ describe('work page focus after an acted-on row moves away', () => {
 
   it('lands on the next row after Send back… closes its dialog and the row moves', async () => {
     await openForWrite(
-      workReport({ needs_you: [reviewRow, secondReview] }),
-      workReport({ needs_you: [secondReview], now: [runningAs(reviewRow)] }),
+      engineWork({ needsYou: [reviewRow, secondReview] }),
+      engineWork({ needsYou: [secondReview], now: [runningAs(reviewRow)] }),
     );
 
     await press('MMR-12', 'Send back…');
@@ -894,8 +889,8 @@ describe('work page focus after an acted-on row moves away', () => {
 
   it('lands on the next row after an answer moves its row out of Needs you', async () => {
     await openForWrite(
-      workReport({ needs_you: [answersRow, secondReview] }),
-      workReport({ needs_you: [secondReview] }),
+      engineWork({ needsYou: [answersRow, secondReview] }),
+      engineWork({ needsYou: [secondReview] }),
     );
 
     await press('MMR-14', 'Answer…');
@@ -918,13 +913,13 @@ describe('work page focus after an acted-on row moves away', () => {
   it('moves nothing for a cancelled answer’s row when it leaves later', async () => {
     const first = frontierRow('MMR-20', 'Add the SQLite dialect');
     const second = frontierRow('MMR-21', 'Add the Postgres dialect');
-    const runnable = (rows: (typeof first)[]) => ({ ...workReport().frontier, runnable: rows });
+    const runnable = (rows: (typeof first)[]) => ({ ...engineWork().frontier, runnable: rows });
     await openForWrite(
-      workReport({ frontier: runnable([first, second]), needs_you: [answersRow, secondReview] }),
+      engineWork({ frontier: runnable([first, second]), needsYou: [answersRow, secondReview] }),
       // MMR-14 was answered elsewhere meanwhile, so Start's refresh drops it too.
-      workReport({
+      engineWork({
         frontier: runnable([second]),
-        needs_you: [secondReview],
+        needsYou: [secondReview],
         now: [runningAs(first)],
       }),
     );
@@ -949,10 +944,10 @@ describe('work page focus after an acted-on row moves away', () => {
   it('moves nothing for a failed approval’s row when it leaves later', async () => {
     const first = frontierRow('MMR-20', 'Add the SQLite dialect');
     const second = frontierRow('MMR-21', 'Add the Postgres dialect');
-    const runnable = (rows: (typeof first)[]) => ({ ...workReport().frontier, runnable: rows });
-    const before = workReport({
+    const runnable = (rows: (typeof first)[]) => ({ ...engineWork().frontier, runnable: rows });
+    const before = engineWork({
       frontier: runnable([first, second]),
-      needs_you: [reviewRow, secondReview],
+      needsYou: [reviewRow, secondReview],
     });
     await open(PROJECT_SCOPE, before);
 
@@ -972,9 +967,9 @@ describe('work page focus after an acted-on row moves away', () => {
     await press('MMR-20', 'Start');
     // MMR-12 was approved elsewhere meanwhile, so Start's refresh drops it too.
     startRefresh.resolve(
-      workReport({
+      engineWork({
         frontier: runnable([second]),
-        needs_you: [secondReview],
+        needsYou: [secondReview],
         now: [runningAs(first)],
       }),
     );
@@ -991,18 +986,21 @@ describe('work page focus after an acted-on row moves away', () => {
   it('moves nothing for a row that lost its action before it leaves', async () => {
     const first = frontierRow('MMR-20', 'Add the SQLite dialect');
     const second = frontierRow('MMR-21', 'Add the Postgres dialect');
-    const runnable = (rows: (typeof first)[]) => ({ ...workReport().frontier, runnable: rows });
+    const runnable = (rows: (typeof first)[]) => ({ ...engineWork().frontier, runnable: rows });
     await open(
       PROJECT_SCOPE,
-      workReport({ frontier: runnable([first, second]), needs_you: [reviewRow, secondReview] }),
+      engineWork({ frontier: runnable([first, second]), needsYou: [reviewRow, secondReview] }),
     );
 
     // MMR-12 is blocked elsewhere as it is approved, so it stays with no action.
     const blockedRefresh = holdRefresh();
     await press('MMR-12', 'Approve');
-    const blockedAs = { ...blockedRow, id: 'MMR-12', title: reviewRow.title };
+    const blockedAs: NeedsYouTask = {
+      ...blockedRow,
+      task: { ...blockedRow.task, id: 'MMR-12', title: reviewRow.task.title },
+    };
     blockedRefresh.resolve(
-      workReport({ frontier: runnable([first, second]), needs_you: [blockedAs, secondReview] }),
+      engineWork({ frontier: runnable([first, second]), needsYou: [blockedAs, secondReview] }),
     );
     await waitFor(() => {
       expect(screen.queryByRole('group', { name: 'Actions for MMR-12' })).toBeNull();
@@ -1011,9 +1009,9 @@ describe('work page focus after an acted-on row moves away', () => {
     const startRefresh = holdRefresh();
     await press('MMR-20', 'Start');
     startRefresh.resolve(
-      workReport({
+      engineWork({
         frontier: runnable([second]),
-        needs_you: [secondReview],
+        needsYou: [secondReview],
         now: [runningAs(first)],
       }),
     );
@@ -1028,7 +1026,7 @@ describe('work page focus after an acted-on row moves away', () => {
   });
 
   it('leaves focus alone when the operator has moved on before the row leaves', async () => {
-    await open(PROJECT_SCOPE, workReport({ needs_you: [reviewRow, secondReview] }));
+    await open(PROJECT_SCOPE, engineWork({ needsYou: [reviewRow, secondReview] }));
     const refresh = holdRefresh();
 
     await press('MMR-12', 'Approve');
@@ -1037,7 +1035,7 @@ describe('work page focus after an acted-on row moves away', () => {
     });
     const elsewhere = within(getRail()).getAllByRole('link')[0];
     elsewhere?.focus();
-    refresh.resolve(workReport({ needs_you: [secondReview] }));
+    refresh.resolve(engineWork({ needsYou: [secondReview] }));
 
     await waitFor(() => {
       expect(screen.queryByRole('group', { name: 'Actions for MMR-12' })).toBeNull();
@@ -1067,9 +1065,9 @@ describe('work page offline', () => {
   it('disables every row action', async () => {
     serve(
       PHASE_SCOPE,
-      workReport({
-        frontier: { ...workReport().frontier, runnable: [frontierRow('MMR-20', 'Runnable')] },
-        needs_you: [reviewRow, answersRow],
+      engineWork({
+        frontier: { ...engineWork().frontier, runnable: [frontierRow('MMR-20', 'Runnable')] },
+        needsYou: [reviewRow, answersRow],
       }),
     );
     const served = apiGet.getMockImplementation();

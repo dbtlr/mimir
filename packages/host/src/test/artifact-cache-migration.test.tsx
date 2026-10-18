@@ -2,18 +2,24 @@ import { QueryClient, QueryClientProvider, dehydrate, hydrate } from '@tanstack/
 import type { PersistedClient } from '@tanstack/react-query-persist-client';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { render, screen } from '@testing-library/react';
-import { describe, expect, vi } from 'vitest';
+import { beforeEach, describe, expect, vi } from 'vitest';
 
 import { sanitizePersistedClient } from '../lib/persist';
 import { routeTree } from '../router';
 import { engineArtifact } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { serveShell } from './shell-fns';
+import { serveViews } from './views-fns';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
+vi.mock('../api/fns/views');
+
+beforeEach(() => {
+  serveViews();
+});
 
 // A pre-infinite payload: the flat `{ items, total }` collection the artifacts
 // query persisted while it was a plain `useQuery`, before b0755d7 made it

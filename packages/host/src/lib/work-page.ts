@@ -50,7 +50,7 @@ export type ShippedDay<T> = { day: string; label: string; rows: T[] };
  * first. The first two days read "Today · Mon Oct 12" and "Yesterday · Sun Oct
  * 11"; older days carry the date alone. Rows within a day are newest first.
  */
-export function groupShippedByDay<T extends { finished_at: string }>(
+export function groupShippedByDay<T extends { finishedAt: Date }>(
   rows: readonly T[],
   zone: string,
   now = Date.now(),
@@ -58,10 +58,8 @@ export function groupShippedByDay<T extends { finished_at: string }>(
   const today = dayOf(now, zone);
   const yesterday = dayBefore(today);
   const days = new Map<string, T[]>();
-  for (const row of rows.toSorted(
-    (a, b) => Date.parse(b.finished_at) - Date.parse(a.finished_at),
-  )) {
-    const day = dayOf(Date.parse(row.finished_at), zone);
+  for (const row of rows.toSorted((a, b) => b.finishedAt.getTime() - a.finishedAt.getTime())) {
+    const day = dayOf(row.finishedAt.getTime(), zone);
     days.set(day, [...(days.get(day) ?? []), row]);
   }
   return [...days.entries()].map(([day, dayRows]) => {
@@ -77,13 +75,13 @@ export function groupShippedByDay<T extends { finished_at: string }>(
 }
 
 /** The finish time of a Shipped row, 24-hour `HH:MM` in `zone`. */
-export function shippedTime(iso: string, zone: string): string {
+export function shippedTime(at: Date, zone: string): string {
   return new Intl.DateTimeFormat('en-GB', {
     hour: '2-digit',
     hourCycle: 'h23',
     minute: '2-digit',
     timeZone: zone,
-  }).format(Date.parse(iso));
+  }).format(at);
 }
 
 /**
@@ -104,15 +102,15 @@ export function capDay<T>(
 /** Does the frontier hold no row at all — not runnable, not one step off, not to groom, not waiting? */
 export function frontierIsEmpty(frontier: {
   runnable: readonly unknown[];
-  next_to_unlock: readonly { tasks: readonly unknown[] }[];
-  to_groom: readonly unknown[];
-  waiting_on_others: readonly unknown[];
+  nextToUnlock: readonly { tasks: readonly unknown[] }[];
+  toGroom: readonly unknown[];
+  waitingOnOthers: readonly unknown[];
 }): boolean {
   return (
     frontier.runnable.length === 0 &&
-    frontier.to_groom.length === 0 &&
-    frontier.waiting_on_others.length === 0 &&
-    frontier.next_to_unlock.every((g) => g.tasks.length === 0)
+    frontier.toGroom.length === 0 &&
+    frontier.waitingOnOthers.length === 0 &&
+    frontier.nextToUnlock.every((g) => g.tasks.length === 0)
   );
 }
 
