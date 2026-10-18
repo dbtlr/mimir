@@ -64,6 +64,30 @@ test('embedded newlines in the detail cannot forge extra records in the log', ()
   expect(logged[0]).toContain('forged record');
 });
 
+/** A fault whose stack omits its message — the shape Zod v4 output-schema failures take. */
+function stacklessFault(): Error {
+  const fault = new Error('title: expected string\n✗ http: forged\u2028record\u2029here');
+  fault.stack = 'ZodError\n    at parse (schema.ts:1:1)\u2028✗ http: forged frame';
+  return fault;
+}
+
+test('a fault whose stack omits its message keeps both in one log record', async () => {
+  const res = errorResponse(REQ, stacklessFault());
+  expect(logged).toHaveLength(1);
+  const line = logged[0] ?? '';
+  expect(line).not.toMatch(/[\n\r\u2028\u2029]/);
+  const record: unknown = JSON.parse(line.slice(line.indexOf('{')));
+  expect(record).toEqual({
+    message: 'title: expected string\n✗ http: forged\u2028record\u2029here',
+    method: 'POST',
+    path: '/api/tasks/MMR-1',
+    stack: 'ZodError\n    at parse (schema.ts:1:1)\u2028✗ http: forged frame',
+  });
+  const body = JSON.stringify(await res.json());
+  expect(body).not.toContain('title: expected string');
+  expect(body).not.toContain('ZodError');
+});
+
 test('a MimirError still passes through verbatim (regression)', async () => {
   const res = errorResponse(REQ, notFound('MMR-9 doesn’t exist'));
   expect(res.status).toBe(404);
