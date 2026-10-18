@@ -17,26 +17,21 @@ import type { TestStore } from '@mimir/core/testing';
 import { RemoteEngine } from './client';
 import { createEngineHandler } from './server';
 
-/** The Seed and Scratchpad write methods this file proves (MMR-518). */
-const WRITE_METHODS = [
-  'scratchAgendaAdd',
-  'scratchAgendaComplete',
-  'scratchAgendaSupersede',
-  'scratchCheckpoint',
-  'scratchCreate',
-  'scratchDiscard',
-  'scratchFreeze',
-  'scratchUpdate',
-  'seedCreate',
-  'seedPark',
-  'seedPromote',
-  'seedReject',
-  'seedResolve',
-  'seedUnpark',
-  'seedUpdate',
-  'triage',
-] as const;
-type WriteMethod = (typeof WRITE_METHODS)[number];
+/**
+ * The Seed and Scratchpad writes (MMR-518). Node writes and uniform verbs (MMR-517)
+ * are proved in writes.test.ts, so this file takes only the `seed*`, `scratch*`,
+ * and `triage` mutations.
+ */
+type WriteMethod = Extract<
+  {
+    [K in keyof Engine]: (typeof engineSchemas)[K]['kind'] extends 'mutation' ? K : never;
+  }[keyof Engine],
+  `seed${string}` | `scratch${string}` | 'triage'
+>;
+const SEED_SCRATCH_WRITE = /^(?:seed|scratch)[A-Z]|^triage$/;
+const WRITE_METHODS = Object.entries(engineSchemas)
+  .filter(([name, schema]) => schema.kind === 'mutation' && SEED_SCRATCH_WRITE.test(name))
+  .map(([name]) => name as WriteMethod);
 
 let fixture: TestStore;
 let local: LocalEngine;
@@ -265,18 +260,8 @@ function call(engine: Engine, method: WriteMethod, input: unknown) {
   return (Reflect.get(engine, method) as (input: unknown) => Promise<unknown>).call(engine, input);
 }
 
-/** Node writes (MMR-517) are proved in writes.test.ts; this file owns the rest. */
-const SEED_SCRATCH_WRITE = /^(?:seed|scratch)[A-Z]|^triage$/;
-
-test('the write table names every Seed and Scratchpad write method the Engine carries', () => {
-  const mutations = Object.entries(engineSchemas)
-    .filter(([name, schema]) => schema.kind === 'mutation' && SEED_SCRATCH_WRITE.test(name))
-    .map(([name]) => name);
-  expect([...WRITE_METHODS].toSorted()).toEqual(mutations.toSorted());
+test('the write table names every mutation the schemas declare, except done', () => {
   expect(Object.keys(writes).toSorted()).toEqual([...WRITE_METHODS].toSorted());
-  for (const method of WRITE_METHODS) {
-    expect(engineSchemas[method].kind).toBe('mutation');
-  }
 });
 
 describe.each([
@@ -325,6 +310,44 @@ test('triage annotates a resolved upstream once, whichever Engine runs it', asyn
   expect(again.upstreamResolutions[0]).toMatchObject({ alreadyRecorded: true, annotated: false });
 });
 
+test('a forced discard drops a Scratchpad with an open Agenda item, whichever Engine runs it', async () => {
+  await addAgendaItem();
+  expect(
+    await remote.scratchDiscard({
+      expectedUpdatedAt: await guard(),
+      force: true,
+      id: ids.pad,
+      reason: 'Abandoned',
+    }),
+  ).toEqual({ id: ids.pad, result: 'discarded' });
+  expect((await errorOf(local.scratchGet({ id: ids.pad }))).code).toBe('not_found');
+});
+
+test('a promoted seed spawns a task carrying the priority and tags given', async () => {
+  const promotion = await remote.seedPromote({
+    id: ids.seed,
+    parent: ids.initiative,
+    priority: 'p1',
+    tags: ['seeded'],
+  });
+  const node = await local.getNode({ id: promotion.spawnedId });
+  expect(node.priority).toBe('p1');
+  expect(node.tags?.map((entry) => entry.tag)).toEqual(['seeded']);
+});
+
+test('retrying a freeze after its project is archived reads as absent on both Engines', async () => {
+  const { store } = fixture;
+  await createProject(store, { key: 'REC', name: 'Recovered' });
+  const scratch = createScratchpadService(store.scratchpads, store.artifacts, store);
+  const pad = await scratch.create({ project: 'REC', title: 'Frozen pad' });
+  const request = { expectedUpdatedAt: new Date(0), id: pad.id, summary: 'x' };
+  await scratch.freeze(pad.id, { expectedUpdatedAt: pad.updatedAt, summary: 'x' });
+  await archiveProject(store, 'REC');
+  for (const engine of [local, remote]) {
+    expect((await errorOf(engine.scratchFreeze(request))).code).toBe('not_found');
+  }
+});
+
 const refusals: [string, WriteMethod, () => Promise<unknown>, ErrorCode][] = [
   [
     'a stale Scratchpad guard',
@@ -357,6 +380,36 @@ const refusals: [string, WriteMethod, () => Promise<unknown>, ErrorCode][] = [
     'scratchFreeze',
     async () => ({ expectedUpdatedAt: new Date(), id: ids.archivedPad, summary: 'x' }),
     'not_found',
+  ],
+  [
+    'discarding a Scratchpad in an archived project',
+    'scratchDiscard',
+    async () => ({ expectedUpdatedAt: new Date(), id: ids.archivedPad }),
+    'not_found',
+  ],
+  [
+    'updating a Scratchpad in an archived project',
+    'scratchUpdate',
+    async () => ({ expectedUpdatedAt: new Date(), id: ids.archivedPad, title: 'x' }),
+    'not_found',
+  ],
+  [
+    'discarding a Scratchpad with an open Agenda item',
+    'scratchDiscard',
+    async () => {
+      await addAgendaItem();
+      return { expectedUpdatedAt: await guard(), id: ids.pad };
+    },
+    'validation',
+  ],
+  [
+    'a forced discard without a reason',
+    'scratchDiscard',
+    async () => {
+      await addAgendaItem();
+      return { expectedUpdatedAt: await guard(), force: true, id: ids.pad };
+    },
+    'validation',
   ],
   [
     'a Scratchpad created in an archived project',

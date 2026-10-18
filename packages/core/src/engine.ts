@@ -293,6 +293,11 @@ export class LocalEngine extends UniformEngineBase implements Engine {
       summary,
       tags,
     });
+    // A recovered freeze (the pad is already gone) returns the existing artifact, so its
+    // project is checked here: an archived project's artifacts read as absent.
+    if (!(await this.isActiveProject(artifact.key))) {
+      throw notFound(`${id} doesn't exist`);
+    }
     return intentViews.artifactDetail.parse(buildArtifactDetail(artifact));
   }
 

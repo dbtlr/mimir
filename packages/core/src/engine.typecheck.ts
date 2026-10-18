@@ -1,4 +1,4 @@
-import type { EngineInput } from '@mimir/contract';
+import type { Engine, EngineInput } from '@mimir/contract';
 
 import type {
   CreateNodeInitiativeInput,
@@ -11,6 +11,7 @@ import type { AttachArtifactInput, UpdateFields, UpdateProjectFields } from './m
 import type { ScratchpadService } from './scratchpads';
 import type { SearchOptions } from './search/intent';
 import type {
+  promoteSeed,
   FileSeedInput,
   ListSeedsOptions,
   PromoteSeedInput,
@@ -61,6 +62,14 @@ export type EngineOptionChecks = [
   Assert<SameKeys<WithoutId<'scratchDiscard'>, ScratchOptions<'discard'>>>,
   Assert<SameKeys<WithoutId<'scratchFreeze'>, ScratchOptions<'freeze'>>>,
   Assert<SameKeys<WithoutId<'scratchUpdate'>, ScratchOptions<'updateMetadata'>>>,
+  // The promotion view is parsed from core's result, so a field core adds or renames must
+  // reach the Engine output rather than be stripped.
+  Assert<
+    SameKeys<
+      keyof Awaited<ReturnType<typeof promoteSeed>>,
+      keyof Awaited<ReturnType<Engine['seedPromote']>>
+    >
+  >,
   // @ts-expect-error A renamed input key no longer matches the core option it feeds.
   Assert<SameKeys<Scoped<'artifacts'> | 'tags', keyof ArtifactQueryOptions>>,
 ];
