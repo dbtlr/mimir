@@ -109,8 +109,10 @@ the single-user tailnet, as ADR 0035 requires.
 
 The Engine carries every CLI and MCP read (`next`, `list`, `projects`,
 `getNode`, `getArtifact`, `getSeed`, `status`, `tree`, `overview`,
-`artifacts`, `search`, `seeds`, `scratchList`, `scratchGet`) and the `done`
-write. Board reads name their project; only `projects` spans projects.
+`artifacts`, `search`, `seeds`, `scratchList`, `scratchGet`) and every node
+write (`create`, `update`, `updateProject`, `annotate`, `attach`, `depend`,
+`undepend`, `move`, `reorder`, `groom`, `tag`, `untag`, and the twelve uniform
+verbs, which are derived from the operation facts). Board reads name their project; only `projects` spans projects.
 `LocalEngine` owns a `Store` and delegates to the existing domain functions;
 `@mimir/wire/server` adapts an Engine to tRPC, and `@mimir/wire/client` provides
 the store-free `RemoteEngine`. The two wire entries share only types across
