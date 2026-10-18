@@ -1,5 +1,18 @@
-import { engineSchemas, MimirError, parseEngineInput, UNIFORM_VERBS } from '@mimir/contract';
-import type { Engine, EngineOutput, ErrorCode, UniformVerb } from '@mimir/contract';
+import {
+  consoleSchemas,
+  engineSchemas,
+  MimirError,
+  parseEngineInput,
+  UNIFORM_VERBS,
+} from '@mimir/contract';
+import type {
+  ConsoleEngine,
+  Engine,
+  EngineMethods,
+  EngineOutput,
+  ErrorCode,
+  UniformVerb,
+} from '@mimir/contract';
 import { formatDiagnostic } from '@mimir/helpers';
 import { initTRPC, TRPCError } from '@trpc/server';
 import type { TRPCMutationProcedure, TRPCQueryProcedure } from '@trpc/server';
@@ -45,7 +58,7 @@ const procedure = t.procedure.use(async ({ next }) => {
 });
 
 export type EngineProcedures = {
-  [K in keyof Engine]: (typeof engineSchemas)[K]['kind'] extends 'query'
+  [K in keyof EngineMethods]: (typeof engineSchemas)[K]['kind'] extends 'query'
     ? TRPCQueryProcedure<{
         input: Parameters<Engine[K]>[0];
         output: Awaited<ReturnType<Engine[K]>>;
@@ -56,6 +69,14 @@ export type EngineProcedures = {
         output: Awaited<ReturnType<Engine[K]>>;
         meta: unknown;
       }>;
+} & {
+  console: {
+    [K in keyof ConsoleEngine]: TRPCQueryProcedure<{
+      input: Parameters<ConsoleEngine[K]>[0];
+      output: Awaited<ReturnType<ConsoleEngine[K]>>;
+      meta: unknown;
+    }>;
+  };
 };
 
 /** The uniform verbs' procedures, built from the same registry the schemas derive from. */
@@ -140,6 +161,24 @@ export function createEngineRouter(engine: Engine) {
       .input((value: unknown) => parseEngineInput(engineSchemas.artifacts.input, value))
       .output(engineSchemas.artifacts.output)
       .query(({ input }) => engine.artifacts(input)),
+    console: t.router({
+      nodeWork: procedure
+        .input((value: unknown) => parseEngineInput(consoleSchemas.nodeWork.input, value))
+        .output(consoleSchemas.nodeWork.output)
+        .query(({ input }) => engine.console.nodeWork(input)),
+      overview: procedure
+        .input((value: unknown) => parseEngineInput(consoleSchemas.overview.input, value))
+        .output(consoleSchemas.overview.output)
+        .query(({ input }) => engine.console.overview(input)),
+      projectWork: procedure
+        .input((value: unknown) => parseEngineInput(consoleSchemas.projectWork.input, value))
+        .output(consoleSchemas.projectWork.output)
+        .query(({ input }) => engine.console.projectWork(input)),
+      review: procedure
+        .input((value: unknown) => parseEngineInput(consoleSchemas.review.input, value))
+        .output(consoleSchemas.review.output)
+        .query(({ input }) => engine.console.review(input)),
+    }),
     getArtifact: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.getArtifact.input, value))
       .output(engineSchemas.getArtifact.output)

@@ -1,4 +1,4 @@
-import type { Engine, EngineInput } from '@mimir/contract';
+import type { ConsoleInput, Engine, EngineInput } from '@mimir/contract';
 
 import type {
   CreateNodeInitiativeInput,
@@ -6,7 +6,13 @@ import type {
   CreateNodeProjectInput,
   CreateNodeTaskInput,
 } from './create';
-import type { ArtifactQueryOptions, ListOptions, NextOptions } from './intent';
+import type {
+  ArtifactQueryOptions,
+  ListOptions,
+  NextOptions,
+  ReviewOptions,
+  WorkOptions,
+} from './intent';
 import type { AttachArtifactInput, UpdateFields, UpdateProjectFields } from './mutations';
 import type { ScratchpadService } from './scratchpads';
 import type { SearchOptions } from './search/intent';
@@ -105,4 +111,13 @@ export type EngineNodeWriteChecks = [
   >,
   // @ts-expect-error A field added to core's update vocabulary must reach the Engine input.
   Assert<SameKeys<keyof EngineInput<'update'>, keyof UpdateFields | 'id' | 'added'>>,
+];
+
+/** The console inputs hand core the same page options; ids and keys are the extra field. */
+export type ConsoleOptionChecks = [
+  Assert<SameKeys<keyof ConsoleInput<'review'>, keyof ReviewOptions>>,
+  Assert<SameKeys<Exclude<keyof ConsoleInput<'projectWork'>, 'project'>, keyof WorkOptions>>,
+  Assert<SameKeys<Exclude<keyof ConsoleInput<'nodeWork'>, 'id'>, keyof WorkOptions>>,
+  // @ts-expect-error A renamed console input key no longer matches the page option it feeds.
+  Assert<SameKeys<keyof ConsoleInput<'review'> | 'zone', keyof ReviewOptions>>,
 ];

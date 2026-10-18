@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { FACET_NAMES } from './dto';
+import type { ConsoleEngine } from './engine-console';
 import { nodeWriteSchemas } from './engine-node-writes';
 import { seedScratchSchemas } from './engine-seed-scratch';
 import { engineViews } from './engine-views';
@@ -16,6 +17,7 @@ import {
 
 export { engineViews, intentViews } from './engine-views';
 export type { UniformArgs } from './engine-node-writes';
+export * from './engine-console';
 
 export type EngineNode = z.output<typeof engineViews.node>;
 
@@ -152,9 +154,12 @@ export type EngineInput<K extends keyof EngineSchemas> = z.input<EngineSchemas[K
 export type EngineOutput<K extends keyof EngineSchemas> = z.output<EngineSchemas[K]['output']>;
 
 /** One method per operation, typed by its contract schemas. */
-export type Engine = {
+export type EngineMethods = {
   [K in keyof EngineSchemas]: (input: EngineInput<K>) => Promise<EngineOutput<K>>;
 };
+
+/** The flat operations plus the console's own namespace, which the CLI and MCP never register. */
+export type Engine = EngineMethods & { console: ConsoleEngine };
 
 /** Both implementations report malformed method input as the same domain error. */
 export function parseEngineInput<T extends z.ZodType>(schema: T, value: unknown): z.output<T> {

@@ -1,5 +1,11 @@
 import { mimirErrorSchema, MimirError, UNIFORM_VERBS } from '@mimir/contract';
-import type { Engine, EngineInput, UniformVerb } from '@mimir/contract';
+import type {
+  ConsoleEngine,
+  ConsoleInput,
+  Engine,
+  EngineInput,
+  UniformVerb,
+} from '@mimir/contract';
 import { createTRPCClient, httpLink, TRPCClientError } from '@trpc/client';
 import type { TRPCClient } from '@trpc/client';
 import superjson from 'superjson';
@@ -44,12 +50,14 @@ const UniformEngineBase = UniformVerbMethods as unknown as abstract new () => Pi
 /** A store-free Engine; only the client entry and contract are runtime dependencies. */
 export class RemoteEngine extends UniformEngineBase implements Engine {
   protected readonly client: TRPCClient<EngineRouter>;
+  readonly console: ConsoleEngine;
 
   constructor(options: RemoteEngineOptions) {
     super();
     this.client = createTRPCClient<EngineRouter>({
       links: [httpLink({ ...options, transformer: superjson })],
     });
+    this.console = consoleBindings(this.client);
   }
 
   artifacts(input: EngineInput<'artifacts'>) {
@@ -155,6 +163,7 @@ export class RemoteEngine extends UniformEngineBase implements Engine {
   updateProject(input: EngineInput<'updateProject'>) {
     return domainResult(this.client.updateProject.mutate(input));
   }
+
   scratchAgendaAdd(input: EngineInput<'scratchAgendaAdd'>) {
     return domainResult(this.client.scratchAgendaAdd.mutate(input));
   }
@@ -227,6 +236,19 @@ function isMutation(value: unknown): value is { mutate: (input: unknown) => Prom
     value !== null &&
     typeof Reflect.get(value, 'mutate') === 'function'
   );
+}
+
+/** The console namespace's bindings, one query procedure per method. */
+function consoleBindings(client: TRPCClient<EngineRouter>): ConsoleEngine {
+  return {
+    nodeWork: (input: ConsoleInput<'nodeWork'>) =>
+      domainResult(client.console.nodeWork.query(input)),
+    overview: (input: ConsoleInput<'overview'>) =>
+      domainResult(client.console.overview.query(input)),
+    projectWork: (input: ConsoleInput<'projectWork'>) =>
+      domainResult(client.console.projectWork.query(input)),
+    review: (input: ConsoleInput<'review'>) => domainResult(client.console.review.query(input)),
+  };
 }
 
 /** Reconstruct domain refusals; network and protocol failures keep their transport identity. */

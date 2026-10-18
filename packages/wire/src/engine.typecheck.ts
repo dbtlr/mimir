@@ -1,12 +1,16 @@
 import type {
   ArtifactDetail,
   ArtifactSummary,
+  consoleIntentViews,
+  ConsoleEngine,
   Engine,
+  EngineMethods,
   engineSchemas,
   intentViews,
   NodeView,
   OverviewReport,
   OverviewScratchpad,
+  ReviewReport,
   Scratchpad,
   SearchHit,
   SeedView,
@@ -14,6 +18,7 @@ import type {
   StatusView,
   TreeView,
   TriageReport,
+  WorkReport,
 } from '@mimir/contract';
 import type { inferRouterInputs, inferRouterOutputs } from '@trpc/server';
 import type { z } from 'zod';
@@ -63,8 +68,8 @@ type CoreProjections = {
   scratchpadDiscard: { id: string; result: 'discarded' };
   triageReport: TriageReport;
 };
-type Inputs = { [K in keyof Engine]: Parameters<Engine[K]>[0] };
-type Outputs = { [K in keyof Engine]: Awaited<ReturnType<Engine[K]>> };
+type Inputs = { [K in keyof EngineMethods]: Parameters<Engine[K]>[0] };
+type Outputs = { [K in keyof EngineMethods]: Awaited<ReturnType<Engine[K]>> };
 type InputWithoutFacets = Omit<Inputs, 'getNode'> & {
   getNode: Omit<Inputs['getNode'], 'facets'>;
 };
@@ -72,13 +77,13 @@ type InputWithExtra = Omit<Inputs, 'getNode'> & {
   getNode: Inputs['getNode'] & { accidental?: string };
 };
 type OutputWithoutHistory = Omit<Outputs, 'done'> & { done: Omit<Outputs['done'], 'history'> };
-type OutputWithExtra = { [K in keyof Engine]: Outputs[K] & { accidental?: string } };
+type OutputWithExtra = { [K in keyof EngineMethods]: Outputs[K] & { accidental?: string } };
 
 /** These assertions run in the normal typecheck, including the negative controls. */
 export type EngineTypeChecks = [
-  Assert<Equal<keyof Engine, keyof typeof engineSchemas>>,
-  Assert<EveryKey<Inputs, inferRouterInputs<EngineRouter>>>,
-  Assert<EveryKey<Outputs, inferRouterOutputs<EngineRouter>>>,
+  Assert<Equal<keyof EngineMethods, keyof typeof engineSchemas>>,
+  Assert<EveryKey<Inputs, Omit<inferRouterInputs<EngineRouter>, 'console'>>>,
+  Assert<EveryKey<Outputs, Omit<inferRouterOutputs<EngineRouter>, 'console'>>>,
   Assert<EveryKey<CoreProjections, Intent>>,
   // @ts-expect-error A view that drops a core field no longer matches its projection.
   Assert<EveryKey<CoreProjections, Omit<Intent, 'seed'> & { seed: Omit<SeedView, 'lede'> }>>,
@@ -96,4 +101,29 @@ export type EngineTypeChecks = [
   Assert<EveryKey<Outputs, OutputWithoutHistory>>,
   // @ts-expect-error Adding an optional output field still changes the contract.
   Assert<EveryKey<Outputs, OutputWithExtra>>,
+];
+
+type ConsoleInputs = { [K in keyof ConsoleEngine]: Parameters<ConsoleEngine[K]>[0] };
+type ConsoleOutputs = { [K in keyof ConsoleEngine]: Awaited<ReturnType<ConsoleEngine[K]>> };
+type ConsoleIntent = {
+  [K in keyof typeof consoleIntentViews]: z.input<(typeof consoleIntentViews)[K]>;
+};
+/** The string-valued core reports each console view decodes. */
+type ConsoleProjections = { review: ReviewReport; work: WorkReport };
+type ConsoleOutputWithExtra = {
+  [K in keyof ConsoleEngine]: ConsoleOutputs[K] & { accidental?: string };
+};
+
+type WorkWithoutShipped = Omit<ConsoleIntent, 'work'> & { work: Omit<WorkReport, 'shipped'> };
+
+/** The console namespace rides the same router-derivation and projection assertions. */
+export type ConsoleTypeChecks = [
+  Assert<EveryKey<ConsoleInputs, inferRouterInputs<EngineRouter>['console']>>,
+  Assert<EveryKey<ConsoleOutputs, inferRouterOutputs<EngineRouter>['console']>>,
+  Assert<EveryKey<ConsoleProjections, ConsoleIntent>>,
+  Assert<Equal<ConsoleOutputs['overview'], Outputs['overview']>>,
+  // @ts-expect-error A console view that drops a report field no longer matches its projection.
+  Assert<EveryKey<ConsoleProjections, WorkWithoutShipped>>,
+  // @ts-expect-error Adding an optional output field still changes the contract.
+  Assert<EveryKey<ConsoleOutputs, ConsoleOutputWithExtra>>,
 ];

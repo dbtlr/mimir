@@ -36,6 +36,7 @@ import {
   deriveSet,
   emptyDoctorFacet,
   fileSeed,
+  findingsProviderOf,
   findNodeInSet,
   getArtifact,
   getNode,
@@ -50,8 +51,8 @@ import {
   nodeToWire,
   nodeViewOf,
   notFound,
+  nodeWorkOf,
   OP_SPECS,
-  overviewOf,
   overviewToWire,
   parkSeed,
   parseDateFilterTokens,
@@ -62,9 +63,11 @@ import {
   parseSizeValue,
   parseWireField,
   projectNotFound,
+  projectOverviewOf,
   projectTree,
   projectViewByKey,
   projectViewOf,
+  projectWorkOf,
   promoteSeed,
   promoteToWire,
   renderArtifactRef,
@@ -73,7 +76,7 @@ import {
   resolveAttachTargets,
   resolveNodeTokenInSet,
   resolveProjectKeyInSet,
-  reviewOf,
+  reviewPageOf,
   reviewToWire,
   scratchpadReceiptToWire,
   scratchpadRowToWire,
@@ -95,7 +98,6 @@ import {
   updateProject,
   updateSeed,
   validation,
-  workPageOf,
   workToWire,
 } from '@mimir/core';
 import type {
@@ -282,20 +284,9 @@ function optSeedKind(body: Record<string, unknown>): SeedKind | undefined {
   return narrowed;
 }
 
-/**
- * The work page's and review page's options off the request: the caller's
- * `?tz=` zone, validated. The zone is required — it decides where the shipped
- * days begin, and there is no fallback zone (ADR 0029).
- */
-function workOptionsOf(req: Request): { timeZone: string } {
-  const timeZone = requireTimeZone(new URL(req.url).searchParams.get('tz') ?? undefined);
-  if (timeZone === undefined) {
-    throw validation(
-      'this report needs the caller timezone (tz)',
-      'pass an IANA timezone (tz), e.g. America/New_York',
-    );
-  }
-  return { timeZone };
+/** The caller's `?tz=` zone off the request; the shared console views require and validate it. */
+function timeZoneOf(req: Request): string | undefined {
+  return new URL(req.url).searchParams.get('tz') ?? undefined;
 }
 
 /** Map the `?status` param on the seed queue to the selector (MMR-245). */
@@ -1134,10 +1125,7 @@ function apiRoutes(store: Store, opts: ApiOptions): ApiRoutes {
       GET: (req, params) =>
         guarded(req, async () => {
           const id = routeParam(params, 'id');
-          if (parseIdentity(id)?.kind === 'project') {
-            throw validation(`${id} is a project`, `use /api/projects/${id}/work`);
-          }
-          return json(workToWire(await workPageOf(store, id, workOptionsOf(req))));
+          return json(workToWire(await nodeWorkOf(store, id, { timeZone: timeZoneOf(req) })));
         }),
     },
 
@@ -1215,10 +1203,7 @@ function apiRoutes(store: Store, opts: ApiOptions): ApiRoutes {
       GET: (req, params) =>
         guarded(req, async () => {
           const key = routeParam(params, 'key');
-          if (parseIdentity(key)?.kind !== 'project') {
-            throw validation(`${key} is not a project key`, 'nodes live at /api/nodes/:id');
-          }
-          return json(overviewToWire(await overviewOf(store, key)));
+          return json(overviewToWire(await projectOverviewOf(store, key)));
         }),
     },
 
@@ -1243,14 +1228,7 @@ function apiRoutes(store: Store, opts: ApiOptions): ApiRoutes {
       GET: (req, params) =>
         guarded(req, async () => {
           const key = routeParam(params, 'key');
-          if (parseIdentity(key)?.kind !== 'project') {
-            const node = findNodeInSet(deriveSet(await store.loadWorkingSet()), key);
-            if (node?.type === 'task') {
-              throw validation(`${key} is a task, not a project`, 'a task has no work page');
-            }
-            throw validation(`${key} is not a project key`, `use /api/nodes/${key}/work`);
-          }
-          return json(workToWire(await workPageOf(store, key, workOptionsOf(req))));
+          return json(workToWire(await projectWorkOf(store, key, { timeZone: timeZoneOf(req) })));
         }),
     },
 
@@ -1261,25 +1239,16 @@ function apiRoutes(store: Store, opts: ApiOptions): ApiRoutes {
     // top-bar alert carry the decisions, and `/api/doctor` reports the failure.
     '/api/review': {
       GET: (req) =>
-        guarded(req, async () => {
+        guarded(req, async () =>
           // `?tz=` places the `shipped` window, required as on the work routes.
-          const reviewOpts = workOptionsOf(req);
-          // The scan runs alongside reviewOf's store load rather than before it.
-          const findings = (async (): Promise<ReadonlyMap<string, number>> => {
-            try {
-              const facet =
-                opts.doctor === undefined ? emptyDoctorFacet() : await opts.doctor(undefined);
-              return new Map(facet.groups.map((g) => [g.project, g.finding_count]));
-            } catch (error) {
-              const message = error instanceof Error ? error.message : String(error);
-              console.error(
-                `⚠ http: doctor scan failed; the review page counts no findings — ${message}`,
-              );
-              return new Map();
-            }
-          })();
-          return json(reviewToWire(await reviewOf(store, findings, reviewOpts)));
-        }),
+          json(
+            reviewToWire(
+              await reviewPageOf(store, findingsProviderOf(opts.doctor), {
+                timeZone: timeZoneOf(req),
+              }),
+            ),
+          ),
+        ),
     },
 
     // MMR-332 / ADR 0028: create has no concurrency token; every mutation of
