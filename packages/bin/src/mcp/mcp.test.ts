@@ -16,6 +16,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 
+import { fixedScope } from '../cli/testing';
 import { buildMcpServer } from './server';
 import {
   toolAnnotate,
@@ -1788,7 +1789,7 @@ test('a no-arguments call to an all-optional tool succeeds (MMR-292)', async () 
 
 test('the projects tool ignores the bound board (MMR-406)', async () => {
   await createProject(store, { key: 'AAA', name: 'a' });
-  const server = buildMcpServer(store, '0.0.0', 'MMR');
+  const server = buildMcpServer(store, '0.0.0', fixedScope('MMR'));
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test', version: '0.0.0' });
   await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);

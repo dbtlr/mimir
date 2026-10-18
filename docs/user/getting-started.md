@@ -47,15 +47,20 @@ Run this from the repository root:
 mimir bind AUR
 ```
 
-Binding writes `.mimir.toml`. From this directory and its descendants, commands
-default to Aurora:
+Binding writes `mimir.project` into the clone's git config, and records the
+clone's `origin` remote on the project when the project has none. Commands in
+this clone and its linked worktrees default to Aurora:
 
 ```sh
 mimir overview
 mimir next
 ```
 
-Commit `.mimir.toml` so every checkout shares the same project identity.
+The binding stays in your clone and never lands in a commit. A fresh clone of a
+repository whose `origin` matches the project's remote binds itself on its first
+command that needs a project. `mimir bind` with no key prints the bound project,
+or exits non-zero with `unbound: run mimir bind KEY`. A `.mimir.toml` left over
+from an earlier version is ignored and can be deleted.
 
 ## Connect an agent
 

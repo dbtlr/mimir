@@ -17,7 +17,8 @@ mimir skill install --global --agent claude
 
 Use `--local` when the skill should live with one repository. Configure
 `mimir mcp` as an MCP server to expose the tool surface directly. Both the CLI
-and MCP server honor the nearest `.mimir.toml` binding.
+and MCP server honor the clone's git config binding (the MCP server reads the
+directory it was started in).
 
 ## Orient once
 

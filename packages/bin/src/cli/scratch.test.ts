@@ -10,7 +10,7 @@ import type { ArtifactStore, ScratchpadStore } from '@mimir/core';
 import { createPgliteTestStore } from '@mimir/core/testing';
 
 import { runCli } from './run';
-import { fakeIo } from './testing';
+import { fakeIo, fixedScope } from './testing';
 
 const ID = '123e4567-e89b-42d3-a456-426614174000';
 const MEMORY_PROJECTS = [
@@ -145,7 +145,7 @@ test('scratch create uses binding and returns a compact concurrency receipt', as
       ['scratch', 'create', 'CLI', 'contract', '--link', 'MMR-1', '--link', 'MMR-2', '-f', 'json'],
       () => store,
       io,
-      { scope: 'MMR' },
+      { scope: fixedScope('MMR') },
     ),
   ).toBe(0);
   const result = JSON.parse(io.out[0] ?? '{}') as Record<string, unknown>;
@@ -359,7 +359,7 @@ test('scratch list marks staged freezes in the human view', async () => {
     updatedAt: '2026-08-03T00:00:01.000Z',
   });
   const io = fakeIo(true);
-  expect(await runCli(['scratch', 'list'], () => store, io, { scope: 'MMR' })).toBe(0);
+  expect(await runCli(['scratch', 'list'], () => store, io, { scope: fixedScope('MMR') })).toBe(0);
   expect(io.out.join('\n')).toContain(`freezing  ${ID}`);
 });
 
@@ -386,7 +386,7 @@ test('isolated-store CLI lifecycle supports resume, guards, freeze recovery, and
     await createProject(fixture.store, { key: 'MMR', name: 'Mimir' });
     const invoke = async (args: string[]) => {
       const io = fakeIo();
-      const code = await runCli(args, () => fixture.store, io, { scope: 'MMR' });
+      const code = await runCli(args, () => fixture.store, io, { scope: fixedScope('MMR') });
       return { code, io };
     };
     const created = await invoke(['scratch', 'create', 'Store lifecycle', '-f', 'json']);
@@ -409,7 +409,9 @@ test('isolated-store CLI lifecycle supports resume, guards, freeze recovery, and
     stamp = String(jsonOutput(checkpoint.io).updated_at);
 
     const overviewIo = fakeIo(true);
-    expect(await runCli(['overview'], () => fixture.store, overviewIo, { scope: 'MMR' })).toBe(0);
+    expect(
+      await runCli(['overview'], () => fixture.store, overviewIo, { scope: fixedScope('MMR') }),
+    ).toBe(0);
     expect(overviewIo.out.join('\n')).toContain('active scratchpads (1)');
     expect(overviewIo.out.join('\n')).toContain(`${id} · MMR · Store lifecycle · 0 open Agenda`);
 

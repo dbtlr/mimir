@@ -1,5 +1,6 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import {
@@ -23,6 +24,8 @@ import type {
 import {
   ARTIFACT_DATE_FIELD,
   assertDateFilters,
+  BINDING_CONFIG_KEY,
+  bindClone,
   emitWire,
   formatIds,
   formatOverviewJson,
@@ -35,6 +38,7 @@ import {
   listArtifacts,
   listNodes,
   listProjects,
+  LocalEngine,
   MAX_SEARCH_LIMIT,
   MimirError,
   nextTasks,
@@ -46,7 +50,7 @@ import {
   statusOfNode,
   treeToWire,
 } from '@mimir/core';
-import type { DoctorBackend, Store } from '@mimir/core';
+import type { DoctorBackend, GitPort, ScopeSource, Store } from '@mimir/core';
 import { isMember } from '@mimir/helpers';
 
 import { cmdDoctor } from '../doctor/commands';
@@ -56,7 +60,7 @@ import { cmdSelfUpdate } from '../self-update';
 import type { SelfUpdateDeps } from '../self-update';
 import { cmdStore } from '../store/commands';
 import type { StoreDeps } from '../store/commands';
-import { BINDING_FILE, writeBinding } from './binding';
+import { cmdBindCheck, LEGACY_BINDING_FILE } from './bind';
 import {
   CREATE_DASH_TITLE_HINT,
   exitCodeFor,
@@ -101,8 +105,8 @@ import {
   renderStatus,
   renderTable,
   renderTree,
+  signpost,
 } from './render';
-import { resolveProject } from './resolve';
 import { cmdScratch, scratchSubcommand } from './scratch';
 import { SKILL_AGENTS, SKILL_FILES, skillDirFor } from './skill-assets';
 
@@ -607,7 +611,11 @@ const FLAG_SPELLINGS: readonly string[] = Object.entries(OPTIONS).flatMap(([name
  * Injected so the CLI stays testable without touching the real cwd.
  */
 export type Defaults = {
-  scope?: string;
+  /** The Project Binding's key (ADR 0036), resolved lazily — only a command
+   * that needs a default scope and has no explicit `-s` calls it. */
+  scope?: ScopeSource;
+  /** The git edge `bind` writes through; absent where git is unavailable (tests). */
+  git?: GitPort;
   cwd?: string;
   /** Real self-update edges (the binary, its version, the release fetcher); absent in tests. */
   selfUpdate?: SelfUpdateDeps;
@@ -618,21 +626,6 @@ export type Defaults = {
    * unavailable (tests). */
   doctor?: DoctorBackend;
 };
-
-/**
- * The effective `-s` scope: an explicit flag wins; the literal `all` is the
- * cross-project escape (a key is uppercase, so `all` can never collide);
- * otherwise the Project Binding's key, if any.
- */
-function effectiveScope(
-  explicit: string | undefined,
-  bound: string | undefined,
-): string | undefined {
-  if (explicit === 'all') {
-    return undefined;
-  }
-  return explicit ?? bound;
-}
 
 /**
  * Run the CLI for one invocation. `argv` is the args after `mimir`; `getStore`
@@ -793,10 +786,20 @@ export async function runCli(
     // Mutation context shared across all write-verb handlers — built lazily so
     // the store is acquired only by verbs that actually touch data (MMR-39):
     // help, usage errors, and `skill install` never open or create it.
+    // The default `-s` scope (ADR 0036): an explicit flag wins, the literal
+    // `all` is the cross-project escape (a key is uppercase, so it never
+    // collides), and otherwise the clone's binding — resolved only now, when a
+    // command actually needs it.
+    const scopeFor = async (explicit: string | undefined): Promise<string | undefined> => {
+      if (explicit === 'all') {
+        return undefined;
+      }
+      return explicit ?? (await defaults.scope?.());
+    };
     const mkCtx = async (): Promise<Ctx> => {
       const store = await getStore();
       return {
-        boundScope: effectiveScope(values.scope, defaults.scope),
+        boundScope: () => scopeFor(values.scope),
         format: singleFormat,
         io: ctx,
         positionals,
@@ -814,11 +817,6 @@ export async function runCli(
 
     switch (command) {
       case 'next': {
-        const nextScope = effectiveScope(values.scope, defaults.scope);
-        const nextEmptyMsg =
-          nextScope !== undefined
-            ? `No ready tasks in ${nextScope} — mimir list --status awaiting -s ${nextScope} shows what's queued`
-            : "No ready tasks — mimir list --status awaiting shows what's queued";
         // Parsed BEFORE the store is opened (MMR-39): every one of these throws
         // `usage` on a structural fault, and a wrong invocation must not open the
         // store. Inside the call's argument list they were evaluated after
@@ -829,13 +827,18 @@ export async function runCli(
           limit: parseLimit(values.limit),
           priority: parsePriority(values.priority),
           q: values.query,
-          scope: nextScope,
           size: parseSize(values.size),
           timeZone: callerTimeZone(values.tz),
           verdicts: parseVerdicts(values.is, values['not-is']),
         };
+        // Resolved after every structural parse: scope resolution may open the store.
+        const nextScope = await scopeFor(values.scope);
+        const nextEmptyMsg =
+          nextScope !== undefined
+            ? `No ready tasks in ${nextScope} — mimir list --status awaiting -s ${nextScope} shows what's queued`
+            : "No ready tasks — mimir list --status awaiting shows what's queued";
         return runSet(
-          await nextTasks(await getStore(), nextQuery),
+          await nextTasks(await getStore(), { ...nextQuery, scope: nextScope }),
           values.format,
           ctx,
           nextEmptyMsg,
@@ -850,15 +853,16 @@ export async function runCli(
           limit: parseLimit(values.limit),
           priority: parsePriority(values.priority),
           q: values.query,
-          scope: effectiveScope(values.scope, defaults.scope),
           size: parseSize(values.size),
           status: parseStatus(values.status),
           tag: values.tag?.[0],
           timeZone: callerTimeZone(values.tz),
           verdicts: parseVerdicts(values.is, values['not-is']),
         };
+        // Resolved after every structural parse: scope resolution may open the store.
+        const listScope = await scopeFor(values.scope);
         return runSet(
-          await listNodes(await getStore(), listQuery),
+          await listNodes(await getStore(), { ...listQuery, scope: listScope }),
           values.format,
           ctx,
           'No tasks match — try --status all, or drop a filter',
@@ -977,7 +981,7 @@ export async function runCli(
             "run 'mimir list -s all' for a cross-project set",
           );
         }
-        const scope = effectiveScope(values.scope, defaults.scope);
+        const scope = await scopeFor(values.scope);
         if (scope === undefined) {
           throw usage('overview needs a project', 'bind a project or pass -s KEY');
         }
@@ -990,7 +994,6 @@ export async function runCli(
         // Unlike `overview`, the artifact feed IS a cross-project set: an unbound
         // invocation and the literal `-s all` both mean the portfolio (ADR 0004 —
         // an artifact is project-anchored but the search never was).
-        const scope = effectiveScope(values.scope, defaults.scope);
         const artifactZone = callerTimeZone(values.tz);
         // Every structural fault (bad date, bad offset, bad format) is decided
         // BEFORE the store is acquired — a wrong invocation must never open the
@@ -1000,12 +1003,13 @@ export async function runCli(
           limit: parseLimit(values.limit),
           offset: parseOffset(values.offset),
           q: values.query,
-          scope,
           tag: values.tag?.[0],
           timeZone: artifactZone,
         };
         const format = pickFormat(values.format, 'set', ctx);
-        const result = await listArtifacts(await getStore(), artifactQuery);
+        // Resolved after every structural parse: scope resolution may open the store.
+        const scope = await scopeFor(values.scope);
+        const result = await listArtifacts(await getStore(), { ...artifactQuery, scope });
         // A well-formed query that returns NO ROWS is an empty set at exit 0, with
         // the reason on stderr so stdout stays a clean machine contract (ADR 0009).
         // Keyed off the returned rows, not the total: an `--offset` past the end
@@ -1040,8 +1044,8 @@ export async function runCli(
             `limit is a whole number from 1 to ${String(MAX_SEARCH_LIMIT)}`,
           );
         }
-        const project = effectiveScope(values.scope, defaults.scope);
         const format = pickFormat(values.format, 'set', ctx);
+        const project = await scopeFor(values.scope);
         const result = await searchRecords(await getStore(), {
           limit: searchLimit,
           project,
@@ -1061,7 +1065,7 @@ export async function runCli(
       case 'scratch': {
         scratchSubcommand(positionals);
         return await cmdScratch({
-          boundScope: defaults.scope,
+          boundScope: () => scopeFor(undefined),
           format: pickFormat(values.format, positionals[1] === 'list' ? 'set' : 'single', ctx),
           io: ctx,
           positionals,
@@ -1154,19 +1158,35 @@ export async function runCli(
         return 0;
       }
       case 'bind': {
+        const git = defaults.git;
+        if (git === undefined) {
+          throw usage('bind is unavailable in this context');
+        }
         const key = positionals[1];
         if (key === undefined) {
-          throw usage('bind requires a project KEY');
+          // Lazy: a git-config binding answers without opening the store.
+          const lazy = {
+            projectsByRemote: async (args: { remote: string }) =>
+              new LocalEngine(await getStore()).projectsByRemote(args),
+          };
+          return await cmdBindCheck(lazy, git, singleFormat, ctx);
         }
-        await resolveProject(await getStore(), key); // validates the project exists (not_found otherwise)
-        writeBinding(defaults.cwd ?? process.cwd(), key);
+        const engine = new LocalEngine(await getStore());
+        const bound = await bindClone(engine, git, key);
         if (singleFormat === 'json' || singleFormat === 'jsonl') {
-          ctx.write(JSON.stringify({ bound: { file: BINDING_FILE, project: key } }));
+          ctx.write(
+            JSON.stringify({ bound: { project: key, recordedRemote: bound.recordedRemote } }),
+          );
         } else if (singleFormat === 'ids') {
           ctx.write(key);
         } else {
-          const glyph = ctx.plain ? '[ok]' : '\x1b[32m✓\x1b[0m';
-          ctx.write(`${glyph} bound to ${key} (${BINDING_FILE})`);
+          ok(ctx, `bound to ${key} (git config ${BINDING_CONFIG_KEY})`);
+        }
+        if (bound.recordedRemote !== undefined) {
+          signpost(ctx, singleFormat, `recorded the origin ${bound.recordedRemote} on ${key}`);
+        }
+        if (existsSync(join(defaults.cwd ?? process.cwd(), LEGACY_BINDING_FILE))) {
+          warn(ctx, `${LEGACY_BINDING_FILE} is ignored now; you can delete it`);
         }
         return 0;
       }
@@ -1193,12 +1213,16 @@ export async function runCli(
           throw usage('doctor is unavailable in this context');
         }
         const format = pickFormat(values.format, 'report', ctx);
-        return await cmdDoctor(
-          ctx,
-          defaults.doctor,
-          format,
-          effectiveScope(values.scope, defaults.scope),
-        );
+        // Git config only: auto-binding would open the store outside the
+        // backend's error handling that doctor relies on to report a down store.
+        const doctorScope =
+          values.scope === 'all'
+            ? undefined
+            : (values.scope ??
+              (defaults.git === undefined
+                ? await scopeFor(undefined)
+                : (await defaults.git.readConfig(BINDING_CONFIG_KEY))?.trim() || undefined));
+        return await cmdDoctor(ctx, defaults.doctor, format, doctorScope);
       }
       case 'self-update': {
         if (defaults.selfUpdate === undefined) {

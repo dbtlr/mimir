@@ -14,7 +14,7 @@ import { createTestStore } from '@mimir/core/testing';
 import { parseJson } from '@mimir/helpers';
 
 import { runCli } from './run';
-import { fakeIo } from './testing';
+import { fakeIo, fixedScope } from './testing';
 
 /**
  * The seed CLI verbs (MMR-245) end-to-end over a real store — dispatch, parsing,
@@ -30,7 +30,7 @@ async function cli(
   scope = 'MMR',
 ): Promise<{ code: number; io: ReturnType<typeof fakeIo> }> {
   const io = fakeIo();
-  const code = await runCli(argv, () => store, io, { scope });
+  const code = await runCli(argv, () => store, io, { scope: fixedScope(scope) });
   return { code, io };
 }
 

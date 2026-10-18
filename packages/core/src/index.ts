@@ -23,6 +23,7 @@ export * from './export';
 export { projectOnlyRefusal } from './project-only';
 export * from './resource';
 export * from './errors';
+export * from './binding';
 export * from './remote';
 export * from './status';
 export * from './intent';

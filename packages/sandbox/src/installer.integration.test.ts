@@ -63,8 +63,17 @@ test.skipIf(process.env.MIMIR_SANDBOX_LIFECYCLE_TEST !== '1')(
       const legacy = '#!/bin/sh\ntouch "$(dirname "$0")/legacy-executed"\nexit 99\n';
       await writeFile(target, legacy, { mode: 0o755 });
       expect(readInstallationAt(target)).toBeUndefined();
-      const binding = join(workspace, '.mimir.toml');
-      await writeFile(binding, 'project = "MMR"\n');
+      // The workspace binds through git config (ADR 0036): the clone's config
+      // file is the binding the install must leave alone.
+      const gitEnv = { HOME: home, PATH: '/usr/bin:/bin' };
+      for (const args of [
+        ['init', '-q'],
+        ['config', '--local', 'mimir.project', 'MMR'],
+      ]) {
+        const git = await run(['git', ...args], workspace, gitEnv);
+        expect(git.code, git.stderr).toBe(0);
+      }
+      const binding = join(workspace, '.git', 'config');
       const cache = join(authority.paths.cache, 'preserved.json');
       const logs = join(authority.paths.data, 'logs');
       await mkdir(logs, { recursive: true });
@@ -151,6 +160,9 @@ esac
         const listed = await run([target, 'list', '-f', 'json'], workspace, env);
         expect(listed.code, listed.stderr).toBe(0);
         expect(listed.stdout).toContain('MMR-');
+        const bound = await run([target, 'bind'], workspace, env);
+        expect(bound.code, bound.stderr).toBe(0);
+        expect(bound.stdout.trim()).toBe('MMR');
         const doctor = await run([target, 'doctor', '-s', 'all', '-f', 'json'], workspace, env);
         expect(doctor.code, doctor.stderr).toBe(0);
         expect(JSON.parse(doctor.stdout)).toEqual([]);

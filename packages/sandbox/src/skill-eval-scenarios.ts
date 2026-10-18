@@ -3,7 +3,8 @@
  * gives the agent one natural request, and grades the outcome from the store
  * and the agent's own commands — never from what the agent says it did.
  */
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { z } from 'zod';
@@ -23,6 +24,17 @@ export type Evidence = {
   work: string;
   ids: Record<string, string>;
 };
+
+/** Whether the working copy's git config binds a Mimir project (ADR 0036). */
+function isBound(work: string): boolean {
+  try {
+    return (
+      execFileSync('git', ['config', '--local', '--get', 'mimir.project'], { cwd: work }).length > 0
+    );
+  } catch {
+    return false;
+  }
+}
 
 export type Check = { name: string; test: (e: Evidence) => Promise<boolean> | boolean };
 
@@ -143,7 +155,7 @@ export const SCENARIOS: readonly Scenario[] = [
     checks: [
       { name: 'does the coding task', test: (e) => /function add\s*\(/.test(file(e, 'math.js')) },
       { name: 'writes nothing to Mimir', test: (e) => !e.storeChanged },
-      { name: 'leaves the repo unbound', test: (e) => !existsSync(join(e.work, '.mimir.toml')) },
+      { name: 'leaves the repo unbound', test: (e) => !isBound(e.work) },
     ],
     files: { 'math.js': 'export function sub(a, b) {\n  return a - b;\n}\n' },
     name: 'unbound-quiet',
@@ -304,7 +316,7 @@ export const SCENARIOS: readonly Scenario[] = [
         test: (e) =>
           z.object({ projects: z.array(z.unknown()) }).parse(e.storeAfter).projects.length === 0,
       },
-      { name: 'writes no binding', test: (e) => !existsSync(join(e.work, '.mimir.toml')) },
+      { name: 'writes no binding', test: (e) => !isBound(e.work) },
       {
         name: 'proposes a key and asks',
         test: (e) => asksToConfirmKey(e.transcript.finalText),

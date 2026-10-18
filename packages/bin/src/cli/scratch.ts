@@ -5,7 +5,7 @@ import {
   scratchpadReceiptToWire,
   scratchpadRowToWire,
 } from '@mimir/core';
-import type { ArtifactRecord, Store } from '@mimir/core';
+import type { ArtifactRecord, ScopeSource, Store } from '@mimir/core';
 import { formatInstant, relativeTime } from '@mimir/helpers';
 
 import type { Format, Io } from '../presentation';
@@ -25,7 +25,7 @@ type ScratchValues = {
 };
 
 export type ScratchContext = {
-  boundScope?: string;
+  boundScope: ScopeSource;
   format: Format;
   io: Io;
   positionals: string[];
@@ -198,7 +198,7 @@ export async function cmdScratch(c: ScratchContext): Promise<number> {
   const service = createScratchpadService(c.store.scratchpads, c.store.artifacts, c.store);
 
   if (sub === 'create') {
-    const project = c.values.scope ?? c.boundScope;
+    const project = c.values.scope ?? (await c.boundScope());
     if (project === undefined || project === 'all') {
       throw usage('scratch create needs a project', 'bind a project or pass -s KEY');
     }
@@ -220,7 +220,8 @@ export async function cmdScratch(c: ScratchContext): Promise<number> {
   }
 
   if (sub === 'list') {
-    const project = c.values.scope === 'all' ? undefined : (c.values.scope ?? c.boundScope);
+    const project =
+      c.values.scope === 'all' ? undefined : (c.values.scope ?? (await c.boundScope()));
     const pads = (await service.list(project)).toSorted(compareScratchpadRows);
     const values = pads.map(scratchpadRowToWire);
     if (c.format === 'ids') {

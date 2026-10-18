@@ -60,6 +60,7 @@ import type {
   ArtifactUpdateFields,
   NarrowUpdateKind,
   RankPosition,
+  ScopeSource,
   SeedStatusSelector,
   SpecUpdateField,
   Store,
@@ -93,9 +94,9 @@ export type Ctx = {
   values: Record<string, unknown>;
   format: Format;
   io: Io;
-  /** The effective bound board (`effectiveScope`) — the seed verbs' default
+  /** The effective bound board, resolved on first call — the seed verbs' default
    * target + requester (`null`/self-filed when unbound). */
-  boundScope?: string;
+  boundScope: ScopeSource;
 };
 
 /** Assert that positional at index `i` is present and non-blank, else throw a usage error. */
@@ -1109,7 +1110,8 @@ function requireSeedId(c: Ctx, verb: string): string {
 export async function cmdSeed(c: Ctx): Promise<number> {
   const title = requirePos(c, 1, 'seed', 'a title');
   const kind = requireKind(c);
-  const target = seedProject(c) ?? c.boundScope;
+  const bound = await c.boundScope();
+  const target = seedProject(c) ?? bound;
   if (target === undefined) {
     throw usage(
       'seed requires a target project',
@@ -1118,7 +1120,7 @@ export async function cmdSeed(c: Ctx): Promise<number> {
   }
   // requester = the bound board only when filing INTO a different board; a seed
   // filed at its own board (or unbound) is self-filed → requester null (no noise).
-  const requester = c.boundScope !== undefined && c.boundScope !== target ? c.boundScope : null;
+  const requester = bound !== undefined && bound !== target ? bound : null;
   const seed = await fileSeed(c.store, {
     description: optStr(c, 'desc'),
     kind,
@@ -1133,7 +1135,7 @@ export async function cmdSeed(c: Ctx): Promise<number> {
 
 export async function cmdSeeds(c: Ctx): Promise<number> {
   // Scope: -p/--project, else the bound board, else (unbound / -s all) every project.
-  const project = seedProject(c) ?? c.boundScope;
+  const project = seedProject(c) ?? (await c.boundScope());
   const zone = callerTimeZone(typeof c.values.tz === 'string' ? c.values.tz : undefined);
   const seeds = await listSeeds(c.store, {
     dates: parseDateFilters(c.values, SEED_DATE_FIELD, zone),
@@ -1208,7 +1210,12 @@ export async function cmdResolve(c: Ctx): Promise<number> {
  * format the dispatcher picked (human in a terminal, json when piped).
  */
 export async function cmdTriage(c: Ctx): Promise<number> {
-  const board = resolveBoard(c.positionals[1], c.boundScope, usage);
+  const rawBoard = c.positionals[1];
+  const board = resolveBoard(
+    rawBoard,
+    rawBoard === undefined ? await c.boundScope() : undefined,
+    usage,
+  );
   const report = await triage(c.store, { board, dryRun: c.values['dry-run'] === true });
   renderTriage(report, c.format, c.io);
   return 0;

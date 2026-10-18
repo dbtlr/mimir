@@ -75,7 +75,7 @@ work. Every scenario also fails a run that guesses a verb the CLI does not have.
 before it is embedded in a binary.
 
 Each run is a sandbox with no database in a temporary directory outside the checkout, so
-no `.mimir.toml` above it binds the unbound scenarios. It has its own
+no git clone above it binds the unbound scenarios. It has its own
 registered installation of the candidate (built from the checkout, or
 `--binary <path>`), a git working copy seeded with the scenario's files, and
 the skill installed as a project skill. The agent's `PATH` starts with that

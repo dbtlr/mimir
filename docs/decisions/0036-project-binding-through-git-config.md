@@ -51,8 +51,11 @@ one match; on several it leaves the clone unbound and tells the user to run
 
 A clone with no `mimir.project` matches its `origin` remote against project
 remotes through `projectsByRemote`, and writes the binding back to git config
-when exactly one project matches. This work adds the field and the lookup;
-nothing reads them for binding yet, so behavior is unchanged until MMR-544.
+when exactly one project matches. Only `origin` is read: a clone with no
+`origin` is unbound, and other remotes are never consulted. Resolution is lazy,
+run only when a command needs a default scope and `-s` is absent, and lives in
+`@mimir/core` behind a small git port so the CLI, the MCP server, and the Loom
+CLI share it.
 
 ### A bare `bind` is the binding check
 
