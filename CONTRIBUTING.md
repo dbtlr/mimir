@@ -107,12 +107,17 @@ the store. Publish local test ports on loopback
 (`-p 127.0.0.1:64647:64647`). Hosted port publishing must restrict access to
 the single-user tailnet, as ADR 0035 requires.
 
-The client/host split starts with `Engine.getNode` and `Engine.done`.
+The Engine carries every CLI and MCP read (`next`, `list`, `projects`,
+`getNode`, `getArtifact`, `getSeed`, `status`, `tree`, `overview`,
+`artifacts`, `search`, `seeds`, `scratchList`, `scratchGet`) and the `done`
+write. Board reads name their project; only `projects` spans projects.
 `LocalEngine` owns a `Store` and delegates to the existing domain functions;
 `@mimir/wire/server` adapts an Engine to tRPC, and `@mimir/wire/client` provides
 the store-free `RemoteEngine`. The two wire entries share only types across
 the client/server boundary. Engine inputs and outputs come from contract
 schemas, and the procedure table is checked against the Engine's methods.
+Each decoded output schema is checked against the core projection it
+replaces, and the wire tests compare every read locally and remotely.
 Superjson preserves `Date` values and explicit `undefined` across the wire.
 Engine timestamps, including nested facet timestamps, are `Date` values;
 the existing intent DTOs and CLI, MCP, and HTTP renderings keep strings.

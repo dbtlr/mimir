@@ -3,6 +3,8 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { createInitiative, createProject, createTask } from './create';
 import { LocalEngine } from './engine';
 import { getNode } from './intent';
+import { startTask } from './mutations';
+import { createScratchpadService } from './scratchpads';
 import { errorOf } from './testing/conformance';
 import { createTestStore } from './testing/store';
 import type { TestStore } from './testing/store';
@@ -42,4 +44,45 @@ test('done returns the completed task and refuses a second completion', async ()
   });
   expect(read).toEqual(result);
   expect((await errorOf(engine.done({ id }))).code).toBe('validation');
+});
+
+test('scratchList puts a staged freeze first, then the newest Scratchpad', async () => {
+  let clock = '2026-01-01T00:00:00.000Z';
+  const scratch = createScratchpadService(
+    fixture.store.scratchpads,
+    fixture.store.artifacts,
+    fixture.store,
+    { clock: () => clock },
+  );
+  const freezing = await scratch.create({ project: 'ENG', title: 'Freezing' });
+  const stamp = '2026-01-01T00:00:01.000Z';
+  await fixture.store.scratchpads.replace(
+    { ...freezing, freezingAt: stamp, updatedAt: stamp },
+    freezing.updatedAt,
+  );
+  clock = '2026-01-02T00:00:00.000Z';
+  const older = await scratch.create({ project: 'ENG', title: 'Older' });
+  clock = '2026-01-03T00:00:00.000Z';
+  const newer = await scratch.create({ project: 'ENG', title: 'Newer' });
+  const rows = await engine.scratchList({ project: 'ENG' });
+  expect(rows.map((row) => row.id)).toEqual([freezing.id, newer.id, older.id]);
+  expect(rows[0]?.state).toBe('freezing');
+  expect(rows[1]?.updatedAt).toEqual(new Date(clock));
+});
+
+test('overview judges staleness at the Date the caller passes', async () => {
+  await startTask(fixture.store, id);
+  expect((await engine.overview({ project: 'ENG' })).hygiene.stale).toBe(0);
+  const later = await engine.overview({
+    asOf: new Date('2100-01-01T00:00:00.000Z'),
+    project: 'ENG',
+  });
+  expect(later.hygiene.stale).toBe(1);
+});
+
+test('malformed input reads as a sentence naming the field, not an issue dump', async () => {
+  const refusal = await errorOf(engine.next({} as Parameters<LocalEngine['next']>[0]));
+  expect(refusal.code).toBe('validation');
+  expect(refusal.message).toContain('project');
+  expect(refusal.message).not.toContain('"code"');
 });

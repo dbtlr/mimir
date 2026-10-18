@@ -16,12 +16,14 @@ export type SearchRecord = Omit<SearchHit, 'match' | 'link' | 'snippet'>;
  * match only a query typed the same way. `terms` are the query's lowercased
  * whitespace-separated tokens, matched against titles; `words` are its lowercased ASCII
  * alphanumeric runs, matched as whole words against descriptions (an
- * artifact's summary). `project` is ranked first when given.
+ * artifact's summary). `project` is ranked first when given, and with
+ * `projectOnly` it is the only project searched.
  */
 export type TextSearch = {
   terms: readonly string[];
   words: readonly string[];
   project?: string;
+  projectOnly?: boolean;
   limit: number;
 };
 

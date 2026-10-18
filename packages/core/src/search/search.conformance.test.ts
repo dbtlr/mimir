@@ -285,6 +285,36 @@ for (const backend of backends) {
         expect(ids(result).slice(3)).toEqual(['NOR-4']);
       });
 
+      test('scoped to the current project, text hits come only from it', async () => {
+        const result = await searchRecords(store, {
+          project: 'MMR',
+          projectOnly: true,
+          query: 'Seed page',
+        });
+        expect(result.items.map((hit) => [hit.id, hit.match])).toEqual([
+          ['MMR-10', 'title'],
+          ['MMR-7', 'title'],
+          ['MMR-3', 'title'],
+          ['MMR-8', 'description'],
+        ]);
+        expect(result.total).toBe(4);
+        const fuzzy = await searchRecords(store, {
+          project: 'MMR',
+          projectOnly: true,
+          query: 'srch',
+        });
+        expect(ids(fuzzy).toSorted()).toEqual(['MMR-4', 'MMR-6', 'MMR-a1']);
+      });
+
+      test('scoped to the current project, a full ID still finds another project', async () => {
+        const result = await searchRecords(store, {
+          project: 'MMR',
+          projectOnly: true,
+          query: 'NOR-2',
+        });
+        expect(result.items[0]).toMatchObject({ id: 'NOR-2', match: 'id' });
+      });
+
       test('with no current project, open hits come first across projects', async () => {
         const result = await searchRecords(store, { query: 'seed page' });
         expect(ids(result).slice(0, 4)).toEqual(['NOR-2', 'MMR-10', 'MMR-7', 'MMR-3']);
@@ -377,6 +407,22 @@ for (const backend of backends) {
     });
   });
 }
+
+test('a project-only search with no project is a validation error', async () => {
+  const instance = await backends[1]?.make();
+  if (instance === undefined) {
+    throw new Error('the SQLite backend is missing');
+  }
+  try {
+    const error = await searchRecords(instance.store, { projectOnly: true, query: 'seed' }).catch(
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(MimirError);
+    expect((error as MimirError).code).toBe('validation');
+  } finally {
+    await instance.close();
+  }
+});
 
 test('an empty query is a validation error', async () => {
   const instance = await backends[1]?.make();
