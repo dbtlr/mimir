@@ -38,8 +38,11 @@ export async function createProject(store: Store, input: CreateProjectInput): Pr
   if (!isValidKey(input.key)) {
     throw validation(`project key must match [A-Z]{2,4}: ${input.key}`);
   }
+  // A blank remote means none, as it does on update.
   const remote =
-    input.remote === undefined || input.remote === null ? null : normalizeRemote(input.remote);
+    input.remote === undefined || input.remote === null || input.remote.trim() === ''
+      ? null
+      : normalizeRemote(input.remote);
   return store.transact(async (w) => {
     const existing = await w.loadProject(input.key);
     if (existing !== undefined) {

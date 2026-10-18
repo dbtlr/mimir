@@ -31,7 +31,8 @@ paths can be case-sensitive. A value that is not a Git remote is refused at
 write time.
 
 The remote is set with `create project --remote` and `update KEY --remote`
-(MCP `create` and `update` take `remote`; a blank value clears it). The
+(MCP `create` and `update` and HTTP `POST` and `PATCH /api/projects` take
+`remote`; a blank value means none, clearing it on update). The
 transfer document carries it as version 5; an older document imports with no
 remote.
 
@@ -40,7 +41,9 @@ remote.
 There is no unique constraint. Two projects may share a repository, such as a
 monorepo split into projects. The Engine method `projectsByRemote` returns every
 active project whose remote matches the given one, in key order, and the caller
-decides what ambiguity means. The auto-bind in MMR-544 binds only on exactly
+decides what ambiguity means. A lookup value that is not a network remote, such
+as a local-path or `file://` origin, matches nothing and returns an empty list
+instead of an error; only writes refuse it. The auto-bind in MMR-544 binds only on exactly
 one match; on several it leaves the clone unbound and tells the user to run
 `mimir bind KEY`.
 

@@ -9,6 +9,7 @@ import { statements as initStatements } from './migrations/0001-init';
 import { statements as groomingStatements } from './migrations/0002-grooming';
 import { statements as blockOwnerStatements } from './migrations/0003-block-owner';
 import { statements as seedParkedStatements } from './migrations/0004-seed-parked';
+import { statements as projectPinnedStatements } from './migrations/0005-project-pinned';
 import { createPgliteDialect } from './pglite';
 import { createEmptyPglite } from './testing';
 
@@ -261,6 +262,59 @@ test('0005_project_pinned upgrades a version-4 store: projects keep their data a
         (reason: unknown) => String(reason),
       );
     expect(rejection).toContain('pinned');
+  } finally {
+    await db.destroy();
+  }
+});
+
+test('0006_project_remote upgrades a version-5 store: projects keep their data and read with no remote', async () => {
+  const db = await freshDb();
+  try {
+    for (const statement of [
+      ...initStatements,
+      ...groomingStatements,
+      ...blockOwnerStatements,
+      ...seedParkedStatements,
+      ...projectPinnedStatements,
+    ]) {
+      await sql.raw(statement).execute(db);
+    }
+    await sql`insert into schema_version (version, applied_at) values (1, 't'), (2, 't'), (3, 't'), (4, 't'), (5, 't')`.execute(
+      db,
+    );
+    await sql`
+      insert into project (key, name, description, last_seq, pinned, created_at, updated_at)
+      values ('MMR', 'Mimir', 'the store', 7, true, 'c', 'u'), ('OPS', 'Ops', null, 0, false, 'c', 'u')
+    `.execute(db);
+
+    expect(await upgradeSchema(db)).toEqual({
+      applied: ['0006_project_remote'],
+      from: 5,
+      to: SCHEMA_VERSION,
+    });
+    const rows = await sql<{
+      key: string;
+      description: string | null;
+      last_seq: number;
+      pinned: boolean;
+      remote: string | null;
+    }>`select key, description, last_seq, pinned, remote from project order by key`.execute(db);
+    expect(rows.rows).toEqual([
+      {
+        description: 'the store',
+        key: 'MMR',
+        last_seq: 7,
+        pinned: true,
+        remote: null,
+      },
+      {
+        description: null,
+        key: 'OPS',
+        last_seq: 0,
+        pinned: false,
+        remote: null,
+      },
+    ]);
   } finally {
     await db.destroy();
   }

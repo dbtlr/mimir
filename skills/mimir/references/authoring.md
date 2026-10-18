@@ -125,6 +125,10 @@ mimir annotate KEY-9 "Realized the parser must be rewritten; filed KEY-12."
   lists pinned projects first. Only a project takes it — a task, container,
   seed, or artifact refuses the flag. MCP `update` takes `pinned: true|false`
   and HTTP `PATCH /api/projects/KEY` takes `{"pinned": true|false}`.
+- `update KEY --remote <url>` sets a project's Git remote, stored normalized so
+  ssh and https forms compare equal; a blank value clears it. `create project
+  --remote` sets it at creation. Only a project takes it. MCP `update` and
+  `create` take `remote`, and HTTP takes `{"remote": "<url>"}`.
 - Re-tagging is idempotent — an existing tag is kept as-is. A tag application
   carries no note; put one-off rationale in `annotate` instead.
 - `annotate` appends a timestamped freeform note — the in-flight record of

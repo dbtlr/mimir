@@ -6,7 +6,7 @@ import { notFound, projectNotFound } from './errors';
 import { parseIdentity } from './ids';
 import { buildNodeView, buildProjectView } from './intent/view';
 import type { Node } from './model';
-import { normalizeRemote } from './remote';
+import { tryNormalizeRemote } from './remote';
 import type { Store } from './store';
 
 /**
@@ -52,14 +52,19 @@ export async function listProjects(
  * Every active project whose stored remote is the same repository as `remote`
  * (the ssh and https forms compare equal), key-ordered. Remotes are not unique
  * (MMR-543): zero, one, or several projects may match, and the caller decides what
- * ambiguity means. A `remote` that is not a Git remote is refused.
+ * ambiguity means. A `remote` that is not a network Git remote (a local path,
+ * `file://`, garbage) matches nothing and returns `[]`, so a clone with such an
+ * origin reads as unbound; only writes refuse it.
  */
 export async function listProjectsByRemote(
   store: Store,
   remote: string,
   facets: readonly FacetName[] = ['distribution', 'tags'],
 ): Promise<NodeView[]> {
-  const wanted = normalizeRemote(remote);
+  const wanted = tryNormalizeRemote(remote);
+  if (wanted === undefined) {
+    return [];
+  }
   const set = deriveSet(await store.loadWorkingSet());
   const activity = await store.loadProjectActivity();
   const matches = set.ws.projects.filter((p) => p.archived_at === null && p.remote === wanted);

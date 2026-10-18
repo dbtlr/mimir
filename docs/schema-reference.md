@@ -69,7 +69,7 @@ These hold for every table; the per-entity sections below don't repeat them.
 
 ## `project`
 
-The scope root. Categorically not a node: it doesn't complete (no status), isn't ordered (no rank), has no parent. Workspace grouping is a **tag** (`workspace:*`), not a foreign key ([ADR 0005](decisions/0005-grouping-axis-is-tags.md)) — there is no `workspace_id`. The core model and Store seam know **no repo checkout paths** ([ADR 0011](decisions/0011-repo-binding-is-repo-side.md)); the repo→project binding lives in the clone's git config, and a project may store a normalized Git `remote` to find it by ([ADR 0036](decisions/0036-project-binding-through-git-config.md), superseding ADR 0011).
+The scope root. Categorically not a node: it doesn't complete (no status), isn't ordered (no rank), has no parent. Workspace grouping is a **tag** (`workspace:*`), not a foreign key ([ADR 0005](decisions/0005-grouping-axis-is-tags.md)) — there is no `workspace_id`. The core model and Store seam know **no repo checkout paths** ([ADR 0011](decisions/0011-repo-binding-is-repo-side.md)); the repo→project binding is today `.mimir.toml`; ADR 0036 plans moving it to the clone's git config (MMR-544). A project may store a normalized Git `remote` to find it by ([ADR 0036](decisions/0036-project-binding-through-git-config.md), superseding ADR 0011).
 
 | Column              | Type    | Null     | Allowed / default                                                                         |
 | ------------------- | ------- | -------- | ----------------------------------------------------------------------------------------- |

@@ -145,9 +145,10 @@ test('projectsByRemote finds every active project of one repository, whatever th
   expect(await engine.projectsByRemote({ remote: 'https://github.com/nobody/nothing' })).toEqual(
     [],
   );
-  expect((await errorOf(engine.projectsByRemote({ remote: 'not a remote' }))).code).toBe(
-    'validation',
-  );
+  // Input that is not a network remote (a local-path origin) matches nothing.
+  for (const remote of ['not a remote', '/srv/git/r.git', 'file:///srv/git/r.git']) {
+    expect(await engine.projectsByRemote({ remote })).toEqual([]);
+  }
 });
 
 test('a project remote round-trips through create, update, and get', async () => {

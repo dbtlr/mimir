@@ -1144,11 +1144,12 @@ function apiRoutes(store: Store, opts: ApiOptions): ApiRoutes {
         }),
       POST: (req) =>
         guarded(req, async () => {
-          const body = await readBody(req, ['key', 'name', 'description', 'tags']);
+          const body = await readBody(req, ['key', 'name', 'description', 'remote', 'tags']);
           const project = await createProject(store, {
             description: strField(body, 'description'),
             key: requiredStr(body, 'key', 'create project'),
             name: requiredStr(body, 'name', 'create project'),
+            remote: strField(body, 'remote'),
             tags: strList(body, 'tags'),
           });
           const view = await getNode(store, project.key, {
