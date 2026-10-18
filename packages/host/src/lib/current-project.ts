@@ -1,9 +1,9 @@
+import type { EngineNode } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { useEffect } from 'react';
 
-import { projectsQuery } from '../api/queries';
-import type { WireNode } from '../api/types';
+import { projectsQuery } from '../api/shell-queries';
 
 /**
  * The current project (ADR 0013, MMR-492 refinement): the one in the URL, else
@@ -15,19 +15,15 @@ import type { WireNode } from '../api/types';
 const STORAGE_KEY = 'mimir-current-project';
 
 /**
- * What the ordering reads off a project. `pinned` and `last_activity_at` are
- * optional until the project wire type carries them; a list without them keeps
- * its own order.
+ * What the ordering reads off a project. `pinned` and `lastActivityAt` ride
+ * every project read; a list without them keeps its own order.
  */
-type Orderable = Pick<WireNode, 'id' | 'archived_at'> & {
-  pinned?: boolean | null;
-  last_activity_at?: string | null;
-};
+type Orderable = Pick<EngineNode, 'id' | 'archivedAt' | 'pinned' | 'lastActivityAt'>;
 
-const isActive = (p: Orderable) => p.archived_at == null;
+const isActive = (p: Orderable) => p.archivedAt == null;
 
 const activityOf = (p: Orderable): number =>
-  p.last_activity_at == null ? Number.NEGATIVE_INFINITY : Date.parse(p.last_activity_at);
+  p.lastActivityAt === undefined ? Number.NEGATIVE_INFINITY : p.lastActivityAt.getTime();
 
 /** Newest activity first; two projects with equal activity (or none) compare as a tie. */
 function byActivityDesc(a: Orderable, b: Orderable): number {
@@ -104,7 +100,7 @@ export function useCurrentProjectKey(): string | undefined {
   const { key } = useParams({ strict: false });
   const projects = useQuery(projectsQuery);
   return resolveCurrentProjectKey({
-    projects: projects.data?.items,
+    projects: projects.data,
     remembered: readRememberedProject(),
     urlKey: key,
   });
@@ -118,7 +114,7 @@ export function useCurrentProjectKey(): string | undefined {
 export function useRememberCurrentProject(): void {
   const { key } = useParams({ strict: false });
   const projects = useQuery(projectsQuery);
-  const known = projects.data?.items.find((p) => p.id === key?.toUpperCase());
+  const known = projects.data?.find((p) => p.id === key?.toUpperCase());
   const id = known !== undefined && isActive(known) ? known.id : undefined;
   useEffect(() => {
     if (id !== undefined) {

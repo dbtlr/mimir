@@ -86,6 +86,10 @@ export default defineConfig({
       : [
           tanstackStart({
             router: { entry: './start-router.tsx', routesDirectory: './start-routes' },
+            // Cross-origin writes are refused for every route, server
+            // functions included, by the host guard (lifecycle.ts) before
+            // Start dispatches, so Start's CSRF middleware would repeat it.
+            serverFns: { disableCsrfMiddlewareWarning: true },
             spa: { enabled: true },
           }),
           nitro({

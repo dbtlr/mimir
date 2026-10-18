@@ -1,3 +1,4 @@
+import type { EngineNode } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -12,10 +13,13 @@ import type {
   WireWorkNeedsYou,
 } from '../api/types';
 import { routeTree } from '../router';
-import { project, reviewReport, seed, task } from './fixtures';
+import { engineProject, engineTree } from './engine-fixtures';
+import { reviewReport, seed, task } from './fixtures';
+import { failShellReads, serveShell } from './shell-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
+vi.mock('../api/fns/shell');
 
 const NOW = Date.parse('2026-10-13T12:00:00.000Z');
 const hoursAgo = (h: number) => new Date(NOW - h * 60 * 60_000).toISOString();
@@ -44,16 +48,14 @@ function decision(
 }
 
 /** Serve the review payload, the archived shelf, and empty collections for every other read. */
-function serve(report: WireReviewReport, archived = [] as ReturnType<typeof project>[]) {
+function serve(report: WireReviewReport, archived: EngineNode[] = []) {
   apiGet.mockImplementation((path: string) => {
     if (path.startsWith('/api/review')) {
       return Promise.resolve(report);
     }
-    if (path === '/api/projects?status=archived') {
-      return Promise.resolve({ items: archived, total: archived.length });
-    }
     return Promise.resolve({ items: [], total: 0 });
   });
+  serveShell({ archived });
 }
 
 function renderReview() {
@@ -344,7 +346,12 @@ describe('the review rail: the project health strip', () => {
 
   it('is the one project listing: no triage table, archived shelf, or New project on the page', async () => {
     serve(reviewReport({ projects: TWO_PROJECTS }), [
-      project({ archived_at: daysAgo(30), id: 'OLD', status: 'done', title: 'Old project' }),
+      engineProject({
+        archivedAt: new Date(daysAgo(30)),
+        id: 'OLD',
+        status: 'done',
+        title: 'Old project',
+      }),
     ]);
     renderReview();
 
@@ -358,7 +365,12 @@ describe('the review rail: the project health strip', () => {
 
   it('drops the strip when every project is archived, leaving no empty headers', async () => {
     serve(reviewReport(), [
-      project({ archived_at: daysAgo(30), id: 'OLD', status: 'done', title: 'Old project' }),
+      engineProject({
+        archivedAt: new Date(daysAgo(30)),
+        id: 'OLD',
+        status: 'done',
+        title: 'Old project',
+      }),
     ]);
     renderReview();
 
@@ -565,6 +577,7 @@ describe('the review rail: when you have a minute', () => {
         ? Promise.resolve(reviewReport())
         : Promise.reject(new Error('archived read failed')),
     );
+    failShellReads(new Error('archived read failed'));
     renderReview();
 
     await screen.findByRole('heading', { level: 1, name: 'Nothing needs you' });
@@ -589,14 +602,15 @@ async function openForWrite(before: WireReviewReport, after: WireReviewReport) {
     if (path.startsWith('/api/review')) {
       return Promise.resolve(report);
     }
-    if (path === '/api/projects') {
-      return Promise.resolve({ items: [{ id: 'MMR', title: 'Mimir' }], total: 1 });
-    }
-    if (path.startsWith('/api/projects/MMR/tree')) {
-      const home = { ...task({ id: 'MMR-1', status: 'in_progress', type: 'initiative' }) };
-      return Promise.resolve({ ...project({ id: 'MMR' }), children: [{ ...home, children: [] }] });
-    }
     return Promise.resolve({ items: [], total: 0 });
+  });
+  serveShell({
+    projects: [engineProject({ id: 'MMR', title: 'Mimir' })],
+    trees: {
+      MMR: engineTree({ id: 'MMR', status: 'in_progress', type: 'project' }, [
+        engineTree({ id: 'MMR-1', parent: 'MMR', status: 'in_progress', type: 'initiative' }),
+      ]),
+    },
   });
   apiSend.mockImplementation(() => {
     report = after;

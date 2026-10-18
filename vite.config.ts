@@ -26,6 +26,8 @@ type Override = LintOverride;
  *
  * Layer-boundary enforcement (the one thing toolingConfig can't express) rides
  * through `lint.overrides`. The flow is `contract ← @mimir/core ← @mimir/bin`:
+ *   - The console's server functions (`packages/host/src/api/fns/**`) call the
+ *     host's Engine only — no core and no `/api` handler (ADR 0034).
  *   - `@mimir/core` (`packages/core`) never imports `@mimir/bin`, tests included.
  *   - `@mimir/bin` reaches core only through its entries, `@mimir/core` and
  *     `@mimir/core/testing` — never a deep path.
@@ -146,6 +148,19 @@ const layerOverrides: Override[] = [
   ),
   restrict(['packages/bin/**'], [coreEntryOnly]),
   restrict(['packages/host/**', 'packages/api/**'], [noBinImports, coreEntryOnly]),
+  // The console's server functions reach the domain only through the host's
+  // Engine (ADR 0034 decision 7): never core, and never the /api handler.
+  restrict(
+    ['packages/host/src/api/fns/**'],
+    [
+      noBinImports,
+      {
+        group: ['@mimir/core', '@mimir/core/**', '**/core/src/**', '@mimir/api', '@mimir/api/**'],
+        message:
+          'Layer boundary: server functions call Engine methods, never core or the /api handler (ADR 0034 decision 7).',
+      },
+    ],
+  ),
   forbid(['packages/bin/src/cli/**'], ['mcp']),
   forbid(['packages/bin/src/mcp/**'], ['cli']),
   // Tests legitimately wire layers together (the store fixture from

@@ -2,8 +2,8 @@ import { Dialog } from '@base-ui-components/react/dialog';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { useMoveNode } from '../api/mutations';
-import { treeQuery } from '../api/queries';
+import { useMoveNode } from '../api/node-mutations';
+import { treeQuery } from '../api/shell-queries';
 import { projectKeyOf } from '../api/types';
 import { parentOptions } from '../lib/parent-options';
 import { ActionButton } from './ui/action-button';

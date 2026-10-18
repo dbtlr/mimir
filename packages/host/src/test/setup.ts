@@ -15,6 +15,31 @@ import { cleanup } from '@testing-library/react';
 // oxlint-disable-next-line vitest/require-hook
 expect.extend(jestDomMatchers);
 
+// The data-layer test seam (MMR-537). A read or write that runs through a
+// server function (api/fns/<area>.ts) is mocked by function, never by path:
+//
+//   vi.mock('../api/fns/shell');                      // every export is a vi.fn
+//   import { projects } from '../api/fns/shell';
+//   vi.mocked(projects).mockResolvedValue([engineProject({ id: 'MMR' })]);
+//   expect(projects).toHaveBeenCalledWith({ data: { ... } });
+//
+// Answers are the Engine's own output types (engine-fixtures.ts), with `Date`
+// instants. An area's helper serves a whole world at once (shell-fns.ts's
+// `serveShell`); a new area adds its own `<area>-fns.ts` beside it. Reads not
+// yet migrated still go through the path-keyed `vi.mock('../api/client')`.
+//
+// The host's Engine is never reachable from a test: a server function that a
+// test forgot to mock runs its handler in-process, and this guard fails it with
+// the reason instead of opening a store.
+// oxlint-disable-next-line vitest/require-hook
+vi.mock('../api/fns/engine', () => ({
+  engine: () => {
+    throw new Error(
+      'a test reached the host Engine: mock the server-function module by function (see test/setup.ts)',
+    );
+  },
+}));
+
 // Every human-facing timestamp renders in the reader's zone (ADR 0029), so the
 // suite pins one: a date assertion means the same thing on any machine.
 // oxlint-disable-next-line vitest/require-hook

@@ -7,9 +7,6 @@ import type {
   Lifecycle,
   NodeRef,
   Priority,
-  SearchKind,
-  SearchLink,
-  SearchMatch,
   SeedKind,
   SeedLane,
   SeedLifecycle,
@@ -65,24 +62,6 @@ export type WireArtifact = {
   summary?: string;
   tags: string[];
   created_at: string;
-};
-
-/**
- * One cross-record search hit (`GET /api/search`, MMR-447). `lifecycle` is the
- * stored one, `null` for kinds without it; `link` rides on `link` hits and
- * `snippet` on `description` hits.
- */
-export type WireSearchHit = {
-  kind: SearchKind;
-  id: string;
-  project: string;
-  title: string;
-  updated_at: string;
-  lifecycle: Lifecycle | SeedLifecycle | null;
-  finished: boolean;
-  match: SearchMatch;
-  link?: SearchLink;
-  snippet?: string;
 };
 
 /** A portfolio artifact-search row (`GET /api/artifacts`). */
@@ -226,11 +205,6 @@ export type WireSeed = {
    * full `description`). `null` when the seed has no body. */
   lede?: string | null;
 };
-
-/** The nested whole-project tree (`/api/projects/:key/tree`) — children rank-ordered. */
-export type WireTreeNode = {
-  children: WireTreeNode[];
-} & Omit<WireNode, 'children'>;
 
 /** An active Scratchpad row (`GET /api/scratchpads`) — the work it is anchored to rides along. */
 export type WireScratchpadRow = {

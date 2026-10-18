@@ -1,16 +1,19 @@
+import type { EngineTree } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, vi } from 'vitest';
 
-import type { WireTreeNode } from '../api/types';
 import { AuthoringSheet } from '../components/authoring-sheet';
 import type { AuthoringSheetProps } from '../components/authoring-sheet';
-import { project, task } from './fixtures';
+import { engineProject, engineTree } from './engine-fixtures';
+import { task } from './fixtures';
 import { renderInRouter } from './router';
+import { serveShell } from './shell-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
+vi.mock('../api/fns/shell');
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('sonner', () => ({ toast }));
 
@@ -18,19 +21,18 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-/** A minimal WireTreeNode (homeOptions reads id/title/type/open_ended/children). */
+/** A tree node (homeOptions reads id/title/type/open_ended/children). */
 function treeNode(
   id: string,
   title: string,
   type: 'initiative' | 'phase' | 'project',
-  children: unknown[] = [],
+  children: EngineTree[] = [],
   openEnded = false,
-): WireTreeNode {
-  return {
-    ...task({ id, status: 'in_progress', title, type }),
+): EngineTree {
+  return engineTree(
+    { id, status: 'in_progress', title, type, ...(openEnded ? { open_ended: true } : {}) },
     children,
-    open_ended: openEnded,
-  } as unknown as WireTreeNode;
+  );
 }
 
 const mmrTree = treeNode('MMR', 'Mimir', 'project', [
@@ -48,19 +50,14 @@ const depRows = [
 ];
 
 function mockReads() {
+  serveShell({
+    projects: [
+      engineProject({ id: 'MMR', title: 'Mimir' }),
+      engineProject({ id: 'WEB', title: 'Website' }),
+    ],
+    trees: { MMR: mmrTree, WEB: webTree },
+  });
   apiGet.mockImplementation((path: string) => {
-    if (path === '/api/projects') {
-      return Promise.resolve({
-        items: [project({ id: 'MMR', title: 'Mimir' }), project({ id: 'WEB', title: 'Website' })],
-        total: 2,
-      });
-    }
-    if (path === '/api/projects/MMR/tree') {
-      return Promise.resolve(mmrTree);
-    }
-    if (path === '/api/projects/WEB/tree') {
-      return Promise.resolve(webTree);
-    }
     if (path.startsWith('/api/nodes?type=task&q=')) {
       return Promise.resolve({ items: depRows, total: depRows.length });
     }

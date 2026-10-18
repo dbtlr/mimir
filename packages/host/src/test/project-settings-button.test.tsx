@@ -1,13 +1,14 @@
+import type { EngineNode } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { afterEach, describe, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
-import type { WireNode } from '../api/types';
+import { archive, unarchive, updateProject } from '../api/fns/shell';
 import { ProjectSettingsButton } from '../components/project-settings-button';
+import { serveShell } from './shell-fns';
 
-const { apiSend } = vi.hoisted(() => ({ apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiSend }));
+vi.mock('../api/fns/shell');
 // The undo toast is the bare callable; `error` covers the mutation failures.
 // Since the archive flow delegates to `archivedUndoToast` (MMR-125), the
 // message arg is a ReactNode, not a bare string.
@@ -28,6 +29,10 @@ vi.mock('sonner', () => ({ toast }));
 const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
 
+beforeEach(() => {
+  serveShell();
+});
+
 afterEach(() => {
   vi.clearAllMocks();
 });
@@ -36,15 +41,10 @@ function wrap(ui: ReactNode) {
   return render(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
 }
 
-const baseProject: WireNode = {
-  created_at: '2024-01-01T00:00:00Z',
+const baseProject: Pick<EngineNode, 'id' | 'title' | 'description'> = {
   description: 'A handy description',
   id: 'MMR',
-  parent: null,
-  status: 'in_progress',
   title: 'My Project',
-  type: 'project',
-  updated_at: '2024-01-01T00:00:00Z',
 };
 
 describe('projectSettingsButton', () => {
@@ -80,8 +80,7 @@ describe('projectSettingsButton', () => {
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
   });
 
-  it('submitting calls PATCH /api/projects/:key with title and description', async () => {
-    apiSend.mockResolvedValue({ description: 'New desc', id: 'MMR', title: 'Renamed' });
+  it('submitting updates the project with its name and description', async () => {
     wrap(<ProjectSettingsButton project={baseProject} />);
     fireEvent.click(screen.getByRole('button', { name: /project settings/i }));
 
@@ -90,9 +89,8 @@ describe('projectSettingsButton', () => {
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await vi.waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/MMR', {
-        description: 'New desc',
-        title: 'Renamed',
+      expect(updateProject).toHaveBeenCalledWith({
+        data: { description: 'New desc', id: 'MMR', name: 'Renamed' },
       });
     });
   });
@@ -118,14 +116,13 @@ describe('projectSettings lifecycle (MMR-230)', () => {
     expect(screen.getByRole('button', { name: 'Archive project' })).toBeEnabled();
   });
 
-  it('archiving POSTs the archive route with no confirm, closes, toasts undo, and returns to the review page', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR' });
+  it('archiving archives the project with no confirm, closes, toasts undo, and returns to the review page', async () => {
     wrap(<ProjectSettingsButton project={baseProject} />);
     openSheet();
     fireEvent.click(screen.getByRole('button', { name: 'Archive project' }));
 
     await vi.waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/projects/MMR/archive', undefined);
+      expect(archive).toHaveBeenCalledWith({ data: { id: 'MMR' } });
     });
     await vi.waitFor(() => {
       expect(toast).toHaveBeenCalledOnce();
@@ -147,8 +144,7 @@ describe('projectSettings lifecycle (MMR-230)', () => {
     expect(screen.queryByLabelText(/name/i)).not.toBeInTheDocument();
   });
 
-  it('the undo toast Unarchive POSTs the unarchive route', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR' });
+  it('the undo toast Unarchive unarchives the project', async () => {
     wrap(<ProjectSettingsButton project={baseProject} />);
     openSheet();
     fireEvent.click(screen.getByRole('button', { name: 'Archive project' }));
@@ -158,7 +154,7 @@ describe('projectSettings lifecycle (MMR-230)', () => {
 
     toast.mock.calls.at(0)?.[1]?.action?.onClick();
     await vi.waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/projects/MMR/unarchive', undefined);
+      expect(unarchive).toHaveBeenCalledWith({ data: { id: 'MMR' } });
     });
   });
 

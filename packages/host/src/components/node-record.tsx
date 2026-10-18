@@ -3,7 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { useTag, useTransition, useUntag, useUpdateNode } from '../api/mutations';
+import { useTag, useTransition, useUntag, useUpdateNode } from '../api/node-mutations';
 import type { WireAnnotation, WireArtifact, WireDeps, WireNode } from '../api/types';
 import { cn } from '../lib/cn';
 import { isBareUrl } from '../lib/links';

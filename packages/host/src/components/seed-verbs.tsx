@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { useParkSeed, useRejectSeed, useResolveSeed, useUnparkSeed } from '../api/mutations';
+import { useParkSeed, useRejectSeed, useResolveSeed, useUnparkSeed } from '../api/seed-mutations';
 import type { WireSeed } from '../api/types';
 import { cn } from '../lib/cn';
 import { PHONE_TOUCH_TARGET } from '../lib/touch-target';

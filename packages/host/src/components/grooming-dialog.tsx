@@ -2,7 +2,7 @@ import { Dialog } from '@base-ui-components/react/dialog';
 import type { Grooming } from '@mimir/contract';
 import { useEffect, useState } from 'react';
 
-import { useGroom } from '../api/mutations';
+import { useGroom } from '../api/node-mutations';
 import { GROOMING_META, GROOMING_ORDER } from '../lib/grooming';
 import { ActionButton } from './ui/action-button';
 

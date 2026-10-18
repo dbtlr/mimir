@@ -2,8 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 
-import { archivedProjectsQuery, browserTimeZone, reviewQuery } from '../api/queries';
+import { browserTimeZone } from '../api/queries';
+import { archivedProjectsQuery } from '../api/shell-queries';
 import type { WireReviewReport } from '../api/types';
+import { reviewQuery } from '../api/view-queries';
 import { BrowserGroup } from '../components/browser-list';
 import { DecisionGroups } from '../components/decision-groups';
 import { FocusQueue } from '../components/focus-queue';
@@ -184,7 +186,7 @@ export function ReviewPage() {
 
   // Only a confirmed-empty archive makes a fresh store: an archived read still
   // in flight, or failed, may yet hold every project.
-  if (report.projects.length === 0 && archived.data?.items.length === 0) {
+  if (report.projects.length === 0 && archived.data?.length === 0) {
     // A fresh store's one useful action is creating a project.
     return (
       <>

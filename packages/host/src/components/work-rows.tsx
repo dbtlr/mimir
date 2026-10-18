@@ -2,7 +2,7 @@ import type { Grooming } from '@mimir/contract';
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { useTransition } from '../api/mutations';
+import { useTransition } from '../api/node-mutations';
 import type { WireNode, WireWorkNeedsYou } from '../api/types';
 import { visibleGrooming } from '../lib/grooming';
 import { nodeLink } from '../lib/record-url';

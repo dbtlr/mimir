@@ -1,11 +1,12 @@
+import type { EngineNode } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode, RefObject } from 'react';
 
-import { usePendingPins, usePinProject } from '../api/mutations';
-import { archivedProjectsQuery, projectsQuery, reviewQuery } from '../api/queries';
-import type { WireNode } from '../api/types';
+import { usePendingPins, usePinProject } from '../api/shell-mutations';
+import { archivedProjectsQuery, projectsQuery } from '../api/shell-queries';
+import { reviewQuery } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import type { SidebarContext } from '../lib/project-sidebar';
@@ -52,15 +53,14 @@ export function ProjectPicker({
   const projects = useQuery(projectsQuery);
   const review = useQuery(reviewQuery());
   const conn = connectivity([projects]);
-  const active = projects.data?.items.find((p) => p.id === projectKey);
+  const active = projects.data?.find((p) => p.id === projectKey);
   // An archived project's pages still open (as the unavailable notice), so the
   // header names it from the archived list once the active list lacks it.
   const archived = useQuery({
     ...archivedProjectsQuery,
     enabled: projectKey !== undefined && projects.isSuccess && active === undefined,
   });
-  const frozen =
-    active === undefined ? archived.data?.items.find((p) => p.id === projectKey) : undefined;
+  const frozen = active === undefined ? archived.data?.find((p) => p.id === projectKey) : undefined;
   const current = active ?? frozen;
   const decisionsByKey = new Map(review.data?.projects.map((p) => [p.key, p.decisions]));
   const everywhere = [...decisionsByKey.values()].reduce((sum, count) => sum + count, 0);
@@ -273,10 +273,10 @@ function SwitcherPanel({
   const pendingPins = usePendingPins();
 
   // A pin in flight shows as already made; the server's list catches up on settle.
-  const groups = groupProjects(overlayPins(projects.data?.items ?? [], pendingPins));
+  const groups = groupProjects(overlayPins(projects.data ?? [], pendingPins));
   const pinned = filterProjects(groups.pinned, query);
   const rest = filterProjects(groups.rest, query);
-  const archivedRows = filterProjects(archived.data?.items ?? [], query);
+  const archivedRows = filterProjects(archived.data ?? [], query);
   const rows = [...pinned, ...rest, ...(showArchived ? archivedRows : [])];
   // All projects leads the list, but only while no search narrows it to projects.
   const showAll = query.trim() === '';
@@ -304,9 +304,9 @@ function SwitcherPanel({
     }
   }, [activeOptionId]);
 
-  const togglePin = (project: WireNode) => {
+  const togglePin = (project: EngineNode) => {
     // Archived projects cannot be written, and nothing saves offline.
-    if (offline || project.archived_at != null) {
+    if (offline || project.archivedAt != null) {
       return;
     }
     const next = project.pinned !== true;
@@ -339,7 +339,7 @@ function SwitcherPanel({
     }
   };
 
-  const row = (p: WireNode) => (
+  const row = (p: EngineNode) => (
     <ProjectOption
       key={p.id}
       project={p}
@@ -531,7 +531,7 @@ function ProjectOption({
   onPick,
   onTogglePin,
 }: {
-  project: WireNode;
+  project: EngineNode;
   id: string;
   active: boolean;
   current: boolean;
@@ -541,7 +541,7 @@ function ProjectOption({
   onPick: () => void;
   onTogglePin: () => void;
 }) {
-  const frozen = project.archived_at != null;
+  const frozen = project.archivedAt != null;
   const pinned = project.pinned === true;
   return (
     // The search box owns focus and the keys (aria-activedescendant); a row

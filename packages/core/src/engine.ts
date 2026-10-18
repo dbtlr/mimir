@@ -408,5 +408,9 @@ function consoleMethods(store: Store, options: LocalEngineOptions): ConsoleEngin
         await reviewPageOf(store, options.findings, { asOf: isoOf(asOf), timeZone }),
       );
     },
+    async search(input) {
+      const opts = parseEngineInput(consoleSchemas.search.input, input);
+      return intentViews.searchSet.parse(await searchRecords(store, opts));
+    },
   };
 }

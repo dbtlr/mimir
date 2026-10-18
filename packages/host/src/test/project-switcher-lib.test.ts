@@ -6,17 +6,17 @@ import {
   overlayPins,
   projectSwitchTarget,
 } from '../lib/project-switcher';
-import { project } from './fixtures';
+import { engineProject } from './engine-fixtures';
 
 const atDay = (day: string) => `2026-09-${day}T00:00:00.000Z`;
 
 describe('groupProjects (MMR-497)', () => {
   it('splits pinned from the rest, each by most recent activity', () => {
     const list = [
-      { ...project({ id: 'OLD' }), last_activity_at: atDay('01') },
-      { ...project({ id: 'PINOLD' }), last_activity_at: atDay('02'), pinned: true },
-      { ...project({ id: 'NEW' }), last_activity_at: atDay('09') },
-      { ...project({ id: 'PINNEW' }), last_activity_at: atDay('05'), pinned: true },
+      engineProject({ id: 'OLD', lastActivityAt: new Date(atDay('01')) }),
+      engineProject({ id: 'PINOLD', lastActivityAt: new Date(atDay('02')), pinned: true }),
+      engineProject({ id: 'NEW', lastActivityAt: new Date(atDay('09')) }),
+      engineProject({ id: 'PINNEW', lastActivityAt: new Date(atDay('05')), pinned: true }),
     ];
     const groups = groupProjects(list);
     expect(groups.pinned.map((p) => p.id)).toStrictEqual(['PINNEW', 'PINOLD']);
@@ -25,8 +25,8 @@ describe('groupProjects (MMR-497)', () => {
 
   it('leaves archived projects out of both groups', () => {
     const groups = groupProjects([
-      project({ archived_at: atDay('01'), id: 'ARC' }),
-      project({ id: 'LIVE' }),
+      engineProject({ archivedAt: new Date(atDay('01')), id: 'ARC' }),
+      engineProject({ id: 'LIVE' }),
     ]);
     expect(groups.rest.map((p) => p.id)).toStrictEqual(['LIVE']);
     expect(groups.pinned).toStrictEqual([]);
@@ -35,9 +35,9 @@ describe('groupProjects (MMR-497)', () => {
 
 describe('filterProjects', () => {
   const list = [
-    project({ id: 'NORN', title: 'Vault engine' }),
-    project({ id: 'MMR', title: 'Mimir' }),
-    project({ id: 'LM', title: 'Lumen' }),
+    engineProject({ id: 'NORN', title: 'Vault engine' }),
+    engineProject({ id: 'MMR', title: 'Mimir' }),
+    engineProject({ id: 'LM', title: 'Lumen' }),
   ];
 
   it('matches the key or the title, ignoring case and surrounding space', () => {
@@ -75,9 +75,9 @@ describe('projectSwitchTarget', () => {
 describe('overlayPins', () => {
   it('sets the pin each pending write is heading for and leaves the others', () => {
     const list = [
-      project({ id: 'A', pinned: false }),
-      project({ id: 'B', pinned: true }),
-      project({ id: 'C', pinned: false }),
+      engineProject({ id: 'A', pinned: false }),
+      engineProject({ id: 'B', pinned: true }),
+      engineProject({ id: 'C', pinned: false }),
     ];
     const shown = overlayPins(
       list,

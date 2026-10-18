@@ -1,18 +1,23 @@
+import type { EngineNode } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
+import { projects, unarchive } from '../api/fns/shell';
 import { createQueryClient } from '../api/query-client';
 import { routeTree } from '../router';
+import { engineProject } from './engine-fixtures';
 import { emptyRead, project, workReport } from './fixtures';
+import { serveShell } from './shell-fns';
 
-const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend }));
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/shell');
 
-const OLD = project({
-  archived_at: '2026-09-30T15:00:00.000Z',
+const OLD = engineProject({
+  archivedAt: new Date('2026-09-30T15:00:00.000Z'),
   id: 'OLD',
   status: 'done',
   title: 'Old project',
@@ -25,24 +30,23 @@ const notFound = (path: string) => Promise.reject(new ApiError(`GET ${path} → 
 /** `OLD` is archived until unarchived, so its record 404s and the archived list names it; `ZZZ` is unknown. */
 function serve() {
   let archived = true;
+  const shell = serveShell({ archived: [OLD] });
+  vi.mocked(unarchive).mockImplementation(async () => {
+    archived = false;
+    shell.archived = [];
+    return engineProject({ id: 'OLD' });
+  });
   apiGet.mockImplementation((path: string) => {
-    if (path === '/api/projects?status=archived') {
-      return Promise.resolve({ items: archived ? [OLD] : [], total: archived ? 1 : 0 });
-    }
     if (names(path, 'ZZZ') || (archived && names(path, 'OLD'))) {
       return notFound(path);
     }
     if (path === '/api/projects/OLD') {
-      return Promise.resolve({ ...OLD, archived_at: null, status: 'in_progress' });
+      return Promise.resolve(project({ id: 'OLD', status: 'in_progress', title: 'Old project' }));
     }
     if (/\/work\b/.test(path)) {
       return Promise.resolve(workReport());
     }
     return Promise.resolve(emptyRead(path));
-  });
-  apiSend.mockImplementation(() => {
-    archived = false;
-    return Promise.resolve({});
   });
 }
 
@@ -68,7 +72,8 @@ function renderAt(initial: string, client = quietClient()) {
 
 beforeEach(() => {
   apiGet.mockReset();
-  apiSend.mockReset();
+  vi.mocked(projects).mockReset();
+  vi.mocked(unarchive).mockReset();
   serve();
 });
 
@@ -113,7 +118,7 @@ describe('an archived project’s address (MMR-506)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Unarchive Old project' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/projects/OLD/unarchive', undefined);
+      expect(unarchive).toHaveBeenCalledWith({ data: { id: 'OLD' } });
     });
     await waitFor(() => {
       expect(testRouter.state.location.pathname).toBe('/p/OLD');
@@ -127,33 +132,31 @@ describe('an archived project’s address (MMR-506)', () => {
   });
 
   it('keeps Unarchive disabled until the archived list is fresh, so it cannot be sent twice', async () => {
-    const refetch = Promise.withResolvers<unknown>();
-    const served = apiGet.getMockImplementation();
-    const send = apiSend.getMockImplementation();
-    apiSend.mockImplementation((...args: unknown[]) => {
+    const refetch = Promise.withResolvers<EngineNode[]>();
+    const served = vi.mocked(projects).getMockImplementation();
+    const send = vi.mocked(unarchive).getMockImplementation();
+    vi.mocked(unarchive).mockImplementation(async (...args) => {
       // The write lands, but the archived list's refetch is still in flight.
-      apiGet.mockImplementation((path: string) =>
-        path === '/api/projects?status=archived' ? refetch.promise : served?.(path),
-      );
-      return send?.(...args);
+      vi.mocked(projects).mockReturnValue(refetch.promise);
+      return send?.(...args) as Promise<EngineNode>;
     });
     const testRouter = renderAt('/p/OLD/tasks');
 
     const button = await screen.findByRole('button', { name: 'Unarchive Old project' });
     fireEvent.click(button);
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledTimes(1);
+      expect(unarchive).toHaveBeenCalledTimes(1);
     });
     expect(button).toBeDisabled();
     expect(testRouter.state.location.pathname).toBe('/p/OLD/tasks');
 
     fireEvent.click(button);
-    expect(apiSend).toHaveBeenCalledTimes(1);
+    expect(unarchive).toHaveBeenCalledTimes(1);
 
     if (served !== undefined) {
-      apiGet.mockImplementation(served);
+      vi.mocked(projects).mockImplementation(served);
     }
-    refetch.resolve({ items: [], total: 0 });
+    refetch.resolve([]);
     await waitFor(() => {
       expect(testRouter.state.location.pathname).toBe('/p/OLD');
     });
@@ -162,7 +165,7 @@ describe('an archived project’s address (MMR-506)', () => {
   it('stays still across poll intervals: no further project reads, and the notice never unmounts', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     renderAt('/p/OLD', createQueryClient());
-    const unarchive = await screen.findByRole('button', { name: 'Unarchive Old project' });
+    const button = await screen.findByRole('button', { name: 'Unarchive Old project' });
     const removed: Node[] = [];
     const watch = new MutationObserver((records) => {
       removed.push(...records.flatMap((r) => [...r.removedNodes]));
@@ -176,8 +179,8 @@ describe('an archived project’s address (MMR-506)', () => {
     watch.disconnect();
 
     expect(projectReads()).toBe(before);
-    expect(unarchive.isConnected).toBe(true);
-    expect(removed.some((node) => node.contains(unarchive))).toBe(false);
+    expect(button.isConnected).toBe(true);
+    expect(removed.some((node) => node.contains(button))).toBe(false);
     expect(screen.queryByRole('heading', { name: 'Project unavailable' })).toBeNull();
   });
 

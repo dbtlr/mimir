@@ -4,13 +4,16 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, vi } from 'vitest';
 
-import { FINISHED_PAGE_SIZE } from '../api/queries';
+import { FINISHED_PAGE_SIZE } from '../api/browse-queries';
 import type { WireHome, WireNode } from '../api/types';
 import { routeTree } from '../router';
+import { engineProject } from './engine-fixtures';
 import { emptyRead, task } from './fixtures';
+import { serveShell } from './shell-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
+vi.mock('../api/fns/shell');
 
 /** A home facet under project MMR; `open` marks the parent as a standing home. */
 function home(parentTitle: string, open = false): WireHome {
@@ -65,29 +68,18 @@ const rows: WireNode[] = [
   }),
 ];
 
-/** The project tree the shell's sidebar outline reads: a project holding no containers. */
-function projectTree(path: string) {
-  const id = /^\/api\/projects\/([A-Z]+)\/tree$/.exec(path)?.[1];
-  return id === undefined
-    ? undefined
-    : { children: [], id, status: 'in_progress', title: id, type: 'project' };
+/** Two projects; each answers the sidebar outline as a project holding no containers. */
+function serveProjects(only?: string) {
+  const all = [
+    engineProject({ id: 'MMR', title: 'Mimir' }),
+    engineProject({ id: 'NRN', status: 'ready', title: 'Norn' }),
+  ];
+  serveShell({ projects: only === undefined ? all : all.filter((p) => p.id === only) });
 }
 
 function mockApi() {
+  serveProjects();
   apiGet.mockImplementation((path: string) => {
-    const tree = projectTree(path);
-    if (tree !== undefined) {
-      return Promise.resolve(tree);
-    }
-    if (path.startsWith('/api/projects') && !path.includes('status=archived')) {
-      return Promise.resolve({
-        items: [
-          { id: 'MMR', status: 'in_progress', title: 'Mimir' },
-          { id: 'NRN', status: 'ready', title: 'Norn' },
-        ],
-        total: 2,
-      });
-    }
     if (path.startsWith('/api/nodes?')) {
       return Promise.resolve({ items: rows, total: rows.length });
     }
@@ -422,14 +414,8 @@ function mockTerminalApi(
   all: WireNode[],
   gate: (limit: number) => Promise<void> | undefined = () => undefined,
 ) {
+  serveProjects('MMR');
   apiGet.mockImplementation(async (path: string) => {
-    const tree = projectTree(path);
-    if (tree !== undefined) {
-      return tree;
-    }
-    if (path.startsWith('/api/projects') && !path.includes('status=archived')) {
-      return { items: [{ id: 'MMR', status: 'in_progress', title: 'Mimir' }], total: 1 };
-    }
     if (path.startsWith('/api/nodes?')) {
       const p = new URLSearchParams(path.slice('/api/nodes?'.length));
       if (p.get('status') !== 'terminal') {

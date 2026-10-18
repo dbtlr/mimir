@@ -3,7 +3,8 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { isNotFound } from '../api/errors';
-import { annotationsQuery, nodeQuery, scratchpadsQuery, treeQuery } from '../api/queries';
+import { annotationsQuery, nodeQuery, scratchpadsQuery } from '../api/node-queries';
+import { treeQuery } from '../api/shell-queries';
 import type { WireNode, WireScratchpadRow } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { AnnotationComposer } from '../components/annotation-composer';

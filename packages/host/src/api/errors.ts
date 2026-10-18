@@ -1,3 +1,5 @@
+import { MimirError } from '@mimir/contract';
+
 /**
  * An HTTP-answered failure: the server was reachable and returned a non-2xx
  * status. Carrying the status lets callers separate "the server said no"
@@ -17,7 +19,10 @@ export class ApiError extends Error {
   }
 }
 
-/** True when the server answered 404 — gone/archived, not unreachable. */
+/** True when the server answered not found — gone/archived, not unreachable. */
 export function isNotFound(error: unknown): boolean {
-  return error instanceof ApiError && error.status === 404;
+  return (
+    (error instanceof ApiError && error.status === 404) ||
+    (error instanceof MimirError && error.code === 'not_found')
+  );
 }

@@ -1,19 +1,11 @@
+import type { EngineTree } from '@mimir/contract';
 import { describe, expect, it } from 'vitest';
 
-import type { WireTreeNode } from '../api/types';
 import { ancestorsOf, sharedPathOf, subtreeOf } from '../lib/ancestry';
+import { engineTree } from './engine-fixtures';
 
-function tn(id: string, type: WireTreeNode['type'], children: WireTreeNode[] = []): WireTreeNode {
-  return {
-    children,
-    created_at: '2026-06-01T10:00:00.000Z',
-    id,
-    parent: null,
-    status: 'ready',
-    title: id,
-    type,
-    updated_at: '2026-06-01T10:00:00.000Z',
-  };
+function tn(id: string, type: EngineTree['type'], children: EngineTree[] = []): EngineTree {
+  return engineTree({ id, status: 'ready', title: id, type }, children);
 }
 
 const tree = tn('MMR', 'project', [
@@ -52,7 +44,7 @@ describe('subtreeOf', () => {
   });
 });
 
-const ids = (path?: WireTreeNode[]) => path?.map((n) => n.id);
+const ids = (path?: EngineTree[]) => path?.map((n) => n.id);
 
 describe('sharedPathOf (MMR-452)', () => {
   it('runs through a lone record itself, below its containers', () => {

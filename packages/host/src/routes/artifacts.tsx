@@ -2,8 +2,8 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import type { UIEvent } from 'react';
 
-import { artifactsQuery } from '../api/queries';
-import type { ArtifactFilters as Filters } from '../api/queries';
+import { artifactsQuery } from '../api/browse-queries';
+import type { ArtifactFilters as Filters } from '../api/browse-queries';
 import { ArtifactFilters } from '../components/artifact-filters';
 import { ArtifactList } from '../components/artifact-list';
 import { BrowserPage } from '../components/browser-list';

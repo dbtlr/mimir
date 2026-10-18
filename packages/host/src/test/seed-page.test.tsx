@@ -7,19 +7,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../api/errors';
 import type { WireNode, WireSeed } from '../api/types';
 import { routeTree } from '../router';
+import { engineProject } from './engine-fixtures';
 import { emptyRead, seed, task } from './fixtures';
+import { serveShell } from './shell-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
+vi.mock('../api/fns/shell');
 vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
 
-const PROJECTS = {
-  items: [
-    { id: 'MMR', title: 'Mimir', type: 'project' },
-    { id: 'NRN', title: 'Norn', type: 'project' },
-  ],
-  total: 2,
-};
+const PROJECTS = [
+  engineProject({ id: 'MMR', title: 'Mimir' }),
+  engineProject({ id: 'NRN', title: 'Norn' }),
+];
 
 const crossBoardBug = seed({
   description: 'Reproduced with **norn 0.48.2** over the MCP stdio transport.',
@@ -51,7 +51,7 @@ const readyToResolve = seed({
 const upstreamPath = (id: string) =>
   `/api/nodes?type=task&status=all&eq=${encodeURIComponent(`upstream:${id}`)}`;
 
-/** Serve one seed at its detail path, the project list, the given nodes, and empty lists elsewhere. */
+/** Serve one seed at its detail path, the given nodes, and empty lists elsewhere (beforeEach serves the project list). */
 function serve(
   record: WireSeed,
   { nodes = [], upstream = [] }: { nodes?: WireNode[]; upstream?: WireNode[] } = {},
@@ -59,9 +59,6 @@ function serve(
   apiGet.mockImplementation((path: string) => {
     if (path === `/api/seeds/${record.id}`) {
       return Promise.resolve(record);
-    }
-    if (path === '/api/projects') {
-      return Promise.resolve(PROJECTS);
     }
     if (path === upstreamPath(record.id)) {
       return Promise.resolve({ items: upstream, total: upstream.length });
@@ -92,6 +89,7 @@ function renderAt(url: string) {
 beforeEach(() => {
   apiGet.mockReset();
   apiSend.mockReset();
+  serveShell({ projects: PROJECTS });
 });
 
 describe('seed page (MMR-451)', () => {

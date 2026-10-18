@@ -1,12 +1,14 @@
+import type { EngineTree } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useRef } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 
 import { ApiError } from '../api/errors';
-import { browserTimeZone, workQuery } from '../api/queries';
+import { browserTimeZone } from '../api/queries';
 import { projectKeyOf } from '../api/types';
-import type { WireArtifact, WireNode, WireTreeNode } from '../api/types';
+import type { WireArtifact, WireNode } from '../api/types';
+import { workQuery } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import { STATUS_META, STATUS_ORDER } from '../lib/status';
 import { absoluteTime } from '../lib/time';
@@ -68,7 +70,7 @@ function WorkHead({
 }: {
   record: WireNode;
   isProject: boolean;
-  tree?: WireTreeNode;
+  tree?: EngineTree;
   findings: number;
   offline: boolean;
 }) {
@@ -315,7 +317,7 @@ export function WorkPage({
   container,
 }: {
   record: WireNode;
-  tree?: WireTreeNode;
+  tree?: EngineTree;
   /** The project's record-health findings, for its head chip. */
   findings?: number;
   offline: boolean;

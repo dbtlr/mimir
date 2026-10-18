@@ -1,15 +1,19 @@
+import type { EngineTree } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
-import type { WireArtifact, WireNode, WireTreeNode, WireWorkReport } from '../api/types';
+import type { WireArtifact, WireNode, WireWorkReport } from '../api/types';
 import { routeTree } from '../router';
+import { engineTree } from './engine-fixtures';
 import { emptyRead, task, workReport } from './fixtures';
+import { serveShell } from './shell-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
+vi.mock('../api/fns/shell');
 
 // Mon Oct 12 2026, 18:00 in the suite's pinned zone (America/New_York).
 const NOW = Date.parse('2026-10-12T22:00:00.000Z');
@@ -27,44 +31,40 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function leaf(id: string, status: WireNode['status'], title = `task ${id}`): WireTreeNode {
-  return { ...task({ id, status, title }), children: [] };
+function leaf(id: string, status: EngineTree['status'], title = `task ${id}`): EngineTree {
+  return engineTree({ id, status, title, type: 'task' });
 }
 
 function node(
   id: string,
   type: 'initiative' | 'phase',
-  status: WireNode['status'],
+  status: EngineTree['status'],
   title: string,
-  children: WireTreeNode[] = [],
-  extra: Partial<WireNode> = {},
-): WireTreeNode {
-  return { ...task({ id, status, title }), ...extra, children, type };
+  children: EngineTree[] = [],
+  extra: Partial<EngineTree> = {},
+): EngineTree {
+  return engineTree({ id, status, title, type, ...extra }, children);
 }
 
 /** The project's whole tree: live and finished initiatives, an open-ended and a parked one. */
-const TREE: WireTreeNode = {
-  ...task({ id: 'MMR', status: 'in_progress', title: 'Mimir' }),
-  children: [
-    node('MMR-101', 'initiative', 'in_progress', 'Console work', [
-      node('MMR-102', 'phase', 'done', 'Record pages', [
-        leaf('MMR-103', 'done'),
-        leaf('MMR-104', 'done'),
-      ]),
-      node('MMR-105', 'phase', 'in_progress', 'Work page', [
-        leaf('MMR-106', 'done'),
-        leaf('MMR-107', 'ready'),
-      ]),
+const TREE = engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' }, [
+  node('MMR-101', 'initiative', 'in_progress', 'Console work', [
+    node('MMR-102', 'phase', 'done', 'Record pages', [
+      leaf('MMR-103', 'done'),
+      leaf('MMR-104', 'done'),
     ]),
-    node('MMR-108', 'initiative', 'ready', 'Maintenance', [], { open_ended: true }),
-    node('MMR-109', 'initiative', 'parked', 'Post-v1 ideas', [leaf('MMR-110', 'parked')]),
-    node('MMR-111', 'initiative', 'done', 'Old arc', [
-      node('MMR-112', 'phase', 'done', 'Old phase', [leaf('MMR-113', 'done')]),
+    node('MMR-105', 'phase', 'in_progress', 'Work page', [
+      leaf('MMR-106', 'done'),
+      leaf('MMR-107', 'ready'),
     ]),
-    leaf('MMR-114', 'ready', 'A loose task'),
-  ],
-  type: 'project',
-};
+  ]),
+  node('MMR-108', 'initiative', 'ready', 'Maintenance', [], { open_ended: true }),
+  node('MMR-109', 'initiative', 'parked', 'Post-v1 ideas', [leaf('MMR-110', 'parked')]),
+  node('MMR-111', 'initiative', 'done', 'Old arc', [
+    node('MMR-112', 'phase', 'done', 'Old phase', [leaf('MMR-113', 'done')]),
+  ]),
+  leaf('MMR-114', 'ready', 'A loose task'),
+]);
 
 const PROJECT: WireNode = {
   ...task({ id: 'MMR', status: 'in_progress', title: 'Mimir' }),
@@ -126,11 +126,9 @@ function serve(scope: Scope, report: WireWorkReport | Error = workReport(), tree
     if (path === scope.recordPath) {
       return Promise.resolve(scope.record);
     }
-    if (path === '/api/projects/MMR/tree') {
-      return Promise.resolve(tree);
-    }
     return Promise.resolve(emptyRead(path));
   });
+  serveShell({ trees: { MMR: tree } });
 }
 
 function renderAt(url: string) {
@@ -149,7 +147,7 @@ function renderAt(url: string) {
 }
 
 /** Serve `report` for the scope, open its page, and wait for the title. */
-async function open(scope: Scope, report?: WireWorkReport | Error, tree?: WireTreeNode) {
+async function open(scope: Scope, report?: WireWorkReport | Error, tree?: EngineTree) {
   serve(scope, report, tree);
   const testRouter = renderAt(scope.url);
   await screen.findByRole('heading', { level: 1, name: scope.record.title });

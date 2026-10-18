@@ -1,9 +1,9 @@
 import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
-import { promoteSeedKey } from '../api/mutations';
-import { reviewQuery } from '../api/queries';
+import { promoteSeedKey } from '../api/seed-mutations';
 import type { WireReviewReport, WireSeed } from '../api/types';
+import { reviewQuery } from '../api/view-queries';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
 import { SeedPromoteSheet } from './seed-promote-sheet';
 import { SeedVerbs } from './seed-verbs';

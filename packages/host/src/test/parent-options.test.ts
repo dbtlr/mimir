@@ -1,31 +1,21 @@
 import { describe, expect } from 'vitest';
 
-import type { WireTreeNode } from '../api/types';
 import { homeOptions, parentOptions } from '../lib/parent-options';
+import { engineTree } from './engine-fixtures';
 
-const tree = {
-  children: [
-    {
-      children: [
-        { children: [], id: 'MMR-7', title: 'Phase 5 — UI', type: 'phase' },
-        { children: [], id: 'MMR-2', title: 'Phase 0', type: 'phase' },
-      ],
-      id: 'MMR-1',
-      title: 'build',
-      type: 'initiative',
-    },
-    {
-      children: [],
-      id: 'MMR-9',
-      open_ended: true,
-      title: 'Polish',
-      type: 'initiative',
-    },
-  ],
-  id: 'MMR',
-  title: 'Mimir',
-  type: 'project',
-} as unknown as WireTreeNode;
+const tree = engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' }, [
+  engineTree({ id: 'MMR-1', status: 'in_progress', title: 'build', type: 'initiative' }, [
+    engineTree({ id: 'MMR-7', status: 'ready', title: 'Phase 5 — UI', type: 'phase' }),
+    engineTree({ id: 'MMR-2', status: 'ready', title: 'Phase 0', type: 'phase' }),
+  ]),
+  engineTree({
+    id: 'MMR-9',
+    open_ended: true,
+    status: 'ready',
+    title: 'Polish',
+    type: 'initiative',
+  }),
+]);
 
 describe('parentOptions', () => {
   it('emits initiatives as selectable group headers with their phases, depth-tagged', () => {
@@ -38,12 +28,9 @@ describe('parentOptions', () => {
   });
 
   it('skips tasks (never a valid parent) and is empty for a bare project', () => {
-    const bare = {
-      children: [],
-      id: 'MMR',
-      title: 'M',
-      type: 'project',
-    } as unknown as WireTreeNode;
+    const bare = engineTree({ id: 'MMR', status: 'ready', type: 'project' }, [
+      engineTree({ id: 'MMR-3', status: 'ready', type: 'task' }),
+    ]);
     expect(parentOptions(bare)).toStrictEqual([]);
   });
 });

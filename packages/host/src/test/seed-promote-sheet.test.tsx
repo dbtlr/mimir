@@ -4,10 +4,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { WireSeed } from '../api/types';
 import { SeedPromoteSheet } from '../components/seed-promote-sheet';
+import { engineProject, engineTree } from './engine-fixtures';
 import { seed } from './fixtures';
+import { serveShell } from './shell-fns';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend: vi.fn() }));
+vi.mock('../api/fns/shell');
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('sonner', () => ({ toast }));
 // The sheet's only router touch is useNavigate for "& open"; stub it.
@@ -19,26 +22,16 @@ afterEach(() => {
 
 /** Projects/tree reads the AuthoringSheet fires; the seed detail is per-test. */
 function baseReads(seedDetail: (path: string) => Promise<unknown> | undefined) {
+  serveShell({
+    projects: [engineProject({ id: 'MMR', title: 'Mimir' })],
+    trees: {
+      MMR: engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' }),
+    },
+  });
   apiGet.mockImplementation((path: string) => {
     const detail = seedDetail(path);
     if (detail !== undefined) {
       return detail;
-    }
-    if (path === '/api/projects') {
-      return Promise.resolve({ items: [{ id: 'MMR', title: 'Mimir' }], total: 1 });
-    }
-    if (path.startsWith('/api/projects/MMR/tree')) {
-      return Promise.resolve({
-        children: [],
-        created_at: '',
-        id: 'MMR',
-        open_ended: false,
-        parent: null,
-        status: 'in_progress',
-        title: 'Mimir',
-        type: 'project',
-        updated_at: '',
-      });
     }
     return Promise.resolve({ items: [], total: 0 });
   });

@@ -2,9 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 
-import { annotationsQuery, nodeQuery, reviewQuery, treeQuery } from '../api/queries';
+import { annotationsQuery, nodeQuery } from '../api/node-queries';
+import { treeQuery } from '../api/shell-queries';
 import { projectKeyOf } from '../api/types';
 import type { WireReviewReport, WireWorkNeedsYou } from '../api/types';
+import { reviewQuery } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import { nodeLink } from '../lib/record-url';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';

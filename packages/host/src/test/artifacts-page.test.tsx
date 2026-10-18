@@ -6,9 +6,12 @@ import { describe, expect, vi } from 'vitest';
 
 import type { WireArtifactSummary } from '../api/types';
 import { routeTree } from '../router';
+import { engineProject } from './engine-fixtures';
+import { serveShell } from './shell-fns';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/shell');
 
 const summary = (n: number, over: Partial<WireArtifactSummary> = {}): WireArtifactSummary => ({
   created_at: '2026-06-16T00:00:00.000Z',
@@ -35,10 +38,8 @@ function renderArtifactsPage(url = '/p/MMR/artifacts') {
 
 /** Serve the given artifact rows (total = rows) and one project, MMR. */
 function serveRows(items: WireArtifactSummary[]) {
+  serveShell({ projects: [engineProject({ id: 'MMR' })] });
   apiGet.mockImplementation((path: string) => {
-    if (path.startsWith('/api/projects') && !path.includes('status=archived')) {
-      return Promise.resolve({ items: [{ id: 'MMR', status: 'ready' }], total: 1 });
-    }
     if (path.startsWith('/api/artifacts?')) {
       return Promise.resolve({ items, total: items.length });
     }
@@ -156,10 +157,8 @@ describe('artifactsPage', () => {
   });
 
   it('scrolling the page pulls the next window, so every artifact is reachable', async () => {
+    serveShell();
     apiGet.mockImplementation((path: string) => {
-      if (path.startsWith('/api/projects') && !path.includes('status=archived')) {
-        return Promise.resolve({ items: [], total: 0 });
-      }
       if (path.startsWith('/api/artifacts?')) {
         const params = new URLSearchParams(path.slice(path.indexOf('?') + 1));
         if (params.get('offset') === '100') {

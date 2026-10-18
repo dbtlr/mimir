@@ -1,11 +1,11 @@
 import { Dialog } from '@base-ui-components/react/dialog';
+import type { EngineSearchHit } from '@mimir/contract';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useRouter } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useId, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode, RefObject } from 'react';
 
-import { projectsQuery, searchQuery } from '../api/queries';
-import type { WireSearchHit } from '../api/types';
+import { projectsQuery, searchQuery } from '../api/shell-queries';
 import { cn } from '../lib/cn';
 import { LINK_LABEL, groupHits, highlightTerms, hitStatus } from '../lib/jump';
 import { readRecentRecords, rememberRecord } from '../lib/recent-records';
@@ -21,7 +21,7 @@ import { StatusDot } from './status-dot';
 const SEARCH_DEBOUNCE_MS = 120;
 
 /** A record row's fields: a search hit, or a remembered record without the search's extras. */
-type RowRecord = RecentRecord & Partial<Pick<WireSearchHit, 'lifecycle' | 'link' | 'snippet'>>;
+type RowRecord = RecentRecord & Partial<Pick<EngineSearchHit, 'lifecycle' | 'link' | 'snippet'>>;
 
 /** One choosable row: a record to open or an action to run. */
 type Choice = {
@@ -55,7 +55,7 @@ export function JumpPalette() {
   const projects = useQuery(projectsQuery);
   // Only a project that exists scopes the search: the server rejects an
   // unknown one, which would fail every search on a mistyped URL.
-  const project = projects.data?.items.some((p) => p.id === key) === true ? key : undefined;
+  const project = projects.data?.some((p) => p.id === key) === true ? key : undefined;
   useCommandHotkey('KeyK', openPalette, { enabled: !open });
 
   function openPalette() {

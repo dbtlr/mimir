@@ -2,8 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
+import { artifactQuery } from '../api/browse-queries';
 import { isNotFound } from '../api/errors';
-import { artifactQuery, nodeQuery, projectsQuery, treeQuery } from '../api/queries';
+import { nodeQuery } from '../api/node-queries';
+import { projectsQuery, treeQuery } from '../api/shell-queries';
 import type { WireArtifact, WireArtifactDetail, WireArtifactLink, WireNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { MarkdownBody } from '../components/markdown-body';
@@ -241,7 +243,7 @@ function ArtifactRecord({ artifactId }: { artifactId: string }) {
     );
   }
 
-  const projectTitle = projects.data?.items.find((p) => p.id === data.project)?.title;
+  const projectTitle = projects.data?.find((p) => p.id === data.project)?.title;
   const { kind } = splitKindTags(data.tags);
   const hostNode = hostId === undefined ? undefined : host.data;
   const siblings = hostNode?.artifacts ?? [];

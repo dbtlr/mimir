@@ -1,18 +1,10 @@
+import type { EngineSearchHit } from '@mimir/contract';
 import { describe, expect, it } from 'vitest';
 
-import type { WireSearchHit } from '../api/types';
 import { groupHits, highlightTerms } from '../lib/jump';
+import { searchHit } from './engine-fixtures';
 
-const hit = (id: string, match: WireSearchHit['match']): WireSearchHit => ({
-  finished: false,
-  id,
-  kind: 'task',
-  lifecycle: 'todo',
-  match,
-  project: 'MMR',
-  title: id,
-  updated_at: '2026-10-01T10:00:00.000Z',
-});
+const hit = (id: string, match: EngineSearchHit['match']) => searchHit({ id, match, title: id });
 
 describe('groupHits (MMR-455)', () => {
   it('groups hits by how they matched, keeping the search ranking inside each group', () => {

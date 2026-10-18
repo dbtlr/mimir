@@ -5,10 +5,13 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, vi } from 'vitest';
 
 import { routeTree } from '../router';
+import { engineProject } from './engine-fixtures';
 import { emptyRead } from './fixtures';
+import { serveShell } from './shell-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
+vi.mock('../api/fns/shell');
 const { toast } = vi.hoisted(() => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
@@ -19,18 +22,15 @@ afterEach(() => {
 });
 
 function mockApi() {
+  serveShell({
+    projects: [
+      engineProject({ id: 'MMR', title: 'Mimir' }),
+      engineProject({ id: 'NRN', status: 'ready', title: 'Norn' }),
+    ],
+  });
   apiGet.mockImplementation((path: string) => {
-    if (path === '/api/health') {
+    if (path === '/health') {
       return Promise.resolve({ schema: 1, status: 'ok', version: '0.0.0' });
-    }
-    if (path.startsWith('/api/projects') && !path.includes('status=archived')) {
-      return Promise.resolve({
-        items: [
-          { id: 'MMR', status: 'in_progress', title: 'Mimir' },
-          { id: 'NRN', status: 'ready', title: 'Norn' },
-        ],
-        total: 2,
-      });
     }
     if (path.startsWith('/api/seeds?')) {
       return Promise.resolve(emptyRead(path));

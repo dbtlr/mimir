@@ -1,14 +1,17 @@
 import { PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
-import type { Priority, SeedKind, Size } from '@mimir/contract';
+import type { EngineNode, Priority, SeedKind, Size } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode, RefObject } from 'react';
 import { toast } from 'sonner';
 
-import { useCreateNode, useDepend, usePromoteSeed } from '../api/mutations';
-import type { CreateNodeInput, PromoteSeedInput } from '../api/mutations';
-import { projectsQuery, tasksQuery, treeQuery } from '../api/queries';
+import { tasksQuery } from '../api/browse-queries';
+import { useCreateNode, useDepend } from '../api/node-mutations';
+import type { CreateNodeInput } from '../api/node-mutations';
+import { usePromoteSeed } from '../api/seed-mutations';
+import type { PromoteSeedInput } from '../api/seed-mutations';
+import { projectsQuery, treeQuery } from '../api/shell-queries';
 import type { WireNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { cn } from '../lib/cn';
@@ -164,7 +167,7 @@ function AuthoringSheetBody({
   const descriptionTouched = useRef(false);
 
   const projects = useQuery(projectsQuery);
-  const projectItems = projects.data?.items ?? [];
+  const projectItems = projects.data ?? [];
   const projKey = projectPick !== '' ? projectPick : (projectItems[0]?.id ?? '');
   const projTitle = projectItems.find((p) => p.id === projKey)?.title ?? projKey;
 
@@ -962,7 +965,7 @@ function HomeProjectOptions({
   projKey,
   onPick,
 }: {
-  projectItems: WireNode[];
+  projectItems: EngineNode[];
   projKey: string;
   onPick: (id: string) => void;
 }) {

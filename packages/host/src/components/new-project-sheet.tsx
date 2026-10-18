@@ -1,7 +1,7 @@
 import { useForm } from '@tanstack/react-form';
 import { useId, useState } from 'react';
 
-import { useCreateProject } from '../api/mutations';
+import { useCreateProject } from '../api/shell-mutations';
 import { suggestKey } from '../lib/project-key';
 import { ActionButton } from './ui/action-button';
 import { Sheet, SheetContent, SheetTitle } from './ui/sheet';

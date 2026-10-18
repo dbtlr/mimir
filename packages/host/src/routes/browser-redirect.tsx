@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Navigate } from '@tanstack/react-router';
 
-import { projectsQuery } from '../api/queries';
+import { projectsQuery } from '../api/shell-queries';
 import { RecordPending } from '../components/record-layout';
 import { useCurrentProjectKey } from '../lib/current-project';
 import type { ArtifactsSearch, SeedsSearch, TasksSearch } from '../router';

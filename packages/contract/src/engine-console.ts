@@ -103,9 +103,10 @@ const asOf = z.date().optional();
  * The console's methods (ADR 0034 decision 6). Their scope is what the page
  * needs, not the one project key that governs the CLI and MCP reads: `review`
  * spans every active project, the work pages take a project key or a container
- * id, and the overview takes a project key. Keys are checked in core, so the
- * refusals match the HTTP routes. The time zone is required there for the
- * pages that place a shipped window.
+ * id, the overview takes a project key, and `search` (the jump palette) spans
+ * every project, ranking the optional `project` first. Keys are checked in
+ * core, so the refusals match the HTTP routes. The time zone is required there
+ * for the pages that place a shipped window.
  */
 export const consoleSchemas = {
   nodeWork: {
@@ -127,6 +128,15 @@ export const consoleSchemas = {
     input: z.strictObject({ asOf, timeZone }),
     kind: 'query',
     output: consoleEngineViews.review,
+  },
+  search: {
+    input: z.strictObject({
+      limit: z.number().int().optional(),
+      project: z.string().optional(),
+      query: z.string(),
+    }),
+    kind: 'query',
+    output: engineViews.searchSet,
   },
 } as const;
 

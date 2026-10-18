@@ -8,52 +8,38 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../api/errors';
 import { POLL_MS } from '../api/queries';
 import { createQueryClient } from '../api/query-client';
-import type { WireNode, WireTreeNode } from '../api/types';
+import type { WireNode } from '../api/types';
 import { routeTree } from '../router';
+import { engineTree } from './engine-fixtures';
 import { emptyRead, task, workReport } from './fixtures';
+import { serveShell } from './shell-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
+vi.mock('../api/fns/shell');
 vi.mock('sonner', async (orig) => ({
   // oxlint-disable-next-line typescript/consistent-type-imports
   ...(await orig<typeof import('sonner')>()),
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
-function container(
-  id: string,
-  type: 'initiative' | 'phase',
-  title: string,
-  children: WireTreeNode[],
-): WireTreeNode {
-  return {
-    children,
-    created_at: '2026-06-01T10:00:00.000Z',
-    id,
-    parent: null,
-    status: 'ready',
-    title,
-    type,
-    updated_at: '2026-06-01T10:00:00.000Z',
-  };
-}
-
-const TREE: WireTreeNode = {
-  children: [
-    container('MMR-1', 'initiative', 'Hosted and external backends', [
-      container('MMR-2', 'phase', 'SQLite replaces Norn', [
-        { ...task({ id: 'MMR-417', status: 'ready' }), children: [] },
-      ]),
-    ]),
-  ],
-  created_at: '2026-06-01T10:00:00.000Z',
-  id: 'MMR',
-  parent: null,
-  status: 'in_progress',
-  title: 'Mimir',
-  type: 'project',
-  updated_at: '2026-06-01T10:00:00.000Z',
-};
+const TREE = engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' }, [
+  engineTree(
+    { id: 'MMR-1', status: 'ready', title: 'Hosted and external backends', type: 'initiative' },
+    [
+      engineTree(
+        {
+          id: 'MMR-2',
+          parent: 'MMR-1',
+          status: 'ready',
+          title: 'SQLite replaces Norn',
+          type: 'phase',
+        },
+        [engineTree({ id: 'MMR-417', parent: 'MMR-2', status: 'ready', type: 'task' })],
+      ),
+    ],
+  ),
+]);
 
 /** Serve `node` at its detail path, the MMR tree, and an empty list everywhere else. */
 function serve(node: WireNode, extra: Record<string, unknown> = {}) {
@@ -67,11 +53,9 @@ function serve(node: WireNode, extra: Record<string, unknown> = {}) {
     if (path.startsWith(`/api/nodes/${node.id}/work?`)) {
       return Promise.resolve(workReport());
     }
-    if (path === '/api/projects/MMR/tree') {
-      return Promise.resolve(TREE);
-    }
     return Promise.resolve(emptyRead(path));
   });
+  serveShell({ trees: { MMR: TREE } });
 }
 
 function renderAt(
@@ -154,8 +138,19 @@ describe('task page (MMR-449)', () => {
 
   it('links the project when no container holds the task', async () => {
     const loose = task({ id: 'MMR-9', parent: 'MMR', status: 'ready', title: 'A loose task' });
-    serve(loose, {
-      '/api/projects/MMR/tree': { ...TREE, children: [{ ...loose, children: [] }] },
+    serve(loose);
+    serveShell({
+      trees: {
+        MMR: engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' }, [
+          engineTree({
+            id: 'MMR-9',
+            parent: 'MMR',
+            status: 'ready',
+            title: 'A loose task',
+            type: 'task',
+          }),
+        ]),
+      },
     });
     renderAt('/p/MMR/9');
 

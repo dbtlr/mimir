@@ -5,10 +5,12 @@ import type { ReactNode } from 'react';
 import { describe, expect, vi } from 'vitest';
 
 import { NewTaskButton } from '../components/new-task-button';
-import { project } from './fixtures';
+import { engineProject, engineTree } from './engine-fixtures';
+import { serveShell } from './shell-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
+vi.mock('../api/fns/shell');
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 
 function wrap(ui: ReactNode) {
@@ -30,11 +32,12 @@ describe('newTaskButton', () => {
   });
 
   it('opens the authoring sheet (MMR-227), replacing the retired TaskForm create path', async () => {
-    apiGet.mockImplementation((path: string) =>
-      path === '/api/projects'
-        ? Promise.resolve({ items: [project({ id: 'MMR', title: 'Mimir' })], total: 1 })
-        : Promise.resolve({ children: [], id: 'MMR', title: 'Mimir', type: 'project' }),
-    );
+    serveShell({
+      projects: [engineProject({ id: 'MMR', title: 'Mimir' })],
+      trees: {
+        MMR: engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' }),
+      },
+    });
     const user = userEvent.setup();
     wrap(<NewTaskButton projectKey="MMR" offline={false} />);
     await user.click(screen.getByRole('button', { name: /new task/i }));

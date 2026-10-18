@@ -9,7 +9,7 @@ import {
   useRejectSeed,
   useResolveSeed,
   useUpdateSeed,
-} from '../api/mutations';
+} from '../api/seed-mutations';
 
 const { apiSend } = vi.hoisted(() => ({ apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiSend }));

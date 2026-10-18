@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
 import { isNotFound } from '../api/errors';
-import { projectQuery } from '../api/queries';
+import { projectQuery } from '../api/node-queries';
 import { useArchivedProject } from '../lib/use-archived-project';
 import { UnavailableProject } from './project-unavailable';
 

@@ -33,11 +33,12 @@ function updateFixture() {
   return { controller: createPwaUpdateController(effects), effects };
 }
 
-function renderFooter(controller = updateFixture().controller) {
+function renderFooter(
+  controller = updateFixture().controller,
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   render(
-    <QueryClientProvider
-      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-    >
+    <QueryClientProvider client={client}>
       <PwaUpdateProvider controller={controller}>
         <VersionFooter />
       </PwaUpdateProvider>
@@ -46,7 +47,20 @@ function renderFooter(controller = updateFixture().controller) {
 }
 
 describe('versionFooter (MMR-260)', () => {
-  it('renders the host-reported version once /api/health answers', async () => {
+  it('asks the host on mount even when a restored snapshot holds a fresh answer', async () => {
+    // The console's own freshness window, so the snapshot below counts as fresh.
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 5_000 } },
+    });
+    // Another tab wrote this a moment ago; it says nothing about the host now.
+    client.setQueryData(['health'], { schema: 4, status: 'ok', version: '0.13.0-next.68' });
+    apiGet.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
+    renderFooter(updateFixture().controller, client);
+    await expect(screen.findByText('0.14.0-next.3')).resolves.toBeDefined();
+    expect(apiGet).toHaveBeenCalledWith('/health');
+  });
+
+  it('renders the host-reported version once /health answers', async () => {
     apiGet.mockResolvedValue({ schema: 4, status: 'ok', version: '0.13.0-next.68' });
     renderFooter();
     await expect(screen.findByText('0.13.0-next.68')).resolves.toBeDefined();

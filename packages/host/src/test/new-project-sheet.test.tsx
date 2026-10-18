@@ -2,10 +2,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, vi } from 'vitest';
 
+import { create } from '../api/fns/shell';
 import { NewProjectSheet } from '../components/new-project-sheet';
+import { engineProject } from './engine-fixtures';
 
-const { apiSend } = vi.hoisted(() => ({ apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiSend }));
+vi.mock('../api/fns/shell');
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn() } }));
 vi.mock('sonner', () => ({ toast }));
 
@@ -67,8 +68,8 @@ describe('newProjectSheet (MMR-230)', () => {
     expect(screen.getByRole('button', { name: /create/i })).toBeEnabled();
   });
 
-  it('submitting posts { key, name, description } and closes the sheet', async () => {
-    apiSend.mockResolvedValue({ id: 'SR' });
+  it('submitting creates { key, name, description } and closes the sheet', async () => {
+    vi.mocked(create).mockResolvedValue(engineProject({ id: 'SR' }));
     const onOpenChange = wrap();
     fireEvent.change(screen.getByLabelText(/title/i), { target: { value: 'Signal relay' } });
     fireEvent.change(screen.getByLabelText(/description/i), {
@@ -76,30 +77,32 @@ describe('newProjectSheet (MMR-230)', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /create/i }));
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/projects', {
-        description: 'Cross-site relay',
-        key: 'SR',
-        name: 'Signal relay',
+      expect(create).toHaveBeenCalledWith({
+        data: {
+          description: 'Cross-site relay',
+          key: 'SR',
+          name: 'Signal relay',
+          type: 'project',
+        },
       });
     });
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it('omits an empty description from the body', async () => {
-    apiSend.mockResolvedValue({ id: 'SR' });
+    vi.mocked(create).mockResolvedValue(engineProject({ id: 'SR' }));
     wrap();
     fireEvent.change(screen.getByLabelText(/title/i), { target: { value: 'Signal relay' } });
     fireEvent.click(screen.getByRole('button', { name: /create/i }));
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/projects', {
-        key: 'SR',
-        name: 'Signal relay',
+      expect(create).toHaveBeenCalledWith({
+        data: { key: 'SR', name: 'Signal relay', type: 'project' },
       });
     });
   });
 
   it('a server rejection toasts and keeps the sheet open with its values', async () => {
-    apiSend.mockRejectedValue(new Error('project SR already exists'));
+    vi.mocked(create).mockRejectedValue(new Error('project SR already exists'));
     const onOpenChange = wrap();
     fireEvent.change(screen.getByLabelText(/title/i), { target: { value: 'Signal relay' } });
     fireEvent.click(screen.getByRole('button', { name: /create/i }));

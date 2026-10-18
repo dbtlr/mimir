@@ -1,6 +1,6 @@
 import { describe, expect } from 'vitest';
 
-import { ARTIFACT_PAGE_SIZE, artifactParams, artifactsQuery } from '../api/queries';
+import { ARTIFACT_PAGE_SIZE, artifactParams, artifactsQuery } from '../api/browse-queries';
 import type { WireArtifactSummary } from '../api/types';
 
 describe('artifactParams', () => {

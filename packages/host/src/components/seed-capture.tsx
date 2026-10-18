@@ -7,8 +7,8 @@ import { createContext, useContext, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 
-import { useFileSeed } from '../api/mutations';
-import { projectsQuery } from '../api/queries';
+import { useFileSeed } from '../api/seed-mutations';
+import { projectsQuery } from '../api/shell-queries';
 import { cn } from '../lib/cn';
 import { SEED_KIND_WASH } from '../lib/seed-kind';
 import { useHotkey } from '../lib/use-hotkey';
@@ -77,7 +77,7 @@ function SeedCaptureDialog({
 function SeedCaptureForm({ onClose }: { onClose: () => void }) {
   const { key } = useParams({ strict: false });
   const projects = useQuery(projectsQuery);
-  const projectItems = projects.data?.items ?? [];
+  const projectItems = projects.data ?? [];
   const defaultProject = key ?? projectItems[0]?.id ?? '';
 
   const [kind, setKind] = useState<SeedKind>('idea');

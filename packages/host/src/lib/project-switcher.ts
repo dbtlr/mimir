@@ -1,4 +1,5 @@
-import type { WireNode } from '../api/types';
+import type { EngineNode } from '@mimir/contract';
+
 import { orderProjects } from './current-project';
 import { isSectionPage, sectionOfPath } from './project-sidebar';
 import type { SidebarSection } from './project-sidebar';
@@ -14,10 +15,7 @@ import type { SidebarSection } from './project-sidebar';
  */
 export const ALL_PROJECTS_KEY = '*';
 
-type Switchable = Pick<WireNode, 'id' | 'title' | 'archived_at'> & {
-  pinned?: boolean | null;
-  last_activity_at?: string | null;
-};
+type Switchable = Pick<EngineNode, 'id' | 'title' | 'archivedAt' | 'pinned' | 'lastActivityAt'>;
 
 /**
  * The active projects in the switcher's two groups: the pinned ones, then the
@@ -34,7 +32,7 @@ export function groupProjects<T extends Switchable>(
 }
 
 /** One project carrying the pin it is on its way to, if it has one in flight. */
-function withPendingPin<T extends Pick<WireNode, 'id'> & { pinned?: boolean | null }>(
+function withPendingPin<T extends Pick<EngineNode, 'id' | 'pinned'>>(
   project: T,
   pins: ReadonlyMap<string, boolean>,
 ): T {
@@ -43,7 +41,7 @@ function withPendingPin<T extends Pick<WireNode, 'id'> & { pinned?: boolean | nu
 }
 
 /** The list with every pin in flight laid over what the server last said. */
-export function overlayPins<T extends Pick<WireNode, 'id'> & { pinned?: boolean | null }>(
+export function overlayPins<T extends Pick<EngineNode, 'id' | 'pinned'>>(
   projects: readonly T[],
   pins: ReadonlyMap<string, boolean>,
 ): T[] {
@@ -51,7 +49,7 @@ export function overlayPins<T extends Pick<WireNode, 'id'> & { pinned?: boolean 
 }
 
 /** The projects whose key or title contains the query, ignoring case; an empty query keeps all. */
-export function filterProjects<T extends Pick<WireNode, 'id' | 'title'>>(
+export function filterProjects<T extends Pick<EngineNode, 'id' | 'title'>>(
   projects: readonly T[],
   query: string,
 ): T[] {

@@ -1,26 +1,28 @@
+import type { EngineNode } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
-import type { WireNode } from '../api/types';
+import { projects } from '../api/fns/shell';
 import { readRememberedProject, rememberProject } from '../lib/current-project';
 import { routeTree } from '../router';
-import { emptyRead, project } from './fixtures';
+import { engineProject } from './engine-fixtures';
+import { emptyRead } from './fixtures';
+import { failShellReads, serveShell } from './shell-fns';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend: vi.fn() }));
+vi.mock('../api/fns/shell');
 
-const MMR = project({ id: 'MMR' });
-const NRN = project({ id: 'NRN' });
+const MMR = engineProject({ id: 'MMR' });
+const NRN = engineProject({ id: 'NRN' });
 
-/** Serve `projects` as the project list and empty reads for everything else. */
-function serve(projects: WireNode[]) {
+/** Serve `list` as the project list and empty reads for everything else. */
+function serve(list: EngineNode[]) {
+  serveShell({ projects: list });
   apiGet.mockImplementation((path: string) => {
-    if (path === '/api/projects') {
-      return Promise.resolve({ items: projects, total: projects.length });
-    }
     // A key that names no project: the project record, and its scoped lists, answer 404.
     if (path.startsWith('/api/projects/ZZZ') || /[?&]project=ZZZ/.test(path)) {
       return Promise.reject(new ApiError(`GET ${path} → 404`, 404));
@@ -126,7 +128,9 @@ describe('remembering the current project (MMR-495)', () => {
     renderAt('/p/ZZZ/tasks');
     await screen.findByRole('heading', { level: 1, name: 'Tasks' });
     await waitFor(() => {
-      expect(apiGet).toHaveBeenCalledWith('/api/projects');
+      expect(projects).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'active' }) }),
+      );
     });
     expect(readRememberedProject()).toBe('MMR');
   });
@@ -212,6 +216,7 @@ describe('the top-level browsers redirect (MMR-495)', () => {
 
   it('stays on the URL and says unreachable while the project list fails', async () => {
     apiGet.mockRejectedValue(new Error('connection refused'));
+    failShellReads(new Error('connection refused'));
     const testRouter = renderAt('/tasks?status=ready');
     await expect(screen.findByText(/Unreachable/)).resolves.toBeInTheDocument();
     expect(testRouter.state.location.pathname).toBe('/tasks');
