@@ -258,6 +258,7 @@ function viewSchemas<T extends z.ZodType>(instant: T) {
       title: z.string(),
       updatedAt: instant,
     }),
+    scratchpadDiscard: z.object({ id: z.string(), result: z.literal('discarded') }),
     scratchpadRows: z.array(scratchpadRow),
     searchSet: setSchema(
       z.object({
@@ -286,6 +287,7 @@ function viewSchemas<T extends z.ZodType>(instant: T) {
       }),
     ),
     seed,
+    seedPromotion: z.object({ created: z.string().optional(), seed, spawnedId: z.string() }),
     seeds: z.array(seed),
     status: z.object({
       distribution: distributionSchema,
@@ -294,6 +296,25 @@ function viewSchemas<T extends z.ZodType>(instant: T) {
       type: viewTypeSchema,
     }),
     tree,
+    triageReport: z.object({
+      board: z.string(),
+      dryRun: z.boolean(),
+      failures: z.array(z.object({ message: z.string(), task: z.string() })),
+      parked: z.number(),
+      readyToResolve: z.array(seed),
+      untriaged: z.array(seed),
+      upstreamResolutions: z.array(
+        z.object({
+          alreadyRecorded: z.boolean(),
+          annotated: z.boolean(),
+          blocked: z.boolean(),
+          lifecycle: z.enum(SEED_LIFECYCLE_VALUES),
+          reason: z.string().nullable(),
+          task: z.string(),
+          upstream: z.string(),
+        }),
+      ),
+    }),
   };
 }
 

@@ -465,9 +465,12 @@ function call(engine: Engine, method: WriteMethod, input: unknown) {
   return (Reflect.get(engine, method) as (input: unknown) => Promise<unknown>).call(engine, input);
 }
 
-test('the write table names every mutation method in the contract', () => {
+/** Seed and Scratchpad writes (MMR-518) are proved in seed-scratch-writes.test.ts. */
+const SEED_SCRATCH_WRITE = /^(?:seed|scratch)[A-Z]|^triage$/;
+
+test('the write table names every node-write mutation method in the contract', () => {
   const mutations = Object.entries(engineSchemas)
-    .filter(([, schema]) => schema.kind === 'mutation')
+    .filter(([name, schema]) => schema.kind === 'mutation' && !SEED_SCRATCH_WRITE.test(name))
     .map(([name]) => name);
   expect([...new Set(writes.map((entry): string => entry.method))].toSorted()).toEqual(
     mutations.toSorted(),

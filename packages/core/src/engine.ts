@@ -1,5 +1,5 @@
 import { engineSchemas, intentViews, parseEngineInput } from '@mimir/contract';
-import type { Engine, EngineInput } from '@mimir/contract';
+import type { Engine, EngineInput, Scratchpad } from '@mimir/contract';
 
 import {
   annotateEngine,
@@ -19,6 +19,7 @@ import {
 import { notFound, projectNotFound } from './errors';
 import { compareScratchpadRows } from './format';
 import {
+  buildArtifactDetail,
   getArtifact,
   getNode,
   listArtifacts,
@@ -30,8 +31,19 @@ import {
 } from './intent';
 import { listProjects, nodeTree } from './resource';
 import { createScratchpadService } from './scratchpads';
+import type { ScratchpadService } from './scratchpads';
 import { searchRecords } from './search/intent';
-import { getSeed, listSeeds } from './seeds';
+import {
+  fileSeed,
+  getSeed,
+  listSeeds,
+  parkSeed,
+  promoteSeed,
+  transitionSeed,
+  triage,
+  unparkSeed,
+  updateSeed,
+} from './seeds';
 import type { Store } from './store';
 
 /** The store-owning Engine; transports use the same methods locally or remotely. */
@@ -184,5 +196,157 @@ export class LocalEngine extends UniformEngineBase implements Engine {
 
   updateProject(input: EngineInput<'updateProject'>) {
     return updateProjectEngine(this.store, input);
+  }
+
+  // Seed and Scratchpad writes (MMR-518). Seed verbs guard their own board. A Scratchpad
+  // in an archived project reads as absent to every id-keyed write, as it does to
+  // `scratchGet`.
+
+  /** Refuse a Scratchpad write whose project is archived, as an absent record would be. */
+  private async assertScratchpadWritable(id: string) {
+    const scratchpad = await this.store.scratchpads.load(id);
+    if (scratchpad !== undefined && !(await this.isActiveProject(scratchpad.project))) {
+      throw notFound(`${id} doesn't exist`);
+    }
+  }
+
+  /** Run one id-keyed Scratchpad write and decode the Scratchpad it returns. */
+  private async scratchWrite(
+    id: string,
+    write: (service: ScratchpadService) => Promise<Scratchpad>,
+  ) {
+    await this.assertScratchpadWritable(id);
+    return intentViews.scratchpad.parse(await write(this.scratchpads));
+  }
+
+  async scratchAgendaAdd(input: EngineInput<'scratchAgendaAdd'>) {
+    const { id, expectedUpdatedAt, content } = parseEngineInput(
+      engineSchemas.scratchAgendaAdd.input,
+      input,
+    );
+    return this.scratchWrite(id, (service) =>
+      service.agendaAdd(id, { content, expectedUpdatedAt: expectedUpdatedAt.toISOString() }),
+    );
+  }
+
+  async scratchAgendaComplete(input: EngineInput<'scratchAgendaComplete'>) {
+    const { id, expectedUpdatedAt, number } = parseEngineInput(
+      engineSchemas.scratchAgendaComplete.input,
+      input,
+    );
+    return this.scratchWrite(id, (service) =>
+      service.agendaComplete(id, { expectedUpdatedAt: expectedUpdatedAt.toISOString(), number }),
+    );
+  }
+
+  async scratchAgendaSupersede(input: EngineInput<'scratchAgendaSupersede'>) {
+    const { id, expectedUpdatedAt, number, reason } = parseEngineInput(
+      engineSchemas.scratchAgendaSupersede.input,
+      input,
+    );
+    return this.scratchWrite(id, (service) =>
+      service.agendaSupersede(id, {
+        expectedUpdatedAt: expectedUpdatedAt.toISOString(),
+        number,
+        reason,
+      }),
+    );
+  }
+
+  async scratchCheckpoint(input: EngineInput<'scratchCheckpoint'>) {
+    const { id, expectedUpdatedAt, content } = parseEngineInput(
+      engineSchemas.scratchCheckpoint.input,
+      input,
+    );
+    return this.scratchWrite(id, (service) =>
+      service.checkpoint(id, { content, expectedUpdatedAt: expectedUpdatedAt.toISOString() }),
+    );
+  }
+
+  async scratchCreate(input: EngineInput<'scratchCreate'>) {
+    const opts = parseEngineInput(engineSchemas.scratchCreate.input, input);
+    return intentViews.scratchpad.parse(await this.scratchpads.create(opts));
+  }
+
+  async scratchDiscard(input: EngineInput<'scratchDiscard'>) {
+    const { id, expectedUpdatedAt, force, reason } = parseEngineInput(
+      engineSchemas.scratchDiscard.input,
+      input,
+    );
+    await this.assertScratchpadWritable(id);
+    await this.scratchpads.discard(id, {
+      expectedUpdatedAt: expectedUpdatedAt.toISOString(),
+      force,
+      reason,
+    });
+    return intentViews.scratchpadDiscard.parse({ id, result: 'discarded' });
+  }
+
+  async scratchFreeze(input: EngineInput<'scratchFreeze'>) {
+    const { id, expectedUpdatedAt, summary, tags } = parseEngineInput(
+      engineSchemas.scratchFreeze.input,
+      input,
+    );
+    await this.assertScratchpadWritable(id);
+    const artifact = await this.scratchpads.freeze(id, {
+      expectedUpdatedAt: expectedUpdatedAt.toISOString(),
+      summary,
+      tags,
+    });
+    return intentViews.artifactDetail.parse(buildArtifactDetail(artifact));
+  }
+
+  async scratchUpdate(input: EngineInput<'scratchUpdate'>) {
+    const { id, expectedUpdatedAt, anchors, title } = parseEngineInput(
+      engineSchemas.scratchUpdate.input,
+      input,
+    );
+    return this.scratchWrite(id, (service) =>
+      service.updateMetadata(id, {
+        anchors,
+        expectedUpdatedAt: expectedUpdatedAt.toISOString(),
+        title,
+      }),
+    );
+  }
+
+  async seedCreate(input: EngineInput<'seedCreate'>) {
+    const opts = parseEngineInput(engineSchemas.seedCreate.input, input);
+    return intentViews.seed.parse(await fileSeed(this.store, opts));
+  }
+
+  async seedPark(input: EngineInput<'seedPark'>) {
+    const { id, reason } = parseEngineInput(engineSchemas.seedPark.input, input);
+    return intentViews.seed.parse(await parkSeed(this.store, id, reason));
+  }
+
+  async seedPromote(input: EngineInput<'seedPromote'>) {
+    const { id, ...opts } = parseEngineInput(engineSchemas.seedPromote.input, input);
+    return intentViews.seedPromotion.parse(await promoteSeed(this.store, id, opts));
+  }
+
+  async seedReject(input: EngineInput<'seedReject'>) {
+    const { id, reason } = parseEngineInput(engineSchemas.seedReject.input, input);
+    return intentViews.seed.parse(await transitionSeed(this.store, id, 'rejected', reason));
+  }
+
+  async seedResolve(input: EngineInput<'seedResolve'>) {
+    const { id, reason } = parseEngineInput(engineSchemas.seedResolve.input, input);
+    return intentViews.seed.parse(await transitionSeed(this.store, id, 'resolved', reason));
+  }
+
+  async seedUnpark(input: EngineInput<'seedUnpark'>) {
+    const { id } = parseEngineInput(engineSchemas.seedUnpark.input, input);
+    return intentViews.seed.parse(await unparkSeed(this.store, id));
+  }
+
+  async seedUpdate(input: EngineInput<'seedUpdate'>) {
+    const { id, ...fields } = parseEngineInput(engineSchemas.seedUpdate.input, input);
+    return intentViews.seed.parse(await updateSeed(this.store, id, fields));
+  }
+
+  async triage(input: EngineInput<'triage'>) {
+    const opts = parseEngineInput(engineSchemas.triage.input, input);
+    return intentViews.triageReport.parse(await triage(this.store, opts));
   }
 }

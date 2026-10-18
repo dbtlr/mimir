@@ -171,8 +171,7 @@ their own `updateProject`, whose `id` is a bare project key, and `create` is a
 union on `type`. The `update` input carries every field core's update
 vocabulary has, including `next` (a container's direction) and, on
 `updateProject`, `pinned`. A cleared field is `null`, and `upstream` is a seed
-id or `null`. Not yet Engine methods are artifact and seed updates and the
-seed verbs other than `park` and `unpark`.
+id or `null`. The seed and Scratchpad writes are the next refinement.
 
 The uniform verbs are not written out. Their input and output schemas, the
 `LocalEngine` methods, the router procedures, and the `RemoteEngine` bindings
@@ -191,3 +190,32 @@ transports each repeated, such as a blank annotation or content, an `upstream`
 that is not a seed id, and a missing attach target, live in the Engine. Refusals
 cross the wire as `MimirError` with the same code, message, and hint. The
 archive echo does not list released dependents.
+
+## Refinement (2026-10-18 — Seed and Scratchpad writes)
+
+The Seed and Scratchpad writes are Engine methods. Seeds: `seedCreate`,
+`seedPromote`, `seedResolve`, `seedReject`, `seedPark`, `seedUnpark`,
+`seedUpdate`, and `triage`. Scratchpads: `scratchCreate`, `scratchUpdate`,
+`scratchCheckpoint`, `scratchAgendaAdd`, `scratchAgendaComplete`,
+`scratchAgendaSupersede`, `scratchFreeze`, and `scratchDiscard`. All are
+mutations.
+
+A write that creates a record (`seedCreate`, `scratchCreate`) and `triage`
+take a bare project key, like the board reads. A write on an existing record
+takes its id, which names the project.
+
+A Scratchpad write guards against concurrent edits with
+`expectedUpdatedAt`. The Engine takes it as a `Date`, the value the previous
+Scratchpad output carried, so a client echoes the instant it read rather than
+a string. Every Scratchpad write that returns the Scratchpad returns the full
+record, as `scratchGet` does. `scratchFreeze` returns the new artifact as an
+`artifactDetail`, and `scratchDiscard` returns `{ id, result: 'discarded' }`.
+`seedPromote` returns `{ seed, created?, spawnedId }`.
+
+A Scratchpad in an archived project reads as absent to every id-keyed
+Scratchpad write, as it does to `scratchGet` (ADR 0015). Seed verbs already
+refuse an archived board.
+
+`seedPark` and `seedUnpark` act on seeds only and stay apart from the uniform
+`park` and `unpark`, which answer a node or a seed by id. The seed-only
+methods give a caller a seed-typed answer without narrowing a union.

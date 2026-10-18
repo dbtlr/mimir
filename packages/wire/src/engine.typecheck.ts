@@ -13,6 +13,7 @@ import type {
   SetResult,
   StatusView,
   TreeView,
+  TriageReport,
 } from '@mimir/contract';
 import type { inferRouterInputs, inferRouterOutputs } from '@trpc/server';
 import type { z } from 'zod';
@@ -58,6 +59,9 @@ type CoreProjections = {
   seeds: SeedView[];
   status: StatusView;
   tree: TreeView;
+  seedPromotion: { seed: SeedView; created?: string; spawnedId: string };
+  scratchpadDiscard: { id: string; result: 'discarded' };
+  triageReport: TriageReport;
 };
 type Inputs = { [K in keyof Engine]: Parameters<Engine[K]>[0] };
 type Outputs = { [K in keyof Engine]: Awaited<ReturnType<Engine[K]>> };

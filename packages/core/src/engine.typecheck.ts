@@ -8,8 +8,15 @@ import type {
 } from './create';
 import type { ArtifactQueryOptions, ListOptions, NextOptions } from './intent';
 import type { AttachArtifactInput, UpdateFields, UpdateProjectFields } from './mutations';
+import type { ScratchpadService } from './scratchpads';
 import type { SearchOptions } from './search/intent';
-import type { ListSeedsOptions } from './seeds';
+import type {
+  FileSeedInput,
+  ListSeedsOptions,
+  PromoteSeedInput,
+  TriageOptions,
+  UpdateSeedFields,
+} from './seeds';
 
 type Assert<T extends true> = T;
 type SameKeys<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
@@ -17,6 +24,18 @@ type SameKeys<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
 type Scoped<K extends 'artifacts' | 'list' | 'next'> =
   | Exclude<keyof EngineInput<K>, 'project'>
   | 'scope';
+
+type ScratchOptions<M extends keyof ScratchpadService> = keyof Parameters<ScratchpadService[M]>[1];
+type WithoutId<K extends keyof ScratchpadWrites> = Exclude<keyof EngineInput<K>, 'id'>;
+type ScratchpadWrites = {
+  scratchAgendaAdd: 'agendaAdd';
+  scratchAgendaComplete: 'agendaComplete';
+  scratchAgendaSupersede: 'agendaSupersede';
+  scratchCheckpoint: 'checkpoint';
+  scratchDiscard: 'discard';
+  scratchFreeze: 'freeze';
+  scratchUpdate: 'updateMetadata';
+};
 
 /**
  * LocalEngine spreads parsed input into core options, which skips excess-property
@@ -28,6 +47,20 @@ export type EngineOptionChecks = [
   Assert<SameKeys<Scoped<'artifacts'>, keyof ArtifactQueryOptions>>,
   Assert<SameKeys<keyof EngineInput<'seeds'>, keyof ListSeedsOptions>>,
   Assert<SameKeys<keyof EngineInput<'search'> | 'projectOnly', keyof SearchOptions>>,
+  Assert<SameKeys<keyof EngineInput<'seedCreate'>, keyof FileSeedInput>>,
+  Assert<SameKeys<Exclude<keyof EngineInput<'seedPromote'>, 'id'>, keyof PromoteSeedInput>>,
+  Assert<SameKeys<Exclude<keyof EngineInput<'seedUpdate'>, 'id'>, keyof UpdateSeedFields>>,
+  Assert<SameKeys<keyof EngineInput<'triage'>, keyof TriageOptions>>,
+  Assert<
+    SameKeys<keyof EngineInput<'scratchCreate'>, keyof Parameters<ScratchpadService['create']>[0]>
+  >,
+  Assert<SameKeys<WithoutId<'scratchAgendaAdd'>, ScratchOptions<'agendaAdd'>>>,
+  Assert<SameKeys<WithoutId<'scratchAgendaComplete'>, ScratchOptions<'agendaComplete'>>>,
+  Assert<SameKeys<WithoutId<'scratchAgendaSupersede'>, ScratchOptions<'agendaSupersede'>>>,
+  Assert<SameKeys<WithoutId<'scratchCheckpoint'>, ScratchOptions<'checkpoint'>>>,
+  Assert<SameKeys<WithoutId<'scratchDiscard'>, ScratchOptions<'discard'>>>,
+  Assert<SameKeys<WithoutId<'scratchFreeze'>, ScratchOptions<'freeze'>>>,
+  Assert<SameKeys<WithoutId<'scratchUpdate'>, ScratchOptions<'updateMetadata'>>>,
   // @ts-expect-error A renamed input key no longer matches the core option it feeds.
   Assert<SameKeys<Scoped<'artifacts'> | 'tags', keyof ArtifactQueryOptions>>,
 ];
