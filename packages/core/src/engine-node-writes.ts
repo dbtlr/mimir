@@ -10,7 +10,6 @@ import type {
   DataFieldKey,
   Engine,
   EngineInput,
-  NodeView,
   EngineOutput,
   UniformArgs,
   UniformVerb,
@@ -20,7 +19,7 @@ import { createNode } from './create';
 import { deriveSet } from './derive';
 import { notFound, validation } from './errors';
 import { isSeedRef, parseIdentity } from './ids';
-import { getArtifact, nodeViewById, projectViewOf } from './intent';
+import { buildNodeView, getArtifact, nodeViewById, projectViewOf } from './intent';
 import type { Project } from './model';
 import {
   annotate,
@@ -88,8 +87,10 @@ export async function createEngine(store: Store, input: EngineInput<'create'>) {
     requireSeedUpstream(parsed.upstream);
   }
   if (parsed.type === 'project') {
+    requireText(parsed.name, 'project name');
     return projectEcho(store, await createNode(store, parsed));
   }
+  requireText(parsed.title, 'title');
   const node = await createNode(store, parsed);
   return nodeEcho(store, node.id);
 }
@@ -98,6 +99,9 @@ export async function updateEngine(store: Store, input: EngineInput<'update'>) {
   const { id, ...fields } = parseEngineInput(engineSchemas.update.input, input);
   refuseProjectKey(id, 'updateProject');
   requireSeedUpstream(fields.upstream);
+  if (fields.title !== undefined) {
+    requireText(fields.title, 'title');
+  }
   await updateNode(store, id, fields);
   return nodeEcho(store, id);
 }
@@ -170,8 +174,17 @@ export async function reorderEngine(store: Store, input: EngineInput<'reorder'>)
 export async function groomEngine(store: Store, input: EngineInput<'groom'>) {
   const { ids, state, note } = parseEngineInput(engineSchemas.groom.input, input);
   const nodes = await groomTasks(store, ids, state, note);
-  const views = await Promise.all(nodes.map((node) => nodeViewById(store, node.id, ECHO)));
-  return intentViews.nodes.parse(views.filter((view): view is NodeView => view !== undefined));
+  // One snapshot and one derivation serve every echoed node.
+  const set = deriveSet(await store.loadWorkingSet());
+  const views = await Promise.all(
+    nodes.flatMap((node) => {
+      const current = set.nodeById.get(node.id);
+      return current === undefined
+        ? []
+        : [buildNodeView(store.bodySections, store.artifacts, set, current, ECHO)];
+    }),
+  );
+  return intentViews.nodes.parse(views);
 }
 
 /** Resolve tag targets (node, project, or artifact ids) against one snapshot. */

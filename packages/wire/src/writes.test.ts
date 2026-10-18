@@ -528,6 +528,30 @@ const refusals: Refusal[] = [
   },
   {
     code: 'validation',
+    input: (ids: Ids) => ({ parent: ids.phase, title: '   ', type: 'task' }),
+    label: 'a blank task title',
+    method: 'create',
+  },
+  {
+    code: 'validation',
+    input: () => ({ parent: 'ENG', title: '', type: 'initiative' }),
+    label: 'a blank initiative title',
+    method: 'create',
+  },
+  {
+    code: 'validation',
+    input: () => ({ key: 'NEW', name: '  ', type: 'project' }),
+    label: 'a blank project name',
+    method: 'create',
+  },
+  {
+    code: 'validation',
+    input: (ids: Ids) => ({ id: ids.todoTask, title: '   ' }),
+    label: 'a blank title',
+    method: 'update',
+  },
+  {
+    code: 'validation',
     input: () => ({ id: 'ENG', title: 'x' }),
     label: 'a project key',
     method: 'update',
