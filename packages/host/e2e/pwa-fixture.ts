@@ -96,7 +96,9 @@ export class PwaFixture {
   private apiOnline = true;
   private healthVersion: string;
   private host: ChildProcess | undefined;
+  private readonly hostLines: string[] = [];
   private hostOrigin = '';
+  private storeFile = '';
   private root: string;
   private readonly server: Server;
   private readonly temporaryRoot: string;
@@ -163,6 +165,7 @@ export class PwaFixture {
     const port = await freePort();
     const dataDirectory = resolvePath(this.temporaryRoot, 'data');
     await mkdir(dataDirectory, { recursive: true });
+    this.storeFile = resolvePath(dataDirectory, 'store.sqlite');
     const env: NodeJS.ProcessEnv = {
       ...process.env,
       MIMIR_DATA_DIR: dataDirectory,
@@ -175,18 +178,71 @@ export class PwaFixture {
     delete env.MIMIR_DATABASE_URL_FILE;
     this.host = spawn('bun', [resolvePath(hostRoot, 'server/index.mjs')], {
       env,
-      stdio: 'inherit',
+      stdio: ['ignore', 'inherit', 'pipe'],
+    });
+    // The host logs to stderr; keep its lines for a case to read, and echo them.
+    this.host.stderr?.setEncoding('utf8');
+    this.host.stderr?.on('data', (chunk: string) => {
+      process.stderr.write(chunk);
+      this.hostLines.push(...chunk.split('\n').filter((line) => line !== ''));
     });
     this.hostOrigin = `http://127.0.0.1:${String(port)}`;
     await this.waitForHost();
-    const created = await fetch(`${this.hostOrigin}/api/projects`, {
-      body: JSON.stringify(FIXTURE_PROJECT),
+    await this.file('/api/projects', FIXTURE_PROJECT);
+  }
+
+  /** What the host has logged to stderr so far, a line per entry. */
+  hostLog(): readonly string[] {
+    return [...this.hostLines];
+  }
+
+  /** File a record on the host through its /api route, and answer the echo. */
+  async file(path: string, body: object): Promise<{ id: string }> {
+    const created = await fetch(`${this.hostOrigin}${path}`, {
+      body: JSON.stringify(body),
       headers: { 'content-type': 'application/json' },
       method: 'POST',
     });
     if (!created.ok) {
-      throw new Error(`PWA fixture host refused the project: ${String(created.status)}`);
+      throw new Error(`PWA fixture host refused ${path}: ${String(created.status)}`);
     }
+    const echo: unknown = await created.json();
+    if (
+      typeof echo !== 'object' ||
+      echo === null ||
+      !('id' in echo) ||
+      typeof echo.id !== 'string'
+    ) {
+      throw new Error(`PWA fixture host answered ${path} without an id`);
+    }
+    return { id: echo.id };
+  }
+
+  /**
+   * Write one statement straight into the host's store, as damage a host
+   * could find there: the one way a case can make a read fault inside the host.
+   */
+  async damageStore(sql: string, ...params: string[]): Promise<void> {
+    const script =
+      "const { Database } = require('bun:sqlite');" +
+      'const [file, sql, ...params] = process.argv.slice(1);' +
+      'const db = new Database(file);' +
+      'db.exec("PRAGMA busy_timeout = 5000");' +
+      'db.query(sql).run(...params);' +
+      'db.close();';
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn('bun', ['-e', script, this.storeFile, sql, ...params], {
+        stdio: 'inherit',
+      });
+      child.once('error', reject);
+      child.once('exit', (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`store damage exited ${String(code)}`));
+        }
+      });
+    });
   }
 
   private async waitForHost(): Promise<void> {

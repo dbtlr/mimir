@@ -7,12 +7,12 @@ import type { KeyboardEvent, ReactNode, RefObject } from 'react';
 import { toast } from 'sonner';
 
 import { tasksQuery } from '../api/browse-queries';
+import type { DepCandidate } from '../api/browse-queries';
 import { useCreateNode, useDepend } from '../api/node-mutations';
-import type { CreateNodeInput } from '../api/node-mutations';
+import type { CreateNodeInput, CreatedNode } from '../api/node-mutations';
 import { usePromoteSeed } from '../api/seed-mutations';
 import type { PromoteSeedInput } from '../api/seed-mutations';
 import { projectsQuery, treeQuery } from '../api/shell-queries';
-import type { WireNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { cn } from '../lib/cn';
 import { homeOptions } from '../lib/parent-options';
@@ -145,7 +145,7 @@ function AuthoringSheetBody({
   );
   const [parentPick, setParentPick] = useState(prefill?.home ?? '');
   const [homeOpen, setHomeOpen] = useState(false);
-  const [deps, setDeps] = useState<WireNode[]>([]);
+  const [deps, setDeps] = useState<DepCandidate[]>([]);
   const [depSearch, setDepSearch] = useState('');
   const [depQ, setDepQ] = useState('');
   const [depActive, setDepActive] = useState(0);
@@ -159,7 +159,7 @@ function AuthoringSheetBody({
   const [createAnother, setCreateAnother] = useState(false);
   // Partial-failure marker: the node a prior submit created whose depend
   // failed — the next submit retries the attach instead of re-creating.
-  const [created, setCreated] = useState<WireNode | null>(null);
+  const [created, setCreated] = useState<CreatedNode | null>(null);
   const navigate = useNavigate();
   const titleRef = useRef<HTMLInputElement>(null);
   // The description auto-fills from the (late) promote body only until the user
@@ -377,7 +377,7 @@ function AuthoringSheetBody({
     if (!canCreate) {
       return;
     }
-    let node: WireNode;
+    let node: CreatedNode;
     if (created !== null) {
       // A prior submit already created this node and only the depend failed —
       // retry the attach against it; never re-create (a duplicate node).
@@ -413,7 +413,7 @@ function AuthoringSheetBody({
     }
   }
 
-  function pickDep(n: WireNode | undefined) {
+  function pickDep(n: DepCandidate | undefined) {
     if (n === undefined) {
       return;
     }

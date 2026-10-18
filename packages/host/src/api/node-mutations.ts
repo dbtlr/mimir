@@ -77,6 +77,9 @@ export type CreateNodeInput = {
   tags?: string[];
 };
 
+/** The record a create answers, which the authoring sheet opens or links. */
+export type CreatedNode = WireNode;
+
 export function useCreateNode() {
   const invalidate = useInvalidateOnWrite();
   return useMutation({

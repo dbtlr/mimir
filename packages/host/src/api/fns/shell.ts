@@ -1,4 +1,5 @@
-import { consoleSchemas, engineSchemas } from '@mimir/contract';
+import { consoleSchemas, engineSchemas, parseEngineInput } from '@mimir/contract';
+import type { ConsoleInput, EngineInput } from '@mimir/contract';
 import { createServerFn } from '@tanstack/react-start';
 
 import { engine } from './engine';
@@ -7,7 +8,9 @@ import { engine } from './engine';
  * The shell's server functions (MMR-537): the project lists, the sidebar tree,
  * the jump palette's search, and the project writes. Each is one Engine method
  * on the host's shared Engine, named after the method and validated by its
- * contract input schema. Reads are GETs and writes are POSTs. The facets a read
+ * contract input schema through `parseEngineInput`, so a malformed input is
+ * the Engine's own validation refusal. Reads are GETs and writes are POSTs.
+ * start.ts's fault boundary keeps any other thrown value off the wire. The facets a read
  * asks for, its cache key, and every other query policy stay in
  * shell-queries.ts and shell-mutations.ts.
  *
@@ -18,35 +21,45 @@ import { engine } from './engine';
 
 /** Active or archived projects, with the facets the caller names. */
 export const projects = createServerFn({ method: 'GET' })
-  .validator(engineSchemas.projects.input)
+  .validator((input: EngineInput<'projects'>) =>
+    parseEngineInput(engineSchemas.projects.input, input),
+  )
   .handler(async ({ data }) => (await engine()).projects(data));
 
 /** A project's or container's whole hierarchy, nested and rank-ordered. */
 export const tree = createServerFn({ method: 'GET' })
-  .validator(engineSchemas.tree.input)
+  .validator((input: EngineInput<'tree'>) => parseEngineInput(engineSchemas.tree.input, input))
   .handler(async ({ data }) => (await engine()).tree(data));
 
 /** Cross-record search across every project, ranking the current one first. */
 export const consoleSearch = createServerFn({ method: 'GET' })
-  .validator(consoleSchemas.search.input)
+  .validator((input: ConsoleInput<'search'>) =>
+    parseEngineInput(consoleSchemas.search.input, input),
+  )
   .handler(async ({ data }) => (await engine()).console.search(data));
 
 /** Create a project or a node; the input's `type` picks which. */
 export const create = createServerFn({ method: 'POST' })
-  .validator(engineSchemas.create.input)
+  .validator((input: EngineInput<'create'>) => parseEngineInput(engineSchemas.create.input, input))
   .handler(async ({ data }) => (await engine()).create(data));
 
 /** Write a project's own fields: its name, description, direction, or pin. */
 export const updateProject = createServerFn({ method: 'POST' })
-  .validator(engineSchemas.updateProject.input)
+  .validator((input: EngineInput<'updateProject'>) =>
+    parseEngineInput(engineSchemas.updateProject.input, input),
+  )
   .handler(async ({ data }) => (await engine()).updateProject(data));
 
 /** Archive a project: frozen and hidden, never deleted (ADR 0015). */
 export const archive = createServerFn({ method: 'POST' })
-  .validator(engineSchemas.archive.input)
+  .validator((input: EngineInput<'archive'>) =>
+    parseEngineInput(engineSchemas.archive.input, input),
+  )
   .handler(async ({ data }) => (await engine()).archive(data));
 
 /** Restore an archived project (ADR 0015). */
 export const unarchive = createServerFn({ method: 'POST' })
-  .validator(engineSchemas.unarchive.input)
+  .validator((input: EngineInput<'unarchive'>) =>
+    parseEngineInput(engineSchemas.unarchive.input, input),
+  )
   .handler(async ({ data }) => (await engine()).unarchive(data));

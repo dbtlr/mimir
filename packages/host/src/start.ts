@@ -1,7 +1,10 @@
 import { MimirError } from '@mimir/contract';
 import type { ErrorCode } from '@mimir/contract';
 import { createSerializationAdapter } from '@tanstack/react-router';
-import { createStart } from '@tanstack/react-start';
+import { createCsrfMiddleware, createMiddleware, createStart } from '@tanstack/react-start';
+
+import { HostFaultError, isEngineRefusal } from './api/errors';
+import { refusalOf } from './server/fault-boundary';
 
 /**
  * An Engine refusal (`MimirError`, ADR 0034) crosses a server function as
@@ -20,10 +23,7 @@ export const mimirErrorAdapter = createSerializationAdapter({
     message: string;
   }) => new MimirError(code, message, hint),
   key: 'mimir-error',
-  // By name, not `instanceof`: the host may load core's copy of the class
-  // apart from the console's, and either copy is the same refusal.
-  test: (value): value is MimirError =>
-    value instanceof Error && value.name === 'MimirError' && 'code' in value,
+  test: isEngineRefusal,
   toSerializable: (error: MimirError) => ({
     code: error.code,
     message: error.message,
@@ -31,5 +31,42 @@ export const mimirErrorAdapter = createSerializationAdapter({
   }),
 });
 
-/** Start's instance: Engine refusals cross server functions with their code. */
-export const startInstance = createStart(() => ({ serializationAdapters: [mimirErrorAdapter] }));
+/** An internal fault crosses as its type alone: no message, own property, or stack. */
+export const hostFaultAdapter = createSerializationAdapter({
+  fromSerializable: (): HostFaultError => new HostFaultError(),
+  key: 'mimir-fault',
+  test: (value): value is HostFaultError => value instanceof HostFaultError,
+  toSerializable: (): Record<string, never> => ({}),
+});
+
+/**
+ * Every server function's fault boundary: whatever its handler or input
+ * validation throws leaves the host as an Engine refusal or a
+ * {@link HostFaultError}, never as the thrown value (see `refusalOf`).
+ */
+const faultBoundary = createMiddleware({ type: 'function' }).server(
+  async ({ next, serverFnMeta }) => {
+    try {
+      return await next();
+    } catch (error) {
+      throw refusalOf(error, serverFnMeta.name);
+    }
+  },
+);
+
+/**
+ * Start's own cross-site check on server functions. Defining this instance
+ * replaces Start's default, so it is registered here. It admits a browser call
+ * only from the same origin (`Sec-Fetch-Site`, else `Origin`, else `Referer`),
+ * and refuses a call that names none. The host guard (server/guard.ts) already
+ * refuses cross-origin writes on every route; this adds the same refusal for
+ * server-function reads, as defense in depth.
+ */
+const csrf = createCsrfMiddleware({ filter: (ctx) => ctx.handlerType === 'serverFn' });
+
+/** Start's instance: the cross-site check, the fault boundary, and the refusal codecs. */
+export const startInstance = createStart(() => ({
+  functionMiddleware: [faultBoundary],
+  requestMiddleware: [csrf],
+  serializationAdapters: [mimirErrorAdapter, hostFaultAdapter],
+}));

@@ -65,6 +65,9 @@ function taskParams(f: TaskFilters): URLSearchParams {
   return p;
 }
 
+/** One task the dependency picker offers, as `tasksQuery` answers it. */
+export type DepCandidate = WireNode;
+
 /** A task-list read with filter + search (MMR-78) — the dependency picker's lookup. */
 export const tasksQuery = (f: TaskFilters) =>
   queryOptions({

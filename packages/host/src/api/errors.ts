@@ -19,6 +19,29 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Whether `error` is an Engine refusal (`MimirError`, ADR 0034). By name, not
+ * `instanceof`: the host may load core's copy of the class apart from the
+ * console's, and either copy is the same refusal.
+ */
+export function isEngineRefusal(error: unknown): error is MimirError {
+  return error instanceof Error && error.name === 'MimirError' && 'code' in error;
+}
+
+/**
+ * A server function that faulted inside the host, as the console receives it:
+ * the same house-voice refusal `/api` and `/trpc` give an internal fault. The
+ * cause stays in the host's log; nothing of it crosses the wire.
+ */
+export class HostFaultError extends Error {
+  readonly hint = "run 'mimir doctor'";
+
+  constructor() {
+    super('the request did not complete');
+    this.name = 'HostFaultError';
+  }
+}
+
 /** True when the server answered not found — gone/archived, not unreachable. */
 export function isNotFound(error: unknown): boolean {
   return (

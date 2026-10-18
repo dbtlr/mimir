@@ -275,9 +275,13 @@ stays the host's `/health` route.
 project and ranks the current one first, which the flat `search` cannot do
 under the bare-key rule. `console.search` takes an optional `project` that
 ranks that project first and resolves a bare suffix there, and it spans every
-project otherwise. Its refusals match `/api/search`: a blank query is a
-validation refusal, and an unknown ranking project is not found. The flat
-`search` keeps the CLI and MCP surface, which stays project-scoped.
+project otherwise. A blank query is a validation refusal and an unknown
+ranking project is not found, as on `/api/search`. One difference is
+deliberate: `/api/search` reads an empty `project` or the literal `all` as no
+project, while `console.search` takes no project as no project and refuses
+those values as an unknown project, since a structured input has no unset
+field to serialize. The flat `search` keeps the CLI and MCP surface, which
+stays project-scoped.
 
 The console persists its query cache for offline reads. An Engine read
 restored from that snapshot must keep its `Date` instants, so the snapshot

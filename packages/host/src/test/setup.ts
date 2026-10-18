@@ -28,17 +28,29 @@ expect.extend(jestDomMatchers);
 // `serveShell`); a new area adds its own `<area>-fns.ts` beside it. Reads not
 // yet migrated still go through the path-keyed `vi.mock('../api/client')`.
 //
-// The host's Engine is never reachable from a test: a server function that a
-// test forgot to mock runs its handler in-process, and this guard fails it with
-// the reason instead of opening a store.
+// A server function a test forgot to mock never reaches the host: every
+// server function built in a test is a stub that refuses its call. A refused
+// read only errors its query, which a test can pass straight through, so each
+// refusal is also recorded and fails the test in afterEach.
+const unmocked = vi.hoisted(() => ({ calls: [] as string[] }));
 // oxlint-disable-next-line vitest/require-hook
-vi.mock('../api/fns/engine', () => ({
-  engine: () => {
+vi.mock('@tanstack/react-start', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  // A fresh stub per server function, so a module mock gives each its own vi.fn.
+  // oxlint-disable-next-line unicorn/consistent-function-scoping -- the factory runs hoisted; it owns its helpers
+  const refuse = () => async () => {
+    unmocked.calls.push(expect.getState().currentTestName ?? 'a test');
     throw new Error(
-      'a test reached the host Engine: mock the server-function module by function (see test/setup.ts)',
+      'an unmocked server function was called: mock its module by function (see test/setup.ts)',
     );
-  },
-}));
+  };
+  const builder = { handler: refuse, middleware: () => builder, validator: () => builder };
+  return { ...actual, createServerFn: () => builder };
+});
+// The host's server graph (its store, core, and the /api handler) never loads
+// in the browser test environment; no stubbed server function reaches it.
+// oxlint-disable-next-line vitest/require-hook
+vi.mock('../api/fns/engine', () => ({ engine: vi.fn() }));
 
 // Every human-facing timestamp renders in the reader's zone (ADR 0029), so the
 // suite pins one: a date assertion means the same thing on any machine.
@@ -111,4 +123,10 @@ beforeAll(() => {
 
 afterEach(() => {
   cleanup();
+  const calls = unmocked.calls.splice(0);
+  if (calls.length > 0) {
+    throw new Error(
+      `${calls[0] ?? 'a test'} called an unmocked server function ${String(calls.length)}×: mock its module by function (see test/setup.ts)`,
+    );
+  }
 });

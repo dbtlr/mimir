@@ -261,6 +261,15 @@ test.each(refusals)('%s is refused like its route', async (_name, run, route, st
   expect(remoteError.message).toBe(localError.message);
 });
 
+test('console.search refuses the spellings /api/search reads as no project', async () => {
+  // The route reads an empty or `all` project as unset; the Engine input has a real unset.
+  for (const project of ['', 'all']) {
+    expect((await api(`/api/search?q=Ready&project=${project}`)).status).toBe(200);
+    const refusal = await errorOf(remote.console.search({ project, query: 'Ready' }));
+    expect<string>(refusal.code).toBe('not_found');
+  }
+});
+
 test('the as-of input places staleness far in the future', async () => {
   const input: ConsoleInput<'review'> = {
     asOf: new Date('2100-01-01T00:00:00.000Z'),
