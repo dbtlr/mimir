@@ -1,6 +1,6 @@
 import { MimirError, validation } from '@mimir/core';
 import type { ErrorCode } from '@mimir/core';
-import { formatDiagnostic } from '@mimir/helpers';
+import { describeFault, formatDiagnostic } from '@mimir/helpers';
 
 /**
  * Response plumbing for the resource envelope: JSON rendering, the error
@@ -46,9 +46,8 @@ export function errorResponse(req: Request, error: unknown): Response {
   // fact + a next move (output-voice.md — library text never ships, and every
   // error points somewhere), while the raw detail is preserved for the operator
   // on stderr (consistent with the rest of the host log), never in the response.
-  const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
   const diagnostic = formatDiagnostic({
-    detail,
+    ...describeFault(error),
     method: req.method,
     path: new URL(req.url).pathname,
   });

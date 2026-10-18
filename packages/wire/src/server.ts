@@ -13,7 +13,7 @@ import type {
   ErrorCode,
   UniformVerb,
 } from '@mimir/contract';
-import { formatDiagnostic } from '@mimir/helpers';
+import { describeFault, formatDiagnostic } from '@mimir/helpers';
 import { initTRPC, TRPCError } from '@trpc/server';
 import type { TRPCMutationProcedure, TRPCQueryProcedure } from '@trpc/server';
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
@@ -317,9 +317,8 @@ export function createEngineHandler(engine: Engine, endpoint = '/trpc') {
       endpoint,
       onError({ error }) {
         if (error.code === 'INTERNAL_SERVER_ERROR' && !(error.cause instanceof MimirError)) {
-          const cause = error.cause ?? error;
           const diagnostic = formatDiagnostic({
-            detail: cause.stack ?? cause.message,
+            ...describeFault(error.cause ?? error),
             method: req.method,
             path: new URL(req.url).pathname,
           });

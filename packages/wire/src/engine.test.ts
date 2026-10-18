@@ -195,6 +195,43 @@ function withOverride(engine: Engine, override: Partial<Engine>): Engine {
   return Object.assign(Object.create(engine) as Engine, override);
 }
 
+test('an output-schema fault logs the failing fields its stack omits, never sending them', async () => {
+  const log = spyOn(console, 'error').mockReturnValue(undefined);
+  const getNode = async (input: Parameters<LocalEngine['getNode']>[0]) => ({
+    ...(await local.getNode(input)),
+    createdAt: 'not a date',
+  });
+  // The output schema is the contract under test, so the override breaks it on purpose.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  const broken = { getNode } as unknown as Partial<Engine>;
+  const handle = createEngineHandler(withOverride(local, broken));
+  const client = new RemoteEngine({
+    fetch: async (input, init) => {
+      const response = await handle(new Request(input, init));
+      return { json: () => response.json(), ok: response.ok };
+    },
+    url: 'http://engine.test/trpc',
+  });
+  try {
+    const failure: unknown = await client.getNode({ id }).catch((error: unknown) => error);
+    expect(failure).toHaveProperty('message', 'the request did not complete');
+    expect(failure).not.toHaveProperty('data.stack');
+    expect(JSON.stringify(failure)).not.toContain('createdAt');
+    expect(log).toHaveBeenCalledTimes(1);
+    const line: unknown = log.mock.calls[0]?.[0];
+    if (typeof line !== 'string') {
+      throw new Error('missing fault diagnostic');
+    }
+    expect(line).not.toMatch(/[\n\r\u2028\u2029]/);
+    const record: unknown = JSON.parse(line.slice(line.indexOf('{')));
+    expect(record).toMatchObject({ method: 'GET', path: '/trpc/getNode' });
+    expect(record).toHaveProperty('message', expect.stringContaining('createdAt'));
+    expect(record).toHaveProperty('stack', expect.stringMatching(/^ZodError/));
+  } finally {
+    log.mockRestore();
+  }
+});
+
 function assertBindings(bindings: Record<string, object>) {
   for (const [layer, binding] of Object.entries(bindings)) {
     for (const method of Object.keys(engineSchemas)) {
