@@ -183,6 +183,7 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
         key: row.key,
         name: row.name,
         pinned: false,
+        remote: row.remote ?? null,
         updated_at: timestamp,
       };
       try {

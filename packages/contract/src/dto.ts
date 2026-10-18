@@ -421,6 +421,10 @@ export type NodeView = {
   // pinned projects first.
   pinned?: boolean;
 
+  // bare — project-only: the normalized Git remote (`host/path`, MMR-543), null
+  // when none is set; always present on a project view, absent on every other node.
+  remote?: string | null;
+
   // facets — opt-in
   /**
    * Full description prose — the `## Task Description` body section (MMR-162).

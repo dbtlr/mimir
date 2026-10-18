@@ -55,6 +55,7 @@ test('opening a new file creates it, migrates it, and puts it in WAL mode', asyn
         '0003_block_owner',
         '0004_seed_parked',
         '0005_project_pinned',
+        '0006_project_remote',
       ],
       from: 0,
       to: SCHEMA_VERSION,
@@ -94,7 +95,13 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0002_grooming', '0003_block_owner', '0004_seed_parked', '0005_project_pinned'],
+      applied: [
+        '0002_grooming',
+        '0003_block_owner',
+        '0004_seed_parked',
+        '0005_project_pinned',
+        '0006_project_remote',
+      ],
       from: 1,
       to: SCHEMA_VERSION,
     });
@@ -141,7 +148,12 @@ test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0003_block_owner', '0004_seed_parked', '0005_project_pinned'],
+      applied: [
+        '0003_block_owner',
+        '0004_seed_parked',
+        '0005_project_pinned',
+        '0006_project_remote',
+      ],
       from: 2,
       to: SCHEMA_VERSION,
     });
@@ -196,7 +208,7 @@ test('0004_seed_parked upgrades a version-3 store: seeds and their history survi
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0004_seed_parked', '0005_project_pinned'],
+      applied: ['0004_seed_parked', '0005_project_pinned', '0006_project_remote'],
       from: 3,
       to: SCHEMA_VERSION,
     });
@@ -273,7 +285,7 @@ test('0005_project_pinned upgrades a version-4 store: projects keep their data a
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0005_project_pinned'],
+      applied: ['0005_project_pinned', '0006_project_remote'],
       from: 4,
       to: SCHEMA_VERSION,
     });

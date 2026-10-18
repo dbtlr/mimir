@@ -222,6 +222,7 @@ options:
       --desc <text>       create/update: description
       --direction <text>  update: the ## Next narrative (projects/containers)
       --pinned            update: pin a project (--not-pinned unpins it)
+      --remote <url>      create project / update KEY: the project's Git remote
       --summary <text>    create/update/attach/scratch: summary (nodes and artifacts; 256 chars max)
       --target <text>     create/update: target date or milestone
       --ref <ref>         create/update: external reference
@@ -697,6 +698,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       'mimir update MMR-3 --priority p1 --size m',
       'mimir update MMR-3 --desc "clarified scope"',
       'mimir update MMR --name "Mimir core"        # rename a project',
+      'mimir update MMR --remote git@github.com:dbtlr/mimir.git',
       'mimir update MMR --pinned                   # keep a project at hand (--not-pinned undoes it)',
       'mimir update MMR --direction "Ship the read path, then revisit caching."',
     ],
@@ -725,11 +727,15 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
         '--pinned / --not-pinned',
         'project only (KEY): pin it so the console lists it first, or unpin it',
       ],
+      [
+        '--remote <url>',
+        'project only (KEY): the Git remote, stored normalized (ssh and https forms compare equal); blank clears it',
+      ],
       ['-k, --kind <kind>', 'seed only (KEY-sN): idea|bug|feature'],
     ],
     summary: 'patch scalar fields (a dumb patch — status is excluded; use the lifecycle verbs)',
     usage:
-      'mimir update <id> [--title …] [--desc …] [--direction …] [--summary …] [--priority …] [--size …] [--target …] [--ref …] [--upstream <KEY-sN|none>] [--host …] [--harness …] [--session …] [--branch …] [--name …] [--pinned|--not-pinned] [--kind …]',
+      'mimir update <id> [--title …] [--desc …] [--direction …] [--summary …] [--priority …] [--size …] [--target …] [--ref …] [--upstream <KEY-sN|none>] [--host …] [--harness …] [--session …] [--branch …] [--name …] [--pinned|--not-pinned] [--remote …] [--kind …]',
   },
   annotate: {
     args: [A_ID, ['<text>', 'note body (or stdin when omitted)']],
@@ -791,10 +797,12 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ['--key <KEY>', 'short immutable identifier key (required)'],
       ['-y, --yes', 'confirm the immutable key (required when not at a TTY)'],
       ['--desc <text>', 'description'],
+      ['--remote <url>', 'the Git remote, stored normalized (ssh and https forms compare equal)'],
       ['--tag <t>', 'tag at creation (repeatable)'],
     ],
     summary: 'create a project — the tree root. The key is immutable',
-    usage: 'mimir create project <name> --key <KEY> [-y] [--desc <text>] [--tag <t>…]',
+    usage:
+      'mimir create project <name> --key <KEY> [-y] [--desc <text>] [--remote <url>] [--tag <t>…]',
   },
   'create initiative': {
     args: [['<title>', 'initiative title']],

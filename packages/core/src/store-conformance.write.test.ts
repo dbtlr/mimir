@@ -249,6 +249,51 @@ for (const backend of backends) {
     expect((await store.loadProjects()).map((project) => project.pinned)).toEqual([false]);
   });
 
+  it('a project remote is stored normalized, changes by update, and clears with null', async () => {
+    const store = await fresh();
+    await base(store);
+    expect((await store.loadProjects()).map((project) => project.remote)).toEqual([null]);
+
+    const set = await updateProject(store, 'MMR', { remote: 'git@GitHub.com:dbtlr/mimir.git' });
+    expect(set.remote).toBe('github.com/dbtlr/mimir');
+    expect(set.name).toBe('Mimir');
+    expect((await store.loadProjects()).map((project) => project.remote)).toEqual([
+      'github.com/dbtlr/mimir',
+    ]);
+
+    expect((await updateProject(store, 'MMR', { pinned: true })).remote).toBe(
+      'github.com/dbtlr/mimir',
+    );
+    expect((await updateProject(store, 'MMR', { remote: null })).remote).toBeNull();
+
+    const error = await errorOf(updateProject(store, 'MMR', { remote: 'not a remote' }));
+    expect(error.code).toBe('validation');
+  });
+
+  it('createProject takes a remote and refuses one that is not a Git remote', async () => {
+    const store = await fresh();
+    const created = await createProject(store, {
+      key: 'REM',
+      name: 'Remote',
+      remote: 'https://github.com/dbtlr/rem.git',
+    });
+    expect(created.remote).toBe('github.com/dbtlr/rem');
+
+    const error = await errorOf(createProject(store, { key: 'BAD', name: 'Bad', remote: 'nope' }));
+    expect(error.code).toBe('validation');
+    expect((await store.loadProjects()).map((project) => project.key)).not.toContain('BAD');
+  });
+
+  it('several projects may share one remote, and none is refused', async () => {
+    const store = await fresh();
+    await createProject(store, { key: 'AAA', name: 'A', remote: 'git@github.com:o/r.git' });
+    await createProject(store, { key: 'BBB', name: 'B', remote: 'https://github.com/o/r' });
+    expect((await store.loadProjects()).map((project) => project.remote)).toEqual([
+      'github.com/o/r',
+      'github.com/o/r',
+    ]);
+  });
+
   it('insertDependency is idempotent and deleteDependency reports what it removed', async () => {
     const store = await fresh();
     const { first, second } = await base(store);

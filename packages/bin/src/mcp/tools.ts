@@ -776,6 +776,8 @@ export type UpdateToolArgs = {
   /** The operator's pin (MMR-493) — project-only. Hand-listed like `next`: it is
    * not a node data field, so it never reaches the {@link SpecUpdateKey} guard. */
   pinned?: boolean;
+  /** A Git remote URL (MMR-543) — project-only; a blank string clears it. */
+  remote?: string;
   summary?: string;
   priority?: string;
   size?: string;
@@ -800,6 +802,7 @@ export function toolUpdate(store: Store, args: UpdateToolArgs): Promise<ToolResu
       const projectOnly = [
         ['pinned', args.pinned, 'pinned'],
         ['name', args.name, 'renamed'],
+        ['remote', args.remote, 'given a Git remote'],
       ] as const;
       for (const [subject, value, rule] of projectOnly) {
         const refusal =
@@ -860,6 +863,7 @@ async function updateProjectTool(
     description?: string;
     next?: string;
     pinned?: boolean;
+    remote?: string;
     summary?: string;
     title?: string;
     priority?: string;
@@ -894,6 +898,9 @@ async function updateProjectTool(
   }
   if (args.pinned !== undefined) {
     fields.pinned = args.pinned;
+  }
+  if (args.remote !== undefined) {
+    fields.remote = args.remote.trim() === '' ? null : args.remote;
   }
   await updateProject(store, pid, fields);
   // Echo the updated project through the same projection as getNode/get KEY
@@ -1041,11 +1048,16 @@ export type CreateToolArgs = {
   session?: string;
   branch?: string;
   openEnded?: boolean;
+  /** A Git remote URL (MMR-543) — project-only. */
+  remote?: string;
   tags?: string[];
 };
 
 export function toolCreate(store: Store, args: CreateToolArgs): Promise<ToolResult> {
   return guard(async () => {
+    if (args.type !== 'project' && args.remote !== undefined) {
+      throw validation('remote applies only to a project');
+    }
     switch (args.type) {
       case 'project': {
         if (args.key === undefined) {
@@ -1060,6 +1072,7 @@ export function toolCreate(store: Store, args: CreateToolArgs): Promise<ToolResu
           key: args.key,
           name: args.name,
           openEnded: args.openEnded,
+          remote: args.remote,
           tags: args.tags,
           type: 'project',
         });

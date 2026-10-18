@@ -174,6 +174,8 @@ const OPTIONS = {
   // Project pin converse pair (MMR-493) — the same shape as open-ended.
   pinned: { type: 'boolean' },
   'not-pinned': { type: 'boolean' },
+  // A project's Git remote (MMR-543) — create project / update KEY.
+  remote: { type: 'string' },
   title: { type: 'string' },
   yes: { short: 'y', type: 'boolean' },
   // skill install
@@ -350,6 +352,7 @@ type OwnedFlagValues = {
   groomed?: boolean;
   pinned?: boolean;
   'not-pinned'?: boolean;
+  remote?: string;
   host?: string;
   harness?: string;
   session?: string;
@@ -522,6 +525,12 @@ const VERB_OWNED_FLAGS: readonly {
     given: (values) => values['not-pinned'] === true,
     hint: `'--not-pinned' unpins a project: mimir update <KEY> --not-pinned`,
     owner: 'update',
+  },
+  {
+    flag: '--remote',
+    given: (values) => values.remote !== undefined,
+    hint: `'--remote' sets a project's Git remote at create project / update KEY`,
+    owner: ['create', 'update'],
   },
   {
     flag: '--host',

@@ -65,6 +65,8 @@ export type NewProjectRecord = {
   key: string;
   name: string;
   description: string | null;
+  /** Normalized Git remote (MMR-543). */
+  remote?: string | null;
   tags?: string[];
 };
 
@@ -74,6 +76,7 @@ export type ProjectPatch = {
   description?: string | null;
   archived_at?: string | null;
   pinned?: boolean;
+  remote?: string | null;
   updated_at?: string;
 };
 

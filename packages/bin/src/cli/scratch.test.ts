@@ -21,6 +21,7 @@ const MEMORY_PROJECTS = [
     key: 'MMR',
     name: 'Mimir',
     pinned: false,
+    remote: null,
     updated_at: '2026-08-03T00:00:00.000Z',
   },
 ];

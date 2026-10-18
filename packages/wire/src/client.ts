@@ -92,6 +92,10 @@ export class RemoteEngine extends UniformEngineBase implements Engine {
     return domainResult(this.client.projects.query(input));
   }
 
+  projectsByRemote(input: EngineInput<'projectsByRemote'>) {
+    return domainResult(this.client.projectsByRemote.query(input));
+  }
+
   scratchGet(input: EngineInput<'scratchGet'>) {
     return domainResult(this.client.scratchGet.query(input));
   }

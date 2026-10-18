@@ -6,6 +6,7 @@ import { notFound, projectNotFound } from './errors';
 import { parseIdentity } from './ids';
 import { buildNodeView, buildProjectView } from './intent/view';
 import type { Node } from './model';
+import { normalizeRemote } from './remote';
 import type { Store } from './store';
 
 /**
@@ -42,6 +43,28 @@ export async function listProjects(
   });
   return Promise.all(
     projects.map((p) =>
+      buildProjectView(store.bodySections, store.artifacts, set, p, activity, new Set(facets)),
+    ),
+  );
+}
+
+/**
+ * Every active project whose stored remote is the same repository as `remote`
+ * (the ssh and https forms compare equal), key-ordered. Remotes are not unique
+ * (MMR-543): zero, one, or several projects may match, and the caller decides what
+ * ambiguity means. A `remote` that is not a Git remote is refused.
+ */
+export async function listProjectsByRemote(
+  store: Store,
+  remote: string,
+  facets: readonly FacetName[] = ['distribution', 'tags'],
+): Promise<NodeView[]> {
+  const wanted = normalizeRemote(remote);
+  const set = deriveSet(await store.loadWorkingSet());
+  const activity = await store.loadProjectActivity();
+  const matches = set.ws.projects.filter((p) => p.archived_at === null && p.remote === wanted);
+  return Promise.all(
+    matches.map((p) =>
       buildProjectView(store.bodySections, store.artifacts, set, p, activity, new Set(facets)),
     ),
   );

@@ -36,7 +36,11 @@ let ids: {
 beforeAll(async () => {
   fixture = await createTestStore();
   const { store } = fixture;
-  await createProject(store, { key: 'ENG', name: 'Engine' });
+  await createProject(store, {
+    key: 'ENG',
+    name: 'Engine',
+    remote: 'git@github.com:dbtlr/engine.git',
+  });
   await createProject(store, { key: 'OTH', name: 'Other' });
   const initiative = await createInitiative(store, { projectId: 'ENG', title: 'Reads' });
   const ready = await createTask(store, {
@@ -164,6 +168,16 @@ const reads: { [K in ReadMethod]: ReadCase<K> } = {
       expect(projects[0]?.createdAt).toBeInstanceOf(Date);
     },
     input: () => ({}),
+  },
+  projectsByRemote: {
+    check: (projects) => {
+      expect(projects.map((project) => [project.id, project.remote])).toEqual([
+        ['ENG', 'github.com/dbtlr/engine'],
+      ]);
+      expect(projects[0]?.createdAt).toBeInstanceOf(Date);
+    },
+    // The https form of the ssh remote the project was created with.
+    input: () => ({ remote: 'https://GitHub.com/dbtlr/engine' }),
   },
   scratchGet: {
     check: (pad) => {

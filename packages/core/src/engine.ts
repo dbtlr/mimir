@@ -37,7 +37,7 @@ import {
 } from './intent';
 import type { FindingsProvider } from './intent/console';
 import { nodeWorkOf, projectOverviewOf, projectWorkOf, reviewPageOf } from './intent/console';
-import { listProjects, nodeTree } from './resource';
+import { listProjects, listProjectsByRemote, nodeTree } from './resource';
 import { createScratchpadService } from './scratchpads';
 import type { ScratchpadService } from './scratchpads';
 import { searchRecords } from './search/intent';
@@ -123,6 +123,12 @@ export class LocalEngine extends UniformEngineBase implements Engine {
   async projects(input: EngineInput<'projects'>) {
     const { facets, status } = parseEngineInput(engineSchemas.projects.input, input);
     return intentViews.nodes.parse(await listProjects(this.store, facets, status));
+  }
+
+  /** Every active project whose Git remote is the same repository as `remote`, key-ordered. */
+  async projectsByRemote(input: EngineInput<'projectsByRemote'>) {
+    const { facets, remote } = parseEngineInput(engineSchemas.projectsByRemote.input, input);
+    return intentViews.nodes.parse(await listProjectsByRemote(this.store, remote, facets));
   }
 
   async scratchGet(input: EngineInput<'scratchGet'>) {

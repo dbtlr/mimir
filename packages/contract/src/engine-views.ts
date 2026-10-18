@@ -114,6 +114,7 @@ export function nodeSchema<T extends z.ZodType>(instant: T) {
     parent: z.string().nullable(),
     pinned: z.boolean().optional(),
     priority: z.enum(PRIORITY_VALUES).nullable().optional(),
+    remote: z.string().nullable().optional(),
     session: z.string().nullable().optional(),
     size: z.enum(SIZE_VALUES).nullable().optional(),
     status: z.enum(STATUS_WORD_VALUES),

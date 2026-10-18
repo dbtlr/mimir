@@ -92,6 +92,8 @@ test('golden: the advertised update/create schemas are pinned exactly', () => {
       openEnded: { type: 'boolean' },
       // The project pin (MMR-493) is hand-listed beside `next`, not a spec field.
       pinned: { type: 'boolean' },
+      // The project remote (MMR-543) is hand-listed beside `pinned`, not a spec field.
+      remote: { type: 'string' },
       ...enums,
       summary: { type: 'string' },
       target: { type: 'string' },
@@ -114,6 +116,7 @@ test('golden: the advertised update/create schemas are pinned exactly', () => {
       name: { type: 'string' },
       openEnded: { type: 'boolean' },
       parent: { type: 'string' },
+      remote: { type: 'string' },
       ...enums,
       summary: { type: 'string' },
       tags: { items: { type: 'string' }, type: 'array' },

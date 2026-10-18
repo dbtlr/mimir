@@ -11,6 +11,7 @@ import { renderArtifactRef } from '../ids';
 import type { Node, Project } from '../model';
 import { reorderTask } from '../rank';
 import type { RankPosition } from '../rank';
+import { normalizeRemote } from '../remote';
 import { resolveNodeTokenInSet, resolveProjectKeyInSet } from '../resolve-set';
 import type { NodePatch, ProjectPatch, Store, StoreWriter } from '../store';
 import { now } from '../time';
@@ -297,11 +298,13 @@ export type UpdateProjectFields = {
   next?: string | null;
   /** Pin or unpin the project (MMR-493) — the operator's "keep at hand" mark. */
   pinned?: boolean;
+  /** A Git remote URL, stored normalized (MMR-543); null clears it. */
+  remote?: string | null;
 };
 
 /**
  * The dumb scalar patcher for a project row (MMR-88): `name`, `description`, and
- * `pinned` (MMR-493) are its mutable columns — `key` is immutable — joined since MMR-321 by
+ * `pinned` (MMR-493), and `remote` (MMR-543) are its mutable columns — `key` is immutable — joined since MMR-321 by
  * the `## Next` body section, which is written through the same transaction and
  * guarded by the same co-written `updated_at` stamp. No transition log
  * (projects have no status). Returns the updated project row directly.
@@ -329,6 +332,9 @@ export async function updateProject(
     }
     if (fields.pinned !== undefined) {
       patch.pinned = fields.pinned;
+    }
+    if (fields.remote !== undefined) {
+      patch.remote = fields.remote === null ? null : normalizeRemote(fields.remote);
     }
 
     const wroteNext = await applyNextSection(w, 'project', id, fields.next);

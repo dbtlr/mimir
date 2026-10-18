@@ -108,6 +108,11 @@ export const engineSchemas = {
     kind: 'query',
     output: engineViews.nodes,
   },
+  projectsByRemote: {
+    input: z.strictObject({ facets, remote: z.string() }),
+    kind: 'query',
+    output: engineViews.nodes,
+  },
   scratchGet: {
     input: z.strictObject({ id: z.string() }),
     kind: 'query',

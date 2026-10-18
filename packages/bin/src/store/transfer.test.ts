@@ -78,7 +78,7 @@ function recordingStore(report: ImportReport): { store: Store; calls: ImportOpti
 }
 
 /** The minimal document the shape check accepts — the backend validates the rest. */
-const MINIMAL: Pick<StoreExport, 'schema_version'> = { schema_version: 4 };
+const MINIMAL: Pick<StoreExport, 'schema_version'> = { schema_version: 5 };
 
 /** A `getStore` that must never be called — a usage error is refused before
  * any store opens. */
@@ -109,7 +109,7 @@ test('store export writes the document to a file and reports its counts', async 
     expect(text.endsWith('\n')).toBe(true);
     expect(text).toContain('\n  "schema_version"');
     const document = JSON.parse(text) as StoreExport;
-    expect(document.schema_version).toBe(4);
+    expect(document.schema_version).toBe(5);
     expect(document.projects).toHaveLength(1);
     expect(document.nodes).toHaveLength(2);
     expect(io.out.join('\n')).toContain('store: exported 1 project, 2 nodes, 0 artifacts');
@@ -127,7 +127,7 @@ test('store export in json format emits a machine-readable report', async () => 
   try {
     expect(await cmdStore(['store', 'export', file], {}, io, DEPS, 'json', () => pg.store)).toBe(0);
     const report = JSON.parse(io.out.join('')) as Record<string, unknown>;
-    expect(report).toMatchObject({ nodes: 2, path: file, projects: 1, schema_version: 4 });
+    expect(report).toMatchObject({ nodes: 2, path: file, projects: 1, schema_version: 5 });
   } finally {
     await pg.close();
   }

@@ -771,7 +771,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'update',
-    "Patch a node's scalar fields (title, description, summary, priority, size, target, externalRef, upstream, openEnded, and the resume handles host/harness/session/branch), patch a project (KEY: name, description, next, pinned), patch an artifact (KEY-aN: title, summary), or patch a live seed (KEY-sN: title, kind, description). openEnded (a phase/initiative opt-out of done-rollup) applies only to containers; upstream (a KEY-sN seed pointer) only to tasks — pass the literal string 'none' to clear it (omit it to leave it untouched; blank is rejected). The resume handles are task-only in-flight metadata (set them on start; overwrite them here to resume or take over; a blank clears one). next is the owned direction narrative (the `## Next` body section) on a project, initiative, or phase — re-authored WHOLE on each write, never appended, and cleared by a blank string. pinned (a project only) pins it so the console lists it first, or unpins it with false. Echoes the updated record.",
+    "Patch a node's scalar fields (title, description, summary, priority, size, target, externalRef, upstream, openEnded, and the resume handles host/harness/session/branch), patch a project (KEY: name, description, next, pinned, remote), patch an artifact (KEY-aN: title, summary), or patch a live seed (KEY-sN: title, kind, description). openEnded (a phase/initiative opt-out of done-rollup) applies only to containers; upstream (a KEY-sN seed pointer) only to tasks — pass the literal string 'none' to clear it (omit it to leave it untouched; blank is rejected). The resume handles are task-only in-flight metadata (set them on start; overwrite them here to resume or take over; a blank clears one). next is the owned direction narrative (the `## Next` body section) on a project, initiative, or phase — re-authored WHOLE on each write, never appended, and cleared by a blank string. pinned (a project only) pins it so the console lists it first, or unpins it with false. remote (a project only) is its Git clone URL, stored normalized so ssh and https forms compare equal; a blank string clears it. Echoes the updated record.",
     // The scalar-field args derive from the field spec (ADR 0025); the bespoke
     // identity/topology args (id) and the non-node targets (title/description/
     // next, seed kind) stay hand-listed. Sorted to keep the advertised
@@ -784,6 +784,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       name: z.string().optional(),
       next: z.string().optional(),
       pinned: z.boolean().optional(),
+      remote: z.string().optional(),
       title: z.string().optional(),
     }),
     (args: {
@@ -793,6 +794,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       description?: string;
       next?: string;
       pinned?: boolean;
+      remote?: string;
       summary?: string;
       priority?: string;
       size?: string;
@@ -862,7 +864,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
   register(
     server,
     'create',
-    'Create a node of the given type. project: requires key+name, echoes {project:{key,name}}. initiative: requires title+parent (project KEY). phase/task: requires title+parent (KEY-seq node ref). groomed (task only) creates the task already groomed — for tasks carved from a finished design. Echoes the created node.',
+    'Create a node of the given type. project: requires key+name, echoes {project:{key,name}}; optional remote is the Git clone URL of the project. initiative: requires title+parent (project KEY). phase/task: requires title+parent (KEY-seq node ref). groomed (task only) creates the task already groomed — for tasks carved from a finished design. Echoes the created node.',
     // Scalar-field args derive from the field spec (ADR 0025); the identity/topology
     // args (type/key/name/parent/title/tags) stay hand-listed. Sorted to keep order.
     sortedShape({
@@ -872,6 +874,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       key: z.string().optional(),
       name: z.string().optional(),
       parent: z.string().optional(),
+      remote: z.string().optional(),
       tags: z.array(z.string()).optional(),
       title: z.string().optional(),
       type: z.enum(['project', 'initiative', 'phase', 'task']),
@@ -895,6 +898,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       session?: string;
       branch?: string;
       openEnded?: boolean;
+      remote?: string;
       tags?: string[];
     }) => toolCreate(store, args),
   );
