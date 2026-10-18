@@ -28,7 +28,7 @@ export function gitPortAt(cwd: string): GitPort {
       return url === undefined || url === '' ? undefined : url;
     },
     readConfig: async (key) => {
-      const value = await git(cwd, ['config', '--get', key]);
+      const value = await git(cwd, ['config', '--local', '--get', key]);
       return value === undefined || value === '' ? undefined : value;
     },
     writeConfig: async (key, value) =>

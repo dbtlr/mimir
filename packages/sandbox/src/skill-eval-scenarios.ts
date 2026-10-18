@@ -28,7 +28,9 @@ export type Evidence = {
 /** Whether the working copy's git config binds a Mimir project (ADR 0036). */
 function isBound(work: string): boolean {
   try {
-    return execFileSync('git', ['config', '--get', 'mimir.project'], { cwd: work }).length > 0;
+    return (
+      execFileSync('git', ['config', '--local', '--get', 'mimir.project'], { cwd: work }).length > 0
+    );
   } catch {
     return false;
   }

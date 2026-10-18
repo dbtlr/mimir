@@ -1210,7 +1210,12 @@ export async function cmdResolve(c: Ctx): Promise<number> {
  * format the dispatcher picked (human in a terminal, json when piped).
  */
 export async function cmdTriage(c: Ctx): Promise<number> {
-  const board = resolveBoard(c.positionals[1], await c.boundScope(), usage);
+  const rawBoard = c.positionals[1];
+  const board = resolveBoard(
+    rawBoard,
+    rawBoard === undefined ? await c.boundScope() : undefined,
+    usage,
+  );
   const report = await triage(c.store, { board, dryRun: c.values['dry-run'] === true });
   renderTriage(report, c.format, c.io);
   return 0;

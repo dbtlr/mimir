@@ -195,3 +195,15 @@ test('bindingScope retries after a failed resolution instead of caching the fail
   expect((await errorOf(scope())).message).toBe('connection reset');
   expect(await scope()).toBe('AAA');
 });
+
+test('bindingScope re-reads an unbound clone so a later bind takes effect', async () => {
+  const git = fakeGit();
+  const scope = bindingScope(
+    async () => engine,
+    git,
+    () => {},
+  );
+  expect(await scope()).toBeUndefined();
+  await git.writeConfig(BINDING_CONFIG_KEY, 'AAA');
+  expect(await scope()).toBe('AAA');
+});

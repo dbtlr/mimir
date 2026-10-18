@@ -51,3 +51,20 @@ test('outside a git clone every call is a quiet miss', async () => {
   expect(await port.originUrl()).toBeUndefined();
   expect(await port.writeConfig(BINDING_CONFIG_KEY, 'AAA')).toBe(false);
 });
+
+test('readConfig ignores a global mimir.project: the binding is per clone', async () => {
+  git(root, 'init', '-q');
+  const globalConfig = join(root, 'global-gitconfig');
+  execFileSync('git', ['config', '--file', globalConfig, BINDING_CONFIG_KEY, 'GLOBAL']);
+  const previous = process.env.GIT_CONFIG_GLOBAL;
+  process.env.GIT_CONFIG_GLOBAL = globalConfig;
+  try {
+    expect(await gitPortAt(root).readConfig(BINDING_CONFIG_KEY)).toBeUndefined();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.GIT_CONFIG_GLOBAL;
+    } else {
+      process.env.GIT_CONFIG_GLOBAL = previous;
+    }
+  }
+});

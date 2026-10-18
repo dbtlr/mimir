@@ -103,7 +103,7 @@ export async function bindClone(
 
 /**
  * A `ScopeSource` over a clone: resolves the binding on first call and reuses
- * the answer after. `getEngine` is called only then, so a command that never
+ * a bound answer after (an unbound clone is re-read, so a later bind applies). `getEngine` is called only then, so a command that never
  * needs a default scope never opens the store.
  */
 export function bindingScope(
@@ -112,9 +112,11 @@ export function bindingScope(
   notify: (line: string) => void,
 ): ScopeSource {
   let resolved: Promise<string | undefined> | undefined;
+  let announced = false;
   const resolve = async (): Promise<string | undefined> => {
     const found = await resolveBinding(await getEngine(), git, notify);
-    if (found.state === 'unbound' && found.reason === 'ambiguous') {
+    if (found.state === 'unbound' && found.reason === 'ambiguous' && !announced) {
+      announced = true;
       notify(
         `several projects match the origin (${found.candidates.join(', ')}): run mimir bind KEY`,
       );
@@ -124,9 +126,14 @@ export function bindingScope(
   return async () => {
     resolved ??= resolve();
     try {
-      return await resolved;
+      const key = await resolved;
+      if (key === undefined) {
+        // Unbound is not final: a later `mimir bind KEY` must reach a long-lived MCP session.
+        resolved = undefined;
+      }
+      return key;
     } catch (error) {
-      // Cache only a success: a transient failure must not break every later call.
+      // Cache only a bound key: a transient failure must not break every later call.
       resolved = undefined;
       throw error;
     }
