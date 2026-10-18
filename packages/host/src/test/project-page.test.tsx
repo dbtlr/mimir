@@ -3,16 +3,18 @@ import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/rea
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, vi } from 'vitest';
 
-import { ApiError } from '../api/errors';
+import { getNode } from '../api/fns/nodes';
+import { updateProject } from '../api/fns/shell';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
-import { emptyRead } from './fixtures';
+import { serveNodes } from './node-fns';
 import { failShellReads, serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend }));
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
@@ -42,12 +44,8 @@ describe('project page archived-404 (MMR-230)', () => {
     // Archived-404 semantics: every project-scoped read answers 404, while
     // portfolio reads (shell strips, picker) stay healthy.
     serveShell({ projects: [engineProject({ id: 'MMR', title: 'Mimir' })] });
-    apiGet.mockImplementation((path: string) => {
-      if (path.startsWith('/api/projects/SR') || path.includes('project=SR')) {
-        return Promise.reject(new ApiError(`GET ${path} → 404`, 404));
-      }
-      return Promise.resolve(emptyRead(path));
-    });
+    serveNodes({ nodes: [engineProject({ id: 'MMR', title: 'Mimir' })] });
+    apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
     renderProject('SR');
 
     await expect(screen.findByText(/archived or no longer exists/i)).resolves.toBeDefined();
@@ -59,6 +57,8 @@ describe('project page archived-404 (MMR-230)', () => {
   it('an unreachable server still reads as offline, not as not-found', async () => {
     apiGet.mockRejectedValue(new TypeError('fetch failed'));
     failShellReads(new TypeError('fetch failed'));
+    serveNodes();
+    vi.mocked(getNode).mockRejectedValue(new TypeError('fetch failed'));
     renderProject('SR');
 
     await expect(screen.findByText(/offline — last synced/i)).resolves.toBeDefined();
@@ -89,28 +89,20 @@ function serveProject() {
       ]),
     },
   });
-  apiGet.mockImplementation((path: string) => {
-    if (path === '/api/projects/MMR') {
-      return Promise.resolve({
+  serveNodes({
+    nodes: [
+      engineProject({
         description: 'The **work** tool.',
         distribution: { in_progress: 1, ready: 1 },
         id: 'MMR',
         next: 'Ship record pages.\n\nThen the work page.',
-        status: 'in_progress',
         title: 'Mimir',
-        type: 'project',
-      });
-    }
-    return Promise.resolve(emptyRead(path));
+      }),
+    ],
   });
 }
 
 describe('project page (MMR-450, MMR-470)', () => {
-  beforeEach(() => {
-    serveViews();
-    apiSend.mockReset();
-  });
-
   it('opens the project itself at /p/KEY as its work page: title, then direction in full', async () => {
     serveProject();
     renderProject('MMR');
@@ -169,7 +161,7 @@ describe('project page (MMR-450, MMR-470)', () => {
 
   it('keeps the phone sheet open under the editor when a save fails, and the draft with it', async () => {
     serveProject();
-    apiSend.mockRejectedValue(new Error('write refused'));
+    vi.mocked(updateProject).mockRejectedValue(new Error('write refused'));
     renderProject('MMR');
     const chips = await screen.findByRole('group', { name: 'Record details' });
 
@@ -183,7 +175,7 @@ describe('project page (MMR-450, MMR-470)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledOnce();
+      expect(updateProject).toHaveBeenCalledOnce();
     });
     expect(screen.getByRole('textbox', { name: 'Direction text' })).toHaveValue('A new direction.');
     // The editor's modal hides the sheet from the accessibility tree; both stay mounted.

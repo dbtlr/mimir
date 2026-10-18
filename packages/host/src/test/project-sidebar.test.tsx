@@ -1,3 +1,4 @@
+import { MimirError } from '@mimir/contract';
 import type { EngineNode, EngineTree } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
@@ -7,6 +8,7 @@ import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
+import { getNode } from '../api/fns/nodes';
 import { projects, tree } from '../api/fns/shell';
 import { review } from '../api/fns/views';
 import { browserTimeZone } from '../api/queries';
@@ -15,8 +17,8 @@ import { subtreeOf } from '../lib/ancestry';
 import { rememberProject } from '../lib/current-project';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
-import { engineProject, engineTree } from './engine-fixtures';
-import { emptyRead, task } from './fixtures';
+import { engineNode, engineProject, engineTree } from './engine-fixtures';
+import { serveNodes } from './node-fns';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
 import { engineReview, stripRow } from './views-fixtures';
@@ -24,6 +26,7 @@ import { serveViews } from './views-fns';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend: vi.fn() }));
+vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
@@ -70,26 +73,25 @@ function serve(
     },
   });
   serveViews({ review: engineReview({ projects: decisionRows }) });
-  apiGet.mockImplementation((path: string) => {
-    // The page itself never loads: these cases read the shell around it.
-    if (path.startsWith('/api/doctor') || /^\/api\/projects\/[A-Z]+$/.test(path)) {
-      return Promise.withResolvers().promise;
+  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
+  serveNodes();
+  vi.mocked(getNode).mockImplementation(async ({ data }) => {
+    // The project's own record never loads.
+    if (/^[A-Z]+$/.test(data.id)) {
+      return Promise.withResolvers<never>().promise;
     }
     // A record page does load: the sidebar reads the open record's type from it.
-    const nodeId = /^\/api\/nodes\/([A-Z]+-\d+)$/.exec(path);
-    const found = nodeId?.[1] === undefined ? undefined : subtreeOf(TREE, nodeId[1]);
-    if (found !== undefined) {
-      return Promise.resolve(
-        task({
-          id: found.id,
-          parent: found.parent,
-          status: found.status,
-          title: found.title,
-          type: found.type,
-        }),
-      );
+    const found = subtreeOf(TREE, data.id);
+    if (found === undefined) {
+      throw new MimirError('not_found', `${data.id} doesn't exist`);
     }
-    return Promise.resolve(emptyRead(path));
+    return engineNode({
+      id: found.id,
+      parent: found.parent,
+      status: found.status,
+      title: found.title,
+      type: found.type,
+    });
   });
 }
 
@@ -484,12 +486,8 @@ describe('sidebar on an archived project (MMR-506)', () => {
       }
       return servedTree?.(options) as Promise<EngineTree>;
     });
-    apiGet.mockImplementation((path: string) => {
-      if (path.startsWith('/api/projects/OLD')) {
-        return Promise.reject(new ApiError(`GET ${path} → 404`, 404));
-      }
-      return served?.(path);
-    });
+    vi.mocked(getNode).mockRejectedValue(new MimirError('not_found', 'OLD is archived'));
+    apiGet.mockImplementation((path: string) => served?.(path));
   }
 
   it('keeps the header and offers only Work, with no outline, browsers, or error line', async () => {

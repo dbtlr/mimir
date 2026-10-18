@@ -9,18 +9,21 @@ import { routeTree } from '../router';
 import { engineSeed } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
-import { emptyRead } from './fixtures';
+import { serveBareRecords } from './node-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
+vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
 
+// The project gate and the task pages these cases open read the record by server function.
 beforeEach(() => {
   serveViews();
+  serveBareRecords();
 });
 const { toast } = vi.hoisted(() => ({
   toast: { error: vi.fn(), success: vi.fn() },
@@ -43,7 +46,7 @@ function mockApi() {
     if (path === '/health') {
       return Promise.resolve({ schema: 1, status: 'ok', version: '0.0.0' });
     }
-    return Promise.resolve(emptyRead(path));
+    return Promise.reject(new Error(`unexpected ${path}`));
   });
 }
 

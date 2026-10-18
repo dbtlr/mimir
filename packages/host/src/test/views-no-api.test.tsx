@@ -7,7 +7,7 @@ import { nodeWork, projectWork, review } from '../api/fns/views';
 import { WorkPage } from '../components/work-page';
 import { routeTree } from '../router';
 import { engineProject } from './engine-fixtures';
-import { task } from './fixtures';
+import { engineContainer } from './node-fixtures';
 import { renderInRouter } from './router';
 import { serveShell } from './shell-fns';
 import { engineReview, engineWork, needsYouRow, nowRow, stripRow } from './views-fixtures';
@@ -20,9 +20,8 @@ vi.mock('../api/fns/views');
  * The review page and the work pages run on server functions (MMR-538): the
  * review report and the project and container work reads reach the Engine,
  * and none of it asks /api. The real fetch is stubbed, so any /api request is
- * recorded rather than mocked away. A work page's own record and rail reads
- * move with the record pages, so the work pages render here from a record in
- * hand, as the route does once its record has loaded.
+ * recorded rather than mocked away. The work pages render here from a record
+ * in hand, as the route does once its record has loaded.
  */
 
 let requested: string[];
@@ -89,10 +88,7 @@ describe('the review and work pages on server functions (MMR-538)', () => {
   });
 
   it('reads a project work page without asking /api', async () => {
-    const record = {
-      ...task({ id: 'MMR', status: 'in_progress', title: 'Mimir' }),
-      type: 'project' as const,
-    };
+    const record = engineProject({ id: 'MMR', title: 'Mimir' });
     await renderInRouter(<WorkPage record={record} offline={false} />, client());
 
     await expect(screen.findByRole('region', { name: 'Now · 1' })).resolves.toBeInTheDocument();
@@ -103,7 +99,7 @@ describe('the review and work pages on server functions (MMR-538)', () => {
   });
 
   it('reads a container work page without asking /api', async () => {
-    const record = task({
+    const record = engineContainer({
       id: 'MMR-105',
       status: 'in_progress',
       title: 'Work page',

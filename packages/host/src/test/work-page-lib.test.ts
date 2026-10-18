@@ -1,7 +1,6 @@
 import type { EngineTree } from '@mimir/contract';
 import { describe, expect, it } from 'vitest';
 
-import type { WireArtifact } from '../api/types';
 import {
   SHIPPED_DAY_CAP,
   buildOutline,
@@ -11,6 +10,7 @@ import {
   newestArtifacts,
   shippedTime,
 } from '../lib/work-page';
+import type { RecordArtifact } from '../lib/work-page';
 import { engineTree } from './engine-fixtures';
 
 // Mon Oct 12 2026, 23:30 in New York (03:30 UTC on the 13th).
@@ -260,8 +260,8 @@ describe('buildOutline marks the open record’s place', () => {
   });
 });
 
-const artifact = (id: string, created_at: string): WireArtifact => ({
-  created_at,
+const artifact = (id: string, createdAt: string): RecordArtifact => ({
+  createdAt: new Date(createdAt),
   id,
   tags: [],
   title: id,

@@ -1,13 +1,51 @@
-import type { Grooming } from '@mimir/contract';
+import { PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
+import type { EngineInput, EngineNode, Grooming, Priority, Size } from '@mimir/contract';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import type { TransitionVerb } from '../lib/transitions';
-import { apiSend } from './client';
+import {
+  abandon,
+  annotate,
+  block,
+  depend,
+  done,
+  groom,
+  move,
+  park,
+  reopen,
+  returnTask,
+  start,
+  submit,
+  tag,
+  unblock,
+  undepend,
+  unpark,
+  untag,
+  update,
+} from './fns/nodes';
+import { create, updateProject } from './fns/shell';
 import { reasonBody, useInvalidateOnWrite } from './mutations';
-import type { WireNode } from './types';
 
-/* A node's writes: verbs, grooming, authoring, links, direction, notes, and tags. */
+/*
+ * A node's writes (MMR-539): verbs, grooming, authoring, links, direction,
+ * notes, and tags. Each goes through its Engine method's server function. A
+ * write invalidates the shared write keys and never reads its echo.
+ */
+
+/** The server function behind each console verb, by the verb's name. */
+const VERB_FNS = {
+  abandon,
+  block,
+  done,
+  park,
+  reopen,
+  return: returnTask,
+  start,
+  submit,
+  unblock,
+  unpark,
+} satisfies Record<TransitionVerb, unknown>;
 
 export type TransitionInput = {
   verb: TransitionVerb;
@@ -23,7 +61,7 @@ export function useTransition(id: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
     mutationFn: ({ verb, reason }: TransitionInput) =>
-      apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/${verb}`, reasonBody(reason)),
+      VERB_FNS[verb]({ data: { id, ...reasonBody(reason) } }),
     onError: (err: Error) => {
       toast.error(err.message);
     },
@@ -47,10 +85,7 @@ export function useGroom(id: string) {
   return useMutation({
     mutationFn: ({ state, note }: GroomInput) => {
       const trimmed = note?.trim() ?? '';
-      return apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/groom`, {
-        state,
-        ...(trimmed === '' ? {} : { note: trimmed }),
-      });
+      return groom({ data: { ids: [id], state, ...(trimmed === '' ? {} : { note: trimmed }) } });
     },
     onError: (err: Error) => {
       toast.error(err.message);
@@ -60,9 +95,9 @@ export function useGroom(id: string) {
 }
 
 /**
- * One create for all three authorable node types (MMR-227) — the route
- * branches on `type` server-side. `open_ended` is container-only;
- * priority/size/external_ref are task-only. The server validates the split.
+ * One create for all three authorable node types (MMR-227) — the Engine
+ * branches on `type`. `open_ended` is container-only; priority/size/external_ref
+ * are task-only, and the Engine refuses a field on the wrong type.
  */
 export type CreateNodeInput = {
   type: 'task' | 'phase' | 'initiative';
@@ -78,12 +113,34 @@ export type CreateNodeInput = {
 };
 
 /** The record a create answers, which the authoring sheet opens or links. */
-export type CreatedNode = WireNode;
+export type CreatedNode = EngineNode;
+
+/** The Engine's create input for `input`: a task takes the task-only fields, a container the container-only one. */
+function createData(input: CreateNodeInput): EngineInput<'create'> {
+  const {
+    type,
+    external_ref: externalRef,
+    open_ended: openEnded,
+    priority,
+    size,
+    ...shared
+  } = input;
+  if (type === 'task') {
+    return {
+      ...shared,
+      externalRef,
+      priority: PRIORITY_VALUES.find((p) => p === priority),
+      size: SIZE_VALUES.find((s) => s === size),
+      type,
+    };
+  }
+  return { ...shared, openEnded, type };
+}
 
 export function useCreateNode() {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
-    mutationFn: (input: CreateNodeInput) => apiSend<WireNode>('POST', '/api/nodes', input),
+    mutationFn: (input: CreateNodeInput) => create({ data: createData(input) }),
     onError: (err: Error) => toast.error(err.message),
     onSettled: () => void invalidate(),
   });
@@ -114,8 +171,7 @@ export function useDepend(options?: UseDependOptions) {
   const invalidate = useInvalidateOnWrite();
   const silent = options?.silent === true;
   return useMutation({
-    mutationFn: ({ id, on }: DependInput) =>
-      apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/depend`, { on }),
+    mutationFn: ({ id, on }: DependInput) => depend({ data: { id, on } }),
     onError: silent ? undefined : (err: Error) => toast.error(err.message),
     onSettled: () => void invalidate(),
   });
@@ -125,8 +181,7 @@ export function useDepend(options?: UseDependOptions) {
 export function useUndepend() {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
-    mutationFn: ({ id, on }: DependInput) =>
-      apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/undepend`, { on }),
+    mutationFn: ({ id, on }: DependInput) => undepend({ data: { id, on } }),
     onError: (err: Error) => toast.error(err.message),
     onSettled: () => void invalidate(),
   });
@@ -138,16 +193,15 @@ export type UpdateNodeInput = {
   /** Owned direction prose (ADR 0026) — containers only; tasks never carry it. */
   next?: string;
   summary?: string;
-  priority?: string;
-  size?: string;
-  external_ref?: string;
+  priority?: Priority;
+  size?: Size;
+  externalRef?: string;
 };
 
 export function useUpdateNode(id: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
-    mutationFn: (fields: UpdateNodeInput) =>
-      apiSend<WireNode>('PATCH', `/api/nodes/${encodeURIComponent(id)}`, fields),
+    mutationFn: (fields: UpdateNodeInput) => update({ data: { ...fields, id } }),
     onError: (err: Error) => toast.error(err.message),
     onSettled: () => void invalidate(),
   });
@@ -161,8 +215,7 @@ export function useUpdateNode(id: string) {
 export function useMoveNode(id: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
-    mutationFn: (to: string) =>
-      apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/move`, { to }),
+    mutationFn: (to: string) => move({ data: { id, to } }),
     onError: (err: Error) => toast.error(err.message),
     onSettled: () => void invalidate(),
   });
@@ -174,16 +227,10 @@ export function useMoveNode(id: string) {
  */
 export type DirectionTarget = { kind: 'project'; key: string } | { kind: 'node'; id: string };
 
-/** The PATCH route for a direction target — the two surfaces that accept `next`. */
-function directionPath(target: DirectionTarget): string {
-  return target.kind === 'project'
-    ? `/api/projects/${encodeURIComponent(target.key)}`
-    : `/api/nodes/${encodeURIComponent(target.id)}`;
-}
-
 /**
- * Write a subject's direction (MMR-390) — one PATCH for both routes, since
- * the body (`{ next }`) is the same either way. Unlike its siblings this one
+ * Write a subject's direction (MMR-390): `updateProject` for a project,
+ * `update` for a container, since the two Engine methods take the same `next`.
+ * Unlike its siblings this one
  * AWAITS the invalidation from `onSettled`: the editor closes on the settled
  * mutation, so awaiting here is what keeps the reading pane from flashing the
  * prose the operator just replaced.
@@ -191,7 +238,10 @@ function directionPath(target: DirectionTarget): string {
 export function useUpdateDirection(target: DirectionTarget) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
-    mutationFn: (next: string) => apiSend<WireNode>('PATCH', directionPath(target), { next }),
+    mutationFn: (next: string) =>
+      target.kind === 'project'
+        ? updateProject({ data: { id: target.key, next } })
+        : update({ data: { id: target.id, next } }),
     onError: (err: Error) => toast.error(err.message),
     onSettled: invalidate,
   });
@@ -200,8 +250,7 @@ export function useUpdateDirection(target: DirectionTarget) {
 export function useAnnotate(id: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
-    mutationFn: (content: string) =>
-      apiSend<WireNode>('POST', `/api/nodes/${encodeURIComponent(id)}/annotations`, { content }),
+    mutationFn: (content: string) => annotate({ data: { content, id } }),
     onError: (err: Error) => toast.error(err.message),
     onSettled: () => void invalidate(),
   });
@@ -210,12 +259,7 @@ export function useAnnotate(id: string) {
 export function useTag(id: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
-    mutationFn: (tag: string) =>
-      apiSend<WireNode>(
-        'PUT',
-        `/api/nodes/${encodeURIComponent(id)}/tags/${encodeURIComponent(tag)}`,
-        undefined,
-      ),
+    mutationFn: (name: string) => tag({ data: { ids: [id], tags: [name] } }),
     onError: (err: Error) => toast.error(err.message),
     onSettled: () => void invalidate(),
   });
@@ -224,12 +268,7 @@ export function useTag(id: string) {
 export function useUntag(id: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
-    mutationFn: (tag: string) =>
-      apiSend<WireNode>(
-        'DELETE',
-        `/api/nodes/${encodeURIComponent(id)}/tags/${encodeURIComponent(tag)}`,
-        undefined,
-      ),
+    mutationFn: (name: string) => untag({ data: { ids: [id], tags: [name] } }),
     onError: (err: Error) => toast.error(err.message),
     onSettled: () => void invalidate(),
   });

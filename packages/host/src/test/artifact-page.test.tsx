@@ -1,4 +1,4 @@
-import type { EngineTree } from '@mimir/contract';
+import type { EngineNode, EngineTree } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -8,17 +8,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ArtifactRecord } from '../api/browse-queries';
 import { getArtifact } from '../api/fns/browse';
 import { tree } from '../api/fns/shell';
-import type { WireNode } from '../api/types';
 import { routeTree } from '../router';
 import { engineArtifactRecord } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
-import { emptyRead, task } from './fixtures';
+import { engineContainer, engineTask } from './node-fixtures';
+import { serveNodes } from './node-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend }));
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
@@ -47,17 +48,22 @@ const TREE = tn('MMR', 'project', 'Mimir', [
   ]),
 ]);
 
-const hostTask = task({
+const hostTask = engineTask({
   artifacts: [
-    { created_at: '2026-10-06T16:07:41.112Z', id: 'MMR-a232', tags: ['spec'], title: 'Shaping' },
     {
-      created_at: '2026-10-06T20:00:00.000Z',
+      createdAt: new Date('2026-10-06T16:07:41.112Z'),
+      id: 'MMR-a232',
+      tags: ['spec'],
+      title: 'Shaping',
+    },
+    {
+      createdAt: new Date('2026-10-06T20:00:00.000Z'),
       id: 'MMR-a233',
       tags: ['session_summary'],
       title: 'Session summary: optional serve',
     },
   ],
-  completed_at: '2026-10-06T21:00:00.000Z',
+  completedAt: new Date('2026-10-06T21:00:00.000Z'),
   id: 'MMR-432',
   status: 'done',
   title: 'serve answers any Host',
@@ -91,18 +97,12 @@ const loose = engineArtifactRecord({
 });
 
 /**
- * Serve one artifact and the given nodes at their detail paths; empty lists
- * elsewhere (beforeEach serves the project list and tree).
+ * Serve one artifact and the given nodes at their detail reads (beforeEach
+ * serves the project list and tree).
  */
-function serve(record: ArtifactRecord, nodes: WireNode[] = []) {
+function serve(record: ArtifactRecord, nodes: EngineNode[] = []) {
   serveBrowse({ records: { [record.id]: record } });
-  apiGet.mockImplementation((path: string) => {
-    const node = nodes.find((n) => path === `/api/nodes/${n.id}`);
-    if (node !== undefined) {
-      return Promise.resolve(node);
-    }
-    return Promise.resolve(emptyRead(path));
-  });
+  serveNodes({ nodes });
 }
 
 function renderAt(url: string) {
@@ -125,8 +125,7 @@ const rail = () => screen.findByRole('complementary', { name: 'Record details' }
 
 beforeEach(() => {
   serveViews();
-  apiGet.mockReset();
-  apiSend.mockReset();
+  apiGet.mockImplementation((p: string) => Promise.reject(new Error(`unexpected ${p}`)));
   serveShell({ projects: PROJECTS, trees: { MMR: TREE } });
 });
 
@@ -203,12 +202,12 @@ describe('artifact page (MMR-452)', () => {
     });
 
     it('gives a container its status alone, since only a task stamps when it settled', async () => {
-      const phase = task({
+      const phase = engineContainer({
         id: 'MMR-437',
         status: 'done',
         title: 'Console phase 1, as loaded',
         type: 'phase',
-        updated_at: '2026-06-01T10:00:00.000Z',
+        updatedAt: new Date('2026-06-01T10:00:00.000Z'),
       });
       serve({ ...spec, links: ['MMR-437'] }, [phase]);
       renderAt('/p/MMR/a232');

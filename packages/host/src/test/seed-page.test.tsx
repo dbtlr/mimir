@@ -8,17 +8,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EngineSeed } from '../api/browse-queries';
 import { ApiError } from '../api/errors';
 import { consoleUpstreamTasks, seedUpdate } from '../api/fns/browse';
-import type { WireNode } from '../api/types';
+import { getNode } from '../api/fns/nodes';
 import { routeTree } from '../router';
-import { engineTask, seedIn } from './browse-fixtures';
+import { seedIn } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
-import { emptyRead, task } from './fixtures';
+import { engineTask } from './node-fixtures';
+import { serveNodes } from './node-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend }));
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
@@ -39,11 +41,11 @@ const crossBoardBug = seedIn('untriaged', {
 });
 
 // An abandoned task carries no completed_at; it settled when it last changed.
-const abandoned = task({
+const abandoned = engineTask({
   id: 'MMR-364',
   status: 'abandoned',
   title: 'Shape the session skill router',
-  updated_at: '2026-10-10T12:00:00.000Z',
+  updatedAt: new Date('2026-10-10T12:00:00.000Z'),
 });
 
 const readyToResolve = seedIn('ready', {
@@ -58,16 +60,11 @@ const readyToResolve = seedIn('ready', {
  */
 function serve(
   record: EngineSeed,
-  { nodes = [], upstream = [] }: { nodes?: WireNode[]; upstream?: EngineNode[] } = {},
+  { nodes = [], upstream = [] }: { nodes?: EngineNode[]; upstream?: EngineNode[] } = {},
 ) {
   serveBrowse({ seeds: [record], upstream: { [record.id]: upstream } });
-  apiGet.mockImplementation((path: string) => {
-    const node = nodes.find((n) => path === `/api/nodes/${n.id}`);
-    if (node !== undefined) {
-      return Promise.resolve(node);
-    }
-    return Promise.resolve(emptyRead(path));
-  });
+  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
+  serveNodes({ nodes });
 }
 
 function renderAt(url: string) {
@@ -88,7 +85,6 @@ function renderAt(url: string) {
 beforeEach(() => {
   serveViews();
   apiGet.mockReset();
-  apiSend.mockReset();
   serveShell({ projects: PROJECTS });
 });
 
@@ -103,7 +99,7 @@ describe('seed page (MMR-451)', () => {
     expect(screen.getByText('NRN-s30 · seed')).toBeInTheDocument();
     expect(screen.getByText('Untriaged')).toBeInTheDocument();
     expect(screen.getByText('norn 0.48.2').tagName).toBe('STRONG');
-    expect(apiGet).not.toHaveBeenCalledWith('/api/nodes/NRN-s30');
+    expect(getNode).not.toHaveBeenCalled();
   });
 
   it('reads as a request: the requesting board asks the owning board', async () => {

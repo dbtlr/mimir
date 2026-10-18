@@ -13,7 +13,7 @@ import { ProjectPicker } from '../components/project-picker';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
-import { emptyRead, task } from './fixtures';
+import { serveBareRecords } from './node-fns';
 import { renderInRouter } from './router';
 import { failShellReads, serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
@@ -22,6 +22,7 @@ import { serveViews } from './views-fns';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
@@ -69,16 +70,8 @@ function serve(world: Partial<World> = {}) {
     shell.projects = shell.projects.map((p) => withPin(p, data.id, data.pinned));
     return engineProject({ id: data.id });
   });
-  apiGet.mockImplementation((path: string) => {
-    if (path.startsWith('/api/doctor') || /^\/api\/projects\/[A-Z]+$/.test(path)) {
-      return Promise.withResolvers().promise;
-    }
-    const record = /^\/api\/nodes\/([A-Z]+-\d+)$/.exec(path);
-    if (record?.[1] !== undefined) {
-      return Promise.resolve(task({ id: record[1], status: 'ready' }));
-    }
-    return Promise.resolve(emptyRead(path));
-  });
+  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
+  serveBareRecords();
 }
 
 /** The host is unreachable: every read fails. */

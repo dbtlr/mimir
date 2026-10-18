@@ -187,8 +187,8 @@ function FocusCard({
           <span className="whitespace-pre-line text-ink">{submitted}</span>
         </Context>
       )}
-      {node.data?.external_ref != null && row.reason === 'under_review' && (
-        <ExternalRef value={node.data.external_ref} />
+      {node.data?.externalRef != null && row.reason === 'under_review' && (
+        <ExternalRef value={node.data.externalRef} />
       )}
       {holdReason !== undefined && holdReason !== '' && (
         <Context label="Waiting on" className="border-attention">

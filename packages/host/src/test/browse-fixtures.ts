@@ -4,7 +4,7 @@ import type { EngineNode, SeedLane } from '@mimir/contract';
 
 import type { ArtifactRecord, ArtifactSummary, EngineSeed, TaskSet } from '../api/browse-queries';
 import type { RecordHealth } from '../api/fns/browse';
-import { engineNode, FIXTURE_AT } from './engine-fixtures';
+import { FIXTURE_AT } from './engine-fixtures';
 
 /*
  * Engine-shaped records for the browsers' reads (MMR-540): seeds, artifacts,
@@ -74,13 +74,6 @@ export function engineArtifactRecord(
     title: `artifact ${overrides.id}`,
     ...overrides,
   };
-}
-
-/** A todo task as a list row reads it; override what the case needs. */
-export function engineTask(
-  overrides: Partial<EngineNode> & Pick<EngineNode, 'status'>,
-): EngineNode {
-  return engineNode({ lifecycle: 'todo', parent: 'MMR-1', type: 'task', ...overrides });
 }
 
 /** A task list holding `items` whole, as `list` returns one; `total` can claim more. */

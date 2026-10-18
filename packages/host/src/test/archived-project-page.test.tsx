@@ -4,18 +4,19 @@ import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/rea
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError } from '../api/errors';
+import { getNode } from '../api/fns/nodes';
 import { projects, unarchive } from '../api/fns/shell';
 import { createQueryClient } from '../api/query-client';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
-import { emptyRead, project } from './fixtures';
+import { serveNodes } from './node-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
@@ -27,33 +28,24 @@ const OLD = engineProject({
   title: 'Old project',
 });
 
-const names = (path: string, key: string) =>
-  path.startsWith(`/api/projects/${key}`) || new RegExp(`[?&]project=${key}`).test(path);
-const notFound = (path: string) => Promise.reject(new ApiError(`GET ${path} → 404`, 404));
-
-/** `OLD` is archived until unarchived, so its record 404s and the archived list names it; `ZZZ` is unknown. */
+/**
+ * `OLD` is archived until unarchived, so its record is not found and the archived list names it;
+ * `ZZZ` is unknown. The Engine's record read refuses both the same way.
+ */
 function serve() {
-  let archived = true;
   const shell = serveShell({ archived: [OLD] });
+  const records = serveNodes({ nodes: [] });
   vi.mocked(unarchive).mockImplementation(async () => {
-    archived = false;
     shell.archived = [];
+    records.nodes = [engineProject({ id: 'OLD', status: 'in_progress', title: 'Old project' })];
     return engineProject({ id: 'OLD' });
   });
-  apiGet.mockImplementation((path: string) => {
-    if (names(path, 'ZZZ') || (archived && names(path, 'OLD'))) {
-      return notFound(path);
-    }
-    if (path === '/api/projects/OLD') {
-      return Promise.resolve(project({ id: 'OLD', status: 'in_progress', title: 'Old project' }));
-    }
-    return Promise.resolve(emptyRead(path));
-  });
+  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
 }
 
-/** How many reads of the archived project's own routes the page has made. */
+/** How many reads of the archived project's own record the page has made. */
 const projectReads = () =>
-  apiGet.mock.calls.filter(([path]) => String(path).startsWith('/api/projects/OLD')).length;
+  vi.mocked(getNode).mock.calls.filter(([options]) => options.data.id === 'OLD').length;
 
 const quietClient = () =>
   new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } });
@@ -75,6 +67,7 @@ beforeEach(() => {
   serveBrowse();
   serveViews();
   apiGet.mockReset();
+  vi.mocked(getNode).mockReset();
   vi.mocked(projects).mockReset();
   vi.mocked(unarchive).mockReset();
   serve();

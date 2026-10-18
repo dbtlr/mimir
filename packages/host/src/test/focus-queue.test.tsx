@@ -1,22 +1,25 @@
+import type { EngineNode } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { done, getNode } from '../api/fns/nodes';
 import { tree } from '../api/fns/shell';
 import { review } from '../api/fns/views';
 import { browserTimeZone } from '../api/queries';
-import type { WireAnnotation, WireNode } from '../api/types';
 import type { NeedsYouTask, ReviewReport } from '../api/view-queries';
 import { routeTree } from '../router';
 import { engineTree } from './engine-fixtures';
-import { task } from './fixtures';
+import { engineNote, engineTask } from './node-fixtures';
+import { serveNodes } from './node-fns';
 import { serveShell } from './shell-fns';
 import { engineReview, needsYouRow, stripRow } from './views-fixtures';
 import { serveViews } from './views-fns';
 
-const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend }));
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/views');
 
@@ -24,7 +27,7 @@ const NOW = Date.parse('2026-10-13T12:00:00.000Z');
 
 beforeEach(() => {
   apiGet.mockReset();
-  apiSend.mockReset();
+  vi.clearAllMocks();
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(NOW);
 });
@@ -71,7 +74,10 @@ function decisions(...rows: NeedsYouTask[]): ReviewReport {
 }
 
 /** Each task's detail record, its notes, and its project's tree, as the focus card reads them. */
-type Details = Record<string, { node?: Partial<WireNode>; notes?: WireAnnotation[] }>;
+type Details = Record<
+  string,
+  { node?: Partial<EngineNode>; notes?: ReturnType<typeof engineNote>[] }
+>;
 
 /**
  * Serve `report` as the review read until a write lands, then `after` (when
@@ -87,20 +93,16 @@ function serve(
   let current = report;
   serveViews();
   vi.mocked(review).mockImplementation(async () => current);
-  apiGet.mockImplementation((path: string) => {
-    const node = /^\/api\/nodes\/([^/]+)$/.exec(path);
-    if (node !== null) {
-      const id = decodeURIComponent(node[1]!);
-      return Promise.resolve({ ...task({ id, status: 'ready' }), ...details[id]?.node });
-    }
-    const notes = /^\/api\/nodes\/([^/]+)\/annotations$/.exec(path);
-    if (notes !== null) {
-      const items = details[decodeURIComponent(notes[1]!)]?.notes ?? [];
-      return Promise.resolve({ items, total: items.length });
-    }
-    return Promise.resolve({ items: [], total: 0 });
-  });
+  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
   serveShell();
+  serveNodes();
+  vi.mocked(getNode).mockImplementation(async ({ data }) => {
+    const detail = details[data.id];
+    const node = engineTask({ id: data.id, status: 'ready', ...detail?.node });
+    return data.facets?.length === 1 && data.facets[0] === 'annotations'
+      ? { ...node, annotations: detail?.notes ?? [] }
+      : node;
+  });
   vi.mocked(tree).mockImplementation(async ({ data }) => {
     const key = data.id;
     const leaves = current.queue
@@ -115,11 +117,11 @@ function serve(
       [phase],
     );
   });
-  apiSend.mockImplementation(() => {
+  vi.mocked(done).mockImplementation(async ({ data }) => {
     if (after !== undefined) {
       current = after;
     }
-    return Promise.resolve({});
+    return engineTask({ id: data.id, status: 'done' });
   });
   return {
     /** Serve `next` from the next review read, as a poll would. */
@@ -207,19 +209,18 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
       details: {
         'LM-196': {
           node: {
-            external_ref: 'https://github.com/dbtlr/loom/pull/12',
+            externalRef: 'https://github.com/dbtlr/loom/pull/12',
             history: [
               {
-                at: '2026-10-13T10:00:00.000Z',
+                at: new Date('2026-10-13T10:00:00.000Z'),
                 from: 'in_progress',
                 kind: 'lifecycle',
+                reason: null,
                 to: 'under_review',
               },
-            ] as WireNode['history'],
+            ],
           },
-          notes: [
-            { content: 'Plugin ships with docs.', created_at: '2026-10-13T10:01:00.000Z', id: 1 },
-          ] as unknown as WireAnnotation[],
+          notes: [engineNote('Plugin ships with docs.', '2026-10-13T10:01:00.000Z')],
         },
       },
     });
@@ -236,7 +237,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     fireEvent.click(within(shown).getByRole('button', { name: 'Approve' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/LM-196/done', undefined);
+      expect(done).toHaveBeenCalledWith({ data: { id: 'LM-196' } });
     });
     await expect(cardFor(question)).resolves.toBeDefined();
     expect(screen.getByText('2 of 2')).toBeDefined();
@@ -300,7 +301,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
 
     await screen.findByRole('region', { name: 'Needs you · 2' });
     expect(testRouter.state.location.href).toBe('/');
-    expect(apiSend).not.toHaveBeenCalled();
+    expect(done).not.toHaveBeenCalled();
     expect(screen.getByRole('link', { name: 'Work through these · 2' })).toBeDefined();
   });
 

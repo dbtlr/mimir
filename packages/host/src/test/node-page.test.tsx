@@ -1,3 +1,4 @@
+import type { EngineNode } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -5,20 +6,22 @@ import userEvent from '@testing-library/user-event';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError } from '../api/errors';
+import { done, getNode, groom, move, park, start, tag, untag, update } from '../api/fns/nodes';
 import { nodeWork } from '../api/fns/views';
 import { POLL_MS } from '../api/queries';
 import { createQueryClient } from '../api/query-client';
-import type { WireNode } from '../api/types';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineTree } from './engine-fixtures';
-import { emptyRead, task } from './fixtures';
+import { engineContainer, engineNote, engineTag, engineTask, scratchpadRow } from './node-fixtures';
+import type { ScratchpadRow } from './node-fixtures';
+import { failNotes, serveNodes } from './node-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend }));
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
@@ -46,18 +49,17 @@ const TREE = engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type
   ),
 ]);
 
-/** Serve `node` at its detail path, the MMR tree, and an empty list everywhere else. */
-function serve(node: WireNode, extra: Record<string, unknown> = {}) {
-  apiGet.mockImplementation((path: string) => {
-    if (path in extra) {
-      return Promise.resolve(extra[path]);
-    }
-    if (path === `/api/nodes/${node.id}`) {
-      return Promise.resolve(node);
-    }
-    return Promise.resolve(emptyRead(path));
-  });
+/** What a case adds to the world beyond the node itself. */
+type Extra = { notes?: ReturnType<typeof engineNote>[]; scratchpads?: ScratchpadRow[] };
+
+/** Serve `node` and its notes, the MMR tree, and the Scratchpads. */
+function serve(node: EngineNode, extra: Extra = {}) {
   serveShell({ trees: { MMR: TREE } });
+  return serveNodes({
+    nodes: [node],
+    notes: { [node.id]: extra.notes ?? [] },
+    scratchpads: extra.scratchpads ?? [],
+  });
 }
 
 function renderAt(
@@ -76,7 +78,7 @@ function renderAt(
   return testRouter;
 }
 
-const sqlite = task({
+const sqlite = engineTask({
   description: 'SQLite dialect over `bun:sqlite`.',
   id: 'MMR-417',
   parent: 'MMR-2',
@@ -87,8 +89,7 @@ const sqlite = task({
 beforeEach(() => {
   serveBrowse();
   serveViews();
-  apiGet.mockReset();
-  apiSend.mockReset();
+  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
 });
 
 /** Markdown with a list, inline and fenced code, and a link — one body for every surface. */
@@ -103,15 +104,15 @@ const MARKDOWN_BODY = [
   '```',
 ].join('\n');
 
-/** The tag write requests for one node (apiSend accumulates calls across a test). */
+/** The tag and untag writes issued for one node, in order. */
 function tagWrites(id: string) {
-  return apiSend.mock.calls.filter(
-    ([, path]) => typeof path === 'string' && path.includes(`/${id}/tags/`),
+  return [...vi.mocked(tag).mock.calls, ...vi.mocked(untag).mock.calls].filter(([options]) =>
+    options.data.ids.includes(id),
   );
 }
 
 /** Render the task page for `node` and wait for its desktop rail. */
-async function openTask(node: WireNode, extra: Record<string, unknown> = {}) {
+async function openTask(node: EngineNode, extra: Extra = {}) {
   serve(node, extra);
   renderAt(`/p/MMR/${node.id.replace('MMR-', '')}`);
   return screen.findByRole('complementary', { name: 'Record details' });
@@ -141,7 +142,12 @@ describe('task page (MMR-449)', () => {
   });
 
   it('links the project when no container holds the task', async () => {
-    const loose = task({ id: 'MMR-9', parent: 'MMR', status: 'ready', title: 'A loose task' });
+    const loose = engineTask({
+      id: 'MMR-9',
+      parent: 'MMR',
+      status: 'ready',
+      title: 'A loose task',
+    });
     serve(loose);
     serveShell({
       trees: {
@@ -186,11 +192,8 @@ describe('task page (MMR-449)', () => {
   });
 
   it('shows its own not-found state when no record has the id', async () => {
-    apiGet.mockImplementation((path: string) =>
-      path === '/api/nodes/MMR-999'
-        ? Promise.reject(new ApiError(`GET ${path} → 404`, 404))
-        : Promise.resolve(emptyRead(path)),
-    );
+    serveShell({ trees: { MMR: TREE } });
+    serveNodes({ nodes: [] });
     renderAt('/p/MMR/999');
 
     await expect(screen.findByText(/no record MMR-999/i)).resolves.toBeDefined();
@@ -202,11 +205,11 @@ describe('task page (MMR-449)', () => {
     renderAt('/p/MMR/x41');
 
     await expect(screen.findByText(/no record at \/p\/MMR\/x41/i)).resolves.toBeDefined();
-    expect(apiGet.mock.calls.some(([path]) => String(path).startsWith('/api/nodes/'))).toBe(false);
+    expect(getNode).not.toHaveBeenCalled();
   });
 
   it('asks for a verdict while the task is under review', async () => {
-    serve({ ...sqlite, external_ref: 'https://github.com/x/pull/360', status: 'under_review' });
+    serve({ ...sqlite, externalRef: 'https://github.com/x/pull/360', status: 'under_review' });
     renderAt('/p/MMR/417');
 
     await expect(screen.findByText(/needs your verdict/i)).resolves.toBeDefined();
@@ -215,13 +218,13 @@ describe('task page (MMR-449)', () => {
 
   it('offers a container no verdict and no task actions, whatever its rollup reads', async () => {
     serve({
-      ...task({
+      ...engineContainer({
         id: 'MMR-2',
         parent: 'MMR-1',
         status: 'under_review',
         title: 'SQLite replaces Norn',
+        type: 'phase',
       }),
-      type: 'phase',
     });
     renderAt('/p/MMR/2');
 
@@ -237,8 +240,9 @@ describe('task page (MMR-449)', () => {
     serve({
       ...sqlite,
       deps: {
+        awaitingOn: [],
         blocking: [{ id: 'MMR-418', status: 'awaiting', title: 'Remove the Norn backend' }],
-        depends_on: [{ id: 'MMR-416', status: 'done', title: 'Extract a dialect seam' }],
+        dependsOn: [{ id: 'MMR-416', status: 'done', title: 'Extract a dialect seam' }],
       },
     });
     renderAt('/p/MMR/417');
@@ -260,7 +264,12 @@ describe('task page (MMR-449)', () => {
     serve({
       ...sqlite,
       artifacts: [
-        { created_at: '2026-06-10T00:00:00.000Z', id: 'MMR-a3', tags: [], title: 'Dialect spec' },
+        {
+          createdAt: new Date('2026-06-10T00:00:00.000Z'),
+          id: 'MMR-a3',
+          tags: [],
+          title: 'Dialect spec',
+        },
       ],
     });
     renderAt('/p/MMR/417');
@@ -276,8 +285,9 @@ describe('task page (MMR-449)', () => {
     serve({
       ...sqlite,
       deps: {
+        awaitingOn: [],
         blocking: [{ id: 'MMR-418', status: 'awaiting', title: 'Remove the Norn backend' }],
-        depends_on: [{ id: 'MMR-416', status: 'done', title: 'Extract a dialect seam' }],
+        dependsOn: [{ id: 'MMR-416', status: 'done', title: 'Extract a dialect seam' }],
       },
     });
     renderAt('/p/MMR/417');
@@ -297,29 +307,15 @@ describe('task page (MMR-449)', () => {
     serve(
       { ...sqlite, branch: 'feat/mmr-417-sqlite', harness: 'claude-code', status: 'in_progress' },
       {
-        '/api/scratchpads?project=MMR': {
-          items: [
-            {
-              id: 'a',
-              linked_work: ['MMR-417'],
-              open_agenda: 1,
-              project: 'MMR',
-              state: 'active',
-              title: 'SQLite cutover episode',
-              updated_at: '2026-06-01T10:00:00.000Z',
-            },
-            {
-              id: 'b',
-              linked_work: ['MMR-12'],
-              open_agenda: 0,
-              project: 'MMR',
-              state: 'active',
-              title: 'Unrelated episode',
-              updated_at: '2026-06-01T10:00:00.000Z',
-            },
-          ],
-          total: 2,
-        },
+        scratchpads: [
+          scratchpadRow({
+            id: 'a',
+            linkedWork: ['MMR-417'],
+            openAgenda: 1,
+            title: 'SQLite cutover episode',
+          }),
+          scratchpadRow({ id: 'b', linkedWork: ['MMR-12'], title: 'Unrelated episode' }),
+        ],
       },
     );
     renderAt('/p/MMR/417');
@@ -345,8 +341,9 @@ describe('task page (MMR-449)', () => {
     serve({
       ...sqlite,
       deps: {
+        awaitingOn: [],
         blocking: [],
-        depends_on: [{ id: 'MMR-416', status: 'done', title: 'Extract a dialect seam' }],
+        dependsOn: [{ id: 'MMR-416', status: 'done', title: 'Extract a dialect seam' }],
       },
     });
     renderAt('/p/MMR/417');
@@ -396,17 +393,15 @@ describe('task page (MMR-449)', () => {
 });
 
 describe('container page (MMR-450)', () => {
-  const phase: WireNode = {
-    ...task({
-      description: 'Swap the **store** under the board.',
-      id: 'MMR-2',
-      parent: 'MMR-1',
-      status: 'ready',
-      title: 'SQLite replaces Norn',
-    }),
+  const phase: EngineNode = engineContainer({
+    description: 'Swap the **store** under the board.',
+    id: 'MMR-2',
     next: 'Land the dialect first.\n\nThen remove the Norn backend.',
+    parent: 'MMR-1',
+    status: 'ready',
+    title: 'SQLite replaces Norn',
     type: 'phase',
-  };
+  });
 
   it('shows its direction in full, with a way to rewrite it', async () => {
     serve(phase);
@@ -468,8 +463,7 @@ describe('container page (MMR-450)', () => {
   });
 
   describe('Work | Timeline tabs', () => {
-    const note = { content: 'Settled the dialect seam', created_at: '2026-06-02T00:00:00.000Z' };
-    const withNote = { '/api/nodes/MMR-2/annotations': { items: [note], total: 1 } };
+    const withNote = { notes: [engineNote('Settled the dialect seam')] };
 
     it('opens on Work, with the timeline a tab away', async () => {
       serve(phase, withNote);
@@ -546,7 +540,7 @@ describe('container page (MMR-450)', () => {
 });
 
 /** Open the edit form for `node` and return its Tags field. */
-async function openEdit(node: WireNode) {
+async function openEdit(node: EngineNode) {
   const rail = await openTask(node);
   await userEvent.click(within(rail).getByRole('button', { name: 'Edit' }));
   return screen.findByLabelText(/tags/i);
@@ -554,11 +548,8 @@ async function openEdit(node: WireNode) {
 
 /** Open a task page whose only timeline note carries `content`. */
 async function openWithNote(content: string) {
-  await openTask(task({ id: 'MMR-83', status: 'in_progress' }), {
-    '/api/nodes/MMR-83/annotations': {
-      items: [{ content, created_at: '2026-06-02T00:00:00.000Z' }],
-      total: 1,
-    },
+  await openTask(engineTask({ id: 'MMR-83', status: 'in_progress' }), {
+    notes: [engineNote(content)],
   });
 }
 
@@ -567,86 +558,72 @@ describe('task page edit (MMR-453)', () => {
 
   it('pre-populates the existing tags in the edit form', async () => {
     const tags = await openEdit(
-      task({
+      engineTask({
         id: 'MMR-90',
         status: 'ready',
-        tags: [
-          { created_at: stamp, tag: 'ui' },
-          { created_at: stamp, tag: 'release:v0.5' },
-        ],
+        tags: [engineTag('ui', stamp), engineTag('release:v0.5', stamp)],
       }),
     );
     expect(tags).toHaveValue('ui, release:v0.5');
   });
 
   it('saving with an added tag adds exactly that tag', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-91' });
-    await userEvent.type(await openEdit(task({ id: 'MMR-91', status: 'ready', tags: [] })), 'feat');
+    await userEvent.type(
+      await openEdit(engineTask({ id: 'MMR-91', status: 'ready', tags: [] })),
+      'feat',
+    );
     await userEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('PUT', '/api/nodes/MMR-91/tags/feat', undefined);
+      expect(tag).toHaveBeenCalledWith({ data: { ids: ['MMR-91'], tags: ['feat'] } });
     });
     expect(tagWrites('MMR-91')).toHaveLength(1);
   });
 
   it('saving with a removed tag removes exactly that tag', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-92' });
     await userEvent.clear(
-      await openEdit(
-        task({ id: 'MMR-92', status: 'ready', tags: [{ created_at: stamp, tag: 'ui' }] }),
-      ),
+      await openEdit(engineTask({ id: 'MMR-92', status: 'ready', tags: [engineTag('ui', stamp)] })),
     );
     await userEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('DELETE', '/api/nodes/MMR-92/tags/ui', undefined);
+      expect(untag).toHaveBeenCalledWith({ data: { ids: ['MMR-92'], tags: ['ui'] } });
     });
     expect(tagWrites('MMR-92')).toHaveLength(1);
   });
 
   it('saving with unchanged tags fires no tag request, but the scalars still update', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-93' });
-    await openEdit(
-      task({ id: 'MMR-93', status: 'ready', tags: [{ created_at: stamp, tag: 'ui' }] }),
-    );
+    await openEdit(engineTask({ id: 'MMR-93', status: 'ready', tags: [engineTag('ui', stamp)] }));
     await userEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/nodes/MMR-93', expect.anything());
+      expect(update).toHaveBeenCalledWith({
+        data: expect.objectContaining({ id: 'MMR-93' }),
+      });
     });
     expect(tagWrites('MMR-93')).toStrictEqual([]);
   });
 
   it('appending a tag by typing keeps the existing tag intact', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-94' });
     // Keystroke-by-keystroke append: a trailing comma must survive mid-typing,
     // or "ui" and "feat" merge into one tag.
     await userEvent.type(
-      await openEdit(
-        task({ id: 'MMR-94', status: 'ready', tags: [{ created_at: stamp, tag: 'ui' }] }),
-      ),
+      await openEdit(engineTask({ id: 'MMR-94', status: 'ready', tags: [engineTag('ui', stamp)] })),
       ', feat',
     );
     await userEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => {
-      expect(tagWrites('MMR-94')).toStrictEqual([
-        ['PUT', '/api/nodes/MMR-94/tags/feat', undefined],
-      ]);
+      expect(tagWrites('MMR-94')).toStrictEqual([[{ data: { ids: ['MMR-94'], tags: ['feat'] } }]]);
     });
   });
 
   it('one save adds and removes the changed tags and leaves the kept one alone', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-95' });
     const tags = await openEdit(
-      task({
+      engineTask({
         id: 'MMR-95',
         status: 'ready',
-        tags: [
-          { created_at: stamp, tag: 'keep' },
-          { created_at: stamp, tag: 'drop' },
-        ],
+        tags: [engineTag('keep', stamp), engineTag('drop', stamp)],
       }),
     );
     await userEvent.clear(tags);
@@ -656,21 +633,18 @@ describe('task page edit (MMR-453)', () => {
     await waitFor(() => {
       expect(tagWrites('MMR-95')).toHaveLength(2);
     });
-    expect(apiSend).toHaveBeenCalledWith('PUT', '/api/nodes/MMR-95/tags/fresh', undefined);
-    expect(apiSend).toHaveBeenCalledWith('DELETE', '/api/nodes/MMR-95/tags/drop', undefined);
+    expect(tag).toHaveBeenCalledWith({ data: { ids: ['MMR-95'], tags: ['fresh'] } });
+    expect(untag).toHaveBeenCalledWith({ data: { ids: ['MMR-95'], tags: ['drop'] } });
   });
 
   it('a failed tag save keeps the edit form open', async () => {
-    apiSend.mockImplementation((method: string) =>
-      method === 'PUT'
-        ? Promise.reject(new Error('tag write failed'))
-        : Promise.resolve({ id: 'MMR-96' }),
-    );
-    await userEvent.type(await openEdit(task({ id: 'MMR-96', status: 'ready', tags: [] })), 'feat');
+    const tags = await openEdit(engineTask({ id: 'MMR-96', status: 'ready', tags: [] }));
+    vi.mocked(tag).mockRejectedValue(new Error('tag write failed'));
+    await userEvent.type(tags, 'feat');
     await userEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('PUT', '/api/nodes/MMR-96/tags/feat', undefined);
+      expect(tag).toHaveBeenCalledWith({ data: { ids: ['MMR-96'], tags: ['feat'] } });
     });
     // The partial failure must not close the form back to the record view.
     expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
@@ -678,50 +652,46 @@ describe('task page edit (MMR-453)', () => {
   });
 
   it('omits empty optional fields from the PATCH instead of sending nulls', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-65' });
-    await openEdit(task({ description: null, external_ref: null, id: 'MMR-65', status: 'ready' }));
+    await openEdit(
+      engineTask({ description: null, externalRef: null, id: 'MMR-65', status: 'ready' }),
+    );
     await userEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/nodes/MMR-65', expect.anything());
+      expect(update).toHaveBeenCalledWith({ data: expect.objectContaining({ id: 'MMR-65' }) });
     });
     // A null would be sent as JSON null; an absent (undefined) field is dropped.
-    const body = apiSend.mock.calls.find(
-      ([method]) => method === 'PATCH',
-    )?.[2] as Partial<WireNode>;
-    expect(body.description).toBeUndefined();
-    expect(body.external_ref).toBeUndefined();
+    const { data } = vi.mocked(update).mock.calls[0]![0];
+    expect(data.description).toBeUndefined();
+    expect(data.externalRef).toBeUndefined();
   });
 });
 
 describe('task page verbs (MMR-453)', () => {
   it('a plain verb fires immediately', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-51' });
-    const rail = await openTask(task({ id: 'MMR-51', status: 'ready' }));
+    const rail = await openTask(engineTask({ id: 'MMR-51', status: 'ready' }));
 
     await userEvent.click(within(rail).getByRole('button', { name: 'Start' }));
 
-    expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-51/start', undefined);
+    expect(start).toHaveBeenCalledWith({ data: { id: 'MMR-51' } });
   });
 
   it('a verb that needs a reason asks for it first, then fires with it', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-51' });
-    const rail = await openTask(task({ id: 'MMR-51', status: 'ready' }));
+    const rail = await openTask(engineTask({ id: 'MMR-51', status: 'ready' }));
 
     await userEvent.click(within(rail).getByRole('button', { name: 'Park for later…' }));
-    expect(apiSend).not.toHaveBeenCalled();
+    expect(park).not.toHaveBeenCalled();
     const dialog = await screen.findByRole('dialog');
     await userEvent.type(within(dialog).getByRole('textbox'), 'later');
     await userEvent.click(screen.getByRole('button', { name: /confirm/i }));
 
-    expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-51/park', { reason: 'later' });
+    expect(park).toHaveBeenCalledWith({ data: { id: 'MMR-51', reason: 'later' } });
   });
 
   it('Approve in the verdict block fires done', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-70' });
     await openTask(
-      task({
-        external_ref: 'https://example.test/pr/41',
+      engineTask({
+        externalRef: 'https://example.test/pr/41',
         id: 'MMR-70',
         status: 'under_review',
       }),
@@ -729,19 +699,14 @@ describe('task page verbs (MMR-453)', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Approve' }));
 
-    expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-70/done', undefined);
+    expect(done).toHaveBeenCalledWith({ data: { id: 'MMR-70' } });
   });
 
   it('offline disables Edit, Move…, and the verbs', async () => {
-    const node = task({ id: 'MMR-51', status: 'ready' });
-    serve(node, { '/api/nodes/MMR-51/annotations': undefined });
+    const node = engineTask({ id: 'MMR-51', status: 'ready' });
+    serve(node);
     // An errored read over loaded data is the console's offline signal.
-    const base = apiGet.getMockImplementation();
-    apiGet.mockImplementation((path: string) =>
-      path === '/api/nodes/MMR-51/annotations'
-        ? Promise.reject(new Error('unreachable'))
-        : base?.(path),
-    );
+    failNotes();
     renderAt('/p/MMR/51');
 
     const rail = await screen.findByRole('complementary', { name: 'Record details' });
@@ -755,7 +720,6 @@ describe('task page verbs (MMR-453)', () => {
 
 describe('task page move (MMR-453)', () => {
   it('Move… picks a new parent and moves the task there', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-417' });
     const rail = await openTask(sqlite);
 
     await userEvent.click(within(rail).getByRole('button', { name: 'Move…' }));
@@ -764,14 +728,19 @@ describe('task page move (MMR-453)', () => {
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'New parent' }), 'MMR-1');
     await userEvent.click(screen.getByRole('button', { name: 'Move' }));
 
-    expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-417/move', { to: 'MMR-1' });
+    expect(move).toHaveBeenCalledWith({ data: { id: 'MMR-417', to: 'MMR-1' } });
   });
 });
 
 describe('task page content (MMR-453)', () => {
   it('renders the description as markdown', async () => {
     await openTask(
-      task({ description: MARKDOWN_BODY, id: 'MMR-81', status: 'in_progress', title: 'md task' }),
+      engineTask({
+        description: MARKDOWN_BODY,
+        id: 'MMR-81',
+        status: 'in_progress',
+        title: 'md task',
+      }),
     );
 
     // The record layout is itself an article; the markdown body is the one holding the code.
@@ -791,11 +760,11 @@ describe('task page content (MMR-453)', () => {
 
   it('renders a dependency in both depends_on and awaiting_on as one row, with the awaiting reading', async () => {
     const rail = await openTask(
-      task({
+      engineTask({
         deps: {
-          awaiting_on: [{ id: 'MMR-20', status: 'blocked', title: 'still gating' }],
+          awaitingOn: [{ id: 'MMR-20', status: 'blocked', title: 'still gating' }],
           blocking: [],
-          depends_on: [{ id: 'MMR-20', status: 'done', title: 'still gating (stale)' }],
+          dependsOn: [{ id: 'MMR-20', status: 'done', title: 'still gating (stale)' }],
         },
         id: 'MMR-21',
         status: 'in_progress',
@@ -882,8 +851,7 @@ describe('live refresh (MMR-458)', () => {
     renderAt('/p/MMR/417', createQueryClient());
     await screen.findByRole('heading', { level: 1, name: 'Add the SQLite dialect' });
 
-    const note = { content: 'Annotated from the CLI', created_at: '2026-06-02T10:00:00.000Z' };
-    serve(sqlite, { '/api/nodes/MMR-417/annotations': { items: [note], total: 1 } });
+    serve(sqlite, { notes: [engineNote('Annotated from the CLI', '2026-06-02T10:00:00.000Z')] });
     expect(screen.queryByText('Annotated from the CLI')).toBeNull();
     await vi.advanceTimersByTimeAsync(POLL_MS);
 
@@ -891,10 +859,15 @@ describe('live refresh (MMR-458)', () => {
   });
 });
 
-const groomed = () => task({ grooming: 'groomed', id: 'MMR-51', status: 'ready' });
+const groomed = () => engineTask({ grooming: 'groomed', id: 'MMR-51', status: 'ready' });
 
 /** The task read requests issued so far for MMR-51. */
-const taskReads = () => apiGet.mock.calls.filter(([path]) => path === '/api/nodes/MMR-51');
+const taskReads = () =>
+  vi
+    .mocked(getNode)
+    .mock.calls.filter(
+      ([options]) => options.data.id === 'MMR-51' && options.data.facets?.length !== 1,
+    );
 
 describe('task page grooming state (MMR-466)', () => {
   it('shows the state in the header and as a Grooming row in Details', async () => {
@@ -910,7 +883,9 @@ describe('task page grooming state (MMR-466)', () => {
     ['blocked', 'blocked'],
     ['parked', 'parked'],
   ] as const)('still shows the state on a todo task that is %s', async (hold, status) => {
-    await openTask(task({ grooming: 'groomed', hold, hold_reason: 'why', id: 'MMR-51', status }));
+    await openTask(
+      engineTask({ grooming: 'groomed', hold, holdReason: 'why', id: 'MMR-51', status }),
+    );
 
     expect(within(screen.getByRole('article')).getByText('groomed')).toBeDefined();
   });
@@ -922,8 +897,8 @@ describe('task page grooming state (MMR-466)', () => {
   });
 
   it('keeps the dialog open and toasts the error when the request fails', async () => {
-    apiSend.mockRejectedValue(new Error('needs_answers requires a note'));
     const rail = await openTask(groomed());
+    vi.mocked(groom).mockRejectedValue(new Error('needs_answers requires a note'));
 
     await userEvent.click(within(rail).getByRole('button', { name: 'Set grooming…' }));
     const dialog = await screen.findByRole('dialog', { name: 'Grooming state' });
@@ -938,7 +913,7 @@ describe('task page grooming state (MMR-466)', () => {
 
   it('shows no state once the task has started', async () => {
     const rail = await openTask(
-      task({
+      engineTask({
         grooming: 'groomed',
         id: 'MMR-51',
         lifecycle: 'in_progress',
@@ -953,7 +928,7 @@ describe('task page grooming state (MMR-466)', () => {
 
   it('shows no state on a container', async () => {
     const rail = await openTask({
-      ...task({ id: 'MMR-2', status: 'ready' }),
+      ...engineTask({ id: 'MMR-2', status: 'ready' }),
       grooming: 'groomed',
       type: 'phase',
     });
@@ -963,19 +938,19 @@ describe('task page grooming state (MMR-466)', () => {
   });
 
   it('sets the state without a note unless it needs answers', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-51' });
-    const rail = await openTask(task({ grooming: 'not_groomed', id: 'MMR-51', status: 'ready' }));
+    const rail = await openTask(
+      engineTask({ grooming: 'not_groomed', id: 'MMR-51', status: 'ready' }),
+    );
 
     await userEvent.click(within(rail).getByRole('button', { name: 'Set grooming…' }));
     const dialog = await screen.findByRole('dialog', { name: 'Grooming state' });
     await userEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Set grooming' }));
 
-    expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-51/groom', { state: 'groomed' });
+    expect(groom).toHaveBeenCalledWith({ data: { ids: ['MMR-51'], state: 'groomed' } });
   });
 
   it('needs a note before it sets needs answers, and sends it with the state', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-51' });
     const rail = await openTask(groomed());
 
     await userEvent.click(within(rail).getByRole('button', { name: 'Set grooming…' }));
@@ -991,14 +966,12 @@ describe('task page grooming state (MMR-466)', () => {
     expect(submit).toBeEnabled();
     await userEvent.click(submit);
 
-    expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-51/groom', {
-      note: 'Which backend wins?',
-      state: 'needs_answers',
+    expect(groom).toHaveBeenCalledWith({
+      data: { ids: ['MMR-51'], note: 'Which backend wins?', state: 'needs_answers' },
     });
   });
 
   it('refetches the task after the state is set', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-51' });
     const rail = await openTask(groomed());
     const before = taskReads().length;
 
@@ -1027,12 +1000,7 @@ describe('task page grooming state (MMR-466)', () => {
   it('is disabled while offline', async () => {
     const node = groomed();
     serve(node);
-    const base = apiGet.getMockImplementation();
-    apiGet.mockImplementation((path: string) =>
-      path === '/api/nodes/MMR-51/annotations'
-        ? Promise.reject(new Error('unreachable'))
-        : base?.(path),
-    );
+    failNotes();
     renderAt('/p/MMR/51');
 
     const rail = await screen.findByRole('complementary', { name: 'Record details' });
@@ -1048,10 +1016,10 @@ describe('task page hold callout (MMR-466)', () => {
     ['others', 'Blocked on others'],
   ] as const)('names who can clear a block owned by %s', async (owner, label) => {
     await openTask(
-      task({
-        block_owner: owner,
+      engineTask({
+        blockOwner: owner,
         hold: 'blocked',
-        hold_reason: 'Needs an API token',
+        holdReason: 'Needs an API token',
         id: 'MMR-51',
         status: 'blocked',
       }),
@@ -1069,10 +1037,10 @@ describe('task page hold callout (MMR-466)', () => {
     'names the owner of a block owned by %s even with no reason',
     async (owner, label) => {
       await openTask(
-        task({
-          block_owner: owner,
+        engineTask({
+          blockOwner: owner,
           hold: 'blocked',
-          hold_reason: null,
+          holdReason: null,
           id: 'MMR-51',
           status: 'blocked',
         }),
@@ -1084,10 +1052,10 @@ describe('task page hold callout (MMR-466)', () => {
 
   it('links a URL in the hold reason, opening in a new tab', async () => {
     await openTask(
-      task({
-        block_owner: 'you',
+      engineTask({
+        blockOwner: 'you',
         hold: 'blocked',
-        hold_reason: 'Pick a variant from https://example.com/a/b.',
+        holdReason: 'Pick a variant from https://example.com/a/b.',
         id: 'MMR-51',
         status: 'blocked',
       }),
@@ -1102,13 +1070,17 @@ describe('task page hold callout (MMR-466)', () => {
   });
 
   it('shows no callout for a parked task with no reason', async () => {
-    await openTask(task({ hold: 'parked', hold_reason: null, id: 'MMR-51', status: 'parked' }));
+    await openTask(
+      engineTask({ hold: 'parked', holdReason: null, id: 'MMR-51', status: 'parked' }),
+    );
 
     expect(within(screen.getByRole('article')).queryByText('parked')).toBeNull();
   });
 
   it('keeps the plain hold name for a parked task, which has no owner', async () => {
-    await openTask(task({ hold: 'parked', hold_reason: 'later', id: 'MMR-51', status: 'parked' }));
+    await openTask(
+      engineTask({ hold: 'parked', holdReason: 'later', id: 'MMR-51', status: 'parked' }),
+    );
 
     const article = screen.getByRole('article');
     expect(within(article).getByText('parked')).toBeDefined();

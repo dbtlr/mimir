@@ -4,8 +4,7 @@ import type { ConsoleOutput, EngineNode, EngineSearchHit, EngineTree } from '@mi
 
 /*
  * Engine-shaped records for the reads that run through server functions: the
- * Engine's own output types, with `Date` instants. The `/api` wire fixtures in
- * fixtures.ts serve the reads not yet migrated.
+ * Engine's own output types, with `Date` instants.
  */
 
 /** The instant every fixture record was created and last updated. */

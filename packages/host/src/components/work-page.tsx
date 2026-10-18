@@ -1,4 +1,4 @@
-import type { EngineTree } from '@mimir/contract';
+import type { EngineNode, EngineTree } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useRef } from 'react';
@@ -7,12 +7,12 @@ import type { KeyboardEvent, ReactNode } from 'react';
 import { HostFaultError, isEngineRefusal } from '../api/errors';
 import { browserTimeZone } from '../api/queries';
 import { projectKeyOf } from '../api/types';
-import type { WireArtifact, WireNode } from '../api/types';
 import { workQuery } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import { STATUS_META, STATUS_ORDER } from '../lib/status';
 import { absoluteTime } from '../lib/time';
 import { RAIL_ARTIFACT_CAP, newestArtifacts } from '../lib/work-page';
+import type { RecordArtifact } from '../lib/work-page';
 import { DirectionPanel } from './direction-line';
 import { DistributionBar } from './distribution-bar';
 import { FindingsChip } from './findings-chip';
@@ -43,7 +43,7 @@ import { WorkSections } from './work-sections';
  */
 
 /** `11 done · 2 parked · 1 in progress` — the rollup's counts, in the status system's order. */
-function distributionLegend(distribution: NonNullable<WireNode['distribution']>): string {
+function distributionLegend(distribution: NonNullable<EngineNode['distribution']>): string {
   return STATUS_ORDER.filter((word) => (distribution[word] ?? 0) > 0)
     .map((word) => `${String(distribution[word])} ${STATUS_META[word].label.toLowerCase()}`)
     .join(' · ');
@@ -68,7 +68,7 @@ function WorkHead({
   findings,
   offline,
 }: {
-  record: WireNode;
+  record: EngineNode;
   isProject: boolean;
   tree?: EngineTree;
   findings: number;
@@ -122,7 +122,7 @@ function AboutLabel({ children }: { children: ReactNode }) {
  * description points at its settings, the one place it is edited; a container
  * has no editor, so it just says so.
  */
-function AboutPanel({ record, isProject }: { record: WireNode; isProject: boolean }) {
+function AboutPanel({ record, isProject }: { record: EngineNode; isProject: boolean }) {
   const description = record.description?.trim() ?? '';
   const prerequisites = record.deps === undefined ? [] : prerequisiteRows(record.deps);
   const blocking = record.deps?.blocking ?? [];
@@ -155,8 +155,8 @@ function AboutPanel({ record, isProject }: { record: WireNode; isProject: boolea
       )}
       {hasSignals(record) && <SignalBadges node={record} />}
       <dl className="flex flex-col gap-1">
-        <MetaRow label="created">{absoluteTime(record.created_at)}</MetaRow>
-        <MetaRow label="updated">{absoluteTime(record.updated_at)}</MetaRow>
+        <MetaRow label="created">{absoluteTime(record.createdAt)}</MetaRow>
+        <MetaRow label="updated">{absoluteTime(record.updatedAt)}</MetaRow>
         {record.target != null && <MetaRow label="target">{record.target}</MetaRow>}
       </dl>
     </div>
@@ -173,7 +173,7 @@ function ArtifactsPanel({
   projectKey,
   isProject,
 }: {
-  artifacts: readonly WireArtifact[];
+  artifacts: readonly RecordArtifact[];
   projectKey: string;
   isProject: boolean;
 }) {
@@ -265,7 +265,7 @@ function WorkBody({
   isProject,
   offline,
 }: {
-  record: WireNode;
+  record: EngineNode;
   projectKey: string;
   isProject: boolean;
   offline: boolean;
@@ -316,7 +316,7 @@ export function WorkPage({
   offline,
   container,
 }: {
-  record: WireNode;
+  record: EngineNode;
   tree?: EngineTree;
   /** The project's record-health findings, for its head chip. */
   findings?: number;

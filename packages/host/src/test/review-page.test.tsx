@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getSeed, seedPark, seedPromote, seedReject } from '../api/fns/browse';
+import { done, groom, returnTask, start } from '../api/fns/nodes';
 import { review } from '../api/fns/views';
 import type { PromotedSeed } from '../api/seed-mutations';
 import type { NeedsYouTask, ReviewReport, TriageSeed } from '../api/view-queries';
@@ -13,6 +14,7 @@ import { routeTree } from '../router';
 import { engineSeed } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
+import { engineTask } from './node-fixtures';
 import { failShellReads, serveShell } from './shell-fns';
 import {
   engineReview,
@@ -27,8 +29,9 @@ import {
 } from './views-fixtures';
 import { serveViews } from './views-fns';
 
-const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend }));
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
@@ -40,7 +43,7 @@ const daysAgo = (d: number) => new Date(NOW - d * 24 * 60 * 60_000);
 beforeEach(() => {
   serveBrowse();
   apiGet.mockReset();
-  apiSend.mockReset();
+  vi.clearAllMocks();
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(NOW);
 });
@@ -587,10 +590,6 @@ async function openForWrite(before: ReviewReport, after: ReviewReport) {
       ]),
     },
   });
-  apiSend.mockImplementation(() => {
-    views.review = after;
-    return Promise.resolve({});
-  });
   // The seed writes land as the task writes do; the promote sheet reads the seed's body.
   const seeds = before.triage.flatMap((group) => group.seeds);
   vi.mocked(getSeed).mockImplementation(async ({ data }) => {
@@ -609,6 +608,15 @@ async function openForWrite(before: ReviewReport, after: ReviewReport) {
     views.review = after;
     return promotion(data.id);
   });
+  const echo = engineTask({ status: 'done' });
+  const land = () => {
+    views.review = after;
+    return echo;
+  };
+  vi.mocked(done).mockImplementation(async () => land());
+  vi.mocked(returnTask).mockImplementation(async () => land());
+  vi.mocked(start).mockImplementation(async () => land());
+  vi.mocked(groom).mockImplementation(async () => [land()]);
   const client = renderReview();
   await screen.findByRole('heading', { level: 1 });
   return serving;
@@ -638,7 +646,7 @@ describe('review page decisions act in place (MMR-479)', () => {
     fireEvent.click(within(await actionsOf('LM-196')).getByRole('button', { name: 'Approve' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/LM-196/done', undefined);
+      expect(done).toHaveBeenCalledWith({ data: { id: 'LM-196' } });
     });
     await expect(
       screen.findByRole('heading', { level: 1, name: 'Nothing needs you' }),
@@ -654,9 +662,7 @@ describe('review page decisions act in place (MMR-479)', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/LM-196/return', {
-        reason: 'Cover errors',
-      });
+      expect(returnTask).toHaveBeenCalledWith({ data: { id: 'LM-196', reason: 'Cover errors' } });
     });
   });
 
@@ -694,9 +700,8 @@ describe('review page decisions act in place (MMR-479)', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-480/groom', {
-        note: 'Drop it.',
-        state: 'groomed',
+      expect(groom).toHaveBeenCalledWith({
+        data: { ids: ['MMR-480'], note: 'Drop it.', state: 'groomed' },
       });
     });
   });
@@ -991,7 +996,7 @@ describe('review page runnable tasks start in place (MMR-506)', () => {
     fireEvent.click(within(await actionsOf('LM-233')).getByRole('button', { name: 'Start' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/LM-233/start', undefined);
+      expect(start).toHaveBeenCalledWith({ data: { id: 'LM-233' } });
     });
     await waitFor(() => {
       expect(screen.queryByRole('link', { name: 'Runnable LM-233' })).toBeNull();

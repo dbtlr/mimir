@@ -9,12 +9,13 @@ import { routeTree } from '../router';
 import { recordHealth } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
-import { emptyRead } from './fixtures';
+import { serveNodes } from './node-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend }));
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
@@ -51,17 +52,8 @@ describe('record-health surfacing (MMR-185, mock 15b)', () => {
         MMR: engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' }),
       },
     });
-    apiGet.mockImplementation((path: string) => {
-      if (path === '/api/projects/MMR') {
-        return Promise.resolve({
-          distribution: {},
-          id: 'MMR',
-          status: 'in_progress',
-          title: 'Mimir',
-        });
-      }
-      return Promise.resolve(emptyRead(path));
-    });
+    serveNodes({ nodes: [engineProject({ id: 'MMR', title: 'Mimir' })] });
+    apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
     serveBrowse({ health: facet(2) });
     renderAt('/p/MMR');
 

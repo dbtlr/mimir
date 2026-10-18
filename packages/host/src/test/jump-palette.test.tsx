@@ -5,17 +5,18 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError } from '../api/errors';
 import { consoleSearch } from '../api/fns/shell';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree, searchHit, searchSet } from './engine-fixtures';
-import { emptyRead, project, task } from './fixtures';
+import { engineTask } from './node-fixtures';
+import { serveNodes } from './node-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend }));
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
@@ -71,18 +72,14 @@ function mockApi() {
     if (path === '/health') {
       return Promise.resolve({ schema: 1, status: 'ok', version: '0.0.0' });
     }
-    if (path === '/api/projects/MMR') {
-      return Promise.resolve(project({ id: 'MMR', title: 'Mimir' }));
-    }
-    if (path.startsWith('/api/nodes/ZZ-')) {
-      return Promise.reject(new ApiError(`GET ${path} → 404`, 404));
-    }
-    if (path === '/api/nodes/MMR-417') {
-      return Promise.resolve(
-        task({ id: 'MMR-417', status: 'ready', title: 'Add the SQLite dialect' }),
-      );
-    }
-    return Promise.resolve(emptyRead(path));
+    return Promise.reject(new Error(`unexpected ${path}`));
+  });
+  // An id no record has (ZZ-…) answers not found.
+  serveNodes({
+    nodes: [
+      engineProject({ id: 'MMR', title: 'Mimir' }),
+      engineTask({ id: 'MMR-417', status: 'ready', title: 'Add the SQLite dialect' }),
+    ],
   });
 }
 

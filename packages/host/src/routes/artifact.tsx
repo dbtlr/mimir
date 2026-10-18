@@ -1,4 +1,4 @@
-import type { EngineTree } from '@mimir/contract';
+import type { EngineNode, EngineTree } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useId, useState } from 'react';
@@ -8,7 +8,7 @@ import type { ArtifactRecord } from '../api/browse-queries';
 import { isNotFound } from '../api/errors';
 import { nodeQuery } from '../api/node-queries';
 import { projectsQuery, treeQuery } from '../api/shell-queries';
-import type { WireArtifact, WireArtifactLink, WireNode } from '../api/types';
+import type { WireArtifact, WireArtifactLink } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { MarkdownBody } from '../components/markdown-body';
 import { MetaRow } from '../components/node-record';
@@ -60,6 +60,9 @@ const row =
 /** How many attached records show before the rest fold behind "Show all N". */
 const ATTACHED_SHOWN = 5;
 
+/** A linked record as the node read serves it: what its standing and row read. */
+type LinkedNode = Pick<EngineNode, 'completedAt' | 'status' | 'title' | 'type' | 'updatedAt'>;
+
 /** The number after an id's hyphen: `MMR-417` → 417. */
 const seqOf = (id: string): number => Number(id.slice(id.indexOf('-') + 1));
 
@@ -80,7 +83,7 @@ function attachedLinks(ids: readonly string[], tree: EngineTree | undefined): Wi
 }
 
 /** A linked record's standing: the loaded node's, or its status word alone. */
-function linkStanding(link: WireArtifactLink, node: WireNode | undefined): string | undefined {
+function linkStanding(link: WireArtifactLink, node: LinkedNode | undefined): string | undefined {
   if (node !== undefined) {
     return recordStanding(node);
   }
@@ -88,7 +91,7 @@ function linkStanding(link: WireArtifactLink, node: WireNode | undefined): strin
 }
 
 /** One attached record: its state, id, and title, linked to its page. */
-function AttachedRow({ link, node }: { link: WireArtifactLink; node?: WireNode }) {
+function AttachedRow({ link, node }: { link: WireArtifactLink; node?: LinkedNode }) {
   const status = node?.status ?? link.status;
   const standing = linkStanding(link, node);
   return (
@@ -112,7 +115,7 @@ function AttachedCard({
   host,
 }: {
   links: readonly WireArtifactLink[];
-  host: WireNode | undefined;
+  host: LinkedNode | undefined;
 }) {
   const [expanded, setExpanded] = useState(false);
   const labelId = useId();
@@ -153,7 +156,7 @@ function SiblingArtifacts({
   artifacts,
   currentId,
 }: {
-  artifacts: readonly WireArtifact[];
+  artifacts: readonly Pick<WireArtifact, 'id' | 'title'>[];
   currentId: string;
 }) {
   return (

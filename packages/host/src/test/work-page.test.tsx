@@ -6,13 +6,15 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HostFaultError } from '../api/errors';
+import { done, groom as setGrooming, returnTask, start } from '../api/fns/nodes';
 import { nodeWork, projectWork } from '../api/fns/views';
-import type { WireArtifact, WireNode } from '../api/types';
 import type { NeedsYouTask, WorkReport } from '../api/view-queries';
+import type { RecordArtifact } from '../lib/work-page';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
-import { engineTree } from './engine-fixtures';
-import { emptyRead, task } from './fixtures';
+import { engineProject, engineTree } from './engine-fixtures';
+import { engineContainer } from './node-fixtures';
+import { failNotes, serveNodes } from './node-fns';
 import { serveShell } from './shell-fns';
 import {
   engineWork,
@@ -24,8 +26,9 @@ import {
 } from './views-fixtures';
 import { serveViews } from './views-fns';
 
-const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend }));
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
@@ -38,7 +41,7 @@ const daysAgo = (d: number) => new Date(NOW - d * 24 * 60 * 60_000);
 beforeEach(() => {
   serveBrowse();
   apiGet.mockReset();
-  apiSend.mockReset();
+  vi.clearAllMocks();
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(NOW);
 });
@@ -82,35 +85,42 @@ const TREE = engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type
   leaf('MMR-114', 'ready', 'A loose task'),
 ]);
 
-const PROJECT: WireNode = {
-  ...task({ id: 'MMR', status: 'in_progress', title: 'Mimir' }),
+const PROJECT: EngineNode = engineProject({
   artifacts: [
-    { created_at: '2026-06-01T10:00:00.000Z', id: 'MMR-a7', tags: [], title: 'Shaping brief' },
+    {
+      createdAt: new Date('2026-06-01T10:00:00.000Z'),
+      id: 'MMR-a7',
+      tags: [],
+      title: 'Shaping brief',
+    },
   ],
   description: 'The **work** tool.',
   distribution: { done: 3, in_progress: 1, parked: 1 },
+  id: 'MMR',
   next: 'Ship the work page.\n\nThen the review page.',
   target: '0.24.0',
-  type: 'project',
-};
+  title: 'Mimir',
+});
 
-const PHASE: WireNode = {
-  ...task({ id: 'MMR-105', status: 'in_progress', title: 'Work page' }),
+const PHASE: EngineNode = engineContainer({
   deps: {
+    awaitingOn: [],
     blocking: [{ id: 'MMR-115', status: 'new', title: 'Review page' }],
-    depends_on: [{ id: 'MMR-102', status: 'done', title: 'Record pages' }],
+    dependsOn: [{ id: 'MMR-102', status: 'done', title: 'Record pages' }],
   },
   description: 'One page for every scope.',
   distribution: { done: 1, ready: 1 },
+  id: 'MMR-105',
   next: 'Land the sections.\n\nThen the actions.',
   parent: 'MMR-101',
+  status: 'in_progress',
+  title: 'Work page',
   type: 'phase',
-};
+});
 
 type Scope = {
   name: string;
-  record: WireNode;
-  recordPath: string;
+  record: EngineNode;
   url: string;
   /** The server function the scope's work page reads, and the input it sends. */
   work: typeof projectWork | typeof nodeWork;
@@ -125,7 +135,6 @@ const PROJECT_SCOPE: Scope = {
   asked: { data: { project: 'MMR', timeZone: 'America/New_York' } },
   name: 'project',
   record: PROJECT,
-  recordPath: '/api/projects/MMR',
   url: '/p/MMR',
   work: projectWork,
   world: (report) => ({ projects: { MMR: report } }),
@@ -135,7 +144,6 @@ const PHASE_SCOPE: Scope = {
   asked: { data: { id: 'MMR-105', timeZone: 'America/New_York' } },
   name: 'phase',
   record: PHASE,
-  recordPath: '/api/nodes/MMR-105',
   url: '/p/MMR/105',
   work: nodeWork,
   world: (report) => ({ nodes: { 'MMR-105': report } }),
@@ -145,10 +153,9 @@ const SCOPES = [PROJECT_SCOPE, PHASE_SCOPE];
 
 /** Serve the scope's record, the project tree, and `report` as its work read. */
 function serve(scope: Scope, report: WorkReport | Error = engineWork(), tree = TREE) {
-  apiGet.mockImplementation((path: string) =>
-    path === scope.recordPath ? Promise.resolve(scope.record) : Promise.resolve(emptyRead(path)),
-  );
+  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
   serveShell({ trees: { MMR: tree } });
+  serveNodes({ nodes: [scope.record] });
   if (report instanceof Error) {
     serveViews();
     vi.mocked(scope.work).mockRejectedValue(report);
@@ -156,6 +163,13 @@ function serve(scope: Scope, report: WorkReport | Error = engineWork(), tree = T
     serveViews(scope.world(report));
   }
 }
+
+/** How many row writes (verbs and grooming) the page has issued. */
+const writeCalls = () =>
+  [start, done, returnTask, setGrooming].reduce(
+    (sum, fn) => sum + vi.mocked(fn).mock.calls.length,
+    0,
+  );
 
 function renderAt(url: string) {
   const testRouter = createRouter({
@@ -603,10 +617,14 @@ describe.each(SCOPES)('work page rail, $name', (scope) => {
 async function openForWrite(before: WorkReport, after: WorkReport) {
   serve(PROJECT_SCOPE);
   const views = serveViews({ projects: { MMR: before } });
-  apiSend.mockImplementation(() => {
-    views.projects.MMR = after;
-    return Promise.resolve({});
-  });
+  // Any row write lands: the next work read answers `after`.
+  for (const write of [start, done, returnTask, setGrooming]) {
+    const echoed = vi.mocked(write).getMockImplementation();
+    vi.mocked(write).mockImplementation(async (options) => {
+      views.projects.MMR = after;
+      return echoed?.(options as never) as never;
+    });
+  }
   renderAt(PROJECT_SCOPE.url);
   await screen.findByRole('heading', { level: 1, name: PROJECT.title });
 }
@@ -615,7 +633,6 @@ async function openForWrite(before: WorkReport, after: WorkReport) {
 function holdRefresh() {
   const refresh = Promise.withResolvers<WorkReport>();
   vi.mocked(projectWork).mockReturnValue(refresh.promise);
-  apiSend.mockResolvedValue({});
   return refresh;
 }
 
@@ -633,7 +650,7 @@ describe('work page row actions', () => {
     fireEvent.click(within(await actionsOf('MMR-20')).getByRole('button', { name: 'Start' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-20/start', undefined);
+      expect(start).toHaveBeenCalledWith({ data: { id: 'MMR-20' } });
     });
     const now = await section('Now · 1');
     expect(hrefOf(now, 'Add the SQLite dialect')).toBe('/p/MMR/20');
@@ -649,7 +666,7 @@ describe('work page row actions', () => {
     fireEvent.click(within(await actionsOf('MMR-12')).getByRole('button', { name: 'Approve' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-12/done', undefined);
+      expect(done).toHaveBeenCalledWith({ data: { id: 'MMR-12' } });
     });
     const shipped = await section('Shipped · 1');
     expect(hrefOf(shipped, 'Extract the seam')).toBe('/p/MMR/12');
@@ -670,8 +687,8 @@ describe('work page row actions', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-12/return', {
-        reason: 'Cover the empty case',
+      expect(returnTask).toHaveBeenCalledWith({
+        data: { id: 'MMR-12', reason: 'Cover the empty case' },
       });
     });
     const now = await section('Now · 1');
@@ -700,9 +717,12 @@ describe('work page row actions', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-14/groom', {
-        note: 'Refuse, and name the export command.',
-        state: 'groomed',
+      expect(setGrooming).toHaveBeenCalledWith({
+        data: {
+          ids: ['MMR-14'],
+          note: 'Refuse, and name the export command.',
+          state: 'groomed',
+        },
       });
     });
     const runnable = await section('Runnable now');
@@ -713,7 +733,7 @@ describe('work page row actions', () => {
     await expect(section('Needs you')).resolves.toHaveTextContent('Nothing needs you.');
   });
 
-  it('sends a task back with no body when no reason is given', async () => {
+  it('sends a task back with no reason when none is given', async () => {
     await openForWrite(
       engineWork({ needsYou: [reviewRow] }),
       engineWork({ now: [runningAs(reviewRow)] }),
@@ -724,7 +744,7 @@ describe('work page row actions', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-12/return', undefined);
+      expect(returnTask).toHaveBeenCalledWith({ data: { id: 'MMR-12' } });
     });
   });
 
@@ -736,7 +756,7 @@ describe('work page row actions', () => {
     const approve = within(await actionsOf('MMR-12')).getByRole('button', { name: 'Approve' });
     fireEvent.click(approve);
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledOnce();
+      expect(writeCalls()).toBe(1);
     });
     expect(approve).toBeDisabled();
     expect(
@@ -759,7 +779,7 @@ describe('work page row actions', () => {
     fireEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledOnce();
+      expect(writeCalls()).toBe(1);
     });
     expect(within(dialog).getByRole('button', { name: 'Answer' })).toBeDisabled();
 
@@ -952,7 +972,7 @@ describe('work page focus after an acted-on row moves away', () => {
     await open(PROJECT_SCOPE, before);
 
     const failedRefresh = holdRefresh();
-    apiSend.mockRejectedValueOnce(new Error('conflict'));
+    vi.mocked(done).mockRejectedValueOnce(new Error('conflict'));
     await press('MMR-12', 'Approve');
     const approve = within(await actionsOf('MMR-12')).getByRole('button', { name: 'Approve' });
     await waitFor(() => {
@@ -1031,7 +1051,7 @@ describe('work page focus after an acted-on row moves away', () => {
 
     await press('MMR-12', 'Approve');
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledOnce();
+      expect(writeCalls()).toBe(1);
     });
     const elsewhere = within(getRail()).getAllByRole('link')[0];
     elsewhere?.focus();
@@ -1047,13 +1067,8 @@ describe('work page focus after an acted-on row moves away', () => {
 describe('work page offline', () => {
   it('disables New task, including the one in an empty frontier', async () => {
     serve(PHASE_SCOPE);
-    const served = apiGet.getMockImplementation();
     // An errored read over loaded data is the console's offline signal.
-    apiGet.mockImplementation((path: string) =>
-      path === '/api/nodes/MMR-105/annotations'
-        ? Promise.reject(new Error('unreachable'))
-        : served?.(path),
-    );
+    failNotes();
     renderAt('/p/MMR/105');
 
     const frontier = await section('Frontier');
@@ -1070,12 +1085,7 @@ describe('work page offline', () => {
         needsYou: [reviewRow, answersRow],
       }),
     );
-    const served = apiGet.getMockImplementation();
-    apiGet.mockImplementation((path: string) =>
-      path === '/api/nodes/MMR-105/annotations'
-        ? Promise.reject(new Error('unreachable'))
-        : served?.(path),
-    );
+    failNotes();
     renderAt('/p/MMR/105');
 
     const actions = await Promise.all(['MMR-12', 'MMR-14', 'MMR-20'].map(actionsOf));
@@ -1151,9 +1161,9 @@ describe('work page head', () => {
 });
 
 /** `count` artifacts, numbered so that a higher number was created later. */
-function artifactsOf(count: number): WireArtifact[] {
+function artifactsOf(count: number): RecordArtifact[] {
   return Array.from({ length: count }, (_, i) => ({
-    created_at: `2026-06-${String(i + 1).padStart(2, '0')}T10:00:00.000Z`,
+    createdAt: new Date(`2026-06-${String(i + 1).padStart(2, '0')}T10:00:00.000Z`),
     id: `MMR-a${String(i + 1)}`,
     tags: [],
     title: `Brief ${String(i + 1)}`,
