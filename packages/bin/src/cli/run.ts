@@ -1,5 +1,6 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import {
@@ -23,6 +24,8 @@ import type {
 import {
   ARTIFACT_DATE_FIELD,
   assertDateFilters,
+  BINDING_CONFIG_KEY,
+  bindClone,
   emitWire,
   formatIds,
   formatOverviewJson,
@@ -35,6 +38,7 @@ import {
   listArtifacts,
   listNodes,
   listProjects,
+  LocalEngine,
   MAX_SEARCH_LIMIT,
   MimirError,
   nextTasks,
@@ -46,7 +50,7 @@ import {
   statusOfNode,
   treeToWire,
 } from '@mimir/core';
-import type { DoctorBackend, Store } from '@mimir/core';
+import type { DoctorBackend, GitPort, ScopeSource, Store } from '@mimir/core';
 import { isMember } from '@mimir/helpers';
 
 import { cmdDoctor } from '../doctor/commands';
@@ -56,7 +60,7 @@ import { cmdSelfUpdate } from '../self-update';
 import type { SelfUpdateDeps } from '../self-update';
 import { cmdStore } from '../store/commands';
 import type { StoreDeps } from '../store/commands';
-import { BINDING_FILE, writeBinding } from './binding';
+import { cmdBindCheck, LEGACY_BINDING_FILE } from './bind';
 import {
   CREATE_DASH_TITLE_HINT,
   exitCodeFor,
@@ -101,8 +105,8 @@ import {
   renderStatus,
   renderTable,
   renderTree,
+  signpost,
 } from './render';
-import { resolveProject } from './resolve';
 import { cmdScratch, scratchSubcommand } from './scratch';
 import { SKILL_AGENTS, SKILL_FILES, skillDirFor } from './skill-assets';
 
@@ -607,7 +611,11 @@ const FLAG_SPELLINGS: readonly string[] = Object.entries(OPTIONS).flatMap(([name
  * Injected so the CLI stays testable without touching the real cwd.
  */
 export type Defaults = {
-  scope?: string;
+  /** The Project Binding's key (ADR 0036), resolved lazily — only a command
+   * that needs a default scope and has no explicit `-s` calls it. */
+  scope?: ScopeSource;
+  /** The git edge `bind` writes through; absent where git is unavailable (tests). */
+  git?: GitPort;
   cwd?: string;
   /** Real self-update edges (the binary, its version, the release fetcher); absent in tests. */
   selfUpdate?: SelfUpdateDeps;
@@ -618,21 +626,6 @@ export type Defaults = {
    * unavailable (tests). */
   doctor?: DoctorBackend;
 };
-
-/**
- * The effective `-s` scope: an explicit flag wins; the literal `all` is the
- * cross-project escape (a key is uppercase, so `all` can never collide);
- * otherwise the Project Binding's key, if any.
- */
-function effectiveScope(
-  explicit: string | undefined,
-  bound: string | undefined,
-): string | undefined {
-  if (explicit === 'all') {
-    return undefined;
-  }
-  return explicit ?? bound;
-}
 
 /**
  * Run the CLI for one invocation. `argv` is the args after `mimir`; `getStore`
@@ -793,10 +786,20 @@ export async function runCli(
     // Mutation context shared across all write-verb handlers — built lazily so
     // the store is acquired only by verbs that actually touch data (MMR-39):
     // help, usage errors, and `skill install` never open or create it.
+    // The default `-s` scope (ADR 0036): an explicit flag wins, the literal
+    // `all` is the cross-project escape (a key is uppercase, so it never
+    // collides), and otherwise the clone's binding — resolved only now, when a
+    // command actually needs it.
+    const scopeFor = async (explicit: string | undefined): Promise<string | undefined> => {
+      if (explicit === 'all') {
+        return undefined;
+      }
+      return explicit ?? (await defaults.scope?.());
+    };
     const mkCtx = async (): Promise<Ctx> => {
       const store = await getStore();
       return {
-        boundScope: effectiveScope(values.scope, defaults.scope),
+        boundScope: () => scopeFor(values.scope),
         format: singleFormat,
         io: ctx,
         positionals,
@@ -814,7 +817,7 @@ export async function runCli(
 
     switch (command) {
       case 'next': {
-        const nextScope = effectiveScope(values.scope, defaults.scope);
+        const nextScope = await scopeFor(values.scope);
         const nextEmptyMsg =
           nextScope !== undefined
             ? `No ready tasks in ${nextScope} — mimir list --status awaiting -s ${nextScope} shows what's queued`
@@ -850,7 +853,7 @@ export async function runCli(
           limit: parseLimit(values.limit),
           priority: parsePriority(values.priority),
           q: values.query,
-          scope: effectiveScope(values.scope, defaults.scope),
+          scope: await scopeFor(values.scope),
           size: parseSize(values.size),
           status: parseStatus(values.status),
           tag: values.tag?.[0],
@@ -977,7 +980,7 @@ export async function runCli(
             "run 'mimir list -s all' for a cross-project set",
           );
         }
-        const scope = effectiveScope(values.scope, defaults.scope);
+        const scope = await scopeFor(values.scope);
         if (scope === undefined) {
           throw usage('overview needs a project', 'bind a project or pass -s KEY');
         }
@@ -990,7 +993,7 @@ export async function runCli(
         // Unlike `overview`, the artifact feed IS a cross-project set: an unbound
         // invocation and the literal `-s all` both mean the portfolio (ADR 0004 —
         // an artifact is project-anchored but the search never was).
-        const scope = effectiveScope(values.scope, defaults.scope);
+        const scope = await scopeFor(values.scope);
         const artifactZone = callerTimeZone(values.tz);
         // Every structural fault (bad date, bad offset, bad format) is decided
         // BEFORE the store is acquired — a wrong invocation must never open the
@@ -1040,7 +1043,7 @@ export async function runCli(
             `limit is a whole number from 1 to ${String(MAX_SEARCH_LIMIT)}`,
           );
         }
-        const project = effectiveScope(values.scope, defaults.scope);
+        const project = await scopeFor(values.scope);
         const format = pickFormat(values.format, 'set', ctx);
         const result = await searchRecords(await getStore(), {
           limit: searchLimit,
@@ -1061,7 +1064,7 @@ export async function runCli(
       case 'scratch': {
         scratchSubcommand(positionals);
         return await cmdScratch({
-          boundScope: defaults.scope,
+          boundScope: () => scopeFor(undefined),
           format: pickFormat(values.format, positionals[1] === 'list' ? 'set' : 'single', ctx),
           io: ctx,
           positionals,
@@ -1154,19 +1157,30 @@ export async function runCli(
         return 0;
       }
       case 'bind': {
+        const git = defaults.git;
+        if (git === undefined) {
+          throw usage('bind is unavailable in this context');
+        }
+        const engine = new LocalEngine(await getStore());
         const key = positionals[1];
         if (key === undefined) {
-          throw usage('bind requires a project KEY');
+          return await cmdBindCheck(engine, git, singleFormat, ctx);
         }
-        await resolveProject(await getStore(), key); // validates the project exists (not_found otherwise)
-        writeBinding(defaults.cwd ?? process.cwd(), key);
+        const bound = await bindClone(engine, git, key);
         if (singleFormat === 'json' || singleFormat === 'jsonl') {
-          ctx.write(JSON.stringify({ bound: { file: BINDING_FILE, project: key } }));
+          ctx.write(
+            JSON.stringify({ bound: { project: key, recordedRemote: bound.recordedRemote } }),
+          );
         } else if (singleFormat === 'ids') {
           ctx.write(key);
         } else {
-          const glyph = ctx.plain ? '[ok]' : '\x1b[32m✓\x1b[0m';
-          ctx.write(`${glyph} bound to ${key} (${BINDING_FILE})`);
+          ok(ctx, `bound to ${key} (git config ${BINDING_CONFIG_KEY})`);
+        }
+        if (bound.recordedRemote !== undefined) {
+          signpost(ctx, singleFormat, `recorded the origin ${bound.recordedRemote} on ${key}`);
+        }
+        if (existsSync(join(defaults.cwd ?? process.cwd(), LEGACY_BINDING_FILE))) {
+          warn(ctx, `${LEGACY_BINDING_FILE} is ignored now; you can delete it`);
         }
         return 0;
       }
@@ -1193,12 +1207,7 @@ export async function runCli(
           throw usage('doctor is unavailable in this context');
         }
         const format = pickFormat(values.format, 'report', ctx);
-        return await cmdDoctor(
-          ctx,
-          defaults.doctor,
-          format,
-          effectiveScope(values.scope, defaults.scope),
-        );
+        return await cmdDoctor(ctx, defaults.doctor, format, await scopeFor(values.scope));
       }
       case 'self-update': {
         if (defaults.selfUpdate === undefined) {

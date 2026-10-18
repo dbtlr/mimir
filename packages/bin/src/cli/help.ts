@@ -160,11 +160,13 @@ ${HOLD_ROWS}
 ${PROJECT_ROWS}
 
   binding:
-    bind <KEY>              bind this directory to a project — writes
-                            .mimir.toml, the default --scope from then on
+    bind [KEY]              bind this clone to a project — writes git
+                            config mimir.project, the default --scope from
+                            then on; bare bind prints the bound key (exit 1
+                            when unbound)
 
 options:
-  -s, --scope <KEY>       limit to a project (default: the .mimir.toml
+  -s, --scope <KEY>       limit to a project (default: this clone's
                           binding if present; "all" = every project);
                           projects takes no scope
   -p, --priority <p0..p3> filter by priority (signal, not sort)
@@ -291,7 +293,7 @@ export type CommandHelp = {
 // Rows shared across verbs so the wording stays identical everywhere.
 const F_SCOPE: Row = [
   '-s, --scope <KEY>',
-  'limit to a project (default: the .mimir.toml binding; "all" = every project)',
+  'limit to a project (default: the clone binding; "all" = every project)',
 ];
 const F_FORMAT: Row = ['-f, --format <fmt>', 'table|records|ids|json|jsonl'];
 const F_LIMIT: Row = ['-n, --limit <n>', 'cap the result count'];
@@ -1048,7 +1050,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     flags: [
       [
         '-s, --scope <KEY>',
-        'limit to a project (default: the .mimir.toml binding; "all" = every project)',
+        'limit to a project (default: the clone binding; "all" = every project)',
       ],
       ['--format <fmt>', 'json (pretty findings array) | jsonl (one finding per line)'],
     ],
@@ -1058,11 +1060,14 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
   },
   // ── binding ──
   bind: {
-    args: [['<KEY>', 'an existing project key']],
-    examples: ['mimir bind MMR'],
+    args: [['[KEY]', "an existing project key; omit to print the clone's bound project"]],
+    examples: [
+      'mimir bind MMR    # write git config mimir.project',
+      'mimir bind        # print the bound key; exit 1 when unbound',
+    ],
     summary:
-      'bind this directory to a project — writes .mimir.toml, the default --scope from then on',
-    usage: 'mimir bind <KEY>',
+      "bind this clone to a project — writes git config mimir.project, the default --scope from then on. An unbound clone binds itself from its origin remote when exactly one project's remote matches. Bare bind prints the bound key and exits 1 when unbound",
+    usage: 'mimir bind [<KEY>]',
   },
 };
 /* oxlint-enable sort-keys */
@@ -1156,7 +1161,7 @@ examples:
   mimir attach MMR-3 --file plan.md   # freeze an artifact onto a task
   mimir tag MMR-3,MMR-a1 spec v2      # tag a task and an artifact
   mimir untag MMR-3 v2                # remove a tag
-  mimir bind MMR                      # .mimir.toml: default scope for this repo
+  mimir bind MMR                      # git config: default scope for this clone
   mimir list -s all --is stale        # cross-project, ignoring the binding
 
 notes:
@@ -1170,8 +1175,8 @@ notes:
     echo the affected record on success.
   - rank is never shown — array order is the order (ADR 0007).
   - structured formats (ids/json/jsonl) never carry color; pipe-safe.
-  - scope default: the nearest .mimir.toml walking up from cwd (mimir bind);
-    explicit -s overrides, -s all queries every project.
+  - scope default: the clone's git config mimir.project (mimir bind), or the
+    one project whose remote matches origin; explicit -s overrides, -s all queries every project.
 `;
 
 // ─── Root/group help coloring (MMR-300) ────────────────────────────────────

@@ -10,7 +10,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { Server } from 'bun';
 
 import { runCli } from './cli/run';
-import { fakeIo } from './cli/testing';
+import { fakeIo, fixedScope } from './cli/testing';
 import { buildMcpServer } from './mcp/server';
 
 /**
@@ -175,7 +175,9 @@ describe('CLI search', () => {
 
   test('several words join into one query, and the bound project is the current one', async () => {
     const io = fakeIo(false);
-    expect(await runCli(['search', '3', '-f', 'ids'], () => store, io, { scope: 'MMR' })).toBe(0);
+    expect(
+      await runCli(['search', '3', '-f', 'ids'], () => store, io, { scope: fixedScope('MMR') }),
+    ).toBe(0);
     expect(io.out.join('').split('\n')[0]).toBe('MMR-3');
     const words = fakeIo(false);
     expect(await runCli(['search', 'cross', 'record', '-f', 'ids'], () => store, words)).toBe(0);
@@ -257,7 +259,7 @@ describe('MCP search', () => {
   });
 
   test('the bound scope is the current project and "all" clears it', async () => {
-    const mcp = buildMcpServer(store, '0.0.0', 'MMR');
+    const mcp = buildMcpServer(store, '0.0.0', fixedScope('MMR'));
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const client = new Client({ name: 'test', version: '0.0.0' });
     await Promise.all([client.connect(clientTransport), mcp.connect(serverTransport)]);

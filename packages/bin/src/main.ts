@@ -15,9 +15,11 @@
  */
 
 import {
+  bindingScope,
   buildStore,
   configPath,
   INSTALLATION_PROTOCOL_RESPONSE,
+  LocalEngine,
   openInstallationSqlite,
   openPostgres,
   readRuntimeConfig,
@@ -28,8 +30,9 @@ import {
 } from '@mimir/core';
 import type { BuiltStore, DoctorBackend, Store } from '@mimir/core';
 
-import { findBinding, runCli } from './cli';
+import { runCli } from './cli';
 import type { Io } from './cli';
+import { gitPortAt } from './git-port';
 import { serveStdio } from './mcp';
 import { manualFetch } from './self-update';
 import type { SelfUpdateDeps } from './self-update';
@@ -114,11 +117,16 @@ async function main(argv: string[]): Promise<number> {
 
   if (command === 'mcp' && !wantsHelp(argv.slice(1))) {
     // Long-running: connect and let the stdio transport keep the process alive.
-    // The MCP rendering honors the same Project Binding (ADR 0011), resolved
-    // from the server's spawn cwd.
+    // The MCP rendering honors the same Project Binding (ADR 0036), resolved
+    // lazily from the server's spawn directory.
     const built = await buildStore();
     try {
-      await serveStdio(built.store, VERSION, findBinding(process.cwd()));
+      const scope = bindingScope(
+        async () => new LocalEngine(built.store),
+        gitPortAt(process.cwd()),
+        line(process.stderr),
+      );
+      await serveStdio(built.store, VERSION, scope);
     } finally {
       // serveStdio resolves when the stdio transport closes; close releases the
       // store's connections so the process can exit.
@@ -140,8 +148,9 @@ async function main(argv: string[]): Promise<number> {
   const cliDoctor = async (): Promise<DoctorBackend> =>
     withConfigDoctor((await getBuilt()).doctor, configPath());
   try {
-    // Project Binding (ADR 0011): the nearest .mimir.toml supplies the
-    // default -s scope; resolved here so the CLI itself never reads cwd.
+    // Project Binding (ADR 0036): the clone's git config supplies the default
+    // -s scope, resolved lazily so only a command that needs one pays for it.
+    const git = gitPortAt(process.cwd());
     return await runCli(argv, getStore, stdoutIo(), {
       cwd: process.cwd(),
       doctor: {
@@ -158,7 +167,8 @@ async function main(argv: string[]): Promise<number> {
         },
         facet: async (scope) => (await cliDoctor()).facet(scope),
       },
-      scope: findBinding(process.cwd()),
+      git,
+      scope: bindingScope(async () => new LocalEngine(await getStore()), git, line(process.stderr)),
       selfUpdate: realSelfUpdateDeps(),
       store: realStoreDeps(),
     });

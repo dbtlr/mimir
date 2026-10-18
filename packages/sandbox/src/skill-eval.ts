@@ -391,7 +391,7 @@ export class SkillEval {
     const binary =
       options.binary === undefined ? await this.build() : resolve(this.repository, options.binary);
     const id = randomUUID();
-    // Runs live outside the checkout: an ancestor `.mimir.toml` would bind the
+    // Runs live outside the checkout: an ancestor git clone could bind the
     // unbound scenarios, and the checkout's own builds would sit within reach.
     const evalRoot = realpathSync(await mkdtemp(join(tmpdir(), 'mimir-skill-eval-')));
     const reports = join(this.repository, '.dev', 'skill-evals', id);

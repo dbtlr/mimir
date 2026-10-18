@@ -22,7 +22,7 @@ import { parseJson } from '@mimir/helpers';
 
 import { UsageError, exitCodeFor, renderError } from './errors';
 import { runCli } from './run';
-import { fakeIo } from './testing';
+import { fakeIo, fixedScope } from './testing';
 
 let store: Store;
 let closeStore: () => Promise<void>;
@@ -543,7 +543,9 @@ test('archive hides the project from reads; projects --status archived reveals i
 /** The project ids `mimir projects …` prints with `-f ids`, one per line. */
 async function projectIds(args: string[], scope?: string): Promise<string[]> {
   const io = fakeIo();
-  expect(await runCli(['projects', ...args, '-f', 'ids'], () => store, io, { scope })).toBe(0);
+  expect(
+    await runCli(['projects', ...args, '-f', 'ids'], () => store, io, { scope: fixedScope(scope) }),
+  ).toBe(0);
   return io.out
     .join('\n')
     .split('\n')
@@ -1684,7 +1686,7 @@ describe('overview (MMR-278)', () => {
   test('bare uses the bound scope from defaults', async () => {
     await createTask(store, { parentId: phaseId, title: 'bound task' });
     const io = fakeIo(false);
-    expect(await runCli(['overview'], () => store, io, { scope: 'MMR' })).toBe(0);
+    expect(await runCli(['overview'], () => store, io, { scope: fixedScope('MMR') })).toBe(0);
     expect(parseJson<{ project: { id: string } }>(io.out.join('')).project.id).toBe('MMR');
   });
 });
@@ -2098,7 +2100,9 @@ describe('artifacts (MMR-322)', () => {
   test('bare uses the bound scope from defaults', async () => {
     await attach('vault notes');
     const io = fakeIo(false);
-    expect(await runCli(['artifacts', '-f', 'json'], () => store, io, { scope: 'MMR' })).toBe(0);
+    expect(
+      await runCli(['artifacts', '-f', 'json'], () => store, io, { scope: fixedScope('MMR') }),
+    ).toBe(0);
     expect(parseJson<{ total: number }>(io.out.join('')).total).toBe(1);
   });
 

@@ -32,3 +32,8 @@ export function fakeIo(isTTY = false, opts: { plain?: boolean; zone?: string } =
     zone: opts.zone ?? TEST_ZONE,
   };
 }
+
+/** A `Defaults.scope` that resolves to a fixed bound project (or none). */
+export function fixedScope(key: string | undefined): () => Promise<string | undefined> {
+  return () => Promise.resolve(key);
+}

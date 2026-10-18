@@ -20,7 +20,7 @@ import type {
   ProjectStatusSelector,
 } from '@mimir/contract';
 import { OP_SPECS, SPEC_UPDATE_FIELDS, specUpdateFields } from '@mimir/core';
-import type { SpecUpdateField, Store } from '@mimir/core';
+import type { ScopeSource, SpecUpdateField, Store } from '@mimir/core';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
@@ -487,21 +487,32 @@ function guardInputSchemaVoice(server: McpServer): void {
   });
 }
 
-export function buildMcpServer(store: Store, version: string, boundScope?: string): McpServer {
+export function buildMcpServer(
+  store: Store,
+  version: string,
+  boundScope: ScopeSource = async () => undefined,
+): McpServer {
   const server = new McpServer({ name: 'mimir', version });
 
-  // Project Binding (ADR 0011): the spawn cwd's .mimir.toml supplies the
+  // Project Binding (ADR 0036): the spawn directory's clone supplies the
   // default scope, mirroring the CLI exactly — explicit scope wins, the
   // literal "all" escapes to every project (keys are uppercase; no collision).
-  const applyScope = <A extends { scope?: string }>(args: A): A => {
+  // The binding resolves on first need, so a tool that takes no default scope
+  // never reads git or the store for it.
+  const applyScope = async <A extends { scope?: string }>(args: A): Promise<A> => {
     if (args.scope === 'all') {
       return { ...args, scope: undefined };
     }
-    if (args.scope === undefined && boundScope !== undefined) {
-      return { ...args, scope: boundScope };
+    if (args.scope === undefined) {
+      const bound = await boundScope();
+      return bound === undefined ? args : { ...args, scope: bound };
     }
     return args;
   };
+
+  // The bound board, resolved only when the call named no explicit target.
+  const boundUnless = (explicit: string | undefined): Promise<string | undefined> =>
+    explicit === undefined ? boundScope() : Promise.resolve(undefined);
 
   // ---------------------------------------------------------------------------
   // Read tools
@@ -519,7 +530,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       size: SIZE.optional(),
       ...OPERATOR_SCHEMA,
     },
-    (args: SetQueryArgs) => toolNext(store, applyScope(args)),
+    async (args: SetQueryArgs) => toolNext(store, await applyScope(args)),
   );
 
   register(
@@ -536,7 +547,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       tag: z.string().optional(),
       ...OPERATOR_SCHEMA,
     },
-    (args: SetQueryArgs) => toolList(store, applyScope(args)),
+    async (args: SetQueryArgs) => toolList(store, await applyScope(args)),
   );
 
   register(
@@ -568,7 +579,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'overview',
     'Session-boot orientation for ONE project (MMR-278): a header (project id, status word, rollup distribution), in-flight tasks (in_progress + under_review, uncapped), the ready-queue head (next, top 5), dependency-gated tasks (awaiting, top 5, each carrying the upstream ids it awaits), and hygiene counts (untriaged seeds, blocked, stale, and parked_seeds — parked seeds are counted, never listed). scope defaults to the bound board; "all" is rejected — a composite is one project, use list for a cross-project set. Every section carries its TRUE total even when its list is capped. Returns one composite JSON envelope.',
     { scope: z.string().optional() },
-    (args: { scope?: string }) => toolOverview(store, args, boundScope),
+    async (args: { scope?: string }) => toolOverview(store, args, await boundUnless(args.scope)),
   );
 
   register(
@@ -583,7 +594,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       tag: z.string().optional(),
       ...DATE_OPERATOR_SCHEMA,
     },
-    (args: ArtifactQueryToolArgs) => toolArtifacts(store, applyScope(args)),
+    async (args: ArtifactQueryToolArgs) => toolArtifacts(store, await applyScope(args)),
   );
 
   register(
@@ -595,7 +606,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       query: z.string(),
       scope: z.string().optional(),
     },
-    (args: SearchToolArgs) => toolSearch(store, applyScope(args)),
+    async (args: SearchToolArgs) => toolSearch(store, await applyScope(args)),
   );
 
   register(
@@ -607,18 +618,16 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       scope: z.string().optional(),
       title: z.string(),
     },
-    (args: { linked_work?: string[]; scope?: string; title: string }) => {
-      const scoped = applyScope(args);
+    async (args: { linked_work?: string[]; scope?: string; title: string }) => {
+      const scoped = await applyScope(args);
       if (scoped.scope === undefined) {
-        return Promise.resolve(
-          toolErrorResult(
-            'validation',
-            'scratch_create requires a project scope',
-            'pass scope or run from a bound workspace',
-          ),
+        return toolErrorResult(
+          'validation',
+          'scratch_create requires a project scope',
+          'pass scope or run from a bound workspace',
         );
       }
-      return toolScratchCreate(store, { ...scoped, scope: scoped.scope });
+      return await toolScratchCreate(store, { ...scoped, scope: scoped.scope });
     },
   );
 
@@ -627,7 +636,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'scratch_list',
     'List active Scratchpads. Defaults to the bound project; scope "all" lists every project.',
     { scope: z.string().optional() },
-    (args: { scope?: string }) => toolScratchList(store, applyScope(args)),
+    async (args: { scope?: string }) => toolScratchList(store, await applyScope(args)),
   );
 
   register(
@@ -945,8 +954,8 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       project: z.string().optional(),
       title: z.string(),
     },
-    (args: { title: string; kind: string; project?: string; description?: string }) =>
-      toolSeed(store, args, boundScope),
+    async (args: { title: string; kind: string; project?: string; description?: string }) =>
+      toolSeed(store, args, await boundScope()),
   );
 
   register(
@@ -960,7 +969,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
       status: SEED_STATUS.optional(),
       ...DATE_OPERATOR_SCHEMA,
     },
-    (args: SeedQueryToolArgs) => toolSeeds(store, args, boundScope),
+    async (args: SeedQueryToolArgs) => toolSeeds(store, args, await boundUnless(args.project)),
   );
 
   register(
@@ -1018,7 +1027,8 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
     'triage',
     "Reconcile ONE board's grooming queue (MMR-246): (a) surface new/untriaged seeds (parked seeds are only counted, as parked), (b) flag promoted seeds whose spawned work has all settled (ready to resolve — never auto-closed), and (c) over the board's OWN tasks whose upstream seed went terminal, append an idempotent annotation recording the resolution and suggest unblock. WRITES the check-(c) annotations by default; NEVER transitions anything (unblock/resolve stay suggestions). dryRun previews with no writes. board defaults to the bound board. Idempotent — a re-run is a no-op. Returns the three-check report.",
     { board: z.string().optional(), dryRun: z.boolean().optional() },
-    (args: { board?: string; dryRun?: boolean }) => toolTriage(store, args, boundScope),
+    async (args: { board?: string; dryRun?: boolean }) =>
+      toolTriage(store, args, await boundUnless(args.board)),
   );
 
   // Intercept the SDK's pre-handler input validation and its unregistered-tool
@@ -1039,7 +1049,7 @@ export function buildMcpServer(store: Store, version: string, boundScope?: strin
 export async function serveStdio(
   store: Store,
   version: string,
-  boundScope?: string,
+  boundScope?: ScopeSource,
   transport?: Transport,
 ): Promise<void> {
   const server = buildMcpServer(store, version, boundScope);
