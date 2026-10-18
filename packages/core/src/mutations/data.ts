@@ -334,7 +334,11 @@ export async function updateProject(
       patch.pinned = fields.pinned;
     }
     if (fields.remote !== undefined) {
-      patch.remote = fields.remote === null ? null : normalizeRemote(fields.remote);
+      // Null or a blank string clears the remote.
+      patch.remote =
+        fields.remote === null || fields.remote.trim() === ''
+          ? null
+          : normalizeRemote(fields.remote);
     }
 
     const wroteNext = await applyNextSection(w, 'project', id, fields.next);

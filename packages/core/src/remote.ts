@@ -52,3 +52,16 @@ export function tryNormalizeRemote(raw: string): string | undefined {
     return undefined;
   }
 }
+
+/** The `host/path` form `normalizeRemote` produces, with no scheme, credentials, or port. */
+const STORED_FORM = /^[^\s:@/?#\\]+\/[^\s?#]*[^\s?#/]$/;
+
+/**
+ * Normalize a remote read back from an export: an already-normalized `host/path`
+ * is kept, anything else is normalized as a written remote. Refused when it is
+ * not a remote.
+ */
+export function normalizeStoredRemote(raw: string): string {
+  const text = raw.trim();
+  return STORED_FORM.test(text) && !/\.git$/i.test(text) ? text : normalizeRemote(text);
+}

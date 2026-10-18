@@ -19,6 +19,7 @@ import {
 } from '../export';
 import { renderArtifactRef, renderSeedRef } from '../ids';
 import type { Node } from '../model';
+import { normalizeStoredRemote } from '../remote';
 import type { NewAnnotationRecord, NewTransitionRecord } from '../store';
 import { now } from '../time';
 import { parseTransferDocument } from '../transfer-validate';
@@ -235,6 +236,11 @@ type Bundles = {
   seeds: Map<string, unknown>;
   scratchpads: Map<string, unknown>;
 };
+
+/** An imported remote is stored as a written one is: normalized, and blank means none. */
+function importedRemote(remote: string | null): string | null {
+  return remote === null || remote.trim() === '' ? null : normalizeStoredRemote(remote);
+}
 
 function groupBy<T>(rows: readonly T[], keyOf: (row: T) => string): Map<string, T[]> {
   const index = new Map<string, T[]>();
@@ -487,7 +493,7 @@ async function applyImport(
         last_seq: counters.node,
         name: project.name,
         pinned: dialect.codecs.bool.encode(project.pinned),
-        remote: project.remote,
+        remote: importedRemote(project.remote),
         ...nextOf(project.key),
         updated_at: project.updated_at,
       });

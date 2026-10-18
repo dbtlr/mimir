@@ -163,4 +163,7 @@ test('a project remote round-trips through create, update, and get', async () =>
   expect(moved.remote).toBe('github.com/o/moved');
   expect((await engine.updateProject({ id: 'REM', remote: null })).remote).toBeNull();
   expect((await engine.getNode({ id: 'REM' })).remote).toBeNull();
+  // A blank string clears the remote, as it does on create and every other transport.
+  await engine.updateProject({ id: 'REM', remote: 'git@github.com:o/r.git' });
+  expect((await engine.updateProject({ id: 'REM', remote: '  ' })).remote).toBeNull();
 });

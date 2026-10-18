@@ -588,6 +588,40 @@ describe.each(backends)('$name', (backend) => {
         await target.close();
       }
 
+      // An imported remote is normalized like a written one, a blank is none,
+      // and a value that is not a Git remote is refused.
+      const raw = await backend.make();
+      try {
+        const spelled = {
+          ...document,
+          projects: document.projects.map((project) => ({
+            ...project,
+            remote: project.key === 'MMR' ? 'https://github.com/dbtlr/mimir.git' : '',
+          })),
+        };
+        await raw.store.import(spelled, { dryRun: false, mode: 'fresh' });
+        expect((await raw.store.export()).projects.map((project) => project.remote)).toEqual([
+          'github.com/dbtlr/mimir',
+          null,
+        ]);
+      } finally {
+        await raw.close();
+      }
+      const refused = await backend.make();
+      try {
+        const bad = {
+          ...document,
+          projects: document.projects.map((project) => ({ ...project, remote: 'not a remote' })),
+        };
+        const failure = await refused.store.import(bad, { dryRun: false, mode: 'fresh' }).then(
+          () => undefined,
+          (error: unknown) => error,
+        );
+        expect(String(failure)).toContain('not a Git remote');
+      } finally {
+        await refused.close();
+      }
+
       // A version-4 document carries no `remote` key on its projects.
       const legacyTarget = await backend.make();
       try {
