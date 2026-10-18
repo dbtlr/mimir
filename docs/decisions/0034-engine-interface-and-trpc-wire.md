@@ -138,7 +138,8 @@ per record kind, so `get` is three methods with three output types.
 
 **Board reads name their project.** `next`, `list`, `overview`, `artifacts`,
 `search`, `seeds`, and `scratchList` require a project in their input schema.
-A missing project is a validation refusal, not a scan of every board. Reads by
+The project must be a bare key, so a missing project or a literal such as
+`all` is a validation refusal, not a scan of every board. Reads by
 id need no scope, because the id names its project. `projects` is the only
 read that spans projects. A client resolves its own binding into the project
 it sends and refuses before calling when it has none. All-project reads gave
@@ -153,4 +154,5 @@ scope when they become Engine methods.
 
 Rules that both transports duplicated move into the Engine: `overview`
 requires a project, and `scratchList` applies the shared row order (a staged
-freeze first, then newest first).
+freeze first, then newest first). The Scratchpad reads treat an unknown or
+archived project as absent (ADR 0015), as `overview` does.

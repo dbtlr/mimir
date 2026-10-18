@@ -67,7 +67,7 @@ type InputWithoutFacets = Omit<Inputs, 'getNode'> & {
 type InputWithExtra = Omit<Inputs, 'getNode'> & {
   getNode: Inputs['getNode'] & { accidental?: string };
 };
-type OutputWithoutHistory = { [K in keyof Engine]: Omit<Outputs[K], 'history'> };
+type OutputWithoutHistory = Omit<Outputs, 'done'> & { done: Omit<Outputs['done'], 'history'> };
 type OutputWithExtra = { [K in keyof Engine]: Outputs[K] & { accidental?: string } };
 
 /** These assertions run in the normal typecheck, including the negative controls. */

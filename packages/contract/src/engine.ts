@@ -18,8 +18,10 @@ export type EngineNode = z.output<typeof engineViews.node>;
 
 const facets = z.array(z.enum(FACET_NAMES)).optional();
 const count = z.number().int().nonnegative().optional();
-/** Board reads name their project; only `projects` spans boards. */
-const project = z.string().min(1);
+/** A bare project key (ADR 0006), the grammar every rendered id starts with. */
+export const PROJECT_KEY_PATTERN = /^[A-Z]{2,4}$/;
+/** Board reads name one project; only `projects` spans boards, and no key means "all". */
+const project = z.string().regex(PROJECT_KEY_PATTERN, 'project must be a project key, such as MMR');
 const timeZone = z.string().optional();
 const dates = z
   .array(z.strictObject({ field: z.string(), op: z.enum(DATE_OP_VALUES), value: z.string() }))
@@ -117,7 +119,7 @@ export const engineSchemas = {
     output: engineViews.scratchpadRows,
   },
   search: {
-    input: z.strictObject({ limit: z.number().optional(), project, query: z.string() }),
+    input: z.strictObject({ limit: z.number().int().optional(), project, query: z.string() }),
     kind: 'query',
     output: engineViews.searchSet,
   },

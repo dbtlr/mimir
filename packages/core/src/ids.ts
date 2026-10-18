@@ -12,6 +12,8 @@
  * can't act on (a behavioral error, not a parse error).
  */
 
+import { PROJECT_KEY_PATTERN } from '@mimir/contract';
+
 export type NodeRef = {
   key: string;
   seq: number;
@@ -24,7 +26,7 @@ export type Identity =
   | { kind: 'artifact'; key: string; seq: number }
   | { kind: 'seed'; key: string; seq: number };
 
-const PROJECT_PATTERN = /^[A-Z]{2,4}$/;
+const PROJECT_PATTERN = PROJECT_KEY_PATTERN;
 const NODE_PATTERN = /^([A-Z]{2,4})-(\d+)$/;
 const ARTIFACT_PATTERN = /^([A-Z]{2,4})-a(\d+)$/;
 const SEED_PATTERN = /^([A-Z]{2,4})-s(\d+)$/;

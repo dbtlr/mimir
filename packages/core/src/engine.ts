@@ -1,6 +1,7 @@
 import { engineSchemas, intentViews, parseEngineInput, WRITE_ECHO_FACETS } from '@mimir/contract';
 import type { Engine, EngineInput } from '@mimir/contract';
 
+import { notFound, projectNotFound } from './errors';
 import { compareScratchpadRows } from './format';
 import {
   getArtifact,
@@ -30,6 +31,12 @@ export class LocalEngine implements Engine {
 
   private get scratchpads() {
     return createScratchpadService(this.store.scratchpads, this.store.artifacts, this.store);
+  }
+
+  /** An archived or unknown project reads as absent (ADR 0015), as overview refuses it. */
+  private async isActiveProject(key: string) {
+    const found = (await this.store.loadProjects()).find((candidate) => candidate.key === key);
+    return found !== undefined && found.archived_at === null;
   }
 
   async artifacts(input: EngineInput<'artifacts'>) {
@@ -84,11 +91,18 @@ export class LocalEngine implements Engine {
 
   async scratchGet(input: EngineInput<'scratchGet'>) {
     const { id } = parseEngineInput(engineSchemas.scratchGet.input, input);
-    return intentViews.scratchpad.parse(await this.scratchpads.get(id));
+    const scratchpad = await this.scratchpads.get(id);
+    if (!(await this.isActiveProject(scratchpad.project))) {
+      throw notFound(`${id} doesn't exist`);
+    }
+    return intentViews.scratchpad.parse(scratchpad);
   }
 
   async scratchList(input: EngineInput<'scratchList'>) {
     const { project } = parseEngineInput(engineSchemas.scratchList.input, input);
+    if (!(await this.isActiveProject(project))) {
+      throw projectNotFound(project);
+    }
     const rows = (await this.scratchpads.list(project)).toSorted(compareScratchpadRows);
     return intentViews.scratchpadRows.parse(rows.map(overviewScratchpadOf));
   }

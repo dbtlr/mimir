@@ -1,9 +1,10 @@
-import { afterAll, beforeAll, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 
 import { engineSchemas } from '@mimir/contract';
 import type { Engine, EngineInput } from '@mimir/contract';
 import {
   annotate,
+  archiveProject,
   attachArtifact,
   createInitiative,
   createProject,
@@ -23,7 +24,14 @@ import { createEngineHandler } from './server';
 let fixture: TestStore;
 let local: LocalEngine;
 let remote: RemoteEngine;
-let ids: { artifact: string; initiative: string; ready: string; scratchpad: string; seed: string };
+let ids: {
+  archivedPad: string;
+  artifact: string;
+  initiative: string;
+  ready: string;
+  scratchpad: string;
+  seed: string;
+};
 
 beforeAll(async () => {
   fixture = await createTestStore();
@@ -61,7 +69,11 @@ beforeAll(async () => {
   const scratch = createScratchpadService(store.scratchpads, store.artifacts, store);
   const pad = await scratch.create({ anchors: [started.id], project: 'ENG', title: 'Read pad' });
   await scratch.checkpoint(pad.id, { content: 'First entry', expectedUpdatedAt: pad.updatedAt });
+  await createProject(store, { key: 'ARC', name: 'Archived' });
+  const archivedPad = await scratch.create({ project: 'ARC', title: 'Archived pad' });
+  await archiveProject(store, 'ARC');
   ids = {
+    archivedPad: archivedPad.id,
     artifact: artifact.renderedId,
     initiative: initiative.id,
     ready: ready.id,
@@ -195,6 +207,19 @@ const reads: { [K in ReadMethod]: ReadCase<K> } = {
   },
 };
 
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
+/** Every string anywhere in an output that still looks like an ISO instant. */
+function isoStrings(value: unknown, path = '$'): string[] {
+  if (typeof value === 'string') {
+    return ISO_INSTANT.test(value) ? [path] : [];
+  }
+  if (value !== null && typeof value === 'object' && !(value instanceof Date)) {
+    return Object.entries(value).flatMap(([key, item]) => isoStrings(item, `${path}.${key}`));
+  }
+  return [];
+}
+
 /** Calls a read by name; the table's typing already ties each input to its method. */
 function call(engine: Engine, method: ReadMethod, input: unknown = reads[method].input()) {
   return (Reflect.get(engine, method) as (input: unknown) => Promise<unknown>).call(engine, input);
@@ -213,7 +238,8 @@ test.each(Object.keys(reads) as ReadMethod[])(
   async (method) => {
     const expected = await call(local, method);
     const actual = await call(remote, method);
-    expect(actual).toEqual(expected);
+    expect(actual).toStrictEqual(expected);
+    expect(isoStrings(actual)).toEqual([]);
     (reads[method].check as (output: unknown) => void)(actual);
   },
 );
@@ -228,13 +254,23 @@ const boardReads: ReadMethod[] = [
   'scratchList',
 ];
 
-test.each(boardReads)('%s refuses a read with no project, on both Engines', async (method) => {
-  const { project: _project, ...unscoped } = reads[method].input() as { project?: string };
-  const run = (engine: Engine) => errorOf(call(engine, method, unscoped));
-  const [localError, remoteError] = [await run(local), await run(remote)];
-  expect(localError.code).toBe('validation');
-  expect(remoteError.code).toBe('validation');
-  expect(remoteError.message).toBe(localError.message);
+const unscoped = [
+  ['no project', undefined],
+  ['the all-projects literal', 'all'],
+  ['a lowercase key', 'eng'],
+  ['an empty key', ''],
+] as const;
+
+describe.each(unscoped)('with %s', (_label, scope) => {
+  test.each(boardReads)('%s is refused on both Engines', async (method) => {
+    const { project: _project, ...rest } = reads[method].input() as { project?: string };
+    const input = scope === undefined ? rest : { ...rest, project: scope };
+    const run = (engine: Engine) => errorOf(call(engine, method, input));
+    const [localError, remoteError] = [await run(local), await run(remote)];
+    expect(localError.code).toBe('validation');
+    expect(remoteError.code).toBe('validation');
+    expect(remoteError.message).toBe(localError.message);
+  });
 });
 
 test('board reads stay inside the named project', async () => {
@@ -252,8 +288,12 @@ test.each([
   ['status', { id: 'ENG-99' }],
   ['tree', { id: 'ENG-99' }],
   ['overview', { project: 'NOPE' }],
+  ['scratchList', { project: 'NOPE' }],
+  ['scratchList', { project: 'ARC' }],
+  ['scratchGet', { id: '<archived>' }],
 ] as const)('%s keeps the not_found refusal across the wire', async (method, input) => {
-  const run = (engine: Engine) => errorOf(call(engine, method, input));
+  const resolved = 'id' in input && input.id === '<archived>' ? { id: ids.archivedPad } : input;
+  const run = (engine: Engine) => errorOf(call(engine, method, resolved));
   const [localError, remoteError] = [await run(local), await run(remote)];
   expect(localError.code).toBe('not_found');
   expect(remoteError.code).toBe('not_found');
