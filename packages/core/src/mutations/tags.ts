@@ -1,3 +1,5 @@
+import { notFound } from '../errors';
+import { renderArtifactRef } from '../ids';
 import type { Store, StoreWriter } from '../store';
 import { now } from '../time';
 import { assertProjectActive, stamp } from './common';
@@ -33,6 +35,23 @@ async function projectOfTarget(w: StoreWriter, ref: EntityRef): Promise<string |
 }
 
 /**
+ * Refuse an artifact target that does not exist, as `not_found`, before any
+ * write — the same refusal a missing node target gets at resolution. An
+ * artifact has no tag-table row to fail on, so without this check the seam's
+ * idempotent apply/remove would succeed against nothing.
+ */
+async function assertArtifactTargetsExist(store: Store, targets: EntityRef[]): Promise<void> {
+  for (const target of targets) {
+    if (
+      target.entityType === 'artifact' &&
+      (await store.artifacts.load(target.key, target.seq)) === undefined
+    ) {
+      throw notFound(`${renderArtifactRef(target)} doesn't exist`);
+    }
+  }
+}
+
+/**
  * Apply every tag to every target, idempotently: an existing (entity, tag)
  * row is kept (re-tagging never errors). A tag application carries no note on
  * any entity (ADR 0005 Refinement) — a tag set is a plain string
@@ -40,6 +59,7 @@ async function projectOfTarget(w: StoreWriter, ref: EntityRef): Promise<string |
  *
  * Node/project tags write the tag table under one transaction; an
  * artifact's tags route through the seam (the backend owns where they live).
+ * An artifact target that does not exist is refused `not_found` before any write.
  * The archive write-lock (ADR 0015) is asserted for every target either way.
  *
  * A node/project target whose tag set actually changes is stamped `updated_at`
@@ -55,6 +75,7 @@ export async function tagEntities(
   targets: EntityRef[],
   tags: string[],
 ): Promise<void> {
+  await assertArtifactTargetsExist(store, targets);
   await store.transact(async (w) => {
     for (const target of targets) {
       const projectId = await projectOfTarget(w, target);
@@ -91,12 +112,16 @@ export async function tagEntities(
   }
 }
 
-/** Remove every tag from every target — a plain row delete, deliberately unlogged. */
+/**
+ * Remove every tag from every target — a plain row delete, deliberately
+ * unlogged. A missing artifact target is refused `not_found`, as in {@link tagEntities}.
+ */
 export async function untagEntities(
   store: Store,
   targets: EntityRef[],
   tags: string[],
 ): Promise<number> {
+  await assertArtifactTargetsExist(store, targets);
   let removed = await store.transact(async (w) => {
     let count = 0;
     for (const target of targets) {

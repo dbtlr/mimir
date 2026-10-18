@@ -775,6 +775,18 @@ const refusals: Refusal[] = [
     method: 'tag',
   },
   {
+    code: 'not_found',
+    input: (ids: Ids) => ({ ids: [ids.todoTask, 'ENG-a99'], tags: ['x'] }),
+    label: 'a missing artifact target',
+    method: 'tag',
+  },
+  {
+    code: 'not_found',
+    input: (ids: Ids) => ({ ids: [ids.todoTask, 'ENG-a99'], tags: ['x'] }),
+    label: 'a missing artifact target',
+    method: 'untag',
+  },
+  {
     code: 'validation',
     input: (ids: Ids) => ({ ids: [ids.seed], tags: ['x'] }),
     label: 'a seed target',

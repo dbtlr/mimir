@@ -124,17 +124,29 @@ test('resolveEntityToken rejects unknown project/node and malformed tokens', asy
   await expectMimirError('not_found', async () => resolveEntityTokenInSet(set, 'not-an-id'));
 });
 
-test('an artifact token resolves by external identity, existence is the seam’s concern (MMR-143)', async () => {
+test('an artifact token resolves by external identity; tagEntities checks existence (MMR-143, MMR-547)', async () => {
   // Unlike node/project, an artifact token parses to (key, seq) without a
-  // store read — the vault-backed artifact stem is already canonical, and tags
-  // never validate existence (the seam applies to a missing artifact as a
-  // silent no-op).
+  // store read — the vault-backed artifact stem is already canonical, and
+  // existence is checked by tagEntities/untagEntities.
   const set = deriveSet(await store.loadWorkingSet());
   expect(resolveEntityTokenInSet(set, 'MMR-a9')).toEqual({
     entityType: 'artifact',
     key: 'MMR',
     seq: 9,
   });
+});
+
+test('tag and untag refuse a missing artifact as not_found and write nothing (MMR-547)', async () => {
+  const set = deriveSet(await store.loadWorkingSet());
+  const task = resolveEntityTokenInSet(set, 'MMR-3');
+  const missing = resolveEntityTokenInSet(set, 'MMR-a99');
+  await expectMimirError('not_found', () => tagEntities(store, [task, missing], ['spec']));
+  await expectMimirError('not_found', () => untagEntities(store, [task, missing], ['spec']));
+  // A missing project key behind the artifact id is the same refusal.
+  const noProject = resolveEntityTokenInSet(set, 'ZZZ-a1');
+  await expectMimirError('not_found', () => tagEntities(store, [noProject], ['spec']));
+  // The valid target listed alongside the missing one was not tagged.
+  expect(await nodeTagsOf(taskId)).toEqual([]);
 });
 
 test('create verbs apply creation-time tags', async () => {
