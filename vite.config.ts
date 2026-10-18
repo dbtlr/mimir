@@ -25,7 +25,9 @@ type Override = LintOverride;
  * keep correctness like rules-of-hooks). Re-enable one at a time there.
  *
  * Layer-boundary enforcement (the one thing toolingConfig can't express) rides
- * through `lint.overrides`. The flow is `contract ← @mimir/core ← @mimir/bin`:
+ * through `lint.overrides`. The flow is `contract ← @mimir/core ← @mimir/bin`,
+ * and `@mimir/cli` (the Loom CLI) imports core only in its composition root,
+ * `src/app.ts`, and never imports bin outside its tests:
  *   - The console's server functions (`packages/host/src/api/fns/**`) call the
  *     host's Engine only — no core, no `/api` handler, and no host runtime
  *     except in `fns/engine.ts`, which opens it (ADR 0034).
@@ -57,6 +59,19 @@ const noBinImports = {
 const noWireImports = {
   group: ['@mimir/wire', '@mimir/wire/**', '**/wire/src', '**/wire/src/**'],
   message: 'Layer boundary: contract and core may not import the wire transport.',
+};
+
+/** The Loom CLI's commands reach work state through the Engine alone: no core import. */
+const cliNoCore = {
+  group: ['@mimir/core', '@mimir/core/*', '**/core/src', '**/core/src/**'],
+  message:
+    'Layer boundary: only packages/cli/src/app.ts imports @mimir/core; commands reach work state through the Engine.',
+};
+
+/** The Loom CLI replaces the old binary and never builds on it. */
+const cliNoBin = {
+  group: ['@mimir/bin', '@mimir/bin/**', '**/bin/src', '**/bin/src/**'],
+  message: 'Layer boundary: @mimir/cli may not import @mimir/bin; the parity harness alone does.',
 };
 
 const noCoreImports = {
@@ -174,6 +189,8 @@ const layerOverrides: Override[] = [
   restrict(['packages/host/src/api/fns/engine.ts'], [noBinImports, serverFnBoundary(false)]),
   forbid(['packages/bin/src/cli/**'], ['mcp']),
   forbid(['packages/bin/src/mcp/**'], ['cli']),
+  restrict(['packages/cli/**'], [cliNoCore, cliNoBin]),
+  restrict(['packages/cli/src/app.ts'], [cliNoBin, coreEntryOnly]),
   // Tests legitimately wire layers together (the store fixture from
   // `testing/store`, cross-layer assertions); the boundary constrains shipped
   // code, not tests.
@@ -184,6 +201,9 @@ const layerOverrides: Override[] = [
   restrict(['packages/contract/**'], [noBinImports, noCoreImports, noWireImports]),
   restrict(['packages/wire/**/*.test.ts'], [coreEntryOnly, noBinImports]),
   restrict(['packages/bin/**/*.test.ts'], [coreEntryOnly]),
+  // The CLI's tests and test fixtures build stores and run the old CLI for the
+  // parity harness; they still reach core only through its entries.
+  restrict(['packages/cli/**/*.test.ts', 'packages/cli/src/testing/**'], [coreEntryOnly]),
   // Tests legitimately force bad/loose types — to drive error paths, assert over
   // untyped HTTP responses, narrow DOM queries — so unsafe assertions are allowed
   // in test files (they own both ends; the safety bar is for shipped code).
@@ -227,6 +247,7 @@ export default defineConfig({
       node: {
         files: [
           'packages/bin/**',
+          'packages/cli/**',
           'packages/core/**',
           'packages/sandbox/**',
           'packages/api/**',

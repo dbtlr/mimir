@@ -1,0 +1,13 @@
+mimir · Query and manage work state.
+
+USAGE
+  mimir <command> [options]
+
+COMMANDS
+  get   Read one full record: a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), or a seed (KEY-sN).
+  next  List the ready tasks of one project in rank order.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+Run mimir <command> --help for command details.

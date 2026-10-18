@@ -62,6 +62,16 @@ objects and explicit route parameters. The layering
 import `@mimir/bin`, bin reaches core only through its two entries, and
 transports may not import each other.
 
+`packages/cli` (`@mimir/cli`) is the CLI being rebuilt on Loom, beside
+`packages/bin`, which it replaces at cutover (ADR 0037). Its commands are
+Loom declarations that call only the Engine; `src/app.ts` is the composition
+root and the only module that imports `@mimir/core`, which the lint rule
+enforces. A parity harness runs each ported command's cases through the old
+`runCli` and the new `app.invoke` over one store. The structured formats and
+exit codes must match byte for byte, and any `table` or `records` difference
+is an entry in `src/parity/differences.ts`. Help pages are pinned in
+`src/help-pages`.
+
 `packages/host` (`@mimir/host`) contains the operator console and the TanStack
 Start host. Start runs in SPA mode on Nitro's Bun preset. The client routes
 remain code-based in `src/router.tsx`, behind `src/start-router.tsx`.
