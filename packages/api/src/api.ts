@@ -1144,11 +1144,12 @@ function apiRoutes(store: Store, opts: ApiOptions): ApiRoutes {
         }),
       POST: (req) =>
         guarded(req, async () => {
-          const body = await readBody(req, ['key', 'name', 'description', 'tags']);
+          const body = await readBody(req, ['key', 'name', 'description', 'remote', 'tags']);
           const project = await createProject(store, {
             description: strField(body, 'description'),
             key: requiredStr(body, 'key', 'create project'),
             name: requiredStr(body, 'name', 'create project'),
+            remote: strField(body, 'remote'),
             tags: strList(body, 'tags'),
           });
           const view = await getNode(store, project.key, {
@@ -1174,7 +1175,14 @@ function apiRoutes(store: Store, opts: ApiOptions): ApiRoutes {
           if (parseIdentity(key)?.kind !== 'project') {
             throw validation(`${key} is not a project key`, 'nodes live at /api/nodes/:id');
           }
-          const body = await readBody(req, ['name', 'title', 'description', 'next', 'pinned']);
+          const body = await readBody(req, [
+            'name',
+            'title',
+            'description',
+            'next',
+            'pinned',
+            'remote',
+          ]);
           // Accept both `name` and `title` as the project name field
           // (`title` follows the NodeView wire name; `name` is the native field).
           const name = strField(body, 'name') ?? strField(body, 'title');
@@ -1184,8 +1192,11 @@ function apiRoutes(store: Store, opts: ApiOptions): ApiRoutes {
           // The operator's pin (MMR-493) — project-only, so the node, seed, and
           // artifact patches never list it and refuse it as an unknown field.
           const pinned = boolField(body, 'pinned');
+          // The Git remote (MMR-543) — project-only; a blank string clears it.
+          const remoteText = strField(body, 'remote');
+          const remote = remoteText?.trim() === '' ? null : remoteText;
           const projectId = resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), key);
-          await updateProject(store, projectId, { description, name, next, pinned });
+          await updateProject(store, projectId, { description, name, next, pinned, remote });
           const view = await projectViewByKey(store, key, new Set(PROJECT_FACETS));
           if (view === undefined) {
             throw projectNotFound(key);

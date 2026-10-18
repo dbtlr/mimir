@@ -207,6 +207,10 @@ export function createEngineRouter(engine: Engine) {
       .input((value: unknown) => parseEngineInput(engineSchemas.projects.input, value))
       .output(engineSchemas.projects.output)
       .query(({ input }) => engine.projects(input)),
+    projectsByRemote: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.projectsByRemote.input, value))
+      .output(engineSchemas.projectsByRemote.output)
+      .query(({ input }) => engine.projectsByRemote(input)),
     scratchAgendaAdd: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.scratchAgendaAdd.input, value))
       .output(engineSchemas.scratchAgendaAdd.output)

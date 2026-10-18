@@ -33,7 +33,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0008](0008-state-word-projection-and-interpret-cascade.md)       | Status-word projection and the `interpret` cascade                 |
 | [0009](0009-adopt-norn-output-and-selection-contract.md)          | Adopt Norn's output + selection/projection contract                |
 | [0010](0010-one-binary-transport-only-consumption.md)             | One binary; transport-only consumption                             |
-| [0011](0011-repo-binding-is-repo-side.md)                         | Repo binding is repo-side; the store knows no paths                |
+| [0011](0011-repo-binding-is-repo-side.md)                         | Repo binding is repo-side; the store knows no paths (superseded by 0036) |
 | [0012](0012-http-api-true-resource-envelope.md)                   | The HTTP API is a true resource envelope                           |
 | [0013](0013-ui-embedded-spa.md)                                   | The UI is an embedded SPA — board-first console, PWA               |
 | [0014](0014-work-artifacts-authored-into-mimir.md)                | Work artifacts are authored into Mimir, not the vault              |
@@ -58,6 +58,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0033](0033-task-grooming-state.md)                               | Tasks carry a stored grooming state                                |
 | [0034](0034-engine-interface-and-trpc-wire.md)                    | The Engine is a plain interface, and the remote wire is tRPC       |
 | [0035](0035-tanstack-start-container-host.md)                    | The host is a TanStack Start container                            |
+| [0036](0036-project-binding-through-git-config.md)               | A clone binds to its project through git config and the project remote |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model

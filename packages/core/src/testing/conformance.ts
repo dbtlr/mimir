@@ -121,6 +121,7 @@ export async function seedWorkingSet(store: Store): Promise<void> {
     description: 'the work-state tool',
     key: 'MMR',
     name: 'Mimir',
+    remote: 'git@github.com:dbtlr/mimir.git',
     tags: ['core'],
   });
   await createProject(store, { description: null, key: 'OPS', name: 'Operations' });

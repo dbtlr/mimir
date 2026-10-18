@@ -26,6 +26,8 @@ export type Project = {
   archived_at: string | null;
   /** The operator's "keep at hand" mark (MMR-493): the console lists pinned projects first. */
   pinned: boolean;
+  /** The normalized Git remote (`host/path`) a clone finds this project by (MMR-543); not unique. */
+  remote: string | null;
   created_at: string;
   updated_at: string;
 };

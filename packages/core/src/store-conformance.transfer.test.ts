@@ -471,12 +471,12 @@ describe.each(backends)('$name', (backend) => {
       try {
         const refusal = await refusalOf(
           futureTarget.store.import(
-            { ...document, schema_version: 5 },
+            { ...document, schema_version: 6 },
             { dryRun: false, mode: 'fresh' },
           ),
         );
-        expect(refusal).toContain('unsupported transfer document schema version 5');
-        expect(refusal).toContain('this binary reads schema versions 1, 2, 3, 4');
+        expect(refusal).toContain('unsupported transfer document schema version 6');
+        expect(refusal).toContain('this binary reads schema versions 1, 2, 3, 4, 5');
       } finally {
         await futureTarget.close();
       }
@@ -489,7 +489,7 @@ describe.each(backends)('$name', (backend) => {
     try {
       await seedWorkingSet(source.store);
       const document = await source.store.export();
-      expect(document.schema_version).toBe(4);
+      expect(document.schema_version).toBe(5);
 
       // Only the blocked task carries an owner; the fixture states `others`, which
       // the derivation rule (no upstream, so `you`) would not produce.
@@ -519,7 +519,7 @@ describe.each(backends)('$name', (backend) => {
           };
           await legacyTarget.store.import(legacy, { dryRun: false, mode: 'fresh' });
           const imported = await legacyTarget.store.export();
-          expect(imported.schema_version).toBe(4);
+          expect(imported.schema_version).toBe(5);
           for (const node of imported.nodes) {
             expect(node.block_owner, node.id).toBe(node.hold === 'blocked' ? expected : null);
           }
@@ -561,8 +561,79 @@ describe.each(backends)('$name', (backend) => {
         };
         await legacyTarget.store.import(legacy, { dryRun: false, mode: 'fresh' });
         const imported = await legacyTarget.store.export();
-        expect(imported.schema_version).toBe(4);
+        expect(imported.schema_version).toBe(5);
         expect(imported.projects.map((project) => project.pinned)).toEqual([false, false]);
+      } finally {
+        await legacyTarget.close();
+      }
+    } finally {
+      await source.close();
+    }
+  });
+  test('the project remote round-trips through export and import, and a pre-version-5 document imports without one', async () => {
+    const source = await backend.make();
+    try {
+      await seedWorkingSet(source.store);
+      const document = await source.store.export();
+      expect(document.projects.map((project) => [project.key, project.remote])).toEqual([
+        ['MMR', 'github.com/dbtlr/mimir'],
+        ['OPS', null],
+      ]);
+
+      const target = await backend.make();
+      try {
+        await target.store.import(document, { dryRun: false, mode: 'fresh' });
+        expect(withoutStamp(await target.store.export())).toEqual(withoutStamp(document));
+      } finally {
+        await target.close();
+      }
+
+      // An imported remote is normalized like a written one, a blank is none,
+      // and a value that is not a Git remote is refused.
+      const raw = await backend.make();
+      try {
+        const spelled = {
+          ...document,
+          projects: document.projects.map((project) => ({
+            ...project,
+            remote: project.key === 'MMR' ? 'https://github.com/dbtlr/mimir.git' : '',
+          })),
+        };
+        await raw.store.import(spelled, { dryRun: false, mode: 'fresh' });
+        expect((await raw.store.export()).projects.map((project) => project.remote)).toEqual([
+          'github.com/dbtlr/mimir',
+          null,
+        ]);
+      } finally {
+        await raw.close();
+      }
+      const refused = await backend.make();
+      try {
+        const bad = {
+          ...document,
+          projects: document.projects.map((project) => ({ ...project, remote: 'not a remote' })),
+        };
+        const failure = await refused.store.import(bad, { dryRun: false, mode: 'fresh' }).then(
+          () => undefined,
+          (error: unknown) => error,
+        );
+        expect(String(failure)).toContain('not a Git remote');
+      } finally {
+        await refused.close();
+      }
+
+      // A version-4 document carries no `remote` key on its projects.
+      const legacyTarget = await backend.make();
+      try {
+        const legacy = {
+          ...document,
+          projects: document.projects.map(({ remote: _remote, ...project }) => project),
+          schema_version: 4,
+        };
+        await legacyTarget.store.import(legacy, { dryRun: false, mode: 'fresh' });
+        const imported = await legacyTarget.store.export();
+        expect(imported.schema_version).toBe(5);
+        expect(imported.projects.map((project) => project.remote)).toEqual([null, null]);
       } finally {
         await legacyTarget.close();
       }

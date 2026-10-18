@@ -304,6 +304,10 @@ export function renderRecords(node: NodeView, io: Io, expandAnnotations = false)
   if (node.pinned === true) {
     pairs.push(['pinned', 'yes']);
   }
+  // Project-only (MMR-543) — shown when the project has one.
+  if (node.remote != null) {
+    pairs.push(['remote', node.remote]);
+  }
   if (node.externalRef != null) {
     pairs.push(['external ref', node.externalRef]);
   }

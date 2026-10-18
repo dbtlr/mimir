@@ -91,6 +91,7 @@ export type ProjectTable = {
   description: string | null;
   archived_at: string | null;
   pinned: Generated<Stored<boolean>>;
+  remote: string | null;
   last_seq: Generated<number>;
   last_artifact_seq: Generated<number>;
   last_seed_seq: Generated<number>;

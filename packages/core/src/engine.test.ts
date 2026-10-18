@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { createInitiative, createProject, createTask } from './create';
 import { LocalEngine } from './engine';
 import { getNode } from './intent';
-import { startTask } from './mutations';
+import { archiveProject, startTask } from './mutations';
 import { OP_SPECS } from './ops';
 import { createScratchpadService } from './scratchpads';
 import { errorOf } from './testing/conformance';
@@ -108,4 +108,62 @@ test('a node write echoes the written record with Date instants', async () => {
   const project = await engine.updateProject({ id: 'ENG', next: 'Direction', pinned: true });
   expect(project.pinned).toBe(true);
   expect(project.next).toBe('Direction');
+});
+
+test('projectsByRemote finds every active project of one repository, whatever the URL form', async () => {
+  await engine.create({
+    key: 'AAA',
+    name: 'Alpha',
+    remote: 'git@GitHub.com:dbtlr/mimir.git',
+    type: 'project',
+  });
+  await engine.create({
+    key: 'BBB',
+    name: 'Beta',
+    remote: 'https://github.com/dbtlr/mimir',
+    type: 'project',
+  });
+  await engine.create({
+    key: 'CCC',
+    name: 'Gamma',
+    remote: 'git@github.com:other/repo',
+    type: 'project',
+  });
+  await engine.create({
+    key: 'DDD',
+    name: 'Delta',
+    remote: 'git@github.com:dbtlr/mimir.git',
+    type: 'project',
+  });
+  await archiveProject(fixture.store, 'DDD');
+
+  const found = await engine.projectsByRemote({ remote: 'ssh://git@github.com/dbtlr/mimir.git' });
+  expect(found.map((project) => [project.id, project.remote])).toEqual([
+    ['AAA', 'github.com/dbtlr/mimir'],
+    ['BBB', 'github.com/dbtlr/mimir'],
+  ]);
+  expect(await engine.projectsByRemote({ remote: 'https://github.com/nobody/nothing' })).toEqual(
+    [],
+  );
+  // Input that is not a network remote (a local-path origin) matches nothing.
+  for (const remote of ['not a remote', '/srv/git/r.git', 'file:///srv/git/r.git']) {
+    expect(await engine.projectsByRemote({ remote })).toEqual([]);
+  }
+});
+
+test('a project remote round-trips through create, update, and get', async () => {
+  await engine.create({
+    key: 'REM',
+    name: 'Remote',
+    remote: 'git@github.com:o/r.git',
+    type: 'project',
+  });
+  expect((await engine.getNode({ id: 'REM' })).remote).toBe('github.com/o/r');
+  const moved = await engine.updateProject({ id: 'REM', remote: 'https://github.com/o/moved.git' });
+  expect(moved.remote).toBe('github.com/o/moved');
+  expect((await engine.updateProject({ id: 'REM', remote: null })).remote).toBeNull();
+  expect((await engine.getNode({ id: 'REM' })).remote).toBeNull();
+  // A blank string clears the remote, as it does on create and every other transport.
+  await engine.updateProject({ id: 'REM', remote: 'git@github.com:o/r.git' });
+  expect((await engine.updateProject({ id: 'REM', remote: '  ' })).remote).toBeNull();
 });

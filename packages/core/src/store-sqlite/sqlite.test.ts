@@ -14,6 +14,7 @@ import { statements as initStatements } from './migrations/0001-init';
 import { statements as groomingStatements } from './migrations/0002-grooming';
 import { statements as blockOwnerStatements } from './migrations/0003-block-owner';
 import { statements as seedParkedStatements } from './migrations/0004-seed-parked';
+import { statements as projectPinnedStatements } from './migrations/0005-project-pinned';
 
 /**
  * The SQLite store's file-backed behavior (ADR 0032 Decision 3): what opening
@@ -55,6 +56,7 @@ test('opening a new file creates it, migrates it, and puts it in WAL mode', asyn
         '0003_block_owner',
         '0004_seed_parked',
         '0005_project_pinned',
+        '0006_project_remote',
       ],
       from: 0,
       to: SCHEMA_VERSION,
@@ -94,7 +96,13 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0002_grooming', '0003_block_owner', '0004_seed_parked', '0005_project_pinned'],
+      applied: [
+        '0002_grooming',
+        '0003_block_owner',
+        '0004_seed_parked',
+        '0005_project_pinned',
+        '0006_project_remote',
+      ],
       from: 1,
       to: SCHEMA_VERSION,
     });
@@ -141,7 +149,12 @@ test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0003_block_owner', '0004_seed_parked', '0005_project_pinned'],
+      applied: [
+        '0003_block_owner',
+        '0004_seed_parked',
+        '0005_project_pinned',
+        '0006_project_remote',
+      ],
       from: 2,
       to: SCHEMA_VERSION,
     });
@@ -196,7 +209,7 @@ test('0004_seed_parked upgrades a version-3 store: seeds and their history survi
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0004_seed_parked', '0005_project_pinned'],
+      applied: ['0004_seed_parked', '0005_project_pinned', '0006_project_remote'],
       from: 3,
       to: SCHEMA_VERSION,
     });
@@ -273,7 +286,7 @@ test('0005_project_pinned upgrades a version-4 store: projects keep their data a
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0005_project_pinned'],
+      applied: ['0005_project_pinned', '0006_project_remote'],
       from: 4,
       to: SCHEMA_VERSION,
     });
@@ -296,6 +309,57 @@ test('0005_project_pinned upgrades a version-4 store: projects keep their data a
     expect(
       await refusal(sql`update project set pinned = NULL where key = 'MMR'`.execute(handle.db)),
     ).toContain('NOT NULL');
+  } finally {
+    await handle.close();
+  }
+});
+
+test('0006_project_remote upgrades a version-5 store: projects keep their data and read with no remote', async () => {
+  const old = new Database(path, { create: true });
+  for (const statement of [
+    ...initStatements,
+    ...groomingStatements,
+    ...blockOwnerStatements,
+    ...seedParkedStatements,
+    ...projectPinnedStatements,
+  ]) {
+    old.run(statement);
+  }
+  old.run(
+    `INSERT INTO schema_version (version, applied_at) VALUES (1, 't'), (2, 't'), (3, 't'), (4, 't'), (5, 't')`,
+  );
+  old.run(
+    `INSERT INTO project (key, name, description, last_seq, pinned, created_at, updated_at)
+     VALUES ('MMR', 'Mimir', 'the store', 7, 1, 'c', 'u'), ('OPS', 'Ops', NULL, 0, 0, 'c', 'u')`,
+  );
+  old.close();
+
+  const handle = await openSqlite(path);
+  try {
+    expect(handle.upgrade).toEqual({
+      applied: ['0006_project_remote'],
+      from: 5,
+      to: SCHEMA_VERSION,
+    });
+    const rows = await sql<{
+      key: string;
+      description: string | null;
+      last_seq: number;
+      pinned: number;
+      remote: string | null;
+    }>`
+      select key, description, last_seq, pinned, remote from project order by key
+    `.execute(handle.db);
+    expect(rows.rows).toEqual([
+      {
+        description: 'the store',
+        key: 'MMR',
+        last_seq: 7,
+        pinned: 1,
+        remote: null,
+      },
+      { description: null, key: 'OPS', last_seq: 0, pinned: 0, remote: null },
+    ]);
   } finally {
     await handle.close();
   }

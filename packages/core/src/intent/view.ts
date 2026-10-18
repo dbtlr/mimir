@@ -290,6 +290,7 @@ export async function buildProjectView(
     lastActivityAt: activity.get(project.key) ?? project.updated_at,
     parent: null,
     pinned: project.pinned,
+    remote: project.remote,
     status: interpret(distribution),
     title: project.name,
     type: 'project',

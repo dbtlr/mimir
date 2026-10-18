@@ -41,6 +41,8 @@ const SURFACES: readonly Surface[] = [
   same('next'),
   same('overview'),
   same('projects'),
+  // The remote lookup has no command yet: `mimir bind` and the auto-bind (MMR-544) are its first callers.
+  { methods: ['projectsByRemote'] },
   same('search'),
   { cli: 'seeds', mcp: 'seeds', methods: ['seeds'] },
   same('status'),

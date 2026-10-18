@@ -548,6 +548,10 @@ async function cmdUpdateProject(c: Ctx, token: string): Promise<number> {
   if (pinned !== undefined) {
     fields.pinned = pinned;
   }
+  // A blank `--remote ''` clears it, like `--direction ''` clears the narrative.
+  if (typeof c.values.remote === 'string') {
+    fields.remote = c.values.remote.trim() === '' ? null : c.values.remote;
+  }
   await updateProject(c.store, projectId, fields);
   await echoProject(c.store, token, c.format, c.io);
   return 0;
@@ -726,6 +730,7 @@ const PROJECT_ONLY_FLAGS = [
   ['pinned', 'pinned'],
   ['not-pinned', 'pinned'],
   ['name', 'renamed'],
+  ['remote', 'given a Git remote'],
 ] as const;
 
 /** Refuse a project-only flag aimed at anything but a project, naming the flag given. */
@@ -904,6 +909,9 @@ function requireParentShape(
 
 export async function cmdCreate(c: Ctx): Promise<number> {
   const type = c.positionals[1];
+  if (type !== 'project' && c.values.remote !== undefined) {
+    throw validation('--remote applies only to a project');
+  }
   switch (type) {
     case 'project': {
       // Positional name like every other create type (MMR-35); --name still works.
@@ -940,6 +948,7 @@ export async function cmdCreate(c: Ctx): Promise<number> {
         key,
         name,
         openEnded: openEndedFlag(c),
+        remote: optStr(c, 'remote'),
         tags: tagFlags(c),
         type: 'project',
       });

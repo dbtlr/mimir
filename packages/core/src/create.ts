@@ -11,6 +11,7 @@ import { normalizeSummary } from './mutations/data';
 import { applyHandlePatch } from './mutations/handles';
 import type { HandleFields } from './mutations/handles';
 import { appendRank } from './rank';
+import { normalizeRemote } from './remote';
 import { resolveNodeTokenInSet, resolveProjectKeyInSet } from './resolve-set';
 import type { NodePatch, Store } from './store';
 
@@ -28,6 +29,8 @@ export type CreateProjectInput = {
   key: string;
   name: string;
   description?: string | null;
+  /** A Git remote URL, stored normalized (MMR-543); refused when not a remote. */
+  remote?: string | null;
   tags?: string[];
 };
 
@@ -35,6 +38,11 @@ export async function createProject(store: Store, input: CreateProjectInput): Pr
   if (!isValidKey(input.key)) {
     throw validation(`project key must match [A-Z]{2,4}: ${input.key}`);
   }
+  // A blank remote means none, as it does on update.
+  const remote =
+    input.remote === undefined || input.remote === null || input.remote.trim() === ''
+      ? null
+      : normalizeRemote(input.remote);
   return store.transact(async (w) => {
     const existing = await w.loadProject(input.key);
     if (existing !== undefined) {
@@ -44,6 +52,7 @@ export async function createProject(store: Store, input: CreateProjectInput): Pr
       description: input.description ?? null,
       key: input.key,
       name: input.name,
+      remote,
       tags: input.tags,
     });
     return project;
@@ -204,6 +213,8 @@ export type CreateNodeProjectInput = {
   name: string;
   description?: string;
   openEnded?: boolean;
+  /** A Git remote URL (MMR-543), stored normalized. */
+  remote?: string | null;
   /** Task-only (ADR 0033) — accepted so a transport can pass it through; refused. */
   groomed?: boolean;
   tags?: string[];
@@ -303,6 +314,7 @@ export async function createNode(store: Store, input: CreateNodeInput): Promise<
       description: input.description,
       key: input.key,
       name: input.name,
+      remote: input.remote,
       tags: input.tags,
     });
   }

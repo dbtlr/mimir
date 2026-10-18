@@ -1,10 +1,15 @@
 ---
 title: 0011 — Repo binding is repo-side; the store knows no filesystem paths
-status: accepted
+status: superseded
+superseded_by: 'ADR 0036'
 date: 2026-06-11
 ---
 
 # 0011 — Repo binding is repo-side; the store knows no filesystem paths
+
+> **Superseded (2026-10-18, MMR-543) by [ADR 0036](0036-project-binding-through-git-config.md).**
+> The binding moves to git config, and projects store a Git remote. This record
+> is kept for history.
 
 A project's connection to a working copy lives in the **repo**, not the store. The node table's `repo`/`path` columns are **dropped** (table-rebuild migration, `MMR-44`). A repo declares its project in a checked-in **`.mimir.toml`** whose payload is a single line, `project = "KEY"`. The **binary owns the file**: `mimir bind <KEY>` writes it, and every command resolves it — walking up from cwd, **nearest file wins** — as the **default `-s` scope**; an explicit `-s` always overrides.
 

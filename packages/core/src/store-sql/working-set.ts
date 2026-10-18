@@ -63,6 +63,7 @@ export function toProject(row: ProjectRow, dialect: StoreDialect): Project {
     key: row.key,
     name: row.name,
     pinned: dialect.codecs.bool.decode(row.pinned),
+    remote: row.remote,
     updated_at: row.updated_at,
   };
 }
