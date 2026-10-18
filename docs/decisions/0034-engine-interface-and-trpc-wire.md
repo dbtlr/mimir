@@ -140,7 +140,10 @@ per record kind, so `get` is three methods with three output types.
 `search`, `seeds`, and `scratchList` require a project in their input schema.
 The project must be a bare key, so a missing project or a literal such as
 `all` is a validation refusal, not a scan of every board. Reads by
-id need no scope, because the id names its project. `projects` is the only
+id need no scope, because the id names its project. `search` returns text
+matches from its project only. A full id still finds a record on any board,
+along with that record's links, because the query names the project. The
+`seeds` requester filter applies within the one board read. `projects` is the only
 read that spans projects. A client resolves its own binding into the project
 it sends and refuses before calling when it has none. All-project reads gave
 wrong answers when a caller forgot its scope, and their cost grows with every

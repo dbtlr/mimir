@@ -20,7 +20,7 @@ export type EngineOptionChecks = [
   Assert<SameKeys<Scoped<'list'>, keyof ListOptions>>,
   Assert<SameKeys<Scoped<'artifacts'>, keyof ArtifactQueryOptions>>,
   Assert<SameKeys<keyof EngineInput<'seeds'>, keyof ListSeedsOptions>>,
-  Assert<SameKeys<keyof EngineInput<'search'>, keyof SearchOptions>>,
+  Assert<SameKeys<keyof EngineInput<'search'> | 'projectOnly', keyof SearchOptions>>,
   // @ts-expect-error A renamed input key no longer matches the core option it feeds.
   Assert<SameKeys<Scoped<'artifacts'> | 'tags', keyof ArtifactQueryOptions>>,
 ];

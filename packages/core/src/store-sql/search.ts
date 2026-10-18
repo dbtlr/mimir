@@ -287,6 +287,9 @@ export function createSqlSearchStore(db: Executor, dialect: StoreDialect): Searc
       )
       .selectFrom('ranked')
       .where('tier', 'is not', null)
+      .$if(query.projectOnly === true && query.project !== undefined, (qb) =>
+        qb.where('project', '=', query.project ?? ''),
+      )
       .select((eb) => [
         ...RECORD_COLUMNS,
         'description',

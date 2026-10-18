@@ -29,6 +29,8 @@ export type SearchOptions = {
   query: string;
   /** The current project: ranked first, and where a bare suffix resolves. */
   project?: string;
+  /** Text hits come only from `project`; a full ID still finds any project. */
+  projectOnly?: boolean;
   limit?: number;
 };
 
@@ -53,6 +55,9 @@ export async function searchRecords(
   if (!Number.isInteger(limit) || limit < 1 || limit > MAX_SEARCH_LIMIT) {
     throw validation(`limit must be a whole number from 1 to ${String(MAX_SEARCH_LIMIT)}`);
   }
+  if (opts.projectOnly === true && opts.project === undefined) {
+    throw validation('a project-only search needs a project');
+  }
   if (
     opts.project !== undefined &&
     !(await store.loadProjects()).some((project) => project.key === opts.project)
@@ -64,7 +69,7 @@ export async function searchRecords(
     const items = byId.slice(0, limit);
     return { items, returned: items.length, startsAt: 0, total: byId.length };
   }
-  return textHits(store.search, query, opts.project, limit);
+  return textHits(store.search, query, opts.project, opts.projectOnly === true, limit);
 }
 
 /** The hits an ID-like query names, or `undefined` when it names nothing. */
@@ -133,6 +138,7 @@ async function textHits(
   search: SearchStore,
   query: string,
   project: string | undefined,
+  projectOnly: boolean,
   limit: number,
 ): Promise<SetResult<SearchHit>> {
   const terms = query
@@ -149,7 +155,7 @@ async function textHits(
     limit,
     terms,
     words,
-    ...(project === undefined ? {} : { project }),
+    ...(project === undefined ? {} : { project, projectOnly }),
   });
   const items = result.items.map((hit) => toTextHit(hit, words));
   return { items, returned: items.length, startsAt: 0, total: result.total };

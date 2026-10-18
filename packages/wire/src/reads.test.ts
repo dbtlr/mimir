@@ -279,6 +279,9 @@ test('board reads stay inside the named project', async () => {
   expect((await remote.seeds({ project: 'OTH' })).length).toBe(0);
   expect((await remote.scratchList({ project: 'OTH' })).length).toBe(0);
   expect((await remote.artifacts({ project: 'OTH' })).total).toBe(0);
+  const text = await remote.search({ project: 'OTH', query: 'read' });
+  expect(text.items.map((hit) => hit.id)).toEqual(['OTH-2']);
+  expect((await remote.search({ project: 'ENG', query: 'OTH-2' })).items[0]?.id).toBe('OTH-2');
 });
 
 test.each([

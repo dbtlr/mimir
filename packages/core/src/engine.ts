@@ -109,7 +109,9 @@ export class LocalEngine implements Engine {
 
   async search(input: EngineInput<'search'>) {
     const opts = parseEngineInput(engineSchemas.search.input, input);
-    return intentViews.searchSet.parse(await searchRecords(this.store, opts));
+    return intentViews.searchSet.parse(
+      await searchRecords(this.store, { ...opts, projectOnly: true }),
+    );
   }
 
   async seeds(input: EngineInput<'seeds'>) {
