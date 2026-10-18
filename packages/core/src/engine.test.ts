@@ -79,3 +79,10 @@ test('overview judges staleness at the Date the caller passes', async () => {
   });
   expect(later.hygiene.stale).toBe(1);
 });
+
+test('malformed input reads as a sentence naming the field, not an issue dump', async () => {
+  const refusal = await errorOf(engine.next({} as Parameters<LocalEngine['next']>[0]));
+  expect(refusal.code).toBe('validation');
+  expect(refusal.message).toContain('project');
+  expect(refusal.message).not.toContain('"code"');
+});

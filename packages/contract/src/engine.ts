@@ -158,7 +158,7 @@ export type Engine = {
 export function parseEngineInput<T extends z.ZodType>(schema: T, value: unknown): z.output<T> {
   const result = schema.safeParse(value);
   if (!result.success) {
-    throw new MimirError('validation', result.error.message);
+    throw new MimirError('validation', z.prettifyError(result.error));
   }
   return result.data;
 }
