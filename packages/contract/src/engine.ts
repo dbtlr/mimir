@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { FACET_NAMES } from './dto';
+import { nodeWriteSchemas } from './engine-node-writes';
 import { engineViews } from './engine-views';
 import { PRIORITY_VALUES, SEED_STATUS_SELECTOR_VALUES, SIZE_VALUES } from './enums';
 import { MimirError } from './errors';
@@ -13,6 +14,7 @@ import {
 } from './query';
 
 export { engineViews, intentViews } from './engine-views';
+export type { UniformArgs } from './engine-node-writes';
 
 export type EngineNode = z.output<typeof engineViews.node>;
 
@@ -63,11 +65,6 @@ export const engineSchemas = {
     }),
     kind: 'query',
     output: engineViews.artifactSet,
-  },
-  done: {
-    input: z.strictObject({ id: z.string() }),
-    kind: 'mutation',
-    output: engineViews.node,
   },
   getArtifact: {
     input: z.strictObject({ content: z.boolean().optional(), id: z.string() }),
@@ -145,6 +142,7 @@ export const engineSchemas = {
     kind: 'query',
     output: engineViews.tree,
   },
+  ...nodeWriteSchemas(project),
 } as const;
 
 type EngineSchemas = typeof engineSchemas;

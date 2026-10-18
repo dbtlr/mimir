@@ -1,6 +1,21 @@
-import { engineSchemas, intentViews, parseEngineInput, WRITE_ECHO_FACETS } from '@mimir/contract';
+import { engineSchemas, intentViews, parseEngineInput } from '@mimir/contract';
 import type { Engine, EngineInput } from '@mimir/contract';
 
+import {
+  annotateEngine,
+  attachEngine,
+  createEngine,
+  dependEngine,
+  groomEngine,
+  moveEngine,
+  reorderEngine,
+  tagEngine,
+  undependEngine,
+  UniformEngineBase,
+  untagEngine,
+  updateEngine,
+  updateProjectEngine,
+} from './engine-node-writes';
 import { notFound, projectNotFound } from './errors';
 import { compareScratchpadRows } from './format';
 import {
@@ -9,12 +24,10 @@ import {
   listArtifacts,
   listNodes,
   nextTasks,
-  nodeViewOf,
   overviewOf,
   overviewScratchpadOf,
   statusOfNode,
 } from './intent';
-import { completeTask } from './mutations';
 import { listProjects, nodeTree } from './resource';
 import { createScratchpadService } from './scratchpads';
 import { searchRecords } from './search/intent';
@@ -22,10 +35,11 @@ import { getSeed, listSeeds } from './seeds';
 import type { Store } from './store';
 
 /** The store-owning Engine; transports use the same methods locally or remotely. */
-export class LocalEngine implements Engine {
-  private readonly store: Store;
+export class LocalEngine extends UniformEngineBase implements Engine {
+  protected readonly store: Store;
 
   constructor(store: Store) {
+    super();
     this.store = store;
   }
 
@@ -44,12 +58,6 @@ export class LocalEngine implements Engine {
     return intentViews.artifactSet.parse(
       await listArtifacts(this.store, { ...opts, scope: project }),
     );
-  }
-
-  async done(input: EngineInput<'done'>) {
-    const { id } = parseEngineInput(engineSchemas.done.input, input);
-    const node = await completeTask(this.store, id);
-    return intentViews.node.parse(await nodeViewOf(this.store, node, new Set(WRITE_ECHO_FACETS)));
   }
 
   async getArtifact(input: EngineInput<'getArtifact'>) {
@@ -127,5 +135,54 @@ export class LocalEngine implements Engine {
   async tree(input: EngineInput<'tree'>) {
     const { id, facets } = parseEngineInput(engineSchemas.tree.input, input);
     return intentViews.tree.parse(await nodeTree(this.store, id, facets));
+  }
+
+  // Node writes (MMR-517): one method per verb, in their own block.
+  annotate(input: EngineInput<'annotate'>) {
+    return annotateEngine(this.store, input);
+  }
+
+  attach(input: EngineInput<'attach'>) {
+    return attachEngine(this.store, input);
+  }
+
+  create(input: EngineInput<'create'>) {
+    return createEngine(this.store, input);
+  }
+
+  depend(input: EngineInput<'depend'>) {
+    return dependEngine(this.store, input);
+  }
+
+  groom(input: EngineInput<'groom'>) {
+    return groomEngine(this.store, input);
+  }
+
+  move(input: EngineInput<'move'>) {
+    return moveEngine(this.store, input);
+  }
+
+  reorder(input: EngineInput<'reorder'>) {
+    return reorderEngine(this.store, input);
+  }
+
+  tag(input: EngineInput<'tag'>) {
+    return tagEngine(this.store, input);
+  }
+
+  undepend(input: EngineInput<'undepend'>) {
+    return undependEngine(this.store, input);
+  }
+
+  untag(input: EngineInput<'untag'>) {
+    return untagEngine(this.store, input);
+  }
+
+  update(input: EngineInput<'update'>) {
+    return updateEngine(this.store, input);
+  }
+
+  updateProject(input: EngineInput<'updateProject'>) {
+    return updateProjectEngine(this.store, input);
   }
 }

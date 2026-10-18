@@ -4,6 +4,7 @@ import { createInitiative, createProject, createTask } from './create';
 import { LocalEngine } from './engine';
 import { getNode } from './intent';
 import { startTask } from './mutations';
+import { OP_SPECS } from './ops';
 import { createScratchpadService } from './scratchpads';
 import { errorOf } from './testing/conformance';
 import { createTestStore } from './testing/store';
@@ -85,4 +86,26 @@ test('malformed input reads as a sentence naming the field, not an issue dump', 
   expect(refusal.code).toBe('validation');
   expect(refusal.message).toContain('project');
   expect(refusal.message).not.toContain('"code"');
+});
+
+test('every operation-registry verb is a LocalEngine method taking its fact arguments', async () => {
+  for (const spec of OP_SPECS) {
+    expect(typeof Reflect.get(engine, spec.verb)).toBe('function');
+  }
+  const started = await engine.start({ id, session: 'engine-test' });
+  expect(started.lifecycle).toBe('in_progress');
+  expect(started.session).toBe('engine-test');
+  const refusal = await errorOf(
+    engine.done({ id, reason: 'no such argument' } as Parameters<LocalEngine['done']>[0]),
+  );
+  expect(refusal.code).toBe('validation');
+});
+
+test('a node write echoes the written record with Date instants', async () => {
+  const created = await engine.create({ parent: 'ENG-1', title: 'Nested', type: 'task' });
+  expect(created.id).not.toBe(id);
+  expect(created.createdAt).toBeInstanceOf(Date);
+  const project = await engine.updateProject({ id: 'ENG', next: 'Direction', pinned: true });
+  expect(project.pinned).toBe(true);
+  expect(project.next).toBe('Direction');
 });

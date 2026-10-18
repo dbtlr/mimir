@@ -159,3 +159,35 @@ Rules that both transports duplicated move into the Engine: `overview`
 requires a project, and `scratchList` applies the shared row order (a staged
 freeze first, then newest first). The Scratchpad reads treat an unknown or
 archived project as absent (ADR 0015), as `overview` does.
+
+## Refinement (2026-10-18 — the node writes)
+
+Every node write is an Engine method: `create`, `update`, `updateProject`,
+`annotate`, `attach`, `depend`, `undepend`, `move`, `reorder`, `groom`, `tag`,
+`untag`, and the twelve uniform verbs. Inputs are canonical ids and structured
+values. Shorthand, flag text, and ids resolved against a binding stay in the
+client. One write gets one method per record kind, so a project's fields have
+their own `updateProject`, whose `id` is a bare project key, and `create` is a
+union on `type`. The `update` input carries every field core's update
+vocabulary has, including `next` (a container's direction) and, on
+`updateProject`, `pinned`. A cleared field is `null`, and `upstream` is a seed
+id or `null`. Not yet Engine methods are artifact and seed updates and the
+seed verbs other than `park` and `unpark`.
+
+The uniform verbs are not written out. Their input and output schemas, the
+`LocalEngine` methods, the router procedures, and the `RemoteEngine` bindings
+are built by iterating the operation facts (ADR 0025), so a verb's input takes
+exactly the arguments its fact declares: `reason` when the fact allows one, the
+resume handles on `start`, and the choice on `block`. A verb that also acts on
+a seed (`park`, `unpark`) answers a seed id with the seed view. Project verbs
+take a bare key. `done` is derived this way and keeps its former input and
+output.
+
+Every node write answers with the written record, projected with the same
+facets as the CLI's write echo (ADR 0003) and `Date` instants. `attach` answers
+with the artifact including its content. `tag` and `untag` answer with the ids
+and tags, and `untag` also with the count removed. Domain checks that the
+transports each repeated, such as a blank annotation or content, an `upstream`
+that is not a seed id, and a missing attach target, live in the Engine. Refusals
+cross the wire as `MimirError` with the same code, message, and hint. The
+archive echo does not list released dependents.

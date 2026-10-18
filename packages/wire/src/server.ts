@@ -1,5 +1,5 @@
-import { engineSchemas, MimirError, parseEngineInput } from '@mimir/contract';
-import type { Engine, ErrorCode } from '@mimir/contract';
+import { engineSchemas, MimirError, parseEngineInput, UNIFORM_VERBS } from '@mimir/contract';
+import type { Engine, EngineOutput, ErrorCode, UniformVerb } from '@mimir/contract';
 import { formatDiagnostic } from '@mimir/helpers';
 import { initTRPC, TRPCError } from '@trpc/server';
 import type { TRPCMutationProcedure, TRPCQueryProcedure } from '@trpc/server';
@@ -58,6 +58,81 @@ export type EngineProcedures = {
       }>;
 };
 
+/** The uniform verbs' procedures, built from the same registry the schemas derive from. */
+type UniformProcedures = Pick<EngineProcedures, UniformVerb>;
+
+function uniformProcedures(engine: Engine): UniformProcedures {
+  const entries = UNIFORM_VERBS.map((verb) => {
+    const run = (input: unknown): Promise<EngineOutput<UniformVerb>> =>
+      Reflect.apply(Reflect.get(engine, verb), engine, [input]);
+    return [
+      verb,
+      procedure
+        .input((value: unknown) => parseEngineInput(engineSchemas[verb].input, value))
+        .output(engineSchemas[verb].output)
+        .mutation(({ input }) => run(input)),
+    ] as const;
+  });
+  // Built by iterating exactly UNIFORM_VERBS, so the table has every uniform procedure.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return Object.fromEntries(entries) as unknown as UniformProcedures;
+}
+
+/** The node writes' procedures (MMR-517): twelve explicit ones plus the derived uniform verbs. */
+function nodeWriteProcedures(engine: Engine) {
+  return {
+    ...uniformProcedures(engine),
+    annotate: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.annotate.input, value))
+      .output(engineSchemas.annotate.output)
+      .mutation(({ input }) => engine.annotate(input)),
+    attach: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.attach.input, value))
+      .output(engineSchemas.attach.output)
+      .mutation(({ input }) => engine.attach(input)),
+    create: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.create.input, value))
+      .output(engineSchemas.create.output)
+      .mutation(({ input }) => engine.create(input)),
+    depend: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.depend.input, value))
+      .output(engineSchemas.depend.output)
+      .mutation(({ input }) => engine.depend(input)),
+    groom: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.groom.input, value))
+      .output(engineSchemas.groom.output)
+      .mutation(({ input }) => engine.groom(input)),
+    move: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.move.input, value))
+      .output(engineSchemas.move.output)
+      .mutation(({ input }) => engine.move(input)),
+    reorder: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.reorder.input, value))
+      .output(engineSchemas.reorder.output)
+      .mutation(({ input }) => engine.reorder(input)),
+    tag: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.tag.input, value))
+      .output(engineSchemas.tag.output)
+      .mutation(({ input }) => engine.tag(input)),
+    undepend: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.undepend.input, value))
+      .output(engineSchemas.undepend.output)
+      .mutation(({ input }) => engine.undepend(input)),
+    untag: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.untag.input, value))
+      .output(engineSchemas.untag.output)
+      .mutation(({ input }) => engine.untag(input)),
+    update: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.update.input, value))
+      .output(engineSchemas.update.output)
+      .mutation(({ input }) => engine.update(input)),
+    updateProject: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.updateProject.input, value))
+      .output(engineSchemas.updateProject.output)
+      .mutation(({ input }) => engine.updateProject(input)),
+  };
+}
+
 /** Adapt an Engine without giving the router access to a Store. */
 export function createEngineRouter(engine: Engine) {
   const procedures = {
@@ -65,10 +140,6 @@ export function createEngineRouter(engine: Engine) {
       .input((value: unknown) => parseEngineInput(engineSchemas.artifacts.input, value))
       .output(engineSchemas.artifacts.output)
       .query(({ input }) => engine.artifacts(input)),
-    done: procedure
-      .input((value: unknown) => parseEngineInput(engineSchemas.done.input, value))
-      .output(engineSchemas.done.output)
-      .mutation(({ input }) => engine.done(input)),
     getArtifact: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.getArtifact.input, value))
       .output(engineSchemas.getArtifact.output)
@@ -121,6 +192,7 @@ export function createEngineRouter(engine: Engine) {
       .input((value: unknown) => parseEngineInput(engineSchemas.tree.input, value))
       .output(engineSchemas.tree.output)
       .query(({ input }) => engine.tree(input)),
+    ...nodeWriteProcedures(engine),
   } satisfies EngineProcedures;
   return t.router(procedures);
 }
