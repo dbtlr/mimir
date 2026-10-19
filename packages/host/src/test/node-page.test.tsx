@@ -13,7 +13,7 @@ import type { WireNode } from '../api/types';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineTree } from './engine-fixtures';
-import { emptyRead, task } from './fixtures';
+import { emptyRead, task, workReport } from './fixtures';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
@@ -54,6 +54,9 @@ function serve(node: WireNode, extra: Record<string, unknown> = {}) {
     }
     if (path === `/api/nodes/${node.id}`) {
       return Promise.resolve(node);
+    }
+    if (path.startsWith(`/api/nodes/${node.id}/work?`)) {
+      return Promise.resolve(workReport());
     }
     return Promise.resolve(emptyRead(path));
   });

@@ -7,7 +7,7 @@ import { ApiError } from '../api/errors';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
-import { emptyRead } from './fixtures';
+import { emptyRead, workReport } from './fixtures';
 import { failShellReads, serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
@@ -90,6 +90,9 @@ function serveProject() {
     },
   });
   apiGet.mockImplementation((path: string) => {
+    if (path.startsWith('/api/projects/MMR/work?')) {
+      return Promise.resolve(workReport());
+    }
     if (path === '/api/projects/MMR') {
       return Promise.resolve({
         description: 'The **work** tool.',
@@ -107,6 +110,7 @@ function serveProject() {
 
 describe('project page (MMR-450, MMR-470)', () => {
   beforeEach(() => {
+    serveViews();
     apiSend.mockReset();
   });
 

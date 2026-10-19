@@ -13,7 +13,7 @@ import { ProjectPicker } from '../components/project-picker';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
-import { emptyRead, task } from './fixtures';
+import { emptyRead, task, workReport } from './fixtures';
 import { renderInRouter } from './router';
 import { failShellReads, serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
@@ -73,9 +73,11 @@ function serve(world: Partial<World> = {}) {
     if (path.startsWith('/api/doctor') || /^\/api\/projects\/[A-Z]+$/.test(path)) {
       return Promise.withResolvers().promise;
     }
-    const record = /^\/api\/nodes\/([A-Z]+-\d+)$/.exec(path);
+    const record = /^\/api\/nodes\/([A-Z]+-\d+)(\/work\?.*)?$/.exec(path);
     if (record?.[1] !== undefined) {
-      return Promise.resolve(task({ id: record[1], status: 'ready' }));
+      return Promise.resolve(
+        record[2] === undefined ? task({ id: record[1], status: 'ready' }) : workReport(),
+      );
     }
     return Promise.resolve(emptyRead(path));
   });

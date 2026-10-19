@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { useTransition } from '../api/node-mutations';
 import type { NeedsYouTask } from '../api/view-queries';
 import { visibleGrooming } from '../lib/grooming';
+import type { Groomable } from '../lib/grooming';
 import { nodeLink } from '../lib/record-url';
 import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { transitionLabel } from '../lib/transitions';
@@ -35,7 +36,7 @@ export function RowTail({
   row,
   grooming = visibleGrooming(row.task),
 }: {
-  row: { task: Pick<EngineNode, 'grooming' | 'lifecycle' | 'size' | 'type'>; stale: boolean };
+  row: { task: Groomable & Pick<EngineNode, 'size'>; stale: boolean };
   grooming?: Grooming;
 }) {
   return (

@@ -10,7 +10,7 @@ import { createQueryClient } from '../api/query-client';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
-import { emptyRead, project } from './fixtures';
+import { emptyRead, project, workReport } from './fixtures';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
@@ -46,6 +46,9 @@ function serve() {
     }
     if (path === '/api/projects/OLD') {
       return Promise.resolve(project({ id: 'OLD', status: 'in_progress', title: 'Old project' }));
+    }
+    if (/\/work\b/.test(path)) {
+      return Promise.resolve(workReport());
     }
     return Promise.resolve(emptyRead(path));
   });

@@ -16,7 +16,7 @@ import { rememberProject } from '../lib/current-project';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
-import { emptyRead, task } from './fixtures';
+import { emptyRead, task, workReport } from './fixtures';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
 import { engineReview, stripRow } from './views-fixtures';
@@ -76,17 +76,19 @@ function serve(
       return Promise.withResolvers().promise;
     }
     // A record page does load: the sidebar reads the open record's type from it.
-    const nodeId = /^\/api\/nodes\/([A-Z]+-\d+)$/.exec(path);
+    const nodeId = /^\/api\/nodes\/([A-Z]+-\d+)(\/work\?.*)?$/.exec(path);
     const found = nodeId?.[1] === undefined ? undefined : subtreeOf(TREE, nodeId[1]);
     if (found !== undefined) {
       return Promise.resolve(
-        task({
-          id: found.id,
-          parent: found.parent,
-          status: found.status,
-          title: found.title,
-          type: found.type,
-        }),
+        nodeId?.[2] === undefined
+          ? task({
+              id: found.id,
+              parent: found.parent,
+              status: found.status,
+              title: found.title,
+              type: found.type,
+            })
+          : workReport(),
       );
     }
     return Promise.resolve(emptyRead(path));
