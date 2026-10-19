@@ -25,8 +25,9 @@ expect.extend(jestDomMatchers);
 //
 // Answers are the Engine's own output types (engine-fixtures.ts), with `Date`
 // instants. An area's helper serves a whole world at once (shell-fns.ts's
-// `serveShell`); a new area adds its own `<area>-fns.ts` beside it. Reads not
-// yet migrated still go through the path-keyed `vi.mock('../api/client')`.
+// `serveShell`); a new area adds its own `<area>-fns.ts` beside it. The
+// host's own health probe is the one read left on the path-keyed
+// `vi.mock('../api/client')`.
 //
 // A server function a test forgot to mock never reaches the host: every
 // server function built in a test is a stub that refuses its call. A refused

@@ -1,17 +1,18 @@
-import type { NodeRef } from '@mimir/contract';
+import type { EngineNode, NodeRef } from '@mimir/contract';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useTag, useTransition, useUntag, useUpdateNode } from '../api/node-mutations';
-import type { WireAnnotation, WireArtifact, WireDeps, WireNode } from '../api/types';
 import { cn } from '../lib/cn';
 import { isBareUrl } from '../lib/links';
 import { artifactLink, nodeLink } from '../lib/record-url';
 import type { TaskFormValues } from '../lib/schemas';
+import type { NodeAnnotation } from '../lib/timeline';
 import { availableTransitions, transitionLabel } from '../lib/transitions';
 import type { VerbSpec } from '../lib/transitions';
 import { verdictSummary } from '../lib/verdict';
+import type { RecordArtifact } from '../lib/work-page';
 import { LinkifiedText } from './linkified-text';
 import { MarkdownBody } from './markdown-body';
 import { ReasonDialog } from './reason-dialog';
@@ -43,7 +44,7 @@ export function RefRow({ refNode }: { refNode: NodeRef }) {
 }
 
 /** Links to a record's artifacts, each at its own page (MMR-452). */
-export function ArtifactLinks({ artifacts }: { artifacts?: readonly WireArtifact[] }) {
+export function ArtifactLinks({ artifacts }: { artifacts?: readonly RecordArtifact[] }) {
   if (artifacts === undefined || artifacts.length === 0) {
     return <p className="text-xs text-ink-faint">None yet.</p>;
   }
@@ -83,8 +84,8 @@ export function DescriptionSection({ description }: { description?: string | nul
 
 /**
  * Rows deduped by node id: each keeps its first-seen position and its
- * last-seen reading, so an inherited `awaiting_on` entry refreshes a stale
- * `depends_on` one.
+ * last-seen reading, so an inherited `awaitingOn` entry refreshes a stale
+ * `dependsOn` one.
  */
 function dedupe(...lists: (readonly NodeRef[] | undefined)[]): NodeRef[] {
   const rows = new Map<string, NodeRef>();
@@ -101,12 +102,12 @@ function dedupe(...lists: (readonly NodeRef[] | undefined)[]): NodeRef[] {
  * an ancestor. An unsettled own prerequisite appears in both lists and gets
  * one row.
  */
-export function prerequisiteRows(deps: WireDeps): NodeRef[] {
-  return dedupe(deps.depends_on, deps.awaiting_on);
+export function prerequisiteRows(deps: NonNullable<EngineNode['deps']>): NodeRef[] {
+  return dedupe(deps.dependsOn, deps.awaitingOn);
 }
 
 /** Does the node carry any signal: open-ended, priority, size, staleness, or tags? */
-export function hasSignals(node: WireNode): boolean {
+export function hasSignals(node: EngineNode): boolean {
   return (
     node.open_ended === true ||
     node.priority != null ||
@@ -117,7 +118,7 @@ export function hasSignals(node: WireNode): boolean {
 }
 
 /** A node's signals as badges; render it only when {@link hasSignals} holds. */
-export function SignalBadges({ node }: { node: WireNode }) {
+export function SignalBadges({ node }: { node: EngineNode }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {node.open_ended === true && <OpenEndedBadge />}
@@ -134,7 +135,7 @@ export function SignalBadges({ node }: { node: WireNode }) {
 }
 
 /**
- * external_ref is free text (e.g. `GH-123`, `PR #41`): a URL renders as a `↗` link,
+ * externalRef is free text (e.g. `GH-123`, `PR #41`): a URL renders as a `↗` link,
  * anything else as plain mono text (no dead link).
  */
 export function ExternalRef({ value }: { value: string }) {
@@ -175,7 +176,7 @@ const HOLD_CALLOUT: Record<'blocked' | 'parked', { box: string; label: string }>
 };
 
 /** The callout's lead: a block names who can clear it; a park, a legacy block without an owner, just the hold. */
-function holdLabel(hold: 'blocked' | 'parked', owner: WireNode['block_owner']): string {
+function holdLabel(hold: 'blocked' | 'parked', owner: EngineNode['blockOwner']): string {
   return hold === 'blocked' && owner != null ? `Blocked on ${owner}` : hold;
 }
 
@@ -184,11 +185,11 @@ function holdLabel(hold: 'blocked' | 'parked', owner: WireNode['block_owner']): 
  * clear it. A block always shows, so its owner is never hidden by a missing
  * reason; a park with no reason has nothing to say.
  */
-export function HoldCallout({ node }: { node: WireNode }) {
+export function HoldCallout({ node }: { node: EngineNode }) {
   if (node.hold !== 'parked' && node.hold !== 'blocked') {
     return null;
   }
-  const reason = node.hold_reason?.trim() ?? '';
+  const reason = node.holdReason?.trim() ?? '';
   if (node.hold === 'parked' && reason === '') {
     return null;
   }
@@ -197,7 +198,7 @@ export function HoldCallout({ node }: { node: WireNode }) {
       className={cn('rounded-lg p-2.5 text-xs text-ink inset-ring', HOLD_CALLOUT[node.hold].box)}
     >
       <span className={cn('microlabel mr-2', HOLD_CALLOUT[node.hold].label)}>
-        {holdLabel(node.hold, node.block_owner)}
+        {holdLabel(node.hold, node.blockOwner)}
       </span>
       <LinkifiedText>{reason}</LinkifiedText>
     </div>
@@ -205,7 +206,7 @@ export function HoldCallout({ node }: { node: WireNode }) {
 }
 
 /** A task awaiting its reviewer's verdict; a container's rollup never does. */
-export function awaitsVerdict(node: WireNode): boolean {
+export function awaitsVerdict(node: EngineNode): boolean {
   return node.type === 'task' && node.status === 'under_review';
 }
 
@@ -213,7 +214,7 @@ export function awaitsVerdict(node: WireNode): boolean {
  * The verdict block — shown only while a task's review is pending. Approve fires
  * `done` immediately; Return opens the reason dialog. The submitted-summary
  * line comes from `verdictSummary` (MMR-262), the same derivation the quick
- * view uses; the external ref is the real `external_ref` field.
+ * view uses; the external ref is the real `externalRef` field.
  */
 export function VerdictBlock({
   node,
@@ -222,8 +223,8 @@ export function VerdictBlock({
   onVerb,
   heading = false,
 }: {
-  node: WireNode;
-  annotations: readonly WireAnnotation[] | undefined;
+  node: EngineNode;
+  annotations: readonly NodeAnnotation[] | undefined;
   offline?: boolean;
   onVerb: (v: VerbSpec) => void;
   /** Label the block "Needs your verdict", as the record page does. */
@@ -238,7 +239,7 @@ export function VerdictBlock({
     <div className="flex flex-col gap-2.5 rounded-xl bg-gradient-to-br from-attention/10 to-attention/[0.03] p-3.5 inset-ring inset-ring-attention/35">
       {heading && <p className="microlabel text-attention-foreground">Needs your verdict</p>}
       {summary !== undefined && <p className="text-xs leading-relaxed text-ink">{summary}</p>}
-      {node.external_ref != null && <ExternalRef value={node.external_ref} />}
+      {node.externalRef != null && <ExternalRef value={node.externalRef} />}
       <div className="flex gap-2">
         {doneSpec !== undefined && (
           <ActionButton
@@ -270,7 +271,7 @@ export function VerdictBlock({
  * transitions: a container's status is a rollup of its children. Under
  * review, Approve and Return live in the verdict block instead.
  */
-export function recordVerbs(node: WireNode): VerbSpec[] {
+export function recordVerbs(node: EngineNode): VerbSpec[] {
   if (node.type !== 'task') {
     return [];
   }
@@ -279,10 +280,10 @@ export function recordVerbs(node: WireNode): VerbSpec[] {
   );
 }
 
-function fromNode(n: WireNode): TaskFormValues {
+function fromNode(n: EngineNode): TaskFormValues {
   return {
     description: n.description ?? '',
-    external_ref: n.external_ref ?? '',
+    external_ref: n.externalRef ?? '',
     priority: n.priority ?? '',
     size: n.size ?? '',
     summary: n.summary ?? '',
@@ -320,7 +321,7 @@ export function useNodeEdit(nodeId: string) {
       await Promise.all([
         update.mutateAsync({
           description: values.description ?? undefined,
-          external_ref: values.external_ref ?? undefined,
+          externalRef: values.external_ref ?? undefined,
           priority: values.priority ?? undefined,
           size: values.size ?? undefined,
           summary: values.summary ?? undefined,
@@ -338,7 +339,7 @@ export function useNodeEdit(nodeId: string) {
 
   return {
     baseline,
-    begin: (node: WireNode) => setBaseline(fromNode(node)),
+    begin: (node: EngineNode) => setBaseline(fromNode(node)),
     handleCancel: () => setBaseline(null),
     handleSubmit,
     submitting: update.isPending || tag.isPending || untag.isPending,

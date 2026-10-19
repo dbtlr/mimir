@@ -10,17 +10,21 @@ import { routeTree } from '../router';
 import { engineArtifact } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
+import { serveBareRecords } from './node-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
 
+// The project gate and the task pages these cases open read the record by server function.
 beforeEach(() => {
   serveViews();
+  serveBareRecords();
 });
 
 const summary = (n: number, over: Partial<ArtifactSummary> = {}): ArtifactSummary =>

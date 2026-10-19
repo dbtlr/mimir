@@ -1,10 +1,9 @@
 import { useState } from 'react';
 
-import type { WireHistoryEntry } from '../api/types';
 import { cn } from '../lib/cn';
 import { ago } from '../lib/time';
 import { describeTransition } from '../lib/timeline';
-import type { FeedItem } from '../lib/timeline';
+import type { FeedItem, HistoryEntry } from '../lib/timeline';
 import { LinkifiedText } from './linkified-text';
 import { MarkdownBody } from './markdown-body';
 import type { ClampMeasure } from './markdown-body';
@@ -37,7 +36,7 @@ function FeedDot({ item }: { item: FeedItem }) {
   return <span aria-hidden className={cn('mt-1 size-[7px] shrink-0 rounded-full', fill)} />;
 }
 
-function TransitionLine({ entry }: { entry: WireHistoryEntry }) {
+function TransitionLine({ entry }: { entry: HistoryEntry }) {
   const { label, detail } = describeTransition(entry);
   return (
     <p className="text-meta text-ink">
@@ -136,7 +135,7 @@ export function FeedList({
     >
       {items.map((i, idx) => (
         // Index disambiguates same-millisecond entries (two annotations can share
-        // created_at), which `${variant}-${at}-${sort}` alone would collide on.
+        // createdAt), which `${variant}-${at}-${sort}` alone would collide on.
         <FeedRow key={`${i.variant}-${String(i.sort)}-${String(idx)}`} item={i} />
       ))}
     </ol>

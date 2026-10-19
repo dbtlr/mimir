@@ -1,6 +1,5 @@
-import type { EngineTree } from '@mimir/contract';
+import type { EngineNode, EngineTree } from '@mimir/contract';
 
-import type { WireArtifact } from '../api/types';
 import { ancestorsOf, subtreeOf } from './ancestry';
 
 /*
@@ -262,14 +261,21 @@ function artifactSeq(id: string): number {
   return match === null ? 0 : Number(match[1]);
 }
 
+/** One artifact a record read lists. */
+export type RecordArtifact = NonNullable<EngineNode['artifacts']>[number];
+
 /**
  * The `limit` most recently created artifacts, newest first. Equal timestamps
  * break on the higher seq, matching the server list's `created_at desc, seq desc`.
  */
-export function newestArtifacts(artifacts: readonly WireArtifact[], limit: number): WireArtifact[] {
+export function newestArtifacts(
+  artifacts: readonly RecordArtifact[],
+  limit: number,
+): RecordArtifact[] {
   return artifacts
     .toSorted(
-      (a, b) => b.created_at.localeCompare(a.created_at) || artifactSeq(b.id) - artifactSeq(a.id),
+      (a, b) =>
+        b.createdAt.getTime() - a.createdAt.getTime() || artifactSeq(b.id) - artifactSeq(a.id),
     )
     .slice(0, limit);
 }

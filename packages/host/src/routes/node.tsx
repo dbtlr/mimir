@@ -1,3 +1,4 @@
+import type { EngineNode, EngineOutput } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -5,7 +6,6 @@ import { useState } from 'react';
 import { isNotFound } from '../api/errors';
 import { annotationsQuery, nodeQuery, scratchpadsQuery } from '../api/node-queries';
 import { treeQuery } from '../api/shell-queries';
-import type { WireNode, WireScratchpadRow } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { AnnotationComposer } from '../components/annotation-composer';
 import { GroomingBadge, GroomingChip } from '../components/grooming-chip';
@@ -48,6 +48,9 @@ import type { VerbSpec } from '../lib/transitions';
 import { nodeRoute } from '../router';
 import { NotFoundPage } from './not-found';
 
+/** One active Scratchpad on the node's board, with the work it is anchored to. */
+type ScratchpadRow = EngineOutput<'scratchList'>[number];
+
 /**
  * `/p/$key/$seq` — a work node's own page (ADR 0013, v0.23 refinement). The
  * path is the node id split at its hyphen; a suffix that is not a node's shows
@@ -77,7 +80,7 @@ function ActionsPanel({
   onGroom,
   onVerb,
 }: {
-  node: WireNode;
+  node: EngineNode;
   offline: boolean;
   onEdit: () => void;
   onMove: () => void;
@@ -123,8 +126,8 @@ function AgentPanel({
   node,
   scratchpads,
 }: {
-  node: WireNode;
-  scratchpads: readonly WireScratchpadRow[];
+  node: EngineNode;
+  scratchpads: readonly ScratchpadRow[];
 }) {
   return (
     <div className="flex flex-col gap-1 text-xs">
@@ -135,7 +138,7 @@ function AgentPanel({
       {node.host != null && (
         <span className="font-mono text-mono-id text-ink-faint">on {node.host}</span>
       )}
-      {node.external_ref != null && <ExternalRef value={node.external_ref} />}
+      {node.externalRef != null && <ExternalRef value={node.externalRef} />}
       {scratchpads.map((s) => (
         <span key={s.id} className="text-ink-dim">
           <span className="microlabel mr-1.5 text-ink-faint">Scratchpad</span>
@@ -146,17 +149,17 @@ function AgentPanel({
   );
 }
 
-function hasAgentContext(node: WireNode, scratchpads: readonly WireScratchpadRow[]): boolean {
+function hasAgentContext(node: EngineNode, scratchpads: readonly ScratchpadRow[]): boolean {
   return (
     node.harness != null ||
     node.branch != null ||
     node.host != null ||
-    node.external_ref != null ||
+    node.externalRef != null ||
     scratchpads.length > 0
   );
 }
 
-function DetailsPanel({ node }: { node: WireNode }) {
+function DetailsPanel({ node }: { node: EngineNode }) {
   const grooming = visibleGrooming(node);
   return (
     <div className="flex flex-col gap-2.5">
@@ -168,10 +171,10 @@ function DetailsPanel({ node }: { node: WireNode }) {
           </MetaRow>
         )}
         {node.target != null && <MetaRow label="target">{node.target}</MetaRow>}
-        <MetaRow label="created">{absoluteTime(node.created_at)}</MetaRow>
-        <MetaRow label="updated">{absoluteTime(node.updated_at)}</MetaRow>
-        {node.completed_at != null && (
-          <MetaRow label="completed">{absoluteTime(node.completed_at)}</MetaRow>
+        <MetaRow label="created">{absoluteTime(node.createdAt)}</MetaRow>
+        <MetaRow label="updated">{absoluteTime(node.updatedAt)}</MetaRow>
+        {node.completedAt != null && (
+          <MetaRow label="completed">{absoluteTime(node.completedAt)}</MetaRow>
         )}
       </dl>
     </div>
@@ -214,7 +217,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
     );
   }
 
-  const feed = buildFeed(data.created_at, data.history, annotations.data?.items);
+  const feed = buildFeed(data.createdAt, data.history, annotations.data?.items);
   const offline = conn.offline;
 
   // An initiative or phase opens as the work page (MMR-467 refinement), its
@@ -242,9 +245,7 @@ function NodeRecord({ nodeId }: { nodeId: string }) {
     );
   }
 
-  const scratchpads = (scratchpadRows.data?.items ?? []).filter((s) =>
-    s.linked_work.includes(nodeId),
-  );
+  const scratchpads = (scratchpadRows.data ?? []).filter((s) => s.linkedWork.includes(nodeId));
   const prerequisites = data.deps === undefined ? [] : prerequisiteRows(data.deps);
   const blocking = data.deps?.blocking ?? [];
   const artifactCount = data.artifacts?.length ?? 0;

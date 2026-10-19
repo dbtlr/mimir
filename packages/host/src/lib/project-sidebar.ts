@@ -1,4 +1,5 @@
-import type { WireNode } from '../api/types';
+import type { EngineNode } from '@mimir/contract';
+
 import { nodeIdOf } from './record-url';
 
 /*
@@ -40,7 +41,7 @@ function projectSegments(pathname: string): { key: string; segment?: string } | 
  */
 export function sectionOfPath(
   pathname: string,
-  recordType?: WireNode['type'],
+  recordType?: EngineNode['type'],
 ): SidebarSection | undefined {
   const segments = projectSegments(pathname);
   if (segments === undefined) {

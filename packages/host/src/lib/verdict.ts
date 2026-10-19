@@ -1,4 +1,4 @@
-import type { WireAnnotation, WireHistoryEntry } from '../api/types';
+import type { HistoryEntry, NodeAnnotation } from './timeline';
 
 /**
  * The verdict-block summary (MMR-262) — the latest annotation authored at/after
@@ -8,8 +8,8 @@ import type { WireAnnotation, WireHistoryEntry } from '../api/types';
  * fabricated when neither a submit transition nor a post-submit annotation exists.
  */
 export function verdictSummary(
-  history: readonly WireHistoryEntry[] | undefined,
-  annotations: readonly WireAnnotation[] | undefined,
+  history: readonly HistoryEntry[] | undefined,
+  annotations: readonly NodeAnnotation[] | undefined,
 ): string | undefined {
   const lastSubmit = (history ?? []).findLast(
     (e) => e.kind === 'lifecycle' && e.to === 'under_review',
@@ -17,10 +17,10 @@ export function verdictSummary(
   if (lastSubmit === undefined) {
     return undefined;
   }
-  const submittedAt = Date.parse(lastSubmit.at);
+  const submittedAt = lastSubmit.at.getTime();
   const latest = (annotations ?? [])
-    .filter((a) => Date.parse(a.created_at) >= submittedAt)
-    .toSorted((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at))
+    .filter((a) => a.createdAt.getTime() >= submittedAt)
+    .toSorted((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
     .at(-1);
   return latest?.content;
 }

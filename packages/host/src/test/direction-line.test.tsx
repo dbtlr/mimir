@@ -4,10 +4,12 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, vi } from 'vitest';
 
+import { update } from '../api/fns/nodes';
+import { updateProject } from '../api/fns/shell';
 import { DirectionPanel } from '../components/direction-line';
 
-const { apiSend } = vi.hoisted(() => ({ apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet: vi.fn(), apiSend }));
+vi.mock('../api/fns/nodes');
+vi.mock('../api/fns/shell');
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -42,8 +44,7 @@ describe('directionPanel (MMR-450)', () => {
     });
   });
 
-  it('Save PATCHes the project with the rewritten text', async () => {
-    apiSend.mockResolvedValue({});
+  it('Save writes the project’s direction with the rewritten text', async () => {
     render(
       <DirectionPanel
         subject={{ key: 'MMR', kind: 'project' }}
@@ -61,14 +62,13 @@ describe('directionPanel (MMR-450)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/projects/MMR', {
-        next: 'Rewritten direction.',
+      expect(updateProject).toHaveBeenCalledWith({
+        data: { id: 'MMR', next: 'Rewritten direction.' },
       });
     });
   });
 
-  it('a node subject PATCHes the node route', async () => {
-    apiSend.mockResolvedValue({});
+  it('a node subject writes through the node update', async () => {
     render(
       <DirectionPanel
         subject={{ id: 'MMR-12', kind: 'node' }}
@@ -86,7 +86,7 @@ describe('directionPanel (MMR-450)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/nodes/MMR-12', { next: 'New plan.' });
+      expect(update).toHaveBeenCalledWith({ data: { id: 'MMR-12', next: 'New plan.' } });
     });
   });
 
@@ -104,7 +104,6 @@ describe('directionPanel (MMR-450)', () => {
   });
 
   it('closes on Save once the rewrite lands', async () => {
-    apiSend.mockResolvedValue({});
     render(
       <DirectionPanel
         subject={{ key: 'MMR', kind: 'project' }}
@@ -120,7 +119,7 @@ describe('directionPanel (MMR-450)', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
-    expect(apiSend).toHaveBeenCalledTimes(1);
+    expect(updateProject).toHaveBeenCalledTimes(1);
   });
 
   it('drops an open draft when the panel moves to another subject', async () => {
@@ -241,7 +240,6 @@ describe('directionPanel clamp (MMR-484)', () => {
   it('returns focus to Edit when Read more unmounts under the open dialog', async () => {
     let scrollHeight = 400;
     stubHeights(() => scrollHeight, 100);
-    apiSend.mockResolvedValue({});
     const view = render(panel(PROSE), { wrapper });
 
     await userEvent.click(screen.getByRole('button', { name: 'Read more of the direction' }));

@@ -1,5 +1,5 @@
 import { SEED_KIND_VALUES } from '@mimir/contract';
-import type { SeedKind, SeedLane } from '@mimir/contract';
+import type { EngineNode, SeedKind, SeedLane } from '@mimir/contract';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -133,7 +133,7 @@ function RequestCard({
 }
 
 /** A task as a node read serves it: what its standing and row read. */
-type OutcomeNode = Parameters<typeof recordStanding>[0] & { title: string };
+type OutcomeNode = Pick<EngineNode, 'completedAt' | 'status' | 'title' | 'type' | 'updatedAt'>;
 
 /** One task that came of the seed: its state, linked to its page. */
 type Outcome = { id: string; node?: OutcomeNode; upstream: boolean };

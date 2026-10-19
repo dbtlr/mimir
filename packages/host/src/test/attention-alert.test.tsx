@@ -4,18 +4,22 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { done } from '../api/fns/nodes';
 import { review } from '../api/fns/views';
 import type { NeedsYouTask, ReviewReport } from '../api/view-queries';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
-import { project, seed, task } from './fixtures';
+import { engineProject } from './engine-fixtures';
+import { engineTask } from './node-fixtures';
+import { serveNodes } from './node-fns';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
 import { engineReview, needsYouRow, stripRow, triageSeed } from './views-fixtures';
 import { serveViews } from './views-fns';
 
-const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend }));
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
@@ -29,7 +33,7 @@ vi.mock('../api/fns/views');
 beforeEach(() => {
   serveBrowse();
   apiGet.mockReset();
-  apiSend.mockReset();
+  vi.clearAllMocks();
   stubViewport('desktop');
   // As in the review page's tests: the refetch renders before the mutation settles.
   vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -45,22 +49,13 @@ function serve(current: () => ReviewReport) {
   serveShell();
   serveViews();
   vi.mocked(review).mockImplementation(async () => current());
-  apiGet.mockImplementation((p: string) => {
-    // The record pages the alert is opened from.
-    if (p === '/api/nodes/MMR-480') {
-      return Promise.resolve(task({ id: 'MMR-480', status: 'ready' }));
-    }
-    if (p === '/api/seeds/MMR-s480') {
-      return Promise.resolve(seed({ id: 'MMR-s480', lane: 'untriaged' }));
-    }
-    if (p === '/api/projects/MMR') {
-      return Promise.resolve({
-        ...project({ id: 'MMR' }),
-        distribution: { in_progress: 1, ready: 1 },
-        next: 'Ship it.',
-      });
-    }
-    return Promise.resolve({ items: [], total: 0 });
+  apiGet.mockImplementation((p: string) => Promise.reject(new Error(`unexpected ${p}`)));
+  // The record pages the alert is opened from.
+  serveNodes({
+    nodes: [
+      engineProject({ distribution: { in_progress: 1, ready: 1 }, id: 'MMR', next: 'Ship it.' }),
+      engineTask({ id: 'MMR-480', status: 'ready' }),
+    ],
   });
 }
 
@@ -328,9 +323,9 @@ describe('the Needs you popover', () => {
   it('stays open while a row is acted on, and the row leaves when the write lands', async () => {
     let report = twoProjects();
     serve(() => report);
-    apiSend.mockImplementation(() => {
+    vi.mocked(done).mockImplementation(async () => {
       report = twoProjects({ mmr: [block, question] });
-      return Promise.resolve({});
+      return engineTask({ id: 'LM-196', status: 'done' });
     });
     renderServed('/p/MMR/tasks');
     const panel = await openAlert('3 decisions need you');
@@ -338,7 +333,7 @@ describe('the Needs you popover', () => {
     fireEvent.click(within(panel).getByRole('button', { name: 'Approve' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/LM-196/done', undefined);
+      expect(done).toHaveBeenCalledWith({ data: { id: 'LM-196' } });
     });
     await waitFor(() => {
       expect(within(panel).queryByRole('link', { name: 'Ship the plugin' })).toBeNull();
@@ -365,9 +360,9 @@ describe('the Needs you popover', () => {
   it('stays to say so, with focus on its heading, when the last decision leaves', async () => {
     let report = twoProjects({ lm: [verdict] });
     serve(() => report);
-    apiSend.mockImplementation(() => {
+    vi.mocked(done).mockImplementation(async () => {
       report = twoProjects({});
-      return Promise.resolve({});
+      return engineTask({ id: 'LM-196', status: 'done' });
     });
     renderServed('/p/MMR/tasks');
     const panel = await openAlert('1 decision needs you');

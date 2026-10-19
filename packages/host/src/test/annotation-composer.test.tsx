@@ -3,10 +3,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, vi } from 'vitest';
 
+import { annotate } from '../api/fns/nodes';
 import { AnnotationComposer } from '../components/annotation-composer';
+import { engineTask } from './node-fixtures';
 
-const { apiSend } = vi.hoisted(() => ({ apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiSend }));
+vi.mock('../api/fns/nodes');
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 afterEach(() => vi.clearAllMocks());
 
@@ -15,8 +16,8 @@ function wrap(ui: ReactNode) {
 }
 
 describe('annotationComposer', () => {
-  it('append is disabled until non-blank, then posts the trimmed content', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-9' });
+  it('append is disabled until non-blank, then sends the trimmed content', async () => {
+    vi.mocked(annotate).mockResolvedValue(engineTask({ id: 'MMR-9', status: 'ready' }));
     wrap(<AnnotationComposer nodeId="MMR-9" offline={false} />);
     const btn = screen.getByRole('button', { name: /append/i });
     expect(btn).toBeDisabled();
@@ -24,9 +25,7 @@ describe('annotationComposer', () => {
     expect(btn).toBeEnabled();
     fireEvent.click(btn);
     await waitFor(() =>
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-9/annotations', {
-        content: 'found a bug',
-      }),
+      expect(annotate).toHaveBeenCalledWith({ data: { content: 'found a bug', id: 'MMR-9' } }),
     );
   });
 

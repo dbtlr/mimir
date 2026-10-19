@@ -8,15 +8,17 @@ import { beforeEach, describe, expect, vi } from 'vitest';
 import { FINISHED_PAGE_SIZE } from '../api/browse-queries';
 import { list } from '../api/fns/browse';
 import { routeTree } from '../router';
-import { engineTask, taskSet } from './browse-fixtures';
+import { taskSet } from './browse-fixtures';
 import { failBrowseReads, serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
-import { emptyRead, task } from './fixtures';
+import { engineTask } from './node-fixtures';
+import { serveBareRecords } from './node-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend }));
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
@@ -85,21 +87,14 @@ function serveProjects(only?: string) {
     engineProject({ id: 'NRN', status: 'ready', title: 'Norn' }),
   ];
   serveShell({ projects: only === undefined ? all : all.filter((p) => p.id === only) });
+  // A row opens its task's page, which reads the record.
+  serveBareRecords();
 }
 
 function mockApi() {
   serveProjects();
   serveBrowse({ tasks: rows });
-  apiGet.mockImplementation((path: string) => {
-    if (path.includes('/annotations')) {
-      return Promise.resolve(emptyRead(path));
-    }
-    if (path.startsWith('/api/nodes/')) {
-      // the task page's detail fetch after a row click
-      return Promise.resolve(task({ id: 'MMR-10', status: 'ready', title: 'Doctor the wire' }));
-    }
-    return Promise.reject(new Error(`unexpected ${path}`));
-  });
+  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
 }
 
 function renderTasks(initial = '/p/MMR/tasks') {
@@ -382,7 +377,6 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
 
   it('says so when nothing matches', async () => {
     serveBrowse();
-    apiGet.mockImplementation((path: string) => Promise.resolve(emptyRead(path)));
     renderTasks();
     await expect(screen.findByText('No tasks match.')).resolves.toBeDefined();
   });
@@ -605,7 +599,6 @@ describe('tasksPage grooming chips (MMR-466)', () => {
       }),
     ];
     serveBrowse({ tasks: groomRows });
-    apiGet.mockImplementation((path: string) => Promise.resolve(emptyRead(path)));
     renderTasks();
 
     await screen.findByRole('link', { name: 'Ready and groomed' });

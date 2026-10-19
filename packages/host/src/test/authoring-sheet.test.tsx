@@ -5,17 +5,22 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { consoleOpenTasks, seedPromote } from '../api/fns/browse';
+import { depend } from '../api/fns/nodes';
+import { create } from '../api/fns/shell';
 import type { PromotedSeed } from '../api/seed-mutations';
 import { AuthoringSheet } from '../components/authoring-sheet';
 import type { AuthoringSheetProps } from '../components/authoring-sheet';
-import { engineSeed, engineTask } from './browse-fixtures';
+import { engineSeed } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
+import { engineTask } from './node-fixtures';
+import { serveNodes } from './node-fns';
 import { renderInRouter } from './router';
 import { serveShell } from './shell-fns';
 
-const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend }));
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
+vi.mock('../api/client', () => ({ apiGet }));
+vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
@@ -65,6 +70,9 @@ const promotion: PromotedSeed = {
   spawnedId: 'MMR-42',
 };
 
+/** The node the Engine answers a create with. */
+const created = (id: string) => engineTask({ id, status: 'ready' });
+
 function mockReads() {
   serveShell({
     projects: [
@@ -73,6 +81,8 @@ function mockReads() {
     ],
     trees: { MMR: mmrTree, WEB: webTree },
   });
+  serveNodes();
+  vi.mocked(create).mockResolvedValue(created('MMR-99'));
   apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
 }
 
@@ -156,7 +166,6 @@ describe('authoringSheet', () => {
 
   it('creates a task, then applies DEPENDS-ON via /depend, and closes', async () => {
     const user = userEvent.setup();
-    apiSend.mockResolvedValue({ id: 'MMR-99' });
     const { onOpenChange } = await renderSheet();
     await sheetReady();
 
@@ -170,21 +179,16 @@ describe('authoringSheet', () => {
 
     await user.click(screen.getByRole('button', { name: 'Create ↵' }));
     await waitFor(() => {
-      expect(apiSend).toHaveBeenNthCalledWith(1, 'POST', '/api/nodes', {
-        parent: 'MMR-1',
-        title: 'Wire auth',
-        type: 'task',
+      expect(create).toHaveBeenCalledWith({
+        data: { parent: 'MMR-1', title: 'Wire auth', type: 'task' },
       });
-      expect(apiSend).toHaveBeenNthCalledWith(2, 'POST', '/api/nodes/MMR-99/depend', {
-        on: ['MMR-40'],
-      });
+      expect(depend).toHaveBeenCalledWith({ data: { id: 'MMR-99', on: ['MMR-40'] } });
     });
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 
   it('a removed dep chip is not applied', async () => {
     const user = userEvent.setup();
-    apiSend.mockResolvedValue({ id: 'MMR-99' });
     await renderSheet();
     await sheetReady();
 
@@ -194,22 +198,15 @@ describe('authoringSheet', () => {
     await user.click(screen.getByLabelText('Remove dependency MMR-40'));
 
     await user.click(screen.getByRole('button', { name: 'Create ↵' }));
-    await waitFor(() => expect(apiSend).toHaveBeenCalledOnce());
-    expect(apiSend).toHaveBeenCalledWith(
-      'POST',
-      '/api/nodes',
-      expect.objectContaining({ title: 'Solo' }),
-    );
+    await waitFor(() => expect(create).toHaveBeenCalledOnce());
+    expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({ title: 'Solo' }) });
+    expect(depend).not.toHaveBeenCalled();
   });
 
   it('keeps the sheet open and toasts when depend fails after a successful create', async () => {
     const user = userEvent.setup();
-    apiSend.mockImplementation((_method: string, path: string) =>
-      path === '/api/nodes'
-        ? Promise.resolve({ id: 'MMR-99' })
-        : Promise.reject(new Error('would create a cycle')),
-    );
     const { onOpenChange } = await renderSheet();
+    vi.mocked(depend).mockRejectedValue(new Error('would create a cycle'));
     await sheetReady();
 
     await user.type(screen.getByLabelText('Title'), 'Wire auth');
@@ -226,12 +223,8 @@ describe('authoringSheet', () => {
 
   it('a depend failure pins a retry posture: the created node surfaces, fields freeze', async () => {
     const user = userEvent.setup();
-    apiSend.mockImplementation((_method: string, path: string) =>
-      path === '/api/nodes'
-        ? Promise.resolve({ id: 'MMR-99' })
-        : Promise.reject(new Error('would create a cycle')),
-    );
     const { onOpenChange, router } = await renderSheet();
+    vi.mocked(depend).mockRejectedValue(new Error('would create a cycle'));
     await sheetReady();
 
     await user.type(screen.getByLabelText('Title'), 'Wire auth');
@@ -267,17 +260,8 @@ describe('authoringSheet', () => {
 
   it('retrying after a depend failure re-attaches to the created node — never a duplicate create', async () => {
     const user = userEvent.setup();
-    let dependCalls = 0;
-    apiSend.mockImplementation((_method: string, path: string) => {
-      if (path === '/api/nodes') {
-        return Promise.resolve({ id: 'MMR-99' });
-      }
-      dependCalls += 1;
-      return dependCalls === 1
-        ? Promise.reject(new Error('would create a cycle'))
-        : Promise.resolve({ id: 'MMR-99' });
-    });
     const { onOpenChange } = await renderSheet();
+    vi.mocked(depend).mockRejectedValueOnce(new Error('would create a cycle'));
     await sheetReady();
 
     await user.type(screen.getByLabelText('Title'), 'Wire auth');
@@ -289,12 +273,9 @@ describe('authoringSheet', () => {
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
 
     // Exactly one node was ever created; the depend was attempted twice.
-    const posts = apiSend.mock.calls.filter((c: unknown[]) => c[1] === '/api/nodes');
-    expect(posts).toHaveLength(1);
-    const depends = apiSend.mock.calls.filter(
-      (c: unknown[]) => c[1] === '/api/nodes/MMR-99/depend',
-    );
-    expect(depends).toHaveLength(2);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(depend).toHaveBeenCalledTimes(2);
+    expect(depend).toHaveBeenLastCalledWith({ data: { id: 'MMR-99', on: ['MMR-40'] } });
   });
 
   it('esc closes the innermost popup first — the HOME dropdown — not the sheet', async () => {
@@ -386,7 +367,6 @@ describe('authoringSheet', () => {
 
   it('create another resets the form, refocuses the title, and stays open', async () => {
     const user = userEvent.setup();
-    apiSend.mockResolvedValue({ id: 'MMR-99' });
     const { onOpenChange } = await renderSheet();
     await sheetReady();
 
@@ -401,7 +381,6 @@ describe('authoringSheet', () => {
 
   it("create & open lands on the fresh node's page and closes", async () => {
     const user = userEvent.setup();
-    apiSend.mockResolvedValue({ id: 'MMR-99' });
     const { onOpenChange, router } = await renderSheet();
     await sheetReady();
 
@@ -414,7 +393,6 @@ describe('authoringSheet', () => {
 
   it('creates a phase with type=phase and no task-only signal fields', async () => {
     const user = userEvent.setup();
-    apiSend.mockResolvedValue({ id: 'MMR-50' });
     await renderSheet();
     await sheetReady();
 
@@ -425,17 +403,14 @@ describe('authoringSheet', () => {
     await user.click(screen.getByRole('button', { name: 'Create ↵' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes', {
-        parent: 'MMR-1',
-        title: 'Hardening',
-        type: 'phase',
+      expect(create).toHaveBeenCalledWith({
+        data: { parent: 'MMR-1', title: 'Hardening', type: 'phase' },
       });
     });
   });
 
   it('creates an initiative homed on the bare project KEY', async () => {
     const user = userEvent.setup();
-    apiSend.mockResolvedValue({ id: 'MMR-51' });
     await renderSheet();
     await sheetReady();
 
@@ -444,17 +419,14 @@ describe('authoringSheet', () => {
     await user.click(screen.getByRole('button', { name: 'Create ↵' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes', {
-        parent: 'MMR',
-        title: 'Meridian',
-        type: 'initiative',
+      expect(create).toHaveBeenCalledWith({
+        data: { parent: 'MMR', title: 'Meridian', type: 'initiative' },
       });
     });
   });
 
   it('signals expand to priority/size pills and tags; the picks ride the POST', async () => {
     const user = userEvent.setup();
-    apiSend.mockResolvedValue({ id: 'MMR-99' });
     await renderSheet();
     await sheetReady();
 
@@ -468,13 +440,15 @@ describe('authoringSheet', () => {
 
     await user.click(screen.getByRole('button', { name: 'Create ↵' }));
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes', {
-        parent: 'MMR-1',
-        priority: 'p1',
-        size: 'small',
-        tags: ['ui', 'meridian'],
-        title: 'Signal-rich',
-        type: 'task',
+      expect(create).toHaveBeenCalledWith({
+        data: {
+          parent: 'MMR-1',
+          priority: 'p1',
+          size: 'small',
+          tags: ['ui', 'meridian'],
+          title: 'Signal-rich',
+          type: 'task',
+        },
       });
     });
   });
@@ -553,7 +527,7 @@ describe('authoringSheet', () => {
           },
         });
       });
-      expect(apiSend).not.toHaveBeenCalledWith('POST', '/api/nodes', expect.anything());
+      expect(create).not.toHaveBeenCalled();
       expect(toast.success).toHaveBeenCalledExactlyOnceWith('Promoted MMR-s1 → MMR-42');
       expect(toast.error).not.toHaveBeenCalled();
       await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
@@ -613,7 +587,6 @@ describe('authoringSheet', () => {
     it('expands DEPENDS ON and chains /depend onto the spawned task after promote', async () => {
       const user = userEvent.setup();
       vi.mocked(seedPromote).mockResolvedValue(promotion);
-      apiSend.mockResolvedValue({ id: 'MMR-42' });
       const { onOpenChange } = await renderSheet({
         headerSlot: <span>Promote seed</span>,
         prefill: { title: 'Tree lens scroll' },
@@ -633,9 +606,7 @@ describe('authoringSheet', () => {
           data: { id: 'MMR-s1', parent: 'MMR-9', title: 'Tree lens scroll' },
         });
         // …they are chained onto the echoed spawned id
-        expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-42/depend', {
-          on: ['MMR-40'],
-        });
+        expect(depend).toHaveBeenCalledWith({ data: { id: 'MMR-42', on: ['MMR-40'] } });
       });
       expect(toast.success).toHaveBeenCalledWith('Promoted MMR-s1 → MMR-42');
       await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
@@ -644,12 +615,12 @@ describe('authoringSheet', () => {
     it('surfaces a partial failure honestly when the deps chain fails after promote', async () => {
       const user = userEvent.setup();
       vi.mocked(seedPromote).mockResolvedValue(promotion);
-      apiSend.mockRejectedValue(new Error('would create a cycle'));
       const { onOpenChange } = await renderSheet({
         headerSlot: <span>Promote seed</span>,
         prefill: { title: 'Tree lens scroll' },
         promote: { kind: 'bug', seedId: 'MMR-s1' },
       });
+      vi.mocked(depend).mockRejectedValue(new Error('would create a cycle'));
       await promoteReady();
 
       await user.click(screen.getByRole('button', { name: /depends on · optional/i }));

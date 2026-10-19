@@ -8,7 +8,6 @@ import { doctor } from '../api/fns/browse';
 import type { RecordHealth } from '../api/fns/browse';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
-import { emptyRead } from './fixtures';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
@@ -32,10 +31,10 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-/** Record health answers `health`; every other read is empty. */
+/** Record health answers `health`; an /api read fails. */
 function serveDoctor(health: RecordHealth) {
   serveBrowse({ health });
-  apiGet.mockImplementation((path: string) => Promise.resolve(emptyRead(path)));
+  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
 }
 
 /** A facet with one finding: a node whose parent names no row. */

@@ -1,7 +1,6 @@
 import type { EngineNode, StatusWord, TaskStatusWord } from '@mimir/contract';
 import { TASK_STATUS_WORD_VALUES } from '@mimir/contract';
 
-import type { WireNode } from '../api/types';
 import { calendarDate } from './time';
 
 /**
@@ -110,7 +109,7 @@ export const TASK_STATUS_ORDER: readonly TaskStatusWord[] = STATUS_ORDER.filter(
 );
 
 /** A task has settled once it is done or abandoned. */
-export const isSettledTask = (node: Pick<WireNode, 'status'>): boolean =>
+export const isSettledTask = (node: Pick<EngineNode, 'status'>): boolean =>
   node.status === 'done' || node.status === 'abandoned';
 
 /**
@@ -124,17 +123,8 @@ export function recordStanding(node: Standing): string {
   if (node.type !== 'task' || !isSettledTask(node)) {
     return word;
   }
-  const settledAt =
-    'updatedAt' in node
-      ? (node.completedAt ?? node.updatedAt)
-      : (node.completed_at ?? node.updated_at);
-  return `${word} ${calendarDate(settledAt)}`;
+  return `${word} ${calendarDate(node.completedAt ?? node.updatedAt)}`;
 }
 
-/**
- * What a record's standing reads: the status and type every node read shares,
- * and its settle instants in either read's spelling (an `/api` wire record or
- * an Engine record).
- */
-type Standing = Pick<WireNode, 'status' | 'type'> &
-  (Pick<WireNode, 'completed_at' | 'updated_at'> | Pick<EngineNode, 'completedAt' | 'updatedAt'>);
+/** What a record's standing reads: its status and type, and the instants it settled by. */
+type Standing = Pick<EngineNode, 'completedAt' | 'status' | 'type' | 'updatedAt'>;
