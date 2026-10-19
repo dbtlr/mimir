@@ -11,6 +11,7 @@ import { createInterface } from 'node:readline/promises';
 import { Application, FatalError } from '@loomcli/core';
 import { format } from '@loomcli/plugins/format';
 import { help } from '@loomcli/plugins/help';
+import { selfUpdate } from '@loomcli/plugins/self-update';
 import { skills } from '@loomcli/plugins/skills';
 import { MimirError } from '@mimir/contract';
 import type { Engine } from '@mimir/contract';
@@ -356,7 +357,10 @@ export function corePorts(source: CliSource): Ports {
 /**
  * The Loom Application over one source. Mimir's failures come first, so a
  * refusal's own hint leads help's pointer; the destination defaults run ahead
- * of the formatter, so an explicit `-f` wins.
+ * of the formatter, so an explicit `-f` wins. Loom's self-update replaces a
+ * binary its `install.sh` placed (MMR-554); the old CLI printed no update
+ * notices, so neither does this one. Mimir's own receipt follows the
+ * replacement through core's installation record (ADR 0031).
  */
 export function createApp(source: CliSource) {
   const ports = corePorts(source);
@@ -370,6 +374,7 @@ export function createApp(source: CliSource) {
         format({ short: 'f' }),
         // The skill files stay embedded, so the installed skill matches this binary.
         skills({ skills: [MIMIR_SKILL] }),
+        selfUpdate({ notices: false }),
       ],
       version: VERSION,
     })

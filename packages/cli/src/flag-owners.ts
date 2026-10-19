@@ -146,7 +146,21 @@ const FLAG_OWNERS: readonly FlagOwner[] = [
   {
     flag: 'next',
     hint: `did you mean '--direction'? (mimir update <id> --direction "…" writes the ## Next narrative)`,
-    owner: ['self-update'],
+    owner: [],
+  },
+  // Loom's self-update retired the old selectors: a channel replaces `--next`,
+  // and the version is an argument, not `--tag`.
+  {
+    flag: 'next',
+    hint: `'--next' is now a channel: mimir self-update --channel next`,
+    only: 'self-update',
+    owner: [],
+  },
+  {
+    flag: 'tag',
+    hint: 'self-update takes the release version as its argument: mimir self-update <version>',
+    only: 'self-update',
+    owner: [],
   },
   {
     flag: 'clear-links',
@@ -204,17 +218,20 @@ const bareName = (spelling: string): string => spelling.replace(/^-+/, '').split
 
 /**
  * The redirect for `spelling` misplaced on `command`, or nothing when the flag
- * is not in the table or `command` owns it.
+ * is not in the table or `command` owns it. A flag's `only` entry for
+ * `command` wins over its general entry.
  */
 export function flagRedirect(spelling: string, command: string | undefined): string | undefined {
   const name = bareName(spelling);
   const short = !spelling.startsWith('--') && spelling.startsWith('-');
-  const entry = FLAG_OWNERS.find((e) => (short ? e.short === name : e.flag === name));
+  const entries = FLAG_OWNERS.filter((e) => (short ? e.short === name : e.flag === name));
+  const only = entries.find((e) => e.only !== undefined && e.only === command);
+  if (only !== undefined) {
+    return only.hint;
+  }
+  const entry = entries.find((e) => e.only === undefined);
   if (entry === undefined) {
     return undefined;
-  }
-  if (entry.only !== undefined) {
-    return entry.only === command ? entry.hint : undefined;
   }
   return command === undefined || !entry.owner.includes(command) ? entry.hint : undefined;
 }
