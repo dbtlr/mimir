@@ -725,3 +725,16 @@ A queued task's record offers Start, Cancel reservation, Mark done, and Abandon.
 Cancellation requires a reason and calls `unqueue`; parking and blocking become
 available after the reservation is released. The status badge, timeline, and
 selectors use the shared queued status word.
+
+## Refinement (2026-10-19, MMR-567): the All projects sidebar drops its project search
+
+The MMR-562 refinement gave the _Projects_ section a search box. It filtered
+the same projects as the switcher in the header above it, with fewer
+controls: no _All projects_ entry, no archive fold, and no _New project_. Two
+ways to find a project on one sidebar go against one obvious way to do a job,
+so the search box goes. The section lists only the pinned projects as links,
+or the five most recently active projects when none is pinned, and the
+switcher finds every other project. The MMR-562 changes to the hotkeys, which
+served only the search (`data-inline-listbox` and Shift on bare hotkeys), are
+withdrawn with it. The switcher keeps the shared listbox, row, and pin
+implementation in `components/project-options.tsx`.

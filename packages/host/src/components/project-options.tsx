@@ -8,10 +8,10 @@ import { ALL_PROJECTS_KEY } from '../lib/project-switcher';
 import { StatusDot } from './status-dot';
 
 /*
- * What the two searchable project lists share: the switcher's popover
- * (MMR-497) and the All projects sidebar's Projects section (MMR-562). Each is
- * a search box that owns focus as a combobox over a listbox of project rows,
- * driven by the same keys and the same pin.
+ * The project rows the switcher's popover (MMR-497) and the All projects
+ * sidebar's Projects section (MMR-562) share, and the switcher's listbox: a
+ * search box that owns focus as a combobox over its rows, with its keys and
+ * its pin.
  */
 
 /** The violet count of decisions waiting; nothing at zero. */

@@ -31,21 +31,15 @@ export function groupProjects<T extends Switchable>(
   };
 }
 
-/** How many projects the All projects sidebar lists at rest when none is pinned. */
+/** How many projects the All projects sidebar lists when none is pinned. */
 const SHORTLIST_FALLBACK = 5;
 
 /**
- * What the All projects sidebar lists at rest (MMR-562): the pinned projects,
- * or with none pinned the most recently active few, and how many more active
- * projects a search would find.
+ * What the All projects sidebar lists (MMR-562): the pinned projects, or with
+ * none pinned the most recently active few.
  */
-export function sidebarShortlist<T>(groups: { pinned: readonly T[]; rest: readonly T[] }): {
-  shown: T[];
-  more: number;
-} {
-  const shown =
-    groups.pinned.length > 0 ? [...groups.pinned] : groups.rest.slice(0, SHORTLIST_FALLBACK);
-  return { more: groups.pinned.length + groups.rest.length - shown.length, shown };
+export function sidebarShortlist<T>(groups: { pinned: readonly T[]; rest: readonly T[] }): T[] {
+  return groups.pinned.length > 0 ? [...groups.pinned] : groups.rest.slice(0, SHORTLIST_FALLBACK);
 }
 
 /** One project carrying the pin it is on its way to, if it has one in flight. */

@@ -23,8 +23,8 @@ import { Skeleton } from './ui/skeleton';
  * project's switcher header, its sections, and its initiative and phase
  * outline, which marks the open record's place. Outside a project (`/`,
  * `/doctor`) its context is All projects (MMR-505): a header reading so, Work,
- * which is `/`, and the Projects section of pinned projects and a search
- * (MMR-562). From `lg` up it sits beside the page; below that it
+ * which is `/`, and the Projects section of pinned projects (MMR-562,
+ * MMR-567). From `lg` up it sits beside the page; below that it
  * folds into a drawer behind a top-bar button, because a record page's own
  * rail needs the width a tablet has.
  */
