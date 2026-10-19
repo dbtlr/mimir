@@ -64,6 +64,10 @@ const views = {
   table: textView(tableOf),
 };
 
+/** Whether `--col` names `content`, comma-separated or repeated. */
+const wantsContent = (cols: readonly string[]): boolean =>
+  cols.some((c) => c.split(',').some((part) => part.trim() === 'content'));
+
 /** Read the record `id` names. Only the Engine reads work state. */
 async function readRecord(
   ports: Ports,
@@ -75,7 +79,7 @@ async function readRecord(
   if (kind === 'artifact') {
     const engine = await ports.engine();
     const artifact = intentEncoders.artifactDetail.parse(
-      await engine.getArtifact({ content: cols.includes('content'), id }),
+      await engine.getArtifact({ content: wantsContent(cols), id }),
     );
     return { artifact, kind, presentation, wire: ports.wire.artifact(artifact) };
   }

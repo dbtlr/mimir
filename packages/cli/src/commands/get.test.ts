@@ -55,3 +55,9 @@ test('a refusal prints its sentence and its hint on stderr', async () => {
     ].join('\n'),
   );
 });
+
+test('an artifact reads its body when content is one of several comma-separated columns', async () => {
+  const run = await runArgv(board.app(), ['get', 'MMR-a1', '--col', 'tags,content']);
+  expect(run.exitCode).toBe(0);
+  expect(run.stdout).toContain('The body.');
+});
