@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
 import { routeTree } from '../router';
+import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
 import { emptyRead, workReport } from './fixtures';
 import { failShellReads, serveShell } from './shell-fns';
@@ -12,6 +13,11 @@ import { failShellReads, serveShell } from './shell-fns';
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
+
+beforeEach(() => {
+  serveBrowse();
+});
 
 function renderProject(key: string, search = '') {
   const testRouter = createRouter({

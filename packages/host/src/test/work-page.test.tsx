@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../api/errors';
 import type { WireArtifact, WireNode, WireWorkReport } from '../api/types';
 import { routeTree } from '../router';
+import { serveBrowse } from './browse-fns';
 import { engineTree } from './engine-fixtures';
 import { emptyRead, task, workReport } from './fixtures';
 import { serveShell } from './shell-fns';
@@ -14,6 +15,7 @@ import { serveShell } from './shell-fns';
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 
 // Mon Oct 12 2026, 18:00 in the suite's pinned zone (America/New_York).
 const NOW = Date.parse('2026-10-12T22:00:00.000Z');
@@ -21,6 +23,7 @@ const minutesAgo = (m: number) => new Date(NOW - m * 60_000).toISOString();
 const daysAgo = (d: number) => new Date(NOW - d * 24 * 60 * 60_000).toISOString();
 
 beforeEach(() => {
+  serveBrowse();
   apiGet.mockReset();
   apiSend.mockReset();
   vi.useFakeTimers({ shouldAdvanceTime: true });

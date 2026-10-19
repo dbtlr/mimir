@@ -1,7 +1,5 @@
 import { GROOMING_VALUES } from '@mimir/contract';
-import type { Grooming } from '@mimir/contract';
-
-import type { WireNode } from '../api/types';
+import type { EngineNode, Grooming } from '@mimir/contract';
 
 /** How the console names each grooming state, and what it says about the task. */
 export const GROOMING_META: Record<Grooming, { label: string; hint: string }> = {
@@ -16,12 +14,15 @@ export const GROOMING_META: Record<Grooming, { label: string; hint: string }> = 
 /** The states in the order the setter offers them. */
 export const GROOMING_ORDER: readonly Grooming[] = ['not_groomed', 'needs_answers', 'groomed'];
 
+/** What a grooming view reads off a node; the `/api` wire record and the Engine record both carry it. */
+export type Groomable = Pick<EngineNode, 'grooming' | 'lifecycle' | 'type'>;
+
 /**
  * The grooming state a view shows for a node, or undefined when it shows none.
  * Grooming is a pre-start judgment (ADR 0033): only a todo task reads it, and
  * containers store none.
  */
-export function visibleGrooming(node: WireNode): Grooming | undefined {
+export function visibleGrooming(node: Groomable): Grooming | undefined {
   if (node.type !== 'task' || node.lifecycle !== 'todo') {
     return undefined;
   }

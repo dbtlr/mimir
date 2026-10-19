@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 
-import type { WireArtifactSummary } from '../api/types';
+import type { ArtifactSummary } from '../api/browse-queries';
 import { groupByDay, kindsOf } from '../lib/artifacts';
 import { artifactLink, bareIdRedirect } from '../lib/record-url';
 import { BrowserEmpty, BrowserGroup, BrowserRow } from './browser-list';
@@ -55,7 +55,7 @@ function AttachedTo({ links }: { links: string[] }) {
  * its kind chip(s) after the title, its summary as the lede, and the records
  * it is attached to as the meta line.
  */
-export function ArtifactList({ items }: { items: WireArtifactSummary[] }) {
+export function ArtifactList({ items }: { items: ArtifactSummary[] }) {
   if (items.length === 0) {
     return <BrowserEmpty>No artifacts match.</BrowserEmpty>;
   }

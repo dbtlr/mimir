@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../api/errors';
 import { consoleSearch } from '../api/fns/shell';
 import { routeTree } from '../router';
+import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree, searchHit, searchSet } from './engine-fixtures';
 import { emptyRead, project, task, workReport } from './fixtures';
 import { serveShell } from './shell-fns';
@@ -15,6 +16,7 @@ import { serveShell } from './shell-fns';
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
 
 /** What the search answers, by query. */
@@ -122,6 +124,7 @@ async function openFromButton(user: ReturnType<typeof userEvent.setup>) {
 }
 
 beforeEach(() => {
+  serveBrowse();
   localStorage.clear();
   mockApi();
 });

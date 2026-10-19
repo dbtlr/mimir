@@ -247,12 +247,16 @@ function consoleBindings(client: TRPCClient<EngineRouter>): ConsoleEngine {
   return {
     nodeWork: (input: ConsoleInput<'nodeWork'>) =>
       domainResult(client.console.nodeWork.query(input)),
+    openTasks: (input: ConsoleInput<'openTasks'>) =>
+      domainResult(client.console.openTasks.query(input)),
     overview: (input: ConsoleInput<'overview'>) =>
       domainResult(client.console.overview.query(input)),
     projectWork: (input: ConsoleInput<'projectWork'>) =>
       domainResult(client.console.projectWork.query(input)),
     review: (input: ConsoleInput<'review'>) => domainResult(client.console.review.query(input)),
     search: (input: ConsoleInput<'search'>) => domainResult(client.console.search.query(input)),
+    upstreamTasks: (input: ConsoleInput<'upstreamTasks'>) =>
+      domainResult(client.console.upstreamTasks.query(input)),
   };
 }
 

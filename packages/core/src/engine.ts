@@ -36,7 +36,14 @@ import {
   statusOfNode,
 } from './intent';
 import type { FindingsProvider } from './intent/console';
-import { nodeWorkOf, projectOverviewOf, projectWorkOf, reviewPageOf } from './intent/console';
+import {
+  nodeWorkOf,
+  openTasksOf,
+  projectOverviewOf,
+  projectWorkOf,
+  reviewPageOf,
+  upstreamTasksOf,
+} from './intent/console';
 import { listProjects, listProjectsByRemote, nodeTree } from './resource';
 import { createScratchpadService } from './scratchpads';
 import type { ScratchpadService } from './scratchpads';
@@ -390,6 +397,10 @@ function consoleMethods(store: Store, options: LocalEngineOptions): ConsoleEngin
         await nodeWorkOf(store, id, { asOf: isoOf(asOf), timeZone }),
       );
     },
+    async openTasks(input) {
+      const { q } = parseEngineInput(consoleSchemas.openTasks.input, input);
+      return intentViews.nodeSet.parse(await openTasksOf(store, q));
+    },
     async overview(input) {
       const { asOf, project } = parseEngineInput(consoleSchemas.overview.input, input);
       return intentViews.overview.parse(
@@ -411,6 +422,10 @@ function consoleMethods(store: Store, options: LocalEngineOptions): ConsoleEngin
     async search(input) {
       const opts = parseEngineInput(consoleSchemas.search.input, input);
       return intentViews.searchSet.parse(await searchRecords(store, opts));
+    },
+    async upstreamTasks(input) {
+      const { seed } = parseEngineInput(consoleSchemas.upstreamTasks.input, input);
+      return intentViews.nodeSet.parse(await upstreamTasksOf(store, seed));
     },
   };
 }

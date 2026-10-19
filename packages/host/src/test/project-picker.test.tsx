@@ -10,6 +10,7 @@ import { browserTimeZone } from '../api/queries';
 import type { WireReviewProject } from '../api/types';
 import { ProjectPicker } from '../components/project-picker';
 import { routeTree } from '../router';
+import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { emptyRead, reviewReport, task, workReport } from './fixtures';
 import { renderInRouter } from './router';
@@ -19,6 +20,7 @@ import { stubViewport } from './viewport';
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 
 /*
  * The sidebar's project switcher (MMR-497, ADR 0013 refinement): a searchable
@@ -139,6 +141,7 @@ const keysInOrder = () =>
     .filter((key) => key !== null);
 
 beforeEach(() => {
+  serveBrowse();
   localStorage.clear();
   stubViewport('desktop');
   serve();

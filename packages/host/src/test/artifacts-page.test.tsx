@@ -4,24 +4,26 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, vi } from 'vitest';
 
-import type { WireArtifactSummary } from '../api/types';
+import type { ArtifactSummary } from '../api/browse-queries';
+import { artifacts } from '../api/fns/browse';
 import { routeTree } from '../router';
+import { engineArtifact } from './browse-fixtures';
+import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { serveShell } from './shell-fns';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 
-const summary = (n: number, over: Partial<WireArtifactSummary> = {}): WireArtifactSummary => ({
-  created_at: '2026-06-16T00:00:00.000Z',
-  id: `MMR-a${String(n)}`,
-  links: [],
-  project: 'MMR',
-  tags: [],
-  title: `Artifact ${String(n)}`,
-  ...over,
-});
+const summary = (n: number, over: Partial<ArtifactSummary> = {}): ArtifactSummary =>
+  engineArtifact({
+    createdAt: new Date('2026-06-16T00:00:00.000Z'),
+    id: `MMR-a${String(n)}`,
+    title: `Artifact ${String(n)}`,
+    ...over,
+  });
 
 function renderArtifactsPage(url = '/p/MMR/artifacts') {
   const testRouter = createRouter({
@@ -37,23 +39,15 @@ function renderArtifactsPage(url = '/p/MMR/artifacts') {
 }
 
 /** Serve the given artifact rows (total = rows) and one project, MMR. */
-function serveRows(items: WireArtifactSummary[]) {
+function serveRows(items: ArtifactSummary[]) {
   serveShell({ projects: [engineProject({ id: 'MMR' })] });
-  apiGet.mockImplementation((path: string) => {
-    if (path.startsWith('/api/artifacts?')) {
-      return Promise.resolve({ items, total: items.length });
-    }
-    return Promise.reject(new Error(`unexpected ${path}`));
-  });
+  serveBrowse({ artifacts: items });
+  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
 }
 
-/** The last `/api/artifacts?` request, as parsed params. */
-function lastArtifactsParams(): URLSearchParams {
-  const paths = apiGet.mock.calls
-    .map((c) => String(c[0]))
-    .filter((p) => p.startsWith('/api/artifacts?'));
-  const last = paths.at(-1) ?? '';
-  return new URLSearchParams(last.slice(last.indexOf('?') + 1));
+/** The last artifact-list read, as the `artifacts` input it sent. */
+function lastArtifactsInput() {
+  return vi.mocked(artifacts).mock.calls.at(-1)?.[0].data;
 }
 
 describe('artifactsPage', () => {
@@ -72,9 +66,9 @@ describe('artifactsPage', () => {
     vi.setSystemTime(new Date(2026, 9, 9, 12));
     try {
       serveRows([
-        summary(3, { created_at: new Date(2026, 9, 9, 9).toISOString() }),
-        summary(2, { created_at: new Date(2026, 9, 8, 9).toISOString() }),
-        summary(1, { created_at: new Date(2025, 9, 6, 9).toISOString() }),
+        summary(3, { createdAt: new Date(2026, 9, 9, 9) }),
+        summary(2, { createdAt: new Date(2026, 9, 8, 9) }),
+        summary(1, { createdAt: new Date(2025, 9, 6, 9) }),
       ]);
       renderArtifactsPage();
       await screen.findByText('Artifact 1');
@@ -112,7 +106,7 @@ describe('artifactsPage', () => {
       expect(testRouter.state.location.search).toEqual({ tag: 'kind:spec' });
     });
     await waitFor(() => {
-      expect(lastArtifactsParams().get('tag')).toBe('kind:spec');
+      expect(lastArtifactsInput()?.tag).toBe('kind:spec');
     });
   });
 
@@ -120,7 +114,7 @@ describe('artifactsPage', () => {
     serveRows([summary(8)]);
     renderArtifactsPage();
     await screen.findByText('Artifact 8');
-    expect(lastArtifactsParams().get('project')).toBe('MMR');
+    expect(lastArtifactsInput()?.project).toBe('MMR');
     expect(screen.queryByRole('button', { name: /All projects/ })).toBeNull();
   });
 
@@ -130,14 +124,14 @@ describe('artifactsPage', () => {
     await screen.findByText('Artifact 8');
     expect(screen.queryByTestId('artifact-reader')).toBeNull();
     expect(screen.queryByRole('complementary', { name: 'Provenance' })).toBeNull();
-    expect(lastArtifactsParams().has('a')).toBe(false);
+    expect(lastArtifactsInput()).not.toHaveProperty('a');
   });
 
   it('a numeric q in the URL is the text it was typed as', async () => {
     serveRows([summary(8)]);
     renderArtifactsPage('/p/MMR/artifacts?q=2026');
     await screen.findByText('Artifact 8');
-    expect(lastArtifactsParams().get('q')).toBe('2026');
+    expect(lastArtifactsInput()?.q).toBe('2026');
   });
 
   it('date filters in the URL render as removable chips and reach the query', async () => {
@@ -147,7 +141,9 @@ describe('artifactsPage', () => {
     expect(
       screen.getByRole('button', { name: 'Remove filter on or after 2026-06-01' }),
     ).toBeInTheDocument();
-    expect(lastArtifactsParams().get('at-or-after')).toBe('created_at:2026-06-01');
+    expect(lastArtifactsInput()?.dates).toStrictEqual([
+      { field: 'created_at', op: 'at-or-after', value: '2026-06-01' },
+    ]);
   });
 
   it('says so when nothing matches', async () => {
@@ -157,26 +153,16 @@ describe('artifactsPage', () => {
   });
 
   it('scrolling the page pulls the next window, so every artifact is reachable', async () => {
-    serveShell();
-    apiGet.mockImplementation((path: string) => {
-      if (path.startsWith('/api/artifacts?')) {
-        const params = new URLSearchParams(path.slice(path.indexOf('?') + 1));
-        if (params.get('offset') === '100') {
-          return Promise.resolve({ items: [summary(101)], total: 101 });
-        }
-        return Promise.resolve({
-          items: Array.from({ length: 100 }, (_, i) => summary(i + 1)),
-          total: 101,
-        });
-      }
-      return Promise.reject(new Error(`unexpected ${path}`));
-    });
+    serveRows(Array.from({ length: 101 }, (_, i) => summary(i + 1)));
     renderArtifactsPage();
     await expect(screen.findByText('Artifact 1')).resolves.toBeDefined();
-    expect(apiGet).toHaveBeenCalledWith(expect.stringContaining('limit=100'));
+    expect(artifacts).toHaveBeenCalledWith({ data: { limit: 100, project: 'MMR' } });
     expect(screen.getByText('101 frozen')).toBeInTheDocument();
     expect(screen.queryByText('Artifact 101')).toBeNull();
     fireEvent.scroll(screen.getByTestId('artifact-scroll'));
     await expect(screen.findByText('Artifact 101')).resolves.toBeDefined();
+    expect(artifacts).toHaveBeenLastCalledWith({
+      data: { limit: 100, offset: 100, project: 'MMR' },
+    });
   });
 });

@@ -2,8 +2,9 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
-import type { WireArtifactSummary } from '../api/types';
+import type { ArtifactSummary } from '../api/browse-queries';
 import { ArtifactList } from '../components/artifact-list';
+import { engineArtifact } from './browse-fixtures';
 import { renderInRouter } from './router';
 
 // Fixed clock (date only — timers stay real for userEvent): Fri 2026-10-09.
@@ -15,14 +16,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const artifact = (over: Partial<WireArtifactSummary> & { id: string }): WireArtifactSummary => ({
-  created_at: new Date(2026, 9, 9, 9).toISOString(),
-  links: [],
-  project: 'MMR',
-  tags: [],
-  title: 'An artifact',
-  ...over,
-});
+const artifact = (over: Partial<ArtifactSummary> & { id: string }): ArtifactSummary =>
+  engineArtifact({ createdAt: new Date(2026, 9, 9, 9), title: 'An artifact', ...over });
 
 describe('artifactList', () => {
   it('groups rows under local-day headers, newest first', async () => {
@@ -30,8 +25,8 @@ describe('artifactList', () => {
       <ArtifactList
         items={[
           artifact({ id: 'MMR-a3', title: 'Today one' }),
-          artifact({ created_at: new Date(2026, 9, 8, 9).toISOString(), id: 'MMR-a2' }),
-          artifact({ created_at: new Date(2026, 9, 6, 9).toISOString(), id: 'MMR-a1' }),
+          artifact({ createdAt: new Date(2026, 9, 8, 9), id: 'MMR-a2' }),
+          artifact({ createdAt: new Date(2026, 9, 6, 9), id: 'MMR-a1' }),
         ]}
       />,
     );

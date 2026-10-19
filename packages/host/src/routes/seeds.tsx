@@ -5,8 +5,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useId, useMemo, useState } from 'react';
 
 import { seedsQuery } from '../api/browse-queries';
-import type { SeedFilters } from '../api/browse-queries';
-import type { WireSeed } from '../api/types';
+import type { EngineSeed, SeedFilters } from '../api/browse-queries';
 import {
   BrowserEmpty,
   BrowserGroup,
@@ -49,14 +48,14 @@ function summaryText(toTriage: number, toResolve: number): string | undefined {
 }
 
 /** `from {requester} · {age}` when filed from another project, else just the age. */
-function seedMeta(seed: WireSeed): string {
-  const age = relativeTime(seed.created_at);
+function seedMeta(seed: EngineSeed): string {
+  const age = relativeTime(seed.createdAt);
   return seed.requester !== null && seed.requester !== seed.project
     ? `from ${seed.requester} · ${age}`
     : age;
 }
 
-function SeedBrowserRow({ seed, demoted = false }: { seed: WireSeed; demoted?: boolean }) {
+function SeedBrowserRow({ seed, demoted = false }: { seed: EngineSeed; demoted?: boolean }) {
   return (
     <BrowserRow
       to={seedLink(seed.id)}
@@ -72,7 +71,13 @@ function SeedBrowserRow({ seed, demoted = false }: { seed: WireSeed; demoted?: b
 
 /** A folded lane (PARKED or SETTLED): its count shows, its rows stay hidden until
  * the reader asks. Settled rows read demoted; parked rows are still live. */
-function FoldedGroup({ lane, seeds }: { lane: 'parked' | 'settled'; seeds: readonly WireSeed[] }) {
+function FoldedGroup({
+  lane,
+  seeds,
+}: {
+  lane: 'parked' | 'settled';
+  seeds: readonly EngineSeed[];
+}) {
   const [shown, setShown] = useState(false);
   const rowsId = useId();
   return (
@@ -105,10 +110,10 @@ function FoldedGroup({ lane, seeds }: { lane: 'parked' | 'settled'; seeds: reado
 
 /**
  * `/p/KEY/seeds` — the project's grooming queue as a grouped reading list
- * (MMR-454): a centred column, search and kind chips, and rows grouped by the
- * server's `lane` in fixed order. Every row links to the seed's page; PARKED
+ * (MMR-454): a centred column, search and kind chips, and rows grouped by
+ * lane in fixed order. Every row links to the seed's page; PARKED
  * and SETTLED fold behind a "Show … seeds" control. Search and kind filter
- * client-side; the project scope is the path's, read by the server.
+ * client-side; the project scope is the path's, read by the Engine.
  */
 export function SeedsPage() {
   const navigate = useNavigate();
@@ -160,7 +165,7 @@ export function SeedsPage() {
     };
   }, [q, search.q]);
 
-  const all = seeds.data?.items;
+  const all = seeds.data;
   const shown = useMemo(
     () =>
       (all ?? []).filter(

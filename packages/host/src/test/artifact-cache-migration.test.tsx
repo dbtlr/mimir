@@ -6,11 +6,14 @@ import { describe, expect, vi } from 'vitest';
 
 import { sanitizePersistedClient } from '../lib/persist';
 import { routeTree } from '../router';
+import { engineArtifact } from './browse-fixtures';
+import { serveBrowse } from './browse-fns';
 import { serveShell } from './shell-fns';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 
 // A pre-infinite payload: the flat `{ items, total }` collection the artifacts
 // query persisted while it was a plain `useQuery`, before b0755d7 made it
@@ -78,29 +81,14 @@ function renderArtifactsWith(client: QueryClient) {
 describe('artifacts route rehydrating a legacy warm cache', () => {
   it('degrades to a clean refetch instead of crashing the route', async () => {
     serveShell();
-    apiGet.mockImplementation((path: string) => {
-      if (path.startsWith('/api/artifacts?')) {
-        return Promise.resolve({
-          items: [
-            {
-              created_at: '2026-06-16T00:00:00.000Z',
-              id: 'MMR-new',
-              links: [],
-              project: 'MMR',
-              tags: [],
-              title: 'Fresh artifact',
-            },
-          ],
-          total: 1,
-        });
-      }
-      return Promise.reject(new Error(`unexpected ${path}`));
-    });
+    serveBrowse({ artifacts: [engineArtifact({ id: 'MMR-new', title: 'Fresh artifact' })] });
+    apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
 
     // A warm cache from the pre-infinite build: a plain query holding the flat
-    // collection, dehydrated exactly as the persister would have stored it.
+    // collection under the route's own key, dehydrated exactly as the
+    // persister would have stored it.
     const warm = new QueryClient();
-    warm.setQueryData(['artifacts', {}], flatArtifacts);
+    warm.setQueryData(['artifacts', { project: 'MMR' }], flatArtifacts);
     const persisted = persistedWith(dehydrate(warm).queries);
 
     // The restore path: the persister deserializes + guards before hydrate.

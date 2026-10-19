@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { toast } from 'sonner';
 
 import { seedQuery } from '../api/browse-queries';
-import type { WireSeed } from '../api/types';
+import type { EngineSeed } from '../api/browse-queries';
 import { AuthoringSheet } from './authoring-sheet';
 import { SeedKindChip } from './seed-kind-chip';
 
@@ -26,7 +26,8 @@ export function SeedPromoteSheet({
   onOpenChange,
   offline,
 }: {
-  seed: WireSeed;
+  /** The seed as its surface read it; a list row carries no body, the detail read does. */
+  seed: Pick<EngineSeed, 'id' | 'project' | 'kind' | 'title' | 'description'>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   offline?: boolean;

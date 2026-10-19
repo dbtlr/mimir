@@ -13,6 +13,7 @@ import type { WireReviewProject } from '../api/types';
 import { subtreeOf } from '../lib/ancestry';
 import { rememberProject } from '../lib/current-project';
 import { routeTree } from '../router';
+import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
 import { emptyRead, reviewReport, task, workReport } from './fixtures';
 import { serveShell } from './shell-fns';
@@ -21,6 +22,7 @@ import { stubViewport } from './viewport';
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend: vi.fn() }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 
 /*
  * The shell's project sidebar (ADR 0013, MMR-492 refinement): the current
@@ -132,6 +134,7 @@ async function activeSections() {
 }
 
 beforeEach(() => {
+  serveBrowse();
   localStorage.clear();
   stubViewport('desktop');
   serve([MMR]);

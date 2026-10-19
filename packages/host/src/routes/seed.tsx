@@ -6,11 +6,11 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { seedQuery, upstreamTasksQuery } from '../api/browse-queries';
+import type { EngineSeed } from '../api/browse-queries';
 import { isNotFound } from '../api/errors';
 import { nodeQuery } from '../api/node-queries';
 import { useUpdateSeed } from '../api/seed-mutations';
 import { projectsQuery } from '../api/shell-queries';
-import type { WireNode, WireSeed } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { DescriptionSection, MetaRow } from '../components/node-record';
 import { OfflineBanner } from '../components/offline-banner';
@@ -27,6 +27,7 @@ import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { useRememberRecord } from '../lib/recent-records';
 import { nodeLink, seedIdOf, seedPath } from '../lib/record-url';
+import { laneOf } from '../lib/seed-lanes';
 import { STATUS_META, isSettledTask, recordStanding } from '../lib/status';
 import { ago, calendarDate } from '../lib/time';
 import { seedRoute } from '../router';
@@ -52,11 +53,11 @@ export function SeedPage() {
 }
 
 /** A seed is editable until a terminal verb freezes it. */
-const isLive = (seed: WireSeed): boolean => seed.lane !== 'settled';
+const isLive = (seed: EngineSeed): boolean => laneOf(seed) !== 'settled';
 
 /** The lane as the page head names it; a settled seed names how it ended. */
-function laneLabel(seed: WireSeed): string {
-  switch (seed.lane) {
+function laneLabel(seed: EngineSeed): string {
+  switch (laneOf(seed)) {
     case 'untriaged': {
       return 'Untriaged';
     }
@@ -107,7 +108,7 @@ function RequestCard({
   seed,
   titleOf,
 }: {
-  seed: WireSeed;
+  seed: EngineSeed;
   titleOf: (key: string) => string | undefined;
 }) {
   const requester = seed.requester;
@@ -125,14 +126,17 @@ function RequestCard({
       <span className="text-ink-dim">{requester === null ? 'ask' : 'asks'}</span>
       <ProjectName id={seed.project} title={titleOf(seed.project)} />
       <span className="ml-auto text-tag text-ink-faint">
-        filed {calendarDate(seed.created_at)} · {ago(seed.created_at)}
+        filed {calendarDate(seed.createdAt)} · {ago(seed.createdAt)}
       </span>
     </div>
   );
 }
 
+/** A task as a node read serves it: what its standing and row read. */
+type OutcomeNode = Parameters<typeof recordStanding>[0] & { title: string };
+
 /** One task that came of the seed: its state, linked to its page. */
-type Outcome = { id: string; node?: WireNode; upstream: boolean };
+type Outcome = { id: string; node?: OutcomeNode; upstream: boolean };
 
 /** Whether the read of the tasks naming the seed upstream has answered. */
 type UpstreamRead = 'pending' | 'failed' | 'answered';
@@ -201,17 +205,18 @@ function OutcomeSection({
 
 /** The one sentence the decision block opens with, by lane. */
 function decisionPrompt(
-  seed: WireSeed,
+  seed: EngineSeed,
   ownerTitle: string,
-  spawned: readonly (WireNode | undefined)[],
+  spawned: readonly (OutcomeNode | undefined)[],
 ): string {
-  if (seed.lane === 'untriaged') {
+  const lane = laneOf(seed);
+  if (lane === 'untriaged') {
     return `Promote it into work on the ${ownerTitle} board, reject it with a reason, or park it for later.`;
   }
-  if (seed.lane === 'parked') {
+  if (lane === 'parked') {
     return `It is set aside, so it no longer counts as untriaged. Unpark it to decide now, or promote it into work on the ${ownerTitle} board.`;
   }
-  if (seed.lane === 'ready') {
+  if (lane === 'ready') {
     const only = spawned.length === 1 ? spawned[0] : undefined;
     const settled =
       only === undefined
@@ -230,7 +235,7 @@ type SeedEdit = { title?: string; kind?: SeedKind; description?: string };
  * title is never sent back for the server to re-check.
  */
 function changedFields(
-  seed: WireSeed,
+  seed: EngineSeed,
   next: { title: string; kind: SeedKind; description: string },
 ): SeedEdit {
   const fields: SeedEdit = {};
@@ -253,7 +258,7 @@ function SeedEditForm({
   onSave,
   onCancel,
 }: {
-  seed: WireSeed;
+  seed: EngineSeed;
   submitting: boolean;
   onSave: (fields: SeedEdit) => void;
   onCancel: () => void;
@@ -325,7 +330,7 @@ function ActionsPanel({
   offline,
   onEdit,
 }: {
-  seed: WireSeed;
+  seed: EngineSeed;
   offline: boolean;
   onEdit: (() => void) | null;
 }) {
@@ -352,12 +357,12 @@ function ActionsPanel({
   );
 }
 
-function DetailsPanel({ seed }: { seed: WireSeed }) {
+function DetailsPanel({ seed }: { seed: EngineSeed }) {
   return (
     <dl className="flex flex-col gap-1">
       <MetaRow label="Kind">{seed.kind}</MetaRow>
       <MetaRow label="Filed">
-        {calendarDate(seed.created_at)} · {ago(seed.created_at)}
+        {calendarDate(seed.createdAt)} · {ago(seed.createdAt)}
       </MetaRow>
       <MetaRow label="Project">{seed.project}</MetaRow>
       <MetaRow label="Link">{seedPath(seed.id)}</MetaRow>
@@ -373,7 +378,7 @@ function SeedRecord({ seedId }: { seedId: string }) {
   const spawned = useQueries({ queries: spawnedIds.map((id) => nodeQuery(id)) });
   const update = useUpdateSeed(seedId);
   const [editing, setEditing] = useState(false);
-  const [promoting, setPromoting] = useState<WireSeed | null>(null);
+  const [promoting, setPromoting] = useState<EngineSeed | null>(null);
   const conn = connectivity([seed]);
   const data = seed.data;
   useRememberRecord(data && { id: seedId, kind: 'seed', project: data.project, title: data.title });
@@ -432,6 +437,7 @@ function SeedRecord({ seedId }: { seedId: string }) {
   const crumb =
     'rounded-sm font-mono text-tag wrap-anywhere text-accent-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent';
   const fromOtherBoard = data.requester !== null && data.requester !== data.project;
+  const lane = laneOf(data);
   const head = (
     <header className="flex flex-col gap-1.5">
       <nav aria-label="Path" className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
@@ -451,7 +457,7 @@ function SeedRecord({ seedId }: { seedId: string }) {
         <span
           className={cn(
             'inline-flex items-center rounded-full px-2 py-0.5 text-tag font-semibold inset-ring',
-            LANE_BADGE[data.lane],
+            LANE_BADGE[lane],
           )}
         >
           {laneLabel(data)}
@@ -472,15 +478,12 @@ function SeedRecord({ seedId }: { seedId: string }) {
   );
 
   const decision: ReactNode =
-    data.lane === 'settled' ? null : (
+    lane === 'settled' ? null : (
       <section
         aria-label="Your call"
-        className={cn(
-          'flex flex-col gap-2.5 rounded-lg p-3.5 inset-ring',
-          DECISION_BOX[data.lane].box,
-        )}
+        className={cn('flex flex-col gap-2.5 rounded-lg p-3.5 inset-ring', DECISION_BOX[lane].box)}
       >
-        <h2 className={cn('microlabel', DECISION_BOX[data.lane].label)}>Your call</h2>
+        <h2 className={cn('microlabel', DECISION_BOX[lane].label)}>Your call</h2>
         <p className="text-meta text-ink">{decisionPrompt(data, ownerTitle, spawnedNodes)}</p>
         <SeedVerbs seed={data} onPromote={setPromoting} offline={offline} withSpawned={false} />
       </section>

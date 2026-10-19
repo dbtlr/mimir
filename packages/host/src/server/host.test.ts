@@ -143,6 +143,12 @@ test('host doctor reports stored record findings and project scope', async () =>
       groups: [],
       scope: { key: 'OTH', matched_records: 0 },
     });
+    // The console's server function reads the same facet without the /api route.
+    const { scanned_at: _scan, ...facet } = await host.doctor('TST');
+    const { scanned_at: _route, ...route } = (await (
+      await host.handle(new Request('http://localhost/api/doctor?project=TST'))
+    ).json()) as Record<string, unknown>;
+    expect(route).toEqual(facet);
   } finally {
     await host.close();
   }

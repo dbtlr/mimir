@@ -166,6 +166,10 @@ export function createEngineRouter(engine: Engine) {
         .input((value: unknown) => parseEngineInput(consoleSchemas.nodeWork.input, value))
         .output(consoleSchemas.nodeWork.output)
         .query(({ input }) => engine.console.nodeWork(input)),
+      openTasks: procedure
+        .input((value: unknown) => parseEngineInput(consoleSchemas.openTasks.input, value))
+        .output(consoleSchemas.openTasks.output)
+        .query(({ input }) => engine.console.openTasks(input)),
       overview: procedure
         .input((value: unknown) => parseEngineInput(consoleSchemas.overview.input, value))
         .output(consoleSchemas.overview.output)
@@ -182,6 +186,10 @@ export function createEngineRouter(engine: Engine) {
         .input((value: unknown) => parseEngineInput(consoleSchemas.search.input, value))
         .output(consoleSchemas.search.output)
         .query(({ input }) => engine.console.search(input)),
+      upstreamTasks: procedure
+        .input((value: unknown) => parseEngineInput(consoleSchemas.upstreamTasks.input, value))
+        .output(consoleSchemas.upstreamTasks.output)
+        .query(({ input }) => engine.console.upstreamTasks(input)),
     }),
     getArtifact: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.getArtifact.input, value))

@@ -1,4 +1,11 @@
-import type { OverviewReport, ReviewReport, WorkReport } from '@mimir/contract';
+import type {
+  FacetName,
+  NodeView,
+  OverviewReport,
+  ReviewReport,
+  SetResult,
+  WorkReport,
+} from '@mimir/contract';
 
 import { requireTimeZone } from '../dates';
 import { deriveSet, findNodeInSet } from '../derive';
@@ -6,7 +13,7 @@ import type { DoctorFacet } from '../doctor/facet';
 import { validation } from '../errors';
 import { parseIdentity } from '../ids';
 import type { Store } from '../store';
-import { overviewOf } from './queries';
+import { listNodes, overviewOf } from './queries';
 import { reviewOf } from './review';
 import { workPageOf } from './work';
 
@@ -111,4 +118,34 @@ export async function reviewPageOf(
     }
   })();
   return reviewOf(store, counts, { asOf: opts.asOf, timeZone });
+}
+
+/** The set-read projection `/api/nodes` serves, so the console's task sets read alike. */
+const NODE_SET_FACETS: readonly FacetName[] = ['deps', 'tags', 'distribution', 'verdicts', 'home'];
+
+/**
+ * The tasks on any board that name `seed` as their upstream (MMR-451), live or
+ * settled: the requesting boards' work that waits on the seed. A seed nothing
+ * names, or an id that names no seed, has none.
+ */
+export async function upstreamTasksOf(store: Store, seed: string): Promise<SetResult<NodeView>> {
+  return listNodes(store, {
+    facets: NODE_SET_FACETS,
+    filters: [{ field: 'upstream', op: 'eq', value: seed }],
+    status: 'all',
+  });
+}
+
+/**
+ * The open tasks on any active board whose id or title holds `q` (MMR-78): the
+ * dependency picker's candidates, as `/api/nodes?type=task&q=` answers them.
+ * The filter runs before any window, so older open tasks are never crowded out
+ * by newer records of other kinds.
+ */
+export async function openTasksOf(store: Store, q: string): Promise<SetResult<NodeView>> {
+  return listNodes(store, {
+    facets: NODE_SET_FACETS,
+    filters: [{ field: 'type', op: 'in', value: 'task' }],
+    q,
+  });
 }

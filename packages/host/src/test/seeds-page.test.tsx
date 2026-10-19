@@ -4,54 +4,54 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { WireSeed } from '../api/types';
+import type { EngineSeed } from '../api/browse-queries';
+import { seeds } from '../api/fns/browse';
 import { routeTree } from '../router';
+import { seedIn } from './browse-fixtures';
+import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
-import { emptyRead, seed } from './fixtures';
+import { emptyRead } from './fixtures';
 import { serveShell } from './shell-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
 
 /** One seed per live lane, plus two terminal rows for the settled fold. */
-const list: WireSeed[] = [
-  seed({
+const list: EngineSeed[] = [
+  seedIn('untriaged', {
     id: 'MMR-s1',
     kind: 'bug',
-    lane: 'untriaged',
     lede: 'The list scroll position jumps back to the top on every refetch.',
     title: 'Scroll snaps to top',
   }),
-  seed({
+  seedIn('ready', {
     id: 'MMR-s2',
     kind: 'feature',
-    lane: 'ready',
-    lifecycle: 'promoted',
-    ready_to_resolve: true,
     requester: 'NRN',
     spawned: ['MMR-118'],
     title: 'Offline banner flicker',
   }),
-  seed({ id: 'MMR-s3', lane: 'promoted', lifecycle: 'promoted', spawned: ['MMR-90'] }),
-  seed({ id: 'MMR-s4', lane: 'settled', lifecycle: 'resolved', title: 'Old resolved thing' }),
-  seed({ id: 'MMR-s5', lane: 'settled', lifecycle: 'rejected', title: 'Old rejected thing' }),
+  seedIn('promoted', { id: 'MMR-s3', spawned: ['MMR-90'] }),
+  seedIn('settled', { id: 'MMR-s4', title: 'Old resolved thing' }),
+  seedIn('settled', { id: 'MMR-s5', lifecycle: 'rejected', title: 'Old rejected thing' }),
 ];
 
-function mockApi(items: WireSeed[] = list) {
+function mockApi(items: EngineSeed[] = list) {
   serveShell({
     projects: [
       engineProject({ id: 'MMR', title: 'Mimir' }),
       engineProject({ id: 'NRN', status: 'ready', title: 'Norn' }),
     ],
   });
+  serveBrowse();
+  // Every board answers the same queue, so a case can read any path's project.
+  vi.mocked(seeds).mockResolvedValue(items);
   apiGet.mockImplementation((path: string) => {
     if (path === '/health') {
       return Promise.resolve({ schema: 1, status: 'ok', version: '0.0.0' });
-    }
-    if (path.startsWith('/api/seeds?')) {
-      return Promise.resolve({ items, total: items.length });
     }
     return Promise.resolve(emptyRead(path));
   });
@@ -90,7 +90,7 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
   });
 
   it('hides a live lane with no seeds', async () => {
-    mockApi([seed({ id: 'MMR-s1', lane: 'untriaged' })]);
+    mockApi([seedIn('untriaged', { id: 'MMR-s1' })]);
     renderSeeds();
     await screen.findByText('Untriaged · 1');
     expect(screen.queryByText(/Ready to resolve/)).toBeNull();
@@ -105,7 +105,7 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
   });
 
   it('omits a zero half of the header count', async () => {
-    mockApi([seed({ id: 'MMR-s1', lane: 'untriaged' })]);
+    mockApi([seedIn('untriaged', { id: 'MMR-s1' })]);
     renderSeeds();
     await expect(screen.findByText('1 to triage')).resolves.toBeDefined();
   });
@@ -141,10 +141,7 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
   });
 
   it('folds parked seeds under their count until asked (MMR-473)', async () => {
-    mockApi([
-      ...list,
-      seed({ id: 'MMR-s6', lane: 'parked', lifecycle: 'parked', title: 'Someday idea' }),
-    ]);
+    mockApi([...list, seedIn('parked', { id: 'MMR-s6', title: 'Someday idea' })]);
     const user = userEvent.setup();
     renderSeeds();
     await screen.findByText('Parked · 1');
@@ -205,8 +202,8 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
 
   it('treats a numeric q in the URL as text instead of throwing', async () => {
     mockApi([
-      seed({ id: 'MMR-s1', lane: 'untriaged', title: 'Scroll snaps to top' }),
-      seed({ id: 'MMR-s2', lane: 'untriaged', title: 'Retry 45 times' }),
+      seedIn('untriaged', { id: 'MMR-s1', title: 'Scroll snaps to top' }),
+      seedIn('untriaged', { id: 'MMR-s2', title: 'Retry 45 times' }),
     ]);
     renderSeeds('/p/MMR/seeds?q=45');
     await screen.findByText('Retry 45 times');
@@ -257,7 +254,7 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
     mockApi();
     renderSeeds('/p/NRN/seeds');
     await screen.findByText('Untriaged · 1');
-    expect(apiGet).toHaveBeenCalledWith(expect.stringContaining('project=NRN'));
+    expect(seeds).toHaveBeenCalledWith({ data: { project: 'NRN', status: 'all' } });
     expect(screen.queryByRole('button', { name: /All projects/ })).toBeNull();
   });
 

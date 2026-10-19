@@ -1,17 +1,32 @@
+import { STATUS_SELECTOR_VALUES } from '@mimir/contract';
+import type {
+  EngineInput,
+  EngineOutput,
+  FacetName,
+  StatusSelector,
+  StatusWord,
+} from '@mimir/contract';
 import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
 
-import { apiGet } from './client';
+import {
+  artifacts,
+  consoleOpenTasks,
+  consoleUpstreamTasks,
+  doctor,
+  getArtifact,
+  getSeed,
+  list,
+  seeds,
+} from './fns/browse';
 import { browserTimeZone } from './queries';
-import type {
-  Collection,
-  WireArtifactDetail,
-  WireArtifactSummary,
-  WireDoctorFacet,
-  WireNode,
-  WireSeed,
-} from './types';
 
-/* The browsers' reads: task lists, seeds, artifacts, and record health. */
+/*
+ * The browsers' reads (MMR-540): task lists, seeds, artifacts, and record
+ * health. Each Engine read goes through its server function in fns/browse.ts
+ * and answers the Engine's own output, with `Date` instants. The browsers are
+ * project-scoped, so every list names the path's project. Record health is the
+ * host's own facet, not an Engine method.
+ */
 
 /**
  * The persisted shape version of this module's reads. Bump it in the same
@@ -19,7 +34,16 @@ import type {
  * the persister's buster (lib/persist.ts), so a bump drops every snapshot
  * written in the old shape instead of restoring it into the new code.
  */
-export const BROWSE_CACHE_VERSION = 1;
+export const BROWSE_CACHE_VERSION = 2;
+
+/** A seed as the Engine reads it. */
+export type EngineSeed = EngineOutput<'getSeed'>;
+
+/** One row of the artifact browser. */
+export type ArtifactSummary = EngineOutput<'artifacts'>['items'][number];
+
+/** One artifact with its body, as the reader shows it. */
+export type ArtifactRecord = EngineOutput<'getArtifact'>;
 
 /**
  * The record-health facet (MMR-185): `mimir doctor` findings, optionally scoped
@@ -29,50 +53,68 @@ export const BROWSE_CACHE_VERSION = 1;
  */
 export const doctorQuery = (project?: string) =>
   queryOptions({
-    queryFn: () =>
-      apiGet<WireDoctorFacet>(
-        project !== undefined && project !== ''
-          ? `/api/doctor?project=${encodeURIComponent(project)}`
-          : '/api/doctor',
-      ),
+    queryFn: () => doctor({ data: project !== undefined && project !== '' ? { project } : {} }),
     queryKey: ['doctor', project ?? 'all'],
   });
 
 export type TaskFilters = {
-  project?: string;
+  project: string;
   status?: string;
   q?: string;
-  /** Ask for each row's one-line preview (`col=lede`, MMR-454) — the browser
-   * shows it; a picker that only needs titles leaves it off. */
+  /** Ask for each row's one-line preview (MMR-454). */
   lede?: boolean;
 };
 
-/** The `type=task` list params shared by the picker's and the browser's reads. */
-function taskParams(f: TaskFilters): URLSearchParams {
-  const p = new URLSearchParams({ type: 'task' });
-  if (f.lede === true) {
-    p.set('col', 'lede');
+/**
+ * A `status` value's selectors: one selector or a comma-separated union
+ * (MMR-228). Undefined when any token is not a selector, since one bad token
+ * voids the whole selection, as it always has.
+ */
+export function statusSelection(status: string): StatusSelector[] | undefined {
+  const selectors: StatusSelector[] = [];
+  for (const token of status.split(',').map((t) => t.trim())) {
+    if (token === '') {
+      continue;
+    }
+    const selector = STATUS_SELECTOR_VALUES.find((value) => value === token);
+    if (selector === undefined) {
+      return undefined;
+    }
+    if (!selectors.includes(selector)) {
+      selectors.push(selector);
+    }
   }
-  if (f.project !== undefined && f.project !== '') {
-    p.set('project', f.project);
-  }
-  if (f.status !== undefined && f.status !== '') {
-    p.set('status', f.status);
-  }
-  if (f.q !== undefined && f.q !== '') {
-    p.set('q', f.q);
-  }
-  return p;
+  return selectors.length > 0 ? selectors : undefined;
 }
 
-/** One task the dependency picker offers, as `tasksQuery` answers it. */
-export type DepCandidate = WireNode;
+/** A task list as the Engine answers it. */
+export type TaskSet = EngineOutput<'list'>;
 
-/** A task-list read with filter + search (MMR-78) — the dependency picker's lookup. */
-export const tasksQuery = (f: TaskFilters) =>
+/** The answer to a selection no task can match. */
+const NO_TASKS: TaskSet = { items: [], returned: 0, startsAt: 0, total: 0 };
+
+/** Where a browser row lives, and its preview when the view shows one. */
+const browserFacets = (lede: boolean | undefined): FacetName[] =>
+  lede === true ? ['home', 'lede'] : ['home'];
+
+/** One task the dependency picker offers: its id, title, and status. */
+export type DepCandidate = { id: string; title: string; status: StatusWord };
+
+/**
+ * The dependency picker's lookup (MMR-78): the open tasks on any board whose id
+ * or title holds `q`. The host filters before it answers, so an old open task
+ * is never crowded out by newer records of other kinds. A passing question:
+ * never polled or persisted.
+ */
+export const tasksQuery = ({ q }: { q: string }) =>
   queryOptions({
-    queryFn: () => apiGet<Collection<WireNode>>(`/api/nodes?${taskParams(f).toString()}`),
-    queryKey: ['nodes', 'tasks', f],
+    gcTime: 60_000,
+    queryFn: async (): Promise<DepCandidate[]> => {
+      const open = await consoleOpenTasks({ data: { q } });
+      return open.items.map((task) => ({ id: task.id, status: task.status, title: task.title }));
+    },
+    queryKey: ['search', 'dep-candidates', q],
+    refetchInterval: false,
   });
 
 /**
@@ -97,121 +139,119 @@ export const tasksBrowserQuery = (f: TaskFilters, windows = 1) => {
   return queryOptions({
     placeholderData: (previous, previousQuery) =>
       JSON.stringify(previousQuery?.queryKey[2]) === JSON.stringify(f) ? previous : undefined,
-    queryFn: () => {
-      const p = taskParams(f);
-      if (limit !== undefined) {
-        p.set('limit', String(limit));
+    queryFn: async () => {
+      const input: EngineInput<'list'> = { facets: browserFacets(f.lede), project: f.project };
+      if (f.status !== undefined && f.status !== '') {
+        const status = statusSelection(f.status);
+        if (status === undefined) {
+          return NO_TASKS;
+        }
+        input.status = status.length === 1 ? status[0] : status;
       }
-      return apiGet<Collection<WireNode>>(`/api/nodes?${p.toString()}`);
+      if (f.q !== undefined && f.q !== '') {
+        input.q = f.q;
+      }
+      if (limit !== undefined) {
+        input.limit = limit;
+      }
+      return list({ data: input });
     },
     queryKey: ['nodes', 'tasks-browser', f, limit],
   });
 };
 
-/** The artifact-browser filter set; every field is optional and composes AND.
+/** The artifact-browser filter set; every field but the project is optional and composes AND.
  * The two date filters are bare `YYYY-MM-DD` calendar days, inclusive at both
  * edges — the days the person at the browser means (ADR 0029). */
 export type ArtifactFilters = {
-  project?: string;
+  project: string;
   tag?: string;
   q?: string;
   atOrAfter?: string;
   atOrBefore?: string;
 };
 
-/** The date filters' wire spelling — the shared field-qualified date ops. */
-const DATE_PARAMS = [
+/** The date filters' operators — the shared field-qualified date ops. */
+const DATE_OPS = [
   ['atOrAfter', 'at-or-after'],
   ['atOrBefore', 'at-or-before'],
 ] as const;
 
-/** Build the `/api/artifacts` query string from set filters (empty → ""). */
-export function artifactParams(f: ArtifactFilters): string {
-  const p = new URLSearchParams();
-  for (const [key, value] of [
-    ['project', f.project],
-    ['tag', f.tag],
-    ['q', f.q],
-  ] as const) {
-    if (value !== undefined && value !== '') {
-      p.set(key, value);
-    }
+/** The `artifacts` input for a filter set: only the set filters, and the zone when a date is set. */
+export function artifactInput(f: ArtifactFilters): EngineInput<'artifacts'> {
+  const input: EngineInput<'artifacts'> = { project: f.project };
+  if (f.tag !== undefined && f.tag !== '') {
+    input.tag = f.tag;
   }
-  let dated = false;
-  for (const [key, param] of DATE_PARAMS) {
+  if (f.q !== undefined && f.q !== '') {
+    input.q = f.q;
+  }
+  const dates = DATE_OPS.flatMap(([key, op]) => {
     const value = f[key];
-    if (value !== undefined && value !== '') {
-      p.set(param, `created_at:${value}`);
-      dated = true;
-    }
+    return value !== undefined && value !== '' ? [{ field: 'created_at', op, value }] : [];
+  });
+  if (dates.length > 0) {
+    input.dates = dates;
+    input.timeZone = browserTimeZone();
   }
-  if (dated) {
-    p.set('tz', browserTimeZone());
-  }
-  return p.toString();
+  return input;
 }
 
 /** The artifact list's window size — one fetched page of the newest-first feed. */
 export const ARTIFACT_PAGE_SIZE = 100;
 
 /**
- * Portfolio artifact search — re-runs as filters change. Windowed (the list
+ * A project's artifact search — re-runs as filters change. Windowed (the list
  * footer's "scroll for more"): each page asks for an explicit limit/offset
  * slice, and the next offset is however many rows are already on screen,
- * until the envelope's `total` is reached.
+ * until the set's `total` is reached.
  */
 export const artifactsQuery = (f: ArtifactFilters) =>
   infiniteQueryOptions({
-    getNextPageParam: (last: Collection<WireArtifactSummary>, pages) => {
+    getNextPageParam: (last: EngineOutput<'artifacts'>, pages) => {
       const fetched = pages.reduce((n, page) => n + page.items.length, 0);
       return fetched < last.total && last.items.length > 0 ? fetched : undefined;
     },
     initialPageParam: 0,
-    queryFn: ({ pageParam }) => {
-      const p = new URLSearchParams(artifactParams(f));
-      p.set('limit', String(ARTIFACT_PAGE_SIZE));
-      if (pageParam > 0) {
-        p.set('offset', String(pageParam));
-      }
-      return apiGet<Collection<WireArtifactSummary>>(`/api/artifacts?${p.toString()}`);
-    },
+    queryFn: ({ pageParam }) =>
+      artifacts({
+        data: {
+          ...artifactInput(f),
+          limit: ARTIFACT_PAGE_SIZE,
+          ...(pageParam > 0 ? { offset: pageParam } : {}),
+        },
+      }),
     queryKey: ['artifacts', f],
   });
 
 /** One artifact with its body — the reader's source. */
 export const artifactQuery = (id: string) =>
   queryOptions({
-    queryFn: () => apiGet<WireArtifactDetail>(`/api/artifacts/${encodeURIComponent(id)}`),
+    queryFn: () => getArtifact({ data: { content: true, id } }),
     queryKey: ['artifact', id],
   });
 
-/** The seeds-queue filter set (MMR-247) — `project` narrows to one board (or all). */
+/** The seeds-queue filter set (MMR-247): the board the queue lists. */
 export type SeedFilters = {
-  project?: string;
+  project: string;
 };
 
 /**
- * The grooming queue (MMR-247): every seed across every lane. `status=all`
- * so the SETTLED lane's terminal rows arrive alongside the live ones (the
- * default `live` would drop them); `project=all` spans every board unless a
- * filter narrows it. The server serves `lane` per row, so grouping derives
- * nothing (MMR-245). Keyed under `['seeds', 'list', …]` so a write's
- * `['seeds']` invalidation refreshes it.
+ * The grooming queue (MMR-247): every seed on the board across every lane.
+ * `status: 'all'` so the SETTLED lane's terminal rows arrive alongside the
+ * live ones (the default `live` would drop them). Keyed under
+ * `['seeds', 'list', …]` so a write's `['seeds']` invalidation refreshes it.
  */
-export const seedsQuery = (f: SeedFilters = {}) =>
+export const seedsQuery = (f: SeedFilters) =>
   queryOptions({
-    queryFn: () => {
-      const p = new URLSearchParams({ status: 'all' });
-      p.set('project', f.project !== undefined && f.project !== '' ? f.project : 'all');
-      return apiGet<Collection<WireSeed>>(`/api/seeds?${p.toString()}`);
-    },
+    queryFn: () => seeds({ data: { project: f.project, status: 'all' } }),
     queryKey: ['seeds', 'list', f],
   });
 
 /** One seed with its body prose — the seed page's detail source (content read). */
 export const seedQuery = (id: string) =>
   queryOptions({
-    queryFn: () => apiGet<WireSeed>(`/api/seeds/${encodeURIComponent(id)}`),
+    queryFn: () => getSeed({ data: { content: true, id } }),
     queryKey: ['seeds', 'detail', id],
   });
 
@@ -221,11 +261,6 @@ export const seedQuery = (id: string) =>
  */
 export const upstreamTasksQuery = (seedId: string) =>
   queryOptions({
-    queryFn: () => {
-      const p = new URLSearchParams({ type: 'task' });
-      p.set('status', 'all');
-      p.set('eq', `upstream:${seedId}`);
-      return apiGet<Collection<WireNode>>(`/api/nodes?${p.toString()}`);
-    },
+    queryFn: () => consoleUpstreamTasks({ data: { seed: seedId } }),
     queryKey: ['nodes', 'upstream', seedId],
   });

@@ -5,10 +5,13 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiError } from '../api/errors';
+import type { ArtifactRecord } from '../api/browse-queries';
+import { getArtifact } from '../api/fns/browse';
 import { tree } from '../api/fns/shell';
-import type { WireArtifactDetail, WireNode } from '../api/types';
+import type { WireNode } from '../api/types';
 import { routeTree } from '../router';
+import { engineArtifactRecord } from './browse-fixtures';
+import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
 import { emptyRead, task } from './fixtures';
 import { serveShell } from './shell-fns';
@@ -16,6 +19,7 @@ import { serveShell } from './shell-fns';
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
 
 const PROJECTS = [engineProject({ id: 'MMR', title: 'Mimir' })];
@@ -25,8 +29,9 @@ function tn(
   type: EngineTree['type'],
   title: string,
   children: EngineTree[] = [],
+  status: EngineTree['status'] = 'ready',
 ): EngineTree {
-  return engineTree({ id, status: 'ready', title, type }, children);
+  return engineTree({ id, status, title, type }, children);
 }
 
 const TREE = tn('MMR', 'project', 'Mimir', [
@@ -34,9 +39,9 @@ const TREE = tn('MMR', 'project', 'Mimir', [
     tn('MMR-432', 'task', 'serve answers any Host'),
   ]),
   tn('MMR-437', 'phase', 'Console phase 1', [
-    tn('MMR-448', 'task', 'Mock the palette'),
-    tn('MMR-451', 'task', 'Seed pages'),
-    tn('MMR-452', 'task', 'Artifact pages'),
+    tn('MMR-448', 'task', 'Mock the palette', [], 'done'),
+    tn('MMR-451', 'task', 'Seed pages', [], 'under_review'),
+    tn('MMR-452', 'task', 'Artifact pages', [], 'in_progress'),
   ]),
 ]);
 
@@ -56,47 +61,40 @@ const hostTask = task({
   title: 'serve answers any Host',
 });
 
-const spec: WireArtifactDetail = {
+const spec = engineArtifactRecord({
   content: '## The decision\n\nServe becomes **run it and reach it** by default.',
-  created_at: '2026-10-06T16:07:41.112Z',
+  createdAt: new Date('2026-10-06T16:07:41.112Z'),
   id: 'MMR-a232',
-  links: [{ id: 'MMR-432', status: 'done', title: 'serve answers any Host' }],
-  project: 'MMR',
+  links: ['MMR-432'],
   summary: 'v0.22.1 design-of-record for the network modes.',
   tags: ['spec', 'kind:shaping'],
   title: 'Shaping: optional serve hardening and network modes',
-};
+});
 
-const picks: WireArtifactDetail = {
+const picks = engineArtifactRecord({
   content: 'Chosen variants.',
-  created_at: '2026-10-10T22:16:00.000Z',
+  createdAt: new Date('2026-10-10T22:16:00.000Z'),
   id: 'MMR-a239',
-  links: [
-    { id: 'MMR-448', status: 'done', title: 'Mock the palette' },
-    { id: 'MMR-451', status: 'under_review', title: 'Seed pages' },
-    { id: 'MMR-452', status: 'in_progress', title: 'Artifact pages' },
-  ],
-  project: 'MMR',
+  links: ['MMR-448', 'MMR-451', 'MMR-452'],
   tags: ['session_summary'],
   title: 'Session summary: phase 1 mocks chosen',
-};
+});
 
-const loose: WireArtifactDetail = {
+const loose = engineArtifactRecord({
   content: 'A note with no record.',
-  created_at: '2026-10-01T09:00:00.000Z',
+  createdAt: new Date('2026-10-01T09:00:00.000Z'),
   id: 'MMR-a9',
-  links: [],
-  project: 'MMR',
   tags: ['note'],
   title: 'Loose note',
-};
+});
 
-/** Serve one artifact and the given nodes; empty lists elsewhere (beforeEach serves the project list and tree). */
-function serve(record: WireArtifactDetail, nodes: WireNode[] = []) {
+/**
+ * Serve one artifact and the given nodes at their detail paths; empty lists
+ * elsewhere (beforeEach serves the project list and tree).
+ */
+function serve(record: ArtifactRecord, nodes: WireNode[] = []) {
+  serveBrowse({ records: { [record.id]: record } });
   apiGet.mockImplementation((path: string) => {
-    if (path === `/api/artifacts/${record.id}`) {
-      return Promise.resolve(record);
-    }
     const node = nodes.find((n) => path === `/api/nodes/${n.id}`);
     if (node !== undefined) {
       return Promise.resolve(node);
@@ -187,14 +185,7 @@ describe('artifact page (MMR-452)', () => {
     });
 
     it('runs the path through the record even when the tree cannot be read', async () => {
-      apiGet.mockImplementation((p: string) => {
-        if (p === '/api/artifacts/MMR-a232') {
-          return Promise.resolve(spec);
-        }
-        return p === '/api/nodes/MMR-432'
-          ? Promise.resolve(hostTask)
-          : Promise.resolve(emptyRead(p));
-      });
+      serve(spec, [hostTask]);
       vi.mocked(tree).mockRejectedValue(new Error('tree unreachable'));
       renderAt('/p/MMR/a232');
 
@@ -216,9 +207,7 @@ describe('artifact page (MMR-452)', () => {
         type: 'phase',
         updated_at: '2026-06-01T10:00:00.000Z',
       });
-      serve({ ...spec, links: [{ id: 'MMR-437', status: 'done', title: 'Console phase 1' }] }, [
-        phase,
-      ]);
+      serve({ ...spec, links: ['MMR-437'] }, [phase]);
       renderAt('/p/MMR/a232');
 
       const card = await screen.findByRole('group', { name: 'Attached to' });
@@ -258,13 +247,16 @@ describe('artifact page (MMR-452)', () => {
     });
 
     it('orders the records by their number, not as text', async () => {
-      serve({
-        ...picks,
-        links: [
-          { id: 'MMR-10', status: 'ready', title: 'Ten' },
-          { id: 'MMR-9', status: 'ready', title: 'Nine' },
-        ],
+      serveShell({
+        projects: PROJECTS,
+        trees: {
+          MMR: tn('MMR', 'project', 'Mimir', [
+            tn('MMR-9', 'task', 'Nine'),
+            tn('MMR-10', 'task', 'Ten'),
+          ]),
+        },
       });
+      serve({ ...picks, links: ['MMR-10', 'MMR-9'] });
       renderAt('/p/MMR/a239');
 
       const card = await screen.findByRole('group', { name: 'Attached to · 2' });
@@ -276,11 +268,7 @@ describe('artifact page (MMR-452)', () => {
     });
 
     it('folds past five records, and unfolds and refolds on request', async () => {
-      const many = Array.from({ length: 7 }, (_, i) => ({
-        id: `MMR-${String(i + 1)}`,
-        status: 'ready' as const,
-        title: `Record ${String(i + 1)}`,
-      }));
+      const many = Array.from({ length: 7 }, (_, i) => `MMR-${String(i + 1)}`);
       serve({ ...picks, links: many });
       renderAt('/p/MMR/a239');
 
@@ -377,11 +365,7 @@ describe('artifact page (MMR-452)', () => {
     });
 
     it('owns the not-found state when no artifact has the id', async () => {
-      apiGet.mockImplementation((p: string) =>
-        p === '/api/artifacts/MMR-a999'
-          ? Promise.reject(new ApiError(`GET ${p} → 404`, 404))
-          : Promise.resolve(emptyRead(p)),
-      );
+      serve(spec);
       renderAt('/p/MMR/a999');
 
       await expect(screen.findByText('No record MMR-a999.')).resolves.toBeInTheDocument();
@@ -392,7 +376,7 @@ describe('artifact page (MMR-452)', () => {
       renderAt('/p/MMR/a2x');
 
       await expect(screen.findByText('No record at /p/MMR/a2x.')).resolves.toBeInTheDocument();
-      expect(apiGet).not.toHaveBeenCalledWith(expect.stringMatching(/^\/api\/artifacts\//));
+      expect(getArtifact).not.toHaveBeenCalled();
     });
   });
 });

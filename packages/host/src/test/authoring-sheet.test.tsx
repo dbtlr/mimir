@@ -2,18 +2,22 @@ import type { EngineTree } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
+import { consoleOpenTasks, seedPromote } from '../api/fns/browse';
+import type { PromotedSeed } from '../api/seed-mutations';
 import { AuthoringSheet } from '../components/authoring-sheet';
 import type { AuthoringSheetProps } from '../components/authoring-sheet';
+import { engineSeed, engineTask } from './browse-fixtures';
+import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
-import { task } from './fixtures';
 import { renderInRouter } from './router';
 import { serveShell } from './shell-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('sonner', () => ({ toast }));
 
@@ -45,9 +49,21 @@ const mmrTree = treeNode('MMR', 'Mimir', 'project', [
 const webTree = treeNode('WEB', 'Website', 'project', [treeNode('WEB-1', 'launch', 'initiative')]);
 
 const depRows = [
-  task({ id: 'MMR-40', status: 'ready', title: 'auth tokens' }),
-  task({ id: 'MMR-41', status: 'in_progress', title: 'auth UI' }),
+  engineTask({ id: 'MMR-40', status: 'ready', title: 'auth tokens' }),
+  engineTask({ id: 'MMR-41', lifecycle: 'in_progress', status: 'in_progress', title: 'auth UI' }),
 ];
+
+// Before each case's own answers, so a case's seed-write mock outlives renderSheet.
+beforeEach(() => {
+  serveBrowse({ tasks: depRows });
+});
+
+/** A promote's echo: the seed, now promoted, and the task it spawned. */
+const promotion: PromotedSeed = {
+  created: 'MMR-42',
+  seed: engineSeed({ id: 'MMR-s1', lifecycle: 'promoted', spawned: ['MMR-42'] }),
+  spawnedId: 'MMR-42',
+};
 
 function mockReads() {
   serveShell({
@@ -57,12 +73,7 @@ function mockReads() {
     ],
     trees: { MMR: mmrTree, WEB: webTree },
   });
-  apiGet.mockImplementation((path: string) => {
-    if (path.startsWith('/api/nodes?type=task&q=')) {
-      return Promise.resolve({ items: depRows, total: depRows.length });
-    }
-    return Promise.reject(new Error(`unexpected ${path}`));
-  });
+  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
 }
 
 async function renderSheet(props: Partial<AuthoringSheetProps> = {}) {
@@ -154,6 +165,8 @@ describe('authoringSheet', () => {
     await user.click(await screen.findByRole('option', { name: /MMR-40/ }));
     // picking appends a chip; the remove control is a real button
     expect(screen.getByLabelText('Remove dependency MMR-40')).toBeInTheDocument();
+    // The picker asks the host for every board's open tasks matching the text.
+    expect(consoleOpenTasks).toHaveBeenCalledWith({ data: { q: 'auth' } });
 
     await user.click(screen.getByRole('button', { name: 'Create ↵' }));
     await waitFor(() => {
@@ -520,7 +533,7 @@ describe('authoringSheet', () => {
 
     it('submits to the promote endpoint with the edited body, never the create route', async () => {
       const user = userEvent.setup();
-      apiSend.mockResolvedValue({ created: 'MMR-42', id: 'MMR-s1', lifecycle: 'promoted' });
+      vi.mocked(seedPromote).mockResolvedValue(promotion);
       const { onOpenChange } = await renderSheet({
         headerSlot: <span>Promote seed</span>,
         prefill: { description: 'Repro steps.', title: 'Tree lens scroll' },
@@ -531,10 +544,13 @@ describe('authoringSheet', () => {
       await user.click(screen.getByRole('button', { name: 'Promote ↵' }));
       await waitFor(() => {
         // parent is the suggested standing home (MMR-9 'Polish'), the lone ∞ container
-        expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s1/promote', {
-          description: 'Repro steps.',
-          parent: 'MMR-9',
-          title: 'Tree lens scroll',
+        expect(seedPromote).toHaveBeenCalledWith({
+          data: {
+            description: 'Repro steps.',
+            id: 'MMR-s1',
+            parent: 'MMR-9',
+            title: 'Tree lens scroll',
+          },
         });
       });
       expect(apiSend).not.toHaveBeenCalledWith('POST', '/api/nodes', expect.anything());
@@ -545,7 +561,7 @@ describe('authoringSheet', () => {
 
     it("promote & open lands on the spawned task's page and closes", async () => {
       const user = userEvent.setup();
-      apiSend.mockResolvedValue({ created: 'MMR-42', id: 'MMR-s1', lifecycle: 'promoted' });
+      vi.mocked(seedPromote).mockResolvedValue(promotion);
       const { onOpenChange, router } = await renderSheet({
         headerSlot: <span>Promote seed</span>,
         prefill: { title: 'Tree lens scroll' },
@@ -596,11 +612,8 @@ describe('authoringSheet', () => {
 
     it('expands DEPENDS ON and chains /depend onto the spawned task after promote', async () => {
       const user = userEvent.setup();
-      apiSend.mockImplementation((_method: string, path: string) =>
-        path.endsWith('/promote')
-          ? Promise.resolve({ created: 'MMR-42', id: 'MMR-s1', lifecycle: 'promoted' })
-          : Promise.resolve({ id: 'MMR-42' }),
-      );
+      vi.mocked(seedPromote).mockResolvedValue(promotion);
+      apiSend.mockResolvedValue({ id: 'MMR-42' });
       const { onOpenChange } = await renderSheet({
         headerSlot: <span>Promote seed</span>,
         prefill: { title: 'Tree lens scroll' },
@@ -615,10 +628,9 @@ describe('authoringSheet', () => {
 
       await user.click(screen.getByRole('button', { name: 'Promote ↵' }));
       await waitFor(() => {
-        // the promote POST carries no deps…
-        expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s1/promote', {
-          parent: 'MMR-9',
-          title: 'Tree lens scroll',
+        // the promote carries no deps…
+        expect(seedPromote).toHaveBeenCalledWith({
+          data: { id: 'MMR-s1', parent: 'MMR-9', title: 'Tree lens scroll' },
         });
         // …they are chained onto the echoed spawned id
         expect(apiSend).toHaveBeenCalledWith('POST', '/api/nodes/MMR-42/depend', {
@@ -631,11 +643,8 @@ describe('authoringSheet', () => {
 
     it('surfaces a partial failure honestly when the deps chain fails after promote', async () => {
       const user = userEvent.setup();
-      apiSend.mockImplementation((_method: string, path: string) =>
-        path.endsWith('/promote')
-          ? Promise.resolve({ created: 'MMR-42', id: 'MMR-s1', lifecycle: 'promoted' })
-          : Promise.reject(new Error('would create a cycle')),
-      );
+      vi.mocked(seedPromote).mockResolvedValue(promotion);
+      apiSend.mockRejectedValue(new Error('would create a cycle'));
       const { onOpenChange } = await renderSheet({
         headerSlot: <span>Promote seed</span>,
         prefill: { title: 'Tree lens scroll' },

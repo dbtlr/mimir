@@ -1,3 +1,4 @@
+import { MimirError } from '@mimir/contract';
 import type { EngineNode } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
@@ -5,9 +6,12 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
+import { artifacts, list, seeds } from '../api/fns/browse';
 import { projects } from '../api/fns/shell';
 import { readRememberedProject, rememberProject } from '../lib/current-project';
 import { routeTree } from '../router';
+import { taskSet } from './browse-fixtures';
+import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { emptyRead } from './fixtures';
 import { failShellReads, serveShell } from './shell-fns';
@@ -15,13 +19,34 @@ import { failShellReads, serveShell } from './shell-fns';
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend: vi.fn() }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 
 const MMR = engineProject({ id: 'MMR' });
 const NRN = engineProject({ id: 'NRN' });
 
-/** Serve `list` as the project list and empty reads for everything else. */
-function serve(list: EngineNode[]) {
-  serveShell({ projects: list });
+/** A key that names no project: its browsers' reads are refused as not found. */
+function refuseUnknown(project: string) {
+  if (project === 'ZZZ') {
+    throw new MimirError('not_found', 'project ZZZ not found');
+  }
+}
+
+/** Serve `active` as the project list and empty reads for everything else. */
+function serve(active: EngineNode[]) {
+  serveShell({ projects: active });
+  serveBrowse();
+  vi.mocked(list).mockImplementation(async ({ data }) => {
+    refuseUnknown(data.project);
+    return taskSet([]);
+  });
+  vi.mocked(seeds).mockImplementation(async ({ data }) => {
+    refuseUnknown(data.project);
+    return [];
+  });
+  vi.mocked(artifacts).mockImplementation(async ({ data }) => {
+    refuseUnknown(data.project);
+    return { items: [], returned: 0, startsAt: 0, total: 0 };
+  });
   apiGet.mockImplementation((path: string) => {
     // A key that names no project: the project record, and its scoped lists, answer 404.
     if (path.startsWith('/api/projects/ZZZ') || /[?&]project=ZZZ/.test(path)) {

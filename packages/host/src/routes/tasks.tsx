@@ -1,12 +1,11 @@
-import type { StatusSelector, TaskStatusWord } from '@mimir/contract';
+import type { EngineNode, StatusSelector, TaskStatusWord } from '@mimir/contract';
 import { STATUS_SELECTOR_VALUES } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
 import { tasksBrowserQuery } from '../api/browse-queries';
-import type { TaskFilters } from '../api/browse-queries';
-import type { Collection, WireNode } from '../api/types';
+import type { TaskFilters, TaskSet } from '../api/browse-queries';
 import { projectKeyOf } from '../api/types';
 import { AuthoringSheet } from '../components/authoring-sheet';
 import {
@@ -84,26 +83,25 @@ function statusFilterLabel(status: string): string {
 /** Live is the default view: no `status` param, or `live` spelled out. */
 const isLiveView = (status: string | undefined) => status === undefined || status === 'live';
 
-type TaskGroup = { key: string; label: string; items: WireNode[] };
+type TaskGroup = { key: string; label: string; items: EngineNode[] };
 
-const newestFirst = (a: WireNode, b: WireNode) =>
-  Date.parse(b.updated_at) - Date.parse(a.updated_at);
+const newestFirst = (a: EngineNode, b: EngineNode) => b.updatedAt.getTime() - a.updatedAt.getTime();
 
-const projectKeyOfNode = (n: WireNode) => n.home?.project_key ?? projectKeyOf(n.id);
+const projectKeyOfNode = (n: EngineNode) => n.home?.projectKey ?? projectKeyOf(n.id);
 
 /**
  * The Finished view's row order: the server's own paging order (MMR-460) —
- * `completed_at` descending, unset last, ties by project key then seq — so a
+ * `completedAt` descending, unset last, ties by project key then seq — so a
  * "Show more" window appends to each group and never lands among shown rows.
  */
-const byCompletion = (a: WireNode, b: WireNode) => {
-  const aDone = a.completed_at ?? '';
-  const bDone = b.completed_at ?? '';
+const byCompletion = (a: EngineNode, b: EngineNode) => {
+  const aDone = a.completedAt?.getTime();
+  const bDone = b.completedAt?.getTime();
   if (aDone !== bDone) {
-    if (aDone === '' || bDone === '') {
-      return aDone === '' ? 1 : -1;
+    if (aDone === undefined || bDone === undefined) {
+      return aDone === undefined ? 1 : -1;
     }
-    return aDone < bDone ? 1 : -1;
+    return bDone - aDone;
   }
   const aKey = projectKeyOfNode(a);
   const bKey = projectKeyOfNode(b);
@@ -121,8 +119,8 @@ const seqOf = (id: string) => Number(id.slice(id.lastIndexOf('-') + 1));
  * unless a view says otherwise); empty groups never appear.
  */
 function groupTasks(
-  items: readonly WireNode[],
-  order: (a: WireNode, b: WireNode) => number,
+  items: readonly EngineNode[],
+  order: (a: EngineNode, b: EngineNode) => number,
 ): TaskGroup[] {
   return TASK_STATUS_ORDER.map((word) => ({
     items: items.filter((n) => n.status === word).toSorted(order),
@@ -132,13 +130,13 @@ function groupTasks(
 }
 
 /** The meta line: mono project key › parent title, ∞ on a standing home, then the age. */
-function TaskMeta({ node }: { node: WireNode }) {
+function TaskMeta({ node }: { node: EngineNode }) {
   const home = node.home;
   return (
     <>
-      <span className="font-mono">{home?.project_key ?? projectKeyOf(node.id)}</span>
-      {home?.parent_title != null && <> › {home.parent_title}</>}
-      {home?.parent_open_ended === true && (
+      <span className="font-mono">{home?.projectKey ?? projectKeyOf(node.id)}</span>
+      {home?.parentTitle != null && <> › {home.parentTitle}</>}
+      {home?.parentOpenEnded === true && (
         // role="img" + aria-label: `title` alone is unreliable AT — the glyph's
         // meaning must survive without a mouse. relative z-10 lifts it above the
         // row's stretched link, so its tooltip still shows on hover.
@@ -152,7 +150,7 @@ function TaskMeta({ node }: { node: WireNode }) {
         </span>
       )}
       {' · '}
-      {relativeTime(node.updated_at)}
+      {relativeTime(node.updatedAt)}
     </>
   );
 }
@@ -177,7 +175,7 @@ function useTaskWindow(filters: TaskFilters) {
 
   // The last settled result for these filters, so a failed larger read does
   // not blank the list (an errored query without data has none of its own).
-  const [kept, setKept] = useState<{ scope: string; data: Collection<WireNode> }>();
+  const [kept, setKept] = useState<{ scope: string; data: TaskSet }>();
   if (
     tasks.data !== undefined &&
     !tasks.isPlaceholderData &&

@@ -220,7 +220,7 @@ function AuthoringSheetBody({
     ...tasksQuery({ q: depQ }),
     enabled: type === 'task' && depQ.trim() !== '',
   });
-  const depOptions = (depQuery.data?.items ?? [])
+  const depOptions = (depQuery.data ?? [])
     .filter((n) => !deps.some((d) => d.id === n.id))
     .slice(0, 8);
   const depListOpen = type === 'task' && depSearch.trim() !== '' && depQ.trim() !== '';

@@ -1,19 +1,25 @@
+import type { EngineNode } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { EngineSeed } from '../api/browse-queries';
 import { ApiError } from '../api/errors';
-import type { WireNode, WireSeed } from '../api/types';
+import { consoleUpstreamTasks, seedUpdate } from '../api/fns/browse';
+import type { WireNode } from '../api/types';
 import { routeTree } from '../router';
+import { engineTask, seedIn } from './browse-fixtures';
+import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
-import { emptyRead, seed, task } from './fixtures';
+import { emptyRead, task } from './fixtures';
 import { serveShell } from './shell-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
 
 const PROJECTS = [
@@ -21,11 +27,10 @@ const PROJECTS = [
   engineProject({ id: 'NRN', title: 'Norn' }),
 ];
 
-const crossBoardBug = seed({
+const crossBoardBug = seedIn('untriaged', {
   description: 'Reproduced with **norn 0.48.2** over the MCP stdio transport.',
   id: 'NRN-s30',
   kind: 'bug',
-  lane: 'untriaged',
   project: 'NRN',
   requester: 'MMR',
   title: 'norn mcp closes the connection silently',
@@ -39,30 +44,22 @@ const abandoned = task({
   updated_at: '2026-10-10T12:00:00.000Z',
 });
 
-const readyToResolve = seed({
+const readyToResolve = seedIn('ready', {
   id: 'MMR-s23',
-  lane: 'ready',
-  lifecycle: 'promoted',
-  ready_to_resolve: true,
   spawned: ['MMR-364'],
   title: 'Shape Mimir as the session skill router',
 });
 
-const upstreamPath = (id: string) =>
-  `/api/nodes?type=task&status=all&eq=${encodeURIComponent(`upstream:${id}`)}`;
-
-/** Serve one seed at its detail path, the given nodes, and empty lists elsewhere (beforeEach serves the project list). */
+/**
+ * Serve one seed, the tasks naming it upstream, the given nodes at their
+ * detail paths, and empty lists elsewhere (beforeEach serves the project list).
+ */
 function serve(
-  record: WireSeed,
-  { nodes = [], upstream = [] }: { nodes?: WireNode[]; upstream?: WireNode[] } = {},
+  record: EngineSeed,
+  { nodes = [], upstream = [] }: { nodes?: WireNode[]; upstream?: EngineNode[] } = {},
 ) {
+  serveBrowse({ seeds: [record], upstream: { [record.id]: upstream } });
   apiGet.mockImplementation((path: string) => {
-    if (path === `/api/seeds/${record.id}`) {
-      return Promise.resolve(record);
-    }
-    if (path === upstreamPath(record.id)) {
-      return Promise.resolve({ items: upstream, total: upstream.length });
-    }
     const node = nodes.find((n) => path === `/api/nodes/${n.id}`);
     if (node !== undefined) {
       return Promise.resolve(node);
@@ -115,7 +112,7 @@ describe('seed page (MMR-451)', () => {
   });
 
   it('a seed filed on its own board is your request', async () => {
-    serve(seed({ id: 'MMR-s7', lane: 'untriaged', requester: null, title: 'Own idea' }));
+    serve(seedIn('untriaged', { id: 'MMR-s7', requester: null, title: 'Own idea' }));
     renderAt('/p/MMR/s7');
 
     const card = await screen.findByRole('group', { name: 'Request' });
@@ -159,11 +156,7 @@ describe('seed page (MMR-451)', () => {
   });
 
   it('owns the not-found state when no seed has the id', async () => {
-    apiGet.mockImplementation((path: string) =>
-      path === '/api/seeds/NRN-s99'
-        ? Promise.reject(new ApiError(`GET ${path} → 404`, 404))
-        : Promise.resolve(emptyRead(path)),
-    );
+    serve(crossBoardBug);
     renderAt('/p/NRN/s99');
 
     await expect(screen.findByText('No record NRN-s99.')).resolves.toBeInTheDocument();
@@ -182,15 +175,8 @@ describe('seed page (MMR-451)', () => {
     });
 
     it('does not claim nothing waits on the seed when the upstream read fails', async () => {
-      apiGet.mockImplementation((path: string) => {
-        if (path === `/api/seeds/${crossBoardBug.id}`) {
-          return Promise.resolve(crossBoardBug);
-        }
-        if (path === upstreamPath(crossBoardBug.id)) {
-          return Promise.reject(new ApiError(`GET ${path} → 500`, 500));
-        }
-        return Promise.resolve(emptyRead(path));
-      });
+      serve(crossBoardBug);
+      vi.mocked(consoleUpstreamTasks).mockRejectedValue(new ApiError('unreachable', 500));
       renderAt('/p/NRN/s30');
 
       await expect(
@@ -210,7 +196,7 @@ describe('seed page (MMR-451)', () => {
     });
 
     it('lists tasks on any board that name the seed as upstream', async () => {
-      const waiting = task({ id: 'MMR-378', status: 'blocked', title: 'Chunk the export' });
+      const waiting = engineTask({ id: 'MMR-378', status: 'blocked', title: 'Chunk the export' });
       serve(crossBoardBug, { upstream: [waiting] });
       renderAt('/p/NRN/s30');
 
@@ -221,7 +207,12 @@ describe('seed page (MMR-451)', () => {
     });
 
     it('does not say a settled upstream task still waits on the seed', async () => {
-      const finished = task({ id: 'MMR-379', status: 'done', title: 'Worked around it' });
+      const finished = engineTask({
+        id: 'MMR-379',
+        lifecycle: 'done',
+        status: 'done',
+        title: 'Worked around it',
+      });
       serve(crossBoardBug, { upstream: [finished] });
       renderAt('/p/NRN/s30');
 
@@ -246,7 +237,7 @@ describe('seed page (MMR-451)', () => {
     });
 
     it('names a parked seed and offers to unpark it (MMR-473)', async () => {
-      serve(seed({ ...crossBoardBug, lane: 'parked', lifecycle: 'parked' }));
+      serve({ ...crossBoardBug, lifecycle: 'parked' });
       renderAt('/p/NRN/s30');
 
       const decision = await screen.findByRole('region', { name: 'Your call' });
@@ -274,7 +265,7 @@ describe('seed page (MMR-451)', () => {
     });
 
     it('offers another promotion while the seed’s work is under way', async () => {
-      serve(seed({ id: 'MMR-s8', lane: 'promoted', lifecycle: 'promoted', spawned: [] }));
+      serve(seedIn('promoted', { id: 'MMR-s8', spawned: [] }));
       renderAt('/p/MMR/s8');
 
       const decision = await screen.findByRole('region', { name: 'Your call' });
@@ -285,7 +276,7 @@ describe('seed page (MMR-451)', () => {
     });
 
     it('asks nothing of a settled seed', async () => {
-      serve(seed({ id: 'MMR-s9', lane: 'settled', lifecycle: 'resolved', title: 'Done seed' }));
+      serve(seedIn('settled', { id: 'MMR-s9', title: 'Done seed' }));
       renderAt('/p/MMR/s9');
 
       await screen.findByRole('heading', { level: 1, name: 'Done seed' });
@@ -297,7 +288,6 @@ describe('seed page (MMR-451)', () => {
   describe('actions', () => {
     it('edits the title, kind, and description of a live seed', async () => {
       serve(crossBoardBug);
-      apiSend.mockResolvedValue(crossBoardBug);
       renderAt('/p/NRN/s30');
 
       const rail = await screen.findByRole('complementary', { name: 'Record details' });
@@ -309,9 +299,8 @@ describe('seed page (MMR-451)', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       await waitFor(() =>
-        expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/seeds/NRN-s30', {
-          kind: 'feature',
-          title: 'norn mcp drops large responses',
+        expect(seedUpdate).toHaveBeenCalledWith({
+          data: { id: 'NRN-s30', kind: 'feature', title: 'norn mcp drops large responses' },
         }),
       );
       await waitFor(() =>
@@ -322,7 +311,6 @@ describe('seed page (MMR-451)', () => {
     it('sends only what changed, so an over-cap older title never blocks an edit', async () => {
       const longTitle = 'x'.repeat(150);
       serve({ ...crossBoardBug, title: longTitle });
-      apiSend.mockResolvedValue(crossBoardBug);
       renderAt('/p/NRN/s30');
 
       const rail = await screen.findByRole('complementary', { name: 'Record details' });
@@ -331,7 +319,7 @@ describe('seed page (MMR-451)', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       await waitFor(() =>
-        expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/seeds/NRN-s30', { kind: 'idea' }),
+        expect(seedUpdate).toHaveBeenCalledWith({ data: { id: 'NRN-s30', kind: 'idea' } }),
       );
     });
 
@@ -346,11 +334,11 @@ describe('seed page (MMR-451)', () => {
       await waitFor(() =>
         expect(screen.queryByRole('textbox', { name: 'Title' })).not.toBeInTheDocument(),
       );
-      expect(apiSend).not.toHaveBeenCalled();
+      expect(seedUpdate).not.toHaveBeenCalled();
     });
 
     it('offers no edit once the seed is settled', async () => {
-      serve(seed({ id: 'MMR-s9', lane: 'settled', lifecycle: 'rejected', title: 'Gone' }));
+      serve(seedIn('settled', { id: 'MMR-s9', lifecycle: 'rejected', title: 'Gone' }));
       renderAt('/p/MMR/s9');
 
       const rail = await screen.findByRole('complementary', { name: 'Record details' });
