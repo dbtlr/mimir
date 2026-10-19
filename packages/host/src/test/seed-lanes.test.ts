@@ -80,10 +80,9 @@ describe('seed lane grouping (MMR-247)', () => {
     expect(seedMatchesQuery(seedIn('settled', { title: 'x' }), 'refetch')).toBe(false);
   });
 
-  it('reads the lane of an Engine seed and of an /api wire seed alike', () => {
+  it('reads the lane of a seed from its lifecycle and ready flag', () => {
     expect(laneOf({ lifecycle: 'promoted', readyToResolve: true })).toBe('ready');
-    expect(laneOf({ lifecycle: 'promoted', ready_to_resolve: true })).toBe('ready');
-    expect(laneOf({ lifecycle: 'promoted', ready_to_resolve: false })).toBe('promoted');
+    expect(laneOf({ lifecycle: 'promoted', readyToResolve: false })).toBe('promoted');
     expect(laneOf({ lifecycle: 'rejected', readyToResolve: true })).toBe('settled');
   });
 

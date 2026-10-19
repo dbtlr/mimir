@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import type { WireReviewProject, WireReviewReport } from '../api/types';
+import type { ReviewReport } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import { nodeLink, seedLink } from '../lib/record-url';
 import { ago, relativeTime } from '../lib/time';
@@ -63,7 +63,7 @@ const STRIP_COLUMNS =
  * most recent activity): its decisions in the attention hue, its open tasks
  * ("live"), and the tasks going cold. A row opens the project's work page.
  */
-function HealthStrip({ projects }: { projects: readonly WireReviewProject[] }) {
+function HealthStrip({ projects }: { projects: ReviewReport['projects'] }) {
   // With every project archived there is nothing to list, and headers alone mislead.
   if (projects.length === 0) {
     return null;
@@ -103,11 +103,7 @@ function HealthStrip({ projects }: { projects: readonly WireReviewProject[] }) {
                 noun={(n) => `${String(n)} live`}
                 className="text-status-in-progress-foreground"
               />
-              <StripCount
-                n={p.going_cold}
-                noun={(n) => `${String(n)} cold`}
-                className="text-cold"
-              />
+              <StripCount n={p.goingCold} noun={(n) => `${String(n)} cold`} className="text-cold" />
             </Link>
           </li>
         ))}
@@ -184,7 +180,7 @@ function CappedRows<T>({
 }
 
 /** Per-project `doctor` findings, each row linking to that project's record health. */
-function FindingsRows({ triage }: { triage: WireReviewReport['triage'] }) {
+function FindingsRows({ triage }: { triage: ReviewReport['triage'] }) {
   return (
     <ul>
       {triage
@@ -221,12 +217,12 @@ function FindingsRows({ triage }: { triage: WireReviewReport['triage'] }) {
  * the section (the next group's first, when its group ran out), else to the
  * section's heading, which stays whatever the groups hold.
  */
-function MinuteSection({ report, offline }: { report: WireReviewReport; offline: boolean }) {
+function MinuteSection({ report, offline }: { report: ReviewReport; offline: boolean }) {
   const seeds = report.triage.flatMap((group) => group.seeds);
   const findings = report.triage.filter((group) => group.findings > 0);
-  const total = report.runnable.length + seeds.length + report.going_cold.length + findings.length;
+  const total = report.runnable.length + seeds.length + report.goingCold.length + findings.length;
   const { handoff, headingRef } = useRowFocusHandoff([
-    ...report.runnable.map((row) => row.id),
+    ...report.runnable.map((row) => row.task.id),
     ...seeds.map((seed) => seed.id),
   ]);
   return (
@@ -244,12 +240,12 @@ function MinuteSection({ report, offline }: { report: WireReviewReport; offline:
               <CappedRows rows={report.runnable} noun="runnable">
                 {(row) => (
                   <BrowserRow
-                    key={row.id}
-                    to={nodeLink(row.id)}
-                    id={row.id}
-                    title={row.title}
+                    key={row.task.id}
+                    to={nodeLink(row.task.id)}
+                    id={row.task.id}
+                    title={row.task.title}
                     afterTitle={<RowTail row={row} />}
-                    actions={<StartAction id={row.id} offline={offline} handoff={handoff} />}
+                    actions={<StartAction id={row.task.id} offline={offline} handoff={handoff} />}
                     actionsBelow
                   />
                 )}
@@ -266,7 +262,7 @@ function MinuteSection({ report, offline }: { report: WireReviewReport; offline:
                     id={seed.id}
                     title={seed.title}
                     beforeTitle={<SeedKindChip kind={seed.kind} />}
-                    meta={`filed ${ago(seed.created_at)}`}
+                    meta={`filed ${ago(seed.createdAt)}`}
                     actions={<SeedTriageActions seed={seed} offline={offline} handoff={handoff} />}
                     actionsBelow
                   />
@@ -274,16 +270,16 @@ function MinuteSection({ report, offline }: { report: WireReviewReport; offline:
               </CappedRows>
             </MinuteGroup>
           )}
-          {report.going_cold.length > 0 && (
-            <MinuteGroup label="Going cold" count={report.going_cold.length}>
-              <CappedRows rows={report.going_cold} noun="going cold">
+          {report.goingCold.length > 0 && (
+            <MinuteGroup label="Going cold" count={report.goingCold.length}>
+              <CappedRows rows={report.goingCold} noun="going cold">
                 {(row) => (
                   <BrowserRow
-                    key={row.id}
-                    to={nodeLink(row.id)}
-                    id={row.id}
-                    title={row.title}
-                    meta={<span>⧗ {relativeTime(row.updated_at)} quiet</span>}
+                    key={row.task.id}
+                    to={nodeLink(row.task.id)}
+                    id={row.task.id}
+                    title={row.task.title}
+                    meta={<span>⧗ {relativeTime(row.task.updatedAt)} quiet</span>}
                   />
                 )}
               </CappedRows>
@@ -301,7 +297,7 @@ function MinuteSection({ report, offline }: { report: WireReviewReport; offline:
 }
 
 /** The review page's rail: the project health strip, then what can wait. */
-export function ReviewRail({ report, offline }: { report: WireReviewReport; offline: boolean }) {
+export function ReviewRail({ report, offline }: { report: ReviewReport; offline: boolean }) {
   return (
     <>
       <HealthStrip projects={report.projects} />

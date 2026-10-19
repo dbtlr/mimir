@@ -6,19 +6,22 @@ import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
+import { nodeWork } from '../api/fns/views';
 import { POLL_MS } from '../api/queries';
 import { createQueryClient } from '../api/query-client';
 import type { WireNode } from '../api/types';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineTree } from './engine-fixtures';
-import { emptyRead, task, workReport } from './fixtures';
+import { emptyRead, task } from './fixtures';
 import { serveShell } from './shell-fns';
+import { serveViews } from './views-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
+vi.mock('../api/fns/views');
 vi.mock('sonner', async (orig) => ({
   // oxlint-disable-next-line typescript/consistent-type-imports
   ...(await orig<typeof import('sonner')>()),
@@ -52,9 +55,6 @@ function serve(node: WireNode, extra: Record<string, unknown> = {}) {
     if (path === `/api/nodes/${node.id}`) {
       return Promise.resolve(node);
     }
-    if (path.startsWith(`/api/nodes/${node.id}/work?`)) {
-      return Promise.resolve(workReport());
-    }
     return Promise.resolve(emptyRead(path));
   });
   serveShell({ trees: { MMR: TREE } });
@@ -86,6 +86,7 @@ const sqlite = task({
 
 beforeEach(() => {
   serveBrowse();
+  serveViews();
   apiGet.mockReset();
   apiSend.mockReset();
 });
@@ -445,7 +446,7 @@ describe('container page (MMR-450)', () => {
     renderAt('/p/MMR/2');
 
     await screen.findByRole('region', { name: 'Now' });
-    expect(apiGet).toHaveBeenCalledWith('/api/nodes/MMR-2/work?tz=America%2FNew_York');
+    expect(nodeWork).toHaveBeenCalledWith({ data: { id: 'MMR-2', timeZone: 'America/New_York' } });
   });
 
   it('an initiative opens as the work page too, its parent the project', async () => {

@@ -4,8 +4,8 @@ import { useState } from 'react';
 
 import { browserTimeZone } from '../api/queries';
 import { archivedProjectsQuery } from '../api/shell-queries';
-import type { WireReviewReport } from '../api/types';
 import { reviewQuery } from '../api/view-queries';
+import type { ReviewReport } from '../api/view-queries';
 import { BrowserGroup } from '../components/browser-list';
 import { DecisionGroups } from '../components/decision-groups';
 import { FocusQueue } from '../components/focus-queue';
@@ -28,7 +28,7 @@ import { reviewRoute } from '../router';
  * page's cross-project counterpart. The main column is Needs you (the decisions,
  * grouped by project), Now, and Shipped, in the work page's row style; the rail
  * holds the project health strip and what can wait for a spare minute. One read
- * (`/api/review`) feeds all of it, and the top-bar alert reads the same entry,
+ * (`console.review`) feeds all of it, and the top-bar alert reads the same entry,
  * so their counts never disagree.
  *
  * Rows act in place (MMR-479): a decision carries the work page's verdict or
@@ -77,13 +77,7 @@ function ReviewHead({ count }: { count: number }) {
 }
 
 /** Needs you's all-clear: nothing waits, so name the work in flight and the last finish. */
-function AllClear({
-  inFlight,
-  last,
-}: {
-  inFlight: number;
-  last: WireReviewReport['last_finished'];
-}) {
+function AllClear({ inFlight, last }: { inFlight: number; last: ReviewReport['lastFinished'] }) {
   return (
     <p className="px-1 py-2 text-xs text-ink-faint">
       <strong className="font-semibold text-ink-dim">
@@ -95,22 +89,25 @@ function AllClear({
       {last !== null && (
         <>
           {' '}
-          Last finished: <span className="font-mono">{last.id}</span>{' '}
-          <Link {...nodeLink(last.id)} className="text-ink-dim underline-offset-2 hover:underline">
-            {last.title}
+          Last finished: <span className="font-mono">{last.task.id}</span>{' '}
+          <Link
+            {...nodeLink(last.task.id)}
+            className="text-ink-dim underline-offset-2 hover:underline"
+          >
+            {last.task.title}
           </Link>
-          {last.status === 'abandoned' && ' (abandoned)'}, {ago(last.finished_at)}.
+          {last.task.status === 'abandoned' && ' (abandoned)'}, {ago(last.finishedAt)}.
         </>
       )}
     </p>
   );
 }
 
-function NeedsYouSection({ report, offline }: { report: WireReviewReport; offline: boolean }) {
+function NeedsYouSection({ report, offline }: { report: ReviewReport; offline: boolean }) {
   const count = report.queue.length;
-  const inFlight = report.projects.reduce((n, p) => n + p.in_flight, 0);
+  const inFlight = report.projects.reduce((n, p) => n + p.inFlight, 0);
   const { handoff, headingRef } = useRowFocusHandoff(
-    report.decisions.flatMap((group) => group.rows.map((row) => row.id)),
+    report.decisions.flatMap((group) => group.rows.map((row) => row.task.id)),
   );
   return (
     <BrowserGroup
@@ -121,7 +118,7 @@ function NeedsYouSection({ report, offline }: { report: WireReviewReport; offlin
       headingRef={headingRef}
     >
       {report.decisions.length === 0 ? (
-        <AllClear inFlight={inFlight} last={report.last_finished} />
+        <AllClear inFlight={inFlight} last={report.lastFinished} />
       ) : (
         <DecisionGroups groups={report.decisions} offline={offline} handoff={handoff} />
       )}
@@ -130,7 +127,7 @@ function NeedsYouSection({ report, offline }: { report: WireReviewReport; offlin
 }
 
 /** The tasks in progress across active projects; a row's id leads with its project key. */
-function NowSection({ rows }: { rows: WireReviewReport['now'] }) {
+function NowSection({ rows }: { rows: ReviewReport['now'] }) {
   return (
     <BrowserGroup
       label="Now"
@@ -140,14 +137,14 @@ function NowSection({ rows }: { rows: WireReviewReport['now'] }) {
       {rows.length === 0 ? (
         <Empty lead="Nothing running.">No task is in progress.</Empty>
       ) : (
-        rows.map((row) => <NowRow key={row.id} row={row} />)
+        rows.map((row) => <NowRow key={row.task.id} row={row} />)
       )}
     </BrowserGroup>
   );
 }
 
 /** What landed in the last 7 days across active projects, grouped by day as on the work page. */
-function ShippedSection({ rows }: { rows: WireReviewReport['shipped'] }) {
+function ShippedSection({ rows }: { rows: ReviewReport['shipped'] }) {
   const zone = browserTimeZone();
   return (
     <BrowserGroup

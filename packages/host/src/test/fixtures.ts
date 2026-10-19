@@ -104,11 +104,7 @@ export function reviewReport(overrides: Partial<WireReviewReport> = {}): WireRev
   };
 }
 
-/**
- * A catch-all read for a test's `apiGet` mock: an empty review payload for
- * `/api/review`, which the shell's alert reads on every page, and an empty
- * collection for any other path.
- */
-export function emptyRead(path: string): WireReviewReport | { items: []; total: 0 } {
-  return path.startsWith('/api/review') ? reviewReport() : { items: [], total: 0 };
+/** A catch-all read for a test's `apiGet` mock: an empty collection for any path. */
+export function emptyRead(_path: string): { items: []; total: 0 } {
+  return { items: [], total: 0 };
 }

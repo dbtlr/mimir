@@ -4,17 +4,21 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { WireReviewReport, WireWorkNeedsYou } from '../api/types';
+import { review } from '../api/fns/views';
+import type { NeedsYouTask, ReviewReport } from '../api/view-queries';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
-import { project, reviewReport, seed, task, workReport } from './fixtures';
+import { project, seed, task } from './fixtures';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
+import { engineReview, needsYouRow, stripRow, triageSeed } from './views-fixtures';
+import { serveViews } from './views-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
+vi.mock('../api/fns/views');
 
 /**
  * The top-bar alert (ADR 0019, MMR-476 and MMR-492 refinements): the count of
@@ -37,24 +41,17 @@ afterEach(() => {
 });
 
 /** Serve the review read from `current()`, so a test can change what the next read returns. */
-function serve(current: () => WireReviewReport) {
+function serve(current: () => ReviewReport) {
   serveShell();
+  serveViews();
+  vi.mocked(review).mockImplementation(async () => current());
   apiGet.mockImplementation((p: string) => {
-    if (p.startsWith('/api/review')) {
-      return Promise.resolve(current());
-    }
     // The record pages the alert is opened from.
     if (p === '/api/nodes/MMR-480') {
       return Promise.resolve(task({ id: 'MMR-480', status: 'ready' }));
     }
-    if (p.startsWith('/api/nodes/MMR-480/work?')) {
-      return Promise.resolve(workReport());
-    }
     if (p === '/api/seeds/MMR-s480') {
       return Promise.resolve(seed({ id: 'MMR-s480', lane: 'untriaged' }));
-    }
-    if (p.startsWith('/api/projects/MMR/work?')) {
-      return Promise.resolve(workReport());
     }
     if (p === '/api/projects/MMR') {
       return Promise.resolve({
@@ -67,7 +64,7 @@ function serve(current: () => WireReviewReport) {
   });
 }
 
-function renderAt(path: string, report: WireReviewReport) {
+function renderAt(path: string, report: ReviewReport) {
   serve(() => report);
   return renderServed(path);
 }
@@ -91,37 +88,38 @@ const MMR = { key: 'MMR', name: 'Mimir' };
 
 function decision(
   id: string,
-  reason: WireWorkNeedsYou['reason'],
-  extra: Partial<WireWorkNeedsYou> = {},
-): WireWorkNeedsYou {
+  reason: NeedsYouTask['reason'],
+  extra: { title?: string; holdReason?: string; question?: string } = {},
+): NeedsYouTask {
   const status = { blocked: 'blocked', needs_answers: 'ready', under_review: 'under_review' }[
     reason
-  ] as WireWorkNeedsYou['status'];
-  return { ...task({ id, status }), question: null, reason, stale: false, ...extra };
+  ] as NeedsYouTask['task']['status'];
+  const { question = null, ...node } = extra;
+  return needsYouRow({ id, status, ...node }, reason, { question });
 }
 
 const verdict = decision('LM-196', 'under_review', { title: 'Ship the plugin' });
-const block = decision('MMR-52', 'blocked', { hold_reason: 'Needs an API token' });
+const block = decision('MMR-52', 'blocked', { holdReason: 'Needs an API token' });
 const question = decision('MMR-480', 'needs_answers', { question: 'Skip, or drop it?' });
 
 /** A report with decisions in two project groups: LM's verdict, then MMR's block and question. */
 function twoProjects(
-  rows: { lm?: WireWorkNeedsYou[]; mmr?: WireWorkNeedsYou[] } = {
+  rows: { lm?: NeedsYouTask[]; mmr?: NeedsYouTask[] } = {
     lm: [verdict],
     mmr: [block, question],
   },
-): WireReviewReport {
+): ReviewReport {
   const decisions = [
     { project: LM, rows: rows.lm ?? [] },
     { project: MMR, rows: rows.mmr ?? [] },
   ].filter((group) => group.rows.length > 0);
-  return reviewReport({
+  return engineReview({
     decisions,
     projects: [
-      { ...LM, decisions: rows.lm?.length ?? 0, going_cold: 0, in_flight: 0, live: 0, triage: 0 },
-      { ...MMR, decisions: rows.mmr?.length ?? 0, going_cold: 0, in_flight: 0, live: 0, triage: 0 },
+      stripRow(LM, { decisions: rows.lm?.length ?? 0 }),
+      stripRow(MMR, { decisions: rows.mmr?.length ?? 0 }),
     ],
-    queue: decisions.flatMap((group) => group.rows.map((row) => row.id)),
+    queue: decisions.flatMap((group) => group.rows.map((row) => row.task.id)),
   });
 }
 
@@ -158,10 +156,10 @@ describe('the attention alert trigger', () => {
   it('is absent when nothing needs a decision, however much waits in triage', async () => {
     renderAt(
       '/',
-      reviewReport({
-        projects: [{ ...MMR, decisions: 0, going_cold: 0, in_flight: 0, live: 0, triage: 15 }],
+      engineReview({
+        projects: [stripRow(MMR, { triage: 15 })],
         triage: [
-          { findings: 12, going_cold: 2, project: MMR, seeds: [seed({ lane: 'untriaged' })] },
+          { findings: 12, goingCold: 2, project: MMR, seeds: [triageSeed({ id: 'MMR-s1' })] },
         ],
       }),
     );
@@ -258,7 +256,7 @@ describe('the Needs you popover', () => {
     renderAt('/p/MMR/480', twoProjects());
     const panel = await openAlert('3 decisions need you');
 
-    await userEvent.click(within(panel).getByRole('link', { name: question.title }));
+    await userEvent.click(within(panel).getByRole('link', { name: question.task.title }));
 
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Needs you' })).toBeNull();

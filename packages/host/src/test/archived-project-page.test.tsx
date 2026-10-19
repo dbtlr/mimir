@@ -10,13 +10,15 @@ import { createQueryClient } from '../api/query-client';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
-import { emptyRead, project, workReport } from './fixtures';
+import { emptyRead, project } from './fixtures';
 import { serveShell } from './shell-fns';
+import { serveViews } from './views-fns';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
+vi.mock('../api/fns/views');
 
 const OLD = engineProject({
   archivedAt: new Date('2026-09-30T15:00:00.000Z'),
@@ -45,9 +47,6 @@ function serve() {
     if (path === '/api/projects/OLD') {
       return Promise.resolve(project({ id: 'OLD', status: 'in_progress', title: 'Old project' }));
     }
-    if (/\/work\b/.test(path)) {
-      return Promise.resolve(workReport());
-    }
     return Promise.resolve(emptyRead(path));
   });
 }
@@ -74,6 +73,7 @@ function renderAt(initial: string, client = quietClient()) {
 
 beforeEach(() => {
   serveBrowse();
+  serveViews();
   apiGet.mockReset();
   vi.mocked(projects).mockReset();
   vi.mocked(unarchive).mockReset();

@@ -11,13 +11,15 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { consoleSearch, projects, tree } from '../api/fns/shell';
+import { review } from '../api/fns/views';
 import { Shell } from '../routes/shell';
 import { engineProject, engineTree, searchHit } from './engine-fixtures';
-import { reviewReport } from './fixtures';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
+import { serveViews } from './views-fns';
 
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/views');
 
 /*
  * The shell runs on server functions (MMR-537): its project lists, sidebar
@@ -26,16 +28,16 @@ vi.mock('../api/fns/shell');
  * chrome makes is recorded rather than mocked away. The pages are stubs: only
  * the chrome around them is under test.
  *
- * One /api read remains in the chrome: the review report behind the attention
- * alert and the switcher's decision counts, which moves with the review page
- * (MMR-538). When it moves, ALLOWED_API empties and this test holds the whole
- * shell to no /api request.
+ * The review report behind the attention alert and the switcher's decision
+ * counts went the same way (MMR-538), so the whole shell holds to no /api
+ * request.
  */
-const ALLOWED_API: ReadonlySet<string> = new Set(['/api/review']);
+const ALLOWED_API: ReadonlySet<string> = new Set();
 
 let requested: string[];
 
 beforeEach(() => {
+  serveViews();
   stubViewport('desktop');
   localStorage.clear();
   requested = [];
@@ -46,9 +48,6 @@ beforeEach(() => {
       requested.push(url.pathname);
       if (url.pathname === '/health') {
         return Response.json({ schema: 1, status: 'ok', version: 'host-build' });
-      }
-      if (url.pathname === '/api/review') {
-        return Response.json(reviewReport());
       }
       return Response.json({ error: { message: 'not served' } }, { status: 503 });
     }),
@@ -129,6 +128,7 @@ describe('the shell on server functions (MMR-537)', () => {
       data: expect.objectContaining({ status: 'archived' }),
     });
     expect(tree).toHaveBeenCalledWith({ data: { id: 'MMR' } });
+    expect(review).toHaveBeenCalledWith({ data: { timeZone: expect.any(String) } });
     expect(consoleSearch).toHaveBeenCalledWith({ data: { project: 'MMR', query: 'outline' } });
     expect(requested).toContain('/health');
     expect(

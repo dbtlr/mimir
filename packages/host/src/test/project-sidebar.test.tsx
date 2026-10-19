@@ -8,21 +8,25 @@ import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
 import { projects, tree } from '../api/fns/shell';
+import { review } from '../api/fns/views';
 import { browserTimeZone } from '../api/queries';
-import type { WireReviewProject } from '../api/types';
+import type { ReviewReport } from '../api/view-queries';
 import { subtreeOf } from '../lib/ancestry';
 import { rememberProject } from '../lib/current-project';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
-import { emptyRead, reviewReport, task, workReport } from './fixtures';
+import { emptyRead, task } from './fixtures';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
+import { engineReview, stripRow } from './views-fixtures';
+import { serveViews } from './views-fns';
 
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend: vi.fn() }));
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
+vi.mock('../api/fns/views');
 
 /*
  * The shell's project sidebar (ADR 0013, MMR-492 refinement): the current
@@ -55,7 +59,7 @@ const TREE = node('MMR', 'project', 'in_progress', [
 function serve(
   active: EngineNode[],
   trees: Record<string, EngineTree> = {},
-  review: WireReviewProject[] = [],
+  decisionRows: ReviewReport['projects'] = [],
 ) {
   serveShell({
     projects: active,
@@ -65,28 +69,24 @@ function serve(
       ...trees,
     },
   });
+  serveViews({ review: engineReview({ projects: decisionRows }) });
   apiGet.mockImplementation((path: string) => {
-    if (path.startsWith('/api/review')) {
-      return Promise.resolve(reviewReport({ projects: review }));
-    }
     // The page itself never loads: these cases read the shell around it.
     if (path.startsWith('/api/doctor') || /^\/api\/projects\/[A-Z]+$/.test(path)) {
       return Promise.withResolvers().promise;
     }
     // A record page does load: the sidebar reads the open record's type from it.
-    const nodeId = /^\/api\/nodes\/([A-Z]+-\d+)(\/work\?.*)?$/.exec(path);
+    const nodeId = /^\/api\/nodes\/([A-Z]+-\d+)$/.exec(path);
     const found = nodeId?.[1] === undefined ? undefined : subtreeOf(TREE, nodeId[1]);
     if (found !== undefined) {
       return Promise.resolve(
-        nodeId?.[2] === undefined
-          ? task({
-              id: found.id,
-              parent: found.parent,
-              status: found.status,
-              title: found.title,
-              type: found.type,
-            })
-          : workReport(),
+        task({
+          id: found.id,
+          parent: found.parent,
+          status: found.status,
+          title: found.title,
+          type: found.type,
+        }),
       );
     }
     return Promise.resolve(emptyRead(path));
@@ -113,8 +113,8 @@ function renderAt(initial: string) {
 const MMR = engineProject({ id: 'MMR', title: 'Mimir' });
 const NRN = engineProject({ id: 'NRN', title: 'Norn' });
 
-function decisions(key: string, count: number): WireReviewProject {
-  return { decisions: count, going_cold: 0, in_flight: 0, key, live: 0, name: key, triage: 0 };
+function decisions(key: string, count: number): ReviewReport['projects'][number] {
+  return stripRow({ key, name: key }, { decisions: count });
 }
 
 const topBar = () => screen.getAllByRole('banner')[0] as HTMLElement;
@@ -135,6 +135,7 @@ async function activeSections() {
 
 beforeEach(() => {
   serveBrowse();
+  serveViews();
   localStorage.clear();
   stubViewport('desktop');
   serve([MMR]);
@@ -279,9 +280,7 @@ describe('sidebar on All projects (MMR-505)', () => {
     renderAt('/');
     const nav = await sidebar();
     await waitFor(() => {
-      expect(apiGet).toHaveBeenCalledWith(
-        `/api/review?tz=${encodeURIComponent(browserTimeZone())}`,
-      );
+      expect(review).toHaveBeenCalledWith({ data: { timeZone: browserTimeZone() } });
     });
     expect(allHeader(nav)).toHaveAccessibleName('All projects');
   });
@@ -634,12 +633,7 @@ describe('sidebar breakpoint', () => {
 
 describe('top bar', () => {
   it('keeps the brand, the jump palette, Needs you, and the theme toggle', async () => {
-    const served = apiGet.getMockImplementation();
-    apiGet.mockImplementation((path: string) =>
-      path.startsWith('/api/review')
-        ? Promise.resolve(reviewReport({ queue: ['MMR-52'] }))
-        : served?.(path),
-    );
+    vi.mocked(review).mockResolvedValue(engineReview({ queue: ['MMR-52'] }));
     renderAt('/p/MMR/tasks');
     await sidebar();
     const bar = topBar();

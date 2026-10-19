@@ -4,7 +4,7 @@ import { Link } from '@tanstack/react-router';
 import { useRef } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 
-import { ApiError } from '../api/errors';
+import { HostFaultError, isEngineRefusal } from '../api/errors';
 import { browserTimeZone } from '../api/queries';
 import { projectKeyOf } from '../api/types';
 import type { WireArtifact, WireNode } from '../api/types';
@@ -278,8 +278,8 @@ function WorkBody({
   if (work.data === undefined) {
     return work.isError ? (
       <p className="text-xs text-status-blocked">
-        {/* An answered failure (an HTTP status) says no more than that; only a request that never got an answer asks about the server. */}
-        {work.error instanceof ApiError
+        {/* An answered failure (an Engine refusal or a host fault) says no more than that; only a request that never got an answer asks about the server. */}
+        {isEngineRefusal(work.error) || work.error instanceof HostFaultError
           ? 'Couldn’t load the work page.'
           : 'Couldn’t load the work page, and nothing is cached yet — is the Mimir host running?'}
       </p>

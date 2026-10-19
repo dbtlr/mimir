@@ -4,16 +4,21 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { tree } from '../api/fns/shell';
+import { review } from '../api/fns/views';
 import { browserTimeZone } from '../api/queries';
-import type { WireAnnotation, WireNode, WireReviewReport, WireWorkNeedsYou } from '../api/types';
+import type { WireAnnotation, WireNode } from '../api/types';
+import type { NeedsYouTask, ReviewReport } from '../api/view-queries';
 import { routeTree } from '../router';
 import { engineTree } from './engine-fixtures';
-import { reviewReport, task } from './fixtures';
+import { task } from './fixtures';
 import { serveShell } from './shell-fns';
+import { engineReview, needsYouRow, stripRow } from './views-fixtures';
+import { serveViews } from './views-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/views');
 
 const NOW = Date.parse('2026-10-13T12:00:00.000Z');
 
@@ -30,13 +35,14 @@ afterEach(() => {
 
 function decision(
   id: string,
-  reason: WireWorkNeedsYou['reason'],
-  extra: Partial<WireWorkNeedsYou> = {},
-): WireWorkNeedsYou {
+  reason: NeedsYouTask['reason'],
+  extra: { title?: string; holdReason?: string; question?: string } = {},
+): NeedsYouTask {
   const status = { blocked: 'blocked', needs_answers: 'ready', under_review: 'under_review' }[
     reason
-  ] as WireWorkNeedsYou['status'];
-  return { ...task({ id, status }), question: null, reason, stale: false, ...extra };
+  ] as NeedsYouTask['task']['status'];
+  const { question = null, ...node } = extra;
+  return needsYouRow({ id, status, ...node }, reason, { question });
 }
 
 const LM = { key: 'LM', name: 'Loom CLI' };
@@ -44,7 +50,7 @@ const MMR = { key: 'MMR', name: 'Mimir' };
 
 const verdict = decision('LM-196', 'under_review', { title: 'Ship the plugin' });
 const block = decision('MMR-52', 'blocked', {
-  hold_reason: 'Needs an API token',
+  holdReason: 'Needs an API token',
   title: 'Screenshot a signed-in page',
 });
 const question = decision('MMR-480', 'needs_answers', {
@@ -53,24 +59,14 @@ const question = decision('MMR-480', 'needs_answers', {
 });
 
 /** A review read listing `rows` as decisions in the queue order given, grouped LM then MMR. */
-function decisions(...rows: WireWorkNeedsYou[]): WireReviewReport {
+function decisions(...rows: NeedsYouTask[]): ReviewReport {
   const groups = [LM, MMR]
-    .map((p) => ({ project: p, rows: rows.filter((r) => r.id.startsWith(`${p.key}-`)) }))
+    .map((p) => ({ project: p, rows: rows.filter((r) => r.task.id.startsWith(`${p.key}-`)) }))
     .filter((group) => group.rows.length > 0);
-  return reviewReport({
+  return engineReview({
     decisions: groups,
-    projects: [
-      {
-        ...LM,
-        decisions: groups[0]?.rows.length ?? 0,
-        going_cold: 0,
-        in_flight: 0,
-        live: 0,
-        triage: 0,
-      },
-      { ...MMR, decisions: 0, going_cold: 0, in_flight: 0, live: 0, triage: 0 },
-    ],
-    queue: rows.map((r) => r.id),
+    projects: [stripRow(LM, { decisions: groups[0]?.rows.length ?? 0 }), stripRow(MMR)],
+    queue: rows.map((r) => r.task.id),
   });
 }
 
@@ -82,17 +78,16 @@ type Details = Record<string, { node?: Partial<WireNode>; notes?: WireAnnotation
  * given), with each task's detail and its project's tree (one phase above it).
  */
 function serve(
-  report: WireReviewReport,
+  report: ReviewReport,
   { after, details = {} } = {} as {
-    after?: WireReviewReport;
+    after?: ReviewReport;
     details?: Details;
   },
 ) {
   let current = report;
+  serveViews();
+  vi.mocked(review).mockImplementation(async () => current);
   apiGet.mockImplementation((path: string) => {
-    if (path.startsWith('/api/review')) {
-      return Promise.resolve(current);
-    }
     const node = /^\/api\/nodes\/([^/]+)$/.exec(path);
     if (node !== null) {
       const id = decodeURIComponent(node[1]!);
@@ -128,14 +123,14 @@ function serve(
   });
   return {
     /** Serve `next` from the next review read, as a poll would. */
-    poll: (next: WireReviewReport) => {
+    poll: (next: ReviewReport) => {
       current = next;
     },
   };
 }
 
 /** Render the console at `path`; `cached` seeds the review read as one restored from a day ago. */
-function renderAt(path: string, cached?: WireReviewReport) {
+function renderAt(path: string, cached?: ReviewReport) {
   const testRouter = createRouter({
     history: createMemoryHistory({ initialEntries: [path] }),
     routeTree,
@@ -173,7 +168,7 @@ describe('the review page head opens the focus queue (MMR-480)', () => {
 });
 
 /** The focus card, named by the title of the one decision the queue shows. */
-const cardFor = (row: WireWorkNeedsYou) => screen.findByRole('region', { name: row.title });
+const cardFor = (row: NeedsYouTask) => screen.findByRole('region', { name: row.task.title });
 
 describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () => {
   it('shows the first decision with its path, description, and question, and names the next', async () => {
@@ -249,7 +244,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
 
   it('links a URL in the hold reason, opening in a new tab, with the text around it', async () => {
     const linked = decision('MMR-53', 'blocked', {
-      hold_reason: 'Waiting on https://example.com/review today',
+      holdReason: 'Waiting on https://example.com/review today',
       title: 'Wait for the review',
     });
     serve(decisions(linked));
@@ -362,7 +357,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     await client.invalidateQueries({ queryKey: ['review'] });
 
     await expect(cardFor(block)).resolves.toBeDefined();
-    expect(screen.queryByRole('region', { name: verdict.title })).toBeNull();
+    expect(screen.queryByRole('region', { name: verdict.task.title })).toBeNull();
     expect(screen.getByText('2 of 3')).toBeDefined();
   });
 
@@ -371,7 +366,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     const { testRouter } = renderAt('/?mode=focus', decisions(verdict));
 
     await expect(cardFor(question)).resolves.toBeDefined();
-    expect(screen.queryByRole('region', { name: verdict.title })).toBeNull();
+    expect(screen.queryByRole('region', { name: verdict.task.title })).toBeNull();
     expect(testRouter.state.location.href).toBe('/?mode=focus');
   });
 });

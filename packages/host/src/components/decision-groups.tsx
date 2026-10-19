@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 
-import type { WireReviewReport } from '../api/types';
+import type { ReviewReport } from '../api/view-queries';
 import { cn } from '../lib/cn';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
 import { NeedsYouRow, needsYouActions } from './work-rows';
@@ -37,7 +37,7 @@ export function DecisionGroups({
   handoff,
   currentId,
 }: {
-  groups: WireReviewReport['decisions'];
+  groups: ReviewReport['decisions'];
   offline: boolean;
   handoff: RowFocusHandoff;
   currentId?: string;
@@ -49,9 +49,9 @@ export function DecisionGroups({
           <ProjectHeading project={group.project} />
           {group.rows.map((row) => (
             <NeedsYouRow
-              key={row.id}
+              key={row.task.id}
               row={row}
-              current={row.id === currentId}
+              current={row.task.id === currentId}
               actions={needsYouActions(row, offline, handoff)}
             />
           ))}

@@ -2,14 +2,14 @@ import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
 import { promoteSeedKey } from '../api/seed-mutations';
-import type { WireReviewReport, WireSeed } from '../api/types';
 import { reviewQuery } from '../api/view-queries';
+import type { ReviewReport, TriageSeed } from '../api/view-queries';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
 import { SeedPromoteSheet } from './seed-promote-sheet';
 import { SeedVerbs } from './seed-verbs';
 
 /** Whether a review read still lists a seed for triage. */
-const listsSeed = (report: WireReviewReport | undefined, id: string): boolean =>
+const listsSeed = (report: ReviewReport | undefined, id: string): boolean =>
   report?.triage.some((group) => group.seeds.some((seed) => seed.id === id)) ?? false;
 
 /**
@@ -27,7 +27,7 @@ export function SeedTriageActions({
   offline,
   handoff,
 }: {
-  seed: WireSeed;
+  seed: TriageSeed;
   offline: boolean;
   handoff: RowFocusHandoff;
 }) {
