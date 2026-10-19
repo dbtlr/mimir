@@ -1,0 +1,22 @@
+mimir triage · Reconcile a board's seeds: list the untriaged and ready-to-resolve ones, and annotate the tasks whose upstream seed settled. A report, never a gate.
+
+USAGE
+  mimir triage [board] [options]
+
+ARGUMENTS
+  board  The project to reconcile. Defaults to the clone binding.
+
+OPTIONS
+      --dry-run          Preview what would be annotated; write nothing.
+  -s, --scope <KEY>      The project to reconcile. Defaults to the clone binding.
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir triage
+    the bound project's pass, annotations written; records on a terminal, json when piped
+  $ mimir triage XX --dry-run
+    preview another project, write nothing

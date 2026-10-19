@@ -61,6 +61,16 @@ export function warnGlyph(plain: boolean): string {
   return plain ? '[warn]' : '\u001B[33m⚠\u001B[0m';
 }
 
+/** The success line's glyph. */
+export function okGlyph(plain: boolean): string {
+  return plain ? '[ok]' : color('✓', 32, false);
+}
+
+/** A success line: the check glyph, then `text`. */
+export function okLine(presentation: Presentation, text: string): string {
+  return `${okGlyph(presentation.plain)} ${text}`;
+}
+
 /** The note label under a warning. */
 export function noteLabel(plain: boolean): string {
   return plain ? 'note:' : '\u001B[36mnote:\u001B[0m';

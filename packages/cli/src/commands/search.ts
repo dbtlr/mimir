@@ -11,7 +11,7 @@ import type { SearchHit, SetResult } from '@mimir/contract';
 
 import { MimirUsageError } from '../failures';
 import { asciiOption, scopeOption } from '../options';
-import { parseSearchLimit } from '../parse';
+import { parseSearchLimit, reasonWords } from '../parse';
 import type { Ports } from '../ports';
 import { printNote } from '../query';
 import { renderSearchSet } from '../render/feeds';
@@ -56,8 +56,7 @@ export function searchCommand(ports: Ports) {
     ],
   })
     .argument('query', {
-      description: 'The words to find: an id, or text from a title or description.',
-      required: true,
+      description: 'The words to find, required: an id, or text from a title or description.',
       variadic: true,
     })
     .option('scope', scopeOption)
@@ -70,9 +69,9 @@ export function searchCommand(ports: Ports) {
     .option('ascii', asciiOption)
     .result<SearchValue>({ views })
     .views({}, { default: 'table' })
-    .action(async ({ args, host, options, out }) => {
+    .action(async ({ args, host, options, out, passthrough }) => {
       // Every value is read before the store opens, so a wrong invocation never opens it.
-      const query = args.query.join(' ').trim();
+      const query = reasonWords(args.query, passthrough).trim();
       if (query === '') {
         throw new MimirUsageError(
           'search needs a query',

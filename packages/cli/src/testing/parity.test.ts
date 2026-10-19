@@ -3,7 +3,7 @@ import { expect, test } from 'bun:test';
 import { createApp } from '../app';
 import type { ParityDifference } from '../parity/differences';
 import { boundClone } from './fixture';
-import { parityProblems } from './parity';
+import { parityProblems, underJson } from './parity';
 import type { ParityCase, ParityRun } from './parity';
 
 /** The rule's failure paths never open the store. */
@@ -97,4 +97,28 @@ test('a new-view entry refuses a line that is not the json document compacted', 
   expect(parityProblems(app, c, oldUsage, other, newView, json)).toEqual([
     'a new-view entry needs every output line to be the compact form of its -f json document',
   ]);
+});
+
+test('underJson puts --format json before the first --', () => {
+  expect(underJson(['reject', 'MMR-s1', '--', '--out', 'of'])).toEqual([
+    'reject',
+    'MMR-s1',
+    '--format',
+    'json',
+    '--',
+    '--out',
+    'of',
+  ]);
+  expect(underJson(['reject', 'MMR-s1', '--'])).toEqual([
+    'reject',
+    'MMR-s1',
+    '--format',
+    'json',
+    '--',
+  ]);
+});
+
+test('underJson rewrites a named format and appends to an argv without --', () => {
+  expect(underJson(['list', '-f', 'table', '--', 'x'])).toEqual(['list', '-f', 'json', '--', 'x']);
+  expect(underJson(['list'])).toEqual(['list', '--format', 'json']);
 });

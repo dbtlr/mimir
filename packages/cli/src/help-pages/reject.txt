@@ -1,0 +1,19 @@
+mimir reject · Reject a seed: it will not be done. The reason is recorded.
+
+USAGE
+  mimir reject <id> [reason...] [options]
+
+ARGUMENTS
+  id      The seed, KEY-sN.
+  reason  Why, in the rest of the line. Required, but may follow --.
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir reject MMR-s3 out of scope for this cycle
+    the reason is the rest of the line

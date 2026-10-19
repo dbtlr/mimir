@@ -1,0 +1,19 @@
+mimir resolve · Resolve a seed: what it asked for is done. The reason is recorded.
+
+USAGE
+  mimir resolve <id> [reason...] [options]
+
+ARGUMENTS
+  id      The seed, KEY-sN.
+  reason  Why, in the rest of the line. Required, but may follow --.
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir resolve MMR-s3 shipped in MMR-40
+    the reason is the rest of the line

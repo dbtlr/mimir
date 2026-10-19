@@ -1,0 +1,18 @@
+mimir scratch update · Change a scratchpad's title or linked work.
+
+USAGE
+  mimir scratch update <id> [options]
+
+ARGUMENTS
+  id  The scratchpad UUID.
+
+OPTIONS
+      --expected-updated-at <timestamp>  The scratchpad's updated_at as last read: the write is refused if it changed since.
+      --title <text>                     The new title.
+      --link <ID>                        Linked work (a task or artifact id). Repeat for more.  (repeatable)
+      --clear-links                      Drop all linked work.
+      --ascii                            Print without color, in ASCII glyphs.
+  -f, --format <format>                  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.

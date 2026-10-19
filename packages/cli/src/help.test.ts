@@ -38,6 +38,18 @@ test.each([
   ['scratch', ['scratch', '--help']],
   ['scratch-list', ['scratch', 'list', '--help']],
   ['scratch-get', ['scratch', 'get', '--help']],
+  // MMR-552: the seed verbs, triage, and scratch writes.
+  ['seed', ['seed', '--help']],
+  ['promote', ['promote', '--help']],
+  ['reject', ['reject', '--help']],
+  ['resolve', ['resolve', '--help']],
+  ['triage', ['triage', '--help']],
+  ['scratch-create', ['scratch', 'create', '--help']],
+  ['scratch-update', ['scratch', 'update', '--help']],
+  ['scratch-checkpoint', ['scratch', 'checkpoint', '--help']],
+  ['scratch-agenda', ['scratch', 'agenda', '--help']],
+  ['scratch-freeze', ['scratch', 'freeze', '--help']],
+  ['scratch-discard', ['scratch', 'discard', '--help']],
 ])('the %s help page is pinned', async (name, argv) => {
   const run = await runArgv(board.app(), argv);
   expect(run.exitCode).toBe(0);
