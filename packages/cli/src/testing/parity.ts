@@ -33,6 +33,9 @@ import { runArgv } from './run';
 
 type App = ReturnType<typeof createApp>;
 
+/** An app over the board, its failures reading `argv` as the run's words. */
+export type AppFor = (argv?: readonly string[]) => App;
+
 /** One invocation, spelled by name; the old CLI's argv is derived from it. */
 export type ParityCase = {
   /** Unique, led by the command path, such as `get MMR-3 -f json`. */
@@ -179,14 +182,18 @@ function proseFailure(stderr: string): ParityRun['failure'] {
 }
 
 /** Run an argv case through the new CLI's parser, reading a failure as `runOld` does. */
-async function runNewArgv(app: App, argv: readonly string[], tty = false): Promise<ParityRun> {
-  const run = await runArgv(app, [...argv], { tty });
+async function runNewArgv(
+  appFor: AppFor,
+  argv: readonly string[],
+  tty = false,
+): Promise<ParityRun> {
+  const run = await runArgv(appFor(argv), [...argv], { tty });
   if (run.exitCode === 0) {
     return { exitCode: 0, stdout: tty ? resetsNormalized(run.stdout) : run.stdout };
   }
   const json = run.stderr.startsWith('{"error"')
     ? run.stderr
-    : (await runArgv(app, underJson(argv))).stderr;
+    : (await runArgv(appFor(underJson(argv)), underJson(argv))).stderr;
   const failure = newFailure(json) ?? proseFailure(json);
   return {
     exitCode: run.exitCode,
@@ -196,11 +203,11 @@ async function runNewArgv(app: App, argv: readonly string[], tty = false): Promi
 }
 
 /** Run a case through the new CLI: by name, or through its parser for an argv case. */
-export async function runNew(app: App, c: ParityCase): Promise<ParityRun> {
+export async function runNew(appFor: AppFor, c: ParityCase): Promise<ParityRun> {
   if (c.argv !== undefined) {
-    return runNewArgv(app, c.argv, c.tty);
+    return runNewArgv(appFor, c.argv, c.tty);
   }
-  const outcome = await app.invoke(c.path, { args: c.args ?? {}, options: c.options ?? {} });
+  const outcome = await appFor().invoke(c.path, { args: c.args ?? {}, options: c.options ?? {} });
   if (outcome.status === 'cancelled') {
     return { exitCode: outcome.exitCode, stdout: '' };
   }
@@ -268,6 +275,33 @@ function loomRefusalProblems(old: ParityRun, next: ParityRun): string[] {
   const problems =
     next.exitCode === 2 ? [] : [`a loom-refusal exits 2, not ${String(next.exitCode)}`];
   return [...problems, ...loomFaultProblems(next.failure)];
+}
+
+/** A `loom-scoped` entry: the old CLI refused with exit 1, and Loom's parser refuses with exit 2. */
+function loomScopedProblems(old: ParityRun, next: ParityRun): string[] {
+  const problems =
+    old.exitCode === 1
+      ? []
+      : [`a loom-scoped entry names a case the old CLI exits ${String(old.exitCode)} for, not 1`];
+  if (next.exitCode !== 2) {
+    problems.push(`a loom-scoped refusal exits 2, not ${String(next.exitCode)}`);
+  }
+  return [...problems, ...loomFaultProblems(next.failure)];
+}
+
+/** An `engine-refusal` entry: the old CLI accepted, and the Engine refuses with a Mimir code. */
+function engineRefusalProblems(old: ParityRun, next: ParityRun): string[] {
+  if (old.exitCode !== 0) {
+    return [
+      `an engine-refusal entry names a case the old CLI refused too (exit ${String(old.exitCode)})`,
+    ];
+  }
+  if (next.exitCode !== 1 || next.failure === undefined || !MIMIR_CODES.has(next.failure.code)) {
+    return [
+      `an engine-refusal entry needs the new CLI to refuse with a Mimir code at exit 1, not exit ${String(next.exitCode)}`,
+    ];
+  }
+  return [];
 }
 
 /** A `loom-voice` entry: the new failure is Loom's own, and differs from the old one. */
@@ -384,6 +418,12 @@ export function parityProblems(
   if (entry?.kind === 'board-read') {
     return boardReadProblems(old, next);
   }
+  if (entry?.kind === 'loom-scoped') {
+    return loomScopedProblems(old, next);
+  }
+  if (entry?.kind === 'engine-refusal') {
+    return engineRefusalProblems(old, next);
+  }
   const problems: string[] = [];
   if (old.exitCode !== next.exitCode) {
     problems.push(`exit code: old ${String(old.exitCode)}, new ${String(next.exitCode)}`);
@@ -485,9 +525,11 @@ export function parityCases(
   registerParity(owner, cases, async (c) => {
     const run = rewrite === undefined ? c : rewrite(c);
     const old = await runOld(board.store, run);
-    const now = await runNew(board.app(c.bound), run);
+    const now = await runNew((argv) => board.app(c.bound, argv), run);
     const isNewView = PARITY_DIFFERENCES.some((d) => d.case === c.name && d.kind === 'new-view');
-    const json = isNewView ? await runNew(board.app(c.bound), jsonVariant(run)) : undefined;
+    const json = isNewView
+      ? await runNew((argv) => board.app(c.bound, argv), jsonVariant(run))
+      : undefined;
     return parityProblems(board.app(), c, old, now, PARITY_DIFFERENCES, json);
   });
 }

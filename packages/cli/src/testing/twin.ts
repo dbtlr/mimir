@@ -214,7 +214,7 @@ export async function twinProblems(c: ParityCase, setup?: Setup): Promise<string
     const oldCase = bindCase(c, twin.old.tokens);
     const nextCase = bindCase(c, twin.next.tokens);
     const oldRaw = await runOld(twin.old.board.store, oldCase);
-    const nextRaw = await runNew(twin.next.board.app(c.bound), nextCase);
+    const nextRaw = await runNew((argv) => twin.next.board.app(c.bound, argv), nextCase);
     const problems = parityProblems(
       twin.next.board.app(),
       c,

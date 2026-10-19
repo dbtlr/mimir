@@ -72,4 +72,6 @@ export type Ports = {
   scope: (notify: (line: string) => void) => Promise<string | undefined>;
   grammar: Grammar;
   wire: Wire;
+  /** Ask a yes/no question on the terminal; only an interactive run asks. */
+  confirm: (question: string) => Promise<boolean>;
 };
