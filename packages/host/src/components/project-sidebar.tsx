@@ -14,6 +14,7 @@ import { useArchivedProject } from '../lib/use-archived-project';
 import { buildOutline } from '../lib/work-page';
 import type { OutlineEntry, OutlineTally } from '../lib/work-page';
 import { ProjectPicker } from './project-picker';
+import { SidebarProjects } from './sidebar-projects';
 import { StatusDot } from './status-dot';
 import { Skeleton } from './ui/skeleton';
 
@@ -21,8 +22,9 @@ import { Skeleton } from './ui/skeleton';
  * The shell's project sidebar (ADR 0013, MMR-492 refinement): the current
  * project's switcher header, its sections, and its initiative and phase
  * outline, which marks the open record's place. Outside a project (`/`,
- * `/doctor`) its context is All projects (MMR-505): a header reading so, and
- * only Work, which is `/`. From `lg` up it sits beside the page; below that it
+ * `/doctor`) its context is All projects (MMR-505): a header reading so, Work,
+ * which is `/`, and the Projects section of pinned projects and a search
+ * (MMR-562). From `lg` up it sits beside the page; below that it
  * folds into a drawer behind a top-bar button, because a record page's own
  * rail needs the width a tablet has.
  */
@@ -246,8 +248,9 @@ function ProjectBody({ projectKey, onNavigate }: { projectKey: string; onNavigat
 }
 
 /**
- * The All projects sidebar content: Work, which is `/`. The router marks it the
- * page on `/` (and not on `/doctor`). A line says where the rest went.
+ * The All projects sidebar content: Work, which is `/`, then the Projects
+ * section (MMR-562). The router marks Work the page on `/` (and not on
+ * `/doctor`).
  */
 function AllProjectsBody({ onNavigate }: { onNavigate?: () => void }) {
   return (
@@ -260,9 +263,7 @@ function AllProjectsBody({ onNavigate }: { onNavigate?: () => void }) {
       >
         Work
       </Link>
-      <p className="px-2 py-1.5 text-xs text-ink-faint">
-        Choose a project in the switcher for its outline, tasks, seeds, and artifacts.
-      </p>
+      <SidebarProjects onNavigate={onNavigate} />
     </>
   );
 }

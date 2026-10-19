@@ -678,3 +678,36 @@ The container no longer mounts the transitional `/api` dispatcher, and
 functions over the Engine. The service worker still excludes `/api`, `/trpc`,
 `/_serverFn`, and `/health` from navigation fallback, so a request to the
 retired `/api` reaches the host's `410` tombstone rather than the cached shell.
+
+## Refinement (2026-10-19, MMR-562): the All projects sidebar lists pinned projects and a project search
+
+The MMR-503 refinement left only _Work_ under the All projects header, so
+opening a pinned project from `/` took two clicks: open the switcher, then
+pick. On `/` and `/doctor` the sidebar now holds a _Projects_ section under
+_Work_. Project pages keep their sidebar unchanged.
+
+- **The section lists the pinned projects at rest**, in the switcher's order,
+  each a link to its work page with its decision count. With nothing pinned, it
+  lists the five most recently active projects. A line under the rows counts
+  the other active projects a search would find.
+- **A search box above the rows filters every project in place**: pinned, then
+  the rest, then archived projects. Focusing it turns the rows into the
+  switcher's listbox and keys: the arrows move, Enter opens, and Alt+P pins.
+  The switcher and the section share one implementation of the listbox, its
+  rows, and its pin. Escape clears the search, and a second Escape leaves it.
+  In the desktop sidebar, `/` focuses the search when focus is not in a text
+  field; in the phone drawer, an open dialog, it does not.
+- **Leaving the search clears it** and turns the rows back into links. The
+  listbox sits in the page rather than over it, so it carries
+  `data-inline-listbox` and the page's hotkeys, such as ⌘K for the jump
+  palette, do not yield to it as they yield to a popup listbox.
+
+Considered and rejected:
+
+- **Pinned projects on every page, with the current project expanded in
+  place.** One-click switching between projects too, but each pinned project
+  pushes the current project's outline down, and the switcher popover would
+  retire. The two-click cost this refinement removes was on `/`.
+- **A rail of project tiles beside the sidebar.** One-click switching
+  everywhere without disturbing the panel, but it adds chrome that ADR 0019
+  does not describe, and a three-letter key is a tile's only label.
