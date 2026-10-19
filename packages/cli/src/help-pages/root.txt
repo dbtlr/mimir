@@ -5,6 +5,7 @@ USAGE
 
 COMMANDS
   skills <command>   Install this application's agent skills.
+  self-update        Replace this application with another release.
   get                Read one full record: a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), or a seed (KEY-sN).
   next               List the ready tasks of one project in rank order.
   list               Select the nodes of one project by predicate, status, or tag.
