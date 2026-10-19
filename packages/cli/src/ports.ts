@@ -19,6 +19,7 @@ import type {
   SeedView,
   SetResult,
   TreeView,
+  TriageReport,
 } from '@mimir/contract';
 
 /** The kind of record an id names, by its grammar alone. */
@@ -56,6 +57,12 @@ export type Wire = {
   searchHit: (hit: SearchHit) => Record<string, unknown>;
   scratchRow: (row: OverviewScratchpad) => Record<string, unknown>;
   scratchpad: (pad: Scratchpad) => Record<string, unknown>;
+  /** A promote echo: the seed wire plus a sibling `created` task id (MMR-552). */
+  promotion: (seed: SeedView, created?: string) => Record<string, unknown>;
+  /** The triage report's wire object. */
+  triage: (report: TriageReport) => Record<string, unknown>;
+  /** A Scratchpad write's compact receipt; `updated_at` is the next concurrency token. */
+  scratchReceipt: (scratchpad: Scratchpad) => Record<string, unknown>;
 };
 
 export type Ports = {

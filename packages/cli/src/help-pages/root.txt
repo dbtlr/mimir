@@ -14,6 +14,11 @@ COMMANDS
   artifacts          Read one project's artifact feed: frozen work products, newest first (KEY-aN).
   search             Find any record of one project (task, container, seed, artifact) by id, title, or description.
   seeds              Read one project's grooming queue: live seeds oldest-first (FIFO triage).
+  seed               File a seed: an idea, bug, or feature request on a project, to be triaged later. The title is one quoted argument.
+  promote            Promote a seed into work: spawn a task from it, or record existing work with --link.
+  reject             Reject a seed: it will not be done. The reason is recorded.
+  resolve            Resolve a seed: what it asked for is done. The reason is recorded.
+  triage             Reconcile a board's seeds: list the untriaged and ready-to-resolve ones, and annotate the tasks whose upstream seed settled. A report, never a gate.
   scratch <command>  Read and keep Scratchpads, the working state of one episode.
 
 GLOBAL OPTIONS

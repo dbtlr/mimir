@@ -1,0 +1,17 @@
+mimir scratch checkpoint · Append a checkpoint to a scratchpad's journal, inline or from a file.
+
+USAGE
+  mimir scratch checkpoint <id> [text...] [options]
+
+ARGUMENTS
+  id    The scratchpad UUID.
+  text  The checkpoint text, the rest of the line.
+
+OPTIONS
+      --expected-updated-at <timestamp>  The scratchpad's updated_at as last read: the write is refused if it changed since.
+      --file <path>                      Read the checkpoint from this file instead, or from piped stdin.  (file or piped stdin; - selects stdin)
+      --ascii                            Print without color, in ASCII glyphs.
+  -f, --format <format>                  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.

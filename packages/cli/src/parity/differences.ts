@@ -128,6 +128,34 @@ const redirectEntry =
     reason: REDIRECT,
   });
 
+/** The `flag-redirect` entries for full argv lines, each `command rest`, named as `argvCase` names them. */
+const redirectEntries = (lines: readonly string[]): ParityDifference[] =>
+  lines.map((line) => ({
+    case: line.replace(' ', ' argv: '),
+    kind: 'flag-redirect',
+    reason: REDIRECT,
+  }));
+
+/** One misplaced flag per seed verb and `triage`, each a `flag-redirect` entry. */
+export const SEED_REDIRECTS: readonly string[] = [
+  'seed x -k idea -s MMR --parent MMR-2',
+  'promote MMR-s1 --summary x',
+  'reject MMR-s1 no --force',
+  // `--reason` is the scratch flag; reject and resolve take the reason as words.
+  'resolve MMR-s1 done --reason x',
+  'triage MMR --force',
+];
+
+/** One misplaced flag per scratch write, each a `flag-redirect` entry. */
+export const SCRATCH_REDIRECTS: readonly string[] = [
+  'scratch create x -s MMR --parent MMR-2',
+  'scratch update abc --parent MMR-2',
+  'scratch checkpoint abc t --dry-run',
+  'scratch agenda add abc x --dry-run',
+  'scratch freeze abc --direction x',
+  'scratch discard abc --parent MMR-2',
+];
+
 const MMR_549_READS: readonly ParityDifference[] = [
   { case: 'list -s MMR --bogus', kind: 'loom-voice', reason: LOOM_PARSER },
   { case: 'list argv: -s MMR --bogus -f json', kind: 'loom-voice', reason: LOOM_PARSER },
@@ -214,4 +242,45 @@ export const PARITY_DIFFERENCES: readonly ParityDifference[] = [
   { case: 'next argv: -s MMR next -f ids', kind: 'loom-refusal', reason: LEADING },
   { case: 'next argv: -s MMR --bogus -f json', kind: 'loom-voice', reason: LOOM_PARSER },
   ...MMR_549_READS,
+  // MMR-552: seed verbs, triage, and scratch writes.
+  ...redirectEntries([...SEED_REDIRECTS, ...SCRATCH_REDIRECTS]),
+  { case: 'seed (no title)', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'seed --bogus', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'seed -f yaml', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'promote (no id)', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'promote MMR-s1 --bogus', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'reject (no id)', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'reject MMR-s1 --bogus', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'resolve (no id)', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'resolve MMR-s1 --bogus', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'triage --bogus', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'triage argv: MMR XX', kind: 'loom-refusal', reason: STRAY },
+  { case: 'triage argv: MMR -f json -f ids', kind: 'loom-refusal', reason: REPEATED },
+  { case: 'scratch create --bogus', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'scratch update (no id)', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'scratch agenda (no action)', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'scratch agenda (no id)', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'scratch checkpoint (no id)', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'scratch argv: create x -s MMR -s XX', kind: 'loom-refusal', reason: REPEATED },
+  {
+    case: 'scratch argv: update {pad} --expected-updated-at {token} --title t --title u',
+    kind: 'loom-refusal',
+    reason: REPEATED,
+  },
+  { case: 'seed argv: "Cache it" -k idea -k bug -s MMR', kind: 'loom-refusal', reason: REPEATED },
+  { case: 'seed argv: a b -k idea -s MMR', kind: 'loom-refusal', reason: STRAY },
+  { case: 'seed argv: -s MMR seed "Cache it" -k idea', kind: 'loom-refusal', reason: LEADING },
+  {
+    case: 'promote argv: MMR-s1 --parent MMR-2 -p p1 -p p2',
+    kind: 'loom-refusal',
+    reason: REPEATED,
+  },
+  {
+    case: 'promote argv: MMR-s1 --link MMR-3 --link MMR-4',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  { case: 'scratch argv: -s MMR scratch create x', kind: 'loom-refusal', reason: LEADING },
+  { case: 'promote argv: MMR-s1 extra --parent MMR-2', kind: 'loom-refusal', reason: STRAY },
+  { case: 'resolve argv: MMR-s1 shipped -f json -f ids', kind: 'loom-refusal', reason: REPEATED },
 ];

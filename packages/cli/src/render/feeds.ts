@@ -67,7 +67,7 @@ export function renderSearchSet(result: SetResult<SearchHit>, p: Presentation): 
 }
 
 /** One seed queue row: kind, lifecycle, requester, age, id, title, with the lede dimmed beneath. */
-function seedRows(seeds: readonly SeedView[], p: Presentation): string[] {
+export function seedRows(seeds: readonly SeedView[], p: Presentation): string[] {
   const kindW = Math.max(...seeds.map((s) => s.kind.length));
   const lifeW = Math.max(...seeds.map((s) => s.lifecycle.length));
   const reqW = Math.max(...seeds.map((s) => (s.requester ?? '-').length));
