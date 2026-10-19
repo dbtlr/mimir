@@ -1,60 +1,104 @@
-import { afterEach, expect, test } from 'bun:test';
+import { beforeAll, expect, test } from 'bun:test';
 import { spawnSync } from 'node:child_process';
 import { rmSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
  * The layering rule (ADR 0037): only `src/app.ts` imports `@mimir/core`, so a
- * command reaches work state through the Engine alone. Each case lints a probe
- * module written beside the commands, through the repository's own lint config.
+ * command reaches work state through the Engine alone. Each case is a probe
+ * module written beside the commands, and one lint run through the
+ * repository's own lint config reads them all, so the suite pays the linter's
+ * startup once and runs only the rule under test.
  */
 const repository = fileURLToPath(new URL('../../../', import.meta.url));
-const probe = fileURLToPath(
-  new URL(`commands/layering-probe-${String(process.pid)}.ts`, import.meta.url),
-);
+const probe = (name: string): string =>
+  fileURLToPath(
+    new URL(`commands/layering-probe-${name}-${String(process.pid)}.ts`, import.meta.url),
+  );
 
-afterEach(() => {
-  rmSync(probe, { force: true });
-});
+const PROBES = {
+  bin: { path: probe('bin'), source: "export { runCli } from '@mimir/bin/src/cli';\n" },
+  contract: { path: probe('contract'), source: "export { MimirError } from '@mimir/contract';\n" },
+  core: {
+    path: probe('core'),
+    source: "import { LocalEngine } from '@mimir/core';\n\nexport { LocalEngine };\n",
+  },
+  testing: {
+    path: probe('testing'),
+    source: "export { parityBoard } from '../testing/fixture';\n",
+  },
+};
+const APP = fileURLToPath(new URL('app.ts', import.meta.url));
+
+/** Each linted file's diagnostic messages and help, keyed by its absolute path. */
+let findings: Map<string, string>;
+
+type Diagnostic = { filename: string; help?: string; message: string };
 
 /**
- * Lint one file with the default formatter pinned. Under GitHub Actions, vp
- * lint otherwise writes annotations, which drop the rule's custom message that
- * each case reads.
+ * A report's file name as an absolute path. The linter may name a file
+ * relative to the repository, absolutely, or as a `file://` URL.
  */
-function lint(path: string): { status: number | null; output: string } {
-  const { GITHUB_ACTIONS: _annotations, ...env } = process.env;
-  const run = spawnSync('bun', ['x', 'vp', 'lint', '--format', 'default', path], {
-    cwd: repository,
-    encoding: 'utf8',
-    env,
-  });
-  return { output: `${run.stdout}${run.stderr}`, status: run.status };
+const absolute = (filename: string): string =>
+  filename.startsWith('file:') ? fileURLToPath(filename) : resolve(repository, filename);
+
+/**
+ * Lint the files with only the layering rule on (its per-file options and
+ * messages still come from the repository config) and group the diagnostics
+ * by file. The JSON format reads the same on a terminal, under CI, and under
+ * GitHub Actions, where the default format turns graphical or into
+ * annotations that drop the rule's custom help.
+ */
+function lint(paths: readonly string[]): Map<string, string> {
+  const args = ['x', 'vp', 'lint', '--format', 'json', '-A', 'all', '-D', 'no-restricted-imports'];
+  const run = spawnSync('bun', [...args, ...paths], { cwd: repository, encoding: 'utf8' });
+  let report: { diagnostics?: unknown } | undefined;
+  try {
+    report = JSON.parse(run.stdout) as { diagnostics?: unknown };
+  } catch {
+    // Reported below with the linter's own output.
+  }
+  if (!Array.isArray(report?.diagnostics)) {
+    throw new TypeError(`vp lint wrote no JSON report:\n${run.stdout}${run.stderr}`);
+  }
+  const grouped = new Map<string, string>();
+  for (const { filename, help = '', message } of report.diagnostics as Diagnostic[]) {
+    const key = absolute(filename);
+    grouped.set(key, `${grouped.get(key) ?? ''}${message}\n${help}\n`);
+  }
+  return grouped;
 }
 
+const of = (path: string): string => findings.get(resolve(path)) ?? '';
+
+beforeAll(() => {
+  // The probes break the repository's own lint run, so none outlives this hook.
+  try {
+    for (const { path, source } of Object.values(PROBES)) {
+      writeFileSync(path, source);
+    }
+    findings = lint([...Object.values(PROBES).map(({ path }) => path), APP]);
+  } finally {
+    for (const { path } of Object.values(PROBES)) {
+      rmSync(path, { force: true });
+    }
+  }
+});
+
 test('a command module that imports @mimir/core is refused', () => {
-  writeFileSync(probe, "import { LocalEngine } from '@mimir/core';\n\nexport { LocalEngine };\n");
-  const run = lint(probe);
-  expect(run.status).not.toBe(0);
-  expect(run.output).toContain('only packages/cli/src/app.ts imports @mimir/core');
+  expect(of(PROBES.core.path)).toContain('only packages/cli/src/app.ts imports @mimir/core');
 });
 
 test('a command module that imports the old binary is refused', () => {
-  writeFileSync(probe, "export { runCli } from '@mimir/bin/src/cli';\n");
-  const run = lint(probe);
-  expect(run.status).not.toBe(0);
-  expect(run.output).toContain('@mimir/cli may not import @mimir/bin');
+  expect(of(PROBES.bin.path)).toContain('@mimir/cli may not import @mimir/bin');
 });
 
 test('a command module that imports the test-support helpers is refused', () => {
-  writeFileSync(probe, "export { parityBoard } from '../testing/fixture';\n");
-  const run = lint(probe);
-  expect(run.status).not.toBe(0);
-  expect(run.output).toContain('only tests import packages/cli/src/testing');
+  expect(of(PROBES.testing.path)).toContain('only tests import packages/cli/src/testing');
 });
 
 test('the composition root imports core, and a command the contract, cleanly', () => {
-  writeFileSync(probe, "export { MimirError } from '@mimir/contract';\n");
-  expect(lint(probe).status).toBe(0);
-  expect(lint(fileURLToPath(new URL('app.ts', import.meta.url))).status).toBe(0);
+  expect(of(PROBES.contract.path)).toBe('');
+  expect(of(APP)).toBe('');
 });
