@@ -1,0 +1,20 @@
+mimir unpark · Clear the parked hold. Also takes a seed (KEY-sN).
+
+USAGE
+  mimir unpark <id> [options]
+
+ARGUMENTS
+  id  The task (KEY-seq) or the seed (KEY-sN).
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir unpark MMR-3
+    clear the hold
+  $ mimir unpark MMR-s4
+    a seed: back to untriaged

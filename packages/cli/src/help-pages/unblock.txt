@@ -1,0 +1,18 @@
+mimir unblock · Clear the blocked hold.
+
+USAGE
+  mimir unblock <id> [options]
+
+ARGUMENTS
+  id  The task: KEY-seq.
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir unblock MMR-3
+    clear the hold

@@ -149,6 +149,52 @@ test('a new-view entry refuses a line that is not the json document compacted', 
   ]);
 });
 
+const stray: ParityDifference[] = [{ case: c.name, kind: 'stray-refusal', reason: 'stray words' }];
+const strayCase: ParityCase = { argv: ['park', 'MMR-1', '--', 'x', 'y'], name: c.name, path: [] };
+const accepted: ParityRun = { exitCode: 0, stdout: '' };
+const strayRefused = (
+  over: Partial<ParityRun> = {},
+  message = 'unexpected argument: x y',
+): ParityRun => ({
+  exitCode: 2,
+  failure: { code: 'usage', hints: [], message },
+  stdout: '',
+  ...over,
+});
+
+test('a stray-refusal entry holds when the old CLI accepted and the new one refuses the words', () => {
+  expect(parityProblems(app, strayCase, accepted, strayRefused(), stray)).toEqual([]);
+});
+
+test('a stray-refusal entry refuses an old CLI that failed', () => {
+  expect(parityProblems(app, strayCase, oldUsage, strayRefused(), stray)).toEqual([
+    'a stray-refusal entry names a case the old CLI refused (exit 2)',
+  ]);
+});
+
+test('a stray-refusal entry refuses a new exit other than 2', () => {
+  expect(parityProblems(app, strayCase, accepted, strayRefused({ exitCode: 1 }), stray)).toEqual([
+    'a stray-refusal exits 2 with code usage, not exit 1 code usage',
+  ]);
+});
+
+test('a stray-refusal entry refuses a code other than usage', () => {
+  const next = strayRefused({
+    failure: { code: 'validation', hints: [], message: 'unexpected argument: x y' },
+  });
+  expect(parityProblems(app, strayCase, accepted, next, stray)).toEqual([
+    'a stray-refusal exits 2 with code usage, not exit 2 code validation',
+  ]);
+});
+
+test('a stray-refusal entry refuses a message that does not name the stray words', () => {
+  expect(
+    parityProblems(app, strayCase, accepted, strayRefused({}, 'unexpected argument: x'), stray),
+  ).toEqual([
+    'a stray-refusal message is "unexpected argument: x y", not "unexpected argument: x"',
+  ]);
+});
+
 test('underJson puts --format json before the first --', () => {
   expect(underJson(['reject', 'MMR-s1', '--', '--out', 'of'])).toEqual([
     'reject',

@@ -1,0 +1,18 @@
+mimir done · Complete a task (approves a review).
+
+USAGE
+  mimir done <id> [options]
+
+ARGUMENTS
+  id  The task: KEY-seq.
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir done MMR-3
+    complete it, approving a review
