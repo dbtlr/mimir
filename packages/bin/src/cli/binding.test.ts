@@ -12,13 +12,19 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { bindingScope, createInitiative, createPhase, createTask, LocalEngine } from '@mimir/core';
+import {
+  bindingScope,
+  createInitiative,
+  createPhase,
+  createTask,
+  gitPortAt,
+  LocalEngine,
+} from '@mimir/core';
 import type { Store } from '@mimir/core';
 import { createTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 
-import { gitPortAt } from '../git-port';
 import { buildMcpServer } from '../mcp/server';
 import { runCli } from './run';
 import { fakeIo } from './testing';

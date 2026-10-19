@@ -268,6 +268,16 @@ export function formatIds(items: readonly NodeView[]): string {
   return items.map((n) => n.id).join('\n');
 }
 
+/** The count-led set envelope `{ returned, starts_at, total, <unit>: [...] }`, warnings left out. */
+export function setToWire(result: SetResult<NodeView>, unit = 'tasks'): Record<string, unknown> {
+  return {
+    returned: result.returned,
+    starts_at: result.startsAt,
+    total: result.total,
+    [unit]: result.items.map(nodeToWire),
+  };
+}
+
 /**
  * `json` for a set — the count-led envelope `{ total, returned, starts_at,
  * <unit>: [...] }`. Warnings stay out by default (the CLI renders them on
@@ -278,12 +288,7 @@ export function formatSetJson(
   unit = 'tasks',
   opts: { includeWarnings?: boolean } = {},
 ): string {
-  const wrapper: Record<string, unknown> = {
-    returned: result.returned,
-    starts_at: result.startsAt,
-    total: result.total,
-    [unit]: result.items.map(nodeToWire),
-  };
+  const wrapper = setToWire(result, unit);
   if (
     opts.includeWarnings === true &&
     result.warnings !== undefined &&

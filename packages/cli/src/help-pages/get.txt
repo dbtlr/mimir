@@ -1,0 +1,27 @@
+mimir get · Read one full record: a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), or a seed (KEY-sN).
+
+USAGE
+  mimir get <id> [options]
+
+ARGUMENTS
+  id  KEY-seq, KEY, KEY-aN, or KEY-sN.
+
+OPTIONS
+      --col <col>        Add a column (deps tags children distribution …). Repeat it, or separate with commas.  (repeatable)
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir get MMR-16
+    the full record, cheap facets included
+  $ mimir get MMR-16 --col history
+    add the transition log
+  $ mimir get MMR-16 --col annotations
+    expand annotation bodies
+  $ mimir get MMR-a1 --col content
+    an artifact's frozen body
+  $ mimir get MMR-s1
+    a seed, with its description

@@ -1,12 +1,13 @@
 /**
  * The git edge of project binding (ADR 0036): a `GitPort` over one working
- * directory, shelling out to `git`. A linked worktree shares its clone's
+ * directory, shelling out to `git`. Each CLI composition root builds one over
+ * its own working directory. A linked worktree shares its clone's
  * config, so a binding written from any worktree is read from all of them.
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
-import type { GitPort } from '@mimir/core';
+import type { GitPort } from './binding';
 
 const run = promisify(execFile);
 

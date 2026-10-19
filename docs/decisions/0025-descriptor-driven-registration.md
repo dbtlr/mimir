@@ -116,3 +116,11 @@ the Engine lands. That phase decides where each fact (subject id kind, reason
 policy, transition, summary, core binding, choice) lives on the Engine side,
 whether as method metadata or as annotations on the zod schemas, and records
 the mapping in a refinement here.
+
+## Refinement (2026-10-18, MMR-548): CLI help and MCP descriptions come from Loom declarations (ADR 0037)
+
+ADR 0037 supersedes Decision 4 for the CLI and MCP. Each Loom command declares
+its own description, examples, and MCP opt-in, and Loom's help and MCP plugins
+render them, so help text and tool descriptions are no longer per-transport
+templates over registry facts. The operation facts still define each uniform
+verb's arguments.

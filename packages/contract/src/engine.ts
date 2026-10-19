@@ -15,7 +15,7 @@ import {
   VERDICT_VALUES,
 } from './query';
 
-export { engineViews, intentViews } from './engine-views';
+export { engineViews, intentEncoders, intentViews } from './engine-views';
 export type { UniformArgs } from './engine-node-writes';
 export * from './engine-console';
 

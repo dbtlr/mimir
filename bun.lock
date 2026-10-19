@@ -42,6 +42,21 @@
         "@mimir/api": "workspace:*",
       },
     },
+    "packages/cli": {
+      "name": "@mimir/cli",
+      "version": "0.26.0-next",
+      "dependencies": {
+        "@loomcli/core": "0.13.0",
+        "@loomcli/plugins": "0.13.0",
+        "@mimir/contract": "workspace:*",
+        "@mimir/core": "workspace:*",
+        "@mimir/helpers": "workspace:*",
+        "zod": "4.6.6",
+      },
+      "devDependencies": {
+        "@mimir/bin": "workspace:*",
+      },
+    },
     "packages/contract": {
       "name": "@mimir/contract",
       "version": "0.5.0",
@@ -398,13 +413,15 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
-    "@loomcli/core": ["@loomcli/core@0.10.0", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "@types/node": "22.20.5" } }, "sha512-fCa7ZQlqaQ2fZRKJERJ9u2fvNszQA9a/nry6eMReu9tnyLjxELaFG0ymw40MuLiEpCXyr8LS4MOiyl6DOqv8fg=="],
+    "@loomcli/core": ["@loomcli/core@0.13.0", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "@types/node": "22.20.5" } }, "sha512-sIiO5VKa2Zv8fCdE6Ub2cYdU4q5Ij5Shaz4qJhpDUYtk/JXlvuH+RGFA8Ft7YX21BzNIIVQQSMVfhbxpzqLUjg=="],
 
-    "@loomcli/plugins": ["@loomcli/plugins@0.10.0", "", { "dependencies": { "smol-toml": "^1.9.0", "yaml": "^2.9.1", "zod": "^4.6.5" }, "peerDependencies": { "@loomcli/core": "0.10.0" } }, "sha512-1QyqdSNUXAgiSqdS/qJABxEugKXTgb5lJ6crU71ZOdYRGjAoMCS+eMJSrDVPlJphlQqohd2nadMIjcjKXhArxQ=="],
+    "@loomcli/plugins": ["@loomcli/plugins@0.13.0", "", { "dependencies": { "smol-toml": "^1.9.0", "yaml": "^2.9.1", "zod": "^4.6.5" }, "peerDependencies": { "@loomcli/core": "0.13.0" } }, "sha512-+3chApjBjMtakcPUgefvCDNRhqPVwevMzfb7f1WLv464L9wcQVX3sQluFERyM6wWgJV36IWiF+NvOjOTJah+1A=="],
 
     "@mimir/api": ["@mimir/api@workspace:packages/api"],
 
     "@mimir/bin": ["@mimir/bin@workspace:packages/bin"],
+
+    "@mimir/cli": ["@mimir/cli@workspace:packages/cli"],
 
     "@mimir/contract": ["@mimir/contract@workspace:packages/contract"],
 
@@ -1954,6 +1971,10 @@
 
     "@loomcli/core/@types/node": ["@types/node@22.20.5", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-U2+DNr+wSjpsTS/wZGYHq7GcwfuSmKiKvoPvK22zwTlRhU91yOniN4qRR5KhIjvif7ysw/dz/hKmfDH0Ris4aA=="],
 
+    "@mimir/sandbox/@loomcli/core": ["@loomcli/core@0.10.0", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "@types/node": "22.20.5" } }, "sha512-fCa7ZQlqaQ2fZRKJERJ9u2fvNszQA9a/nry6eMReu9tnyLjxELaFG0ymw40MuLiEpCXyr8LS4MOiyl6DOqv8fg=="],
+
+    "@mimir/sandbox/@loomcli/plugins": ["@loomcli/plugins@0.10.0", "", { "dependencies": { "smol-toml": "^1.9.0", "yaml": "^2.9.1", "zod": "^4.6.5" }, "peerDependencies": { "@loomcli/core": "0.10.0" } }, "sha512-1QyqdSNUXAgiSqdS/qJABxEugKXTgb5lJ6crU71ZOdYRGjAoMCS+eMJSrDVPlJphlQqohd2nadMIjcjKXhArxQ=="],
+
     "@rollup/plugin-replace/magic-string": ["magic-string@0.30.21", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.5" } }, "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ=="],
 
     "@rollup/pluginutils/estree-walker": ["estree-walker@2.0.2", "", {}, "sha512-Rfkk/Mp/DL7JVje3u18FxFujQlTNR2q6QfMSMB7AvCBx91NGj/ba3kCfza0f6dVDbw7YlRf/nDrn7pQrCCyQ/w=="],
@@ -2022,6 +2043,8 @@
 
     "@loomcli/core/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
 
+    "@mimir/sandbox/@loomcli/core/@types/node": ["@types/node@22.20.5", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-U2+DNr+wSjpsTS/wZGYHq7GcwfuSmKiKvoPvK22zwTlRhU91yOniN4qRR5KhIjvif7ysw/dz/hKmfDH0Ris4aA=="],
+
     "@rollup/plugin-replace/magic-string/@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.5.5", "", {}, "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og=="],
 
     "@tailwindcss/node/lightningcss/lightningcss-android-arm64": ["lightningcss-android-arm64@1.32.0", "", { "os": "android", "cpu": "arm64" }, "sha512-YK7/ClTt4kAK0vo6w3X+Pnm0D2cf2vPHbhOXdoNti1Ga0al1P4TBZhwjATvjNwLEBCnKvjJc2jQgHXH0NEwlAg=="],
@@ -2055,5 +2078,7 @@
     "source-map/whatwg-url/tr46": ["tr46@1.0.1", "", { "dependencies": { "punycode": "^2.1.0" } }, "sha512-dTpowEjclQ7Kgx5SdBkqRzVhERQXov8/l9Ft9dVM9fmg0W0KQSVaXX9T4i6twCPNtYiZM53lpSSUAwJbFPOHxA=="],
 
     "source-map/whatwg-url/webidl-conversions": ["webidl-conversions@4.0.2", "", {}, "sha512-YQ+BmxuTgd6UXZW3+ICGfyqRyHXVlD5GtQr5+qjiNW7bF0cqrzX500HVXPBOvgXb5YnzDd+h0zqyv61KUD7+Sg=="],
+
+    "@mimir/sandbox/@loomcli/core/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
   }
 }

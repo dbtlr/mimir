@@ -31,7 +31,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0006](0006-human-readable-node-ids.md)                           | Human-readable node ids                                            |
 | [0007](0007-rank-is-primary-order-priority-is-signal.md)          | Rank is the primary order; priority is a signal                    |
 | [0008](0008-state-word-projection-and-interpret-cascade.md)       | Status-word projection and the `interpret` cascade                 |
-| [0009](0009-adopt-norn-output-and-selection-contract.md)          | Adopt Norn's output + selection/projection contract                |
+| [0009](0009-adopt-norn-output-and-selection-contract.md)          | Adopt Norn's output + selection/projection contract (help refined by 0037) |
 | [0010](0010-one-binary-transport-only-consumption.md)             | One binary; transport-only consumption                             |
 | [0011](0011-repo-binding-is-repo-side.md)                         | Repo binding is repo-side; the store knows no paths (superseded by 0036) |
 | [0012](0012-http-api-true-resource-envelope.md)                   | The HTTP API is a true resource envelope                           |
@@ -47,7 +47,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0022](0022-changelog-fragments-compiled-at-cut.md)               | Changelog fragments, compiled at the cut                           |
 | [0023](0023-concurrency-and-safety-posture.md)                    | Concurrency & safety posture — not a write-safe datastore          |
 | [0024](0024-cli-command-taxonomy.md)                              | CLI command taxonomy — two planes, flat work verbs                 |
-| [0025](0025-descriptor-driven-registration.md)                    | Descriptor-driven registration — facts in tables, grammar in views |
+| [0025](0025-descriptor-driven-registration.md)                    | Descriptor-driven registration — facts in tables, grammar in views (Decision 4 superseded for the CLI and MCP by 0037) |
 | [0026](0026-work-state-composition.md)                            | Work-state composition — views composed at read time               |
 | [0027](0027-scratchpads-are-temporary-episode-state.md)           | Scratchpads are temporary episode state                            |
 | [0028](0028-scratchpads-use-a-work-noun-group.md)                 | Scratchpads use a work-plane noun group                            |
@@ -59,6 +59,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0034](0034-engine-interface-and-trpc-wire.md)                    | The Engine is a plain interface, and the remote wire is tRPC       |
 | [0035](0035-tanstack-start-container-host.md)                    | The host is a TanStack Start container                            |
 | [0036](0036-project-binding-through-git-config.md)               | A clone binds to its project through git config and the project remote |
+| [0037](0037-the-cli-and-mcp-on-loom.md)                         | The CLI and MCP on Loom                                            |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model

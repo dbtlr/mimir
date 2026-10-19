@@ -4,8 +4,7 @@ import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { BINDING_CONFIG_KEY } from '@mimir/core';
-
+import { BINDING_CONFIG_KEY } from './binding';
 import { gitPortAt } from './git-port';
 
 let root: string;
