@@ -124,6 +124,13 @@ describe('seed verbs (intent)', () => {
     ).toMatch(/requester NOPE is not a known project/);
   });
 
+  test('fileSeed coerces an empty requester to null, never storing it or failing the project guard', async () => {
+    await seedbed();
+    const seed = await fileSeed(store, { kind: 'idea', project: 'MMR', requester: '', title: 'x' });
+    expect(seed.requester).toBeNull();
+    expect((await getSeed(store, seed.id)).requester).toBeNull();
+  });
+
   test('listSeeds defaults to live oldest-first; --status and --sort reach terminals', async () => {
     await seedbed();
     await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title: 'first' });

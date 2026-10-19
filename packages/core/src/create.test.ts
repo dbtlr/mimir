@@ -220,12 +220,12 @@ test('createNode rejects a non-node token as a phase/task parent', async () => {
 test('createNode names a wrong-kind parent and carries transport hints (MMR-304)', async () => {
   await scaffold(store);
   // A recognizable-but-wrong kind gets the resolver's kind-aware wording,
-  // with the envelope's hint carried through the parentHints seam.
+  // with a transport's hint carried through the parentHints seam.
   let wrongKind: unknown;
   try {
     await createNode(store, {
       parent: 'MMR-a1',
-      parentHints: { artifact: 'artifacts live at /api/artifacts' },
+      parentHints: { artifact: 'read an artifact with getArtifact' },
       title: 'x',
       type: 'task',
     });
@@ -234,7 +234,7 @@ test('createNode names a wrong-kind parent and carries transport hints (MMR-304)
   }
   expect(wrongKind).toMatchObject({
     code: 'validation',
-    hint: 'artifacts live at /api/artifacts',
+    hint: 'read an artifact with getArtifact',
     message: 'MMR-a1 is an artifact, not a phase or initiative',
   });
   // A well-formed ref that resolves to nothing carries the notFound hint.

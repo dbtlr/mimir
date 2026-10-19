@@ -14,8 +14,6 @@ import { serveBareRecords } from './node-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
@@ -52,7 +50,6 @@ function renderArtifactsPage(url = '/p/MMR/artifacts') {
 function serveRows(items: ArtifactSummary[]) {
   serveShell({ projects: [engineProject({ id: 'MMR' })] });
   serveBrowse({ artifacts: items });
-  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
 }
 
 /** The last artifact-list read, as the `artifacts` input it sent. */

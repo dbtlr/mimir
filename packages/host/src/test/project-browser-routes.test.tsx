@@ -16,8 +16,6 @@ import { serveNodes } from './node-fns';
 import { failShellReads, serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
@@ -50,7 +48,6 @@ function serve(active: EngineNode[]) {
     refuseUnknown(data.project);
     return { items: [], returned: 0, startsAt: 0, total: 0 };
   });
-  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
 }
 
 function renderAt(initial: string) {
@@ -238,7 +235,6 @@ describe('the top-level browsers redirect (MMR-495)', () => {
   });
 
   it('stays on the URL and says unreachable while the project list fails', async () => {
-    apiGet.mockRejectedValue(new Error('connection refused'));
     failShellReads(new Error('connection refused'));
     const testRouter = renderAt('/tasks?status=ready');
     await expect(screen.findByText(/Unreachable/)).resolves.toBeInTheDocument();

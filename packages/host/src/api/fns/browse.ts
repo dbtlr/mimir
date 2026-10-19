@@ -2,7 +2,7 @@ import { consoleSchemas, engineSchemas, MimirError, parseEngineInput } from '@mi
 import type { ConsoleInput, EngineInput } from '@mimir/contract';
 import { createServerFn } from '@tanstack/react-start';
 
-import type { WireDoctorFacet, WireDoctorGroup, WireDoctorRecord } from '../types';
+import type { WireDoctorFacet, WireDoctorGroup, WireDoctorRecord } from '../doctor-facet';
 import { engine, recordHealth } from './engine';
 
 /*
@@ -147,9 +147,9 @@ export type RecordHealth = Omit<WireDoctorFacet, 'groups'> & {
 
 /**
  * The facet in the shape a server function can return, each finding's evidence
- * passed through JSON as `/api/doctor` writes it: a `Date` reads as its ISO
+ * passed through JSON as the facet is written: a `Date` reads as its ISO
  * string and an undefined field is dropped, so the console shows what the CLI
- * and the route show.
+ * shows.
  */
 export function recordHealthOf(facet: WireDoctorFacet): RecordHealth {
   return {

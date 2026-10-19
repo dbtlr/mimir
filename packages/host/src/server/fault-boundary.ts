@@ -7,7 +7,7 @@ import { HostFaultError, isEngineRefusal } from '../api/errors';
  * refusal crosses as itself, input validation included (each server function
  * validates through `parseEngineInput`). Anything else is an internal fault:
  * its message and stack go to the host's log through the same diagnostic
- * helpers `/api` and `/trpc` use, and the caller gets only {@link HostFaultError}.
+ * helpers `/trpc` uses, and the caller gets only {@link HostFaultError}.
  */
 export function refusalOf(
   error: unknown,

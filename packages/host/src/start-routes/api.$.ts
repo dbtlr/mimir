@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { handleApi } from '../server/runtime';
+import { retiredApiResponse } from '../server/retired-api';
 
+// Tombstone for the retired /api envelope: every method answers 410 gone.
 export const Route = createFileRoute('/api/$')({
-  server: { handlers: { ANY: ({ request }) => handleApi(request) } },
+  server: { handlers: { ANY: () => retiredApiResponse() } },
 });

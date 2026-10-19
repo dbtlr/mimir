@@ -11,8 +11,6 @@ import { serveBrowse } from './browse-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
@@ -31,10 +29,9 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-/** Record health answers `health`; an /api read fails. */
+/** Record health answers `health`. */
 function serveDoctor(health: RecordHealth) {
   serveBrowse({ health });
-  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
 }
 
 /** A facet with one finding: a node whose parent names no row. */

@@ -193,7 +193,7 @@ export async function createTask(store: Store, input: CreateTaskInput): Promise<
 
 /**
  * The single create surface every transport maps onto. It owns what the CLI,
- * MCP, and HTTP handlers used to each re-implement: the type dispatch, the
+ * MCP, and console handlers used to each re-implement: the type dispatch, the
  * parent token shape+kind rules, priority/size enum validation, the `upstream`
  * wire parse, and the open_ended container-only rule (MMR-204). A transport is
  * left with argument mapping and echo.

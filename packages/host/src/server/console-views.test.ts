@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test';
 
-import { createApiHandler } from '@mimir/api';
 import type { ConsoleEngine, ConsoleInput } from '@mimir/contract';
 import {
   annotate,
@@ -15,13 +14,8 @@ import {
   fileSeed,
   findingsProviderOf,
   LocalEngine,
-  nodeToWire,
-  overviewToWire,
-  reviewToWire,
-  searchHitToWire,
   startTask,
   submitTask,
-  workToWire,
 } from '@mimir/core';
 import type { DoctorFacet } from '@mimir/core';
 import { createTestStore, errorOf } from '@mimir/core/testing';
@@ -30,14 +24,13 @@ import { RemoteEngine } from '@mimir/wire/client';
 import { createEngineHandler } from '@mimir/wire/server';
 
 /**
- * Each `console.*` method, mapped back to wire form, equals the body its /api
- * route serves for the same store. Local and remote Engines agree too.
+ * Each `console.*` method answers the same through the local Engine and the
+ * remote one over tRPC, and refuses bad input the same way.
  */
 
 let fixture: TestStore;
 let local: LocalEngine;
 let remote: RemoteEngine;
-let api: (path: string) => Promise<Response>;
 let ids: { initiative: string; phase: string; submitted: string };
 
 const doctor = async (): Promise<DoctorFacet> => ({
@@ -89,122 +82,51 @@ beforeAll(async () => {
     },
     url: 'http://engine.test/trpc',
   });
-  const handler = createApiHandler(store, { doctor, version: 'test' });
-  api = async (path) => handler(new Request(new URL(path, 'http://api.test')));
 });
 
 afterAll(async () => fixture.close());
 
-/** An Engine output back in the string-valued form core hands the wire mappers. */
-const asCore = (output: unknown): any =>
-  // oxlint-disable-next-line unicorn/prefer-structured-clone -- structuredClone keeps Dates; the wire mappers need ISO strings
-  JSON.parse(JSON.stringify(output));
-
-/** The `/api/nodes` body: the nodes in wire form and the total, without the set's window fields. */
-function nodeSetToWire(output: unknown): unknown {
-  const { items, total } = asCore(output);
-  return { items: items.map(nodeToWire), total };
-}
-
-/** The `/api/search` body: the hits in wire form and the total, without the set's window fields. */
-function searchToWire(output: unknown): unknown {
-  const { items, total } = asCore(output);
-  return { items: items.map(searchHitToWire), total };
-}
-
-type Case = {
-  name: string;
-  engine: (engine: ConsoleEngine) => Promise<unknown>;
-  route: string;
-  wire: (output: unknown) => unknown;
-};
+type Case = { name: string; engine: (engine: ConsoleEngine) => Promise<unknown> };
 
 const cases: Case[] = [
-  {
-    engine: (engine) => engine.review({ timeZone: 'UTC' }),
-    name: 'review',
-    route: '/api/review?tz=UTC',
-    wire: (output) => reviewToWire(asCore(output)),
-  },
+  { engine: (engine) => engine.review({ timeZone: 'UTC' }), name: 'review' },
   {
     engine: (engine) => engine.projectWork({ project: 'ENG', timeZone: 'UTC' }),
     name: 'projectWork',
-    route: '/api/projects/ENG/work?tz=UTC',
-    wire: (output) => workToWire(asCore(output)),
   },
   {
     engine: (engine) => engine.nodeWork({ id: 'ENG-1', timeZone: 'UTC' }),
     name: 'nodeWork on an initiative',
-    route: '/api/nodes/ENG-1/work?tz=UTC',
-    wire: (output) => workToWire(asCore(output)),
   },
   {
     engine: (engine) => engine.nodeWork({ id: 'ENG-2', timeZone: 'UTC' }),
     name: 'nodeWork on a phase',
-    route: '/api/nodes/ENG-2/work?tz=UTC',
-    wire: (output) => workToWire(asCore(output)),
   },
-  {
-    engine: (engine) => engine.overview({ project: 'ENG' }),
-    name: 'overview',
-    route: '/api/projects/ENG/overview',
-    wire: (output) => overviewToWire(asCore(output)),
-  },
-  {
-    engine: (engine) => engine.search({ query: 'Ready' }),
-    name: 'search across every project',
-    route: '/api/search?q=Ready',
-    wire: searchToWire,
-  },
+  { engine: (engine) => engine.overview({ project: 'ENG' }), name: 'overview' },
+  { engine: (engine) => engine.search({ query: 'Ready' }), name: 'search across every project' },
   {
     engine: (engine) => engine.search({ project: 'OTH', query: 'Ready' }),
     name: 'search ranking the current project first',
-    route: '/api/search?q=Ready&project=OTH',
-    wire: searchToWire,
   },
-  {
-    engine: (engine) => engine.search({ query: 'ENG-3' }),
-    name: 'search by id',
-    route: '/api/search?q=ENG-3',
-    wire: searchToWire,
-  },
+  { engine: (engine) => engine.search({ query: 'ENG-3' }), name: 'search by id' },
   {
     engine: (engine) => engine.upstreamTasks({ seed: 'OTH-s1' }),
     name: 'upstreamTasks across every board',
-    route: '/api/nodes?type=task&status=all&eq=upstream:OTH-s1',
-    wire: nodeSetToWire,
   },
   {
     engine: (engine) => engine.upstreamTasks({ seed: 'OTH-s99' }),
     name: 'upstreamTasks of a seed nothing names',
-    route: '/api/nodes?type=task&status=all&eq=upstream:OTH-s99',
-    wire: nodeSetToWire,
   },
   {
     engine: (engine) => engine.openTasks({ q: 'ready' }),
     name: 'openTasks by title across every board',
-    route: '/api/nodes?type=task&q=ready',
-    wire: nodeSetToWire,
   },
-  {
-    engine: (engine) => engine.openTasks({ q: 'ENG-3' }),
-    name: 'openTasks by id',
-    route: '/api/nodes?type=task&q=ENG-3',
-    wire: nodeSetToWire,
-  },
-  {
-    engine: (engine) => engine.openTasks({ q: 'done' }),
-    name: 'openTasks of only finished work',
-    route: '/api/nodes?type=task&q=done',
-    wire: nodeSetToWire,
-  },
+  { engine: (engine) => engine.openTasks({ q: 'ENG-3' }), name: 'openTasks by id' },
+  { engine: (engine) => engine.openTasks({ q: 'done' }), name: 'openTasks of only finished work' },
 ];
 
-test.each(cases)('console.$name equals its /api body, locally and remotely', async (c) => {
-  const body: unknown = await (await api(c.route)).json();
-  const [fromLocal, fromRemote] = [await c.engine(local.console), await c.engine(remote.console)];
-  expect(c.wire(fromLocal)).toEqual(body);
-  expect(c.wire(fromRemote)).toEqual(body);
+test.each(cases)('console.$name answers the same locally and remotely', async (c) => {
+  expect(await c.engine(remote.console)).toEqual(await c.engine(local.console));
 });
 
 test('the fixture reaches every section the pages show', async () => {
@@ -271,78 +193,51 @@ test('a failing findings provider counts no findings instead of failing the page
   }
 });
 
-type Refusal = [string, (engine: ConsoleEngine) => Promise<unknown>, string, number];
+type Refusal = [name: string, run: (engine: ConsoleEngine) => Promise<unknown>, code: string];
 const refusals: Refusal[] = [
-  ['review without a time zone', (e) => e.review({}), '/api/review', 400],
-  [
-    'review with an unknown zone',
-    (e) => e.review({ timeZone: 'Mars/Olympus' }),
-    '/api/review?tz=Mars/Olympus',
-    400,
-  ],
+  ['review without a time zone', (e) => e.review({}), 'validation'],
+  ['review with an unknown zone', (e) => e.review({ timeZone: 'Mars/Olympus' }), 'validation'],
   [
     'projectWork on a task',
     (e) => e.projectWork({ project: 'ENG-3', timeZone: 'UTC' }),
-    '/api/projects/ENG-3/work?tz=UTC',
-    400,
+    'validation',
   ],
   [
     'projectWork on an unknown project',
     (e) => e.projectWork({ project: 'NOPE', timeZone: 'UTC' }),
-    '/api/projects/NOPE/work?tz=UTC',
-    404,
+    'not_found',
   ],
-  [
-    'nodeWork on a project key',
-    (e) => e.nodeWork({ id: 'ENG', timeZone: 'UTC' }),
-    '/api/nodes/ENG/work?tz=UTC',
-    400,
-  ],
+  ['nodeWork on a project key', (e) => e.nodeWork({ id: 'ENG', timeZone: 'UTC' }), 'validation'],
   [
     'nodeWork on an unknown node',
     (e) => e.nodeWork({ id: 'ENG-99', timeZone: 'UTC' }),
-    '/api/nodes/ENG-99/work?tz=UTC',
-    404,
+    'not_found',
   ],
-  [
-    'overview on a non-project',
-    (e) => e.overview({ project: 'ENG-3' }),
-    '/api/projects/ENG-3/overview',
-    400,
-  ],
-  [
-    'overview on an unknown project',
-    (e) => e.overview({ project: 'NOPE' }),
-    '/api/projects/NOPE/overview',
-    404,
-  ],
-  ['search without a query', (e) => e.search({ query: ' ' }), '/api/search?q=%20', 400],
+  ['overview on a non-project', (e) => e.overview({ project: 'ENG-3' }), 'validation'],
+  ['overview on an unknown project', (e) => e.overview({ project: 'NOPE' }), 'not_found'],
+  ['search without a query', (e) => e.search({ query: ' ' }), 'validation'],
   [
     'search ranking an unknown project',
     (e) => e.search({ project: 'NOPE', query: 'Ready' }),
-    '/api/search?q=Ready&project=NOPE',
-    404,
+    'not_found',
   ],
 ];
 
-test.each(refusals)('%s is refused like its route', async (_name, run, route, status) => {
-  const response = await api(route);
-  expect(response.status).toBe(status);
-  const wireError = ((await response.json()) as { error: { code: string; message: string } }).error;
-  const [localError, remoteError] = [
-    await errorOf(run(local.console)),
-    await errorOf(run(remote.console)),
-  ];
-  expect<string>(localError.code).toBe(wireError.code);
-  expect(localError.message).toBe(wireError.message);
-  expect(remoteError.code).toBe(localError.code);
-  expect(remoteError.message).toBe(localError.message);
-});
+test.each(refusals)(
+  '%s is refused with the same domain error locally and remotely',
+  async (_name, run, code) => {
+    const [localError, remoteError] = [
+      await errorOf(run(local.console)),
+      await errorOf(run(remote.console)),
+    ];
+    expect<string>(localError.code).toBe(code);
+    expect(remoteError.code).toBe(localError.code);
+    expect(remoteError.message).toBe(localError.message);
+  },
+);
 
-test('console.search refuses the spellings /api/search reads as no project', async () => {
-  // The route reads an empty or `all` project as unset; the Engine input has a real unset.
+test('console.search refuses an empty or "all" project instead of reading it as unset', async () => {
   for (const project of ['', 'all']) {
-    expect((await api(`/api/search?q=Ready&project=${project}`)).status).toBe(200);
     const refusal = await errorOf(remote.console.search({ project, query: 'Ready' }));
     expect<string>(refusal.code).toBe('not_found');
   }

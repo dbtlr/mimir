@@ -16,30 +16,19 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { force: true, recursive: true })));
 });
 
-test('the host shares API writes and Engine reads and completions over tRPC', async () => {
+test('the host shares Engine reads and completions over tRPC', async () => {
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-engine-'));
   roots.push(root);
-  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), 'test');
+  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }));
   const server = Bun.serve({
     fetch: (request) => host.handleTrpc(request),
     hostname: '127.0.0.1',
     port: 0,
   });
   try {
-    for (const [path, body] of [
-      ['/api/projects', { key: 'TST', name: 'Engine fixture' }],
-      ['/api/nodes', { parent: 'TST', title: 'Host Engine', type: 'initiative' }],
-      ['/api/nodes', { parent: 'TST-1', title: 'Complete over tRPC', type: 'task' }],
-    ] satisfies [string, object][]) {
-      const response = await host.handle(
-        new Request(new URL(path, server.url), {
-          body: JSON.stringify(body),
-          headers: { 'content-type': 'application/json' },
-          method: 'POST',
-        }),
-      );
-      expect(response.status).toBe(201);
-    }
+    await host.engine.create({ key: 'TST', name: 'Engine fixture', type: 'project' });
+    await host.engine.create({ parent: 'TST', title: 'Host Engine', type: 'initiative' });
+    await host.engine.create({ parent: 'TST-1', title: 'Complete over tRPC', type: 'task' });
     const remote = new RemoteEngine({ url: new URL('/trpc', server.url).href });
     const read = await remote.getNode({ id: 'TST-2' });
     expect(read).toMatchObject({ lifecycle: 'todo', title: 'Complete over tRPC' });
@@ -49,8 +38,6 @@ test('the host shares API writes and Engine reads and completions over tRPC', as
     const completed = await remote.done({ id: 'TST-2' });
     expect(completed.lifecycle).toBe('done');
     expect(completed.completedAt).toBeInstanceOf(Date);
-    const api = await host.handle(new Request(new URL('/api/nodes/TST-2', server.url)));
-    expect(await api.json()).toMatchObject({ id: 'TST-2', status: 'done' });
     expect(await host.engine.getNode({ id: 'TST-2' })).toEqual(
       await remote.getNode({ id: 'TST-2' }),
     );
@@ -64,27 +51,16 @@ test('host migrates a named SQLite directory and preserves writes after reopenin
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-'));
   roots.push(root);
   const directory = join(root, 'data');
-  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: directory }), 'host-test');
+  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: directory }));
   try {
-    const health = await host.handle(new Request('http://localhost/api/health'));
-    expect(await health.json()).toMatchObject({ status: 'ok', version: 'host-test' });
-    const create = await host.handle(
-      new Request('http://localhost/api/projects', {
-        body: JSON.stringify({ key: 'TST', name: 'Disposable container project' }),
-        headers: { 'content-type': 'application/json' },
-        method: 'POST',
-      }),
-    );
-    expect(create.status).toBe(201);
+    await host.engine.create({ key: 'TST', name: 'Disposable container project', type: 'project' });
   } finally {
     await host.close();
   }
-  const reopened = await openHost(await readHostConfig({ MIMIR_DATA_DIR: directory }), 'host-test');
+  const reopened = await openHost(await readHostConfig({ MIMIR_DATA_DIR: directory }));
   try {
-    const projects = await reopened.handle(new Request('http://localhost/api/projects'));
-    expect(await projects.json()).toMatchObject({
-      items: [{ id: 'TST', title: 'Disposable container project' }],
-    });
+    const projects = await reopened.engine.projects({});
+    expect(projects).toMatchObject([{ id: 'TST', title: 'Disposable container project' }]);
   } finally {
     await reopened.close();
   }
@@ -98,7 +74,7 @@ test('development host refuses Postgres without authority before connecting', as
       MIMIR_DATABASE_URL: 'postgres://live:secret@production.invalid/live',
     });
     // oxlint-disable-next-line typescript/await-thenable -- Bun awaits async matchers at runtime.
-    await expect(openHost(config, 'test')).rejects.toThrow('registered live installation');
+    await expect(openHost(config)).rejects.toThrow('registered live installation');
   } finally {
     if (saved !== undefined) {
       process.env.MIMIR_SANDBOX_AUTHORITY = saved;
@@ -109,16 +85,9 @@ test('development host refuses Postgres without authority before connecting', as
 test('host doctor reports stored record findings and project scope', async () => {
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-doctor-'));
   roots.push(root);
-  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), 'test');
+  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }));
   try {
-    const created = await host.handle(
-      new Request('http://localhost/api/projects', {
-        body: JSON.stringify({ key: 'TST', name: 'Doctor fixture' }),
-        headers: { 'content-type': 'application/json' },
-        method: 'POST',
-      }),
-    );
-    expect(created.status).toBe(201);
+    await host.engine.create({ key: 'TST', name: 'Doctor fixture', type: 'project' });
     // A hand-edited timestamp models corruption the diagnostic must report.
     const database = new Database(join(root, 'store.sqlite'));
     try {
@@ -126,29 +95,20 @@ test('host doctor reports stored record findings and project scope', async () =>
     } finally {
       database.close();
     }
-    const findings = await host.handle(new Request('http://localhost/api/doctor'));
-    expect(await findings.json()).toMatchObject({
+    expect(await host.doctor(undefined)).toMatchObject({
       finding_total: 1,
       groups: [{ project: 'TST', records: [{ cause: 'malformed timestamp', id: 'TST' }] }],
       scope: null,
     });
-    const scoped = await host.handle(new Request('http://localhost/api/doctor?project=TST'));
-    expect(await scoped.json()).toMatchObject({
+    expect(await host.doctor('TST')).toMatchObject({
       finding_total: 1,
       scope: { key: 'TST', matched_records: 1 },
     });
-    const other = await host.handle(new Request('http://localhost/api/doctor?project=OTH'));
-    expect(await other.json()).toMatchObject({
+    expect(await host.doctor('OTH')).toMatchObject({
       finding_total: 0,
       groups: [],
       scope: { key: 'OTH', matched_records: 0 },
     });
-    // The console's server function reads the same facet without the /api route.
-    const { scanned_at: _scan, ...facet } = await host.doctor('TST');
-    const { scanned_at: _route, ...route } = (await (
-      await host.handle(new Request('http://localhost/api/doctor?project=TST'))
-    ).json()) as Record<string, unknown>;
-    expect(route).toEqual(facet);
   } finally {
     await host.close();
   }
@@ -179,9 +139,12 @@ test('host doctor excludes findings from an unsafe CLI configuration', async () 
     const warnings: string[] = [];
     warnConfigPermissions(undefined, file, (line) => warnings.push(line));
     expect(warnings.join('\n')).toContain('chmod 600');
-    host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: paths.data }), 'test');
-    const facet = await host.handle(new Request('http://localhost/api/doctor'));
-    expect(await facet.json()).toMatchObject({ finding_total: 0, groups: [], scope: null });
+    host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: paths.data }));
+    expect(await host.doctor(undefined)).toMatchObject({
+      finding_total: 0,
+      groups: [],
+      scope: null,
+    });
   } finally {
     await host?.close();
     if (saved === undefined) {
@@ -197,11 +160,11 @@ test('host logs applied SQLite migrations and refuses a schema ahead with an ima
   roots.push(root);
   const config = await readHostConfig({ MIMIR_DATA_DIR: root });
   const logs: string[] = [];
-  const host = await openHost(config, 'test', (line) => logs.push(line));
+  const host = await openHost(config, (line) => logs.push(line));
   await host.close();
   expect(logs).toContain('host: applied migration 0005_project_pinned');
   logs.length = 0;
-  const current = await openHost(config, 'test', (line) => logs.push(line));
+  const current = await openHost(config, (line) => logs.push(line));
   await current.close();
   expect(logs).toEqual([]);
   const database = new Database(join(root, 'store.sqlite'));
@@ -211,7 +174,7 @@ test('host logs applied SQLite migrations and refuses a schema ahead with an ima
   database.close();
   let refusal: unknown;
   try {
-    await openHost(config, 'test');
+    await openHost(config);
   } catch (error) {
     refusal = error;
   }
@@ -222,31 +185,20 @@ test('host logs applied SQLite migrations and refuses a schema ahead with an ima
 const total = (groups: { findings: number }[]) =>
   groups.reduce((sum, group) => sum + group.findings, 0);
 
-test('the host Engine counts stored record findings in console.review like /api/review', async () => {
+test('the host Engine counts stored record findings in console.review', async () => {
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-review-findings-'));
   roots.push(root);
-  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), 'test');
+  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }));
   try {
-    await host.handle(
-      new Request('http://localhost/api/projects', {
-        body: JSON.stringify({ key: 'TST', name: 'Findings fixture' }),
-        headers: { 'content-type': 'application/json' },
-        method: 'POST',
-      }),
-    );
+    await host.engine.create({ key: 'TST', name: 'Findings fixture', type: 'project' });
     const database = new Database(join(root, 'store.sqlite'));
     try {
       database.run("UPDATE project SET created_at = 'invalid' WHERE key = 'TST'");
     } finally {
       database.close();
     }
-    const body = (await (
-      await host.handle(new Request('http://localhost/api/review?tz=UTC'))
-    ).json()) as { triage: { findings: number }[] };
-    const viaApi = total(body.triage);
-    expect(viaApi).toBe(1);
     const page = await host.engine.console.review({ timeZone: 'UTC' });
-    expect(total(page.triage)).toBe(viaApi);
+    expect(total(page.triage)).toBe(1);
   } finally {
     await host.close();
   }

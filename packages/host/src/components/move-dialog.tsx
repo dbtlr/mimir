@@ -4,8 +4,8 @@ import { useState } from 'react';
 
 import { useMoveNode } from '../api/node-mutations';
 import { treeQuery } from '../api/shell-queries';
-import { projectKeyOf } from '../api/types';
 import { parentOptions } from '../lib/parent-options';
+import { projectKeyOf } from '../lib/project-key';
 import { ActionButton } from './ui/action-button';
 
 /**

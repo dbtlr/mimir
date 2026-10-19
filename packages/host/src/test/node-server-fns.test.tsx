@@ -32,11 +32,8 @@ vi.mock('../api/fns/views');
 /*
  * The node records run on server functions (MMR-539): a task's page, a
  * container's and a project's work page, and every node write reach the
- * Engine, and none asks /api. The real fetch is stubbed, so any /api request
- * the page makes is recorded rather than mocked away.
+ * Engine through them; the pages render inside the real router.
  */
-
-let requested: string[];
 
 const SQLITE = engineTask({
   grooming: 'not_groomed',
@@ -50,18 +47,6 @@ const SQLITE = engineTask({
 beforeEach(() => {
   stubViewport('desktop');
   localStorage.clear();
-  requested = [];
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (input: RequestInfo | URL) => {
-      const url = new URL(input instanceof Request ? input.url : String(input), location.origin);
-      requested.push(url.pathname);
-      if (url.pathname === '/health') {
-        return Response.json({ schema: 1, status: 'ok', version: 'host-build' });
-      }
-      return Response.json({ error: { message: 'not served' } }, { status: 503 });
-    }),
-  );
   serveShell({
     projects: [engineProject({ id: 'MMR', title: 'Mimir' })],
     trees: {
@@ -87,12 +72,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
-
-/** Every /api request made so far. */
-const strayApi = () => requested.filter((path) => path.startsWith('/api'));
 
 function renderAt(url: string) {
   const router = createRouter({
@@ -111,7 +92,7 @@ function renderAt(url: string) {
 }
 
 describe('the node records on server functions (MMR-539)', () => {
-  it('reads a task’s record, notes, and board Scratchpads without asking /api', async () => {
+  it('reads a task’s record, notes, and board Scratchpads', async () => {
     renderAt('/p/MMR/417');
 
     await expect(
@@ -125,10 +106,9 @@ describe('the node records on server functions (MMR-539)', () => {
       data: expect.objectContaining({ facets: expect.arrayContaining(['deps']), id: 'MMR-417' }),
     });
     expect(getNode).toHaveBeenCalledWith({ data: { facets: ['annotations'], id: 'MMR-417' } });
-    expect(strayApi()).toStrictEqual([]);
   });
 
-  it('reads a project’s and a container’s record without asking /api for it', async () => {
+  it('reads a project’s and a container’s record', async () => {
     renderAt('/p/MMR');
     await expect(
       screen.findByRole('heading', { level: 1, name: 'Mimir' }),
@@ -136,10 +116,9 @@ describe('the node records on server functions (MMR-539)', () => {
     expect(getNode).toHaveBeenCalledWith({
       data: expect.objectContaining({ facets: expect.arrayContaining(['children']), id: 'MMR' }),
     });
-    expect(strayApi()).toStrictEqual([]);
   });
 
-  it('writes a task’s verbs, edits, move, grooming, and notes without asking /api', async () => {
+  it('writes a task’s verbs, edits, move, grooming, and notes', async () => {
     const user = userEvent.setup();
     renderAt('/p/MMR/417');
     const rail = await screen.findByRole('complementary', { name: 'Record details' });
@@ -187,7 +166,5 @@ describe('the node records on server functions (MMR-539)', () => {
     });
     expect(tag).toHaveBeenCalledWith({ data: { ids: ['MMR-417'], tags: ['feat'] } });
     expect(untag).toHaveBeenCalledWith({ data: { ids: ['MMR-417'], tags: ['ui'] } });
-
-    expect(strayApi()).toStrictEqual([]);
   });
 });

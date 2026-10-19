@@ -13,8 +13,6 @@ import { serveBareRecords } from './node-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
@@ -42,12 +40,6 @@ function mockApi() {
     ],
   });
   serveBrowse();
-  apiGet.mockImplementation((path: string) => {
-    if (path === '/health') {
-      return Promise.resolve({ schema: 1, status: 'ok', version: '0.0.0' });
-    }
-    return Promise.reject(new Error(`unexpected ${path}`));
-  });
 }
 
 function renderApp(initial = '/p/MMR/seeds') {

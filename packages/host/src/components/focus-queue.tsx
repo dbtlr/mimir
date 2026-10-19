@@ -4,10 +4,10 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 
 import { annotationsQuery, nodeQuery } from '../api/node-queries';
 import { treeQuery } from '../api/shell-queries';
-import { projectKeyOf } from '../api/types';
 import { reviewQuery } from '../api/view-queries';
 import type { NeedsYouTask, ReviewReport } from '../api/view-queries';
 import { cn } from '../lib/cn';
+import { projectKeyOf } from '../lib/project-key';
 import { nodeLink } from '../lib/record-url';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
 import { verdictSummary } from '../lib/verdict';

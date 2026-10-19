@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
-import { serveApi } from '@mimir/api/testing';
 import {
   attachArtifact,
   createInitiative,
@@ -14,7 +13,6 @@ import {
 } from '@mimir/core';
 import type { Store } from '@mimir/core';
 import { createTestStore, projectIdOf } from '@mimir/core/testing';
-import type { Server } from 'bun';
 
 import { runCli } from './cli/run';
 import { fakeIo } from './cli/testing';
@@ -23,14 +21,12 @@ import { toolProjects, toolUpdate } from './mcp/tools';
 /**
  * The project pin (MMR-493), end to end: the operator's "keep this one at hand"
  * mark lives in the store, reads as `pinned` on every project projection, and is
- * written through `update KEY` on each transport. Only a project can be pinned;
+ * written through `update KEY` on the CLI and MCP. Only a project can be pinned;
  * a task, container, seed, or artifact refuses it in the transport's own voice.
  */
 
 let store: Store;
 let closeStore: (() => Promise<void>) | undefined;
-let server: Server<undefined>;
-let base: string;
 let projectId: string;
 let phaseRef: string;
 let taskRef: string;
@@ -51,12 +47,9 @@ beforeEach(async () => {
     .id;
   artifactRef = (await attachArtifact(store, { content: 'frozen', projectId, title: 'note' }))
     .renderedId;
-  server = serveApi(store, { version: '0.0.0-test' });
-  base = `http://127.0.0.1:${String(server.port)}`;
 });
 
 afterEach(async () => {
-  await server?.stop(true);
   await closeStore?.();
 });
 
@@ -65,18 +58,6 @@ async function cli(argv: string[], code = 0): Promise<string> {
   const io = fakeIo(false);
   expect(await runCli(argv, () => store, io)).toBe(code);
   return [...io.out, ...io.err].join('\n');
-}
-
-async function patch(
-  path: string,
-  body: unknown,
-): Promise<{ status: number; json: Record<string, unknown> }> {
-  const res = await fetch(`${base}/api/${path}`, {
-    body: JSON.stringify(body),
-    headers: { 'content-type': 'application/json' },
-    method: 'PATCH',
-  });
-  return { json: (await res.json()) as Record<string, unknown>, status: res.status };
 }
 
 /** The `pinned` of every listed project, keyed by project. */
@@ -165,34 +146,9 @@ test('the MCP projects tool lists the pin', async () => {
   ]);
 });
 
-test('HTTP pins and unpins a project through PATCH, and the list carries it', async () => {
-  const pinned = await patch('projects/MMR', { pinned: true });
-  expect(pinned.status).toBe(200);
-  expect(pinned.json.pinned).toBe(true);
-  expect(await pinsOf()).toEqual({ MMR: true, OPS: false });
-
-  const list = (await (await fetch(`${base}/api/projects`)).json()) as {
-    items: { id: string; pinned: boolean }[];
-  };
-  expect(list.items.map((p) => [p.id, p.pinned])).toEqual([
-    ['MMR', true],
-    ['OPS', false],
-  ]);
-
-  const unpinned = await patch('projects/MMR', { pinned: false });
-  expect(unpinned.json.pinned).toBe(false);
-  expect(await pinsOf()).toEqual({ MMR: false, OPS: false });
-});
-
-test('HTTP refuses a non-boolean pin', async () => {
-  const res = await patch('projects/MMR', { pinned: 'yes' });
-  expect(res.status).toBe(400);
-  expect(await pinsOf()).toEqual({ MMR: false, OPS: false });
-});
-
 test('a pin write leaves the rest of the project alone', async () => {
-  await patch('projects/MMR', { description: 'keep me', name: 'Renamed' });
-  await patch('projects/MMR', { pinned: true });
+  await updateProject(store, projectId, { description: 'keep me', name: 'Renamed' });
+  await updateProject(store, projectId, { pinned: true });
   const view = await getNode(store, 'MMR');
   expect(view).toMatchObject({ description: 'keep me', pinned: true, title: 'Renamed' });
 });
@@ -231,20 +187,6 @@ test('MCP refuses a pin on a task, a container, a seed, and an artifact', async 
   }
 });
 
-test('HTTP refuses a pin on a node, a seed, and an artifact', async () => {
-  for (const path of [
-    `nodes/${taskRef}`,
-    `nodes/${phaseRef}`,
-    `seeds/${seedRef}`,
-    `artifacts/${artifactRef}`,
-  ]) {
-    const res = await patch(path, { pinned: true });
-    expect(res.status, path).toBe(400);
-    expect(JSON.stringify(res.json), path).toContain('pinned');
-  }
-  expect(await pinsOf()).toEqual({ MMR: false, OPS: false });
-});
-
 // ── Only a project can be renamed with --name (MMR-499) ────────────────────
 
 test('the CLI refuses --name on a task, a container, a seed, and an artifact', async () => {
@@ -273,20 +215,6 @@ test('MCP refuses name on a task, a container, a seed, and an artifact', async (
     const result = await toolUpdate(store, { id: ref, name: 'x' });
     expect(result.isError, ref).toBe(true);
     expect(result.content[0]?.text, ref).toContain('only a project can be renamed');
-  }
-  expect((await getNode(store, taskRef)).title).toBe('task');
-});
-
-test('HTTP refuses name on a node, a seed, and an artifact', async () => {
-  for (const path of [
-    `nodes/${taskRef}`,
-    `nodes/${phaseRef}`,
-    `seeds/${seedRef}`,
-    `artifacts/${artifactRef}`,
-  ]) {
-    const res = await patch(path, { name: 'x' });
-    expect(res.status, path).toBe(400);
-    expect(JSON.stringify(res.json), path).toContain('name');
   }
   expect((await getNode(store, taskRef)).title).toBe('task');
 });

@@ -13,10 +13,10 @@ import type { CreateNodeInput, CreatedNode } from '../api/node-mutations';
 import { usePromoteSeed } from '../api/seed-mutations';
 import type { PromoteSeedInput } from '../api/seed-mutations';
 import { projectsQuery, treeQuery } from '../api/shell-queries';
-import { projectKeyOf } from '../api/types';
 import { cn } from '../lib/cn';
 import { homeOptions } from '../lib/parent-options';
 import type { AuthoringType } from '../lib/parent-options';
+import { projectKeyOf } from '../lib/project-key';
 import { nodeLink } from '../lib/record-url';
 import { StatusDot } from './status-dot';
 import { ActionButton } from './ui/action-button';
@@ -62,7 +62,7 @@ export type AuthoringPrefill = {
 /**
  * MMR-248 promote mode: the same sheet, germinating a seed into a task. Its
  * presence locks the type to `task`, swaps the submit to
- * `POST /api/seeds/:id/promote`, and turns on the provenance strip + promote
+ * the seed promotion, and turns on the provenance strip + promote
  * footer. `kind` drives the honest home suggestion (bug → the project's lone
  * standing container, else no suggestion).
  */

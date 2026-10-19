@@ -11,7 +11,7 @@ import type { DataFieldKey } from './fields';
  * the subject id-kind, the reason policy, the (descriptive) state transition,
  * and one canonical summary sentence. From this one table the transports derive
  * their surfaces — the CLI's twelve switch arms collapse to one generic arm, MCP
- * registrations and HTTP routes loop-generate — while each keeps its own
+ * registrations loop-generate — while each keeps its own
  * invocation grammar. This module is data only: the `run` binding that delegates
  * to the core mutation fns lives in the core (`core/ops.ts`), which composes
  * these facts with that binding. All rendered text (CLI help + echo lines, MCP
@@ -128,7 +128,7 @@ export type OpFact = {
  * The operation facts — one entry per uniform verb (keyed by verb; the
  * concern-grouped iteration order lives in {@link UNIFORM_VERBS}, which the
  * transports loop). The CLI dispatch/echo/help, the MCP registrations, and the
- * HTTP routes all derive from this one table; adding a uniform verb is one entry
+ * Engine verb methods all derive from this one table; adding a uniform verb is one entry
  * here plus one core mutation (ADR 0025). `as const` keeps each transition's
  * literal shape so the core can bind `run` against it and compile-check
  * completeness.

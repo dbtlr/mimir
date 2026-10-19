@@ -17,8 +17,6 @@ import { stubViewport } from './viewport';
 import { engineReview, needsYouRow, stripRow, triageSeed } from './views-fixtures';
 import { serveViews } from './views-fns';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
@@ -32,7 +30,6 @@ vi.mock('../api/fns/views');
 
 beforeEach(() => {
   serveBrowse();
-  apiGet.mockReset();
   vi.clearAllMocks();
   stubViewport('desktop');
   // As in the review page's tests: the refetch renders before the mutation settles.
@@ -49,7 +46,6 @@ function serve(current: () => ReviewReport) {
   serveShell();
   serveViews();
   vi.mocked(review).mockImplementation(async () => current());
-  apiGet.mockImplementation((p: string) => Promise.reject(new Error(`unexpected ${p}`)));
   // The record pages the alert is opened from.
   serveNodes({
     nodes: [

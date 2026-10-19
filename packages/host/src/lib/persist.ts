@@ -12,10 +12,9 @@ import { VIEW_CACHE_VERSION } from '../api/view-queries';
 /**
  * Persisted-cache schema version. RULE: ANY change to the persisted shape of a
  * query (its queryKey shape, or its data shape — e.g. a plain query becoming an
- * infinite `{ pages, pageParams }` one, or a read moving from an `/api` wire
- * type to an Engine type) MUST change this. A stale-shape warm cache restored
- * into the new code crashes the route before app code runs; a new buster drops
- * the old cache on restore. See {@link sanitizePersistedClient} for the shape
+ * infinite `{ pages, pageParams }` one, or a read changing its data type) MUST
+ * change this. A stale-shape warm cache restored into the new code crashes the
+ * route before app code runs; a new buster drops the old cache on restore. See {@link sanitizePersistedClient} for the shape
  * guard behind this.
  *
  * Each area's query module owns a version of its own, so a change bumps the

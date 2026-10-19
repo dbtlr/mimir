@@ -237,8 +237,7 @@ const COMMANDS: ReadonlySet<string> = new Set(
  * unknown-command path — with or without `-h`/`--help`, and without touching
  * the store — and that path renders the hint in place of a typo suggestion.
  */
-const HOST_HINT =
-  'the console and /api are served by the mimir host container — see docs/guides/host.md';
+const HOST_HINT = 'the console is served by the mimir host container — see docs/guides/host.md';
 const RETIRED_COMMANDS: Readonly<Record<string, string>> = {
   serve: HOST_HINT,
   service: HOST_HINT,
@@ -921,9 +920,9 @@ export async function runCli(
         }
         if (parseIdentity(id)?.kind === 'seed') {
           // `get KEY-sN` routes to the single-seed reader + renderer, matching MCP
-          // (`get_seed`) and HTTP (`GET /api/seeds/:id`) — the ADR 0020 amendment
-          // promises `get KEY-sN` works on every surface (MMR-245/B3). Content is
-          // opted in for the `## Seed Description` prose, as those transports do.
+          // (`get_seed`) — the ADR 0020 amendment promises `get KEY-sN` works on
+          // every surface (MMR-245/B3). Content is opted in for the
+          // `## Seed Description` prose, as MCP does.
           renderSeedView(
             await getSeed(await getStore(), id, { content: true }),
             pickFormat(values.format, 'single', ctx),

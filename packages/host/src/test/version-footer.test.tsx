@@ -8,8 +8,8 @@ import { VersionFooter } from '../components/version-footer';
 import { createPwaUpdateController } from '../lib/pwa-update';
 import type { PwaUpdateEffects } from '../lib/pwa-update';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
+const { fetchHealth } = vi.hoisted(() => ({ fetchHealth: vi.fn() }));
+vi.mock('../api/health', () => ({ fetchHealth }));
 vi.mock('../lib/build-version', () => ({ BUILD_VERSION: '0.13.0-next.68' }));
 
 afterEach(() => {
@@ -54,14 +54,14 @@ describe('versionFooter (MMR-260)', () => {
     });
     // Another tab wrote this a moment ago; it says nothing about the host now.
     client.setQueryData(['health'], { schema: 4, status: 'ok', version: '0.13.0-next.68' });
-    apiGet.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
+    fetchHealth.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
     renderFooter(updateFixture().controller, client);
     await expect(screen.findByText('0.14.0-next.3')).resolves.toBeDefined();
-    expect(apiGet).toHaveBeenCalledWith('/health');
+    expect(fetchHealth).toHaveBeenCalled();
   });
 
   it('renders the host-reported version once /health answers', async () => {
-    apiGet.mockResolvedValue({ schema: 4, status: 'ok', version: '0.13.0-next.68' });
+    fetchHealth.mockResolvedValue({ schema: 4, status: 'ok', version: '0.13.0-next.68' });
     renderFooter();
     await expect(screen.findByText('0.13.0-next.68')).resolves.toBeDefined();
     await expect(
@@ -71,7 +71,7 @@ describe('versionFooter (MMR-260)', () => {
   });
 
   it('renders the bundle version before the host answers', () => {
-    apiGet.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
+    fetchHealth.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
     renderFooter();
     // synchronous assertion: the query is still pending, so the fallback
     // (the bundle's own version) is on screen, not the not-yet-fetched host's.
@@ -79,7 +79,7 @@ describe('versionFooter (MMR-260)', () => {
   });
 
   it('offers the shared refresh action when the host reports a different version', async () => {
-    apiGet.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
+    fetchHealth.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
     const { controller, effects } = updateFixture();
     renderFooter(controller);
     await expect(screen.findByText('0.14.0-next.3')).resolves.toBeDefined();
@@ -88,7 +88,7 @@ describe('versionFooter (MMR-260)', () => {
   });
 
   it('activates a waiting worker through the same footer action', async () => {
-    apiGet.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
+    fetchHealth.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
     const { controller, effects } = updateFixture();
     controller.workerWaiting();
     renderFooter(controller);
@@ -98,7 +98,7 @@ describe('versionFooter (MMR-260)', () => {
   });
 
   it('reloads directly after another tab has activated the update', async () => {
-    apiGet.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
+    fetchHealth.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
     const { controller, effects } = updateFixture();
     controller.controllerChanged();
     renderFooter(controller);
@@ -108,7 +108,7 @@ describe('versionFooter (MMR-260)', () => {
   });
 
   it('disables the mismatch action while an update is applying', async () => {
-    apiGet.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
+    fetchHealth.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
     const { controller } = updateFixture();
     controller.workerWaiting();
     await controller.refreshNow();

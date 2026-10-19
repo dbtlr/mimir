@@ -670,3 +670,11 @@ paragraph is superseded.
 The console's shape is unchanged: a client-rendered SPA with offline reads and
 no offline write queue. Its version is the host image's version.
 [Run the Mimir host](../guides/host.md) covers running it.
+
+## Refinement (2026-10-19, MMR-541): the `/api` dispatcher is gone
+
+The container no longer mounts the transitional `/api` dispatcher, and
+`@mimir/api` no longer exists. The console reads and writes through server
+functions over the Engine. The service worker still excludes `/api`, `/trpc`,
+`/_serverFn`, and `/health` from navigation fallback, so a request to the
+retired `/api` reaches the host's `410` tombstone rather than the cached shell.

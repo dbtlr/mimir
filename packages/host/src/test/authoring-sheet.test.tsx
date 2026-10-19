@@ -18,8 +18,6 @@ import { serveNodes } from './node-fns';
 import { renderInRouter } from './router';
 import { serveShell } from './shell-fns';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
@@ -83,7 +81,6 @@ function mockReads() {
   });
   serveNodes();
   vi.mocked(create).mockResolvedValue(created('MMR-99'));
-  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
 }
 
 async function renderSheet(props: Partial<AuthoringSheetProps> = {}) {

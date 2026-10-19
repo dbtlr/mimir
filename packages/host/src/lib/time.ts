@@ -4,8 +4,8 @@ import { ago as agoIn, formatDay, relativeTime as relativeTimeIn } from '@mimir/
 const localZone = (): string => new Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 /**
- * An instant as a read carries it: an ISO string from an `/api` read, or a
- * `Date` from an Engine read.
+ * An instant as a read carries it: a `Date` from an Engine read, or its ISO
+ * string.
  */
 export type Instant = string | Date;
 

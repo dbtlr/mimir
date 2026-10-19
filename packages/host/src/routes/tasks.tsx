@@ -6,7 +6,6 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
 import { tasksBrowserQuery } from '../api/browse-queries';
 import type { TaskFilters, TaskSet } from '../api/browse-queries';
-import { projectKeyOf } from '../api/types';
 import { AuthoringSheet } from '../components/authoring-sheet';
 import {
   BrowserEmpty,
@@ -26,6 +25,7 @@ import { StatusDot } from '../components/status-dot';
 import { Skeleton } from '../components/ui/skeleton';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
+import { projectKeyOf } from '../lib/project-key';
 import { nodeLink } from '../lib/record-url';
 import { STATUS_META, TASK_STATUS_ORDER } from '../lib/status';
 import { relativeTime } from '../lib/time';

@@ -64,6 +64,6 @@ export type DoctorDiagnosis = {
 export type DoctorBackend = {
   /** Run every check the backend knows, narrowed to `scope` when given. */
   diagnose: (scope: string | undefined) => Promise<DoctorDiagnosis>;
-  /** The record-health facet the `/api/doctor` console panel consumes. */
+  /** The record-health facet the console's Record-health panel consumes. */
   facet: (scope: string | undefined) => Promise<DoctorFacet>;
 };

@@ -29,8 +29,6 @@ import {
 } from './views-fixtures';
 import { serveViews } from './views-fns';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
@@ -42,7 +40,6 @@ const daysAgo = (d: number) => new Date(NOW - d * 24 * 60 * 60_000);
 
 beforeEach(() => {
   serveBrowse();
-  apiGet.mockReset();
   vi.clearAllMocks();
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(NOW);
@@ -66,7 +63,6 @@ function decision(
 
 /** Serve the review report, the archived shelf, and empty collections for every other read. */
 function serve(report: ReviewReport, archived: EngineNode[] = []) {
-  apiGet.mockResolvedValue({ items: [], total: 0 });
   serveViews({ review: report });
   serveShell({ archived });
 }
@@ -558,7 +554,6 @@ describe('the review rail: when you have a minute', () => {
   });
 
   it('does not claim a fresh store before it knows whether projects are archived', async () => {
-    apiGet.mockRejectedValue(new Error('archived read failed'));
     serveViews({ review: engineReview() });
     failShellReads(new Error('archived read failed'));
     renderReview();
@@ -573,7 +568,6 @@ describe('the review rail: when you have a minute', () => {
  * reads the promote sheet makes for its home (MMR's tree, with one initiative).
  */
 async function openForWrite(before: ReviewReport, after: ReviewReport) {
-  apiGet.mockResolvedValue({ items: [], total: 0 });
   const views = serveViews({ review: before });
   const serving = {
     /** Serve `next` from the next review read, as a poll would. */

@@ -427,7 +427,7 @@ export async function listNodes(
         return false;
       }
       // Hide archived projects' subtrees (ADR 0015). Archived projects are
-      // listed only by `projects` (and `GET /api/projects`), never by listNodes.
+      // listed only by `projects`, never by listNodes.
       return !set.archivedProjects.has(n.project_id);
     })
     .toSorted(terminalOrder ? byCompletedOrder(set) : byRankOrder(set));

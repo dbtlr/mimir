@@ -1,4 +1,3 @@
-import { BUILD_VERSION } from '../lib/build-version';
 import { hostConfig } from './config';
 import { openHost } from './host';
 
@@ -14,10 +13,6 @@ export function hostRuntime() {
   return globalThis.mimirHostRuntime;
 }
 
-export async function handleApi(request: Request) {
-  return (await hostRuntime()).handle(request);
-}
-
 export async function handleTrpc(request: Request) {
   return (await hostRuntime()).handleTrpc(request);
 }
@@ -28,5 +23,5 @@ export async function closeHost() {
 }
 
 async function openRuntime() {
-  return openHost(await hostConfig(), BUILD_VERSION);
+  return openHost(await hostConfig());
 }

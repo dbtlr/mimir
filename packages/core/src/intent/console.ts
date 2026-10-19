@@ -18,7 +18,7 @@ import { reviewOf } from './review';
 import { workPageOf } from './work';
 
 /**
- * The console's composite views. The HTTP routes and the Engine's `console.*`
+ * The console's composite views. The Engine's `console.*`
  * methods both assemble them here, so key checks, the required time zone, and
  * the review page's findings handling live once.
  */
@@ -67,7 +67,7 @@ export async function projectWorkOf(
     if (node?.type === 'task') {
       throw validation(`${key} is a task, not a project`, 'a task has no work page');
     }
-    throw validation(`${key} is not a project key`, `use /api/nodes/${key}/work`);
+    throw validation(`${key} is not a project key`, 'use nodeWork');
   }
   return workPageOf(store, key, { asOf: opts.asOf, timeZone: requireWorkTimeZone(opts.timeZone) });
 }
@@ -75,7 +75,7 @@ export async function projectWorkOf(
 /** The work page for an initiative or phase subtree; a project key belongs to {@link projectWorkOf}. */
 export async function nodeWorkOf(store: Store, id: string, opts: PageOptions): Promise<WorkReport> {
   if (parseIdentity(id)?.kind === 'project') {
-    throw validation(`${id} is a project`, `use /api/projects/${id}/work`);
+    throw validation(`${id} is a project`, 'use projectWork');
   }
   return workPageOf(store, id, { asOf: opts.asOf, timeZone: requireWorkTimeZone(opts.timeZone) });
 }
@@ -87,7 +87,7 @@ export async function projectOverviewOf(
   opts: { asOf?: string } = {},
 ): Promise<OverviewReport> {
   if (parseIdentity(key)?.kind !== 'project') {
-    throw validation(`${key} is not a project key`, 'nodes live at /api/nodes/:id');
+    throw validation(`${key} is not a project key`, 'use getNode');
   }
   return overviewOf(store, key, opts);
 }
@@ -120,7 +120,7 @@ export async function reviewPageOf(
   return reviewOf(store, counts, { asOf: opts.asOf, timeZone });
 }
 
-/** The set-read projection `/api/nodes` serves, so the console's task sets read alike. */
+/** The set-read projection the console's task sets share. */
 const NODE_SET_FACETS: readonly FacetName[] = ['deps', 'tags', 'distribution', 'verdicts', 'home'];
 
 /**
@@ -138,7 +138,7 @@ export async function upstreamTasksOf(store: Store, seed: string): Promise<SetRe
 
 /**
  * The open tasks on any active board whose id or title holds `q` (MMR-78): the
- * dependency picker's candidates, as `/api/nodes?type=task&q=` answers them.
+ * dependency picker's candidates, as `listNodes` answers them for a task query.
  * The filter runs before any window, so older open tasks are never crowded out
  * by newer records of other kinds.
  */

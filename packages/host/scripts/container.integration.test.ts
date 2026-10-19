@@ -38,18 +38,10 @@ async function docker(args: string[], timeout = 20_000): Promise<string> {
   }
 }
 
-async function api(
-  base: string,
-  path: string,
-  options: { body?: unknown; method?: string; status?: number } = {},
-): Promise<unknown> {
-  const response = await fetch(`${base}${path}`, {
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    headers: { 'content-type': 'application/json' },
-    method: options.method ?? 'GET',
-    signal: AbortSignal.timeout(5000),
-  });
-  expect(response.status, `${options.method ?? 'GET'} ${path}`).toBe(options.status ?? 200);
+/** GET a JSON route of the running host. */
+async function getJson(base: string, path: string): Promise<unknown> {
+  const response = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(5000) });
+  expect(response.status, `GET ${path}`).toBe(200);
   expect(response.headers.get('content-type')).toContain('application/json');
   return response.json();
 }
@@ -118,8 +110,7 @@ test('the host image reports its stamped version rather than runtime overrides',
       image,
     ]);
     const base = await ready(name);
-    expect(await api(base, '/api/health')).toMatchObject({ status: 'ok', version });
-    expect(await api(base, '/health')).toMatchObject({ status: 'ok', version });
+    expect(await getJson(base, '/health')).toMatchObject({ status: 'ok', version });
   } finally {
     await docker(['rm', '--force', name]).catch(() => undefined);
     await docker(['image', 'rm', '--force', image]).catch(() => undefined);
@@ -137,7 +128,6 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
   const secretDirectory = await mkdtemp(join(tmpdir(), 'mimir-host-secret-'));
   const password = randomUUID();
   const refusedContainers = [`${name}-unwritable`, `${name}-invalid`];
-  const node = z.object({ id: z.string(), status: z.string(), title: z.string() });
   try {
     await docker(['build', '--quiet', '--tag', image, '.'], 120_000);
     await docker(['volume', 'create', volume]);
@@ -170,7 +160,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
       '/_shell.html',
       '/icons/mimir.svg',
       '/assets/missing.js',
-      '/api/health',
+      '/api/projects',
       '/trpc',
       '/trpc/getNode',
       '/trpc/done',
@@ -190,8 +180,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     const version = z
       .object({ version: z.string() })
       .parse(await Bun.file(new URL('../../bin/package.json', import.meta.url)).json()).version;
-    expect(await api(base, '/api/health')).toMatchObject({ status: 'ok', version });
-    expect(await api(base, '/health')).toEqual({ schema: 6, status: 'ok', version });
+    expect(await getJson(base, '/health')).toEqual({ schema: 6, status: 'ok', version });
     const healthHead = await fetch(`${base}/health`, { method: 'HEAD' });
     expect(healthHead.status).toBe(200);
     expect(await healthHead.text()).toBe('');
@@ -228,58 +217,49 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     ]);
     expect(invalidHealth).toBe('[1,1]');
     for (const host of ['allowed.example', 'public.example']) {
-      const response = await fetch(`${base}/api/health`, { headers: { host } });
+      const response = await fetch(`${base}/health`, { headers: { host } });
       expect(response.status, host).toBe(200);
     }
+    // The CLI sends no Origin and the console sends its own: both writes land.
+    const engineWith = (headers: Record<string, string>) =>
+      new RemoteEngine({
+        fetch: (input, init) =>
+          fetch(input, {
+            ...init,
+            headers: { ...Object.fromEntries(new Headers(init?.headers)), ...headers },
+          }),
+        url: `${base}/trpc`,
+      });
     for (const [key, headers] of [
       ['CLI', {}],
       ['WEB', { origin: base, 'sec-fetch-site': 'same-origin' }],
     ] satisfies [string, Record<string, string>][]) {
-      const response = await fetch(`${base}/api/projects`, {
-        body: JSON.stringify({ key, name: key }),
-        headers: { 'content-type': 'application/json', ...headers },
-        method: 'POST',
-      });
-      expect(response.status, key).toBe(201);
+      await engineWith(headers).create({ key, name: key, type: 'project' });
     }
 
-    expect(
-      await api(base, '/api/projects', {
-        body: { key: 'TST', name: 'Container integration project' },
-        method: 'POST',
-        status: 201,
-      }),
-    ).toMatchObject({ id: 'TST', title: 'Container integration project' });
-    const initiative = node.parse(
-      await api(base, '/api/nodes', {
-        body: { parent: 'TST', title: 'Container integration initiative', type: 'initiative' },
-        method: 'POST',
-        status: 201,
-      }),
-    );
-    const task = node.parse(
-      await api(base, '/api/nodes', {
-        body: { parent: initiative.id, title: 'Complete through the container API', type: 'task' },
-        method: 'POST',
-        status: 201,
-      }),
-    );
-    const review = z
-      .object({ projects: z.array(z.object({ key: z.string() })) })
-      .parse(await api(base, '/api/review?tz=UTC'));
-    expect(review.projects).toContainEqual(expect.objectContaining({ key: 'TST' }));
-    expect(await api(base, `/api/nodes/${task.id}`)).toMatchObject({
-      id: task.id,
-      title: task.title,
-    });
     const remote = new RemoteEngine({ url: `${base}/trpc` });
+    expect(
+      await remote.create({ key: 'TST', name: 'Container integration project', type: 'project' }),
+    ).toMatchObject({ id: 'TST', title: 'Container integration project' });
+    const initiative = await remote.create({
+      parent: 'TST',
+      title: 'Container integration initiative',
+      type: 'initiative',
+    });
+    const task = await remote.create({
+      parent: initiative.id,
+      title: 'Complete through the container Engine',
+      type: 'task',
+    });
+    const review = await remote.console.review({ timeZone: 'UTC' });
+    expect(review.projects).toContainEqual(expect.objectContaining({ key: 'TST' }));
     const read = await remote.getNode({ id: task.id });
     expect(read).toMatchObject({ lifecycle: 'todo', title: task.title });
     expect(read.createdAt).toBeInstanceOf(Date);
     const completed = await remote.done({ id: task.id });
     expect(completed.lifecycle).toBe('done');
     expect(completed.completedAt).toBeInstanceOf(Date);
-    expect(await api(base, `/api/nodes/${task.id}`)).toMatchObject({ status: 'done' });
+    expect(await remote.getNode({ id: task.id })).toMatchObject({ lifecycle: 'done' });
     // Nitro plugins and Start's server bundle must share the same store handle.
     const descriptors = await docker([
       'exec',
@@ -319,34 +299,46 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     expect(runtime.status).toBe(200);
     expect(runtime.headers.get('content-type')).toMatch(/(?:application|text)\/javascript/);
     expect(await runtime.text()).toContain('precacheAndRoute');
-    for (const path of ['/api', '/api/missing']) {
-      expect(await api(base, path, { status: 404 })).toMatchObject({
-        error: { code: 'not_found' },
-      });
+    // The retired /api envelope answers every method with a 410 tombstone, never
+    // the console's HTML shell and never the store.
+    for (const method of ['GET', 'POST', 'DELETE']) {
+      for (const path of ['/api', '/api/health', '/api/projects', '/api/missing']) {
+        const gone = await fetch(`${base}${path}`, { method });
+        expect(gone.status, `${method} ${path}`).toBe(410);
+        expect(gone.headers.get('content-type'), `${method} ${path}`).toContain('application/json');
+        expect(await gone.json(), `${method} ${path}`).toMatchObject({
+          error: { code: 'gone', hint: expect.stringContaining('/trpc') },
+        });
+      }
     }
-    const refused = await fetch(`${base}/api/projects`, {
-      body: JSON.stringify({ key: 'EVL', name: 'Cross-origin write' }),
+    const refused = await fetch(`${base}/trpc/create`, {
+      body: JSON.stringify({ json: { key: 'EVL', name: 'Cross-origin write', type: 'project' } }),
       headers: { 'content-type': 'text/plain', origin: 'https://evil.example' },
       method: 'POST',
     });
     expect(refused.status).toBe(403);
     expect(await refused.json()).toMatchObject({ error: { code: 'forbidden_origin' } });
-    await api(base, '/api/projects/EVL', { status: 404 });
+    // oxlint-disable-next-line typescript/await-thenable -- Bun awaits async matchers at runtime.
+    await expect(remote.getNode({ id: 'EVL' })).rejects.toMatchObject({ code: 'not_found' });
 
     await docker(['stop', '--time', '5', name]);
     await docker(['start', name]);
     base = await ready(name);
-    expect(await api(base, `/api/nodes/${task.id}`)).toMatchObject({ id: task.id, status: 'done' });
+    expect(await new RemoteEngine({ url: `${base}/trpc` }).getNode({ id: task.id })).toMatchObject({
+      id: task.id,
+      lifecycle: 'done',
+    });
 
     await docker(['rm', '--force', name]);
     base = await run(rootContainer, ['--user', '0:0']);
-    expect(await api(base, `/api/nodes/${task.id}`)).toMatchObject({ id: task.id, status: 'done' });
+    const rooted = new RemoteEngine({ url: `${base}/trpc` });
+    expect(await rooted.getNode({ id: task.id })).toMatchObject({ id: task.id, lifecycle: 'done' });
     expect(
-      await api(base, `/api/nodes/${task.id}/reopen`, {
-        body: { reason: 'Verify the rootless fleet user override can write' },
-        method: 'POST',
+      await rooted.reopen({
+        id: task.id,
+        reason: 'Verify the rootless fleet user override can write',
       }),
-    ).toMatchObject({ status: 'in_progress' });
+    ).toMatchObject({ lifecycle: 'in_progress' });
     await docker(['rm', '--force', rootContainer]);
 
     // This lane owns its database and network; no external URL is accepted.
@@ -433,7 +425,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     expect(await crossOriginWithoutAllowlist.json()).toMatchObject({
       error: { code: 'forbidden_origin' },
     });
-    expect(await api(base, '/api/projects')).toMatchObject({ items: [] });
+    expect(await new RemoteEngine({ url: `${base}/trpc` }).projects({})).toEqual([]);
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0005_project_pinned');
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0006_project_remote');
     await docker(['rm', '--force', postgresHost]);
@@ -456,7 +448,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     );
     await runPostgresHost();
     base = await ready(postgresHost, 12345);
-    expect(await api(base, '/api/projects')).toMatchObject({ items: [] });
+    expect(await new RemoteEngine({ url: `${base}/trpc` }).projects({})).toEqual([]);
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0005_project_pinned');
     await docker(['rm', '--force', postgresHost]);
     await sql('INSERT INTO schema_version (version, applied_at) VALUES (7, now());');

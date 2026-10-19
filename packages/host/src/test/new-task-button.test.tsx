@@ -8,8 +8,6 @@ import { NewTaskButton } from '../components/new-task-button';
 import { engineProject, engineTree } from './engine-fixtures';
 import { serveShell } from './shell-fns';
 
-const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 

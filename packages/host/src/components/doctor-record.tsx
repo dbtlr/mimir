@@ -1,4 +1,4 @@
-import type { WireDoctorRecord } from '../api/types';
+import type { WireDoctorRecord } from '../api/doctor-facet';
 import { copyText } from '../lib/clipboard';
 
 /**

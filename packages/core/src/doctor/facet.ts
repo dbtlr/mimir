@@ -1,5 +1,5 @@
 /**
- * The `/api/doctor` record-health facet (MMR-185) — the console projection of the
+ * The record-health facet (MMR-185) — the console projection of the
  * SAME findings `mimir doctor` reports. The CLI prints {@link DoctorFinding}s;
  * this facet groups them by owning project and adds the plain-language cause
  * chip the Record-health panel shows. Read-only: it names the row a human fixes
@@ -41,7 +41,7 @@ export type DoctorGroup = {
   records: DoctorRecord[];
 };
 
-/** The `/api/doctor` facet payload. `groups` is empty on a clean store (the
+/** The record-health facet payload. `groups` is empty on a clean store (the
  * panel then shows its zero state and all surfacing is absent). */
 export type DoctorFacet = {
   /** When this scan ran — the panel derives "last scan Ns ago" from it. */

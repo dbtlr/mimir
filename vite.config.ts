@@ -29,12 +29,12 @@ type Override = LintOverride;
  * and `@mimir/cli` (the Loom CLI) imports core only in its composition root,
  * `src/app.ts`, and never imports bin outside its tests:
  *   - The console's server functions (`packages/host/src/api/fns/**`) call the
- *     host's Engine only — no core, no `/api` handler, and no host runtime
+ *     host's Engine only — no core and no host runtime
  *     except in `fns/engine.ts`, which opens it (ADR 0034).
  *   - `@mimir/core` (`packages/core`) never imports `@mimir/bin`, tests included.
  *   - `@mimir/bin` reaches core only through its entries, `@mimir/core` and
  *     `@mimir/core/testing` — never a deep path.
- *   - Inside bin, transports (cli, mcp, http) never import each other.
+ *   - Inside bin, transports (cli, mcp) never import each other.
  *     `main.ts` is the composition root and is intentionally unrestricted
  *     among transports.
  *
@@ -90,20 +90,18 @@ const noCoreImports = {
 };
 
 /**
- * What a server-function module may not import: core and the `/api` handler,
- * and (unless it is the one Engine opener) the host runtime and store owner.
+ * What a server-function module may not import: core, and (unless it is the
+ * one Engine opener) the host runtime and store owner.
  */
 const serverFnBoundary = (closeRuntime: boolean) => ({
   group: [
     '@mimir/core',
     '@mimir/core/**',
     '**/core/src/**',
-    '@mimir/api',
-    '@mimir/api/**',
     ...(closeRuntime ? ['**/server/runtime', '**/server/host'] : []),
   ],
   message:
-    'Layer boundary: server functions call Engine methods through fns/engine.ts, never core, the /api handler, or the host runtime (ADR 0034 decision 7).',
+    'Layer boundary: server functions call Engine methods through fns/engine.ts, never core or the host runtime (ADR 0034 decision 7).',
 });
 
 /** Restrict `files` to the given import `patterns`. */
@@ -190,9 +188,9 @@ const layerOverrides: Override[] = [
     ],
   ),
   restrict(['packages/bin/**'], [coreEntryOnly]),
-  restrict(['packages/host/**', 'packages/api/**'], [noBinImports, coreEntryOnly]),
+  restrict(['packages/host/**'], [noBinImports, coreEntryOnly]),
   // The console's server functions reach the domain only through the host's
-  // Engine (ADR 0034 decision 7): never core, the /api handler, or the host
+  // Engine (ADR 0034 decision 7): never core or the host
   // runtime that holds them. Only fns/engine.ts opens the runtime, and it
   // hands the rest the `Engine` interface.
   restrict(['packages/host/src/api/fns/**'], [noBinImports, serverFnBoundary(true)]),
@@ -261,7 +259,6 @@ export default defineConfig({
           'packages/cli/**',
           'packages/core/**',
           'packages/sandbox/**',
-          'packages/api/**',
           'packages/host/src/server/**',
         ],
         // Synchronous filesystem access is deliberate in this local-first CLI.

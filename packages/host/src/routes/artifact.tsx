@@ -8,8 +8,6 @@ import type { ArtifactRecord } from '../api/browse-queries';
 import { isNotFound } from '../api/errors';
 import { nodeQuery } from '../api/node-queries';
 import { projectsQuery, treeQuery } from '../api/shell-queries';
-import type { WireArtifact, WireArtifactLink } from '../api/types';
-import { projectKeyOf } from '../api/types';
 import { MarkdownBody } from '../components/markdown-body';
 import { MetaRow } from '../components/node-record';
 import { OfflineBanner } from '../components/offline-banner';
@@ -22,6 +20,7 @@ import { splitKindTags } from '../lib/artifacts';
 import { copyText } from '../lib/clipboard';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
+import { projectKeyOf } from '../lib/project-key';
 import { useRememberRecord } from '../lib/recent-records';
 import { artifactIdOf, artifactLink, artifactPath, nodeLink } from '../lib/record-url';
 import { STATUS_META, recordStanding } from '../lib/status';
@@ -63,11 +62,18 @@ const ATTACHED_SHOWN = 5;
 /** A linked record as the node read serves it: what its standing and row read. */
 type LinkedNode = Pick<EngineNode, 'completedAt' | 'status' | 'title' | 'type' | 'updatedAt'>;
 
+/**
+ * An attached record: its id, plus the title and status the project tree adds
+ * when it can place the record. Both are absent when it cannot (the link
+ * degrades to its bare id).
+ */
+type AttachedLink = { id: string; title?: string; status?: EngineNode['status'] };
+
 /** The number after an id's hyphen: `MMR-417` → 417. */
 const seqOf = (id: string): number => Number(id.slice(id.indexOf('-') + 1));
 
 /** Linked records in id-number order; the wire sorts them as text, putting MMR-10 before MMR-9. */
-const byNumber = (links: readonly WireArtifactLink[]): WireArtifactLink[] =>
+const byNumber = (links: readonly AttachedLink[]): AttachedLink[] =>
   links.toSorted((a, b) => seqOf(a.id) - seqOf(b.id));
 
 /**
@@ -75,7 +81,7 @@ const byNumber = (links: readonly WireArtifactLink[]): WireArtifactLink[] =>
  * the project tree, which the page reads for its path, adds the title and
  * status, and a record the tree cannot place keeps its bare id.
  */
-function attachedLinks(ids: readonly string[], tree: EngineTree | undefined): WireArtifactLink[] {
+function attachedLinks(ids: readonly string[], tree: EngineTree | undefined): AttachedLink[] {
   return ids.map((id) => {
     const node = tree === undefined ? undefined : subtreeOf(tree, id);
     return node === undefined ? { id } : { id, status: node.status, title: node.title };
@@ -83,7 +89,7 @@ function attachedLinks(ids: readonly string[], tree: EngineTree | undefined): Wi
 }
 
 /** A linked record's standing: the loaded node's, or its status word alone. */
-function linkStanding(link: WireArtifactLink, node: LinkedNode | undefined): string | undefined {
+function linkStanding(link: AttachedLink, node: LinkedNode | undefined): string | undefined {
   if (node !== undefined) {
     return recordStanding(node);
   }
@@ -91,7 +97,7 @@ function linkStanding(link: WireArtifactLink, node: LinkedNode | undefined): str
 }
 
 /** One attached record: its state, id, and title, linked to its page. */
-function AttachedRow({ link, node }: { link: WireArtifactLink; node?: LinkedNode }) {
+function AttachedRow({ link, node }: { link: AttachedLink; node?: LinkedNode }) {
   const status = node?.status ?? link.status;
   const standing = linkStanding(link, node);
   return (
@@ -114,7 +120,7 @@ function AttachedCard({
   links,
   host,
 }: {
-  links: readonly WireArtifactLink[];
+  links: readonly AttachedLink[];
   host: LinkedNode | undefined;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -156,7 +162,7 @@ function SiblingArtifacts({
   artifacts,
   currentId,
 }: {
-  artifacts: readonly Pick<WireArtifact, 'id' | 'title'>[];
+  artifacts: readonly { id: string; title: string }[];
   currentId: string;
 }) {
   return (

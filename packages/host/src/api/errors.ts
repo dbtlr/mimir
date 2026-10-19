@@ -5,7 +5,7 @@ import { MimirError } from '@mimir/contract';
  * status. Carrying the status lets callers separate "the server said no"
  * from "the server never answered" — e.g. a board whose project 404s under
  * archived-404 semantics (ADR 0015) renders a not-found notice instead of
- * the false Offline banner. Lives apart from client.ts so components can
+ * the false Offline banner. Lives apart from health.ts so components can
  * import the type guard without dragging in the fetch seam (which tests
  * routinely mock away).
  */
@@ -30,7 +30,7 @@ export function isEngineRefusal(error: unknown): error is MimirError {
 
 /**
  * A server function that faulted inside the host, as the console receives it:
- * the same house-voice refusal `/api` and `/trpc` give an internal fault. The
+ * the same house-voice refusal `/trpc` gives an internal fault. The
  * cause stays in the host's log; nothing of it crosses the wire.
  */
 export class HostFaultError extends Error {

@@ -100,7 +100,7 @@ different signals — chase blocked, leave awaiting alone. Verdicts negate too:
 To _read_ the verdicts on one record instead of filtering by them, ask for the
 `verdicts` column — `mimir get KEY-9 --col verdicts` adds the derived
 `stale`/`blocking`/`orphaned` flags to the detail (they're always present in
-the HTTP API's records).
+the console's records).
 
 ## 4. Filtered queues
 

@@ -150,7 +150,7 @@ export function useCreateNode() {
 }
 
 /**
- * Dependencies are applied after the node exists (`POST /api/nodes` takes no
+ * Dependencies are applied after the node exists (a create takes no
  * deps field), so create-with-deps is create-then-depend — two writes, not
  * one. The id is only known at mutate time (the reorder pattern).
  */

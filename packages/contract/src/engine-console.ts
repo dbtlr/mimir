@@ -108,7 +108,7 @@ const asOf = z.date().optional();
  * dependency picker) finds the open tasks on any board whose id or title holds
  * the text, and `upstreamTasks` (a seed page's outcomes) finds the tasks on any
  * board that name a seed as their upstream. Keys are checked in
- * core, so the refusals match the HTTP routes. The time zone is required there
+ * core, so the refusals match the Engine's other reads. The time zone is required there
  * for the pages that place a shipped window.
  */
 export const consoleSchemas = {

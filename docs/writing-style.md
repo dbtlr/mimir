@@ -41,7 +41,7 @@ Verify user-facing behavior against its owning surface before publishing:
 | --- | --- |
 | CLI commands and flags | `bun run mimir --help` and command help |
 | Agent tools | `packages/bin/src/mcp/server.ts` |
-| HTTP behavior | `packages/api/src/api.ts`, `packages/host/src/start-routes`, and integration tests |
+| Host routes | `packages/host/src/start-routes`, `packages/wire/src/server.ts`, and integration tests |
 | Console workflows | `packages/host/src/router.tsx`, components, and mutations |
 | Stored model and invariants | `docs/schema-reference.md` and accepted ADRs |
 | Installation and host behavior | `install.sh` and `docs/guides/` |

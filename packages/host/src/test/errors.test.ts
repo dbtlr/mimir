@@ -30,11 +30,11 @@ describe('engine refusals across a server function (MMR-537)', () => {
     expect(mimirErrorAdapter.test(new Error('fetch failed'))).toBe(false);
   });
 
-  it('count as not found when the Engine says so, as an /api 404 does', () => {
+  it('count as not found when the Engine says so, as an HTTP 404 does', () => {
     expect(isNotFound(acrossTheWire(new MimirError('not_found', 'NOPE does not exist')))).toBe(
       true,
     );
-    expect(isNotFound(new ApiError('GET /api/x → 404', 404))).toBe(true);
+    expect(isNotFound(new ApiError('GET /health → 404', 404))).toBe(true);
     expect(isNotFound(new MimirError('validation', 'blank'))).toBe(false);
     expect(isNotFound(new Error('offline'))).toBe(false);
   });

@@ -14,8 +14,6 @@ import { serveNodes } from './node-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
@@ -40,7 +38,6 @@ function serve() {
     records.nodes = [engineProject({ id: 'OLD', status: 'in_progress', title: 'Old project' })];
     return engineProject({ id: 'OLD' });
   });
-  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
 }
 
 /** How many reads of the archived project's own record the page has made. */
@@ -66,7 +63,6 @@ function renderAt(initial: string, client = quietClient()) {
 beforeEach(() => {
   serveBrowse();
   serveViews();
-  apiGet.mockReset();
   vi.mocked(getNode).mockReset();
   vi.mocked(projects).mockReset();
   vi.mocked(unarchive).mockReset();

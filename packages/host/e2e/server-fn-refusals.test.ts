@@ -4,7 +4,7 @@ import { test } from './pwa-worker';
 
 test.use({ actionTimeout: 15_000 });
 
-/** A line the host writes for each internal fault, as /api and /trpc do. */
+/** A line the host writes for each internal fault, as /trpc does. */
 const FAULT_LINE = '✗ host: request did not complete';
 
 /*
@@ -16,8 +16,8 @@ test('server functions answer refusals with their code and hide internal faults'
   page,
   pwaFixture: fixture,
 }) => {
-  await fixture.file('/api/projects', { key: 'FLT', name: 'Fault board' });
-  const initiative = await fixture.file('/api/nodes', {
+  await fixture.create({ key: 'FLT', name: 'Fault board', type: 'project' });
+  const initiative = await fixture.create({
     parent: 'FLT',
     title: 'Damaged later',
     type: 'initiative',

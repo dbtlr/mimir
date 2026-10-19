@@ -21,3 +21,9 @@ export function suggestKey(title: string): string {
   // can't reach the 2-char floor — suggest nothing and let the user type.
   return word.length >= 2 ? word.slice(0, 2) : '';
 }
+
+/** The project key a rendered id belongs to (`MMR-16` -> `MMR`, `MMR` -> `MMR`). */
+export function projectKeyOf(id: string): string {
+  const dash = id.indexOf('-');
+  return dash === -1 ? id : id.slice(0, dash);
+}

@@ -1,6 +1,5 @@
 import { expect, test } from 'bun:test';
 
-import { nodeBodyFields } from '@mimir/api';
 import { SPEC_UPDATE_FIELDS } from '@mimir/core';
 import type { SpecUpdateField, UpdateFieldKey } from '@mimir/core';
 import { inertStore } from '@mimir/core/testing';
@@ -10,10 +9,9 @@ import { updateFieldFlags } from './cli/mutations';
 import { buildMcpServer, fieldInputShape } from './mcp/server';
 
 /**
- * The three field transport surfaces derive from one field spec (ADR 0025,
- * MMR-315): the CLI flag template, the MCP `update`/`create` zod fragments, and
- * the HTTP body allow-lists. No transport hand-lists the data-plane field keys,
- * and a new spec entry with an existing kind surfaces on all three with zero
+ * The field transport surfaces derive from one field spec (ADR 0025,
+ * MMR-315): the CLI flag template and the MCP `update`/`create` zod fragments. No transport hand-lists the data-plane field keys,
+ * and a new spec entry with an existing kind surfaces on both with zero
  * transport edits — the property this suite pins.
  */
 
@@ -42,18 +40,15 @@ function mcpToolProps(name: string): string[] {
   return Object.keys(mcpToolSchema(name).properties ?? {});
 }
 
-test('every generic-update spec field surfaces on all three transports', () => {
+test('every generic-update spec field surfaces on both transports', () => {
   const updateProps = new Set(mcpToolProps('update'));
   const createProps = new Set(mcpToolProps('create'));
-  const patchBody = new Set(nodeBodyFields());
 
   expect(SPEC_UPDATE_FIELDS.length).toBeGreaterThan(0);
   for (const field of SPEC_UPDATE_FIELDS) {
     // MCP: the camelCase arg name is a property of both write schemas.
     expect(updateProps.has(field.update)).toBe(true);
     expect(createProps.has(field.update)).toBe(true);
-    // HTTP: the snake_case key is an accepted body field.
-    expect(patchBody.has(field.key)).toBe(true);
     // CLI: the field renders at least one flag.
     expect(updateFieldFlags(field.update).length).toBeGreaterThan(0);
   }
@@ -135,13 +130,6 @@ test('golden: the advertised update/create schemas are pinned exactly', () => {
   }
 });
 
-test('the HTTP body allow-list is exactly the spec keys — no hand-listed extras', () => {
-  // The data-plane portion is precisely the spec's update-field keys (structural
-  // title/description/type/parent/tags are the bespoke identity plane, tested
-  // via the routes). A drift here means a transport re-hand-listed a field.
-  expect(nodeBodyFields().toSorted()).toEqual(SPEC_UPDATE_FIELDS.map((f) => f.key).toSorted());
-});
-
 test('CLI flag spelling: default is --<kebab-key>, overrides diverge', () => {
   // Default derivation from the field model.
   expect(updateFieldFlags('priority')).toEqual([['priority', '--priority']]);
@@ -174,8 +162,6 @@ test('the transport builders are pure over the field list: a new entry propagate
 
   // MCP: the derived fragment carries the new arg.
   expect(Object.keys(fieldInputShape(augmented))).toContain('syntheticField');
-  // HTTP: the derived allow-list carries the new key.
-  expect(nodeBodyFields(augmented)).toContain('synthetic_field');
   // CLI: the field renders a derived default flag with no override entry.
   expect(updateFieldFlags('syntheticField' as UpdateFieldKey)).toEqual([
     ['synthetic-field', '--synthetic-field'],

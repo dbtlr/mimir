@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
-import { serveApi } from '@mimir/api/testing';
 import { OP_FACTS } from '@mimir/contract';
 import {
   createInitiative,
@@ -13,7 +12,6 @@ import {
 } from '@mimir/core';
 import type { SpecUpdateField, Store } from '@mimir/core';
 import { createTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
-import type { Server } from 'bun';
 
 import { updateFieldFlags } from './cli/mutations';
 import { runCli } from './cli/run';
@@ -25,8 +23,8 @@ import { toolUniform } from './mcp/tools';
  * analogue of the field-transport application suite. `start` is the one uniform
  * verb that records data-plane fields at its transition, and it derives them from
  * the SAME field spec `update` derives from, so acceptance and application must
- * hold together on all three transports with no per-transport field list. This
- * drives every field the registry declares end-to-end through each real transport
+ * hold together on the CLI and MCP with no per-transport field list. This
+ * drives every field the registry declares end-to-end through each transport
  * and asserts the value lands on the node; a transport that advertises but drops
  * one turns this suite red.
  */
@@ -36,8 +34,6 @@ const START_FIELDS: readonly SpecUpdateField[] = specUpdateFields(OP_FACTS.start
 
 let store: Store;
 let closeStore: (() => Promise<void>) | undefined;
-let server: Server<undefined>;
-let base: string;
 let phaseId: string;
 
 beforeEach(async () => {
@@ -52,12 +48,9 @@ beforeEach(async () => {
     title: 'phase',
   });
   phaseId = await nodeIdOf(store, `MMR-${String(phase.seq)}`);
-  server = serveApi(store, { version: '0.0.0-test' });
-  base = `http://127.0.0.1:${String(server.port)}`;
 });
 
 afterEach(async () => {
-  await server?.stop(true);
   await closeStore?.();
 });
 
@@ -88,15 +81,6 @@ const cliStart: Driver = async (ref, field, value) => {
   expect(await runCli(['start', ref, flag, value], () => store, fakeIo(false))).toBe(0);
 };
 
-const httpStart: Driver = async (ref, field, value) => {
-  const res = await fetch(`${base}/api/nodes/${ref}/start`, {
-    body: JSON.stringify({ [field.key]: value }),
-    headers: { 'content-type': 'application/json' },
-    method: 'POST',
-  });
-  expect(res.status).toBe(200);
-};
-
 const mcpStart: Driver = async (ref, field, value) => {
   const res = await toolUniform(store, 'start', { id: ref, [field.update]: value });
   expect(res.isError).toBeUndefined();
@@ -104,7 +88,6 @@ const mcpStart: Driver = async (ref, field, value) => {
 
 const DRIVERS: [name: string, drive: Driver][] = [
   ['cli', cliStart],
-  ['http', httpStart],
   ['mcp', mcpStart],
 ];
 
@@ -124,19 +107,6 @@ describe.each([...START_FIELDS])('start field $key', (field) => {
       expect(await landedValue(ref, field)).toEqual(value);
     },
   );
-});
-
-test('HTTP refuses an extra field on a verb that declares none', async () => {
-  const ref = await freshTask();
-  await runCli(['start', ref], () => store, fakeIo(false));
-  const res = await fetch(`${base}/api/nodes/${ref}/submit`, {
-    body: JSON.stringify({ host: 'workbench.local' }),
-    headers: { 'content-type': 'application/json' },
-    method: 'POST',
-  });
-  // The allow-list is derived per verb, so `submit` (no declared fields) rejects
-  // the key outright rather than silently swallowing it.
-  expect(res.status).toBe(400);
 });
 
 test('the CLI start echo is unchanged by the handle flags', async () => {

@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 
-import { serveApi } from '@mimir/api/testing';
 import type { DateOp } from '@mimir/contract';
 import {
   attachArtifact,
@@ -18,7 +17,6 @@ import {
 } from '@mimir/core';
 import type { Store } from '@mimir/core';
 import { createTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
-import type { Server } from 'bun';
 
 import { runCli } from './cli/run';
 import { fakeIo } from './cli/testing';
@@ -26,18 +24,18 @@ import { toolArtifacts, toolList, toolSeeds } from './mcp/tools';
 
 /**
  * The date-query conformance suite (ADR 0029) — the registry-driven proof that
- * CLI, MCP, and HTTP resolve one date grammar to ONE instant window, over every
+ * CLI and MCP resolve one date grammar to ONE instant window, over every
  * resource that has a date field.
  *
  * Each case names an operator, a filter value, and a caller timezone. The
  * EXPECTED answer is computed from the shared date core against each fixture's
- * own `created_at`, so the assertion is not merely "the three agree" — it is
- * "the three agree with the resolved boundary", which is what a transport doing
+ * own `created_at`, so the assertion is not merely "the two agree" — it is
+ * "the two agree with the resolved boundary", which is what a transport doing
  * its own arithmetic would break. The cases cover DST spring-forward and
  * fall-back days, a 45-minute zone, a leap day, the exact millisecond of a
  * fixture's own timestamp (the inclusive/strict edge), and the refusals: an
  * impossible calendar date, a zone-less timestamp, and a bare date with no
- * caller timezone (which only MCP and HTTP can hit — the CLI always has the
+ * caller timezone (which only MCP can hit — the CLI always has the
  * system zone).
  */
 
@@ -46,8 +44,6 @@ const FIELD = 'created_at';
 
 let store: Store;
 let closeStore: (() => Promise<void>) | undefined;
-let server: Server<undefined>;
-let base: string;
 
 /** The fixture rows, each with the `created_at` the expectations are computed against. */
 let task: { id: string; createdAt: string };
@@ -90,13 +86,9 @@ beforeAll(async () => {
   });
   const queued = (await listSeeds(store, { project: 'MMR' })).find((s) => s.id === filed.id);
   seed = { createdAt: queued?.createdAt ?? '', id: filed.id };
-
-  server = serveApi(store, { version: '0.0.0-test' });
-  base = `http://127.0.0.1:${String(server.port)}`;
 });
 
 afterAll(async () => {
-  await server?.stop(true);
   await closeStore?.();
 });
 
@@ -124,12 +116,6 @@ function toolOutcome(
   return { matched: text.includes(`"${id}"`) };
 }
 
-async function httpOutcome(url: string, id: string): Promise<Outcome> {
-  const res = await fetch(url);
-  const text = await res.text();
-  return res.ok ? { matched: text.includes(`"${id}"`) } : { refused: text };
-}
-
 async function cliOutcome(argv: string[], id: string): Promise<Outcome> {
   const io = fakeIo(false);
   const code = await runCli(argv, () => store, io);
@@ -141,13 +127,12 @@ async function cliOutcome(argv: string[], id: string): Promise<Outcome> {
 /** One or more date filters, as the caller writes them. */
 type Filters = readonly (readonly [DateOp, string])[];
 
-/** One resource's three transport bindings — the same query, spoken three ways. */
+/** One resource's two transport bindings — the same query, spoken two ways. */
 type Resource = {
   name: string;
   row: () => { id: string; createdAt: string };
   cli: (filters: Filters, zone?: string) => Promise<Outcome>;
   mcp: (filters: Filters, zone?: string) => Promise<Outcome>;
-  http: (filters: Filters, zone?: string) => Promise<Outcome>;
 };
 
 /** The CLI flag pairs for a filter list. */
@@ -155,9 +140,6 @@ const cliFlags = (filters: Filters): string[] =>
   filters.flatMap(([op, value]) => [`--${op}`, `${FIELD}:${value}`]);
 
 /** The repeated query params for a filter list. */
-const httpParams = (filters: Filters): string =>
-  filters.map(([op, value]) => `&${op}=${encodeURIComponent(`${FIELD}:${value}`)}`).join('');
-
 /** The camelCase token arrays for a filter list. */
 function mcpArgs(filters: Filters): Record<string, string[]> {
   const args: Record<string, string[]> = {};
@@ -170,7 +152,6 @@ function mcpArgs(filters: Filters): Record<string, string[]> {
 /** The CLI's zone flag pair, omitted when the case sends no zone (system default). */
 const tzFlag = (zone?: string): string[] => (zone === undefined ? [] : ['--tz', zone]);
 const tzArg = (zone?: string): { tz?: string } => (zone === undefined ? {} : { tz: zone });
-const tzParam = (zone?: string): string => (zone === undefined ? '' : `&tz=${zone}`);
 
 const RESOURCES: readonly Resource[] = [
   {
@@ -179,8 +160,6 @@ const RESOURCES: readonly Resource[] = [
         ['list', '-s', 'MMR', ...cliFlags(filters), ...tzFlag(zone), '-f', 'json'],
         task.id,
       ),
-    http: (filters, zone) =>
-      httpOutcome(`${base}/api/nodes?project=MMR${httpParams(filters)}${tzParam(zone)}`, task.id),
     mcp: async (filters, zone) =>
       toolOutcome(
         await toolList(store, { scope: 'MMR', ...mcpArgs(filters), ...tzArg(zone) }),
@@ -193,11 +172,6 @@ const RESOURCES: readonly Resource[] = [
     cli: (filters, zone) =>
       cliOutcome(
         ['artifacts', '-s', 'MMR', ...cliFlags(filters), ...tzFlag(zone), '-f', 'json'],
-        artifact.id,
-      ),
-    http: (filters, zone) =>
-      httpOutcome(
-        `${base}/api/artifacts?project=MMR${httpParams(filters)}${tzParam(zone)}`,
         artifact.id,
       ),
     mcp: async (filters, zone) =>
@@ -214,8 +188,6 @@ const RESOURCES: readonly Resource[] = [
         ['seeds', '-p', 'MMR', ...cliFlags(filters), ...tzFlag(zone), '-f', 'json'],
         seed.id,
       ),
-    http: (filters, zone) =>
-      httpOutcome(`${base}/api/seeds?project=MMR${httpParams(filters)}${tzParam(zone)}`, seed.id),
     mcp: async (filters, zone) =>
       toolOutcome(
         await toolSeeds(store, { project: 'MMR', ...mcpArgs(filters), ...tzArg(zone) }),
@@ -371,7 +343,6 @@ describe.each([...RESOURCES])('$name', (resource) => {
     const filters = [[matchCase.op, value]] as const;
     expect(await resource.cli(filters, matchCase.zone)).toEqual({ matched });
     expect(await resource.mcp(filters, matchCase.zone)).toEqual({ matched });
-    expect(await resource.http(filters, matchCase.zone)).toEqual({ matched });
   });
 });
 
@@ -395,20 +366,16 @@ describe.each([...RESOURCES])('$name', (resource) => {
     for (const outcome of [
       await resource.cli(filters, 'UTC'),
       await resource.mcp(filters, 'UTC'),
-      await resource.http(filters, 'UTC'),
     ]) {
       expect(outcome).toMatchObject({ refused: expect.stringContaining(refusal.says) });
     }
   });
 
-  // Only the remote transports can be zone-less: the CLI defaults to the
-  // invoking system's zone, so a bare date there always has a calendar.
+  // Only MCP can be zone-less: the CLI defaults to the invoking system's
+  // zone, so a bare date there always has a calendar.
   test('refuses a bare date with no tz off-CLI', async () => {
     const filters = [['on', localDate(resource.row().createdAt, 'UTC')]] as const;
     expect(await resource.mcp(filters)).toMatchObject({
-      refused: expect.stringContaining('no caller timezone'),
-    });
-    expect(await resource.http(filters)).toMatchObject({
       refused: expect.stringContaining('no caller timezone'),
     });
     expect(await resource.cli(filters)).toEqual({ matched: expect.any(Boolean) });
@@ -419,7 +386,6 @@ describe.each([...RESOURCES])('$name', (resource) => {
     for (const outcome of [
       await resource.cli(filters, 'Mars/Olympus'),
       await resource.mcp(filters, 'Mars/Olympus'),
-      await resource.http(filters, 'Mars/Olympus'),
     ]) {
       expect(outcome).toMatchObject({ refused: expect.stringContaining('unknown timezone') });
     }
@@ -431,7 +397,6 @@ describe.each([...RESOURCES])('$name', (resource) => {
     for (const outcome of [
       await resource.cli(filters, 'UTC'),
       await resource.mcp(filters, 'UTC'),
-      await resource.http(filters, 'UTC'),
     ]) {
       expect(outcome).toMatchObject({ refused: expect.stringContaining('not a calendar date') });
     }
@@ -444,7 +409,7 @@ describe.each([...RESOURCES])('$name', (resource) => {
  * zones and every offset transition from 1970 to 2038. Pinning them here keeps
  * the transports honest against the CALENDAR, not merely against each other:
  * the match cases above take their expectation from the date core, which can
- * only prove the three agree.
+ * only prove the two agree.
  */
 const ANCHORS: readonly { zone: string; day: string; from: string; until: string }[] = [
   // A fall-back landing at 00:00 — the day opens at the FIRST of two midnights.
@@ -487,7 +452,6 @@ describe.each([...RESOURCES])('$name', (resource) => {
       const matched = expected[op as DateOp];
       expect(await resource.cli(filters, anchor.zone)).toEqual({ matched });
       expect(await resource.mcp(filters, anchor.zone)).toEqual({ matched });
-      expect(await resource.http(filters, anchor.zone)).toEqual({ matched });
     }
   });
 
@@ -512,7 +476,6 @@ describe.each([...RESOURCES])('$name', (resource) => {
     ] as const) {
       expect(await resource.cli(filters, 'UTC')).toEqual({ matched });
       expect(await resource.mcp(filters, 'UTC')).toEqual({ matched });
-      expect(await resource.http(filters, 'UTC')).toEqual({ matched });
     }
   });
 });

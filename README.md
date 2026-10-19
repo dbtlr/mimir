@@ -16,8 +16,8 @@ there is no second cache of project status to keep in sync.
 
 ## Why Mimir
 
-- **One work model.** The CLI, MCP server, HTTP API, and operator console use the
-  same domain logic.
+- **One work model.** The CLI, MCP server, `/trpc` Engine endpoint, and operator console
+  use the same domain logic.
 - **Agent-ready context.** Repository binding and `mimir overview` give an agent
   the current direction, active work, ready queue, dependencies, and recent
   sessions.
@@ -106,7 +106,7 @@ and [ADRs](docs/decisions/README.md) cover engineering details.
 ## Status
 
 Mimir is pre-release (`0.x`) and built for a single operator. The CLI, MCP,
-HTTP API, and console cover read and write workflows. The console is an
+`/trpc` Engine endpoint, and console cover read and write workflows. The console is an
 installable PWA with cached offline reads; writes require a live host and are
 not queued offline. Authentication and multi-operator collaboration are outside
 the current product.

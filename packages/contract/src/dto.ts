@@ -339,7 +339,7 @@ export type HomeFacet = {
   parentOpenEnded: boolean | null;
 };
 
-/** A cross-cutting transition-log read (`/api/transitions`) — `node` is the rendered id. */
+/** A cross-cutting transition-log read — `node` is the rendered id. */
 export type TransitionView = {
   node: string;
   kind: TransitionKind;
@@ -466,7 +466,7 @@ export type NodeView = {
 };
 
 /**
- * A node in the nested whole-project tree (`/api/projects/:key/tree`) — the
+ * A node in the nested whole-project tree (the Engine's `tree`) — the
  * same record shape everywhere, with `children` carrying full nested records
  * instead of light refs. Children arrive rank-ordered (rank carries as array
  * order, never a field — ADR 0007), containers by seq.

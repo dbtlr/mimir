@@ -1,9 +1,8 @@
-import { hostGuard } from '@mimir/api';
 import { acceptedHosts } from '@mimir/core';
 import { definePlugin } from 'nitro';
 
 import { hostConfig } from './config';
-import { guardEveryRoute } from './guard';
+import { guardEveryRoute, hostGuard } from './guard';
 import { closeHost, hostRuntime } from './runtime';
 
 /** Share one readiness and guard snapshot across every dispatched route. */

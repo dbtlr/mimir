@@ -1,5 +1,0 @@
-{
-  "extends": "@dbtlr/tooling/tsconfig/bun.json",
-  "compilerOptions": { "noImplicitOverride": true },
-  "include": ["src"]
-}

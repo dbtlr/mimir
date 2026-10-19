@@ -116,3 +116,29 @@ public origin come from `MIMIR_HOSTS` and `MIMIR_URL`, and the published port
 mapping replaces `bind`. The cross-origin write check stays always on. The
 network modes are documented in the
 [host guide](../guides/host.md#reach-it-from-another-device).
+
+## Refinement (2026-10-19, MMR-541): the resource envelope is retired
+
+The host no longer serves `/api`. The console reads and writes through server
+functions over the Engine, and remote clients use `/trpc` ([ADR
+0034](0034-engine-interface-and-trpc-wire.md)), so the resource-shaped HTTP
+surface, its collection envelope, its action sub-routes, and its
+`{"error":{code,message,hint}}` status mapping were deleted with the
+`@mimir/api` package. Every method on `/api` now answers a
+`410` tombstone with a JSON `gone` refusal that names `/trpc`, behind the same
+host guard, so a stale probe or an old installed console fails readably. Decisions 1 to 5 describe a
+surface that no longer exists. Their doctrine lives on the Engine: a capability
+lands in core and surfaces on every transport, writes stay verb-shaped with no
+second mutation path around the invariants, and node levels are never separate
+resources.
+
+The network guards of decision 6 and its v0.22.1 refinement now live in the
+host ([ADR 0035](0035-tanstack-start-container-host.md)). The optional Host
+allowlist (`MIMIR_HOSTS`) and the always-on cross-origin write check run as
+request middleware over every host route, `/trpc` and the server functions
+included. Neither authenticates a caller, and auth stays outside the process.
+`/health` reports the build and supported schema without querying the store.
+The record-health facet reaches the console through a server function. An
+operator who probed `GET /api/projects` as a store-backed read uses
+`GET /trpc/projects` instead, as the
+[host guide](../guides/host.md#check-health) describes.

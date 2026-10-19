@@ -8,6 +8,9 @@ import { tmpdir } from 'node:os';
 import { dirname, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import type { EngineInput } from '@mimir/contract';
+import { RemoteEngine } from '@mimir/wire/client';
+
 import { assertPrecache } from '../scripts/assert-precache';
 
 const HOST_ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..');
@@ -93,7 +96,7 @@ export class PwaFixture {
   readonly buildA: string;
   readonly buildB: string;
   origin = '';
-  private apiOnline = true;
+  private hostOnline = true;
   private healthVersion: string;
   private host: ChildProcess | undefined;
   private readonly hostLines: string[] = [];
@@ -147,8 +150,8 @@ export class PwaFixture {
     await rm(this.temporaryRoot, { force: true, recursive: true });
   }
 
-  setApiOnline(online: boolean): void {
-    this.apiOnline = online;
+  setHostOnline(online: boolean): void {
+    this.hostOnline = online;
   }
 
   setHealthVersion(version: string): void {
@@ -188,7 +191,7 @@ export class PwaFixture {
     });
     this.hostOrigin = `http://127.0.0.1:${String(port)}`;
     await this.waitForHost();
-    await this.file('/api/projects', FIXTURE_PROJECT);
+    await this.create({ ...FIXTURE_PROJECT, type: 'project' });
   }
 
   /** What the host has logged to stderr so far, a line per entry. */
@@ -196,26 +199,11 @@ export class PwaFixture {
     return [...this.hostLines];
   }
 
-  /** File a record on the host through its /api route, and answer the echo. */
-  async file(path: string, body: object): Promise<{ id: string }> {
-    const created = await fetch(`${this.hostOrigin}${path}`, {
-      body: JSON.stringify(body),
-      headers: { 'content-type': 'application/json' },
-      method: 'POST',
-    });
-    if (!created.ok) {
-      throw new Error(`PWA fixture host refused ${path}: ${String(created.status)}`);
-    }
-    const echo: unknown = await created.json();
-    if (
-      typeof echo !== 'object' ||
-      echo === null ||
-      !('id' in echo) ||
-      typeof echo.id !== 'string'
-    ) {
-      throw new Error(`PWA fixture host answered ${path} without an id`);
-    }
-    return { id: echo.id };
+  /** File a record on the host through its Engine, and answer its id. */
+  async create(input: EngineInput<'create'>): Promise<{ id: string }> {
+    const engine = new RemoteEngine({ url: `${this.hostOrigin}/trpc` });
+    const created = await engine.create(input);
+    return { id: created.id };
   }
 
   /**
@@ -295,19 +283,19 @@ export class PwaFixture {
   private async respond(request: IncomingMessage, response: ServerResponse) {
     const url = new URL(request.url ?? '/', this.origin);
     if (url.pathname === '/health') {
-      response.writeHead(this.apiOnline ? 200 : 503, {
+      response.writeHead(this.hostOnline ? 200 : 503, {
         'cache-control': 'no-store',
         'content-type': 'application/json; charset=utf-8',
       });
       response.end(
-        this.apiOnline
+        this.hostOnline
           ? JSON.stringify({ schema: 10, status: 'ok', version: this.healthVersion })
           : 'offline',
       );
       return;
     }
     if (SERVER_ROUTE.test(url.pathname)) {
-      if (!this.apiOnline) {
+      if (!this.hostOnline) {
         response.writeHead(503, { 'content-type': 'text/plain; charset=utf-8' });
         response.end('offline');
         return;

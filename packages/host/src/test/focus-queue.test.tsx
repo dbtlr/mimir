@@ -17,8 +17,6 @@ import { serveShell } from './shell-fns';
 import { engineReview, needsYouRow, stripRow } from './views-fixtures';
 import { serveViews } from './views-fns';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/views');
@@ -26,7 +24,6 @@ vi.mock('../api/fns/views');
 const NOW = Date.parse('2026-10-13T12:00:00.000Z');
 
 beforeEach(() => {
-  apiGet.mockReset();
   vi.clearAllMocks();
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(NOW);
@@ -93,7 +90,6 @@ function serve(
   let current = report;
   serveViews();
   vi.mocked(review).mockImplementation(async () => current);
-  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
   serveShell();
   serveNodes();
   vi.mocked(getNode).mockImplementation(async ({ data }) => {

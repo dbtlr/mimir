@@ -12,8 +12,6 @@ import { serveNodes } from './node-fns';
 import { failShellReads, serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
@@ -45,7 +43,6 @@ describe('project page archived-404 (MMR-230)', () => {
     // portfolio reads (shell strips, picker) stay healthy.
     serveShell({ projects: [engineProject({ id: 'MMR', title: 'Mimir' })] });
     serveNodes({ nodes: [engineProject({ id: 'MMR', title: 'Mimir' })] });
-    apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
     renderProject('SR');
 
     await expect(screen.findByText(/archived or no longer exists/i)).resolves.toBeDefined();
@@ -55,7 +52,6 @@ describe('project page archived-404 (MMR-230)', () => {
   });
 
   it('an unreachable server still reads as offline, not as not-found', async () => {
-    apiGet.mockRejectedValue(new TypeError('fetch failed'));
     failShellReads(new TypeError('fetch failed'));
     serveNodes();
     vi.mocked(getNode).mockRejectedValue(new TypeError('fetch failed'));

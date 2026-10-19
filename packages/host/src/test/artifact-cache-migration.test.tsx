@@ -12,8 +12,6 @@ import { serveBareRecords } from './node-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
@@ -92,7 +90,6 @@ describe('artifacts route rehydrating a legacy warm cache', () => {
   it('degrades to a clean refetch instead of crashing the route', async () => {
     serveShell();
     serveBrowse({ artifacts: [engineArtifact({ id: 'MMR-new', title: 'Fresh artifact' })] });
-    apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
 
     // A warm cache from the pre-infinite build: a plain query holding the flat
     // collection under the route's own key, dehydrated exactly as the

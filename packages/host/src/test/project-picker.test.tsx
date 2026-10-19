@@ -20,8 +20,6 @@ import { stubViewport } from './viewport';
 import { engineReview, stripRow } from './views-fixtures';
 import { serveViews } from './views-fns';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
@@ -70,13 +68,11 @@ function serve(world: Partial<World> = {}) {
     shell.projects = shell.projects.map((p) => withPin(p, data.id, data.pinned));
     return engineProject({ id: data.id });
   });
-  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
   serveBareRecords();
 }
 
 /** The host is unreachable: every read fails. */
 function unreachable() {
-  apiGet.mockRejectedValue(new Error('unreachable'));
   vi.mocked(review).mockRejectedValue(new Error('unreachable'));
   failShellReads();
 }

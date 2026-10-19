@@ -1,22 +1,19 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 
-import { serveApi } from '@mimir/api/testing';
 import { attachArtifact, createInitiative, createProject, createTask, depend } from '@mimir/core';
 import type { Store } from '@mimir/core';
 import { createTestStore } from '@mimir/core/testing';
 import { parseJson } from '@mimir/helpers';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import type { Server } from 'bun';
 
 import { runCli } from './cli/run';
 import { fakeIo, fixedScope } from './cli/testing';
 import { buildMcpServer } from './mcp/server';
 
 /**
- * Cross-record search (MMR-447) over the three transports: the same query must
- * return the same hits from the CLI (`-f json`), HTTP (`/api/search`), and MCP
- * (`search`), and each transport refuses bad input in its own grammar.
+ * Cross-record search (MMR-447) over the CLI and MCP: the same query must
+ * return the same hits from the CLI (`-f json`) and MCP (`search`), and each transport refuses bad input in its own grammar.
  *
  * The board: MMR-1 initiative, MMR-2 "Cross-record search" (depends on MMR-3,
  * described with "palette"), MMR-3 "Seed pages", MMR-a1 an artifact attached
@@ -25,8 +22,6 @@ import { buildMcpServer } from './mcp/server';
 
 let store: Store;
 let closeStore: (() => Promise<void>) | undefined;
-let server: Server<undefined>;
-let base: string;
 
 beforeAll(async () => {
   ({ close: closeStore, store } = await createTestStore());
@@ -48,13 +43,9 @@ beforeAll(async () => {
   });
   const norn = await createInitiative(store, { projectId: 'NOR', title: 'Knowledge' });
   await createTask(store, { parentId: norn.id, title: 'Vault' });
-
-  server = serveApi(store, { version: '0.0.0-test' });
-  base = `http://127.0.0.1:${String(server.port)}`;
 });
 
 afterAll(async () => {
-  await server?.stop(true);
   await closeStore?.();
 });
 
@@ -77,19 +68,6 @@ async function viaCli({ text, project, limit }: Query): Promise<Hit[]> {
   argv.push('-s', project ?? 'all');
   expect(await runCli(argv, () => store, io)).toBe(0);
   return parseJson<{ results: Hit[] }>(io.out.join('')).results;
-}
-
-async function viaHttp({ text, project, limit }: Query): Promise<Hit[]> {
-  const params = new URLSearchParams({ q: text });
-  if (project !== undefined) {
-    params.set('project', project);
-  }
-  if (limit !== undefined) {
-    params.set('limit', String(limit));
-  }
-  const res = await fetch(`${base}/api/search?${params.toString()}`);
-  expect(res.status).toBe(200);
-  return parseJson<{ items: Hit[] }>(await res.text()).items;
 }
 
 type ToolCall = { isError?: boolean; content: { text?: string }[] };
@@ -123,14 +101,13 @@ describe('search parity', () => {
     ['a limited ID query', { limit: 2, text: 'MMR-2' }, 'MMR-2', []],
   ];
 
-  test.each(queries)('%s returns the same hits on all three', async (_n, query, first, has) => {
-    const [cli, http, mcp] = [await viaCli(query), await viaHttp(query), await viaMcp(query)];
+  test.each(queries)('%s returns the same hits on both', async (_n, query, first, has) => {
+    const [cli, mcp] = [await viaCli(query), await viaMcp(query)];
     const ids = cli.map((hit) => hit.id);
     expect(ids[0]).toBe(first);
     for (const id of has) {
       expect(ids).toContain(id);
     }
-    expect(http).toEqual(cli);
     expect(mcp).toEqual(cli);
   });
 
@@ -139,7 +116,7 @@ describe('search parity', () => {
   });
 
   test('a hit carries the snake_case wire fields, and link/snippet only where they apply', async () => {
-    const [link] = (await viaHttp({ text: 'MMR-2' })).slice(1, 2);
+    const [link] = (await viaCli({ text: 'MMR-2' })).slice(1, 2);
     expect(Object.keys(link ?? {}).toSorted()).toEqual(
       [
         'finished',
@@ -153,7 +130,7 @@ describe('search parity', () => {
         'updated_at',
       ].toSorted(),
     );
-    const [description] = await viaHttp({ text: 'palette' });
+    const [description] = await viaCli({ text: 'palette' });
     expect(description?.match).toBe('description');
     expect(typeof description?.snippet).toBe('string');
     expect(description).not.toHaveProperty('link');
@@ -202,46 +179,6 @@ describe('CLI search', () => {
       total: 0,
     });
     expect(io.err.join('')).toContain("nothing matches 'zzzzqq'");
-  });
-});
-
-describe('HTTP search', () => {
-  test.each(['/api/search', '/api/search?q=', '/api/search?q=%20%20'])(
-    'a missing or blank q is a 400 validation error (%s)',
-    async (path) => {
-      const res = await fetch(`${base}${path}`);
-      expect(res.status).toBe(400);
-      expect(parseJson<{ error: { code: string } }>(await res.text()).error.code).toBe(
-        'validation',
-      );
-    },
-  );
-
-  test('a bad limit is a 400', async () => {
-    for (const limit of ['0', 'x', '101']) {
-      expect((await fetch(`${base}/api/search?q=a&limit=${limit}`)).status).toBe(400);
-    }
-  });
-
-  test.each(['project=', 'project=all'])(
-    'an empty project or "all" means no current project (%s)',
-    async (param) => {
-      const res = await fetch(`${base}/api/search?q=2&${param}`);
-      expect(res.status).toBe(200);
-      const body = parseJson<{ items: { id: string }[] }>(await res.text());
-      expect(body.items.map((hit) => hit.id).toSorted()).toEqual(['MMR-2', 'NOR-2']);
-    },
-  );
-
-  test('an unknown project is a 404', async () => {
-    expect((await fetch(`${base}/api/search?q=2&project=NOPE`)).status).toBe(404);
-  });
-
-  test('returns the collection envelope', async () => {
-    const res = await fetch(`${base}/api/search?q=MMR-2`);
-    const body = parseJson<{ items: unknown[]; total: number }>(await res.text());
-    expect(body.total).toBe(body.items.length);
-    expect(body.total).toBeGreaterThan(1);
   });
 });
 
