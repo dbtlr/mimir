@@ -5,6 +5,8 @@
  * matches nothing fails its command's parity test, so the list stays current.
  */
 
+import { UNIFORM_VERBS } from '@mimir/contract';
+
 export type ParityDifference =
   /** `table` or `records` output differs on exactly these lines. */
   | {
@@ -51,7 +53,13 @@ export type ParityDifference =
    * The old CLI accepted and wrote; the Engine refuses the input with a Mimir code,
    * exit 1, and writes nothing.
    */
-  | { case: string; kind: 'engine-refusal'; reason: string };
+  | { case: string; kind: 'engine-refusal'; reason: string }
+  /**
+   * The old CLI accepted words after `--` that the verb has no use for and ignored
+   * them. Loom hands them over, and the command refuses them with its own usage
+   * failure: exit 2, code `usage`, naming the words. Argv cases only.
+   */
+  | { case: string; kind: 'stray-refusal'; reason: string };
 
 /**
  * Two reviewed differences every case carries, which the harness normalizes
@@ -77,6 +85,8 @@ const NOT_TAKEN =
   'Loom scopes an option to the command that declares it, so a flag this create type does not take is an unknown option at exit 2; the old CLI refused it as a validation failure at exit 1.';
 const BLANK =
   'The Engine refuses blank text, a title, or a name with a validation failure; the old CLI accepted and wrote it.';
+const PASSTHROUGH =
+  'The old CLI ignored words after `--` on a verb that takes no reason; the new CLI refuses them as a usage failure naming the words.';
 const LEADING =
   'Loom scopes an option to the command that declares it; the old CLI read -s before the verb.';
 
@@ -201,6 +211,24 @@ export const MACHINE_REDIRECTS: readonly string[] = [
   'store upgrade --parent MMR-2',
   'store export - --parent MMR-2',
   'store import x.json --parent MMR-2',
+];
+
+/** One misplaced flag per uniform verb, each a `flag-redirect` entry. */
+export const LIFECYCLE_REDIRECTS: readonly string[] = [
+  'queue MMR-3 --session run-1 --parent MMR-2',
+  'unqueue MMR-3 run cancelled --parent MMR-2',
+  'start MMR-3 --parent MMR-2',
+  'submit MMR-5 --parent MMR-2',
+  'return MMR-5 needs tests --parent MMR-2',
+  'done MMR-5 --title x',
+  'abandon MMR-3 dropped --direction x',
+  'reopen MMR-7 --clear-links',
+  'park MMR-3 waiting --groomed',
+  'unpark MMR-3 --apply',
+  'block MMR-3 waiting --parent MMR-2',
+  'unblock MMR-6 --parent MMR-2',
+  'archive XX --parent MMR-2',
+  'unarchive XX --parent MMR-2',
 ];
 
 const MMR_549_READS: readonly ParityDifference[] = [
@@ -604,4 +632,31 @@ export const PARITY_DIFFERENCES: readonly ParityDifference[] = [
   },
   { case: 'store argv: upgrade -f json -f ids', kind: 'loom-refusal', reason: REPEATED },
   ...redirectEntries(MACHINE_REDIRECTS),
+
+  // MMR-550: the twelve uniform lifecycle verbs.
+  ...UNIFORM_VERBS.map((verb): ParityDifference => ({
+    case: `${verb} argv: (no arguments)`,
+    kind: 'loom-voice',
+    reason: `${LOOM_PARSER} ${verb} needs its subject.`,
+  })),
+  {
+    case: 'start argv: MMR-3 --on you',
+    kind: 'loom-voice',
+    reason: `${LOOM_PARSER} start takes no --on.`,
+  },
+  { case: 'block argv: MMR-3 --on', kind: 'loom-voice', reason: LOOM_PARSER },
+  ...redirectEntries(LIFECYCLE_REDIRECTS),
+  { case: 'queue argv: MMR-3 --session run-1 --bogus', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'queue argv: MMR-3 --session run-1 extra', kind: 'loom-refusal', reason: STRAY },
+  { case: 'queue argv: MMR-3 --session a --session b', kind: 'loom-refusal', reason: REPEATED },
+  { case: 'start argv: MMR-3 extra', kind: 'loom-refusal', reason: STRAY },
+  { case: 'submit argv: MMR-5 because', kind: 'loom-refusal', reason: STRAY },
+  { case: 'done argv: MMR-5 shipped', kind: 'loom-refusal', reason: STRAY },
+  { case: 'unpark argv: MMR-3 reason', kind: 'loom-refusal', reason: STRAY },
+  { case: 'unarchive argv: XX reason', kind: 'loom-refusal', reason: STRAY },
+  { case: 'queue argv: MMR-3 --session run-1 -- x', kind: 'stray-refusal', reason: PASSTHROUGH },
+  { case: 'start argv: MMR-3 -- x', kind: 'stray-refusal', reason: PASSTHROUGH },
+  { case: 'done argv: MMR-5 -- x', kind: 'stray-refusal', reason: PASSTHROUGH },
+  { case: 'start argv: MMR-3 --host a --host b', kind: 'loom-refusal', reason: REPEATED },
+  { case: 'block argv: MMR-3 --on you --on others', kind: 'loom-refusal', reason: REPEATED },
 ];

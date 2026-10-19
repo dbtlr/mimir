@@ -27,6 +27,7 @@ import {
   configPath,
   DEFAULT_STORE_BACKEND,
   dateFilterWindows,
+  deriveSet,
   findingLine,
   gitPortAt,
   LocalEngine,
@@ -42,8 +43,10 @@ import {
   postgresUrlMissing,
   promoteToWire,
   readRuntimeConfig,
+  releasedByArchive,
   requireTimeZone,
   resolveBinding,
+  resolveProjectKeyInSet,
   scratchpadReceiptToWire,
   scratchpadToWire,
   searchHitToWire,
@@ -74,6 +77,22 @@ import { dependCommand, undependCommand } from './commands/depend';
 import { doctorCommand } from './commands/doctor';
 import { getCommand } from './commands/get';
 import { groomCommand } from './commands/groom';
+import {
+  abandonVerb,
+  archiveVerb,
+  blockVerb,
+  doneVerb,
+  parkVerb,
+  queueVerb,
+  reopenVerb,
+  returnVerb,
+  startVerb,
+  submitVerb,
+  unarchiveVerb,
+  unblockVerb,
+  unparkVerb,
+  unqueueVerb,
+} from './commands/lifecycle';
 import { listCommand } from './commands/list';
 import { nextCommand } from './commands/next';
 import { overviewCommand } from './commands/overview';
@@ -310,6 +329,11 @@ export function corePorts(source: CliSource): Ports {
       source.machine === undefined
         ? unavailableMachine()
         : machineOver(source.machine, source.git, getEngine, () => fatalOnOpen(source.store)),
+    releasedByArchive: async (key) => {
+      const store = await fatalOnOpen(source.store);
+      const projectId = resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), key);
+      return releasedByArchive(store, projectId);
+    },
     scope: (notify) => bindingScope(getEngine, source.git, notify)(),
     wire: {
       artifact: artifactToWire,
@@ -383,6 +407,21 @@ export function createApp(source: CliSource) {
       .command(doctorCommand(ports))
       .command(storeCommand(ports))
       .command(versionCommand(ports))
+      // MMR-550: the fourteen uniform lifecycle verbs.
+      .command(queueVerb(ports))
+      .command(unqueueVerb(ports))
+      .command(startVerb(ports))
+      .command(submitVerb(ports))
+      .command(returnVerb(ports))
+      .command(doneVerb(ports))
+      .command(abandonVerb(ports))
+      .command(reopenVerb(ports))
+      .command(parkVerb(ports))
+      .command(unparkVerb(ports))
+      .command(blockVerb(ports))
+      .command(unblockVerb(ports))
+      .command(archiveVerb(ports))
+      .command(unarchiveVerb(ports))
   );
 }
 

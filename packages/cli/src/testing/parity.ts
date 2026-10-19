@@ -306,6 +306,30 @@ function loomRefusalProblems(old: ParityRun, next: ParityRun): string[] {
   return [...problems, ...loomFaultProblems(next.failure)];
 }
 
+/**
+ * A `stray-refusal` entry: the old CLI accepted words after `--` and ignored them;
+ * the new CLI refuses with its own usage failure at exit 2, naming those words.
+ */
+function strayRefusalProblems(c: ParityCase, old: ParityRun, next: ParityRun): string[] {
+  const dash = (c.argv ?? []).indexOf('--');
+  const words = dash === -1 ? [] : (c.argv ?? []).slice(dash + 1);
+  const want = `unexpected argument: ${words.join(' ')}`;
+  const problems: string[] = [];
+  if (old.exitCode !== 0) {
+    problems.push(
+      `a stray-refusal entry names a case the old CLI refused (exit ${String(old.exitCode)})`,
+    );
+  }
+  if (next.exitCode !== 2 || next.failure?.code !== 'usage') {
+    problems.push(
+      `a stray-refusal exits 2 with code usage, not exit ${String(next.exitCode)} code ${next.failure?.code ?? 'none'}`,
+    );
+  } else if (next.failure.message !== want) {
+    problems.push(`a stray-refusal message is "${want}", not "${next.failure.message}"`);
+  }
+  return problems;
+}
+
 /** A `loom-scoped` entry: the old CLI refused with exit 1, and Loom's parser refuses with exit 2. */
 function loomScopedProblems(old: ParityRun, next: ParityRun): string[] {
   const problems =
@@ -446,6 +470,9 @@ export function parityProblems(
   }
   if (entry?.kind === 'board-read') {
     return boardReadProblems(old, next);
+  }
+  if (entry?.kind === 'stray-refusal') {
+    return strayRefusalProblems(c, old, next);
   }
   if (entry?.kind === 'loom-scoped') {
     return loomScopedProblems(old, next);
