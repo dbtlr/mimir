@@ -1,0 +1,29 @@
+mimir promote · Promote a seed into work: spawn a task from it, or record existing work with --link.
+
+USAGE
+  mimir promote <id> [options]
+
+ARGUMENTS
+  id  The seed, KEY-sN.
+
+OPTIONS
+      --title <text>            Override the spawned task's title.
+      --desc <text>             Override the spawned task's description.
+      --parent <ID>             Where the spawned task goes.
+      --link <ID>               Existing work to record instead of spawning. Takes one id.
+  -p, --priority <p0|p1|p2|p3>  The spawned task's priority.
+      --size <size>             The spawned task's size (an unambiguous prefix works).
+  -t, --tag <tag>               Tag the spawned task. Repeat for more.  (repeatable)
+      --ascii                   Print without color, in ASCII glyphs.
+  -f, --format <format>         Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir promote MMR-s3
+    spawn a task from the seed
+  $ mimir promote MMR-s3 --parent MMR-12 -p p1
+    under a phase, at p1
+  $ mimir promote MMR-s3 --link MMR-40
+    record work that already exists

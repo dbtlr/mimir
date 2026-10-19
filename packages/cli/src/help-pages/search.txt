@@ -1,10 +1,10 @@
 mimir search · Find any record of one project (task, container, seed, artifact) by id, title, or description.
 
 USAGE
-  mimir search <query...> [options]
+  mimir search [query...] [options]
 
 ARGUMENTS
-  query  The words to find: an id, or text from a title or description.
+  query  The words to find, required: an id, or text from a title or description.
 
 OPTIONS
   -s, --scope <KEY>      The project to read. Defaults to the clone binding.

@@ -1,0 +1,21 @@
+mimir scratch create · Create a scratchpad: a temporary journal and agenda for one episode of work.
+
+USAGE
+  mimir scratch create [words...] [options]
+
+ARGUMENTS
+  words  The title, the rest of the line.
+
+OPTIONS
+      --title <text>     The title, in place of the words after the subcommand.
+      --link <ID>        Linked work (a task or artifact id). Repeat for more.  (repeatable)
+  -s, --scope <KEY>      The project to create the scratchpad in. Defaults to the clone binding.
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir scratch create "Index rewrite" --link MMR-12
+    anchor it to a task

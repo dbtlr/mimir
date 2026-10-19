@@ -25,12 +25,15 @@ import {
   parseDateFilterTokens,
   parseFilterToken,
   parseIdentity,
+  promoteToWire,
   requireTimeZone,
+  scratchpadReceiptToWire,
   scratchpadToWire,
   searchHitToWire,
   seedToWire,
   setToWire,
   treeToWire,
+  triageToWire,
 } from '@mimir/core';
 import type { BuiltStore, GitPort, Store } from '@mimir/core';
 
@@ -43,9 +46,11 @@ import { overviewCommand } from './commands/overview';
 import { projectsCommand } from './commands/projects';
 import { scratchCommand } from './commands/scratch';
 import { searchCommand } from './commands/search';
+import { promoteCommand, rejectCommand, resolveCommand, seedCommand } from './commands/seed';
 import { seedsCommand } from './commands/seeds';
 import { statusCommand } from './commands/status';
 import { treeCommand } from './commands/tree';
+import { triageCommand } from './commands/triage';
 import { defaultFormats } from './default-format';
 import { failures } from './failures';
 import type { Ports } from './ports';
@@ -102,12 +107,15 @@ export function corePorts(source: CliSource): Ports {
       artifactSummary: artifactSummaryToWire,
       node: nodeToWire,
       overview: overviewToWire,
+      promotion: promoteToWire,
+      scratchReceipt: scratchpadReceiptToWire,
       scratchRow: overviewScratchpadToWire,
       scratchpad: scratchpadToWire,
       searchHit: searchHitToWire,
       seed: seedToWire,
       set: setToWire,
       tree: treeToWire,
+      triage: triageToWire,
     },
   };
 }
@@ -134,6 +142,11 @@ export function createApp(source: CliSource) {
     .command(artifactsCommand(ports))
     .command(searchCommand(ports))
     .command(seedsCommand(ports))
+    .command(seedCommand(ports))
+    .command(promoteCommand(ports))
+    .command(rejectCommand(ports))
+    .command(resolveCommand(ports))
+    .command(triageCommand(ports))
     .command(scratchCommand(ports));
 }
 

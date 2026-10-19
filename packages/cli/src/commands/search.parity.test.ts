@@ -61,6 +61,9 @@ const CASES: ParityCase[] = [
   argvCase(['search', '--scope', 'MMR', '--limit', '2', '--format', 'ids', 'store']),
   argvCase(['search', 'store', '-s', 'MMR', '-n', '0', '-f', 'json']),
   argvCase(['search', 'store', '-s', 'MMR', '--bogus', '-f', 'json']),
+  // Words after -- are query text, as the old CLI's positionals took them.
+  argvCase(['search', '-s', 'MMR', '-f', 'ids', '--', 'store']),
+  argvCase(['search', '-s', 'MMR', '-f', 'json', '--', '-store']),
   // Invocations the old CLI accepted and Loom's parser refuses.
   argvCase(['search', 'store', '-s', 'MMR', '-n', '1', '-n', '2', '-f', 'ids']),
   argvCase(['-s', 'MMR', 'search', 'store', '-f', 'ids'], undefined, undefined, ['search']),

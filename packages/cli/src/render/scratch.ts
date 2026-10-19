@@ -1,5 +1,5 @@
 /**
- * The styled views of the scratchpad reads, ported from the old CLI. A pad
+ * The styled views of the scratchpad reads and writes, ported from the old CLI. A pad
  * renders as its wire object, one `key  value` line per field with instants
  * in the reader's zone; the list is one dense row per pad. Layout is evolvable
  * and never parsed (ADR 0009).
@@ -7,6 +7,7 @@
 import { formatInstant, relativeTime } from '@mimir/helpers';
 
 import type { Presentation } from './presentation';
+import { compactJson, recordViews } from './views';
 
 /**
  * The wire keys whose value is a display instant. `updated_at` is deliberately
@@ -66,3 +67,19 @@ export function renderScratchRows(rows: readonly Record<string, unknown>[]): str
     )
     .join('\n');
 }
+
+/** A Scratchpad write's receipt, its wire object, and how the styled views render it. */
+export type ScratchEcho = { wire: Record<string, unknown>; presentation: Presentation };
+
+const receiptLines = (echo: Readonly<ScratchEcho>): string =>
+  renderScratchpad(echo.wire, echo.presentation);
+
+/**
+ * The views of a Scratchpad write: the receipt as `key  value` lines on the
+ * styled formats, and the receipt object on `json` and `jsonl`.
+ */
+export const scratchEchoViews = recordViews<ScratchEcho>({
+  ids: (echo) => String(echo.wire.id ?? echo.wire.artifact),
+  json: (echo) => compactJson(echo.wire),
+  records: receiptLines,
+});

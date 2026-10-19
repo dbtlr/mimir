@@ -134,8 +134,7 @@ export async function runOld(store: Store, c: ParityCase): Promise<ParityRun> {
     return { exitCode: 0, stdout: c.tty ? resetsNormalized(run.stdout) : run.stdout };
   }
   const failure =
-    oldFailure(run.stderr) ??
-    oldFailure((await oldRun(store, [...argv, '--format', 'json'], bound)).stderr);
+    oldFailure(run.stderr) ?? oldFailure((await oldRun(store, underJson(argv), bound)).stderr);
   return {
     exitCode: run.exitCode,
     stdout: run.stdout,
@@ -149,12 +148,21 @@ function argvFormat(argv: readonly string[]): string | undefined {
   return at === -1 ? undefined : argv[at + 1];
 }
 
-/** An argv with every `-f` value set to `json`, or `--format json` appended when it names none. */
-function underJson(argv: readonly string[]): string[] {
+/**
+ * An argv with every `-f` value set to `json`, or `--format json` added when it
+ * names none. The option goes before the first `--`, since words after it are
+ * passthrough or reason text and would never parse as the format.
+ */
+export function underJson(argv: readonly string[]): string[] {
   const named = argv.map((word, i) =>
     i > 0 && (argv[i - 1] === '-f' || argv[i - 1] === '--format') ? 'json' : word,
   );
-  return argvFormat(argv) === undefined ? [...named, '--format', 'json'] : named;
+  if (argvFormat(argv) !== undefined) {
+    return named;
+  }
+  const stop = named.indexOf('--');
+  const at = stop === -1 ? named.length : stop;
+  return [...named.slice(0, at), '--format', 'json', ...named.slice(at)];
 }
 
 /**
@@ -432,11 +440,32 @@ export function parityProblems(
 type CaseRewrite = (c: ParityCase) => ParityCase;
 
 /**
- * Register one command's parity tests: every case runs through both CLIs over
- * a fresh board, and every checked-in difference entry whose case `owner`
- * matches must name one of `cases`, so a stale entry fails. `setup` fills the
- * board before the cases run, and may return a rewrite for the cases that name
- * what only the board knows, such as a generated id.
+ * Register the two tests every parity file carries: each case must have no
+ * problems, and every checked-in difference entry whose case `owner` matches
+ * must name one of `cases`, so a stale entry fails.
+ */
+export function registerParity(
+  owner: RegExp,
+  cases: readonly ParityCase[],
+  problemsOf: (c: ParityCase) => Promise<string[]>,
+): void {
+  test.each([...cases])('parity: $name', async (c) => {
+    expect(await problemsOf(c)).toEqual([]);
+  });
+
+  test(`every difference entry for ${String(owner)} names a case`, () => {
+    const names = new Set(cases.map((c) => c.name));
+    const stale = PARITY_DIFFERENCES.filter((d) => owner.test(d.case) && !names.has(d.case));
+    expect(stale).toEqual([]);
+  });
+}
+
+/**
+ * Register one read command's parity tests: every case runs through both CLIs
+ * over one shared board. `setup` fills the board before the cases run, and may
+ * return a rewrite for the cases that name what only the board knows, such as
+ * a generated id. A write, which changes its board, registers through
+ * `twinCases` instead.
  */
 export function parityCases(
   owner: RegExp,
@@ -453,18 +482,12 @@ export function parityCases(
     await board.close();
   });
 
-  test.each([...cases])('parity: $name', async (c) => {
+  registerParity(owner, cases, async (c) => {
     const run = rewrite === undefined ? c : rewrite(c);
     const old = await runOld(board.store, run);
     const now = await runNew(board.app(c.bound), run);
     const isNewView = PARITY_DIFFERENCES.some((d) => d.case === c.name && d.kind === 'new-view');
     const json = isNewView ? await runNew(board.app(c.bound), jsonVariant(run)) : undefined;
-    expect(parityProblems(board.app(), c, old, now, PARITY_DIFFERENCES, json)).toEqual([]);
-  });
-
-  test(`every difference entry for ${String(owner)} names a case`, () => {
-    const names = new Set(cases.map((c) => c.name));
-    const stale = PARITY_DIFFERENCES.filter((d) => owner.test(d.case) && !names.has(d.case));
-    expect(stale).toEqual([]);
+    return parityProblems(board.app(), c, old, now, PARITY_DIFFERENCES, json);
   });
 }

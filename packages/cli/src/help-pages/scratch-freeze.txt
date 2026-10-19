@@ -1,0 +1,17 @@
+mimir scratch freeze · Freeze a scratchpad into an artifact, with a summary and tags.
+
+USAGE
+  mimir scratch freeze <id> [options]
+
+ARGUMENTS
+  id  The scratchpad UUID.
+
+OPTIONS
+      --expected-updated-at <timestamp>  The scratchpad's updated_at as last read: the write is refused if it changed since.
+      --summary <text>                   The artifact's summary.
+  -t, --tag <tag>                        Tag the artifact. Repeat for more.  (repeatable)
+      --ascii                            Print without color, in ASCII glyphs.
+  -f, --format <format>                  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.

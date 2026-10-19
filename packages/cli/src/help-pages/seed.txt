@@ -1,0 +1,24 @@
+mimir seed · File a seed: an idea, bug, or feature request on a project, to be triaged later. The title is one quoted argument.
+
+USAGE
+  mimir seed <title> [options]
+
+ARGUMENTS
+  title  The seed title, one quoted argument.
+
+OPTIONS
+  -k, --kind <kind>      What the seed is: idea, bug, feature.
+  -p, --project <KEY>    The project to file against. Defaults to the clone binding.
+      --desc <text>      The seed description.
+  -s, --scope <KEY>      The project this clone is bound to, for this run. Defaults to the clone's binding.
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir seed "Cache the plan" -k idea
+    file an idea on the bound project
+  $ mimir seed "Add a hook" -k feature -p XX --desc "Needed by MMR."
+    file against another project; the bound project becomes the requester
