@@ -1,0 +1,19 @@
+mimir scratch · Read and keep Scratchpads, the working state of one episode.
+
+USAGE
+  mimir scratch <command> [options]
+
+COMMANDS
+  list        List one project's active scratchpads, freezing first and newest first.
+  get         Read one scratchpad by UUID: its agenda, journal, and linked work.
+  create      Create a scratchpad: a temporary journal and agenda for one episode of work.
+  update      Change a scratchpad's title or linked work.
+  checkpoint  Append a checkpoint to a scratchpad's journal, inline or from a file.
+  agenda      Change a scratchpad's agenda: add an item, complete one, or supersede one with a reason.
+  freeze      Freeze a scratchpad into an artifact, with a summary and tags.
+  discard     Discard a scratchpad. A scratchpad with work in it needs --force.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+Run mimir scratch <command> --help for command details.

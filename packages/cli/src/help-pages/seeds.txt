@@ -1,0 +1,37 @@
+mimir seeds · Read one project's grooming queue: live seeds oldest-first (FIFO triage).
+
+USAGE
+  mimir seeds [options]
+
+OPTIONS
+  -p, --project <KEY>                   The board whose queue to read. Defaults to the clone binding.
+  -s, --scope <KEY>                     The project to read. Defaults to the clone binding.
+      --requester <KEY>                 Only seeds this board requested.
+      --status <s>                      new, parked, promoted, resolved, rejected, live (new and promoted), or all. Defaults to live.
+      --sort <asc|desc>                 Age order. Defaults to asc, oldest-first.
+      --before <created_at:DATE>        Only seeds filed before the date.  (repeatable)
+      --on <created_at:DATE>            Only seeds filed on the date.  (repeatable)
+      --after <created_at:DATE>         Only seeds filed after the date.  (repeatable)
+      --at-or-before <created_at:DATE>  Only seeds filed at or before the instant.  (repeatable)
+      --at-or-after <created_at:DATE>   Only seeds filed at or after the instant.  (repeatable)
+      --tz <IANA>                       Your zone: what a bare YYYY-MM-DD means, and what table and records render. Defaults to this machine's.
+      --grouped                         Render the lane view with counts.
+      --ascii                           Print without color, in ASCII glyphs.
+  -f, --format <format>                 Select the output format, table by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir seeds
+    the bound board's live queue, oldest-first
+  $ mimir seeds --grouped
+    the lane view: untriaged, ready to resolve, settled
+  $ mimir seeds --status all --grouped
+    every lane, parked included
+  $ mimir seeds --status all --sort desc
+    every seed, newest-first
+  $ mimir seeds --requester MMR
+    seeds MMR filed on other boards
+  $ mimir seeds --at-or-after created_at:2026-07-01
+    filed this month or later

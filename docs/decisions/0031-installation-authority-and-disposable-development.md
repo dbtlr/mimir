@@ -223,6 +223,8 @@ This refinement does not authorize a live cutover or remove `serve`.
 - 2026-10-01: Scoped supervisor authority and unit names to each installation (MMR-54).
 - 2026-10-03: Allowed a per-run existing SQLite file for serve without granting migration authority (MMR-421).
 - 2026-10-15: Defined the container host's environment configuration and image authority (ADR 0035).
+- 2026-10-17: Retired supervised units and the named serve store (MMR-536).
+- 2026-10-19: Let Loom's installer record vouch for a script-installed binary, so its receipt is adopted or re-recorded with its bindings kept (MMR-554).
 
 ## Refinement (2026-10-17, MMR-536): no supervised units, no named store
 
@@ -235,3 +237,64 @@ generated into its own directory and opened by the development host through
 `MIMIR_DATA_DIR`. The host migrates a store before serving it (ADR 0035), so the
 fixture is regenerated rather than protected from migration. No installation's
 command opens the fixture, which keeps the boundary this decision guards.
+
+## Refinement (2026-10-19, MMR-554): Loom's installer record vouches for a binary
+
+The Loom CLI installs through `loom init`'s managed `install.sh`
+(`packages/cli/install.sh`) and replaces itself through Loom's self-update
+plugin. Both record a script installation in Loom's installation record,
+`install.json` in the platform state directory, as the binary's path and
+SHA-256 digest. That record holds no install mode and no directories, and the
+managed script runs no step of the installed binary, so Mimir keeps its own
+receipt beside the binary until Loom's record can carry an application's
+bindings (LM-s30).
+
+The receipt stays the authority. Loom's record changes only how a receipt is
+written:
+
+- **A script installation is adopted on its first run, only with the `$HOME`
+  defaults.** A compiled binary with no receipt, whose Loom record names its
+  canonical path and its current digest, registers a live receipt that binds
+  `$HOME/.config/mimir`, `$HOME/.local/share/mimir`, and `$HOME/.cache/mimir`.
+  Adoption fails closed: when `$HOME` is not absolute, or when
+  `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, or `XDG_CACHE_HOME` (and, outside macOS,
+  `XDG_STATE_HOME`, which holds Loom's record) is set to anything but its
+  `$HOME` default, the run writes no receipt. It prints one line to stderr
+  naming every such variable and both ways to adopt: unset the variables for
+  the `$HOME` defaults, or, when the directories under them are the real
+  ones, install with the root `install.sh`, which records them. An absolute
+  `XDG_STATE_HOME` holds Loom's record itself, so a run with it unset would
+  find no record; its remedy is to re-run Loom's `install.sh` with it unset,
+  so the record moves to the default, or to install with the root
+  `install.sh`. The run then uses the development directories beside the
+  binary.
+  A run with the real `$HOME` and a temporary XDG root therefore cannot bind
+  the installation to that temporary directory. An installation that keeps its
+  directories elsewhere takes its receipt from Mimir's own installer, which
+  records them, and Loom's installer then upgrades it with them kept. Later
+  runs read the receipt, so ambient variables cannot move a registered
+  installation.
+- **An installer's replacement keeps the bindings.** A receipt whose digest no
+  longer matches its binary is re-recorded with its mode and directories when
+  Loom's record names that binary and its new digest. This happens after
+  `install.sh` runs over an existing installation and after `self-update`.
+- **A sandbox or test run adopts nothing.** When `MIMIR_SANDBOX_AUTHORITY` or
+  `MIMIR_TEST_POSTGRES_URL` is set, the run ignores Loom's record, because those
+  runs keep the real `$HOME` and `XDG_STATE_HOME` beside throwaway directories,
+  and an adoption would bind the real installation to them for good. An
+  adoption that does happen prints one line to stderr naming the bound config,
+  data, and cache directories. To undo an adoption, delete
+  `<binary>.installation.json` and run the binary again from the right
+  environment.
+- **Everything else fails closed.** Bytes that neither record names are refused,
+  as before. A copy that no record names gets no receipt and uses the isolated
+  development defaults. Loom's self-update refuses to replace a binary that
+  `install.sh` did not record.
+
+This moves the binding from install time to first run. The installer still
+writes the record that grants authority, and downloading or building a binary
+still grants none. The root `install.sh` installs the old binary until cutover.
+The `self-update` surface of the Loom CLI is Loom's: `self-update [<version>]
+[--channel <channel>] [--check]`. Its `next` channel replaces `MIMIR_NEXT=1`
+and `--next`. The Loom CLI shows no update notices, as the old CLI showed
+none.

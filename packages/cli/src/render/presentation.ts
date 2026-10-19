@@ -46,6 +46,11 @@ export function bold(text: string, plain: boolean): string {
   return plain ? text : `\u001B[1m${text}\u001B[0m`;
 }
 
+/** Wrap `text` in the dim gray of a preview line, or leave it bare when `plain`. */
+export function dimmed(text: string, plain: boolean): string {
+  return color(text, 90, plain);
+}
+
 /** The transition arrow: `→` styled, `->` plain. */
 export function arrow(plain: boolean): string {
   return plain ? '->' : '→';
@@ -54,6 +59,16 @@ export function arrow(plain: boolean): string {
 /** The warning line's glyph. */
 export function warnGlyph(plain: boolean): string {
   return plain ? '[warn]' : '\u001B[33m⚠\u001B[0m';
+}
+
+/** The success line's glyph. */
+export function okGlyph(plain: boolean): string {
+  return plain ? '[ok]' : color('✓', 32, false);
+}
+
+/** A success line: the check glyph, then `text`. */
+export function okLine(presentation: Presentation, text: string): string {
+  return `${okGlyph(presentation.plain)} ${text}`;
 }
 
 /** The note label under a warning. */

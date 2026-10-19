@@ -71,12 +71,11 @@ import type {
   UpdateSeedFields,
   WireValue,
 } from '@mimir/core';
-import { isMember } from '@mimir/helpers';
+import { detectHarness, isMember } from '@mimir/helpers';
 
 import { arrow, ok } from '../presentation';
 import type { Format, Io } from '../presentation';
 import { CREATE_DASH_TITLE_HINT, usage } from './errors';
-import { detectHarness } from './harness-env';
 import { callerTimeZone, parseDateFilters, parsePriority, parseSize } from './parse';
 import {
   renderArtifactDetail,

@@ -1,32 +1,13 @@
-import { afterAll, beforeAll, expect, test } from 'bun:test';
-
-import { PARITY_DIFFERENCES } from '../parity/differences';
-import { parityBoard } from '../testing/fixture';
-import type { ParityBoard } from '../testing/fixture';
-import { parityProblems, runNew, runOld } from '../testing/parity';
+import { GET_REDIRECTS } from '../parity/differences';
+import { argvCase, argvLine } from '../testing/argv-case';
+import { parityCases } from '../testing/parity';
 import type { ParityCase } from '../testing/parity';
-
-let board: ParityBoard;
-beforeAll(async () => {
-  board = await parityBoard();
-});
-afterAll(async () => {
-  await board.close();
-});
 
 const get = (name: string, id: string | undefined, options: ParityCase['options'] = {}) => ({
   ...(id === undefined ? {} : { args: { id } }),
   name,
   options,
   path: ['get'],
-});
-
-/** A case both CLIs run as this literal argv, the new one through Loom's parser. */
-const argv = (rest: string, tty?: true): ParityCase => ({
-  argv: ['get', ...rest.split(' ')],
-  name: `get argv: ${rest}${tty ? ' (terminal)' : ''}`,
-  path: ['get'],
-  ...(tty ? { tty } : {}),
 });
 
 const CASES: ParityCase[] = [
@@ -87,29 +68,21 @@ const CASES: ParityCase[] = [
   get('get MMR-3 --tz UTC', 'MMR-3', { tz: 'UTC' }),
   get('get MMR-3 -f yaml', 'MMR-3', { format: 'yaml' }),
   // Through Loom's parser, as a shell spells them.
-  argv('MMR-3'),
-  argv('MMR-3 -f json'),
-  argv('MMR-3 --format ids'),
-  argv('MMR-3 --col lede'),
-  argv('MMR-3 --col bogus'),
-  argv('NOPE -f json'),
+  argvCase(['get', 'MMR-3']),
+  argvCase(['get', 'MMR-3', '-f', 'json']),
+  argvCase(['get', 'MMR-3', '--format', 'ids']),
+  argvCase(['get', 'MMR-3', '--col', 'lede']),
+  argvCase(['get', 'MMR-3', '--col', 'bogus']),
+  argvCase(['get', 'NOPE', '-f', 'json']),
   // Invocations the old CLI accepted and Loom's parser refuses.
-  argv('MMR-3 -f json -f ids'),
-  argv('MMR-3 extra'),
+  argvCase(['get', 'MMR-3', '-f', 'json', '-f', 'ids']),
+  argvCase(['get', 'MMR-3', 'extra']),
+  // Flags that belong to the query commands, redirected as the old CLI redirected them.
+  ...GET_REDIRECTS.map((line) => argvLine(`get ${line}`)),
   // On a color terminal.
-  argv('MMR-3', true),
-  argv('MMR-3 -f table', true),
-  argv('MMR-a1', true),
+  argvCase(['get', 'MMR-3'], true),
+  argvCase(['get', 'MMR-3', '-f', 'table'], true),
+  argvCase(['get', 'MMR-a1'], true),
 ];
 
-test.each(CASES)('parity: $name', async (c) => {
-  const old = await runOld(board.store, c);
-  const next = await runNew(board.app(c.bound), c);
-  expect(parityProblems(board.app(), c, old, next, PARITY_DIFFERENCES)).toEqual([]);
-});
-
-test('every get difference entry names a case', () => {
-  const names = new Set(CASES.map((c) => c.name));
-  const stale = PARITY_DIFFERENCES.filter((d) => d.case.startsWith('get ') && !names.has(d.case));
-  expect(stale).toEqual([]);
-});
+parityCases(/^get /, CASES);

@@ -7,7 +7,7 @@
 import type { AnnotationView, NodeView, SetResult, StatusWord } from '@mimir/contract';
 import { formatInstant } from '@mimir/helpers';
 
-import { arrow, bold, color, countLine, pad } from './presentation';
+import { arrow, bold, color, countLine, dimmed, pad } from './presentation';
 import type { Presentation } from './presentation';
 
 type StatusStyle = { icon: string; ascii: string; color: number };
@@ -25,7 +25,7 @@ const STATUS_STYLE: Record<StatusWord, StatusStyle> = {
   under_review: { ascii: '?', color: 35, icon: '◎' },
 };
 
-function statusCell(status: StatusWord, width: number, plain: boolean): string {
+export function statusCell(status: StatusWord, width: number, plain: boolean): string {
   const style = STATUS_STYLE[status];
   return color(`${plain ? style.ascii : style.icon} ${pad(status, width)}`, style.color, plain);
 }
@@ -49,7 +49,7 @@ export function taskRows(items: readonly NodeView[], p: Presentation): string[] 
     const head = `${pad(n.id, idW)}   ${statusCell(n.status, stW, p.plain)}   ${pad(n.priority ?? '', 2)}   ${grooming}${pad(n.parent ?? '', parentW)}   ${n.title}`;
     return n.lede == null || n.lede === ''
       ? head
-      : `${head}\n${color(`      ${n.lede}`, 90, p.plain)}`;
+      : `${head}\n${dimmed(`      ${n.lede}`, p.plain)}`;
   });
 }
 
@@ -91,6 +91,18 @@ function annotationsExpanded(annotations: readonly AnnotationView[], zone: strin
   return lines.join('\n');
 }
 
+/** One spelling for a rollup distribution: `word:count` pairs, comma-joined. */
+export function formatDistribution(distribution: Readonly<Record<string, number>>): string {
+  return Object.entries(distribution)
+    .map(([word, count]) => `${word}:${String(count)}`)
+    .join(', ');
+}
+
+/** The rollup signpost over `n` direct children, ` (rollup over N direct children)`. */
+export function rollupPhrase(n: number): string {
+  return ` (rollup over ${String(n)} direct child${n === 1 ? '' : 'ren'})`;
+}
+
 /** A container's status suffix, ` (rollup over N direct children)`. */
 function rollupSignpost(node: NodeView): string {
   if (node.type === 'task') {
@@ -102,21 +114,24 @@ function rollupSignpost(node: NodeView): string {
   } else if (node.distribution !== undefined) {
     n = Object.values(node.distribution).reduce((s, c) => s + c, 0);
   }
-  return ` (rollup over ${String(n)} direct child${n === 1 ? '' : 'ren'})`;
+  return rollupPhrase(n);
 }
 
-/** A container's terminal-only pointers to its subtree and its actionable leaves. */
-function onwardHint(node: NodeView, p: Presentation): string {
-  if (!p.isTTY || node.type === 'task') {
+/** The terminal-only pointers to a container's subtree and its actionable leaves. */
+export function containerHint(id: string, isContainer: boolean, p: Presentation): string {
+  if (!p.isTTY || !isContainer) {
     return '';
   }
-  const projectKey = node.id.includes('-') ? node.id.split('-')[0] : node.id;
+  const projectKey = id.includes('-') ? id.split('-')[0] : id;
   return [
     '',
-    `  hint  mimir tree ${node.id}   — full subtree`,
+    `  hint  mimir tree ${id}   — full subtree`,
     `        mimir list --status ready -s ${projectKey}   — leaf-actionable tasks`,
   ].join('\n');
 }
+
+const onwardHint = (node: NodeView, p: Presentation): string =>
+  containerHint(node.id, node.type !== 'task', p);
 
 const refLine = (r: { id: string; title?: string | undefined }): string =>
   r.title ? `${r.id} · ${r.title}` : r.id;
@@ -199,10 +214,7 @@ function facetPairs(
     ]);
   }
   if (node.distribution !== undefined && Object.keys(node.distribution).length > 0) {
-    const dist = Object.entries(node.distribution)
-      .map(([word, count]) => `${word}:${String(count)}`)
-      .join(', ');
-    pairs.push(['distribution', dist]);
+    pairs.push(['distribution', formatDistribution(node.distribution)]);
   }
   if (node.tags !== undefined && node.tags.length > 0) {
     pairs.push(['tags', node.tags.map((t) => t.tag).join(', ')]);

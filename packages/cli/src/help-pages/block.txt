@@ -1,0 +1,24 @@
+mimir block · Mark as externally blocked.
+
+USAGE
+  mimir block <id> [reason...] [options]
+
+ARGUMENTS
+  id      The task: KEY-seq.
+  reason  The reason is optional; it is recorded in the transition log.
+
+OPTIONS
+      --on <you|others>  Who can clear the block (default: others when the task has an upstream, else you).
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir block MMR-3 --on you "need a decision from me"
+    only you can clear it
+  $ mimir block MMR-3 --on others "upstream API down"
+    someone else clears it
+  $ mimir block MMR-3 "upstream API down"
+    others if it has an upstream, else you

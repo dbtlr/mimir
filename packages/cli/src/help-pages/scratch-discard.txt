@@ -1,0 +1,17 @@
+mimir scratch discard · Discard a scratchpad. A scratchpad with work in it needs --force.
+
+USAGE
+  mimir scratch discard <id> [options]
+
+ARGUMENTS
+  id  The scratchpad UUID.
+
+OPTIONS
+      --expected-updated-at <timestamp>  The scratchpad's updated_at as last read: the write is refused if it changed since.
+      --force                            Discard even if it has journal entries.
+      --reason <text>                    Why it is discarded.
+      --ascii                            Print without color, in ASCII glyphs.
+  -f, --format <format>                  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.

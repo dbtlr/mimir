@@ -2,19 +2,65 @@
  * A small board both CLIs read in the parity cases: two projects, a hierarchy,
  * tasks in every common state, an artifact, and a seed. Test-only.
  */
-import { LocalEngine } from '@mimir/core';
-import type { Store } from '@mimir/core';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import type { Defaults } from '@mimir/bin/src/cli/run';
+import { LocalEngine, openSqlite } from '@mimir/core';
+import type { DoctorBackend, DoctorFinding, GitPort, Store } from '@mimir/core';
 import { createTestStore } from '@mimir/core/testing';
 
 import { createApp } from '../app';
+import type { MachineSource } from '../app';
 
 export type ParityBoard = {
   store: Store;
   engine: LocalEngine;
-  /** A new Loom CLI over the board, its clone bound to `bound` when given. */
-  app: (bound?: string) => ReturnType<typeof createApp>;
+  /**
+   * A new Loom CLI over the board, its clone bound to `bound` and reporting `origin`, and its
+   * failures reading `argv` as the run's words, when given.
+   */
+  app: (bound?: string, argv?: readonly string[], origin?: string) => ReturnType<typeof createApp>;
+  /** The old CLI's machine-local defaults over the same board, for `runOld`. */
+  oldDefaults: (bound?: string, origin?: string) => Defaults;
+  /** Findings a doctor case adds to the real, clean diagnosis; clear them after the case. */
+  findings: DoctorFinding[];
+  /** The text `store import -` reads from standard input. */
+  stdin: { text: string };
+  /** A scratch directory both CLIs may write files into. */
+  dir: string;
   close: () => Promise<void>;
 };
+
+/** The pinned `exported_at`, so two exports of one board are equal. */
+const EXPORTED_AT = '2026-01-01T00:00:00.000Z';
+
+/** A clone that remembers what is written to its git config, bound to `bound` at the start. */
+export function writableClone(bound: string | undefined, origin?: string): GitPort {
+  let config = bound;
+  return {
+    originUrl: () => Promise.resolve(origin),
+    readConfig: () => Promise.resolve(config),
+    writeConfig: (_key, value) => {
+      config = value;
+      return Promise.resolve(true);
+    },
+  };
+}
+
+/** The store with its `export` pinned to one instant. */
+function pinnedExport(store: Store): Store {
+  return new Proxy(store, {
+    get(target, property) {
+      if (property === 'export') {
+        return async () => ({ ...(await target.export()), exported_at: EXPORTED_AT });
+      }
+      const value: unknown = Reflect.get(target, property);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+}
 
 /** A git clone stub whose config binds it to `bound`, or leaves it unbound. */
 export function boundClone(bound: string | undefined) {
@@ -25,8 +71,21 @@ export function boundClone(bound: string | undefined) {
   };
 }
 
-export async function parityBoard(): Promise<ParityBoard> {
-  const { close, store } = await createTestStore();
+/** Edges a case may replace: the global config and the Postgres connection. */
+export type BoardEdges = Partial<Pick<MachineSource, 'openPostgres' | 'readConfig'>>;
+
+export async function parityBoard(replaced: BoardEdges = {}): Promise<ParityBoard> {
+  const { close, doctor: real, store: unpinned } = await createTestStore();
+  // The board is healthy; a doctor case adds findings the real checks cannot produce here.
+  const findings: DoctorFinding[] = [];
+  const doctor: DoctorBackend = {
+    ...real,
+    diagnose: async (scope) => {
+      const diagnosis = await real.diagnose(scope);
+      return { ...diagnosis, findings: [...diagnosis.findings, ...findings] };
+    },
+  };
+  const store = pinnedExport(unpinned);
   const engine = new LocalEngine(store);
   await engine.create({
     description: 'The work-state store.',
@@ -95,10 +154,44 @@ export async function parityBoard(): Promise<ParityBoard> {
   const other = await engine.create({ parent: 'XX', title: 'Elsewhere', type: 'initiative' });
   const otherPhase = await engine.create({ parent: other.id, title: 'Far', type: 'phase' });
   await engine.create({ parent: otherPhase.id, title: 'Not ours', type: 'task' });
+  const dir = mkdtempSync(join(tmpdir(), 'mimir-parity-'));
+  const stdin = { text: '' };
+  const edges = {
+    cwd: dir,
+    openPostgres: () => {
+      throw new Error('the fixture is sqlite');
+    },
+    openSqlite: () => openSqlite(':memory:'),
+    readConfig: () => ({ store: {} }),
+    readStdin: () => Promise.resolve(stdin.text),
+    ...replaced,
+  };
+  const machine: MachineSource = {
+    ...edges,
+    doctor: () => Promise.resolve(doctor),
+  };
   return {
-    app: (bound) => createApp({ git: boundClone(bound), store: () => Promise.resolve(store) }),
-    close,
+    app: (bound, argv, origin) =>
+      createApp({
+        git: writableClone(bound, origin),
+        machine,
+        store: () => Promise.resolve(store),
+        ...(argv === undefined ? {} : { argv: () => argv }),
+      }),
+    close: () => {
+      rmSync(dir, { force: true, recursive: true });
+      return close();
+    },
+    dir,
     engine,
+    findings,
+    oldDefaults: (bound, origin) => ({
+      cwd: dir,
+      doctor,
+      git: writableClone(bound, origin),
+      store: edges,
+    }),
+    stdin,
     store,
   };
 }

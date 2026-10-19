@@ -4,8 +4,53 @@ USAGE
   mimir <command> [options]
 
 COMMANDS
-  get   Read one full record: a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), or a seed (KEY-sN).
-  next  List the ready tasks of one project in rank order.
+  skills <command>   Install this application's agent skills.
+  self-update        Replace this application with another release.
+  get                Read one full record: a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), or a seed (KEY-sN).
+  next               List the ready tasks of one project in rank order.
+  list               Select the nodes of one project by predicate, status, or tag.
+  projects           List the projects, key-ordered. The clone binding never narrows this read.
+  status             Read the rollup status and distribution of a node (KEY-seq) or project (KEY).
+  tree               Read the full subtree rooted at a node (KEY-seq) or project (KEY).
+  overview           Orient in one project: direction, in flight, next, awaiting, recent sessions, and hygiene.
+  artifacts          Read one project's artifact feed: frozen work products, newest first (KEY-aN).
+  search             Find any record of one project (task, container, seed, artifact) by id, title, or description.
+  seeds              Read one project's grooming queue: live seeds oldest-first (FIFO triage).
+  seed               File a seed: an idea, bug, or feature request on a project, to be triaged later. The title is one quoted argument.
+  promote            Promote a seed into work: spawn a task from it, or record existing work with --link.
+  reject             Reject a seed: it will not be done. The reason is recorded.
+  resolve            Resolve a seed: what it asked for is done. The reason is recorded.
+  triage             Reconcile a board's seeds: list the untriaged and ready-to-resolve ones, and annotate the tasks whose upstream seed settled. A report, never a gate.
+  scratch <command>  Read and keep Scratchpads, the working state of one episode.
+  create <command>   Create a project, initiative, phase, or task.
+  update             Change a task, phase, or initiative (KEY-seq), or a project (KEY).
+  annotate           Append a note to a task, phase, or initiative.
+  attach             Attach a document to a project as an artifact, linked to nodes.
+  depend             Make a task, phase, or initiative wait on the others named by --on.
+  undepend           Stop a task, phase, or initiative waiting on the others named by --on.
+  move               Move a task, phase, or initiative under another parent in its project.
+  reorder            Change a task's rank among its siblings.
+  groom              Mark tasks not_groomed | needs_answers | groomed.
+  tag                Add tags to tasks, phases, initiatives, projects, or artifacts.
+  untag              Remove tags from tasks, phases, initiatives, projects, or artifacts.
+  bind               Bind this clone to a project: write git config mimir.project, the default --scope from then on. Bare, print the clone's bound project and fail when it is unbound.
+  doctor             Run read-only store diagnostics and report the findings for a human to fix at the database. Non-gating: exits 0 after a successful read. Prints prose on a terminal and json when piped.
+  store <command>    Operate on the store itself: upgrade its schema, export it, or import a document.
+  version            Print the version of this build.
+  queue              Reserve a task for an autonomous run (todo → queued).
+  unqueue            Cancel a reservation and return the task to todo (queued → todo).
+  start              Begin a task (todo/queued → in_progress).
+  submit             Submit for review (in_progress → under_review).
+  return             Send back for changes (under_review → in_progress).
+  done               Complete a task (approves a review).
+  abandon            Abandon a task (kept, not deleted).
+  reopen             Reopen a terminal task (done/abandoned → in_progress).
+  park               Put a task on hold. Also takes a seed (KEY-sN).
+  unpark             Clear the parked hold. Also takes a seed (KEY-sN).
+  block              Mark as externally blocked.
+  unblock            Clear the blocked hold.
+  archive            Archive a project — freeze + hide it and its subtree (reversible).
+  unarchive          Restore an archived project.
 
 GLOBAL OPTIONS
   -h, --help  Show this help.

@@ -1,0 +1,18 @@
+mimir unarchive · Restore an archived project.
+
+USAGE
+  mimir unarchive <key> [options]
+
+ARGUMENTS
+  key  The project key (bare KEY).
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir unarchive SAGA
+    restore the project

@@ -1,0 +1,21 @@
+mimir archive · Archive a project — freeze + hide it and its subtree (reversible).
+
+USAGE
+  mimir archive <key> [reason...] [options]
+
+ARGUMENTS
+  key     The project key (bare KEY).
+  reason  The reason is optional; it is recorded in the transition log.
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir archive SAGA "superseded by SAGA2"
+    freeze and hide the project
+  $ mimir projects --status archived
+    the archived projects

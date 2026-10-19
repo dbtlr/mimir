@@ -1,0 +1,19 @@
+mimir return · Send back for changes (under_review → in_progress).
+
+USAGE
+  mimir return <id> [reason...] [options]
+
+ARGUMENTS
+  id      The task: KEY-seq.
+  reason  The reason is optional; it is recorded in the transition log.
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir return MMR-3 "needs tests"
+    send it back with a reason

@@ -1,32 +1,12 @@
-import { afterAll, beforeAll, expect, test } from 'bun:test';
-
-import { PARITY_DIFFERENCES } from '../parity/differences';
-import { parityBoard } from '../testing/fixture';
-import type { ParityBoard } from '../testing/fixture';
-import { parityProblems, runNew, runOld } from '../testing/parity';
+import { argvCase } from '../testing/argv-case';
+import { parityCases } from '../testing/parity';
 import type { ParityCase } from '../testing/parity';
-
-let board: ParityBoard;
-beforeAll(async () => {
-  board = await parityBoard();
-});
-afterAll(async () => {
-  await board.close();
-});
 
 const next = (name: string, options: ParityCase['options'] = {}, bound?: string): ParityCase => ({
   name,
   options,
   path: ['next'],
   ...(bound === undefined ? {} : { bound }),
-});
-
-/** A case both CLIs run as this literal argv, the new one through Loom's parser. */
-const argv = (line: string, tty?: true): ParityCase => ({
-  argv: line.split(' '),
-  name: `next argv: ${line.replace(/^next /, '')}${tty ? ' (terminal)' : ''}`,
-  path: ['next'],
-  ...(tty ? { tty } : {}),
 });
 
 const CASES: ParityCase[] = [
@@ -139,34 +119,24 @@ const CASES: ParityCase[] = [
   // Faults Loom's parser raises.
   next('next -s MMR --bogus', { bogus: true, scope: 'MMR' }),
   // Through Loom's parser, as a shell spells them.
-  argv('next -s MMR'),
-  argv('next -s MMR -f json'),
-  argv('next --scope MMR --priority p1 --format ids'),
-  argv('next -s MMR --eq priority:p1 --eq tag:alpha -f ids'),
-  argv('next -s MMR -p zz'),
-  argv('next -s MMR -p zz -f json'),
-  argv('next -s mmr'),
-  argv('next -s MMR --bogus -f json'),
+  argvCase(['next', '-s', 'MMR']),
+  argvCase(['next', '-s', 'MMR', '-f', 'json']),
+  argvCase(['next', '--scope', 'MMR', '--priority', 'p1', '--format', 'ids']),
+  argvCase(['next', '-s', 'MMR', '--eq', 'priority:p1', '--eq', 'tag:alpha', '-f', 'ids']),
+  argvCase(['next', '-s', 'MMR', '-p', 'zz']),
+  argvCase(['next', '-s', 'MMR', '-p', 'zz', '-f', 'json']),
+  argvCase(['next', '-s', 'mmr']),
+  argvCase(['next', '-s', 'MMR', '--bogus', '-f', 'json']),
   // Invocations the old CLI accepted and Loom's parser refuses.
-  argv('next -s MMR -p p1 -p p2 -f ids'),
-  argv('next -s MMR --ascii --ascii'),
-  argv('next extra -s MMR'),
-  argv('-s MMR next -f ids'),
+  argvCase(['next', '-s', 'MMR', '-p', 'p1', '-p', 'p2', '-f', 'ids']),
+  argvCase(['next', '-s', 'MMR', '--ascii', '--ascii']),
+  argvCase(['next', 'extra', '-s', 'MMR']),
+  argvCase(['-s', 'MMR', 'next', '-f', 'ids'], undefined, undefined, ['next']),
   // On a color terminal.
-  argv('next -s MMR', true),
-  argv('next -s MMR -f records', true),
-  argv('next -s XX -p p0', true),
-  argv('next -s MMR --ascii', true),
+  argvCase(['next', '-s', 'MMR'], true),
+  argvCase(['next', '-s', 'MMR', '-f', 'records'], true),
+  argvCase(['next', '-s', 'XX', '-p', 'p0'], true),
+  argvCase(['next', '-s', 'MMR', '--ascii'], true),
 ];
 
-test.each(CASES)('parity: $name', async (c) => {
-  const old = await runOld(board.store, c);
-  const now = await runNew(board.app(c.bound), c);
-  expect(parityProblems(board.app(), c, old, now, PARITY_DIFFERENCES)).toEqual([]);
-});
-
-test('every next difference entry names a case', () => {
-  const names = new Set(CASES.map((c) => c.name));
-  const stale = PARITY_DIFFERENCES.filter((d) => d.case.startsWith('next ') && !names.has(d.case));
-  expect(stale).toEqual([]);
-});
+parityCases(/^next /, CASES);

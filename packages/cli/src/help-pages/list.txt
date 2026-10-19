@@ -1,0 +1,46 @@
+mimir list · Select the nodes of one project by predicate, status, or tag.
+
+USAGE
+  mimir list [options]
+
+OPTIONS
+      --status <word>              The universe: ready, in_progress, …, done, or all. Defaults to live.
+  -s, --scope <KEY>                The project to read. Defaults to the clone binding.
+  -q, --query <text>               A case-insensitive substring of the title or id.
+  -t, --tag <tag>                  Only nodes carrying this tag.
+      --is <verdict>               Only tasks this verdict holds for: stale, blocking, or orphaned.  (repeatable)
+      --not-is <verdict>           Only tasks this verdict does not hold for.  (repeatable)
+      --eq <FIELD:VALUE>           Only tasks whose field equals the value.  (repeatable)
+      --not-eq <FIELD:VALUE>       Only tasks whose field differs from the value.  (repeatable)
+      --in <FIELD:VALUE>           Only tasks whose field is one of the comma-separated values.  (repeatable)
+      --not-in <FIELD:VALUE>       Only tasks whose field is none of the comma-separated values.  (repeatable)
+      --has <FIELD>                Only tasks whose field is set.  (repeatable)
+      --missing <FIELD>            Only tasks whose field is unset.  (repeatable)
+      --before <FIELD:DATE>        Only tasks whose date field falls before the date.  (repeatable)
+      --on <FIELD:DATE>            Only tasks whose date field falls on the date.  (repeatable)
+      --after <FIELD:DATE>         Only tasks whose date field falls after the date.  (repeatable)
+      --at-or-before <FIELD:DATE>  Only tasks whose date field falls at or before the instant.  (repeatable)
+      --at-or-after <FIELD:DATE>   Only tasks whose date field falls at or after the instant.  (repeatable)
+      --tz <IANA>                  Your zone: what a bare YYYY-MM-DD means, and what table and records render. Defaults to this machine's.
+  -p, --priority <p0..p3>          Only this priority (a signal, not a sort): p0, p1, p2, or p3.
+      --size <s|m|l>               Only this size: s, m, or l.
+  -n, --limit <n>                  Cap the result count.
+      --col <col>                  Add a column (deps tags children distribution …). Repeat it, or separate with commas.  (repeatable)
+      --ascii                      Print without color, in ASCII glyphs.
+  -f, --format <format>            Select the output format, table by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir list --is stale
+    tasks that have gone quiet
+  $ mimir list -q auth
+    title or id substring
+  $ mimir list --status done --after completed_at:2026-06-01
+  $ mimir list --on created_at:2026-06-10 --tz UTC
+    a UTC calendar day
+  $ mimir list --eq type:phase
+    filter to phases
+  $ mimir list -s MMR --is stale
+    a named project, ignoring the binding

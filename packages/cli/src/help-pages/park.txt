@@ -1,0 +1,21 @@
+mimir park · Put a task on hold. Also takes a seed (KEY-sN).
+
+USAGE
+  mimir park <id> [reason...] [options]
+
+ARGUMENTS
+  id      The task (KEY-seq) or the seed (KEY-sN).
+  reason  The reason is optional; it is recorded in the transition log.
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir park MMR-3 "waiting on design"
+    put it on hold
+  $ mimir park MMR-s4 "after v1"
+    a seed: kept, no longer untriaged

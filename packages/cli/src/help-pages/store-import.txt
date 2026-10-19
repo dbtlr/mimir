@@ -1,0 +1,23 @@
+mimir store import · Read a transfer document into the store. A preview unless --apply is given. Prints prose on a terminal and json when piped.
+
+USAGE
+  mimir store import <file> [options]
+
+ARGUMENTS
+  file  The document to read, or - for stdin.
+
+OPTIONS
+      --apply            Write the import instead of previewing it.
+      --resume           Re-run a partial import, skipping what is already identical.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir store import backup.json
+    preview what an import would do
+  $ mimir store import backup.json --apply
+    write it
+  $ mimir store import backup.json --apply --resume
+    re-run a partial import

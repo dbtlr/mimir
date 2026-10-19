@@ -52,21 +52,31 @@ so Loom writes a failure as JSON under them. A command can declare a different
 default view on a terminal and in a pipe; an explicit `-f` overrides it. `get`
 and `next` keep one default on both destinations, `records` and `table`.
 
-The `ids`, `json`, and `jsonl` bytes are unchanged, with one exception. DEL
-and the C1 controls (U+007F to U+009F) print as `\uXXXX` escapes, as Loom's
-own JSON views write them, so that no terminal control reaches a terminal.
-The escaped text parses to the same value. `table` and `records` are evolvable
-layout (ADR 0009).
+The `ids`, `json`, and `jsonl` bytes are unchanged, with three exceptions.
+DEL and the C1 controls (U+007F to U+009F) print as `\uXXXX` escapes, as
+Loom's own JSON views write them, so that no terminal control reaches a
+terminal. The escaped text parses to the same value. Two commands gain a
+declared `jsonl` view: `status` printed styled text under it, and `overview`
+refused it as a composite; both now print one compact JSON document, the compact form of their `json`
+document. The harness records these as `new-view` differences. A board read that names one
+project (ADR 0034) may refuse, or return less, where the old CLI read wider;
+the harness records those as `board-read` differences, and an exit-0 read
+must show only ids the old read showed. `table` and `records`
+are evolvable layout (ADR 0009).
 
 ### Failures take Loom's failure shape
 
 A failure is `{code, exitCode, message, hints}`. A domain refusal (a
 `MimirError`) exits 1 with its code in kebab case: `not-found`,
-`validation`, `conflict`, or `invariant`. A usage error Mimir raises, such as
+`validation`, `conflict`, or `invariant`; bare `bind` on a clone bound to no
+project exits 1 with `unbound`. A usage error Mimir raises, such as
 an unknown column or a bad priority, exits 2 with the code `usage` and keeps
 its message. A fault Loom's parser finds, such as an unknown option, a missing
 value, or a missing argument, exits 2 in Loom's words and with Loom's code. A
-failure's own hint is its first hint, and help's pointer follows it.
+flag that belongs to another command, or was retired, keeps the old CLI's
+redirect as its hint; the harness records those as `flag-redirect`
+differences. A failure's own hint is its first hint, and help's pointer follows
+it.
 
 On the terminal a failure prints its sentence and then each hint on its own
 line. Under a `json` or `jsonl` view it prints one line on stderr,
@@ -97,6 +107,14 @@ Loom's parser, piped or on a color terminal. The two must agree:
 - an argv the old CLI accepted and Loom's parser refuses, such as a repeated
   single-value option, a stray positional, or `-s` before the verb, is a
   difference entry of its own, which requires exit 2 and a code of Loom's;
+- an option the old CLI refused as a Mimir validation failure (exit 1) because
+  the command does not take it, such as `--remote` on `create initiative`, is
+  scoped to the command that declares it in Loom, so it is an unknown option
+  at exit 2; a difference entry of its own requires exit 1 from the old CLI
+  and exit 2 with a code of Loom's from the new;
+- input the old CLI accepted and the Engine refuses, such as blank annotation
+  text, is a difference entry of its own, which requires the old exit 0 and a
+  Mimir refusal (exit 1) from the new CLI that writes nothing;
 - help is pinned, never compared.
 
 Two differences every case carries are normalized rather than listed: through

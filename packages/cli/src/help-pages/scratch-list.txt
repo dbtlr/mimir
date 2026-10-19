@@ -1,0 +1,17 @@
+mimir scratch list · List one project's active scratchpads, freezing first and newest first.
+
+USAGE
+  mimir scratch list [options]
+
+OPTIONS
+  -s, --scope <KEY>      The project to read. Defaults to the clone binding.
+  -f, --format <format>  Select the output format, table by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir scratch list
+    the bound project's pads
+  $ mimir scratch list -s MMR -f json
+    structured output for scripts

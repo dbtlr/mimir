@@ -15,15 +15,27 @@ function capture(): { stream: PassThrough; text: () => string } {
   return { stream, text: () => Buffer.concat(chunks).toString('utf8') };
 }
 
-/** `tty` makes stdout and stderr capable terminals; `env` replaces the environment. */
+/**
+ * `tty` makes stdout and stderr capable terminals; `env` replaces the
+ * environment; `stdin` is the piped input, which is closed after it (empty
+ * when none is given, so a read that expected input ends rather than hangs);
+ * `interactive` makes stdin a terminal too, which with `tty` is an interactive host.
+ */
 export async function runArgv(
   app: Pick<Application, 'run'>,
   argv: string[],
-  opts: { tty?: boolean; env?: Record<string, string> } = {},
+  opts: {
+    tty?: boolean;
+    env?: Record<string, string>;
+    stdin?: string;
+    interactive?: boolean;
+  } = {},
 ): Promise<ArgvRun> {
   const out = capture();
   const err = capture();
   const tty = opts.tty ?? false;
+  const stdin = new PassThrough();
+  stdin.end(opts.stdin ?? '');
   const terminal = { columns: tty ? 120 : undefined, isTTY: tty, rows: tty ? 40 : undefined };
   // run() sets the process exit code too; the test process keeps its own.
   const before = process.exitCode;
@@ -32,11 +44,15 @@ export async function runArgv(
       argv,
       env: opts.env ?? { TERM: 'xterm-256color' },
       stderr: err.stream,
-      stdin: new PassThrough(),
+      stdin,
       stdout: out.stream,
-      terminal: { stderr: terminal, stdin: { isTTY: false }, stdout: terminal },
+      terminal: {
+        stderr: terminal,
+        stdin: { isTTY: opts.interactive ?? false },
+        stdout: terminal,
+      },
     },
   });
-  process.exitCode = before;
+  process.exitCode = before ?? 0;
   return { exitCode, stderr: err.text(), stdout: out.text() };
 }

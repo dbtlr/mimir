@@ -1,0 +1,20 @@
+mimir overview · Orient in one project: direction, in flight, next, awaiting, recent sessions, and hygiene.
+
+USAGE
+  mimir overview [options]
+
+OPTIONS
+  -s, --scope <KEY>      The project to read. Defaults to the clone binding.
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, json by default. One of: json, jsonl, records.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir overview
+    orient in the bound project
+  $ mimir overview -s MMR
+    orient in a specific project
+  $ mimir overview -f json
+    the composite envelope for scripts

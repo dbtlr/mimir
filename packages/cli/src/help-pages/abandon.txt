@@ -1,0 +1,19 @@
+mimir abandon · Abandon a task (kept, not deleted).
+
+USAGE
+  mimir abandon <id> [reason...] [options]
+
+ARGUMENTS
+  id      The task: KEY-seq.
+  reason  The reason is optional; it is recorded in the transition log.
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir abandon MMR-3 "superseded by MMR-9"
+    kept, not deleted
