@@ -277,3 +277,42 @@ lane('two orchestrators reserve one task with exactly one winning queue transiti
     }
   });
 });
+
+lane(
+  'two whole-task workers race to start one reservation without replacing its main',
+  async () => {
+    await onFreshSchema(async (url) => {
+      const handle = openPostgres(url);
+      try {
+        await upgradeSchema(handle.db);
+        const store = createPostgresStore(handle.db);
+        const engine = new LocalEngine(store);
+        await createProject(store, { key: 'OWN', name: 'Ownership' });
+        const parent = await createInitiative(store, { projectId: 'OWN', title: 'i' });
+        const task = await createTask(store, { parentId: parent.id, title: 't' });
+        await engine.queue({ harness: 'codex', id: task.id, session: 'conversation' });
+        const results = await Promise.allSettled([
+          engine.start({ id: task.id, workerHarness: 'claude', workerSession: 'worker-a' }),
+          engine.start({ id: task.id, workerHarness: 'codex', workerSession: 'worker-b' }),
+        ]);
+        expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+        expect(results.filter((r) => r.status === 'rejected')).toHaveLength(1);
+        const started = await engine.getNode({ facets: ['history'], id: task.id });
+        expect(started).toMatchObject({
+          harness: 'codex',
+          session: 'conversation',
+          status: 'in_progress',
+        });
+        const worker = started.workerSession;
+        if (worker === undefined || worker === null) {
+          throw new Error('winning start has no worker');
+        }
+        expect(['worker-a', 'worker-b']).toContain(worker);
+        expect(started.history).toHaveLength(2);
+        expect(started.history?.[1]?.handles?.worker_session).toBe(worker);
+      } finally {
+        await handle.close();
+      }
+    });
+  },
+);

@@ -251,8 +251,8 @@ options:
       --harness <text>    create/queue/start/update: the main conversation or workflow harness
       --session <text>    create/queue/start/update: the main conversation or workflow session
       --branch <text>     create/queue/start/update: the branch the work lives on
-      --worker-harness <text> start/update: a distinct whole-task owner harness
-      --worker-session <text> start/update: a distinct whole-task owner session
+      --worker-harness <text> start/update: explicit distinct whole-task owner harness
+      --worker-session <text> start/update: explicit distinct whole-task owner session
                           (all task-only resume handles are cleared on
                           done/abandon, unqueue, and on park/block; a blank
                           on update clears one, except a queued session)
@@ -746,7 +746,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ],
       [
         '--worker-harness/--worker-session <text>',
-        'task only: a distinct whole-task owner; clearing worker-session clears worker-harness',
+        'task only: a distinct whole-task owner; supply both explicitly for handoff; blank worker-session clears both',
       ],
       ['--name <name>', 'project only (KEY): rename it'],
       [

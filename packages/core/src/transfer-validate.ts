@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 import { FIELD_FACTS } from '@mimir/contract';
 
+import { hasRedundantWorker } from './assignment';
 import { cycleEdges } from './cycles';
 import { validation } from './errors';
 import type { StoreExport } from './export';
@@ -164,6 +165,9 @@ function assertReferences(document: StoreExport): void {
       (node.session === null || node.session.trim() === '')
     ) {
       faults.push(`node ${node.id}.worker_session requires a nonblank main session`);
+    }
+    if (hasRedundantWorker(node)) {
+      faults.push(`node ${node.id}.worker_session duplicates the main session`);
     }
     if (node.upstream !== null && !isSeedRef(node.upstream)) {
       faults.push(`node ${node.id}.upstream must be a seed identity`);

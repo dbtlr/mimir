@@ -109,13 +109,15 @@ main agent handles a task itself, the worker fields remain unset.
 `queue` records main identity. `start` preserves established main identity and
 accepts explicit worker fields for a whole-task handoff; conflicting main
 identity inputs are refused with a worker-flag hint. Matching main and worker
-identities collapse to the single-session form. Host and branch describe
-execution context, independently of which conversation owns the work.
+sessions collapse to the single-session form unless both harnesses explicitly
+identify different providers. Host and branch describe execution context,
+independently of which conversation owns the work.
 
 An incidental shell caller does not become a worker. CLI environment fallback
-can establish absent main identity at direct start, or complete explicitly
-requested worker identity at start. It neither overwrites established main
-identity nor infers a handoff. Updates and MCP remain explicit.
+can establish absent main identity at a direct start without worker flags.
+The fallback neither overwrites established main identity nor infers a handoff.
+Worker identity is fully explicit on start and update. MCP does not infer shell
+identity.
 
 Park, block, unqueue, done, and abandon clear all main and worker handles,
 recording the released assignment in history. A hold releases ownership: a new
@@ -126,3 +128,9 @@ Explicit identity reassignment through update is audited as an assignment
 transition, as refined in ADR 0003. This preserves prior whole-task workers
 without turning helper calls into an agent hierarchy. Existing stored session
 facts remain intact; migration does not guess historical orchestrator identity.
+
+An explicitly assigned worker on a queued task survives plain start; only prior
+execution host and branch reset. CLI start binds its state-dependent fallback
+decision to the lifecycle and main identity snapshot checked in the write
+transaction. A concurrent release or main takeover causes refusal rather than
+starting under a stale assignment.

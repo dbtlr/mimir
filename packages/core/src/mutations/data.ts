@@ -233,7 +233,7 @@ export async function updateNode(store: Store, id: string, fields: UpdateFields)
     const taskOnly = updateKeysForTypes(['task']);
     if (taskOnly.some((key) => fields[key] !== undefined) && node.type !== 'task') {
       throw validation(
-        'priority, size, external_ref, upstream, and the execution handles (host, harness, session, branch) apply only to tasks',
+        'priority, size, external_ref, upstream, and the execution handles (host, harness, session, branch, worker_harness, worker_session) apply only to tasks',
       );
     }
     if (fields.target !== undefined && node.type !== 'phase') {

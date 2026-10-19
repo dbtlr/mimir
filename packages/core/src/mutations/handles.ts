@@ -1,6 +1,7 @@
 import { HANDLE_FIELD_ARGS, HANDLE_FIELD_KEYS } from '@mimir/contract';
 import type { ExecutionHandles, HandleFieldArg, HandleFieldKey } from '@mimir/contract';
 
+import { hasRedundantWorker } from '../assignment';
 import { validation } from '../errors';
 import { flattenHandle, HANDLE_SEP, isEchoSafeHandle } from '../history-codec';
 import type { Node } from '../model';
@@ -156,11 +157,7 @@ export function validateAssignment(patch: NodePatch, task: Node): void {
   ) {
     throw validation('worker session requires a nonblank main session');
   }
-  if (
-    next.worker_session !== null &&
-    next.worker_session === next.session &&
-    next.worker_harness === next.harness
-  ) {
+  if (hasRedundantWorker(next)) {
     patch.worker_session = null;
     patch.worker_harness = null;
   }

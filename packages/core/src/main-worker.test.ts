@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 
 import { LocalEngine } from './engine';
+import { startTask } from './mutations';
+import { OPS } from './ops';
 import { createPgliteTestStore } from './store-postgres/testing';
 import { refusalOf, withoutStamp } from './testing/conformance';
 import { expectMimirError } from './testing/errors';
@@ -350,6 +352,42 @@ describe.each([
       await fixture.close();
     }
   });
+  test('transfer preview and apply reject duplicate workers whose providers are blank', async () => {
+    const source = await createStore();
+    const target = await createStore();
+    try {
+      const engine = new LocalEngine(source.store);
+      await engine.create({ key: 'OWN', name: 'Ownership', type: 'project' });
+      const parent = await engine.create({ parent: 'OWN', title: 'i', type: 'initiative' });
+      const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
+      await engine.start({ harness: 'codex', id: task.id, session: 'same' });
+      const document = await source.store.export();
+      const before = withoutStamp(await target.store.export());
+      for (const patch of [
+        { harness: 'codex', worker_harness: '' },
+        { harness: 'codex', worker_harness: ' \t ' },
+        { harness: '', worker_harness: 'codex' },
+        { harness: '\t ', worker_harness: 'codex' },
+        { harness: ' codex ', worker_harness: 'codex' },
+      ]) {
+        const malformed = structuredClone(document);
+        const node = malformed.nodes.find((n) => n.id === task.id);
+        if (node === undefined) {
+          throw new Error('missing task in export');
+        }
+        Object.assign(node, patch, { worker_session: 'same' });
+        for (const dryRun of [true, false]) {
+          await expectMimirError('validation', () =>
+            target.store.import(malformed, { dryRun, mode: 'fresh' }),
+          );
+          expect(withoutStamp(await target.store.export())).toEqual(before);
+        }
+      }
+    } finally {
+      await source.close();
+      await target.close();
+    }
+  });
   test('transfer rejects seed and project assignment rows before writing', async () => {
     const fixture = await createStore();
     try {
@@ -407,6 +445,163 @@ describe.each([
       } finally {
         await target.close();
       }
+    } finally {
+      await fixture.close();
+    }
+  });
+  test('a worker explicitly assigned while queued survives a plain start', async () => {
+    const fixture = await createStore();
+    try {
+      const engine = new LocalEngine(fixture.store);
+      await engine.create({ key: 'OWN', name: 'Ownership', type: 'project' });
+      const parent = await engine.create({ parent: 'OWN', title: 'i', type: 'initiative' });
+      const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
+      await engine.queue({
+        branch: 'reservation',
+        harness: 'codex',
+        host: 'queue-host',
+        id: task.id,
+        session: 'main',
+      });
+      await engine.update({ id: task.id, workerHarness: 'claude', workerSession: 'worker' });
+      const started = await engine.start({ id: task.id });
+      expect(started).toMatchObject({
+        branch: null,
+        harness: 'codex',
+        host: null,
+        session: 'main',
+        workerHarness: 'claude',
+        workerSession: 'worker',
+      });
+      const history = await fixture.store.bodySections.readHistory(task.id);
+      expect(history.map((entry) => entry.kind)).toEqual(['lifecycle', 'assignment', 'lifecycle']);
+      expect(history.at(-1)?.handles).toEqual({
+        harness: 'codex',
+        session: 'main',
+        worker_harness: 'claude',
+        worker_session: 'worker',
+      });
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  test('same-session workers collapse when either provider is unknown and remain distinct with conflicting known providers', async () => {
+    const fixture = await createStore();
+    try {
+      const engine = new LocalEngine(fixture.store);
+      await engine.create({ key: 'OWN', name: 'Ownership', type: 'project' });
+      const parent = await engine.create({ parent: 'OWN', title: 'i', type: 'initiative' });
+      for (const handles of [
+        { harness: 'codex', session: 'same', workerSession: 'same' },
+        { session: 'same', workerHarness: 'claude', workerSession: 'same' },
+      ]) {
+        const task = await engine.create({ parent: parent.id, title: 'same agent', type: 'task' });
+        expect(await engine.start({ id: task.id, ...handles })).toMatchObject({
+          workerHarness: null,
+          workerSession: null,
+        });
+      }
+      const task = await engine.create({
+        parent: parent.id,
+        title: 'different providers',
+        type: 'task',
+      });
+      expect(
+        await engine.start({
+          harness: 'codex',
+          id: task.id,
+          session: 'same',
+          workerHarness: 'claude',
+          workerSession: 'same',
+        }),
+      ).toMatchObject({ workerHarness: 'claude', workerSession: 'same' });
+      await engine.update({ id: task.id, workerSession: 'other' });
+      await engine.update({ id: task.id, workerHarness: null });
+      expect(await engine.update({ id: task.id, workerSession: 'same' })).toMatchObject({
+        workerHarness: null,
+        workerSession: null,
+      });
+      const document = await fixture.store.export();
+      for (const workerHarness of [null, 'codex', 'claude']) {
+        const candidate = structuredClone(document);
+        const node = candidate.nodes.find((n) => n.id === task.id);
+        if (node === undefined) {
+          throw new Error('task missing');
+        }
+        node.worker_harness = workerHarness;
+        node.worker_session = 'same';
+        const target = await createStore();
+        try {
+          if (workerHarness === 'claude') {
+            await target.store.import(candidate, { dryRun: false, mode: 'fresh' });
+            expect(
+              (await target.store.export()).nodes.find((n) => n.id === task.id)?.worker_harness,
+            ).toBe('claude');
+          } else {
+            expect(
+              await refusalOf(target.store.import(candidate, { dryRun: false, mode: 'fresh' })),
+            ).toContain('duplicates the main session');
+            expect((await target.store.export()).nodes).toEqual([]);
+          }
+        } finally {
+          await target.close();
+        }
+      }
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  test.each(['unqueue', 'mainSession', 'mainHarness'] as const)(
+    'start refuses a stale main-identity snapshot after %s without adding history',
+    async (change) => {
+      const fixture = await createStore();
+      try {
+        const engine = new LocalEngine(fixture.store);
+        await engine.create({ key: 'OWN', name: 'Ownership', type: 'project' });
+        const parent = await engine.create({ parent: 'OWN', title: 'i', type: 'initiative' });
+        const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
+        await engine.queue({ harness: 'codex', id: task.id, session: 'main' });
+        const expectation = { harness: 'codex', lifecycle: 'queued' as const, session: 'main' };
+        if (change === 'unqueue') {
+          await engine.unqueue({ id: task.id, reason: 'cancelled while caller read state' });
+        } else if (change === 'mainSession') {
+          await engine.update({ id: task.id, session: 'replacement' });
+        } else {
+          await engine.update({ harness: 'claude', id: task.id });
+        }
+        const before = withoutStamp(await fixture.store.export());
+        await expectMimirError('conflict', () =>
+          startTask(fixture.store, task.id, { host: 'must not write' }, expectation),
+        );
+        await expectMimirError('conflict', () =>
+          OPS.start.run(fixture.store, task.id, undefined, { host: 'must not write' }, undefined, {
+            startExpectation: expectation,
+          }),
+        );
+        expect(withoutStamp(await fixture.store.export())).toEqual(before);
+      } finally {
+        await fixture.close();
+      }
+    },
+  );
+  test('start expectations ignore unrelated edits while checking the assignment inside the transaction', async () => {
+    const fixture = await createStore();
+    try {
+      const engine = new LocalEngine(fixture.store);
+      await engine.create({ key: 'OWN', name: 'Ownership', type: 'project' });
+      const parent = await engine.create({ parent: 'OWN', title: 'i', type: 'initiative' });
+      const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
+      await engine.queue({ harness: 'codex', id: task.id, session: 'main' });
+      const expectation = { harness: 'codex', lifecycle: 'queued' as const, session: 'main' };
+      await engine.update({ host: 'changed', id: task.id, title: 'an unrelated edit' });
+      expect(await startTask(fixture.store, task.id, {}, expectation)).toMatchObject({
+        harness: 'codex',
+        lifecycle: 'in_progress',
+        session: 'main',
+        title: 'an unrelated edit',
+      });
     } finally {
       await fixture.close();
     }

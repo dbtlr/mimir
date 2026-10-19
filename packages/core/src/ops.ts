@@ -21,6 +21,7 @@ import {
   unblockTask,
   unparkTask,
 } from './mutations';
+import type { StartExpectation } from './mutations';
 import type { HandleFields } from './mutations/handles';
 import { parkSeed, unparkSeed } from './seeds/intent';
 import type { Store } from './store';
@@ -65,6 +66,7 @@ export type OpSpec = OpFact & {
     reason?: string,
     fields?: HandleFields,
     choice?: string,
+    context?: { startExpectation?: StartExpectation },
   ) => Promise<OpResult>;
 };
 
@@ -123,7 +125,8 @@ const OP_RUN: Record<UniformVerb, OpSpec['run']> = {
   queue: (store, id, _reason, fields) => queueTask(store, id, fields),
   reopen: (store, id, reason) => reopenTask(store, id, reason),
   return: (store, id, reason) => returnTask(store, id, reason),
-  start: (store, id, _reason, fields) => startTask(store, id, fields),
+  start: (store, id, _reason, fields, _choice, context) =>
+    startTask(store, id, fields, context?.startExpectation),
   submit: (store, id) => submitTask(store, id),
   unarchive: (store, id) => unarchiveProject(store, id),
   unblock: (store, id) => unblockTask(store, id),

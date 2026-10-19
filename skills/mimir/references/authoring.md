@@ -184,7 +184,7 @@ mimir update KEY-9 --worker-session ''   # return ownership to the main agent
 ```
 
 Always supply the relevant identity explicitly on every queue and start:
-main flags for the user conversation, worker flags for a distinct task owner.
+main flags for the user conversation, both worker flags for a distinct task owner.
 Use each harness's own knowledge of its resumable session. Inherited shell
 variables can describe an outer harness; they do not override that knowledge.
 
@@ -198,17 +198,23 @@ If an identity cannot be established, resolve it before recording ownership;
 a made-up session cannot resume the work. For a new direct start, set the main
 identity too before attaching a distinct worker.
 
-The CLI fills omitted main flags from one unambiguous shell only when the task
-has no established main identity. A start preserves that identity; conflicting
-main flags are refused, so a handoff uses worker flags. Worker fallback runs
-only when at least one worker flag was explicitly supplied. Explicit blanks
-win. Multiple detected harnesses produce a note and fill nothing. `update` and
-MCP never infer identity from their environment.
+The CLI can fill omitted main flags for `queue` from one unambiguous shell.
+For `start`, it does so only with no established main identity and no worker
+flags. A start preserves an established main identity; conflicting main flags
+are refused, so a handoff
+uses worker flags. Worker identities are always explicit: supply both worker
+flags for a handoff. A worker session without a harness leaves the harness
+unknown; the CLI never borrows it from the invoking shell. Explicit blanks win.
+Multiple detected harnesses produce a note only when main fallback applies.
+`update` and MCP never infer identity from their environment.
 
 `queue` records the main reservation. Starting queued work preserves its main
-identity and resets old host, branch, and worker fields before applying the
-supplied execution fields. A same-agent worker identity collapses to unset.
-`unqueue` clears all live handles and retains the released identity in history.
+identity and any worker assignment already made with `update`. It resets only
+old host and branch fields before applying supplied execution fields. Explicit
+worker flags change the worker assignment; a blank worker session clears it.
+A worker using the same session as main collapses to unset unless the supplied
+harnesses explicitly distinguish two agents. `unqueue` clears all live handles
+and retains the released identity in history.
 
 `host` and `branch` locate execution. `update` explicitly changes main or worker
 identity without changing status. A worker harness requires a worker session;

@@ -30,9 +30,10 @@ it appears in `list --status queued`.
 - `start <id>` accepts `todo` or `queued` and moves to `in_progress` while
   preserving an established main identity. The main agent supplies its main
   flags; a distinct whole-task owner supplies `--worker-harness` and
-  `--worker-session`. Helper agents leave task identity alone. Starting queued
-  work resets execution and worker handles before applying supplied values;
-  history retains both main and worker identities.
+  `--worker-session`, both explicitly. Helper agents leave task identity alone.
+  Starting queued work preserves a worker preassigned with `update`, resets
+  only host and branch, and applies supplied values. History retains both main
+  and worker identities.
 - `unqueue <id> "reason"` moves `queued → todo`, clears all handles, and echoes
   the released run handles in history. A nonblank cancellation reason is required.
   The task reads `ready` again if its dependencies are settled, or `awaiting`

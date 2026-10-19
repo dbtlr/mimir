@@ -89,8 +89,9 @@ later is a guess about the past, and the next agent reads it as fact.
 **Identify task owners explicitly.** Main flags identify the user conversation
 or workflow; worker flags identify a distinct whole-task owner. The same agent
 uses main flags and leaves worker fields unset. Read `references/authoring.md`
-for finding identities and recording a handoff. Shell auto-fill is a fallback;
-MCP callers provide identities explicitly.
+for finding identities and recording a handoff. Always supply both worker
+flags for a handoff. Shell auto-fill can supply main identity on queue or an
+initial solo start; worker identity, updates, and MCP calls stay explicit.
 
 **Prefer groomed work.** A task carries a grooming state beside its status:
 `not_groomed`, `needs_answers`, or `groomed`. Choose groomed tasks from `next`

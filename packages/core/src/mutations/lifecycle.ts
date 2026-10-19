@@ -1,4 +1,4 @@
-import { validation } from '../errors';
+import { conflict, validation } from '../errors';
 import type { Node } from '../model';
 import { appendRank } from '../rank';
 import type { NodePatch, Store } from '../store';
@@ -16,14 +16,29 @@ import type { HandleFields, MainHandleFields } from './handles';
  * Hold is left untouched on terminal transitions, preserving its history.
  */
 
+/** The exact task state a caller used to decide whether ambient main identity could be filled. */
+export type StartExpectation = Pick<Node, 'lifecycle' | 'harness' | 'session'>;
+
 /** Begin work, preserving main identity and replacing queued execution context. */
 export async function startTask(
   store: Store,
   id: string,
   handles: HandleFields = {},
+  expectation?: StartExpectation,
 ): Promise<Node> {
   return store.transact(async (w) => {
     const task = await requireTask(w, id);
+    if (
+      expectation !== undefined &&
+      (task.lifecycle !== expectation.lifecycle ||
+        task.harness !== expectation.harness ||
+        task.session !== expectation.session)
+    ) {
+      throw conflict(
+        'task ownership changed before start',
+        'read the task again before deciding its main assignment',
+      );
+    }
     if (task.lifecycle !== 'todo' && task.lifecycle !== 'queued') {
       throw validation(`only a todo or queued task can be started (is ${String(task.lifecycle)})`);
     }
@@ -31,8 +46,6 @@ export async function startTask(
     if (task.lifecycle === 'queued') {
       patch.branch = null;
       patch.host = null;
-      patch.worker_harness = null;
-      patch.worker_session = null;
     }
     applyHandlePatch(patch, handles);
     for (const key of ['harness', 'session'] as const) {

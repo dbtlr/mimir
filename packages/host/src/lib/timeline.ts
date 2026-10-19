@@ -56,6 +56,7 @@ export function sessionIdentity(handles: z.infer<typeof identitySchema>): string
   return roles.join(' · ');
 }
 
+/** Keep malformed or older historical snapshots readable instead of failing the timeline. */
 function assignmentDetail(snapshot: string | null): string {
   try {
     return sessionIdentity(parseJson(snapshot ?? '{}', identitySchema)) || 'Unassigned';

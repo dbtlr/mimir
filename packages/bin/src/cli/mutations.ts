@@ -179,7 +179,7 @@ function echoTransitionSuffix(t: OpTransition, plain: boolean): string {
  * A verb that declares extra data-plane fields ({@link OpFact.fields} — only
  * `start` and `queue`'s resume handles) reads them through the SAME flag template
  * and wire parser the generic `update` uses. Shell fallback fills the main
- * identity only before one is established, or an explicitly selected worker.
+ * identity only before one is established and no worker flag was supplied.
  * A declared choice argument ({@link OpFact.choice} — only `block --on`) is read
  * the way `depend` reads its multi-valued `--on` (the last occurrence wins) and
  * validated against the fact's vocabulary.
@@ -239,19 +239,24 @@ export async function cmdUniform(c: Ctx, verb: UniformVerb): Promise<number> {
   const starting =
     verb === 'start' ? findNodeInSet(deriveSet(await c.store.loadWorkingSet()), id) : undefined;
   const startSource = starting?.lifecycle;
+  const hasWorkerFlags = fields.workerHarness !== undefined || fields.workerSession !== undefined;
   if (
     verb === 'queue' ||
-    (verb === 'start' && starting?.harness == null && starting?.session == null)
+    (verb === 'start' && !hasWorkerFlags && starting?.harness == null && starting?.session == null)
   ) {
-    fillHarnessFields(c, fields, 'main');
+    fillMainHarnessFields(c, fields);
   }
-  if (
-    verb === 'start' &&
-    (fields.workerHarness !== undefined || fields.workerSession !== undefined)
-  ) {
-    fillHarnessFields(c, fields, 'worker');
-  }
-  await op.run(c.store, id, reason, fields, choice);
+  const context =
+    starting === undefined
+      ? undefined
+      : {
+          startExpectation: {
+            harness: starting.harness ?? null,
+            lifecycle: starting.lifecycle ?? null,
+            session: starting.session ?? null,
+          },
+        };
+  await op.run(c.store, id, reason, fields, choice, context);
   const suffix =
     startSource === undefined
       ? echoTransitionSuffix(op.transition, c.io.plain)
@@ -262,25 +267,22 @@ export async function cmdUniform(c: Ctx, verb: UniformVerb): Promise<number> {
   return 0;
 }
 
-/** Fill only an explicitly selected identity role from one unambiguous shell. */
-function fillHarnessFields(c: Ctx, fields: UpdateFields, role: 'main' | 'worker'): void {
-  const harnessKey = role === 'main' ? 'harness' : 'workerHarness';
-  const sessionKey = role === 'main' ? 'session' : 'workerSession';
-  if (fields[harnessKey] !== undefined && fields[sessionKey] !== undefined) {
+/** Fill a new main identity from one unambiguous shell; worker identity stays explicit. */
+function fillMainHarnessFields(c: Ctx, fields: UpdateFields): void {
+  if (fields.harness !== undefined && fields.session !== undefined) {
     return;
   }
   const detected = detectHarness(process.env);
   if (detected.kind === 'conflict') {
-    const prefix = role === 'main' ? '--' : '--worker-';
     c.io.error(
-      `note: detected multiple harnesses (${detected.harnesses.join(', ')}); pass ${prefix}harness and ${prefix}session explicitly`,
+      `note: detected multiple harnesses (${detected.harnesses.join(', ')}); pass --harness and --session explicitly`,
     );
   } else if (detected.kind === 'single') {
-    if (fields[harnessKey] === undefined) {
-      fields[harnessKey] = detected.harness;
+    if (fields.harness === undefined) {
+      fields.harness = detected.harness;
     }
-    if (fields[sessionKey] === undefined && detected.session !== undefined) {
-      fields[sessionKey] = detected.session;
+    if (fields.session === undefined && detected.session !== undefined) {
+      fields.session = detected.session;
     }
   }
 }

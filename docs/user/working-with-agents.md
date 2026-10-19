@@ -81,7 +81,9 @@ mimir queue AUR-8 --harness codex --session workflow-session
 mimir start AUR-8 --worker-harness claude --worker-session task-session
 ```
 
-Starting the task preserves the main session. The worker manages task state
+Starting the task preserves the main session and an explicitly preassigned
+worker. Supply both worker flags to identify a handoff; the CLI does not infer
+worker identity from the invoking shell. The worker manages task state
 through review and completion. Explicit reassignment through update retains
 previous identities in history.
 

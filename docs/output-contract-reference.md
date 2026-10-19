@@ -457,6 +457,7 @@ uses only the main identity. Engine arguments spell the worker fields
 
 Queue records main identity. Start preserves it and accepts worker flags for an
 explicit handoff. An incidental shell environment cannot replace the main
-session or create a worker assignment. Updates remain explicit and identity
+session or create a worker assignment. Worker fields are fully explicit; supplying
+worker flags on a direct start also requires an explicit or established main session. Updates remain explicit and identity
 changes append assignment history. Park, block, unqueue, and settlement clear
 all handles; submit and return preserve them.
