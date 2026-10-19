@@ -53,6 +53,56 @@ test('a loom-voice entry still compares exit codes', () => {
   ]);
 });
 
+const scoped: ParityDifference[] = [{ case: c.name, kind: 'loom-scoped', reason: 'scoped' }];
+const engine: ParityDifference[] = [{ case: c.name, kind: 'engine-refusal', reason: 'engine' }];
+const oldValidation: ParityRun = {
+  exitCode: 1,
+  failure: {
+    code: 'validation',
+    hints: [],
+    message: 'groomed applies only to tasks',
+  },
+  stdout: '',
+};
+const engineRefused: ParityRun = {
+  exitCode: 1,
+  failure: {
+    code: 'validation',
+    hints: [],
+    message: 'content must not be blank',
+  },
+  stdout: '',
+};
+
+test('a loom-scoped entry holds when Loom refuses at exit 2 what the old CLI refused at exit 1', () => {
+  expect(parityProblems(app, c, oldValidation, loomFault(), scoped)).toEqual([]);
+});
+
+test('a loom-scoped entry over an old success, or a new Mimir code, is refused', () => {
+  expect(parityProblems(app, c, { exitCode: 0, stdout: 'x\n' }, loomFault(), scoped)).toEqual([
+    'a loom-scoped entry names a case the old CLI exits 0 for, not 1',
+  ]);
+  expect(parityProblems(app, c, oldValidation, engineRefused, scoped)).toEqual([
+    'a loom-scoped refusal exits 2, not 1',
+    'a Loom difference entry names a failure Mimir raises (validation); the rule compares it',
+  ]);
+});
+
+test('an engine-refusal entry holds when the Engine refuses what the old CLI accepted', () => {
+  const accepted: ParityRun = { exitCode: 0, stdout: 'x\n' };
+  expect(parityProblems(app, c, accepted, engineRefused, engine)).toEqual([]);
+});
+
+test('an engine-refusal entry over a case the old CLI refused, or the new one accepts, is refused', () => {
+  const accepted: ParityRun = { exitCode: 0, stdout: 'x\n' };
+  expect(parityProblems(app, c, oldValidation, engineRefused, engine)).toEqual([
+    'an engine-refusal entry names a case the old CLI refused too (exit 1)',
+  ]);
+  expect(parityProblems(app, c, accepted, accepted, engine)).toEqual([
+    'an engine-refusal entry needs the new CLI to refuse with a Mimir code at exit 1, not exit 0',
+  ]);
+});
+
 test('a loom-refusal entry holds when Loom refuses what the old CLI accepted', () => {
   const accepted: ParityRun = { exitCode: 0, stdout: 'MMR-3\n' };
   expect(parityProblems(app, c, accepted, loomFault(), refusal)).toEqual([]);

@@ -20,6 +20,17 @@ COMMANDS
   resolve            Resolve a seed: what it asked for is done. The reason is recorded.
   triage             Reconcile a board's seeds: list the untriaged and ready-to-resolve ones, and annotate the tasks whose upstream seed settled. A report, never a gate.
   scratch <command>  Read and keep Scratchpads, the working state of one episode.
+  create <command>   Create a project, initiative, phase, or task.
+  update             Change a task, phase, or initiative (KEY-seq), or a project (KEY).
+  annotate           Append a note to a task, phase, or initiative.
+  attach             Attach a document to a project as an artifact, linked to nodes.
+  depend             Make a task, phase, or initiative wait on the others named by --on.
+  undepend           Stop a task, phase, or initiative waiting on the others named by --on.
+  move               Move a task, phase, or initiative under another parent in its project.
+  reorder            Change a task's rank among its siblings.
+  groom              Mark tasks not_groomed | needs_answers | groomed.
+  tag                Add tags to tasks, phases, initiatives, projects, or artifacts.
+  untag              Remove tags from tasks, phases, initiatives, projects, or artifacts.
 
 GLOBAL OPTIONS
   -h, --help  Show this help.
