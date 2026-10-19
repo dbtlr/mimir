@@ -11,6 +11,7 @@ import {
   move,
   scratchList,
   start,
+  unqueue,
   tag,
   untag,
   update,
@@ -166,5 +167,21 @@ describe('the node records on server functions (MMR-539)', () => {
     });
     expect(tag).toHaveBeenCalledWith({ data: { ids: ['MMR-417'], tags: ['feat'] } });
     expect(untag).toHaveBeenCalledWith({ data: { ids: ['MMR-417'], tags: ['ui'] } });
+  });
+});
+
+test('cancels a queued task only after a reason is supplied', async () => {
+  const user = userEvent.setup();
+  serveNodes({ nodes: [engineTask({ ...SQLITE, lifecycle: 'queued', status: 'queued' })] });
+  renderAt('/p/MMR/417');
+  const rail = await screen.findByRole('complementary', { name: 'Record details' });
+  await user.click(within(rail).getByRole('button', { name: 'Cancel reservation…' }));
+  const dialog = await screen.findByRole('dialog');
+  const confirm = within(dialog).getByRole('button', { name: 'Confirm' });
+  expect(confirm).toBeDisabled();
+  await user.type(within(dialog).getByRole('textbox'), 'run cancelled');
+  await user.click(confirm);
+  await waitFor(() => {
+    expect(unqueue).toHaveBeenCalledWith({ data: { id: 'MMR-417', reason: 'run cancelled' } });
   });
 });

@@ -70,6 +70,13 @@ export const STATUS_META: Record<StatusWord, StatusMeta> = {
     label: 'Parked',
     text: 'text-status-parked',
   },
+  queued: {
+    border: 'border-l-status-queued',
+    dot: 'bg-status-queued',
+    foreground: 'text-status-queued-foreground',
+    label: 'Queued',
+    text: 'text-status-queued',
+  },
   ready: {
     border: 'border-l-status-ready',
     dot: 'bg-status-ready',
@@ -90,6 +97,7 @@ export const STATUS_META: Record<StatusWord, StatusMeta> = {
 export const STATUS_ORDER: readonly StatusWord[] = [
   'in_progress',
   'under_review',
+  'queued',
   'ready',
   'awaiting',
   'blocked',

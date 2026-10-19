@@ -9,7 +9,13 @@ export type Transcript = { commands: string[]; skills: string[]; finalText: stri
 
 /** One `mimir` call found in a shell command. `help` marks a `-h`/`--help` lookup,
  * which reads usage and acts on nothing. */
-export type MimirCall = { verb: string; sub?: string; help: boolean; command: string };
+export type MimirCall = {
+  verb: string;
+  sub?: string;
+  help: boolean;
+  command: string;
+  args: string[];
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -82,6 +88,42 @@ const CALL =
   /(?:^|&&|\|\||[;|\n(]|\$\(|-[a-z]*c[ \t]+['"])[ \t]*(?:\S*\/)?mimir[ \t]+([a-z][a-z-]*)(?:[ \t]+([^\s'"&|;)]+))?((?:[^\n;&|$)]|\$(?!\())*)/g;
 const HELP = /(?:^|\s)(?:-h|--help)(?:$|[\s'"])/;
 
+/** Literal shell words for grading flags; variables stay opaque and are verified in the store. */
+function argumentWords(source: string): string[] {
+  const words: string[] = [];
+  let word = '';
+  let quote = '';
+  let started = false;
+  for (let i = 0; i < source.length; i += 1) {
+    const ch = source[i] ?? '';
+    if (ch === '\\' && quote !== "'") {
+      word += source[i + 1] ?? '';
+      started = true;
+      i += 1;
+    } else if (ch === quote) {
+      quote = '';
+    } else if (quote === '' && (ch === '"' || ch === "'")) {
+      quote = ch;
+      started = true;
+    } else if (quote === '' && ch === '#' && !started) {
+      break;
+    } else if (quote === '' && /\s/.test(ch)) {
+      if (started) {
+        words.push(word);
+      }
+      word = '';
+      started = false;
+    } else {
+      word += ch;
+      started = true;
+    }
+  }
+  if (started) {
+    words.push(word);
+  }
+  return words;
+}
+
 /**
  * Calls through a relative path (`./mimir`, `bin/mimir`). The runner cannot
  * tell which binary those reached, so any one is an escape.
@@ -97,6 +139,7 @@ export function mimirCalls(commands: readonly string[]): MimirCall[] {
   for (const command of commands) {
     for (const match of command.matchAll(CALL)) {
       calls.push({
+        args: argumentWords(`${match[2] ?? ''}${match[3] ?? ''}`),
         command,
         help: HELP.test(` ${match[2] ?? ''}${match[3] ?? ''}`),
         sub: match[2],

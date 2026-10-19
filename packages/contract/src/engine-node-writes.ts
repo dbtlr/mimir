@@ -8,7 +8,7 @@ import type { UniformVerb } from './ops';
 
 /**
  * The node-write Engine schemas (MMR-517): create, update, annotate, attach,
- * depend, undepend, move, reorder, groom, tag, untag, and the twelve uniform
+ * depend, undepend, move, reorder, groom, tag, untag, and the fourteen uniform
  * verbs. Ids are canonical (`KEY-seq`, or a bare `KEY` for a project); parsing
  * flag text and resolving shorthand stays in the client. Every echo is a `Date`
  * view, like the reads.
@@ -29,12 +29,22 @@ const tags = z.array(z.string()).optional();
 
 type Fact<V extends UniformVerb> = (typeof OP_FACTS)[V];
 type ReasonShape<V extends UniformVerb> =
-  Fact<V> extends { reason: 'optional' } ? { reason: z.ZodOptional<z.ZodString> } : unknown;
+  Fact<V> extends { reason: 'required' }
+    ? { reason: z.ZodString }
+    : Fact<V> extends { reason: 'optional' }
+      ? { reason: z.ZodOptional<z.ZodString> }
+      : unknown;
 type FieldsShape<V extends UniformVerb> =
   Fact<V> extends {
     fields: infer F extends readonly HandleFieldKey[];
   }
-    ? Record<F[number], z.ZodOptional<z.ZodNullable<z.ZodString>>>
+    ? {
+        [K in F[number]]: Fact<V> extends { requiredFields: readonly (infer R)[] }
+          ? K extends R
+            ? z.ZodString
+            : z.ZodOptional<z.ZodNullable<z.ZodString>>
+          : z.ZodOptional<z.ZodNullable<z.ZodString>>;
+      }
     : unknown;
 type ChoiceShape<V extends UniformVerb> =
   Fact<V> extends {
@@ -75,12 +85,17 @@ function uniformSchema(verb: UniformVerb, project: z.ZodString) {
   const shape: Record<string, z.ZodType> = {
     id: fact.subject === 'project' ? project : z.string(),
   };
-  if (fact.reason === 'optional') {
+  if (fact.reason === 'required') {
+    shape.reason = z.string();
+  } else if (fact.reason === 'optional') {
     shape.reason = z.string().optional();
   }
   if ('fields' in fact) {
     for (const key of fact.fields) {
-      shape[key] = nullableText;
+      shape[key] =
+        'requiredFields' in fact && fact.requiredFields.some((required) => required === key)
+          ? z.string()
+          : nullableText;
     }
   }
   if ('choice' in fact) {

@@ -20,6 +20,7 @@ const STATUS_STYLE: Record<StatusWord, StatusStyle> = {
   in_progress: { ascii: '>', color: 36, icon: '▶' },
   new: { ascii: 'o', color: 90, icon: '○' },
   parked: { ascii: '=', color: 90, icon: '⏸' },
+  queued: { ascii: '=', color: 34, icon: '◷' },
   ready: { ascii: '*', color: 32, icon: '●' },
   under_review: { ascii: '?', color: 35, icon: '◎' },
 };

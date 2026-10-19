@@ -1,6 +1,5 @@
 import {
   HOLD_VALUES,
-  LIFECYCLE_VALUES,
   NODE_TYPE_VALUES,
   PRIORITY_VALUES,
   SEED_KIND_VALUES,
@@ -24,8 +23,9 @@ import {
  *   id, so a log's id order stays its append order.
  *
  * The project-key check is a `GLOB` with a length bound, because SQLite has no
- * built-in regular expression operator. `seed.lifecycle` is frozen as literals,
- * as in the Postgres migration, because `0004_seed_parked` widens it.
+ * built-in regular expression operator. `seed.lifecycle` and `node.lifecycle` are frozen as literals,
+ * as in the Postgres migration. Migrations `0004_seed_parked` and
+ * `0007_task_queued` widen those vocabularies.
  */
 
 /** A closed vocabulary as a SQL `IN (...)` list (see the Postgres migration). */
@@ -66,7 +66,7 @@ export const statements: readonly string[] = [
      title        text NOT NULL,
      description  text,
      summary      text,
-     lifecycle    text CHECK (lifecycle IN (${inList(LIFECYCLE_VALUES)})),
+     lifecycle    text CHECK (lifecycle IN ('todo', 'in_progress', 'under_review', 'done', 'abandoned')),
      hold         text CHECK (hold IN (${inList(HOLD_VALUES)})),
      hold_reason  text,
      priority     text CHECK (priority IN (${inList(PRIORITY_VALUES)})),

@@ -26,7 +26,7 @@ mimir overview          # the whole boot picture, attention-ordered
 Sections, attention-ordered: **header** (project rollup distribution + status
 word) · **direction** (the owned `## Next` prose, verbatim, of the project and of
 every container parenting live work — in flight or ready; top 5 of the true
-count, the rest named) · **in flight** (`in_progress` +
+count, the rest named) · **in flight** (`queued` + `in_progress` +
 `under_review`, uncapped, each row showing its resume handles as
 `harness@host · branch · session` when set) · **active scratchpads** (true
 count, top 5 — `uuid · project · title · N open Agenda · age · linked KEY…`,
@@ -40,20 +40,21 @@ its follow-up command, with the first 5 rows behind it — blocked and stale
 tasks carry their status word, untriaged seeds their lede; parked seeds
 are a count only). In flight comes
 before next by design — orienting via `next` alone is the classic trap (it
-**excludes `in_progress`**), and overview structurally avoids it.
+**excludes `queued` and `in_progress`**), and overview structurally avoids it.
 
 Every count in the render is a TRUE total — except recent sessions, whose
 header reads `N shown`. That section is composed from bounded reads and has no
 knowable total: `mimir artifacts -t session_summary` is the pageable view.
 
 Recent sessions is derived, not stored: transition rows grouped by the `session`
-handle `mimir start --session …` stamped. A retrospective joins on by linked-task
+handle stamped by `queue` or `start` (always with explicit `--harness` and
+`--session`). A retrospective joins on by linked-task
 overlap — attach it with `mimir attach <task> --file retro.md -t session_summary
 --summary "…"`, or, when the session ran on a Scratchpad, freeze that instead
 (`references/finishing.md`). Two limits are worth knowing:
 
-- **Only handle-moving boundaries are visible.** `start` and the clearing verbs
-  (`done`/`abandon`, `park`/`block`) echo handles; `submit`/`return`/`reopen`/
+- **Only handle-moving boundaries are visible.** `queue`, `start`, and the clearing verbs
+  (`unqueue`, `done`/`abandon`, `park`/`block`) echo handles; `submit`/`return`/`reopen`/
   `unpark`/`unblock` do not. A session that only reviewed work shows up solely
   through its retrospective, as a knowledge-only entry.
 - **A takeover must re-state its session.** A clearing row echoes whatever the
@@ -76,6 +77,7 @@ mimir next              # the full READY set, in rank order (overview caps at 5)
 
 ```sh
 mimir list --status in_progress
+mimir list --status queued --eq session:<id>   # your run's outstanding reservations
 mimir get KEY-9                    # the full two-axis detail of one task
 ```
 

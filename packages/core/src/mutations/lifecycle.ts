@@ -8,35 +8,15 @@ import { applyHandlePatch, clearHandles, handlesOf } from './handles';
 import type { HandleFields } from './handles';
 
 /**
- * Lifecycle verbs (ADR 0001/0003/0007). `start` keeps the task in the rankable
- * set (todo→in_progress, un-held); `done`/`abandon` are terminal and leave it,
- * clearing `rank`. `done` stamps `completed_at`; `abandon` carries its reason on
- * the transition-log row. Hold is left untouched on terminal transitions — the
- * Status word projects to `done`/`abandoned` regardless, and the history records
- * what the hold was.
- *
- * `submit`/`return` are the optional ship-readiness gate (MMR-84): `submit`
- * moves `in_progress → under_review` (the doer asserts it's shippable) and
- * `return` moves it back to `in_progress` (the reviewer requests changes, the
- * reason riding the log row). `under_review` is non-rankable (not agent-
- * actionable — the ball is in the human's court), so `submit` clears `rank` and
- * `return` re-enters at the bottom, exactly like the hold enter/release pattern.
- * Approval is plain `complete_task` (the log's `from=under_review` marks it).
- *
- * The resume handles (ADR 0026 Decision 3, MMR-320) ride the same verbs: `start`
- * stamps them as the claim, `done`/`abandon` clear them (the work has left the
- * board), and `submit`/`return` KEEP them — the branch and session stay the live
- * pointers at the human gate. `reopen` restores nothing; a resuming agent
- * re-states them with `update`.
+ * Lifecycle verbs run their guard, patch, handle echo, and timestamp in one
+ * transaction. Queue reserves a todo task for a run; start claims todo work or
+ * replaces a queued run's handles with the worker's handles. Both preserve rank.
+ * Unqueue clears the reservation handles and preserves rank. Terminal verbs
+ * clear handles and rank; submit/return retain handles through human review.
+ * Hold is left untouched on terminal transitions, preserving its history.
  */
 
-/**
- * Begin a task, optionally recording the resume handles as the claim (ADR 0026
- * Decision 3). The CAS-guarded `todo → in_progress` assert already makes claiming
- * atomic for concurrent agents, so there is no separate claim verb; the handles
- * ride the transition that already happened. The `## History` row echoes what the
- * task carries once claimed.
- */
+/** Begin work, replacing all run handles when starting a queued reservation. */
 export async function startTask(
   store: Store,
   id: string,
@@ -44,18 +24,80 @@ export async function startTask(
 ): Promise<Node> {
   return store.transact(async (w) => {
     const task = await requireTask(w, id);
-    if (task.lifecycle !== 'todo') {
-      throw validation(`only a todo task can be started (is ${String(task.lifecycle)})`);
+    if (task.lifecycle !== 'todo' && task.lifecycle !== 'queued') {
+      throw validation(`only a todo or queued task can be started (is ${String(task.lifecycle)})`);
     }
     const patch: NodePatch = { lifecycle: 'in_progress' };
+    if (task.lifecycle === 'queued') {
+      clearHandles(patch, task);
+    }
     applyHandlePatch(patch, handles);
+    await w.updateNode(id, patch);
+    await logTransition(w, {
+      from_value: task.lifecycle,
+      handles: handlesOf(await reloadNode(w, id)),
+      kind: 'lifecycle',
+      node_id: id,
+      to_value: 'in_progress',
+    });
+    await stamp(w, id);
+    return reloadNode(w, id);
+  });
+}
+
+/** Reserve a todo task for a run; the worker later replaces the run's handles. */
+export async function queueTask(
+  store: Store,
+  id: string,
+  handles: HandleFields = {},
+): Promise<Node> {
+  return store.transact(async (w) => {
+    const task = await requireTask(w, id);
+    if (task.lifecycle !== 'todo') {
+      throw validation(`only a todo task can be queued (is ${String(task.lifecycle)})`);
+    }
+    if (task.hold !== 'none') {
+      throw validation(`cannot queue a ${String(task.hold)} task`);
+    }
+    const patch: NodePatch = { lifecycle: 'queued' };
+    clearHandles(patch, task);
+    applyHandlePatch(patch, handles);
+    if (typeof patch.session !== 'string' || patch.session.trim() === '') {
+      throw validation('queue requires a nonblank session');
+    }
     await w.updateNode(id, patch);
     await logTransition(w, {
       from_value: 'todo',
       handles: handlesOf(await reloadNode(w, id)),
       kind: 'lifecycle',
       node_id: id,
-      to_value: 'in_progress',
+      to_value: 'queued',
+    });
+    await stamp(w, id);
+    return reloadNode(w, id);
+  });
+}
+
+/** Cancel a reservation, retaining its rank and recording the cleared run handles. */
+export async function unqueueTask(store: Store, id: string, reason?: string): Promise<Node> {
+  return store.transact(async (w) => {
+    const task = await requireTask(w, id);
+    if (task.lifecycle !== 'queued') {
+      throw validation(`only a queued task can be unqueued (is ${String(task.lifecycle)})`);
+    }
+    if (reason === undefined || reason.trim() === '') {
+      throw validation('unqueue requires a nonblank reason');
+    }
+    const patch: NodePatch = { lifecycle: 'todo' };
+    const handles = clearHandles(patch, task);
+    await w.updateNode(id, patch);
+    await logTransition(w, {
+      from_value: 'queued',
+      handles,
+      kind: 'lifecycle',
+      node_id: id,
+      reason,
+      to_value: 'todo',
     });
     await stamp(w, id);
     return reloadNode(w, id);

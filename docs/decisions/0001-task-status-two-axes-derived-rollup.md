@@ -168,3 +168,17 @@ deferral is always the operator's own.
 
 ADR 0019 §9 uses the owner to narrow the needs-you set. A started task that
 hits an open question is blocked with owner `you` (ADR 0033).
+
+## 2026-10-19 refinement: queued reservations (MMR-564)
+
+The task lifecycle is `todo → queued → in_progress → under_review → done`,
+with abandonment available from every nonterminal stage. Direct `todo → in_progress`
+remains valid. `queued` records an autonomous run's reservation before a worker
+starts. It is a lifecycle value because ownership has changed even though work
+has not begun.
+
+`queue` requires a nonblank session and atomically reserves an unheld todo task.
+`start` accepts todo or queued. `unqueue` requires a reason, returns queued work
+to todo, and clears its handles. Queued tasks can finish or be abandoned, but
+must be unqueued before parking or blocking. Queued tasks leave `next` and
+remain eligible for the stale predicate, so orphaned reservations surface.

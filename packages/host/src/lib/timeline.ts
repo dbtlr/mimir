@@ -37,6 +37,12 @@ export function buildFeed(
 export function describeTransition(e: HistoryEntry): { label: string; detail?: string } {
   switch (e.kind) {
     case 'lifecycle': {
+      if (e.to === 'queued') {
+        return { label: 'Queued' };
+      }
+      if (e.from === 'queued' && e.to === 'todo') {
+        return { label: 'Unqueued' };
+      }
       if (e.to === 'under_review') {
         return { label: 'Submitted for review' };
       }

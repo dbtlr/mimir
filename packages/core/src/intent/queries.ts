@@ -839,11 +839,11 @@ export async function overviewOf(
 
   const tasks = set.ws.nodes.filter((n) => n.type === 'task' && n.project_id === scopeId);
 
-  // in flight — the tasks under active hand (in_progress + under_review), uncapped.
+  // in flight — the tasks under active hand (queued + in_progress + under_review), uncapped.
   const inFlightNodes = tasks
     .filter((n) => {
       const word = nodeStatusWord(set, n);
-      return word === 'in_progress' || word === 'under_review';
+      return word === 'in_progress' || word === 'under_review' || word === 'queued';
     })
     .toSorted(byRankOrder(set));
 

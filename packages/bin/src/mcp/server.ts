@@ -172,7 +172,7 @@ export function fieldInputShape(
  * The MCP input schema for a uniform verb (ADR 0025) — the subject id arg (`id`
  * for a task, `key` for a project), an optional `reason` when the verb's policy
  * accepts one, and the extra data-plane fields the verb declares (ADR 0026 —
- * only `start`'s resume handles), typed by the SAME kind fragment the `update`
+ * `queue` and `start`'s resume handles), typed by the SAME kind fragment the `update`
  * tool derives, and the verb's choice argument when it declares one (MMR-465 — only
  * `block`'s `on`), advertised as a closed enum. Pure over the operation fact, so a new registry entry registers
  * its tool with no edit here; a verb declaring no extra fields advertises exactly
@@ -181,13 +181,22 @@ export function fieldInputShape(
 export function uniformToolSchema(spec: OpFact): ZodRawShape {
   const subject: ZodRawShape =
     spec.subject === 'project' ? { key: z.string() } : { id: z.string() };
-  const reason: ZodRawShape = spec.reason === 'optional' ? { reason: z.string().optional() } : {};
+  const reason: Record<string, ZodRawShape[string]> = {};
+  if (spec.reason === 'required') {
+    reason.reason = z.string().trim().min(1);
+  } else if (spec.reason === 'optional') {
+    reason.reason = z.string().optional();
+  }
+  const fields = { ...fieldInputShape(specUpdateFields(spec.fields ?? [])) };
+  for (const field of specUpdateFields(spec.requiredFields ?? [])) {
+    fields[field.update] = z.string().trim().min(1);
+  }
   const choice: ZodRawShape =
     spec.choice === undefined ? {} : { [spec.choice.name]: z.enum(spec.choice.values).optional() };
   return sortedShape({
     ...subject,
     ...reason,
-    ...fieldInputShape(specUpdateFields(spec.fields ?? [])),
+    ...fields,
     ...choice,
   });
 }
@@ -204,8 +213,14 @@ export function uniformToolDescription(spec: OpFact): string {
   const arrow =
     t.axis === 'lifecycle' && !isTerminalLifecycle(t.to) ? ` (${t.from.join('/')} → ${t.to})` : '';
   const head = `${spec.summary.charAt(0).toUpperCase()}${spec.summary.slice(1)}`;
-  const reason =
-    spec.reason === 'optional' ? ' Optionally records a reason on the transition.' : '';
+  const reasonText = {
+    none: '',
+    optional: ' Optionally records a reason on the transition.',
+    required: ' Requires a reason recorded on the transition.',
+  };
+  const reason = reasonText[spec.reason];
+  const required =
+    (spec.requiredFields?.length ?? 0) > 0 ? ` Requires ${spec.requiredFields?.join(', ')}.` : '';
   const choice =
     spec.choice === undefined
       ? ''
@@ -215,7 +230,7 @@ export function uniformToolDescription(spec: OpFact): string {
     spec.seeds === true
       ? ' A seed id (KEY-sN) is accepted too: it moves the seed between untriaged and parked and echoes the seed.'
       : '';
-  return `${head}${arrow}.${reason}${choice} ${echo}${seeds}`;
+  return `${head}${arrow}.${reason}${required}${choice} ${echo}${seeds}`;
 }
 
 /** Reorder a raw shape's keys alphabetically — the tool schemas keep their
@@ -536,7 +551,7 @@ export function buildMcpServer(
   register(
     server,
     'list',
-    'Broad selection: status picks the universe (ready|awaiting|in_progress|under_review|blocked|parked|done|abandoned or live|terminal|all; default live); case-insensitive substring of the title or id (q), verdicts (is/notIs), and field operators (FIELD:VALUE tokens, date ops on/before/after/atOrBefore/atOrAfter) filter within it — all AND-composed. A bare YYYY-MM-DD date resolves through tz, your IANA timezone, which is required whenever a date carries no time. Value faults return an empty set plus a warnings array.',
+    'Broad selection: status picks the universe (ready|awaiting|queued|in_progress|under_review|blocked|parked|done|abandoned or live|terminal|all; default live); case-insensitive substring of the title or id (q), verdicts (is/notIs), and field operators (FIELD:VALUE tokens, date ops on/before/after/atOrBefore/atOrAfter) filter within it — all AND-composed. A bare YYYY-MM-DD date resolves through tz, your IANA timezone, which is required whenever a date carries no time. Value faults return an empty set plus a warnings array.',
     {
       limit: LIMIT.optional(),
       priority: PRIORITY.optional(),
@@ -577,7 +592,7 @@ export function buildMcpServer(
   register(
     server,
     'overview',
-    'Session-boot orientation for ONE project (MMR-278): a header (project id, status word, rollup distribution), in-flight tasks (in_progress + under_review, uncapped), the ready-queue head (next, top 5), dependency-gated tasks (awaiting, top 5, each carrying the upstream ids it awaits), and hygiene counts (untriaged seeds, blocked, stale, and parked_seeds — parked seeds are counted, never listed). scope defaults to the bound board; "all" is rejected — a composite is one project, use list for a cross-project set. Every section carries its TRUE total even when its list is capped. Returns one composite JSON envelope.',
+    'Session-boot orientation for ONE project (MMR-278): a header (project id, status word, rollup distribution), in-flight tasks (queued + in_progress + under_review, uncapped), the ready-queue head (next, top 5), dependency-gated tasks (awaiting, top 5, each carrying the upstream ids it awaits), and hygiene counts (untriaged seeds, blocked, stale, and parked_seeds — parked seeds are counted, never listed). scope defaults to the bound board; "all" is rejected — a composite is one project, use list for a cross-project set. Every section carries its TRUE total even when its list is capped. Returns one composite JSON envelope.',
     { scope: z.string().optional() },
     async (args: { scope?: string }) => toolOverview(store, args, await boundUnless(args.scope)),
   );

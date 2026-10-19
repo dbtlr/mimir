@@ -711,3 +711,17 @@ Considered and rejected:
 - **A rail of project tiles beside the sidebar.** One-click switching
   everywhere without disturbing the panel, but it adds chrome that ADR 0019
   does not describe, and a three-letter key is a tile's only label.
+
+## 2026-10-19 refinement: queued reservations in Now (MMR-564)
+
+The work page's Now section includes `queued` alongside `in_progress`. A queued
+row reads “Queued” with its reservation time and run handles, distinguishing
+reserved work from a worker's claim. The review page inherits this Now bucket,
+and its project in-flight count includes both statuses. The overview's in-flight
+list additionally includes `under_review`, as before. Frontier remains todo work;
+its one-step prerequisite set remains `in_progress`, `under_review`, or `ready`.
+
+A queued task's record offers Start, Cancel reservation, Mark done, and Abandon.
+Cancellation requires a reason and calls `unqueue`; parking and blocking become
+available after the reservation is released. The status badge, timeline, and
+selectors use the shared queued status word.

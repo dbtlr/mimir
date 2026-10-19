@@ -11,6 +11,8 @@ import {
   blockTask,
   completeTask,
   parkTask,
+  queueTask,
+  unqueueTask,
   reopenTask,
   returnTask,
   startTask,
@@ -50,11 +52,11 @@ export type OpResult = Node | Project;
  * binding. `run` receives the already-resolved canonical id (a node stem for a
  * `task` subject, a project id for a `project` subject — each transport does its
  * own subject-kind resolution), the optional reason, and the extra data-plane
- * fields the verb's {@link OpFact.fields} declares (only `start`'s resume
+ * fields the verb's {@link OpFact.fields} declares (`queue`'s run handles and `start`'s worker
  * handles), the verb's already-validated {@link OpFact.choice} value (only
  * `block --on`), and delegates to the core mutation fn. A binding drops the arguments
  * its verb doesn't take (e.g. `unarchiveProject` has no reason slot at all —
- * absorbed here), so the widened signature costs the other eleven nothing.
+ * absorbed here), so the widened signature costs the other verbs nothing.
  */
 export type OpSpec = OpFact & {
   run: (
@@ -118,6 +120,7 @@ const OP_RUN: Record<UniformVerb, OpSpec['run']> = {
   block: (store, id, reason, _fields, choice) => blockTask(store, id, reason, blockOwnerOf(choice)),
   done: (store, id) => completeTask(store, id),
   park: (store, id, reason) => parkTask(store, id, reason),
+  queue: (store, id, _reason, fields) => queueTask(store, id, fields),
   reopen: (store, id, reason) => reopenTask(store, id, reason),
   return: (store, id, reason) => returnTask(store, id, reason),
   start: (store, id, _reason, fields) => startTask(store, id, fields),
@@ -125,6 +128,7 @@ const OP_RUN: Record<UniformVerb, OpSpec['run']> = {
   unarchive: (store, id) => unarchiveProject(store, id),
   unblock: (store, id) => unblockTask(store, id),
   unpark: (store, id) => unparkTask(store, id),
+  unqueue: (store, id, reason) => unqueueTask(store, id, reason),
 };
 
 /** A seed binding of a uniform verb (MMR-473): the seed id, the optional reason,

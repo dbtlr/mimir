@@ -259,6 +259,19 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
     expect(now).toHaveTextContent('Latest note, 9m ago: “Seam extracted”');
   });
 
+  it('shows a reservation as queued in Now', async () => {
+    await open(
+      scope,
+      engineWork({
+        now: [makeNowRow({ lifecycle: 'queued', status: 'queued', title: 'Reserved task' })],
+      }),
+    );
+    const now = await section('Now · 1');
+    expect(now).toHaveTextContent('Reserved task');
+    expect(now).toHaveTextContent('Queued');
+    expect(now).not.toHaveTextContent('Started');
+  });
+
   it('lists what needs you with why, and the question a needs-answers task asks', async () => {
     await open(scope, engineWork({ needsYou: [reviewRow, blockedRow, answersRow] }));
 
@@ -433,7 +446,7 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
     await open(scope);
 
     await expect(section('Now')).resolves.toHaveTextContent(
-      'Nothing running. No task is in progress.',
+      'Nothing running. No task is queued or in progress.',
     );
     await expect(section('Needs you')).resolves.toHaveTextContent(
       'Nothing needs you. No reviews, blocks, or questions are waiting.',

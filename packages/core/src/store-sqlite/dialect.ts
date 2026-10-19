@@ -19,6 +19,7 @@ import { statements as blockOwner } from './migrations/0003-block-owner';
 import { statements as seedParked } from './migrations/0004-seed-parked';
 import { statements as projectPinned } from './migrations/0005-project-pinned';
 import { statements as projectRemote } from './migrations/0006-project-remote';
+import { statements as taskQueued } from './migrations/0007-task-queued';
 
 /**
  * The SQLite dialect of the shared SQL store (ADR 0032) — the local tier's
@@ -103,6 +104,7 @@ export const sqliteDialect: StoreDialect = {
     '0004_seed_parked': seedParked,
     '0005_project_pinned': projectPinned,
     '0006_project_remote': projectRemote,
+    '0007_task_queued': taskQueued,
   },
   // A local store migrates forward whenever it is opened (ADR 0032 Decision
   // 3), so a gap only shows to a reader that skipped the opener.

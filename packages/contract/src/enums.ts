@@ -21,6 +21,7 @@ export type NodeType = (typeof NODE_TYPE_VALUES)[number];
  */
 export const LIFECYCLE_VALUES = [
   'todo',
+  'queued',
   'in_progress',
   'under_review',
   'done',
@@ -69,6 +70,7 @@ export const STATUS_WORD_VALUES = [
   'awaiting',
   'blocked',
   'parked',
+  'queued',
   'in_progress',
   'under_review',
   'done',
@@ -83,6 +85,7 @@ export const TASK_STATUS_WORD_VALUES = [
   'awaiting',
   'blocked',
   'parked',
+  'queued',
   'in_progress',
   'under_review',
   'done',

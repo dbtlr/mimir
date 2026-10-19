@@ -21,6 +21,7 @@ import {
   unblock,
   undepend,
   unpark,
+  unqueue,
   untag,
   update,
 } from './fns/nodes';
@@ -45,6 +46,7 @@ const VERB_FNS = {
   submit,
   unblock,
   unpark,
+  unqueue,
 } satisfies Record<TransitionVerb, unknown>;
 
 export type TransitionInput = {
@@ -61,7 +63,9 @@ export function useTransition(id: string) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
     mutationFn: ({ verb, reason }: TransitionInput) =>
-      VERB_FNS[verb]({ data: { id, ...reasonBody(reason) } }),
+      verb === 'unqueue'
+        ? unqueue({ data: { id, reason: reason ?? '' } })
+        : VERB_FNS[verb]({ data: { id, ...reasonBody(reason) } }),
     onError: (err: Error) => {
       toast.error(err.message);
     },

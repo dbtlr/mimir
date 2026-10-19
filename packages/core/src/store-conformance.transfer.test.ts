@@ -471,12 +471,12 @@ describe.each(backends)('$name', (backend) => {
       try {
         const refusal = await refusalOf(
           futureTarget.store.import(
-            { ...document, schema_version: 6 },
+            { ...document, schema_version: 7 },
             { dryRun: false, mode: 'fresh' },
           ),
         );
-        expect(refusal).toContain('unsupported transfer document schema version 6');
-        expect(refusal).toContain('this binary reads schema versions 1, 2, 3, 4, 5');
+        expect(refusal).toContain('unsupported transfer document schema version 7');
+        expect(refusal).toContain('this binary reads schema versions 1, 2, 3, 4, 5, 6');
       } finally {
         await futureTarget.close();
       }
@@ -489,7 +489,7 @@ describe.each(backends)('$name', (backend) => {
     try {
       await seedWorkingSet(source.store);
       const document = await source.store.export();
-      expect(document.schema_version).toBe(5);
+      expect(document.schema_version).toBe(6);
 
       // Only the blocked task carries an owner; the fixture states `others`, which
       // the derivation rule (no upstream, so `you`) would not produce.
@@ -519,7 +519,7 @@ describe.each(backends)('$name', (backend) => {
           };
           await legacyTarget.store.import(legacy, { dryRun: false, mode: 'fresh' });
           const imported = await legacyTarget.store.export();
-          expect(imported.schema_version).toBe(5);
+          expect(imported.schema_version).toBe(6);
           for (const node of imported.nodes) {
             expect(node.block_owner, node.id).toBe(node.hold === 'blocked' ? expected : null);
           }
@@ -561,7 +561,7 @@ describe.each(backends)('$name', (backend) => {
         };
         await legacyTarget.store.import(legacy, { dryRun: false, mode: 'fresh' });
         const imported = await legacyTarget.store.export();
-        expect(imported.schema_version).toBe(5);
+        expect(imported.schema_version).toBe(6);
         expect(imported.projects.map((project) => project.pinned)).toEqual([false, false]);
       } finally {
         await legacyTarget.close();
@@ -632,7 +632,7 @@ describe.each(backends)('$name', (backend) => {
         };
         await legacyTarget.store.import(legacy, { dryRun: false, mode: 'fresh' });
         const imported = await legacyTarget.store.export();
-        expect(imported.schema_version).toBe(5);
+        expect(imported.schema_version).toBe(6);
         expect(imported.projects.map((project) => project.remote)).toEqual([null, null]);
       } finally {
         await legacyTarget.close();

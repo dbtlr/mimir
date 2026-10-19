@@ -538,26 +538,26 @@ const VERB_OWNED_FLAGS: readonly {
   {
     flag: '--host',
     given: (values) => values.host !== undefined,
-    hint: `'--host' sets a resume handle at create/update/start; list/next filter with '--eq host:KEY'`,
-    owner: ['create', 'update', 'start'],
+    hint: `'--host' sets a resume handle at create/update/queue/start; list/next filter with '--eq host:KEY'`,
+    owner: ['create', 'update', 'queue', 'start'],
   },
   {
     flag: '--harness',
     given: (values) => values.harness !== undefined,
-    hint: `'--harness' sets a resume handle at create/update/start; list/next filter with '--eq harness:KEY'`,
-    owner: ['create', 'update', 'start'],
+    hint: `'--harness' sets a resume handle at create/update/queue/start; list/next filter with '--eq harness:KEY'`,
+    owner: ['create', 'update', 'queue', 'start'],
   },
   {
     flag: '--session',
     given: (values) => values.session !== undefined,
-    hint: `'--session' sets a resume handle at create/update/start; list/next filter with '--eq session:KEY'`,
-    owner: ['create', 'update', 'start'],
+    hint: `'--session' sets a resume handle at create/update/queue/start; list/next filter with '--eq session:KEY'`,
+    owner: ['create', 'update', 'queue', 'start'],
   },
   {
     flag: '--branch',
     given: (values) => values.branch !== undefined,
-    hint: `'--branch' sets a resume handle at create/update/start; list/next filter with '--eq branch:KEY'`,
-    owner: ['create', 'update', 'start'],
+    hint: `'--branch' sets a resume handle at create/update/queue/start; list/next filter with '--eq branch:KEY'`,
+    owner: ['create', 'update', 'queue', 'start'],
   },
   // `--project` and `--requester` have no `QUERY_FIELDS` counterpart, but each
   // is a real filter/selector on a sibling verb — see the doc comment above.

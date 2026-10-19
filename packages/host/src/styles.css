@@ -85,6 +85,8 @@
   --color-status-new-foreground: #8fa0ae;
   --color-status-ready: #57b3d9;
   --color-status-ready-foreground: #7cc4e0;
+  --color-status-queued: #70a0ce;
+  --color-status-queued-foreground: #9bbce0;
   --color-status-in-progress: #dfa64a;
   --color-status-in-progress-foreground: #e8c286;
   --color-status-under-review: #af8de6;
@@ -231,6 +233,8 @@ body {
   --color-status-new-foreground: #5a6b77;
   --color-status-ready: #1b7dbf;
   --color-status-ready-foreground: #12608f;
+  --color-status-queued: #4b78a8;
+  --color-status-queued-foreground: #345e89;
   --color-status-in-progress: #b57c1e;
   --color-status-in-progress-foreground: #8a5c10;
   --color-status-under-review: #7a55c4;

@@ -53,9 +53,9 @@ function mcpToolProps(name: string): string[] {
   return Object.keys(json.properties ?? {});
 }
 
-test('the registry advertises exactly the twelve uniform verbs', () => {
+test('the registry advertises exactly the fourteen uniform verbs', () => {
   expect(OP_SPECS.map((s) => s.verb)).toEqual([...UNIFORM_VERBS]);
-  expect(OP_SPECS).toHaveLength(12);
+  expect(OP_SPECS).toHaveLength(14);
 });
 
 test('every uniform verb surfaces on both transports', () => {
@@ -68,7 +68,7 @@ test('every uniform verb surfaces on both transports', () => {
     expect(tools.has(spec.verb)).toBe(true);
     const props = new Set(mcpToolProps(spec.verb));
     expect(props.has(spec.subject === 'project' ? 'key' : 'id')).toBe(true);
-    expect(props.has('reason')).toBe(spec.reason === 'optional');
+    expect(props.has('reason')).toBe(spec.reason !== 'none');
   }
 });
 
@@ -78,7 +78,9 @@ test('golden: the derived rendered text is pinned exactly (CLI + MCP)', () => {
   // here. This is the golden pin for the rendered-text derivation (MMR-316).
   const rows = OP_SPECS.map((s) => `${s.verb}|${uniformArgSpec(s)}|${uniformSummary(s)}`);
   expect(rows).toEqual([
-    'start|<id>|begin a task (todo → in_progress)',
+    'queue|<id>|reserve a task for an autonomous run (todo → queued)',
+    'unqueue|<id> <reason>|cancel a reservation and return the task to todo (queued → todo)',
+    'start|<id>|begin a task (todo/queued → in_progress)',
     'submit|<id>|submit for review (in_progress → under_review)',
     'return|<id> [reason]|send back for changes (under_review → in_progress)',
     'done|<id>|complete a task (approves a review)',
@@ -92,7 +94,9 @@ test('golden: the derived rendered text is pinned exactly (CLI + MCP)', () => {
     'unarchive|<KEY>|restore an archived project',
   ]);
   expect(OP_SPECS.map((s) => uniformToolDescription(s))).toEqual([
-    'Begin a task (todo → in_progress). Echoes the updated node.',
+    'Reserve a task for an autonomous run (todo → queued). Requires session. Echoes the updated node.',
+    'Cancel a reservation and return the task to todo (queued → todo). Requires a reason recorded on the transition. Echoes the updated node.',
+    'Begin a task (todo/queued → in_progress). Echoes the updated node.',
     'Submit for review (in_progress → under_review). Echoes the updated node.',
     'Send back for changes (under_review → in_progress). Optionally records a reason on the transition. Echoes the updated node.',
     'Complete a task (approves a review). Echoes the updated node.',
@@ -121,6 +125,8 @@ test('golden: the per-command arg rows are pinned exactly', () => {
   const key = '<KEY> — a project key (bare KEY)';
   const reason = '[reason] — optional note recorded in the transition log';
   expect(rows).toEqual([
+    `queue|${id}`,
+    `unqueue|${id}; <reason> — required note recorded in the transition log`,
     `start|${id}`,
     `submit|${id}`,
     `return|${id}; ${reason}`,
@@ -147,8 +153,11 @@ test('golden: only block declares a choice argument, and only start declares dat
   expect(OP_FACTS.block.choice.values).toEqual(['you', 'others']);
 });
 
-test('golden: only start declares extra data-plane fields', () => {
-  expect(OP_SPECS.flatMap((s) => (s.fields === undefined ? [] : [s.verb]))).toEqual(['start']);
+test('golden: queue and start declare extra data-plane fields', () => {
+  expect(OP_SPECS.flatMap((s) => (s.fields === undefined ? [] : [s.verb]))).toEqual([
+    'queue',
+    'start',
+  ]);
   expect(OP_FACTS.start.fields).toEqual(['branch', 'harness', 'host', 'session']);
 });
 
@@ -156,6 +165,8 @@ test('golden: the advertised MCP arg names are pinned per verb', () => {
   // Only `start` gained args; every other verb advertises exactly its subject id
   // (+ reason where its policy allows one), in advertised alphabetical order.
   expect(OP_SPECS.map((s) => `${s.verb}|${mcpToolProps(s.verb).join(',')}`)).toEqual([
+    'queue|branch,harness,host,id,session',
+    'unqueue|id,reason',
     'start|branch,harness,host,id,session',
     'submit|id',
     'return|id,reason',
@@ -175,6 +186,8 @@ test('golden: the CLI usage lines and flag rows are pinned per verb', () => {
   // The eleven keep a bare `mimir <verb> <subject> [reason?]` usage and NO flags
   // key at all; `start` appends its derived flag grammar.
   expect(OP_SPECS.map((s) => `${s.verb}|${COMMAND_HELP[s.verb]?.usage ?? ''}`)).toEqual([
+    'queue|mimir queue <id> [--branch <text>] [--harness <text>] [--host <text>] --session <text>',
+    'unqueue|mimir unqueue <id> <reason>',
     'start|mimir start <id> [--branch <text>] [--harness <text>] [--host <text>] [--session <text>]',
     'submit|mimir submit <id>',
     'return|mimir return <id> [reason]',
@@ -190,7 +203,7 @@ test('golden: the CLI usage lines and flag rows are pinned per verb', () => {
   ]);
   for (const spec of OP_SPECS) {
     expect(COMMAND_HELP[spec.verb]?.flags === undefined).toBe(
-      spec.verb !== 'start' && spec.verb !== 'block',
+      spec.verb !== 'start' && spec.verb !== 'queue' && spec.verb !== 'block',
     );
   }
   expect(COMMAND_HELP.block?.flags).toEqual([
@@ -313,4 +326,15 @@ test('OP_SPECS is OP_FACTS composed in UNIFORM_VERBS order', () => {
     expect(spec.reason).toBe(OP_FACTS[spec.verb].reason);
     expect(spec.summary).toBe(OP_FACTS[spec.verb].summary);
   }
+});
+
+test('reservation MCP inputs require a session and cancellation reason', () => {
+  const queue = z.object(uniformToolSchema(OP_FACTS.queue));
+  const unqueue = z.object(uniformToolSchema(OP_FACTS.unqueue));
+  expect(queue.safeParse({ id: 'MMR-3' }).success).toBe(false);
+  expect(queue.safeParse({ id: 'MMR-3', session: ' ' }).success).toBe(false);
+  expect(queue.safeParse({ id: 'MMR-3', session: 'run-1' }).success).toBe(true);
+  expect(unqueue.safeParse({ id: 'MMR-3' }).success).toBe(false);
+  expect(unqueue.safeParse({ id: 'MMR-3', reason: ' ' }).success).toBe(false);
+  expect(unqueue.safeParse({ id: 'MMR-3', reason: 'cancelled' }).success).toBe(true);
 });

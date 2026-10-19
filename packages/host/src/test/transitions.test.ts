@@ -21,6 +21,12 @@ describe('availableTransitions', () => {
     );
   });
 
+  it('queued can start, cancel the reservation, or settle, with a cancellation reason', () => {
+    const specs = availableTransitions('queued');
+    expect(specs.map((v) => v.verb)).toStrictEqual(['start', 'unqueue', 'done', 'abandon']);
+    expect(specs.find((v) => v.verb === 'unqueue')?.needsReason).toBe(true);
+  });
+
   it('in_progress offers submit + done instead of start', () => {
     expect(availableTransitions('in_progress').map((v) => v.verb)).toStrictEqual([
       'submit',

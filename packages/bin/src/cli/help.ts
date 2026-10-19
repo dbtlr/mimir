@@ -7,7 +7,7 @@ import { bold, color } from '../presentation';
 import { updateFieldFlags } from './mutations';
 
 // ─── Uniform-verb help derivation (ADR 0025 Decision 4) ─────────────────────
-// The twelve uniform verbs' terse rows and per-command descriptors derive from
+// The fourteen uniform verbs' terse rows and per-command descriptors derive from
 // the operation facts, not hand-authored prose: the synopsis (verb + id-kind +
 // optional reason), the summary (the canonical sentence plus the lifecycle
 // transition arrow), and the args all project from one registry entry. Only the
@@ -25,19 +25,24 @@ const UNIFORM_SPECS: readonly UniformSpec[] = UNIFORM_SPEC_LIST;
  * optional reason tail (`<id>`, `<id> [reason]`, `<KEY>`, `<KEY> [reason]`). */
 export function uniformArgSpec(spec: OpFact): string {
   const subject = spec.subject === 'project' ? '<KEY>' : '<id>';
+  if (spec.reason === 'required') {
+    return `${subject} <reason>`;
+  }
   return spec.reason === 'optional' ? `${subject} [reason]` : subject;
 }
 
 /**
  * The optional-flag grammar for a uniform verb's declared extra data-plane
- * fields (ADR 0026 — only `start`'s resume handles): ` [--host <text>] …` in the
+ * fields (ADR 0026 — `queue` and `start`'s resume handles): ` [--host <text>] …` in the
  * registry's key order, derived from the same flag template `update` renders. The
- * empty string for the eleven verbs that declare none, so their usage lines and
+ * empty string for verbs that declare none, so their usage lines and
  * terse rows are byte-identical to before.
  */
 export function uniformFlagSpec(spec: OpFact): string {
   const fields = specUpdateFields(spec.fields ?? []).flatMap((field) =>
-    updateFieldFlags(field.update).map(([, flag]) => ` [${flag} <text>]`),
+    updateFieldFlags(field.update).map(([, flag]) =>
+      spec.requiredFields?.includes(field.key) === true ? ` ${flag} <text>` : ` [${flag} <text>]`,
+    ),
   );
   return [...fields, ...(spec.choice === undefined ? [] : [` [${choiceFlag(spec.choice)}]`])].join(
     '',
@@ -55,7 +60,7 @@ export function uniformFlagRows(spec: OpFact): Row[] {
   const fields = specUpdateFields(spec.fields ?? []).flatMap((field) =>
     updateFieldFlags(field.update).map(([, flag]): Row => [
       flag,
-      FIELD_ARG_HELP[field.key] ?? `${field.key} recorded on the row`,
+      `${FIELD_ARG_HELP[field.key] ?? `${field.key} recorded on the row`}${spec.requiredFields?.includes(field.key) === true ? ' (required)' : ''}`,
     ]),
   );
   const choice: Row[] =
@@ -181,7 +186,7 @@ options:
 
   selection (list/next — AND-composed):
   -q, --query <text>      case-insensitive substring over the title or id
-      --status <word>     list: the universe — ready|awaiting|in_progress|
+      --status <word>     list: the universe — ready|awaiting|queued|in_progress|
                           under_review|blocked|parked|done|abandoned, or
                           unions live (default) | terminal | all
                           projects: active (default) | archived | all
@@ -240,10 +245,10 @@ options:
       --grouped           seeds: lane view (untriaged/ready/settled; parked with --status all)
       --upstream <KEY-sN> create/update task: requester-side seed pointer
       --groomed           create task: born groomed (carved from a finished design)
-      --host <text>       create/start/update: the machine the work happens on
-      --harness <text>    create/start/update: the agent harness running it
-      --session <text>    create/start/update: the session id to resume from
-      --branch <text>     create/start/update: the branch the work lives on
+      --host <text>       create/queue/start/update: the machine the work happens on
+      --harness <text>    create/queue/start/update: the agent harness running it
+      --session <text>    create/queue/start/update: the session id to resume from
+      --branch <text>     create/queue/start/update: the branch the work lives on
                           (the four task-only resume handles — cleared on
                           done/abandon and on park/block; a blank on update
                           clears one)
@@ -343,6 +348,7 @@ const UNIFORM_EXAMPLES: Record<UniformVerb, readonly string[]> = {
     'mimir park MMR-3 "waiting on design"',
     'mimir park MMR-s4 "after v1"   # a seed: kept, no longer untriaged',
   ],
+  queue: ['mimir queue MMR-3 --harness codex --session run-91'],
   reopen: ['mimir reopen MMR-3'],
   return: ['mimir return MMR-3 "needs tests"'],
   start: [
@@ -354,21 +360,29 @@ const UNIFORM_EXAMPLES: Record<UniformVerb, readonly string[]> = {
   unarchive: ['mimir unarchive SAGA'],
   unblock: ['mimir unblock MMR-3'],
   unpark: ['mimir unpark MMR-3', 'mimir unpark MMR-s4   # a seed: back to untriaged'],
+  unqueue: ['mimir unqueue MMR-3 "run cancelled"'],
 };
 
-/** The per-command descriptors for the twelve uniform verbs, projected from the
+/** The per-command descriptors for the fourteen uniform verbs, projected from the
  * operation facts (ADR 0025): the usage line, the summary (canonical sentence +
  * transition arrow), and the args (subject id-kind + optional reason) all derive;
  * only the examples are hand-authored. Merged into {@link COMMAND_HELP} below. */
+function reasonArg(spec: OpFact): Row[] {
+  if (spec.reason === 'required') {
+    return [['<reason>', 'required note recorded in the transition log']];
+  }
+  return spec.reason === 'optional' ? [A_REASON] : [];
+}
+
 function uniformCommandHelp(): Record<string, CommandHelp> {
   const out: Record<string, CommandHelp> = {};
   for (const spec of UNIFORM_SPECS) {
     const subjectArg = spec.subject === 'project' ? A_KEY : A_ID;
     out[spec.verb] = {
-      args: spec.reason === 'optional' ? [subjectArg, A_REASON] : [subjectArg],
+      args: [subjectArg, ...reasonArg(spec)],
       examples: UNIFORM_EXAMPLES[spec.verb],
       // Extra data-plane fields (ADR 0026) surface as flags, not positionals —
-      // an empty list for the eleven verbs that declare none, so their
+      // an empty list for verbs that declare none, so their
       // descriptors keep no `flags` key at all.
       ...(spec.fields === undefined && spec.choice === undefined
         ? {}
@@ -651,7 +665,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     summary: 'full subtree rooted at any KEY-seq or project (KEY)',
     usage: 'mimir tree <id>',
   },
-  // ── lifecycle + holds + project: the twelve uniform verbs, derived from the
+  // ── lifecycle + holds + project: the fourteen uniform verbs, derived from the
   // operation registry (ADR 0025 Decision 4). The bespoke `structure`/`data`/…
   // verbs stay hand-authored below.
   ...uniformCommandHelp(),

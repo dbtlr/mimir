@@ -30,6 +30,9 @@ import { clearHandles } from './handles';
  */
 
 function assertHoldable(task: Node): void {
+  if (task.lifecycle === 'queued') {
+    throw validation('cannot hold a queued task', 'unqueue the task first');
+  }
   if (task.lifecycle === 'done' || task.lifecycle === 'abandoned') {
     throw validation(`cannot hold a ${task.lifecycle} task`);
   }

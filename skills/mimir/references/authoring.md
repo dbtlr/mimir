@@ -166,16 +166,45 @@ mimir update KEY-4 --direction ""      # clear it
 ## Resume handles: how the work is picked back up
 
 ```sh
-mimir start KEY-9 --host $(hostname) --harness codex --session "$SESSION" --branch feat/key-9
+mimir queue KEY-9 --harness codex --session "$RUN_SESSION"
+mimir start KEY-9 --host $(hostname) --harness codex --session "$WORKER_SESSION" --branch feat/key-9
 mimir update KEY-9 --session "$SESSION" --branch feat/key-9   # resuming, or taking over
 mimir update KEY-9 --session ''                               # a blank clears one
 ```
 
-Set them at `start` — they answer what is happening, what did happen, and how to
-continue. There is **no claim verb**: `in_progress` is the claim, so resuming a
-task you left or taking one over from another agent is a plain `update`
-overwrite of the same four fields. Set what you actually know and leave the rest
-absent; an unclaimed task legitimately carries none.
+Always pass `--harness` and `--session` on **every queue and start**, including
+direct starts without a reservation. Use your harness's own knowledge of its
+identity and resumable session id. Inherited shell variables can describe an
+outer harness; they never override what the running agent knows about itself.
+The usual shell signals are:
+
+| Harness | Session id in its tool shell |
+| --- | --- |
+| Claude Code (`claude`) | `CLAUDE_CODE_SESSION_ID` (`CLAUDECODE=1` identifies the harness) |
+| Codex (`codex`) | `CODEX_THREAD_ID` |
+| opencode (`opencode`) | `OPENCODE_SESSION_ID` (`OPENCODE=1` identifies the harness) |
+
+Use the session id belonging to the harness performing the action. With nested
+harnesses, identify the inner session from its own context rather than choosing
+an inherited outer id. If the identity cannot be established, resolve it before
+recording a reservation or claim; a made-up session cannot resume the work.
+
+The CLI can fill omitted harness/session flags from one unambiguous harness's
+shell environment. Explicit flags win, including blank values that clear a
+field. Multiple detected harnesses produce a note and no auto-fill. This is a
+fallback for shell CLI calls, not the agent workflow: MCP uses the server's
+environment, so callers provide their own handles explicitly.
+
+`queue` records the orchestrator's run handles: a reservation, not a claim that
+a worker is already working. `start` records the worker's own handles and claims
+`in_progress`. From queued, **all** run handles are replaced: omitted worker host
+or branch becomes empty rather than inheriting the orchestrator's. The two
+transition rows retain run → worker linkage. `unqueue` clears the reservation's
+handles and echoes them with its required cancellation reason.
+
+For an already-started task, resuming or taking over is a plain `update`
+overwrite of the same four fields. Set what you actually know; host and branch
+are optional, while harness and session identify the agent performing the work.
 
 `done`/`abandon` and `park`/`block` clear all four, so a settled or held task
 never carries a stale pointer. `submit` and `return` keep them — the branch and

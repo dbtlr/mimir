@@ -3,6 +3,7 @@ import type { StatusWord } from '@mimir/contract';
 /** The mutation verbs a human can drive from the console (lifecycle + hold). */
 export type TransitionVerb =
   | 'start'
+  | 'unqueue'
   | 'submit'
   | 'return'
   | 'done'
@@ -31,6 +32,7 @@ const LABEL: Record<TransitionVerb, string> = {
   submit: 'Submit for review',
   unblock: 'Unblock',
   unpark: 'Resume',
+  unqueue: 'Cancel reservation',
 };
 
 /** The plain-language label for a transition — the one source for every console surface. */
@@ -38,13 +40,20 @@ export function transitionLabel(verb: TransitionVerb): string {
   return LABEL[verb];
 }
 
-const NEEDS_REASON = new Set<TransitionVerb>(['park', 'block', 'abandon', 'return', 'reopen']);
+const NEEDS_REASON = new Set<TransitionVerb>([
+  'park',
+  'block',
+  'abandon',
+  'return',
+  'reopen',
+  'unqueue',
+]);
 
 /**
  * The verbs offered for each displayed status word — keyed on what the operator
  * sees, not raw lifecycle, so we never offer Start on a held card. Mirrors the
- * core verb guards exactly (start needs todo; done/abandon need non-terminal;
- * park/block need non-terminal + hold=none; unpark/unblock need the matching
+ * core verb guards exactly (start needs todo or queued; done/abandon need non-terminal;
+ * park/block need non-terminal, non-queued + hold=none; unpark/unblock need the matching
  * hold). The core stays the authority and rejects anything illegal.
  */
 const VERBS: Partial<Record<StatusWord, TransitionVerb[]>> = {
@@ -54,6 +63,7 @@ const VERBS: Partial<Record<StatusWord, TransitionVerb[]>> = {
   done: ['reopen'],
   in_progress: ['submit', 'done', 'park', 'block', 'abandon'],
   parked: ['unpark', 'abandon'],
+  queued: ['start', 'unqueue', 'done', 'abandon'],
   ready: ['start', 'park', 'block', 'abandon'],
   under_review: ['done', 'return', 'park', 'block', 'abandon'],
 };

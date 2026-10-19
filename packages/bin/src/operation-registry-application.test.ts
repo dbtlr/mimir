@@ -14,6 +14,7 @@ import {
   findNodeInSet,
   nodeStatusWord,
   parkTask,
+  queueTask,
   startTask,
   submitTask,
 } from '@mimir/core';
@@ -59,6 +60,10 @@ async function taskInPreState(verb: UniformVerb): Promise<string> {
   const ref = `MMR-${String(task.seq)}`;
   const id = await nodeIdOf(store, ref);
   switch (verb) {
+    case 'unqueue': {
+      await queueTask(store, id, { harness: 'codex', session: 'run-1' });
+      break;
+    }
     case 'submit':
     case 'done': {
       // `done` is legal from todo, but exercise the in_progress path.
@@ -108,12 +113,14 @@ const NODE_POST: Partial<Record<UniformVerb, TaskStatusWord>> = {
   block: 'blocked',
   done: 'done',
   park: 'parked',
+  queue: 'queued',
   reopen: 'in_progress',
   return: 'in_progress',
   start: 'in_progress',
   submit: 'under_review',
   unblock: 'ready',
   unpark: 'ready',
+  unqueue: 'ready',
 };
 
 async function nodeStatus(ref: string): Promise<TaskStatusWord | undefined> {
@@ -129,14 +136,29 @@ async function projectArchived(key: string): Promise<boolean> {
 
 type Driver = (verb: UniformVerb, ref: string) => Promise<void>;
 
+function verbArgs(verb: UniformVerb): string[] {
+  if (verb === 'queue') {
+    return ['--harness', 'codex', '--session', 'run-1'];
+  }
+  return verb === 'unqueue' ? ['cancelled'] : [];
+}
+
 const cliDrive: Driver = async (verb, ref) => {
-  const code = await runCli([verb, ref, '-f', 'json'], () => store, fakeIo(false));
+  const code = await runCli(
+    [verb, ref, ...verbArgs(verb), '-f', 'json'],
+    () => store,
+    fakeIo(false),
+  );
   expect(code).toBe(0);
 };
 
 const mcpDrive: Driver = async (verb, ref) => {
   const args = OP_FACTS[verb].subject === 'project' ? { key: ref } : { id: ref };
-  const res = await toolUniform(store, verb, args);
+  const res = await toolUniform(store, verb, {
+    ...args,
+    ...(verb === 'queue' ? { harness: 'codex', session: 'run-1' } : {}),
+    ...(verb === 'unqueue' ? { reason: 'cancelled' } : {}),
+  });
   expect(res.isError).toBeUndefined();
 };
 
@@ -157,6 +179,7 @@ const ECHO_SIGNPOST: Record<UniformVerb, (ref: string) => string> = {
   block: (r) => `[ok] blocked ${r}`,
   done: (r) => `[ok] completed ${r}`,
   park: (r) => `[ok] parked ${r}`,
+  queue: (r) => `[ok] queued ${r} · todo -> queued`,
   reopen: (r) => `[ok] reopened ${r} -> in_progress`,
   return: (r) => `[ok] returned ${r} · under_review -> in_progress`,
   start: (r) => `[ok] started ${r} · todo -> in_progress`,
@@ -164,6 +187,7 @@ const ECHO_SIGNPOST: Record<UniformVerb, (ref: string) => string> = {
   unarchive: (r) => `[ok] unarchived ${r}`,
   unblock: (r) => `[ok] unblocked ${r}`,
   unpark: (r) => `[ok] unparked ${r}`,
+  unqueue: (r) => `[ok] unqueued ${r} · queued -> todo · cancelled`,
 };
 
 async function refInPreState(verb: UniformVerb): Promise<string> {
@@ -175,7 +199,7 @@ async function refInPreState(verb: UniformVerb): Promise<string> {
 test.each([...UNIFORM_VERBS])('cli echo golden: %s', async (verb) => {
   const ref = await refInPreState(verb);
   const io = fakeIo(false);
-  expect(await runCli([verb, ref, '-f', 'records'], () => store, io)).toBe(0);
+  expect(await runCli([verb, ref, ...verbArgs(verb), '-f', 'records'], () => store, io)).toBe(0);
   expect(io.out.join('\n')).toContain(ECHO_SIGNPOST[verb](ref));
 });
 

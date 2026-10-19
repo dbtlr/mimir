@@ -22,6 +22,7 @@ import {
   unblock,
   undepend,
   unpark,
+  unqueue,
   untag,
   update,
 } from '../api/fns/nodes';
@@ -94,6 +95,7 @@ export function serveNodes(world: Partial<NodeWorld> = {}): NodeWorld {
     unblock,
     undepend,
     unpark,
+    unqueue,
     update,
   ]) {
     vi.mocked(write).mockImplementation(echo);
