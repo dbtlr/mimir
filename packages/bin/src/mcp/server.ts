@@ -2,6 +2,8 @@ import {
   BLOCK_OWNER_VALUES,
   GROOMING_VALUES,
   HOLD_VALUES,
+  HANDLE_FIELD_KEYS,
+  MAIN_HANDLE_FIELD_KEYS,
   isTerminalLifecycle,
   LIFECYCLE_VALUES,
   PRIORITY_VALUES,
@@ -892,7 +894,13 @@ export function buildMcpServer(
     // Scalar-field args derive from the field spec (ADR 0025); the identity/topology
     // args (type/key/name/parent/title/tags) stay hand-listed. Sorted to keep order.
     sortedShape({
-      ...fieldInputShape(),
+      ...fieldInputShape(
+        SPEC_UPDATE_FIELDS.filter(
+          (field) =>
+            !HANDLE_FIELD_KEYS.some((key) => key === field.key) ||
+            MAIN_HANDLE_FIELD_KEYS.some((key) => key === field.key),
+        ),
+      ),
       description: z.string().optional(),
       groomed: z.boolean().optional(),
       key: z.string().optional(),

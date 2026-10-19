@@ -151,6 +151,8 @@ function task(seq: number, overrides: Partial<Node> = {}): Node {
     type: 'task',
     updated_at: STAMP,
     upstream: null,
+    worker_harness: null,
+    worker_session: null,
     ...overrides,
   };
 }
@@ -278,6 +280,8 @@ function wideDocument(count: number): StoreExport {
       type: 'task',
       updated_at: STAMP,
       upstream: null,
+      worker_harness: null,
+      worker_session: null,
     });
   }
   return {

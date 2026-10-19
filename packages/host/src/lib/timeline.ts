@@ -1,4 +1,6 @@
 import type { EngineNode } from '@mimir/contract';
+import { parseJson } from '@mimir/helpers';
+import { z } from 'zod';
 
 /** One transition_log entry of a node's history. */
 export type HistoryEntry = NonNullable<EngineNode['history']>[number];
@@ -33,9 +35,44 @@ export function buildFeed(
   return items.toSorted((a, b) => a.sort - b.sort);
 }
 
+const identitySchema = z.object({
+  harness: z.string().nullish(),
+  session: z.string().nullish(),
+  worker_harness: z.string().nullish(),
+  worker_session: z.string().nullish(),
+});
+
+/** Identify the main conversation and whole-task worker in historical snapshots. */
+export function sessionIdentity(handles: z.infer<typeof identitySchema>): string {
+  const roles: string[] = [];
+  if (handles.session != null) {
+    roles.push(`Main ${handles.harness == null ? '' : `${handles.harness}/`}${handles.session}`);
+  }
+  if (handles.worker_session != null) {
+    roles.push(
+      `Worker ${handles.worker_harness == null ? '' : `${handles.worker_harness}/`}${handles.worker_session}`,
+    );
+  }
+  return roles.join(' · ');
+}
+
+function assignmentDetail(snapshot: string | null): string {
+  try {
+    return sessionIdentity(parseJson(snapshot ?? '{}', identitySchema)) || 'Unassigned';
+  } catch {
+    return snapshot ?? 'Unassigned';
+  }
+}
+
 /** Human label + optional detail for a transition_log entry (mirrors the verbs that wrote it). */
 export function describeTransition(e: HistoryEntry): { label: string; detail?: string } {
   switch (e.kind) {
+    case 'assignment': {
+      return {
+        detail: `${assignmentDetail(e.from)} → ${assignmentDetail(e.to)}`,
+        label: 'Session assignment changed',
+      };
+    }
     case 'lifecycle': {
       if (e.to === 'queued') {
         return { label: 'Queued' };

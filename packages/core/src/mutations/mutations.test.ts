@@ -697,6 +697,8 @@ test('inapplicableUpdateFields names every UpdateFields key a project rejects bu
     'target',
     'title',
     'upstream',
+    'workerHarness',
+    'workerSession',
   ]);
 });
 
@@ -714,6 +716,8 @@ test('inapplicableUpdateFields names every UpdateFields key an artifact rejects 
     'size',
     'target',
     'upstream',
+    'workerHarness',
+    'workerSession',
   ]);
 });
 
@@ -731,5 +735,7 @@ test('inapplicableUpdateFields names every UpdateFields key a seed rejects but t
     'summary',
     'target',
     'upstream',
+    'workerHarness',
+    'workerSession',
   ]);
 });

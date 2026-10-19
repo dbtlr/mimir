@@ -97,3 +97,32 @@ signals cause no automatic fill and a diagnostic asking for explicit handles.
 MCP does not infer identity from the server environment. Agents pass their own
 harness and session explicitly; automatic fill is a fallback. These handles
 remain pointers rather than a liveness guarantee.
+
+## 2026-10-19 refinement: main conversation and whole-task worker (MMR-568)
+
+This replaces the earlier run-to-worker identity replacement rule. `harness` and
+`session` identify the main user conversation or coordinating workflow. Optional
+`worker_harness` and `worker_session` identify a distinct agent entrusted with
+the whole task lifecycle. Helper subagents are not task identities. When the
+main agent handles a task itself, the worker fields remain unset.
+
+`queue` records main identity. `start` preserves established main identity and
+accepts explicit worker fields for a whole-task handoff; conflicting main
+identity inputs are refused with a worker-flag hint. Matching main and worker
+identities collapse to the single-session form. Host and branch describe
+execution context, independently of which conversation owns the work.
+
+An incidental shell caller does not become a worker. CLI environment fallback
+can establish absent main identity at direct start, or complete explicitly
+requested worker identity at start. It neither overwrites established main
+identity nor infers a handoff. Updates and MCP remain explicit.
+
+Park, block, unqueue, done, and abandon clear all main and worker handles,
+recording the released assignment in history. A hold releases ownership: a new
+session re-establishes identity when it resumes the task. Submit and return
+retain both roles while the assignment continues through review.
+
+Explicit identity reassignment through update is audited as an assignment
+transition, as refined in ADR 0003. This preserves prior whole-task workers
+without turning helper calls into an agent hierarchy. Existing stored session
+facts remain intact; migration does not guess historical orchestrator identity.

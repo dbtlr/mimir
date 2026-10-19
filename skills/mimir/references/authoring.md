@@ -165,18 +165,28 @@ mimir update KEY-4 --direction ""      # clear it
 
 ## Resume handles: how the work is picked back up
 
+`harness` and `session` identify the main user conversation or workflow that
+owns the task's context. `worker_harness` and `worker_session` identify an
+optional distinct agent responsible for the **whole task lifecycle**, including
+verification and disposition. A helper that implements a piece or reviews work
+does not become the task owner. When the main agent owns the task itself,
+leave both worker fields unset.
+
 ```sh
-mimir queue KEY-9 --harness codex --session "$RUN_SESSION"
-mimir start KEY-9 --host $(hostname) --harness codex --session "$WORKER_SESSION" --branch feat/key-9
-mimir update KEY-9 --session "$SESSION" --branch feat/key-9   # resuming, or taking over
-mimir update KEY-9 --session ''                               # a blank clears one
+mimir queue KEY-9 --harness codex --session "$MAIN_SESSION"
+# Main agent starts its own task; main identity stays established.
+mimir start KEY-9 --harness codex --session "$MAIN_SESSION" --branch feat/key-9
+# Alternative: a distinct whole-task owner starts the queued task.
+mimir start KEY-9 --worker-harness claude --worker-session "$WORKER_SESSION" --branch feat/key-9
+# A new distinct owner takes over an already-started task.
+mimir update KEY-9 --worker-harness claude --worker-session "$NEW_WORKER_SESSION"
+mimir update KEY-9 --worker-session ''   # return ownership to the main agent
 ```
 
-Always pass `--harness` and `--session` on **every queue and start**, including
-direct starts without a reservation. Use your harness's own knowledge of its
-identity and resumable session id. Inherited shell variables can describe an
-outer harness; they never override what the running agent knows about itself.
-The usual shell signals are:
+Always supply the relevant identity explicitly on every queue and start:
+main flags for the user conversation, worker flags for a distinct task owner.
+Use each harness's own knowledge of its resumable session. Inherited shell
+variables can describe an outer harness; they do not override that knowledge.
 
 | Harness | Session id in its tool shell |
 | --- | --- |
@@ -184,42 +194,36 @@ The usual shell signals are:
 | Codex (`codex`) | `CODEX_THREAD_ID` |
 | opencode (`opencode`) | `OPENCODE_SESSION_ID` (`OPENCODE=1` identifies the harness) |
 
-Use the session id belonging to the harness performing the action. With nested
-harnesses, identify the inner session from its own context rather than choosing
-an inherited outer id. If the identity cannot be established, resolve it before
-recording a reservation or claim; a made-up session cannot resume the work.
+If an identity cannot be established, resolve it before recording ownership;
+a made-up session cannot resume the work. For a new direct start, set the main
+identity too before attaching a distinct worker.
 
-The CLI can fill omitted harness/session flags from one unambiguous harness's
-shell environment. Explicit flags win, including blank values that clear a
-field. Multiple detected harnesses produce a note and no auto-fill. This is a
-fallback for shell CLI calls, not the agent workflow: MCP uses the server's
-environment, so callers provide their own handles explicitly.
+The CLI fills omitted main flags from one unambiguous shell only when the task
+has no established main identity. A start preserves that identity; conflicting
+main flags are refused, so a handoff uses worker flags. Worker fallback runs
+only when at least one worker flag was explicitly supplied. Explicit blanks
+win. Multiple detected harnesses produce a note and fill nothing. `update` and
+MCP never infer identity from their environment.
 
-`queue` records the orchestrator's run handles: a reservation, not a claim that
-a worker is already working. `start` records the worker's own handles and claims
-`in_progress`. From queued, **all** run handles are replaced: omitted worker host
-or branch becomes empty rather than inheriting the orchestrator's. The two
-transition rows retain run → worker linkage. `unqueue` clears the reservation's
-handles and echoes them with its required cancellation reason.
+`queue` records the main reservation. Starting queued work preserves its main
+identity and resets old host, branch, and worker fields before applying the
+supplied execution fields. A same-agent worker identity collapses to unset.
+`unqueue` clears all live handles and retains the released identity in history.
 
-For an already-started task, resuming or taking over is a plain `update`
-overwrite of the same four fields. Set what you actually know; host and branch
-are optional, while harness and session identify the agent performing the work.
+`host` and `branch` locate execution. `update` explicitly changes main or worker
+identity without changing status. A worker harness requires a worker session;
+a worker session requires a main session. Clearing the worker session clears
+its harness. Clear worker ownership before clearing a main session.
 
-`done`/`abandon` and `park`/`block` clear all four, so a settled or held task
-never carries a stale pointer. `submit` and `return` keep them — the branch and
-session are still live while a human reviews. `reopen`/`unpark`/`unblock` restore
-nothing: when you pick the work back up, re-state the handles with `update`.
+`done`, `abandon`, `park`, and `block` clear all six handles. `submit` and
+`return` retain them during review. `reopen`, `unpark`, and `unblock` restore
+none: re-state the main and any distinct worker identity with `update` when
+the task resumes. History retains the former ownership after clearing.
 
-Keep them handles, not telemetry — a session id, not what happened in the
-session. The retrospective belongs in an artifact; the PR link belongs in `--ref`.
-One character rule: a value can't contain `·` surrounded by spaces — the
-transition log uses that separator to record handle moves, so the write refuses
-rather than storing a value the log would mis-read.
-
-A queued task must retain a nonblank session. To release its reservation, use
-`unqueue` with a reason. After starting or unqueueing, a blank update can clear
-the session as usual.
+Handles locate resumable work; retrospectives belong in artifacts and PR links
+in `--ref`. Values cannot contain `·` surrounded by spaces because transition
+history uses that separator. A queued task must retain a nonblank main session;
+release a reservation with `unqueue <id> "reason"`.
 
 ## Artifacts: frozen records
 

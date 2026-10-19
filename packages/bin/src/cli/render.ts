@@ -326,6 +326,12 @@ export function renderRecords(node: NodeView, io: Io, expandAnnotations = false)
   if (node.session != null) {
     pairs.push(['session', node.session]);
   }
+  if (node.workerHarness != null) {
+    pairs.push(['worker harness', node.workerHarness]);
+  }
+  if (node.workerSession != null) {
+    pairs.push(['worker session', node.workerSession]);
+  }
   if (node.branch != null) {
     pairs.push(['branch', node.branch]);
   }
@@ -793,7 +799,11 @@ function handleClause(task: NodeView): string {
     task.harness != null && task.host != null
       ? `${task.harness}@${task.host}`
       : (task.harness ?? task.host ?? null);
-  const parts = [where, task.branch, task.session].filter(
+  const worker =
+    task.workerSession == null
+      ? null
+      : `worker ${task.workerHarness == null ? '' : `${task.workerHarness} · `}${task.workerSession}`;
+  const parts = [where, task.branch, task.session, worker].filter(
     (part): part is string => part != null && part !== '',
   );
   return parts.length === 0 ? '' : ` · ${parts.join(' · ')}`;

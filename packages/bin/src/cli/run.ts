@@ -194,6 +194,8 @@ const OPTIONS = {
   host: { type: 'string' },
   harness: { type: 'string' },
   session: { type: 'string' },
+  'worker-harness': { type: 'string' },
+  'worker-session': { type: 'string' },
   branch: { type: 'string' },
   // seed verbs (MMR-245)
   kind: { short: 'k', type: 'string' },
@@ -359,6 +361,8 @@ type OwnedFlagValues = {
   host?: string;
   harness?: string;
   session?: string;
+  'worker-harness'?: string;
+  'worker-session'?: string;
   branch?: string;
   project?: string;
   requester?: string;
@@ -552,6 +556,18 @@ const VERB_OWNED_FLAGS: readonly {
     given: (values) => values.session !== undefined,
     hint: `'--session' sets a resume handle at create/update/queue/start; list/next filter with '--eq session:KEY'`,
     owner: ['create', 'update', 'queue', 'start'],
+  },
+  {
+    flag: '--worker-harness',
+    given: (values) => values['worker-harness'] !== undefined,
+    hint: `'--worker-harness' identifies the distinct task owner at start/update`,
+    owner: ['start', 'update'],
+  },
+  {
+    flag: '--worker-session',
+    given: (values) => values['worker-session'] !== undefined,
+    hint: `'--worker-session' identifies the distinct task owner at start/update`,
+    owner: ['start', 'update'],
   },
   {
     flag: '--branch',

@@ -59,7 +59,14 @@ function invoke(
     code: number;
     err: string[];
     out: string[];
-    node: { harness?: string | null; session?: string | null; lifecycle: string; status: string };
+    node: {
+      harness?: string | null;
+      session?: string | null;
+      worker_harness?: string | null;
+      worker_session?: string | null;
+      lifecycle: string;
+      status: string;
+    };
   }>(result.stdout.toString());
 }
 
@@ -70,6 +77,8 @@ test('start records the Claude Code shell identity when handle flags are omitted
     harness: 'claude',
     session: 'claude-session',
     status: 'in_progress',
+    worker_harness: null,
+    worker_session: null,
   });
   expect(result.err).toEqual([]);
 });
@@ -211,4 +220,164 @@ test('unqueue accepts its required reason and returns reserved work to todo', ()
   ]);
   expect(result.code).toBe(0);
   expect(result.node).toMatchObject({ lifecycle: 'todo', session: null });
+});
+
+test('same-agent queued start preserves the main identity without adding a worker', () => {
+  const result = invoke({ CODEX_THREAD_ID: 'main-session' }, [], 'start', 'json', [
+    ['queue', '--harness', 'codex', '--session', 'main-session'],
+  ]);
+  expect(result.code).toBe(0);
+  expect(result.node).toMatchObject({
+    harness: 'codex',
+    session: 'main-session',
+    worker_harness: null,
+    worker_session: null,
+  });
+});
+
+test('incidental helper environment never takes an established main identity', () => {
+  const result = invoke(
+    { CLAUDECODE: '1', CLAUDE_CODE_SESSION_ID: 'helper-session' },
+    [],
+    'start',
+    'json',
+    [['queue', '--harness', 'codex', '--session', 'main-session']],
+  );
+  expect(result.code).toBe(0);
+  expect(result.node).toMatchObject({
+    harness: 'codex',
+    session: 'main-session',
+    worker_harness: null,
+    worker_session: null,
+  });
+  expect(result.err).toEqual([]);
+});
+
+test('explicit worker handoff preserves main and fills only omitted worker identity', () => {
+  const result = invoke(
+    { CLAUDECODE: '1', CLAUDE_CODE_SESSION_ID: 'worker-session' },
+    ['--worker-harness', 'claude'],
+    'start',
+    'json',
+    [['queue', '--harness', 'codex', '--session', 'main-session']],
+  );
+  expect(result.code).toBe(0);
+  expect(result.node).toMatchObject({
+    harness: 'codex',
+    session: 'main-session',
+    worker_harness: 'claude',
+    worker_session: 'worker-session',
+  });
+});
+
+test('explicit blank worker flags win over environment fallback', () => {
+  const result = invoke(
+    { CODEX_THREAD_ID: 'helper-session' },
+    ['--worker-harness', '', '--worker-session', ''],
+    'start',
+    'json',
+    [['queue', '--harness', 'codex', '--session', 'main-session']],
+  );
+  expect(result.code).toBe(0);
+  expect(result.node).toMatchObject({
+    harness: 'codex',
+    session: 'main-session',
+    worker_harness: null,
+    worker_session: null,
+  });
+  expect(result.err).toEqual([]);
+});
+
+test('nested worker fallback fills nothing and names the worker flags', () => {
+  const result = invoke(nestedEnv, ['--worker-session', 'chosen-worker'], 'start', 'json', [
+    ['queue', '--harness', 'codex', '--session', 'main-session'],
+  ]);
+  expect(result.code).toBe(0);
+  expect(result.node).toMatchObject({
+    harness: 'codex',
+    session: 'main-session',
+    worker_harness: null,
+    worker_session: 'chosen-worker',
+  });
+  expect(result.err).toEqual([
+    'note: detected multiple harnesses (claude, codex); pass --worker-harness and --worker-session explicitly',
+  ]);
+});
+
+test('worker takeover uses explicit update flags without changing main ownership', () => {
+  const result = invoke(
+    { CODEX_THREAD_ID: 'incidental' },
+    ['--worker-harness', 'claude', '--worker-session', 'new-worker'],
+    'update',
+    'json',
+    [['start', '--harness', 'codex', '--session', 'main-session']],
+  );
+  expect(result.code).toBe(0);
+  expect(result.node).toMatchObject({
+    harness: 'codex',
+    session: 'main-session',
+    worker_harness: 'claude',
+    worker_session: 'new-worker',
+  });
+});
+
+test('a main identity conflict on start points to explicit worker flags', () => {
+  const result = invoke(
+    {},
+    ['--harness', 'claude', '--session', 'worker-session'],
+    'start',
+    'json',
+    [['queue', '--harness', 'codex', '--session', 'main-session']],
+  );
+  expect(result.code).toBe(1);
+  expect(result.node).toMatchObject({
+    harness: 'codex',
+    lifecycle: 'queued',
+    session: 'main-session',
+    worker_harness: null,
+    worker_session: null,
+  });
+  expect(result.err.join('\n')).toContain('--worker-');
+});
+
+test('queue refuses worker identity flags before reserving the task', () => {
+  const result = invoke(
+    {},
+    ['--session', 'main-session', '--worker-session', 'worker-session'],
+    'queue',
+  );
+  expect(result.code).toBe(2);
+  expect(result.node.lifecycle).toBe('todo');
+});
+
+test('a worker flag identical to main leaves the distinct owner unset', () => {
+  const result = invoke(
+    {},
+    ['--worker-harness', 'codex', '--worker-session', 'main-session'],
+    'start',
+    'json',
+    [['queue', '--harness', 'codex', '--session', 'main-session']],
+  );
+  expect(result.code).toBe(0);
+  expect(result.node).toMatchObject({
+    harness: 'codex',
+    session: 'main-session',
+    worker_harness: null,
+    worker_session: null,
+  });
+});
+
+test('queued worker start refuses a harness without a supplied or detected worker session', () => {
+  const result = invoke({}, ['--worker-harness', 'claude'], 'start', 'json', [
+    ['queue', '--harness', 'codex', '--session', 'main-session'],
+  ]);
+  expect(result.code).toBe(1);
+  expect(result.node).toMatchObject({
+    harness: 'codex',
+    lifecycle: 'queued',
+    session: 'main-session',
+    worker_harness: null,
+    worker_session: null,
+  });
+  expect(result.err.join('\n')).toContain('worker session');
 });

@@ -31,12 +31,14 @@ const handles = z.object({
   harness: text.optional(),
   host: text.optional(),
   session: text.optional(),
+  worker_harness: text.optional(),
+  worker_session: text.optional(),
 });
 const history = z.object({
   at: text,
   from: nullableText,
   handles: handles.optional(),
-  kind: z.enum(TRANSITION_KIND_VALUES),
+  kind: z.enum(['lifecycle', 'hold', 'dependency', 'move', 'archive']),
   reason: nullableText,
   to: nullableText,
 });
@@ -101,6 +103,8 @@ export const transferSchema = z.object({
         type: z.enum(NODE_TYPE_VALUES),
         updated_at: text,
         upstream: nullableText,
+        worker_harness: nullableText.optional(),
+        worker_session: nullableText.optional(),
       })
       // A document written before `grooming` existed imports with the default a
       // fresh node is born with: `not_groomed` for a task, none for a container.
@@ -112,6 +116,8 @@ export const transferSchema = z.object({
         block_owner:
           node.block_owner ?? (node.hold === 'blocked' ? defaultBlockOwner(node.upstream) : null),
         grooming: node.grooming ?? (node.type === 'task' ? ('not_groomed' as const) : null),
+        worker_harness: node.worker_harness ?? null,
+        worker_session: node.worker_session ?? null,
       })),
   ),
   projects: z.array(
@@ -146,6 +152,7 @@ export const transferSchema = z.object({
       z.literal(3),
       z.literal(4),
       z.literal(5),
+      z.literal(6),
       z.literal(STORE_EXPORT_SCHEMA_VERSION),
     ])
     .transform((): typeof STORE_EXPORT_SCHEMA_VERSION => STORE_EXPORT_SCHEMA_VERSION),

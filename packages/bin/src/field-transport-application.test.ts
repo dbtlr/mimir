@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
-import { HANDLE_FIELD_KEYS } from '@mimir/contract';
+import { HANDLE_FIELD_KEYS, MAIN_HANDLE_FIELD_KEYS } from '@mimir/contract';
 import type { NodeType } from '@mimir/contract';
 import {
   createInitiative,
@@ -125,13 +125,29 @@ const cliUpdate: Driver = async (ref, field, native) => {
   // A bool is a bare flag (its `true` face); every other kind takes a value token.
   const argv =
     field.kind === 'bool' ? ['update', ref, flag] : ['update', ref, flag, String(native)];
-  const code = await runCli(argv, () => store, fakeIo(false));
+  const prerequisites: string[] = [];
+  if (field.key === 'worker_harness' || field.key === 'worker_session') {
+    prerequisites.push('--session', 'main-session');
+  }
+  if (field.key === 'worker_harness') {
+    prerequisites.push('--worker-session', 'worker-session');
+  }
+  const code = await runCli([...argv, ...prerequisites], () => store, fakeIo(false));
   expect(code).toBe(0);
 };
 
 const mcpUpdate: Driver = async (ref, field, native) => {
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  const args = { id: ref, [field.update]: native } as Parameters<typeof toolUpdate>[1];
+  const args = {
+    id: ref,
+    [field.update]: native,
+  } as Parameters<typeof toolUpdate>[1];
+  if (field.key === 'worker_harness' || field.key === 'worker_session') {
+    args.session = 'main-session';
+  }
+  if (field.key === 'worker_harness') {
+    args.workerSession = 'worker-session';
+  }
   const res = await toolUpdate(store, args);
   expect(res.isError).toBeUndefined();
 };
@@ -170,14 +186,14 @@ describe.each([...SPEC_UPDATE_FIELDS])('update field $key', (field) => {
  * spec (the MCP create schema's `fieldInputShape`, the CLI
  * create flags). That is exactly the accept-without-apply shape the update fix closed,
  * left unpinned here: a future spec field would be accepted at create and silently
- * dropped. This drives every generic-`update` spec field through each create
+ * dropped. This drives each create-applicable generic-`update` field through each create
  * surface on the field's canonical node type and asserts the passed value lands.
  *
- * Coverage: every spec field is accepted AND applied at create on both transports
+ * Coverage: every create-applicable spec field is accepted AND applied at create on both transports
  * (a task carries external_ref/priority/size/summary/upstream and the four resume
  * handles branch/harness/host/session, MMR-320; a phase carries
  * open_ended/summary/target; an initiative open_ended/summary), so none is skipped —
- * there is no create-time-only omission on any transport. A field advertised at create
+ * the worker fields attach only at start/update. A field advertised at create
  * but dropped by its hand-map arm turns this suite red: the cases are GENERATED from
  * `SPEC_UPDATE_FIELDS`, so they are named per field (`cli create applies host onto a
  * task`) rather than hand-listed. `handleCreateCoverage` below is the guard that a
@@ -251,15 +267,21 @@ const CREATE_DRIVERS: [name: string, drive: CreateDriver][] = [
 // that quietly loses its `update` marker would take its create cases with it
 // and the suite would still pass. Name the handle fields explicitly, so the
 // hand-written create arms can never go uncovered without a red test.
-test('the generated create matrix covers every resume handle', () => {
+test('the generated create matrix covers the main resume handles', () => {
   const covered = new Set(SPEC_UPDATE_FIELDS.map((f) => f.key));
-  for (const key of HANDLE_FIELD_KEYS) {
+  for (const key of MAIN_HANDLE_FIELD_KEYS) {
     expect(covered.has(key)).toBe(true);
   }
   expect(CREATE_DRIVERS.map(([name]) => name)).toEqual(['cli', 'mcp']);
 });
 
-describe.each([...SPEC_UPDATE_FIELDS])('create field $key', (field) => {
+describe.each(
+  SPEC_UPDATE_FIELDS.filter(
+    (field) =>
+      !HANDLE_FIELD_KEYS.some((key) => key === field.key) ||
+      MAIN_HANDLE_FIELD_KEYS.some((key) => key === field.key),
+  ),
+)('create field $key', (field) => {
   const type = FIELD_SPEC[field.key].appliesTo[0];
   test.each(CREATE_DRIVERS)(
     `%s create applies ${field.key} onto a ${type ?? '?'}`,

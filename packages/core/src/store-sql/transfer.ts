@@ -728,6 +728,8 @@ function nodeValues(node: Node, dialect: StoreDialect): Insertable<NodeTable> {
     type: node.type,
     updated_at: node.updated_at,
     upstream: node.upstream,
+    worker_harness: node.worker_harness,
+    worker_session: node.worker_session,
   };
 }
 

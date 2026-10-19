@@ -63,6 +63,7 @@ lane('upgradeSchema builds the schema from empty, and the gate then passes', asy
           '0005_project_pinned',
           '0006_project_remote',
           '0007_task_queued',
+          '0008_main_worker',
         ],
         from: 0,
         to: SCHEMA_VERSION,

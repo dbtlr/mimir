@@ -121,7 +121,7 @@ function ActionsPanel({
   );
 }
 
-/** Where an agent is working on the node: harness, branch, host, external ref, and Scratchpads. */
+/** Main conversation, optional whole-task worker, and execution context. */
 function AgentPanel({
   node,
   scratchpads,
@@ -132,6 +132,19 @@ function AgentPanel({
   return (
     <div className="flex flex-col gap-1 text-xs">
       {node.harness != null && <span className="text-ink">{node.harness}</span>}
+      {node.session != null && (
+        <span className="text-ink-dim">
+          <span className="microlabel mr-1.5 text-ink-faint">Main session</span>
+          <span className="font-mono break-all">{node.session}</span>
+        </span>
+      )}
+      {node.workerSession != null && (
+        <span className="text-ink-dim">
+          <span className="microlabel mr-1.5 text-ink-faint">Worker session</span>
+          {node.workerHarness != null && <span className="mr-1.5">{node.workerHarness}</span>}
+          <span className="font-mono break-all">{node.workerSession}</span>
+        </span>
+      )}
       {node.branch != null && (
         <span className="font-mono text-mono-id break-all text-ink-dim">{node.branch}</span>
       )}
@@ -152,6 +165,8 @@ function AgentPanel({
 function hasAgentContext(node: EngineNode, scratchpads: readonly ScratchpadRow[]): boolean {
   return (
     node.harness != null ||
+    node.session != null ||
+    node.workerSession != null ||
     node.branch != null ||
     node.host != null ||
     node.externalRef != null ||

@@ -20,6 +20,7 @@ import { statements as seedParked } from './migrations/0004-seed-parked';
 import { statements as projectPinned } from './migrations/0005-project-pinned';
 import { statements as projectRemote } from './migrations/0006-project-remote';
 import { statements as taskQueued } from './migrations/0007-task-queued';
+import { statements as mainWorker } from './migrations/0008-main-worker';
 import { serializable, snapshotRead } from './tx';
 
 /**
@@ -98,6 +99,7 @@ export const postgresDialect: StoreDialect = {
     '0005_project_pinned': projectPinned,
     '0006_project_remote': projectRemote,
     '0007_task_queued': taskQueued,
+    '0008_main_worker': mainWorker,
   },
   // A shared store upgrades by one explicit act, never as a side effect of a
   // binary opening it (ADR 0030).

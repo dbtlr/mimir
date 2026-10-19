@@ -1,6 +1,6 @@
 import { BLOCK_OWNER_VALUES } from './enums';
 import type { Hold, Lifecycle } from './enums';
-import { HANDLE_FIELD_KEYS } from './fields';
+import { HANDLE_FIELD_KEYS, MAIN_HANDLE_FIELD_KEYS } from './fields';
 import type { DataFieldKey } from './fields';
 
 /**
@@ -184,7 +184,7 @@ export const OP_FACTS = {
     transition: { axis: 'hold', from: 'none', to: 'parked' },
   },
   queue: {
-    fields: HANDLE_FIELD_KEYS,
+    fields: MAIN_HANDLE_FIELD_KEYS,
     reason: 'none',
     requiredFields: ['session'],
     subject: 'task',

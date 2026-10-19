@@ -34,3 +34,17 @@ Scope: verb-driven transitions (lifecycle, hold, dependency edges, `move_node`).
 - **Revises [ADR 0001](0001-task-status-two-axes-derived-rollup.md):** abandon/park/block _reasons_ now live on the transition row, **not** an annotation. `annotation` reverts to its clean job — freeform in-flight notes only.
 - `became_ready_at` and any future "became X" timestamp are pure derivations over the log + dependency completion.
 - Scalar field edits remain outside the log.
+
+## 2026-10-19 refinement: session assignment history (MMR-568)
+
+The scalar-update exclusion now has one narrow exception: changing main or
+worker session identity appends an `assignment` transition in the same
+transaction as the current-field patch. Identity means main harness/session and
+optional whole-task worker harness/session. Scalar content, signals, and
+execution-location edits remain outside this audit.
+
+Assignment transitions preserve the previous and resulting identity snapshots
+in `from` and `to`, encoded as JSON, and echo the resulting handles. This keeps
+worker succession recoverable even when ownership changes without a lifecycle
+move. Lifecycle and clearing transitions continue to carry complete handles.
+The log remains additive history; current columns remain the read authority.

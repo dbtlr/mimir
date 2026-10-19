@@ -9,7 +9,7 @@ import type { Node, Project } from './model';
 import { assertProjectActive } from './mutations/common';
 import { normalizeSummary } from './mutations/data';
 import { applyHandlePatch } from './mutations/handles';
-import type { HandleFields } from './mutations/handles';
+import type { MainHandleFields } from './mutations/handles';
 import { appendRank } from './rank';
 import { normalizeRemote } from './remote';
 import { resolveNodeTokenInSet, resolveProjectKeyInSet } from './resolve-set';
@@ -145,7 +145,7 @@ export type CreateTaskInput = {
    * because every generic-`update` spec field is accepted at create (ADR 0025);
    * pre-seeding one is legitimate, since absence is never a signal.
    */
-  handles?: HandleFields;
+  handles?: MainHandleFields;
   /** Born `groomed` (ADR 0033) — for tasks carved from a finished design. */
   groomed?: boolean;
   tags?: string[];
@@ -278,7 +278,7 @@ export type CreateNodeTaskInput = {
   upstream?: string;
   /** The resume handles (ADR 0026 Decision 3, MMR-320) — normally stamped by
    * `start`, accepted here for parity with every other spec field. */
-  handles?: HandleFields;
+  handles?: MainHandleFields;
   /** Born `groomed` (ADR 0033) — task-only, refused on any other type. */
   groomed?: boolean;
   openEnded?: boolean;

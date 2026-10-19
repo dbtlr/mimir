@@ -1838,3 +1838,34 @@ test('a valid call still dispatches to the handler through the guard', async () 
     await client.close();
   }
 });
+
+test('MCP worker handoff preserves main ownership and never infers shell identity', async () => {
+  expect(
+    (await toolUniform(store, 'queue', { harness: 'codex', id: taskRef, session: 'main-session' }))
+      .isError,
+  ).toBeUndefined();
+  expect(
+    (
+      await toolUniform(store, 'start', {
+        id: taskRef,
+        workerHarness: 'claude',
+        workerSession: 'worker-session',
+      })
+    ).isError,
+  ).toBeUndefined();
+  const started = JSON.parse(textOf(await toolGet(store, { id: taskRef })));
+  expect(started).toMatchObject({
+    harness: 'codex',
+    session: 'main-session',
+    worker_harness: 'claude',
+    worker_session: 'worker-session',
+  });
+  expect((await toolUpdate(store, { id: taskRef, workerSession: '' })).isError).toBeUndefined();
+  const solo = JSON.parse(textOf(await toolGet(store, { id: taskRef })));
+  expect(solo).toMatchObject({
+    harness: 'codex',
+    session: 'main-session',
+    worker_harness: null,
+    worker_session: null,
+  });
+});

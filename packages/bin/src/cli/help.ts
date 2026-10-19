@@ -72,9 +72,11 @@ export function uniformFlagRows(spec: OpFact): Row[] {
  * 3's resume handles) — a CLI view seam like the worked examples, not a fact. */
 const FIELD_ARG_HELP: Partial<Record<DataFieldKey, string>> = {
   branch: 'the branch the work lives on',
-  harness: 'the agent harness running it',
+  harness: 'the main conversation or workflow harness',
   host: 'the machine the work is happening on',
-  session: 'the session id to resume from',
+  session: 'the main conversation or workflow session',
+  worker_harness: 'the distinct whole-task owner harness',
+  worker_session: 'the distinct whole-task owner session',
 };
 
 /** The canonical summary composed with the transition arrow — a lifecycle move to
@@ -246,10 +248,12 @@ options:
       --upstream <KEY-sN> create/update task: requester-side seed pointer
       --groomed           create task: born groomed (carved from a finished design)
       --host <text>       create/queue/start/update: the machine the work happens on
-      --harness <text>    create/queue/start/update: the agent harness running it
-      --session <text>    create/queue/start/update: the session id to resume from
+      --harness <text>    create/queue/start/update: the main conversation or workflow harness
+      --session <text>    create/queue/start/update: the main conversation or workflow session
       --branch <text>     create/queue/start/update: the branch the work lives on
-                          (the four task-only resume handles — cleared on
+      --worker-harness <text> start/update: a distinct whole-task owner harness
+      --worker-session <text> start/update: a distinct whole-task owner session
+                          (all task-only resume handles are cleared on
                           done/abandon, unqueue, and on park/block; a blank
                           on update clears one, except a queued session)
 
@@ -352,9 +356,10 @@ const UNIFORM_EXAMPLES: Record<UniformVerb, readonly string[]> = {
   reopen: ['mimir reopen MMR-3'],
   return: ['mimir return MMR-3 "needs tests"'],
   start: [
-    'mimir start MMR-3',
+    'mimir start MMR-3 --harness codex --session s-91',
     'mimir start MMR-3 --host laptop --harness codex --session s-91 --branch feat/mmr-3',
-    'mimir update MMR-3 --session s-92   # resume or take over — no claim verb',
+    'mimir start MMR-3 --worker-harness claude --worker-session worker-92   # distinct whole-task owner',
+    'mimir update MMR-3 --worker-harness claude --worker-session worker-93   # worker takeover',
   ],
   submit: ['mimir submit MMR-3'],
   unarchive: ['mimir unarchive SAGA'],
@@ -737,7 +742,11 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ],
       [
         '--host/--harness/--session/--branch <text>',
-        'task only: the resume handles — how a takeover picks the work back up; a blank clears one except a queued session',
+        'task only: main conversation identity and execution location; a blank clears one except a queued session',
+      ],
+      [
+        '--worker-harness/--worker-session <text>',
+        'task only: a distinct whole-task owner; clearing worker-session clears worker-harness',
       ],
       ['--name <name>', 'project only (KEY): rename it'],
       [
@@ -752,7 +761,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     summary: 'patch scalar fields (a dumb patch — status is excluded; use the lifecycle verbs)',
     usage:
-      'mimir update <id> [--title …] [--desc …] [--direction …] [--summary …] [--priority …] [--size …] [--target …] [--ref …] [--upstream <KEY-sN|none>] [--host …] [--harness …] [--session …] [--branch …] [--name …] [--pinned|--not-pinned] [--remote …] [--kind …]',
+      'mimir update <id> [--title …] [--desc …] [--direction …] [--summary …] [--priority …] [--size …] [--target …] [--ref …] [--upstream <KEY-sN|none>] [--host …] [--harness …] [--session …] [--branch …] [--worker-harness …] [--worker-session …] [--name …] [--pinned|--not-pinned] [--remote …] [--kind …]',
   },
   annotate: {
     args: [A_ID, ['<text>', 'note body (or stdin when omitted)']],

@@ -16,6 +16,7 @@ import { statements as blockOwnerStatements } from './migrations/0003-block-owne
 import { statements as seedParkedStatements } from './migrations/0004-seed-parked';
 import { statements as projectPinnedStatements } from './migrations/0005-project-pinned';
 import { statements as projectRemoteStatements } from './migrations/0006-project-remote';
+import { statements as taskQueuedStatements } from './migrations/0007-task-queued';
 
 /**
  * The SQLite store's file-backed behavior (ADR 0032 Decision 3): what opening
@@ -59,6 +60,7 @@ test('opening a new file creates it, migrates it, and puts it in WAL mode', asyn
         '0005_project_pinned',
         '0006_project_remote',
         '0007_task_queued',
+        '0008_main_worker',
       ],
       from: 0,
       to: SCHEMA_VERSION,
@@ -105,6 +107,7 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
         '0005_project_pinned',
         '0006_project_remote',
         '0007_task_queued',
+        '0008_main_worker',
       ],
       from: 1,
       to: SCHEMA_VERSION,
@@ -158,6 +161,7 @@ test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by
         '0005_project_pinned',
         '0006_project_remote',
         '0007_task_queued',
+        '0008_main_worker',
       ],
       from: 2,
       to: SCHEMA_VERSION,
@@ -218,6 +222,7 @@ test('0004_seed_parked upgrades a version-3 store: seeds and their history survi
         '0005_project_pinned',
         '0006_project_remote',
         '0007_task_queued',
+        '0008_main_worker',
       ],
       from: 3,
       to: SCHEMA_VERSION,
@@ -295,7 +300,12 @@ test('0005_project_pinned upgrades a version-4 store: projects keep their data a
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0005_project_pinned', '0006_project_remote', '0007_task_queued'],
+      applied: [
+        '0005_project_pinned',
+        '0006_project_remote',
+        '0007_task_queued',
+        '0008_main_worker',
+      ],
       from: 4,
       to: SCHEMA_VERSION,
     });
@@ -346,7 +356,7 @@ test('0006_project_remote upgrades a version-5 store: projects keep their data a
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0006_project_remote', '0007_task_queued'],
+      applied: ['0006_project_remote', '0007_task_queued', '0008_main_worker'],
       from: 5,
       to: SCHEMA_VERSION,
     });
@@ -618,96 +628,120 @@ test('two processes writing one file lose no identity and no update', async () =
   }
 }, 60_000);
 
-test('0007_task_queued preserves node references, records, indexes, and handed-out log ids', async () => {
-  const old = new Database(path, { create: true });
-  old.run('PRAGMA foreign_keys = ON');
-  for (const statement of [
-    ...initStatements,
-    ...groomingStatements,
-    ...blockOwnerStatements,
-    ...seedParkedStatements,
-    ...projectPinnedStatements,
-    ...projectRemoteStatements,
-  ]) {
-    old.run(statement);
-  }
-  old.run(
-    `INSERT INTO schema_version (version, applied_at) VALUES (1, 't'), (2, 't'), (3, 't'), (4, 't'), (5, 't'), (6, 't')`,
-  );
-  old.run(
-    `INSERT INTO project (key, name, last_seq, created_at, updated_at) VALUES ('QUE', 'Queue', 11, 't', 't')`,
-  );
-  old.run(`INSERT INTO node (id, project_key, type, parent_id, seq, title, lifecycle, hold, rank, grooming, session, created_at, updated_at)
+test.each([6, 7])(
+  'upgrading version %i preserves node references, records, indexes, and handed-out log ids',
+  async (version) => {
+    const old = new Database(path, { create: true });
+    old.run('PRAGMA foreign_keys = ON');
+    for (const statement of [
+      ...initStatements,
+      ...groomingStatements,
+      ...blockOwnerStatements,
+      ...seedParkedStatements,
+      ...projectPinnedStatements,
+      ...projectRemoteStatements,
+      ...(version === 7 ? taskQueuedStatements : []),
+    ]) {
+      old.run(statement);
+    }
+    old.run(
+      `INSERT INTO schema_version (version, applied_at) VALUES (1, 't'), (2, 't'), (3, 't'), (4, 't'), (5, 't'), (6, 't')`,
+    );
+    if (version === 7) {
+      old.run("INSERT INTO schema_version VALUES (7, 't')");
+    }
+    old.run(
+      `INSERT INTO project (key, name, last_seq, created_at, updated_at) VALUES ('QUE', 'Queue', 11, 't', 't')`,
+    );
+    old.run(`INSERT INTO node (id, project_key, type, parent_id, seq, title, lifecycle, hold, rank, grooming, session, created_at, updated_at)
     VALUES ('QUE-1', 'QUE', 'initiative', NULL, 1, 'parent', NULL, NULL, NULL, NULL, NULL, 'c', 'u'),
            ('QUE-2', 'QUE', 'task', 'QUE-1', 2, 'first', 'todo', 'none', 1024, 'groomed', 'old', 'c', 'u'),
            ('QUE-3', 'QUE', 'task', 'QUE-1', 3, 'second', 'todo', 'none', 2048, 'not_groomed', NULL, 'c', 'u')`);
-  old.run(`INSERT INTO dependency VALUES ('QUE-3', 'QUE-2')`);
-  old.run(
-    `INSERT INTO annotation (id, node_id, content, created_at) VALUES (7, 'QUE-2', 'kept', 'c')`,
-  );
-  old.run(
-    `INSERT INTO artifact (id, project_key, seq, title, content, created_at, updated_at) VALUES ('QUE-a1', 'QUE', 1, 'artifact', 'body', 'c', 'u')`,
-  );
-  old.run(`INSERT INTO artifact_link VALUES ('QUE-a1', 'QUE-2')`);
-  old.run(
-    `INSERT INTO transition_log (id, node_id, kind, from_value, to_value, handles, at) VALUES (9, 'QUE-2', 'lifecycle', 'todo', 'in_progress', '{"session":"old"}', 'h')`,
-  );
-  old.run(`UPDATE sqlite_sequence SET seq = 17 WHERE name = 'annotation'`);
-  old.run(`UPDATE sqlite_sequence SET seq = 19 WHERE name = 'transition_log'`);
-  expect(() => old.run(`UPDATE node SET lifecycle = 'queued' WHERE id = 'QUE-2'`)).toThrow('CHECK');
-  old.close();
+    old.run(`INSERT INTO dependency VALUES ('QUE-3', 'QUE-2')`);
+    old.run(
+      `INSERT INTO annotation (id, node_id, content, created_at) VALUES (7, 'QUE-2', 'kept', 'c')`,
+    );
+    old.run(
+      `INSERT INTO artifact (id, project_key, seq, title, content, created_at, updated_at) VALUES ('QUE-a1', 'QUE', 1, 'artifact', 'body', 'c', 'u')`,
+    );
+    old.run(`INSERT INTO artifact_link VALUES ('QUE-a1', 'QUE-2')`);
+    old.run(
+      `INSERT INTO transition_log (id, node_id, kind, from_value, to_value, handles, at) VALUES (9, 'QUE-2', 'lifecycle', 'todo', 'in_progress', '{"session":"old"}', 'h')`,
+    );
+    old.run(`UPDATE sqlite_sequence SET seq = 17 WHERE name = 'annotation'`);
+    old.run(`UPDATE sqlite_sequence SET seq = 19 WHERE name = 'transition_log'`);
+    if (version === 6) {
+      expect(() => old.run(`UPDATE node SET lifecycle = 'queued' WHERE id = 'QUE-2'`)).toThrow(
+        'CHECK',
+      );
+    }
+    expect(() =>
+      old.run(`INSERT INTO transition_log (node_id, kind, at) VALUES ('QUE-2', 'assignment', 'h')`),
+    ).toThrow('CHECK');
+    old.close();
 
-  const handle = await openSqlite(path);
-  try {
-    expect(handle.upgrade.applied).toEqual(['0007_task_queued']);
-    const store = createSqliteStore(handle.db);
-    const exported = await store.export();
-    expect(exported.nodes.find((n) => n.id === 'QUE-2')).toMatchObject({
-      created_at: 'c',
-      grooming: 'groomed',
-      parent_id: 'QUE-1',
-      rank: 1024,
-      session: 'old',
-      updated_at: 'u',
-    });
-    expect(exported.edges).toEqual([{ depends_on_node_id: 'QUE-2', node_id: 'QUE-3' }]);
-    expect(exported.annotations).toEqual([{ content: 'kept', created_at: 'c', node_id: 'QUE-2' }]);
-    expect(exported.artifacts[0]?.links).toEqual(['QUE-2']);
-    expect((await store.bodySections.readHistory('QUE-2'))[0]?.handles).toEqual({ session: 'old' });
-    expect((await sql`PRAGMA foreign_key_check`.execute(handle.db)).rows).toEqual([]);
-    await sql`UPDATE node SET lifecycle = 'queued' WHERE id = 'QUE-2'`.execute(handle.db);
-    expect(
-      await refusal(sql`UPDATE node SET lifecycle = 'bogus' WHERE id = 'QUE-2'`.execute(handle.db)),
-    ).toContain('CHECK');
-    const annotation = await sql<{
-      id: number;
-    }>`INSERT INTO annotation (node_id, content, created_at) VALUES ('QUE-2', 'next', 'c') RETURNING id`.execute(
-      handle.db,
-    );
-    const transition = await sql<{
-      id: number;
-    }>`INSERT INTO transition_log (node_id, kind, at) VALUES ('QUE-2', 'lifecycle', 'h') RETURNING id`.execute(
-      handle.db,
-    );
-    expect(annotation.rows[0]?.id).toBe(18);
-    expect(transition.rows[0]?.id).toBe(20);
-    const indexes = await sql<{
-      name: string;
-    }>`SELECT name FROM sqlite_schema WHERE type = 'index' AND name LIKE 'idx_%'`.execute(
-      handle.db,
-    );
-    expect(indexes.rows.map((r) => r.name)).toEqual(
-      expect.arrayContaining([
-        'idx_node_parent',
-        'idx_node_project',
-        'idx_annotation_node',
-        'idx_artifact_link_node',
-        'idx_transition_node',
-        'idx_transition_at',
-        'idx_transition_project',
-      ]),
-    );
-  } finally {
-    await handle.close();
-  }
-});
+    const handle = await openSqlite(path);
+    try {
+      expect(handle.upgrade.applied).toEqual(
+        version === 7 ? ['0008_main_worker'] : ['0007_task_queued', '0008_main_worker'],
+      );
+      const store = createSqliteStore(handle.db);
+      const exported = await store.export();
+      expect(exported.nodes.find((n) => n.id === 'QUE-2')).toMatchObject({
+        created_at: 'c',
+        grooming: 'groomed',
+        parent_id: 'QUE-1',
+        rank: 1024,
+        session: 'old',
+        updated_at: 'u',
+        worker_harness: null,
+        worker_session: null,
+      });
+      expect(exported.edges).toEqual([{ depends_on_node_id: 'QUE-2', node_id: 'QUE-3' }]);
+      expect(exported.annotations).toEqual([
+        { content: 'kept', created_at: 'c', node_id: 'QUE-2' },
+      ]);
+      expect(exported.artifacts[0]?.links).toEqual(['QUE-2']);
+      expect((await store.bodySections.readHistory('QUE-2'))[0]?.handles).toEqual({
+        session: 'old',
+      });
+      expect((await sql`PRAGMA foreign_key_check`.execute(handle.db)).rows).toEqual([]);
+      await sql`UPDATE node SET lifecycle = 'queued' WHERE id = 'QUE-2'`.execute(handle.db);
+      expect(
+        await refusal(
+          sql`UPDATE node SET lifecycle = 'bogus' WHERE id = 'QUE-2'`.execute(handle.db),
+        ),
+      ).toContain('CHECK');
+      const annotation = await sql<{
+        id: number;
+      }>`INSERT INTO annotation (node_id, content, created_at) VALUES ('QUE-2', 'next', 'c') RETURNING id`.execute(
+        handle.db,
+      );
+      const transition = await sql<{
+        id: number;
+      }>`INSERT INTO transition_log (node_id, kind, at) VALUES ('QUE-2', 'assignment', 'h') RETURNING id`.execute(
+        handle.db,
+      );
+      expect(annotation.rows[0]?.id).toBe(18);
+      expect(transition.rows[0]?.id).toBe(20);
+      const indexes = await sql<{
+        name: string;
+      }>`SELECT name FROM sqlite_schema WHERE type = 'index' AND name LIKE 'idx_%'`.execute(
+        handle.db,
+      );
+      expect(indexes.rows.map((r) => r.name)).toEqual(
+        expect.arrayContaining([
+          'idx_node_parent',
+          'idx_node_project',
+          'idx_annotation_node',
+          'idx_artifact_link_node',
+          'idx_transition_node',
+          'idx_transition_at',
+          'idx_transition_project',
+        ]),
+      );
+    } finally {
+      await handle.close();
+    }
+  },
+);

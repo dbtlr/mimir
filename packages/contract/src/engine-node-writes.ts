@@ -2,7 +2,8 @@ import { z } from 'zod';
 
 import { engineViews } from './engine-views';
 import { GROOMING_VALUES, PRIORITY_VALUES, SIZE_VALUES } from './enums';
-import type { HandleFieldKey } from './fields';
+import { HANDLE_FIELD_ARGS } from './fields';
+import type { HandleFieldArg, HandleFieldKey } from './fields';
 import { OP_FACTS, UNIFORM_VERBS } from './ops';
 import type { UniformVerb } from './ops';
 
@@ -39,7 +40,9 @@ type FieldsShape<V extends UniformVerb> =
     fields: infer F extends readonly HandleFieldKey[];
   }
     ? {
-        [K in F[number]]: Fact<V> extends { requiredFields: readonly (infer R)[] }
+        [K in F[number] as (typeof HANDLE_FIELD_ARGS)[K]]: Fact<V> extends {
+          requiredFields: readonly (infer R)[];
+        }
           ? K extends R
             ? z.ZodString
             : z.ZodOptional<z.ZodNullable<z.ZodString>>
@@ -73,7 +76,7 @@ export type UniformArgs = {
   id: string;
   reason?: string;
   on?: string;
-} & Partial<Record<HandleFieldKey, string | null>>;
+} & Partial<Record<HandleFieldArg, string | null>>;
 
 /**
  * One uniform verb's input and output, built from its operation fact: the
@@ -92,7 +95,7 @@ function uniformSchema(verb: UniformVerb, project: z.ZodString) {
   }
   if ('fields' in fact) {
     for (const key of fact.fields) {
-      shape[key] =
+      shape[HANDLE_FIELD_ARGS[key]] =
         'requiredFields' in fact && fact.requiredFields.some((required) => required === key)
           ? z.string()
           : nullableText;
@@ -258,6 +261,8 @@ export function nodeWriteSchemas(project: z.ZodString) {
         target: nullableText,
         title: z.string().optional(),
         upstream: nullableText,
+        workerHarness: nullableText,
+        workerSession: nullableText,
       }),
       kind: 'mutation',
       output: engineViews.node,

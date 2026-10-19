@@ -149,6 +149,22 @@ function assertReferences(document: StoreExport): void {
     if (node.lifecycle === 'queued' && (node.session === null || node.session.trim() === '')) {
       faults.push(`node ${node.id}.session is required while queued`);
     }
+    if (node.worker_session !== null && node.worker_session.trim() === '') {
+      faults.push(`node ${node.id}.worker_session must be nonblank`);
+    }
+    if (
+      node.worker_harness !== null &&
+      (node.worker_session === null || node.worker_session.trim() === '')
+    ) {
+      faults.push(`node ${node.id}.worker_harness requires a nonblank worker_session`);
+    }
+    if (
+      node.worker_session !== null &&
+      node.worker_session.trim() !== '' &&
+      (node.session === null || node.session.trim() === '')
+    ) {
+      faults.push(`node ${node.id}.worker_session requires a nonblank main session`);
+    }
     if (node.upstream !== null && !isSeedRef(node.upstream)) {
       faults.push(`node ${node.id}.upstream must be a seed identity`);
     }
@@ -246,6 +262,9 @@ function assertReferences(document: StoreExport): void {
     }
   }
   for (const row of document.transitions) {
+    if (row.kind === 'assignment' && row.node_id == null) {
+      faults.push('assignment transition must reference a node');
+    }
     if ((row.node_id == null) === (row.project_id == null)) {
       faults.push('transition must have exactly one node_id or project_id');
     } else if (row.node_id != null) {

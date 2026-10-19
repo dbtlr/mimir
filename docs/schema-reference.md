@@ -116,8 +116,10 @@ One table absorbs the semi-regular hierarchy (a monorepo sub-project, a phaseles
 | `external_ref` | text    | **task**, optional            | outward GitHub issue/PR ref                                                                         |
 | `upstream`     | text    | **task**, optional            | `KEY-sN` seed pointer, reference-only ([ADR 0020](decisions/0020-seeds-grooming-queue-entity.md))   |
 | `host`         | text    | **task**, optional            | resume handle — the machine the work is happening on                                                |
-| `harness`      | text    | **task**, optional            | resume handle — the agent harness running it                                                        |
-| `session`      | text    | **task**, optional            | resume handle — the session id to resume from                                                       |
+| `harness`      | text    | **task**, optional            | main conversation or workflow harness                                                        |
+| `session`      | text    | **task**, optional            | main conversation or workflow session                                                       |
+| `worker_harness` | text | **task**, optional | distinct whole-task worker harness |
+| `worker_session` | text | **task**, optional | distinct whole-task worker session; requires a main session |
 | `branch`       | text    | **task**, optional            | resume handle — the branch the work lives on                                                        |
 | `completed_at` | text    | **task**, optional            | stamped only on `done`                                                                              |
 | `target`       | text    | **phase**, optional           | the milestone/testable result the phase aims at                                                     |
@@ -139,7 +141,11 @@ Indexes cover `parent_id` and `project_key`.
 
 **`priority` / `size` are nullable signals, by design** — null means _untriaged / unsized_, a real surfaceable state. The core forces no default; a consumer may impose one. Both are coarse: they filter and advise `rank`, never order it.
 
-**`host` / `harness` / `session` / `branch` are resume handles, not telemetry** ([ADR 0026](decisions/0026-work-state-composition.md) Decision 3). They answer three forensic questions — what is happening, what did happen, how do I continue — and nothing else: anything recoverable _from_ the session (model, durations, token counts) stays out, because Mimir stores the keys into richer stores and mining happens there. They are free strings on the update plane. `queue` reserves a task for a run and requires a nonblank session. `start` records the worker's claim from todo or queued; from queued it replaces every run handle, clearing omitted worker fields. A plain `update` overwrites individual fields. A blank clears one, except that a queued task must retain a nonblank session until it is unqueued or started. Transfer preview and apply refuse queued nodes with null or blank sessions. `done`, `abandon`, `unqueue`, `park`, and `block` clear all handles and echo what they cleared in the transition log. `submit` and `return` keep them. `reopen`, `unpark`, and `unblock` restore nothing. CLI `queue` and `start` fill omitted harness and session flags from one detected shell harness. Explicit flags win, including blanks. Multiple detected harnesses fill nothing and produce a note asking for explicit handles. MCP never uses the server's environment for this fallback. Handles make no liveness claim; the stale predicate also covers queued reservations. PR linkage rides `external_ref`, not these.
+**Resume handles** ([ADR 0026](decisions/0026-work-state-composition.md)): `harness` and `session` identify the main conversation or workflow. Optional `worker_harness` and `worker_session` identify a distinct agent entrusted with the whole task lifecycle, including its Mimir updates and helper agents. Helper sessions are not stored. Same-agent tasks leave worker fields unset. `host` and `branch` describe execution context.
+
+Queue requires a nonblank main session. Start preserves established main identity and accepts explicit worker identity; matching identities collapse to the single-session form. Worker harness requires a worker session, and a worker session requires a main session. Clearing the worker session clears its harness too. A queued main session cannot be cleared. Explicit reassignment through update is logged; ordinary scalar edits are not.
+
+`done`, `abandon`, `unqueue`, `park`, and `block` clear all handles and echo what they cleared. Submit and return retain the assignment through review. Reopen, unpark, and unblock restore nothing; a new session re-establishes ownership on resume. CLI environment fallback establishes absent main identity at direct start or completes an explicitly requested worker at start. It never infers handoff or overwrites established main identity. MCP and updates do not infer shell identity. PR linkage rides `external_ref`.
 
 ## `dependency`
 
@@ -156,7 +162,7 @@ The append-only history ([ADR 0003](decisions/0003-append-only-transition-log.md
 | `id`          | key     | primary  | auto-incrementing; id order is append order                                       |
 | `node_id`     | text    | optional | foreign key to `node.id`; set for node-keyed rows                                 |
 | `project_key` | text    | optional | foreign key to `project.key`; set for `archive` rows                              |
-| `kind`        | text    | required | `lifecycle` \| `hold` \| `dependency` \| `move` \| `archive`                      |
+| `kind`        | text    | required | `lifecycle` \| `hold` \| `dependency` \| `move` \| `archive` \| `assignment`                      |
 | `from_value`  | text    | optional | the edge's old side                                                               |
 | `to_value`    | text    | optional | the edge's new side                                                               |
 | `reason`      | text    | optional | the transition reason                                                             |
@@ -165,9 +171,10 @@ The append-only history ([ADR 0003](decisions/0003-append-only-transition-log.md
 
 A `CHECK` requires exactly one of `node_id` and `project_key`. `archive` is **project-keyed** ([ADR 0015](decisions/0015-project-archive-frozen-and-hidden.md)); the other kinds are node-keyed.
 
+- **Assignment changes** carry previous and resulting main/worker identity snapshots as JSON in `from_value` and `to_value`. Their `handles` echo the resulting assignment. Other scalar updates remain unlogged.
 - **The edge** is the sole change carrier. A two-sided change fills `from_value` and `to_value` (lifecycle/hold/move/archive). A one-sided edge change fills only `to_value` when an edge was added, or only `from_value` when one was removed (`dependency`). A change with neither side leaves both null.
 - **`reason`** is the home of transition **reasons** — an abandon/park/block reason rides its row, beside the state change it explains, not in an annotation.
-- **The resume-handle echo** ([ADR 0026](decisions/0026-work-state-composition.md) Decision 3): a transition that _moves_ the handles records them in `handles`. `queue` and `start` record **the resulting handle state at the transition** (the handles supplied by the run or worker; starting from todo also retains fields pre-seeded at `create`); the clearing transitions (`done`/`abandon`, `unqueue`, `park`/`block`) record what they cleared. Claim succession therefore survives in the append-only log. `handles` is null when no handle moved.
+- **The resume-handle echo** ([ADR 0026](decisions/0026-work-state-composition.md) Decision 3): a transition that _moves_ the handles records them in `handles`. `queue` and `start` record **the resulting handle state at the transition** (main identity and optional whole-task worker identity; start preserves established main identity); the clearing transitions (`done`/`abandon`, `unqueue`, `park`/`block`) record what they cleared. Claim succession therefore survives in the append-only log. `handles` is null when no handle moved.
 
 Indexes cover `(node_id, id)`, `(at, id)`, and `(project_key, id)`. Derived flip-times (`became_ready_at`, `recently_completed`) are computed from this feed against a caller-supplied cursor, **never stored**.
 
@@ -278,7 +285,7 @@ The store keeps **only the string**: there is **no per-tag note and no per-tag t
 
 ## Closed vocabularies
 
-Each closed vocabulary has a `CHECK` on its column; values outside its set cannot be written. Widening a vocabulary requires a migration. Most original checks read the enum arrays in `@mimir/contract`. Vocabularies widened later are frozen as literals in their historical migrations: `0001_init`'s seed and node lifecycle checks, and `0002_grooming`, `0003_block_owner`, `0004_seed_parked`, and `0007_task_queued`. A later enum change must not silently alter those upgrade steps.
+Each closed vocabulary has a `CHECK` on its column; values outside its set cannot be written. Widening a vocabulary requires a migration. Most original checks read the enum arrays in `@mimir/contract`. Vocabularies widened later are frozen as literals in their historical migrations: `0001_init`'s seed and node lifecycle checks, and `0002_grooming`, `0003_block_owner`, `0004_seed_parked`, `0007_task_queued`, and `0008_main_worker`. A later enum change must not silently alter those upgrade steps.
 
 | Column                                  | Values                                                     |
 | --------------------------------------- | ---------------------------------------------------------- |
@@ -289,7 +296,8 @@ Each closed vocabulary has a `CHECK` on its column; values outside its set canno
 | `node.block_owner`                      | `you`, `others` (null unless the hold is `blocked`)        |
 | `node.priority`                         | `p0`, `p1`, `p2`, `p3`                                     |
 | `node.size`                             | `small`, `medium`, `large`                                 |
-| `transition_log.kind`, `seed_history.kind` | `lifecycle`, `hold`, `dependency`, `move`, `archive`    |
+| `transition_log.kind` | `lifecycle`, `hold`, `dependency`, `move`, `archive`, `assignment` |
+| `seed_history.kind` | `lifecycle`, `hold`, `dependency`, `move`, `archive` |
 | `seed.kind`                             | `idea`, `bug`, `feature`                                   |
 | `seed.lifecycle`                        | `new`, `parked`, `promoted`, `resolved`, `rejected`        |
 | `tag.entity_type`                       | `project`, `node`, `artifact` (seeds carry no tags)        |
@@ -312,7 +320,7 @@ Query-layer outputs, intentionally **absent** from every table ([ADR 0001](decis
 
 `schema_version` holds `(version, applied_at)`, one row per applied migration. The store's version is the highest `version` present. A fresh database has no `schema_version` table.
 
-Migrations are a static, ordered list carried in the binary (`core/store-sql/migrations.ts`), forward-only: append, never edit, because a migration that has run on any store is a historical fact. Each migration's DDL is written as literal statements once per dialect, so a migration cannot be added for one backend alone. The first migration is `0001_init`, which creates every table above. `0002_grooming` adds the task-only `node.grooming` column with its `CHECK` and sets every existing task to `not_groomed`. `0003_block_owner` adds the nullable `node.block_owner` column with its `CHECK` and backfills each blocked task (`others` when it has an `upstream`, else `you`); parked and unheld tasks stay null. `0004_seed_parked` widens the `seed.lifecycle` `CHECK` to admit `parked`; Postgres replaces the constraint, and SQLite, which cannot alter a `CHECK`, rebuilds `seed` and `seed_history` with every row and history id kept. `0005_project_pinned` adds the `project.pinned` boolean, not null and false for every existing project (SQLite stores it as an integer checked to 0 or 1). `0006_project_remote` adds the nullable `project.remote` text column. Each migration runs in its own transaction, so a failed step leaves the old schema intact.
+Migrations are a static, ordered list carried in the binary (`core/store-sql/migrations.ts`), forward-only: append, never edit, because a migration that has run on any store is a historical fact. Each migration's DDL is written as literal statements once per dialect, so a migration cannot be added for one backend alone. The first migration is `0001_init`, which creates every table above. `0002_grooming` adds the task-only `node.grooming` column with its `CHECK` and sets every existing task to `not_groomed`. `0003_block_owner` adds the nullable `node.block_owner` column with its `CHECK` and backfills each blocked task (`others` when it has an `upstream`, else `you`); parked and unheld tasks stay null. `0004_seed_parked` widens the `seed.lifecycle` `CHECK` to admit `parked`; Postgres replaces the constraint, and SQLite, which cannot alter a `CHECK`, rebuilds `seed` and `seed_history` with every row and history id kept. `0005_project_pinned` adds the `project.pinned` boolean, not null and false for every existing project (SQLite stores it as an integer checked to 0 or 1). `0006_project_remote` adds the nullable `project.remote` text column. `0007_task_queued` widens the task lifecycle to include queued reservations. `0008_main_worker` adds nullable worker identity and node assignment-history support, preserving every old row and log counter. Each migration runs in its own transaction, so a failed step leaves the old schema intact.
 
 - **Newer schema than the binary.** Every normal command refuses it, on both backends. A newer schema is never downgraded; update the binary.
 - **SQLite migrates on open.** The store is one file, `store.sqlite`, in the installation's data directory. Opening creates it when absent, runs it in WAL mode with foreign keys enforced, and applies every pending migration. A file that holds tables but no schema version is refused as not a Mimir store, and the file is left as found.
@@ -324,7 +332,7 @@ The host's `/health` reports `schema` as the schema version it expects. `mimir d
 
 `mimir store export <file>` writes the whole store as one JSON document, and `mimir store import <file>` reads it. It is the **portable form** of the store: backend-neutral, so it moves facts between SQLite and PostgreSQL, and it is the backup for either ([ADR 0030](decisions/0030-postgres-store-backend-shared-store-bridge.md) Decision 4, [ADR 0032](decisions/0032-sqlite-local-tier-shared-sql-store.md) Decisions 5 and 6). A store from a Norn vault enters the same way: export it with mimir v0.20, then import the document (see [Moving from a Norn vault](guides/postgres-store.md#moving-from-a-norn-vault)).
 
-The document carries every **stored fact** and nothing derived. Its top level holds `schema_version` (the document's own version, separate from the database schema version: `6` since queued tasks; import also reads `1` through `5`, defaulting each task to `not_groomed`, each blocked task's owner by its `upstream`, each project to unpinned, and each project's remote to none, and refuses any other), `exported_at` (the only field a re-export may differ in), and these collections:
+The document carries every **stored fact** and nothing derived. Its top level holds `schema_version` (the document's own version, separate from the database schema version: `7` since worker identity; import also reads `1` through `6`, defaulting each task to `not_groomed`, each blocked task's owner by its `upstream`, each project to unpinned, and each project's remote to none, and absent worker identity to none, and refuses any other), `exported_at` (the only field a re-export may differ in), and these collections:
 
 | Collection     | Holds                                                                                     |
 | -------------- | ----------------------------------------------------------------------------------------- |

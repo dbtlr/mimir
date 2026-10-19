@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 
+import { HANDLE_FIELD_KEYS, MAIN_HANDLE_FIELD_KEYS } from '@mimir/contract';
 import { SPEC_UPDATE_FIELDS } from '@mimir/core';
 import type { SpecUpdateField, UpdateFieldKey } from '@mimir/core';
 import { inertStore } from '@mimir/core/testing';
@@ -46,9 +47,12 @@ test('every generic-update spec field surfaces on both transports', () => {
 
   expect(SPEC_UPDATE_FIELDS.length).toBeGreaterThan(0);
   for (const field of SPEC_UPDATE_FIELDS) {
-    // MCP: the camelCase arg name is a property of both write schemas.
+    // MCP: update exposes every field; create exposes only main identity handles.
     expect(updateProps.has(field.update)).toBe(true);
-    expect(createProps.has(field.update)).toBe(true);
+    expect(createProps.has(field.update)).toBe(
+      !HANDLE_FIELD_KEYS.some((key) => key === field.key) ||
+        MAIN_HANDLE_FIELD_KEYS.some((key) => key === field.key),
+    );
     // CLI: the field renders at least one flag.
     expect(updateFieldFlags(field.update).length).toBeGreaterThan(0);
   }
@@ -94,6 +98,8 @@ test('golden: the advertised update/create schemas are pinned exactly', () => {
       target: { type: 'string' },
       title: { type: 'string' },
       upstream: { type: 'string' },
+      workerHarness: { type: 'string' },
+      workerSession: { type: 'string' },
     },
     required: ['id'],
     type: 'object',

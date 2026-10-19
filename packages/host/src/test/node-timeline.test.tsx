@@ -27,3 +27,29 @@ describe('feedList transitions', () => {
     );
   });
 });
+
+test('keeps the main and build session visible after the task settles', () => {
+  const done: HistoryEntry = {
+    ...blocked,
+    from: 'in_progress',
+    handles: {
+      harness: 'codex',
+      session: 'conversation',
+      worker_harness: 'claude',
+      worker_session: 'build-session',
+    },
+    kind: 'lifecycle',
+    reason: null,
+    to: 'done',
+  };
+  render(
+    <FeedList
+      items={buildFeed(new Date('2026-06-01T10:00:00Z'), [done], [])}
+      pending={false}
+      empty="nothing"
+    />,
+  );
+  expect(
+    screen.getByText('Main codex/conversation · Worker claude/build-session'),
+  ).toBeInTheDocument();
+});

@@ -17,6 +17,7 @@ import type { NodePatch, ProjectPatch, Store, StoreWriter } from '../store';
 import { now } from '../time';
 import {
   assertProjectActive,
+  logTransition,
   reloadNode,
   renderNodeRef,
   reorderContainerHint,
@@ -24,7 +25,7 @@ import {
   requireTask,
   stamp,
 } from './common';
-import { applyHandlePatch } from './handles';
+import { applyHandlePatch, assignmentOf, handlesOf, validateAssignment } from './handles';
 import type { HandleFields } from './handles';
 
 /**
@@ -136,6 +137,8 @@ export type UpdateFields = {
   host?: string | null;
   harness?: string | null;
   session?: string | null;
+  workerHarness?: string | null;
+  workerSession?: string | null;
   branch?: string | null;
 };
 
@@ -282,6 +285,10 @@ export async function updateNode(store: Store, id: string, fields: UpdateFields)
       );
     }
 
+    validateAssignment(patch, node);
+    const beforeAssignment = JSON.stringify(assignmentOf(node));
+    const afterAssignment = JSON.stringify(assignmentOf({ ...node, ...patch }));
+
     // The `## Next` re-authoring is a body-section write, not a patch column —
     // but it must ride the same co-written `updated_at` stamp, so it is decided
     // before the stamp is taken and folded into the same write decision.
@@ -290,6 +297,15 @@ export async function updateNode(store: Store, id: string, fields: UpdateFields)
     if (Object.keys(patch).length > 0 || wroteNext) {
       patch.updated_at = now();
       await w.updateNode(id, patch);
+      if (beforeAssignment !== afterAssignment) {
+        await logTransition(w, {
+          from_value: beforeAssignment,
+          handles: handlesOf(await reloadNode(w, id)),
+          kind: 'assignment',
+          node_id: id,
+          to_value: afterAssignment,
+        });
+      }
     }
     return reloadNode(w, id);
   });

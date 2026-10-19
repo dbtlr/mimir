@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { cn } from '../lib/cn';
 import { ago } from '../lib/time';
-import { describeTransition } from '../lib/timeline';
+import { describeTransition, sessionIdentity } from '../lib/timeline';
 import type { FeedItem, HistoryEntry } from '../lib/timeline';
 import { LinkifiedText } from './linkified-text';
 import { MarkdownBody } from './markdown-body';
@@ -39,10 +39,17 @@ function FeedDot({ item }: { item: FeedItem }) {
 
 function TransitionLine({ entry }: { entry: HistoryEntry }) {
   const { label, detail } = describeTransition(entry);
+  const identity =
+    entry.kind === 'assignment' || entry.handles === undefined
+      ? ''
+      : sessionIdentity(entry.handles);
   return (
     <p className="text-meta text-ink">
       <span className="font-medium">{label}</span>
       {detail != null && <span className="ml-1.5 font-mono text-tag text-ink-dim">{detail}</span>}
+      {identity !== '' && (
+        <span className="ml-1.5 font-mono text-tag break-all text-ink-dim">{identity}</span>
+      )}
       {entry.reason != null && (
         <span className="text-ink-dim">
           {' — '}

@@ -60,6 +60,8 @@ function newNodeRow(
     type: row.type,
     updated_at: timestamp,
     upstream: row.upstream ?? null,
+    worker_harness: row.worker_harness ?? null,
+    worker_session: row.worker_session ?? null,
   };
 }
 

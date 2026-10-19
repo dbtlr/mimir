@@ -52,6 +52,8 @@ export function toNode(row: NodeRow, dialect: StoreDialect): Node {
     type: row.type,
     updated_at: row.updated_at,
     upstream: row.upstream,
+    worker_harness: row.worker_harness,
+    worker_session: row.worker_session,
   };
 }
 

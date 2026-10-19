@@ -149,6 +149,12 @@ export function nodeToWire(node: NodeView): Record<string, unknown> {
   if (node.session !== undefined) {
     wire.session = node.session;
   }
+  if (node.workerHarness !== undefined) {
+    wire.worker_harness = node.workerHarness;
+  }
+  if (node.workerSession !== undefined) {
+    wire.worker_session = node.workerSession;
+  }
   if (node.branch !== undefined) {
     wire.branch = node.branch;
   }

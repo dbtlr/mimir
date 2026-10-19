@@ -54,3 +54,29 @@ test('names reservation and cancellation transitions', () => {
     label: 'Unqueued',
   });
 });
+
+test('names explicit session ownership reassignment', () => {
+  expect(describeTransition({ ...started, from: '{}', kind: 'assignment', to: '{}' }).label).toBe(
+    'Session assignment changed',
+  );
+});
+
+test('shows both sides of a worker reassignment without losing the main conversation', () => {
+  const before = {
+    harness: 'codex',
+    session: 'conversation',
+    worker_harness: 'claude',
+    worker_session: 'first',
+  };
+  const after = { ...before, worker_session: 'second' };
+  expect(
+    describeTransition({
+      ...started,
+      from: JSON.stringify(before),
+      kind: 'assignment',
+      to: JSON.stringify(after),
+    }).detail,
+  ).toBe(
+    'Main codex/conversation · Worker claude/first → Main codex/conversation · Worker claude/second',
+  );
+});

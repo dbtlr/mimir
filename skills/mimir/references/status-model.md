@@ -27,9 +27,12 @@ compare-and-swap guarded, so competing orchestrators cannot both take it.
 Queued work is nonterminal and leaves `ready`, `next`, and overview's next list;
 it appears in `list --status queued`.
 
-- `start <id> --harness <harness> --session <worker-session>` accepts either
-  `todo` or `queued` and moves to `in_progress`. From queued it replaces all
-  run handles with the worker's supplied handles; history retains the linkage.
+- `start <id>` accepts `todo` or `queued` and moves to `in_progress` while
+  preserving an established main identity. The main agent supplies its main
+  flags; a distinct whole-task owner supplies `--worker-harness` and
+  `--worker-session`. Helper agents leave task identity alone. Starting queued
+  work resets execution and worker handles before applying supplied values;
+  history retains both main and worker identities.
 - `unqueue <id> "reason"` moves `queued → todo`, clears all handles, and echoes
   the released run handles in history. A nonblank cancellation reason is required.
   The task reads `ready` again if its dependencies are settled, or `awaiting`
