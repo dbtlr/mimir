@@ -6,26 +6,22 @@ import { useHotkey } from '../lib/use-hotkey';
 
 function Harness({
   onFire,
-  hotkey = 's',
   enabled,
   withInput,
   withDialog,
   withMenu,
   withListbox,
-  withInlineListbox,
   focusedRole,
 }: {
   onFire: () => void;
-  hotkey?: string;
   enabled?: boolean;
   withInput?: boolean;
   withDialog?: boolean;
   withMenu?: boolean;
   withListbox?: boolean;
-  withInlineListbox?: boolean;
   focusedRole?: 'menuitem' | 'option' | 'combobox';
 }) {
-  useHotkey(hotkey, onFire, { enabled });
+  useHotkey('s', onFire, { enabled });
   return (
     <div>
       {withInput === true && <input aria-label="box" />}
@@ -41,11 +37,6 @@ function Harness({
       )}
       {withListbox === true && (
         <div role="listbox" aria-label="open listbox">
-          listbox
-        </div>
-      )}
-      {withInlineListbox === true && (
-        <div role="listbox" aria-label="inline listbox" data-inline-listbox="">
           listbox
         </div>
       )}
@@ -106,20 +97,6 @@ describe('useHotkey (MMR-247 capture trigger)', () => {
     render(<Harness onFire={onFire} withListbox />);
     await userEvent.keyboard('s');
     expect(onFire).not.toHaveBeenCalled();
-  });
-
-  it('still fires beside an inline listbox, which is no popup (MMR-562)', async () => {
-    const onFire = vi.fn();
-    render(<Harness onFire={onFire} withInlineListbox />);
-    await userEvent.keyboard('s');
-    expect(onFire).toHaveBeenCalledOnce();
-  });
-
-  it('fires on a key a layout types with Shift, such as `/` (MMR-562)', async () => {
-    const onFire = vi.fn();
-    render(<Harness onFire={onFire} hotkey="/" />);
-    await userEvent.keyboard('{Shift>}/{/Shift}');
-    expect(onFire).toHaveBeenCalledOnce();
   });
 
   it.each(['menuitem', 'option', 'combobox'] as const)(

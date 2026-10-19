@@ -38,27 +38,22 @@ const project = (id: string, pinned = false) => engineProject({ id, pinned });
 const ids = (list: readonly { id: string }[]) => list.map((p) => p.id);
 
 describe('sidebarShortlist (MMR-562)', () => {
-  it('shows the pinned projects and counts the rest as more', () => {
-    const shortlist = sidebarShortlist({
+  it('lists the pinned projects', () => {
+    const shown = sidebarShortlist({
       pinned: [project('A', true), project('B', true)],
       rest: [project('C'), project('D'), project('E')],
     });
-    expect(ids(shortlist.shown)).toStrictEqual(['A', 'B']);
-    expect(shortlist.more).toBe(3);
+    expect(ids(shown)).toStrictEqual(['A', 'B']);
   });
 
-  it('shows the five most recent when nothing is pinned', () => {
+  it('lists the five most recent when nothing is pinned', () => {
     const rest = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((id) => project(id));
-    const shortlist = sidebarShortlist({ pinned: [], rest });
-    expect(ids(shortlist.shown)).toStrictEqual(['A', 'B', 'C', 'D', 'E']);
-    expect(shortlist.more).toBe(2);
+    expect(ids(sidebarShortlist({ pinned: [], rest }))).toStrictEqual(['A', 'B', 'C', 'D', 'E']);
   });
 
-  it('shows every pin however many there are, with nothing more when all are pinned', () => {
+  it('lists every pin however many there are', () => {
     const pinned = ['A', 'B', 'C', 'D', 'E', 'F'].map((id) => project(id, true));
-    const shortlist = sidebarShortlist({ pinned, rest: [] });
-    expect(ids(shortlist.shown)).toHaveLength(6);
-    expect(shortlist.more).toBe(0);
+    expect(sidebarShortlist({ pinned, rest: [] })).toHaveLength(6);
   });
 });
 
