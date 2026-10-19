@@ -695,10 +695,12 @@ _Work_. Project pages keep their sidebar unchanged.
   switcher's listbox and keys: the arrows move, Enter opens, and Alt+P pins.
   The switcher and the section share one implementation of the listbox, its
   rows, and its pin. Escape clears the search, and a second Escape leaves it.
-  `/` focuses the search when focus is not in a text field.
-- **Leaving the search clears it.** The rows are a listbox only while the
-  search has focus. A listbox left open would block the page's bare hotkeys,
-  such as `s` for seed capture, which yield to any open listbox.
+  In the desktop sidebar, `/` focuses the search when focus is not in a text
+  field; in the phone drawer, an open dialog, it does not.
+- **Leaving the search clears it** and turns the rows back into links. The
+  listbox sits in the page rather than over it, so it carries
+  `data-inline-listbox` and the page's hotkeys, such as ⌘K for the jump
+  palette, do not yield to it as they yield to a popup listbox.
 
 Considered and rejected:
 

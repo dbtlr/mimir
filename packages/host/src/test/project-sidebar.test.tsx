@@ -459,13 +459,39 @@ describe('sidebar Projects section on All projects (MMR-562)', () => {
     expect(screen.queryByRole('listbox')).toBeNull();
   });
 
-  it('clears the search when focus leaves it', async () => {
+  it('clears the search when focus leaves it, and drops its listbox', async () => {
     serveWorld();
     renderAt('/');
     const box = await search();
     await userEvent.type(box, 'hnd');
     await userEvent.tab();
     expect(box).toHaveValue('');
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('waits for the archive before saying nothing matches', async () => {
+    serveWorld();
+    const archive = Promise.withResolvers<EngineNode[]>();
+    vi.mocked(projects).mockImplementation(async ({ data }) =>
+      data.status === 'archived' ? archive.promise : [FLT, LOM, HND, MUN],
+    );
+    renderAt('/');
+    await userEvent.type(await search(), 'arc');
+    expect(within(await section()).queryByText(/No project matches/)).toBeNull();
+    archive.resolve([ARC]);
+    await expect(
+      within(await section()).findByRole('option', { name: /^ARC/ }),
+    ).resolves.toBeInTheDocument();
+  });
+
+  it('leaves the jump palette its chord while the search has focus', async () => {
+    serveWorld();
+    renderAt('/');
+    await userEvent.click(await search());
+    await userEvent.keyboard('{Control>}k{/Control}');
+    await expect(
+      screen.findByRole('combobox', { name: 'Jump to a record or action' }),
+    ).resolves.toBeInTheDocument();
   });
 
   it('is not on a project page', async () => {
@@ -500,7 +526,17 @@ describe('sidebar Projects section on All projects (MMR-562)', () => {
     await userEvent.type(box, 'hnd');
     await userEvent.keyboard('{Escape}');
     expect(box).toHaveValue('');
-    expect(screen.getByRole('dialog', { name: 'All projects' })).toBeInTheDocument();
+    expect(box).toHaveFocus();
+    // A closing drawer stays mounted through its exit transition, so give it the chance.
+    // oxlint-disable-next-line promise/avoid-new
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getByRole('dialog', { name: 'All projects' })).not.toHaveAttribute(
+      'data-ending-style',
+    );
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
   });
 });
 

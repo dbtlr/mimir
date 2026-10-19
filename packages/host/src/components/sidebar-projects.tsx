@@ -33,8 +33,8 @@ import {
  * recently active few, then a count of what a search would find. Focusing the
  * search turns the rows into the switcher's listbox and keys: typing filters
  * every project, archived ones last, Enter opens the highlighted one, and
- * Alt+P pins it. `/` focuses the search; leaving it clears the search, so no
- * listbox outlives the focus and the page's bare hotkeys keep working.
+ * Alt+P pins it. `/` focuses the search, and leaving it clears the search
+ * and returns the rows to links.
  */
 
 const SEARCH_LABEL = 'Search projects';
@@ -84,8 +84,8 @@ export function SidebarProjects({ onNavigate }: { onNavigate?: () => void }) {
   const [searching, setSearching] = useState(false);
   const typed = query.trim() !== '';
   const projects = useQuery(projectsQuery);
-  // The archive matters only to a typed search; the resting rows never show it.
-  const archived = useQuery({ ...archivedProjectsQuery, enabled: typed });
+  // The archive matters only to a search; the resting rows never show it.
+  const archived = useQuery({ ...archivedProjectsQuery, enabled: searching });
   const review = useQuery(reviewQuery());
   const pendingPins = usePendingPins();
   const { offline } = connectivity([projects]);
@@ -119,7 +119,8 @@ export function SidebarProjects({ onNavigate }: { onNavigate?: () => void }) {
   });
   const message = projectListMessage({
     failed: projects.isError,
-    hasRows: rows.length > 0,
+    // Until the archive answers, an archived match may still be on its way.
+    hasRows: rows.length > 0 || (typed && archived.isPending),
     loading: projects.isPending,
     query,
   });
@@ -193,7 +194,13 @@ export function SidebarProjects({ onNavigate }: { onNavigate?: () => void }) {
         {announcement}
       </p>
       {searching ? (
-        <div id={listbox.listId} role="listbox" aria-label="Matching projects">
+        // Inline, not a popup: the page's hotkeys need not yield to it.
+        <div
+          id={listbox.listId}
+          role="listbox"
+          aria-label="Matching projects"
+          data-inline-listbox=""
+        >
           {rows.map((p) => (
             <ProjectOption
               key={p.id}

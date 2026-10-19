@@ -21,17 +21,27 @@ function isPopupTarget(el: Element | null): boolean {
   return role === 'menuitem' || role === 'option' || role === 'combobox';
 }
 
-/** Any open dialog, menu, or listbox — base-ui mounts each with its ARIA role while open. */
+/**
+ * Any open dialog, menu, or listbox — base-ui mounts each with its ARIA role
+ * while open. A listbox marked `data-inline-listbox` sits in the page rather
+ * than popping over it (the All projects sidebar's search, MMR-562), so it
+ * does not count.
+ */
 function hasOpenPopup(): boolean {
-  return document.querySelector('[role="dialog"], [role="menu"], [role="listbox"]') !== null;
+  return (
+    document.querySelector(
+      '[role="dialog"], [role="menu"], [role="listbox"]:not([data-inline-listbox])',
+    ) !== null
+  );
 }
 
 /**
  * A single global, unmodified-key hotkey (MMR-247) — the `s` capture trigger.
  * Guarded so a bare letter never hijacks typing or stacks over a modal or popup:
  * ignores the key when focus is in an input / textarea / select / contenteditable,
- * when focus is on a menu/select/combobox item, when any modifier is held, and
- * when another dialog, menu, or listbox is already open. The handler is an
+ * when focus is on a menu/select/combobox item, when ⌘, Ctrl, or Alt is held, and
+ * when another dialog, menu, or listbox is already open. Shift is allowed: it
+ * changes the typed key itself, and some layouts need it for `/`. The handler is an
  * effect event, so a fresh closure each render never re-binds the listener.
  */
 export function useHotkey(
@@ -50,7 +60,7 @@ export function useHotkey(
       if (e.key !== key) {
         return;
       }
-      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) {
+      if (e.metaKey || e.ctrlKey || e.altKey) {
         return;
       }
       if (isEditableTarget(document.activeElement)) {
