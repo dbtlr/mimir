@@ -15,7 +15,7 @@ import { renderRecords, renderTable } from '../render/node';
 import { presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
 import { renderArtifactRecords, renderArtifactTable, renderSeedRecords } from '../render/records';
-import { jsonView, textView } from '../render/views';
+import { prettyJson, recordViews } from '../render/views';
 
 /** The record `get` read, with its wire object and how the styled views render it. */
 export type GetValue = { presentation: Presentation; wire: Record<string, unknown> } & (
@@ -53,16 +53,13 @@ function idOf(value: Readonly<GetValue>): string {
   return value.kind === 'artifact' ? value.artifact.id : value.seed.id;
 }
 
-const pretty = (value: Readonly<GetValue>): string => JSON.stringify(value.wire, null, 2);
-
 /** `jsonl` of one record prints the same indented document as `json`, as the old CLI did. */
-const views = {
-  ids: textView(idOf),
-  json: jsonView('application/json', pretty),
-  jsonl: jsonView('application/jsonl', pretty),
-  records: textView(recordsOf),
-  table: textView(tableOf),
-};
+const views = recordViews<GetValue>({
+  ids: idOf,
+  json: (value) => prettyJson(value.wire),
+  records: recordsOf,
+  table: tableOf,
+});
 
 /** Whether `--col` names `content`, comma-separated or repeated. */
 const wantsContent = (cols: readonly string[]): boolean =>

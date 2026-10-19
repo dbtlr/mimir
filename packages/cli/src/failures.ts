@@ -4,10 +4,12 @@
  * usage error Mimir raises exits 2 with the code `usage`. A failure's hint is
  * its one hint line. Loom raises its own parser faults in its own voice.
  */
-import { FatalError, plugin, translate, UsageError } from '@loomcli/core';
+import { FatalError, plugin, translate, UnknownOptionError, UsageError } from '@loomcli/core';
 import type { FailureHook, Plugin } from '@loomcli/core';
 import { MimirError } from '@mimir/contract';
 import type { ErrorCode } from '@mimir/contract';
+
+import { flagRedirect } from './flag-owners';
 
 /** A usage error Mimir raises: the invocation is wrong. Exit 2. */
 export class MimirUsageError extends UsageError {
@@ -88,13 +90,22 @@ export function asUsage(error: unknown): never {
   throw error;
 }
 
-const hintOf: FailureHook = (failure, { style }) =>
-  (failure instanceof DomainError || failure instanceof MimirUsageError) &&
-  failure.hint !== undefined
+const hintOf: FailureHook = (failure, { path, style }) => {
+  if (failure instanceof UnknownOptionError) {
+    const redirect = flagRedirect(failure.spelling, path[0]);
+    return redirect === undefined ? undefined : style.escape(redirect);
+  }
+  return (failure instanceof DomainError || failure instanceof MimirUsageError) &&
+    failure.hint !== undefined
     ? style.escape(failure.hint)
     : undefined;
+};
 
-/** Translates every `MimirError` a command lets through, and prints each failure's hint under it. */
+/**
+ * Translates every `MimirError` a command lets through, and prints each
+ * failure's hint under it. A misplaced or retired flag gets the old CLI's
+ * redirect for it as its hint.
+ */
 export function failures(): Plugin {
   return plugin('@mimir/cli/failures', {
     onFailure: hintOf,

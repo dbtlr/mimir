@@ -37,6 +37,6 @@ export async function runArgv(
       terminal: { stderr: terminal, stdin: { isTTY: false }, stdout: terminal },
     },
   });
-  process.exitCode = before;
+  process.exitCode = before ?? 0;
   return { exitCode, stderr: err.text(), stdout: out.text() };
 }

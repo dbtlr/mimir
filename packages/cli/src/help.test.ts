@@ -26,6 +26,18 @@ test.each([
   ['get', ['get', '--help']],
   ['next', ['next', '--help']],
   ['next-compact', ['next', '-h']],
+  // MMR-549: the read commands.
+  ['list', ['list', '--help']],
+  ['projects', ['projects', '--help']],
+  ['status', ['status', '--help']],
+  ['tree', ['tree', '--help']],
+  ['overview', ['overview', '--help']],
+  ['artifacts', ['artifacts', '--help']],
+  ['search', ['search', '--help']],
+  ['seeds', ['seeds', '--help']],
+  ['scratch', ['scratch', '--help']],
+  ['scratch-list', ['scratch', 'list', '--help']],
+  ['scratch-get', ['scratch', 'get', '--help']],
 ])('the %s help page is pinned', async (name, argv) => {
   const run = await runArgv(board.app(), argv);
   expect(run.exitCode).toBe(0);

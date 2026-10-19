@@ -1,0 +1,26 @@
+mimir search · Find any record of one project (task, container, seed, artifact) by id, title, or description.
+
+USAGE
+  mimir search <query...> [options]
+
+ARGUMENTS
+  query  The words to find: an id, or text from a title or description.
+
+OPTIONS
+  -s, --scope <KEY>      The project to read. Defaults to the clone binding.
+  -n, --limit <n>        Cap the result count.
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, table by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir search MMR-447
+    that record, plus what links to it
+  $ mimir search 447
+    a bare number resolves in the project
+  $ mimir search "cross record" -s MMR
+    titles and descriptions
+  $ mimir search auth -n 5 -f json
+    structured output, five results

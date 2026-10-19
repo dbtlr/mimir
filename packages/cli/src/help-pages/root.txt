@@ -4,8 +4,17 @@ USAGE
   mimir <command> [options]
 
 COMMANDS
-  get   Read one full record: a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), or a seed (KEY-sN).
-  next  List the ready tasks of one project in rank order.
+  get                Read one full record: a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), or a seed (KEY-sN).
+  next               List the ready tasks of one project in rank order.
+  list               Select the nodes of one project by predicate, status, or tag.
+  projects           List the projects, key-ordered. The clone binding never narrows this read.
+  status             Read the rollup status and distribution of a node (KEY-seq) or project (KEY).
+  tree               Read the full subtree rooted at a node (KEY-seq) or project (KEY).
+  overview           Orient in one project: direction, in flight, next, awaiting, recent sessions, and hygiene.
+  artifacts          Read one project's artifact feed: frozen work products, newest first (KEY-aN).
+  search             Find any record of one project (task, container, seed, artifact) by id, title, or description.
+  seeds              Read one project's grooming queue: live seeds oldest-first (FIFO triage).
+  scratch <command>  Read and keep Scratchpads, the working state of one episode.
 
 GLOBAL OPTIONS
   -h, --help  Show this help.

@@ -6,16 +6,23 @@
 import {
   FACET_NAMES,
   PRIORITY_VALUES,
+  PROJECT_STATUS_SELECTOR_VALUES,
   QUERY_OP_VALUES,
+  SEED_STATUS_SELECTOR_VALUES,
   SIZE_VALUES,
+  STATUS_SELECTOR_VALUES,
   VERDICT_VALUES,
 } from '@mimir/contract';
 import type {
+  DateOp,
   FacetName,
   FieldFilter,
   Priority,
+  ProjectStatusSelector,
   QueryOp,
+  SeedStatusSelector,
   Size,
+  StatusSelector,
   VerdictSelector,
 } from '@mimir/contract';
 import { isMember } from '@mimir/helpers';
@@ -48,7 +55,7 @@ const BASE_COLUMN_NAMES = [
  * The `--col` facets, comma-separated or repeated. `content` is the artifact
  * body and a node simply has none; `lede` is a list column, refused on `get`.
  */
-export function parseFacets(cols: readonly string[], verb: 'next' | 'get'): FacetName[] {
+export function parseFacets(cols: readonly string[], verb: 'next' | 'list' | 'get'): FacetName[] {
   const facets: FacetName[] = [];
   for (const raw of cols.flatMap((c) => c.split(','))) {
     const col = raw.trim();
@@ -138,6 +145,97 @@ export function parseZone(
 ): string {
   try {
     return grammar.timeZone(explicit) ?? fallback;
+  } catch (error) {
+    return asUsage(error);
+  }
+}
+
+/** The `list --status` universe: a status word, `live`, or `all`. */
+export function parseStatus(value: string | undefined): StatusSelector | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isMember(value, STATUS_SELECTOR_VALUES)) {
+    // `archived` was the project shelf's door before `projects` existed; name the verb that owns it.
+    throw usage(
+      `invalid status: ${value} (expected ${STATUS_SELECTOR_VALUES.join('|')})`,
+      value === 'archived'
+        ? "archived projects are listed by 'mimir projects --status archived'"
+        : undefined,
+    );
+  }
+  return value;
+}
+
+/** The `projects --status` shelf: active (the default), archived, or all. */
+export function parseProjectStatus(value: string | undefined): ProjectStatusSelector {
+  if (value === undefined) {
+    return 'active';
+  }
+  if (!isMember(value, PROJECT_STATUS_SELECTOR_VALUES)) {
+    throw usage(`invalid status: ${value} (expected ${PROJECT_STATUS_SELECTOR_VALUES.join('|')})`);
+  }
+  return value;
+}
+
+/** The seed queue `--status`: a lifecycle word, `live`, or `all`; absent means the Engine's default. */
+export function parseSeedStatus(value: string | undefined): SeedStatusSelector | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isMember(value, SEED_STATUS_SELECTOR_VALUES)) {
+    throw usage(`invalid status: ${value} (expected ${SEED_STATUS_SELECTOR_VALUES.join('|')})`);
+  }
+  return value;
+}
+
+/** The seed queue `--sort`: age order, `asc` being oldest-first. */
+export function parseSeedSort(value: string | undefined): 'asc' | 'desc' | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value !== 'asc' && value !== 'desc') {
+    throw usage(`invalid sort: ${value} (expected asc|desc)`);
+  }
+  return value;
+}
+
+/** The artifact feed's paging cursor: a whole count of rows to skip. */
+export function parseOffset(value: string | undefined): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const n = Number(value);
+  if (!/^\d+$/.test(value) || !Number.isSafeInteger(n)) {
+    throw usage(`invalid offset: ${value}`, 'offset is a whole count of rows to skip (0 or more)');
+  }
+  return n;
+}
+
+/** The search cap: a whole number from 1 to the Engine's maximum. */
+export function parseSearchLimit(value: string | undefined, max: number): number | undefined {
+  const limit = parseLimit(value);
+  if (limit !== undefined && (limit < 1 || limit > max)) {
+    throw usage(
+      `invalid limit: ${String(limit)}`,
+      `limit is a whole number from 1 to ${String(max)}`,
+    );
+  }
+  return limit;
+}
+
+/**
+ * The date filters of a feed with one date field (artifacts, seeds), refused as
+ * usage when a token is malformed or a date unreadable.
+ */
+export function parseDateFeed(
+  grammar: Grammar,
+  tokens: Readonly<Record<DateOp, readonly string[]>>,
+  field: string,
+  zone: string,
+): ReturnType<Grammar['dateFilters']> {
+  try {
+    return grammar.dateFilters(tokens, field, zone);
   } catch (error) {
     return asUsage(error);
   }

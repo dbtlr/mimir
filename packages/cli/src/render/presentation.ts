@@ -46,6 +46,11 @@ export function bold(text: string, plain: boolean): string {
   return plain ? text : `\u001B[1m${text}\u001B[0m`;
 }
 
+/** Wrap `text` in the dim gray of a preview line, or leave it bare when `plain`. */
+export function dimmed(text: string, plain: boolean): string {
+  return color(text, 90, plain);
+}
+
 /** The transition arrow: `→` styled, `->` plain. */
 export function arrow(plain: boolean): string {
   return plain ? '->' : '→';

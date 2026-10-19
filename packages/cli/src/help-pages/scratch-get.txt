@@ -1,0 +1,18 @@
+mimir scratch get · Read one scratchpad by UUID: its agenda, journal, and linked work.
+
+USAGE
+  mimir scratch get <id> [options]
+
+ARGUMENTS
+  id  The scratchpad UUID.
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir scratch get 0d6c3f1e-…
+    one pad in full

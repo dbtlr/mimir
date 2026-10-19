@@ -6,12 +6,19 @@
  */
 import type {
   ArtifactDetail,
+  ArtifactSummary,
+  DateOp,
   Engine,
   FieldFilter,
   NodeView,
+  OverviewReport,
+  OverviewScratchpad,
   QueryOp,
+  Scratchpad,
+  SearchHit,
   SeedView,
   SetResult,
+  TreeView,
 } from '@mimir/contract';
 
 /** The kind of record an id names, by its grammar alone. */
@@ -27,6 +34,14 @@ export type Grammar = {
   assertDates: (filters: readonly FieldFilter[], zone: string) => void;
   /** A caller-supplied IANA zone, validated, or `undefined` when none was given. */
   timeZone: (zone: string | undefined) => string | undefined;
+  /** The date filters of a feed whose only date field is `field`, with every date checked. */
+  dateFilters: (
+    tokens: Readonly<Record<DateOp, readonly string[]>>,
+    field: string,
+    zone: string,
+  ) => { field: string; op: DateOp; value: string }[];
+  /** The most hits one search may ask for. */
+  maxSearchLimit: number;
 };
 
 /** The public wire objects every transport emits for `json` and `jsonl`. */
@@ -35,6 +50,12 @@ export type Wire = {
   set: (result: SetResult<NodeView>, unit: string) => Record<string, unknown>;
   artifact: (artifact: ArtifactDetail) => Record<string, unknown>;
   seed: (seed: SeedView) => Record<string, unknown>;
+  tree: (tree: TreeView) => Record<string, unknown>;
+  overview: (report: OverviewReport) => Record<string, unknown>;
+  artifactSummary: (artifact: ArtifactSummary) => Record<string, unknown>;
+  searchHit: (hit: SearchHit) => Record<string, unknown>;
+  scratchRow: (row: OverviewScratchpad) => Record<string, unknown>;
+  scratchpad: (pad: Scratchpad) => Record<string, unknown>;
 };
 
 export type Ports = {

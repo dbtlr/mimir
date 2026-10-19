@@ -1,0 +1,13 @@
+mimir scratch · Read and keep Scratchpads, the working state of one episode.
+
+USAGE
+  mimir scratch <command> [options]
+
+COMMANDS
+  list  List one project's active scratchpads, freezing first and newest first.
+  get   Read one scratchpad by UUID: its agenda, journal, and linked work.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+Run mimir scratch <command> --help for command details.

@@ -54,3 +54,22 @@ test('a Mimir usage error exits 2 with the code usage', async () => {
 test('a foreign throw stays an internal failure', async () => {
   expect(await form(new TypeError('boom'))).toMatchObject({ code: 'internal', exitCode: 1 });
 });
+
+/** The hints of `list` invoked with one option it does not declare. */
+const hintsFor = async (option: string): Promise<readonly string[]> => {
+  const app = new Application('mimir', { description: 'A probe.', plugins: [failures()] }).command(
+    new Command('list', { description: 'List.' }).action(() => undefined),
+  );
+  const outcome = await app.invoke(['list'], { options: { [option]: '1' } });
+  return outcome.status === 'failed' ? outcome.form.hints : [];
+};
+
+test('a misplaced flag prints the owner table redirect as its hint', async () => {
+  expect(await hintsFor('offset')).toEqual([
+    "'--offset' pages the artifact feed; list/next cap with '-n, --limit'",
+  ]);
+});
+
+test('a flag the owner table does not know gets no redirect', async () => {
+  expect(await hintsFor('bogus')).toEqual([]);
+});
