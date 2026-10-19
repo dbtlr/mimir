@@ -736,7 +736,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ],
       [
         '--host/--harness/--session/--branch <text>',
-        'task only: the resume handles — how a takeover picks the work back up; a blank clears one',
+        'task only: the resume handles — how a takeover picks the work back up; a blank clears one except a queued session',
       ],
       ['--name <name>', 'project only (KEY): rename it'],
       [
