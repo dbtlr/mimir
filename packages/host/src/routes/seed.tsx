@@ -11,7 +11,6 @@ import { isNotFound } from '../api/errors';
 import { nodeQuery } from '../api/node-queries';
 import { useUpdateSeed } from '../api/seed-mutations';
 import { projectsQuery } from '../api/shell-queries';
-import type { WireNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { DescriptionSection, MetaRow } from '../components/node-record';
 import { OfflineBanner } from '../components/offline-banner';
@@ -133,8 +132,8 @@ function RequestCard({
   );
 }
 
-/** A task as the outcome list reads it, from either node read. */
-type OutcomeNode = Parameters<typeof recordStanding>[0] & Pick<WireNode, 'title'>;
+/** A task as a node read serves it: what its standing and row read. */
+type OutcomeNode = Parameters<typeof recordStanding>[0] & { title: string };
 
 /** One task that came of the seed: its state, linked to its page. */
 type Outcome = { id: string; node?: OutcomeNode; upstream: boolean };
@@ -208,7 +207,7 @@ function OutcomeSection({
 function decisionPrompt(
   seed: EngineSeed,
   ownerTitle: string,
-  spawned: readonly (WireNode | undefined)[],
+  spawned: readonly (OutcomeNode | undefined)[],
 ): string {
   const lane = laneOf(seed);
   if (lane === 'untriaged') {

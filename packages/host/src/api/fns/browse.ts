@@ -47,6 +47,13 @@ export const getSeed = createServerFn({ method: 'GET' })
   )
   .handler(async ({ data }) => (await engine()).getSeed(data));
 
+/** The open tasks on any board whose id or title holds the text. */
+export const consoleOpenTasks = createServerFn({ method: 'GET' })
+  .validator((input: ConsoleInput<'openTasks'>) =>
+    parseEngineInput(consoleSchemas.openTasks.input, input),
+  )
+  .handler(async ({ data }) => (await engine()).console.openTasks(data));
+
 /** The tasks on any board that name a seed as their upstream. */
 export const consoleUpstreamTasks = createServerFn({ method: 'GET' })
   .validator((input: ConsoleInput<'upstreamTasks'>) =>
@@ -124,21 +131,11 @@ function parseDoctorInput(input: unknown): DoctorInput {
 /** A JSON value: what a finding's evidence holds, typed so a server function can return it. */
 type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
 
-/** A value as JSON, as `/api/doctor` writes it: a value JSON cannot hold reads as null. */
-function jsonOf(value: unknown): Json {
-  if (value === null) {
-    return null;
-  }
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    return value.map(jsonOf);
-  }
-  if (typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([key, inner]) => [key, jsonOf(inner)]));
-  }
-  return null;
+/** An object read back from the JSON text `JSON.stringify` wrote for it. */
+function jsonObjectOf(text: string): Record<string, Json> {
+  // JSON.parse answers `any`; text written from an object parses back to a JSON object.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return JSON.parse(text) as Record<string, Json>;
 }
 
 /** The record-health facet with each finding's evidence as JSON. */
@@ -148,17 +145,20 @@ export type RecordHealth = Omit<WireDoctorFacet, 'groups'> & {
   })[];
 };
 
-/** The facet in the shape a server function can return. */
-function recordHealthOf(facet: WireDoctorFacet): RecordHealth {
+/**
+ * The facet in the shape a server function can return, each finding's evidence
+ * passed through JSON as `/api/doctor` writes it: a `Date` reads as its ISO
+ * string and an undefined field is dropped, so the console shows what the CLI
+ * and the route show.
+ */
+export function recordHealthOf(facet: WireDoctorFacet): RecordHealth {
   return {
     ...facet,
     groups: facet.groups.map((group) => ({
       ...group,
       records: group.records.map((record) => ({
         ...record,
-        evidence: Object.fromEntries(
-          Object.entries(record.evidence).map(([key, value]) => [key, jsonOf(value)]),
-        ),
+        evidence: jsonObjectOf(JSON.stringify(record.evidence)),
       })),
     })),
   };

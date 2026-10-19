@@ -180,6 +180,24 @@ const cases: Case[] = [
     route: '/api/nodes?type=task&status=all&eq=upstream:OTH-s99',
     wire: nodeSetToWire,
   },
+  {
+    engine: (engine) => engine.openTasks({ q: 'ready' }),
+    name: 'openTasks by title across every board',
+    route: '/api/nodes?type=task&q=ready',
+    wire: nodeSetToWire,
+  },
+  {
+    engine: (engine) => engine.openTasks({ q: 'ENG-3' }),
+    name: 'openTasks by id',
+    route: '/api/nodes?type=task&q=ENG-3',
+    wire: nodeSetToWire,
+  },
+  {
+    engine: (engine) => engine.openTasks({ q: 'done' }),
+    name: 'openTasks of only finished work',
+    route: '/api/nodes?type=task&q=done',
+    wire: nodeSetToWire,
+  },
 ];
 
 test.each(cases)('console.$name equals its /api body, locally and remotely', async (c) => {
@@ -199,11 +217,38 @@ test('the fixture reaches every section the pages show', async () => {
   const work = await remote.console.projectWork({ project: 'ENG', timeZone: 'UTC' });
   expect(work.now[0]?.latestNote?.createdAt).toBeInstanceOf(Date);
   expect(work.frontier.toGroom.length).toBeGreaterThan(0);
+  const open = await remote.console.openTasks({ q: 'ready' });
+  expect(open.items.map((task) => task.title).toSorted()).toEqual(['Ready', 'Ready elsewhere']);
+  expect((await remote.console.openTasks({ q: 'done' })).items).toEqual([]);
   const upstream = await remote.console.upstreamTasks({ seed: 'OTH-s1' });
   expect(upstream.items.map((task) => task.title).toSorted()).toEqual([
     'Settled on the idea',
     'Waits on the idea',
   ]);
+});
+
+test('console.openTasks finds an old open task that newer matching records crowd out of a search', async () => {
+  const crowded = await createTestStore();
+  try {
+    const { store } = crowded;
+    await createProject(store, { key: 'CRW', name: 'Crowded' });
+    await createProject(store, { key: 'AAA', name: 'Ideas' });
+    const home = await createInitiative(store, { projectId: 'CRW', title: 'Home' });
+    const old = await createTask(store, { parentId: home.id, title: 'Old review chore' });
+    // Every newer record also matches. The search ranks them ahead of the task:
+    // newer first, and by id when the instants tie.
+    for (let n = 0; n < 101; n++) {
+      await fileSeed(store, { kind: 'idea', project: 'AAA', title: `Review idea ${n}` });
+    }
+    const engine = new LocalEngine(store).console;
+    const hits = await engine.search({ limit: 100, query: 'review' });
+    expect(hits.items.map((hit) => hit.id)).not.toContain(old.id);
+    expect((await engine.openTasks({ q: 'review' })).items.map((task) => task.id)).toEqual([
+      old.id,
+    ]);
+  } finally {
+    await crowded.close();
+  }
 });
 
 test('the review page counts the findings the host supplies, and none without a provider', async () => {

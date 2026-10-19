@@ -28,7 +28,7 @@ import {
 } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
-import { reviewReport } from './fixtures';
+import { reviewReport, task } from './fixtures';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
 
@@ -42,19 +42,29 @@ vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success
  * fetch is stubbed, so any /api request a page makes is recorded rather than
  * mocked away; the pages render inside the real shell and router.
  *
- * Two /api reads remain around these pages, each owned by another area: the
+ * Three /api reads remain around these pages, each owned by another area: the
  * shell's review report behind the attention alert, which moves with the
- * review page (MMR-538), and the project record the browsers' project gate
- * reads, which moves with the node records (MMR-539). When both move, this set
- * empties and the test holds these pages to no /api request at all.
+ * review page (MMR-538); the project record the browsers' project gate reads;
+ * and the single node read (`nodeQuery`) behind a promoted seed's spawned tasks
+ * and an artifact's lone attached record. The last two move with the node
+ * records (MMR-539). When they move, these allowances go and the test holds
+ * these pages to no /api request at all.
  */
 const ALLOWED_API: ReadonlySet<string> = new Set(['/api/review', '/api/projects/MMR']);
+
+/** One node's record read, `nodeQuery`'s path: owned by MMR-539. */
+const NODE_READ = /^\/api\/nodes\/MMR-\d+$/;
 
 let requested: string[];
 
 /** The /api paths requested so far that no other area still owns. */
 const strayApi = () =>
-  requested.filter((path) => path.startsWith('/api') && !ALLOWED_API.has(path));
+  requested.filter(
+    (path) => path.startsWith('/api') && !ALLOWED_API.has(path) && !NODE_READ.test(path),
+  );
+
+/** The node records read through /api so far, by path. */
+const nodeReads = () => requested.filter((path) => NODE_READ.test(path));
 
 const idea = seedIn('untriaged', { id: 'MMR-s1', title: 'Name the project' });
 
@@ -72,6 +82,10 @@ beforeEach(() => {
       }
       if (url.pathname === '/api/review') {
         return Response.json(reviewReport());
+      }
+      if (NODE_READ.test(url.pathname)) {
+        const id = url.pathname.slice('/api/nodes/'.length);
+        return Response.json(task({ id, status: 'ready', title: `Task ${id}` }));
       }
       return Response.json({ error: { message: 'not served' } }, { status: 503 });
     }),
@@ -147,6 +161,29 @@ describe('the browsers, seeds, artifacts, and doctor on server functions (MMR-54
     await within(outcome).findByRole('link', { name: /Waits on it/ });
     expect(getSeed).toHaveBeenCalledWith({ data: { content: true, id: 'MMR-s1' } });
     expect(consoleUpstreamTasks).toHaveBeenCalledWith({ data: { seed: 'MMR-s1' } });
+    expect(strayApi()).toStrictEqual([]);
+  });
+
+  it("an artifact on one record reads that record only through MMR-539's node read", async () => {
+    vi.mocked(getArtifact).mockResolvedValue(
+      engineArtifactRecord({ id: 'MMR-a1', links: ['MMR-2'] }),
+    );
+    renderAt('/p/MMR/a1');
+    await screen.findByRole('group', { name: 'Attached to' });
+    await waitFor(() => {
+      expect(nodeReads()).toStrictEqual(['/api/nodes/MMR-2']);
+    });
+    expect(strayApi()).toStrictEqual([]);
+  });
+
+  it("a promoted seed reads its spawned task only through MMR-539's node read", async () => {
+    vi.mocked(getSeed).mockResolvedValue(
+      seedIn('promoted', { id: 'MMR-s1', spawned: ['MMR-3'], title: 'Name the project' }),
+    );
+    renderAt('/p/MMR/s1');
+    const outcome = await screen.findByRole('region', { name: 'What came of it' });
+    await within(outcome).findByRole('link', { name: /Task MMR-3/ });
+    expect(nodeReads()).toStrictEqual(['/api/nodes/MMR-3']);
     expect(strayApi()).toStrictEqual([]);
   });
 

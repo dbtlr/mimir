@@ -4,14 +4,13 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
-import { seedPromote } from '../api/fns/browse';
-import { consoleSearch } from '../api/fns/shell';
+import { consoleOpenTasks, seedPromote } from '../api/fns/browse';
 import type { PromotedSeed } from '../api/seed-mutations';
 import { AuthoringSheet } from '../components/authoring-sheet';
 import type { AuthoringSheetProps } from '../components/authoring-sheet';
-import { engineSeed } from './browse-fixtures';
+import { engineSeed, engineTask } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
-import { engineProject, engineTree, searchHit } from './engine-fixtures';
+import { engineProject, engineTree } from './engine-fixtures';
 import { renderInRouter } from './router';
 import { serveShell } from './shell-fns';
 
@@ -21,11 +20,6 @@ vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('sonner', () => ({ toast }));
-
-// Before each case's own answers, so a case's seed-write mock outlives renderSheet.
-beforeEach(() => {
-  serveBrowse();
-});
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -54,17 +48,15 @@ const mmrTree = treeNode('MMR', 'Mimir', 'project', [
 ]);
 const webTree = treeNode('WEB', 'Website', 'project', [treeNode('WEB-1', 'launch', 'initiative')]);
 
-/**
- * What the dependency search answers: two open tasks, then hits the picker
- * drops — a finished task, a seed, and an artifact.
- */
-const depHits = [
-  searchHit({ id: 'MMR-40', lifecycle: 'todo', title: 'auth tokens' }),
-  searchHit({ id: 'MMR-41', lifecycle: 'in_progress', title: 'auth UI' }),
-  searchHit({ finished: true, id: 'MMR-42', lifecycle: 'done', title: 'auth spike' }),
-  searchHit({ id: 'MMR-s3', kind: 'seed', lifecycle: 'new', title: 'auth idea' }),
-  searchHit({ id: 'MMR-a5', kind: 'artifact', lifecycle: null, title: 'auth notes' }),
+const depRows = [
+  engineTask({ id: 'MMR-40', status: 'ready', title: 'auth tokens' }),
+  engineTask({ id: 'MMR-41', lifecycle: 'in_progress', status: 'in_progress', title: 'auth UI' }),
 ];
+
+// Before each case's own answers, so a case's seed-write mock outlives renderSheet.
+beforeEach(() => {
+  serveBrowse({ tasks: depRows });
+});
 
 /** A promote's echo: the seed, now promoted, and the task it spawned. */
 const promotion: PromotedSeed = {
@@ -75,7 +67,6 @@ const promotion: PromotedSeed = {
 
 function mockReads() {
   serveShell({
-    hits: depHits,
     projects: [
       engineProject({ id: 'MMR', title: 'Mimir' }),
       engineProject({ id: 'WEB', title: 'Website' }),
@@ -174,8 +165,8 @@ describe('authoringSheet', () => {
     await user.click(await screen.findByRole('option', { name: /MMR-40/ }));
     // picking appends a chip; the remove control is a real button
     expect(screen.getByLabelText('Remove dependency MMR-40')).toBeInTheDocument();
-    // The picker searches every board and offers open tasks only.
-    expect(consoleSearch).toHaveBeenCalledWith({ data: { limit: 100, query: 'auth' } });
+    // The picker asks the host for every board's open tasks matching the text.
+    expect(consoleOpenTasks).toHaveBeenCalledWith({ data: { q: 'auth' } });
 
     await user.click(screen.getByRole('button', { name: 'Create ↵' }));
     await waitFor(() => {
@@ -372,18 +363,6 @@ describe('authoringSheet', () => {
 
     await user.keyboard('{ArrowLeft}');
     expect(screen.getByRole('radio', { name: 'Task' })).toBeChecked();
-  });
-
-  it('offers only open tasks from the search, never finished work, seeds, or artifacts', async () => {
-    const user = userEvent.setup();
-    await renderSheet();
-    await sheetReady();
-
-    await user.type(screen.getByRole('combobox'), 'auth');
-    await screen.findByRole('option', { name: /MMR-40/ });
-    expect(
-      screen.getAllByRole('option').map((option) => option.id.replace('authoring-dep-option-', '')),
-    ).toStrictEqual(['MMR-40', 'MMR-41']);
   });
 
   it('exposes the arrow-highlighted dep option to AT via aria-activedescendant', async () => {

@@ -8,9 +8,9 @@ import type {
 } from '@mimir/contract';
 import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
 
-import { hitStatus } from '../lib/jump';
 import {
   artifacts,
+  consoleOpenTasks,
   consoleUpstreamTasks,
   doctor,
   getArtifact,
@@ -18,7 +18,6 @@ import {
   list,
   seeds,
 } from './fns/browse';
-import { consoleSearch } from './fns/shell';
 import { browserTimeZone } from './queries';
 
 /*
@@ -98,26 +97,21 @@ const NO_TASKS: TaskSet = { items: [], returned: 0, startsAt: 0, total: 0 };
 const browserFacets = (lede: boolean | undefined): FacetName[] =>
   lede === true ? ['home', 'lede'] : ['home'];
 
-/** One task the dependency picker offers: its id, title, and the status its search hit can show. */
-export type DepCandidate = { id: string; title: string; status?: StatusWord };
-
-/** How many hits the picker asks for, so enough tasks survive the filter to fill its list. */
-const DEP_SEARCH_LIMIT = 100;
+/** One task the dependency picker offers: its id, title, and status. */
+export type DepCandidate = { id: string; title: string; status: StatusWord };
 
 /**
- * The dependency picker's lookup (MMR-78): open tasks on any board whose id or
- * text matches `q`. It reuses the jump palette's cross-project search and keeps
- * its open task hits. Like the palette's search it is a passing question:
+ * The dependency picker's lookup (MMR-78): the open tasks on any board whose id
+ * or title holds `q`. The host filters before it answers, so an old open task
+ * is never crowded out by newer records of other kinds. A passing question:
  * never polled or persisted.
  */
 export const tasksQuery = ({ q }: { q: string }) =>
   queryOptions({
     gcTime: 60_000,
     queryFn: async (): Promise<DepCandidate[]> => {
-      const hits = await consoleSearch({ data: { limit: DEP_SEARCH_LIMIT, query: q } });
-      return hits.items
-        .filter((hit) => hit.kind === 'task' && !hit.finished)
-        .map((hit) => ({ id: hit.id, status: hitStatus(hit), title: hit.title }));
+      const open = await consoleOpenTasks({ data: { q } });
+      return open.items.map((task) => ({ id: task.id, status: task.status, title: task.title }));
     },
     queryKey: ['search', 'dep-candidates', q],
     refetchInterval: false,

@@ -306,8 +306,14 @@ projection `/api/nodes` serves. A seed nothing names, or an id that names no
 seed, has none, as on `/api/nodes`. Like every `console.*` method it is
 registered on neither the CLI nor MCP.
 
-**The dependency picker reuses `console.search`.** The picker spans every
-project, so it asks the palette's search and keeps the open task hits.
+**`console.openTasks` is the dependency picker's lookup.** The picker spans
+every project and offers open tasks whose id or title holds the typed text, as
+`/api/nodes?type=task&q=` answers it. The palette's `console.search` cannot
+stand in: it windows its hits across every record kind before a caller could
+drop the non-task and finished ones, so newer records crowd older open tasks
+out, and its ID modes answer linked records that do not match the text.
+`console.openTasks` filters before it answers, in the set projection
+`/api/nodes` serves.
 
 **A seed's lane is classified once, in the contract.** The `/api` wire serves
 each seed's lane, and an Engine seed carries the lifecycle and the

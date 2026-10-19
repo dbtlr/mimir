@@ -166,6 +166,10 @@ export function createEngineRouter(engine: Engine) {
         .input((value: unknown) => parseEngineInput(consoleSchemas.nodeWork.input, value))
         .output(consoleSchemas.nodeWork.output)
         .query(({ input }) => engine.console.nodeWork(input)),
+      openTasks: procedure
+        .input((value: unknown) => parseEngineInput(consoleSchemas.openTasks.input, value))
+        .output(consoleSchemas.openTasks.output)
+        .query(({ input }) => engine.console.openTasks(input)),
       overview: procedure
         .input((value: unknown) => parseEngineInput(consoleSchemas.overview.input, value))
         .output(consoleSchemas.overview.output)

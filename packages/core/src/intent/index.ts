@@ -19,6 +19,7 @@ export {
   findingsProviderOf,
   nodeWorkOf,
   projectOverviewOf,
+  openTasksOf,
   projectWorkOf,
   requireWorkTimeZone,
   reviewPageOf,

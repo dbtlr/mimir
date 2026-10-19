@@ -38,6 +38,7 @@ import {
 import type { FindingsProvider } from './intent/console';
 import {
   nodeWorkOf,
+  openTasksOf,
   projectOverviewOf,
   projectWorkOf,
   reviewPageOf,
@@ -395,6 +396,10 @@ function consoleMethods(store: Store, options: LocalEngineOptions): ConsoleEngin
       return consoleIntentViews.work.parse(
         await nodeWorkOf(store, id, { asOf: isoOf(asOf), timeZone }),
       );
+    },
+    async openTasks(input) {
+      const { q } = parseEngineInput(consoleSchemas.openTasks.input, input);
+      return intentViews.nodeSet.parse(await openTasksOf(store, q));
     },
     async overview(input) {
       const { asOf, project } = parseEngineInput(consoleSchemas.overview.input, input);

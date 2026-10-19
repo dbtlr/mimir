@@ -6,6 +6,7 @@ import type { EngineNode } from '@mimir/contract';
 import type { ArtifactRecord, ArtifactSummary, EngineSeed } from '../api/browse-queries';
 import {
   artifacts,
+  consoleOpenTasks,
   consoleUpstreamTasks,
   doctor,
   getArtifact,
@@ -35,7 +36,7 @@ import { engineSeed, recordHealth, taskSet } from './browse-fixtures';
  */
 
 export type BrowseWorld = {
-  /** What every task list answers. */
+  /** What every task list answers, the dependency picker's open tasks included. */
   tasks: EngineNode[];
   /** The artifact browser's rows, newest first; each page is a window of them. */
   artifacts: ArtifactSummary[];
@@ -65,6 +66,7 @@ export function serveBrowse(world: Partial<BrowseWorld> = {}): BrowseWorld {
   const seedOf = (id: string): EngineSeed =>
     state.seeds.find((s) => s.id === id) ?? engineSeed({ id });
   vi.mocked(list).mockImplementation(async () => taskSet(state.tasks));
+  vi.mocked(consoleOpenTasks).mockImplementation(async () => taskSet(state.tasks));
   vi.mocked(artifacts).mockImplementation(async ({ data }) => {
     const offset = data.offset ?? 0;
     const items = state.artifacts.slice(offset, offset + (data.limit ?? state.artifacts.length));
@@ -109,7 +111,15 @@ export function serveBrowse(world: Partial<BrowseWorld> = {}): BrowseWorld {
 
 /** Every browser read fails, as when the host cannot be reached. */
 export function failBrowseReads(error: Error = new Error('unreachable')): void {
-  for (const read of [list, artifacts, getArtifact, seeds, getSeed, consoleUpstreamTasks]) {
+  for (const read of [
+    list,
+    consoleOpenTasks,
+    artifacts,
+    getArtifact,
+    seeds,
+    getSeed,
+    consoleUpstreamTasks,
+  ]) {
     vi.mocked(read).mockRejectedValue(error);
   }
   vi.mocked(doctor).mockRejectedValue(error);

@@ -104,9 +104,10 @@ const asOf = z.date().optional();
  * needs, not the one project key that governs the CLI and MCP reads: `review`
  * spans every active project, the work pages take a project key or a container
  * id, the overview takes a project key, `search` (the jump palette) spans
- * every project, ranking the optional `project` first, and `upstreamTasks` (a
- * seed page's outcomes) finds the tasks on any board that name a seed as their
- * upstream. Keys are checked in
+ * every project, ranking the optional `project` first, `openTasks` (the
+ * dependency picker) finds the open tasks on any board whose id or title holds
+ * the text, and `upstreamTasks` (a seed page's outcomes) finds the tasks on any
+ * board that name a seed as their upstream. Keys are checked in
  * core, so the refusals match the HTTP routes. The time zone is required there
  * for the pages that place a shipped window.
  */
@@ -115,6 +116,11 @@ export const consoleSchemas = {
     input: z.strictObject({ asOf, id: z.string(), timeZone }),
     kind: 'query',
     output: consoleEngineViews.work,
+  },
+  openTasks: {
+    input: z.strictObject({ q: z.string() }),
+    kind: 'query',
+    output: engineViews.nodeSet,
   },
   overview: {
     input: z.strictObject({ asOf, project: z.string() }),

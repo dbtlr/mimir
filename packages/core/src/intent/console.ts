@@ -120,14 +120,8 @@ export async function reviewPageOf(
   return reviewOf(store, counts, { asOf: opts.asOf, timeZone });
 }
 
-/** The set-read projection `/api/nodes` serves, so a seed page reads its outcomes alike. */
-const UPSTREAM_TASK_FACETS: readonly FacetName[] = [
-  'deps',
-  'tags',
-  'distribution',
-  'verdicts',
-  'home',
-];
+/** The set-read projection `/api/nodes` serves, so the console's task sets read alike. */
+const NODE_SET_FACETS: readonly FacetName[] = ['deps', 'tags', 'distribution', 'verdicts', 'home'];
 
 /**
  * The tasks on any board that name `seed` as their upstream (MMR-451), live or
@@ -136,8 +130,22 @@ const UPSTREAM_TASK_FACETS: readonly FacetName[] = [
  */
 export async function upstreamTasksOf(store: Store, seed: string): Promise<SetResult<NodeView>> {
   return listNodes(store, {
-    facets: UPSTREAM_TASK_FACETS,
+    facets: NODE_SET_FACETS,
     filters: [{ field: 'upstream', op: 'eq', value: seed }],
     status: 'all',
+  });
+}
+
+/**
+ * The open tasks on any active board whose id or title holds `q` (MMR-78): the
+ * dependency picker's candidates, as `/api/nodes?type=task&q=` answers them.
+ * The filter runs before any window, so older open tasks are never crowded out
+ * by newer records of other kinds.
+ */
+export async function openTasksOf(store: Store, q: string): Promise<SetResult<NodeView>> {
+  return listNodes(store, {
+    facets: NODE_SET_FACETS,
+    filters: [{ field: 'type', op: 'in', value: 'task' }],
+    q,
   });
 }

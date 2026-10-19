@@ -1,8 +1,8 @@
 import type { Grooming } from '@mimir/contract';
 
-import type { WireNode } from '../api/types';
 import { cn } from '../lib/cn';
 import { GROOMING_META, visibleGrooming } from '../lib/grooming';
+import type { Groomable } from '../lib/grooming';
 import { Badge } from './ui/badge';
 
 /**
@@ -39,11 +39,7 @@ export function GroomingBadge({ state }: { state: Grooming }) {
  * The grooming chip for a node, or nothing when the node shows none (a started,
  * finished, or container node, or a server that sends no state).
  */
-export function GroomingChip({
-  node,
-}: {
-  node: Pick<WireNode, 'type' | 'lifecycle' | 'grooming'>;
-}) {
+export function GroomingChip({ node }: { node: Groomable }) {
   const state = visibleGrooming(node);
   return state === undefined ? null : <GroomingBadge state={state} />;
 }

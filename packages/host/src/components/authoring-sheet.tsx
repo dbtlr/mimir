@@ -46,21 +46,6 @@ const PRIORITY_WASH: Record<Priority, string> = {
 
 const SIZE_GLYPH: Record<Size, string> = { large: 'l', medium: 'm', small: 's' };
 
-/**
- * A dependency's status dot. A search hit names only work in flight or
- * finished, so open work (ready, blocked, awaiting) shows a hollow ring.
- */
-function DepStatusDot({ status }: { status: DepCandidate['status'] }) {
-  return status === undefined ? (
-    <span
-      aria-hidden
-      className="size-[5px] shrink-0 rounded-full inset-ring inset-ring-ink-faint"
-    />
-  ) : (
-    <StatusDot status={status} className="size-[5px]" />
-  );
-}
-
 /** DOM id for a dep-results option — the combobox's aria-activedescendant target. */
 function depOptionDomId(id: string) {
   return `authoring-dep-option-${id}`;
@@ -715,7 +700,7 @@ function AuthoringSheetBody({
                         key={d.id}
                         className="inline-flex items-center gap-1.5 rounded-full bg-line/70 py-1 pr-1 pl-2.5 inset-ring inset-ring-line-bright"
                       >
-                        <DepStatusDot status={d.status} />
+                        <StatusDot status={d.status} className="size-[5px]" />
                         <span className="font-mono text-tag text-ink-faint">{d.id}</span>
                         <span className="max-w-48 truncate text-xs text-ink">{d.title}</span>
                         <button
@@ -772,7 +757,7 @@ function AuthoringSheetBody({
                             i === depActive && 'bg-well-800',
                           )}
                         >
-                          <DepStatusDot status={n.status} />
+                          <StatusDot status={n.status} className="size-[5px]" />
                           <span className="font-mono text-tag text-ink-faint">{n.id}</span>
                           <span className="truncate text-xs text-ink">{n.title}</span>
                         </button>
