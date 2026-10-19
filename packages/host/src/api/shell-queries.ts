@@ -1,9 +1,8 @@
 import type { FacetName } from '@mimir/contract';
 import { queryOptions } from '@tanstack/react-query';
 
-import { apiGet } from './client';
 import { consoleSearch, projects, tree } from './fns/shell';
-import type { WireHealth } from './types';
+import { fetchHealth } from './health';
 
 /*
  * The shell's reads (MMR-537): the host's health, the project lists, the
@@ -28,7 +27,7 @@ export const SHELL_CACHE_VERSION = 1;
  * against. The snapshot still answers while the host is unreachable.
  */
 export const healthQuery = queryOptions({
-  queryFn: () => apiGet<WireHealth>('/health'),
+  queryFn: fetchHealth,
   queryKey: ['health'],
   refetchOnMount: 'always',
 });

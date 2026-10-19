@@ -14,7 +14,7 @@ export const GROOMING_META: Record<Grooming, { label: string; hint: string }> = 
 /** The states in the order the setter offers them. */
 export const GROOMING_ORDER: readonly Grooming[] = ['not_groomed', 'needs_answers', 'groomed'];
 
-/** What a grooming view reads off a node; the `/api` wire record and the Engine record both carry it. */
+/** What a grooming view reads off a node; the Engine record carries it. */
 export type Groomable = Pick<EngineNode, 'grooming' | 'lifecycle' | 'type'>;
 
 /**

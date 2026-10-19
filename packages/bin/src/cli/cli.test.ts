@@ -234,7 +234,7 @@ test('mcp/version help never acquires the store (MMR-294, MMR-39)', async () => 
 // host container. Each is an unknown command that names its replacement, even
 // with help requested, and none touches the store.
 const RETIRED_SERVE_HINT =
-  'the console and /api are served by the mimir host container — see docs/guides/host.md';
+  'the console is served by the mimir host container — see docs/guides/host.md';
 const RETIRED_SETUP_HINT =
   'setup is retired — the SQLite store is created on first use and Postgres is set in the [store] config section — see docs/user/getting-started.md';
 

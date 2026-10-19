@@ -29,8 +29,8 @@ import type { Store } from './store';
  * re-exported here as {@link OPS}) to form the registry every uniform-verb
  * surface derives from: the CLI's one generic dispatch arm + echo (`cli/run.ts`,
  * `cli/mutations.ts`), the CLI help (terse rows + per-verb descriptors,
- * `cli/help.ts`), the MCP tool registrations (`mcp/server.ts`), and the HTTP
- * action routes (`api/src/api.ts`). Each verb binds a `run` that delegates to the
+ * `cli/help.ts`), the MCP tool registrations (`mcp/server.ts`), and the Engine's
+ * uniform-verb methods. Each verb binds a `run` that delegates to the
  * existing core mutation fn; the transition guards stay imperative in those
  * mutations (the registry's `transition` is a descriptive dispatch/render fact,
  * not a state machine). Facts live in the contract so any consumer (including the
@@ -203,7 +203,7 @@ for (const verb of UNIFORM_VERBS) {
 export const OPS = Object.fromEntries(OP_ENTRIES) as Record<UniformVerb, OpSpec>;
 
 /** The registry entries in canonical (grouped) order — the list the transport
- * loops (MCP registrations, HTTP routes) build from. */
+ * loops (MCP registrations, Engine verb methods) build from. */
 const OP_SPEC_LIST: (OpSpec & { verb: UniformVerb })[] = [];
 for (const verb of UNIFORM_VERBS) {
   OP_SPEC_LIST.push({ verb, ...OPS[verb] });

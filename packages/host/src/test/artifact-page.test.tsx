@@ -17,8 +17,6 @@ import { serveNodes } from './node-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
@@ -125,7 +123,6 @@ const rail = () => screen.findByRole('complementary', { name: 'Record details' }
 
 beforeEach(() => {
   serveViews();
-  apiGet.mockImplementation((p: string) => Promise.reject(new Error(`unexpected ${p}`)));
   serveShell({ projects: PROJECTS, trees: { MMR: TREE } });
 });
 

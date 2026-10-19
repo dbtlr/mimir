@@ -1,7 +1,7 @@
 import type { Engine } from '@mimir/contract';
 
 import { hostRuntime } from '../../server/runtime';
-import type { WireDoctorFacet } from '../types';
+import type { WireDoctorFacet } from '../doctor-facet';
 
 /**
  * The host's shared Engine, for server-function handlers only (ADR 0034
@@ -16,7 +16,7 @@ export async function engine(): Promise<Engine> {
 
 /**
  * The host's record-health facet (MMR-185), optionally scoped to one project:
- * the `mimir doctor` findings `/api/doctor` serves. Doctor is a host concern,
+ * the `mimir doctor` findings. Doctor is a host concern,
  * not an Engine method (ADR 0034), so this is the one other thing a handler
  * may ask the runtime for, and it answers the facet alone.
  */

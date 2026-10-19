@@ -26,8 +26,8 @@ expect.extend(jestDomMatchers);
 // Answers are the Engine's own output types (engine-fixtures.ts), with `Date`
 // instants. An area's helper serves a whole world at once (shell-fns.ts's
 // `serveShell`); a new area adds its own `<area>-fns.ts` beside it. The
-// host's own health probe is the one read left on the path-keyed
-// `vi.mock('../api/client')`.
+// host's own `/health` probe is the one read that is not an Engine method; it
+// answers a fixed build here, and a test that cares mocks `../api/health`.
 //
 // A server function a test forgot to mock never reaches the host: every
 // server function built in a test is a stub that refuses its call. A refused
@@ -48,10 +48,14 @@ vi.mock('@tanstack/react-start', async (importOriginal) => {
   const builder = { handler: refuse, middleware: () => builder, validator: () => builder };
   return { ...actual, createServerFn: () => builder };
 });
-// The host's server graph (its store, core, and the /api handler) never loads
-// in the browser test environment; no stubbed server function reaches it.
+// The host's server graph (its store and core) never loads in the browser test
+// environment; no stubbed server function reaches it.
 // oxlint-disable-next-line vitest/require-hook
 vi.mock('../api/fns/engine', () => ({ engine: vi.fn() }));
+// oxlint-disable-next-line vitest/require-hook
+vi.mock('../api/health', () => ({
+  fetchHealth: async () => ({ schema: 1, status: 'ok', version: '0.0.0' }),
+}));
 
 // Every human-facing timestamp renders in the reader's zone (ADR 0029), so the
 // suite pins one: a date assertion means the same thing on any machine.

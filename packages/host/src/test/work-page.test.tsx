@@ -26,8 +26,6 @@ import {
 } from './views-fixtures';
 import { serveViews } from './views-fns';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
@@ -40,7 +38,6 @@ const daysAgo = (d: number) => new Date(NOW - d * 24 * 60 * 60_000);
 
 beforeEach(() => {
   serveBrowse();
-  apiGet.mockReset();
   vi.clearAllMocks();
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(NOW);
@@ -153,7 +150,6 @@ const SCOPES = [PROJECT_SCOPE, PHASE_SCOPE];
 
 /** Serve the scope's record, the project tree, and `report` as its work read. */
 function serve(scope: Scope, report: WorkReport | Error = engineWork(), tree = TREE) {
-  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
   serveShell({ trees: { MMR: tree } });
   serveNodes({ nodes: [scope.record] });
   if (report instanceof Error) {

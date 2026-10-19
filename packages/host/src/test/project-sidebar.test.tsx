@@ -24,8 +24,6 @@ import { stubViewport } from './viewport';
 import { engineReview, stripRow } from './views-fixtures';
 import { serveViews } from './views-fns';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend: vi.fn() }));
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
@@ -73,7 +71,6 @@ function serve(
     },
   });
   serveViews({ review: engineReview({ projects: decisionRows }) });
-  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
   serveNodes();
   vi.mocked(getNode).mockImplementation(async ({ data }) => {
     // The project's own record never loads.
@@ -475,7 +472,6 @@ describe('sidebar on an archived project (MMR-506)', () => {
 
   /** `OLD` is archived: its record and tree 404, and the archived list names it. */
   function serveArchived() {
-    const served = apiGet.getMockImplementation();
     vi.mocked(projects).mockImplementation(async ({ data }) =>
       data.status === 'archived' ? [OLD] : [MMR],
     );
@@ -487,7 +483,6 @@ describe('sidebar on an archived project (MMR-506)', () => {
       return servedTree?.(options) as Promise<EngineTree>;
     });
     vi.mocked(getNode).mockRejectedValue(new MimirError('not_found', 'OLD is archived'));
-    apiGet.mockImplementation((path: string) => served?.(path));
   }
 
   it('keeps the header and offers only Work, with no outline, browsers, or error line', async () => {

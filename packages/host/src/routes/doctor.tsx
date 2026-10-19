@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { doctorQuery } from '../api/browse-queries';
-import type { WireDoctorGroup } from '../api/types';
+import type { WireDoctorGroup } from '../api/doctor-facet';
 import { DoctorRecord } from '../components/doctor-record';
 import { OfflineBanner } from '../components/offline-banner';
 import { Skeleton } from '../components/ui/skeleton';

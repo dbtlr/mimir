@@ -16,7 +16,7 @@ win — voice styles messages, it never changes shape.
 
 Scope: every human-facing string on every transport — CLI message/hint lines,
 help text, table headers, and the `message`/`hint` fields of the shared error
-envelope (which the CLI, MCP, and HTTP surfaces carry verbatim). Structured
+envelope (which the CLI and MCP surfaces carry verbatim). Structured
 formats (`ids`/`json`/`jsonl`) never carry style, but their `message` strings
 follow this guide's grammar. **Warnings are the non-fatal sibling of
 errors** and follow every rule here: same message grammar, and their

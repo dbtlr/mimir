@@ -92,3 +92,10 @@ image, each with its own configuration and update path. Transport-only
 consumption is unchanged: a consumer reaches Mimir through a transport, never
 by importing the core. Decision 1's list of surfaces in one executable no
 longer holds for the HTTP surface.
+
+## Refinement (2026-10-19, MMR-541): the host serves no resource envelope
+
+The host image serves the console, the Engine at `/trpc`, and `/health`. The
+transitional `/api` that the MMR-536 refinement names was deleted
+([ADR 0012](0012-http-api-true-resource-envelope.md)); `/api` answers a `410`
+tombstone only. Decision 1's HTTP surface is now the Engine endpoint.

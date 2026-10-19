@@ -63,7 +63,7 @@ const pwaPlugins = VitePWA({
     // Keep these explicit: brace expansion is dependency-sensitive and a
     // failed expansion silently reduced the cache to includeAssets only.
     globPatterns: ['**/*.css', '**/*.html', '**/*.js', '**/*.woff2'],
-    // The API is never the app shell — let /api/* hit the network/server.
+    // Server routes (the /api tombstone included) are never the app shell.
     navigateFallback: '/_shell.html',
     navigateFallbackDenylist: [/^\/(api|trpc|_serverFn|health)([/?]|$)/],
   },

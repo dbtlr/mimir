@@ -54,10 +54,7 @@ shared database) supplying each dialect's connection, DDL, and column
 encodings. Its public surface is the entry `src/index.ts`; test fixtures sit
 behind `@mimir/core/testing`. `packages/bin` (`@mimir/bin`) is the binary:
 `src/cli` and `src/mcp` are the transports; `src/main.ts` is the
-composition root. `packages/api` (`@mimir/api`) owns the transitional `/api`
-route table, request dispatcher, response envelope, and HTTP guards. The host
-uses this package. Its handlers take standard `Request`
-objects and explicit route parameters. The layering
+composition root. The layering
 `contract ← core ← bin` is enforced by an oxlint rule — `@mimir/core` may not
 import `@mimir/bin`, bin reaches core only through its two entries, and
 transports may not import each other.
@@ -75,8 +72,8 @@ is an entry in `src/parity/differences.ts`. Help pages are pinned in
 `packages/host` (`@mimir/host`) contains the operator console and the TanStack
 Start host. Start runs in SPA mode on Nitro's Bun preset. The client routes
 remain code-based in `src/router.tsx`, behind `src/start-router.tsx`.
-`src/start-routes` supplies Start's generated route tree, including the `/api/$`
-and `/trpc/$` server routes. The host imports `@mimir/api` and `@mimir/wire/server`,
+`src/start-routes` supplies Start's generated route tree, including the `/health`
+and `/trpc/$` server routes. The host imports `@mimir/wire/server`,
 never `@mimir/bin`. One host runtime shares a store and `LocalEngine` across the
 server bundles; `hostRuntime()` exposes the Engine for console server functions.
 
@@ -84,7 +81,7 @@ server bundles; `hostRuntime()` exposes the Engine for console server functions.
 Prerendering ignores deployment configuration and uses a loopback-only request
 guard. Serving launchers still validate the complete runtime configuration.
 The final client assets and PWA output live in `packages/host/.output/public`.
-The service worker precaches that shell and excludes `/api`, `/trpc`,
+The service worker precaches that shell and excludes `/trpc`,
 `/_serverFn`, and `/health` from navigation fallback. The compiled `mimir`
 binary does not embed them: the console ships only in the host image.
 
@@ -104,15 +101,15 @@ The shared network guards cover every host route, including static assets.
 `MIMIR_HOSTS` enables optional Host filtering; `MIMIR_URL` adds its hostname only
 when filtering is enabled. Cross-origin writes are always refused. `/health`
 reports the build and supported schema without querying the store, and Docker
-probes its JSON response with Bun. `/api/doctor` keeps the store's diagnostic
-facet without CLI configuration findings.
+probes its JSON response with Bun. The console's `doctor` server function keeps the
+store's diagnostic facet without CLI configuration findings.
 `/trpc` serves the Engine through the same host guards. Token and version gates
 arrive with device pairing.
-Unexpected API and tRPC faults log structured diagnostics on stderr. tRPC replies
+Unexpected tRPC and server-function faults log structured diagnostics on stderr. tRPC replies
 omit stacks and replace internal library messages with a generic failure and doctor hint;
 domain errors retain their codes, messages, and hints.
 
-The host API is unauthenticated: every reachable client can read and mutate
+The host is unauthenticated: every reachable client can read and mutate
 the store. Publish local test ports on loopback
 (`-p 127.0.0.1:64647:64647`). Hosted port publishing must restrict access to
 the single-user tailnet, as ADR 0035 requires.
@@ -137,7 +134,7 @@ Each decoded output schema is checked against the core projection it
 replaces, and the wire tests compare every read locally and remotely.
 Superjson preserves `Date` values and explicit `undefined` across the wire.
 Engine timestamps, including nested facet timestamps, are `Date` values;
-the existing intent DTOs and CLI, MCP, and HTTP renderings keep strings.
+the existing intent DTOs and CLI and MCP renderings keep strings.
 Existing transports keep their direct-call paths until their migration phase.
 
 ## Pull requests

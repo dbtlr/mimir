@@ -183,3 +183,12 @@ The `mimir serve` boundaries this decision left in force no longer exist: the
 binary dropped `serve`, the service commands, and the embedded console. The host
 container is the only server of the console and `/api`. CLI installations keep
 ADR 0030's Postgres bridge and ADR 0032's local SQLite rules.
+
+## Addendum (2026-10-19, MMR-541): the transitional `/api` is deleted
+
+The pass-through this decision called transitional left with the console's
+migration to server functions. The host serves the console, `/trpc`, and
+`/health`; every method on `/api` answers a `410` `gone` tombstone behind the
+same host guard. The Host allowlist and cross-origin write check now live in
+`packages/host/src/server/guard.ts`. [ADR 0012](0012-http-api-true-resource-envelope.md)
+records the retirement of the resource envelope.

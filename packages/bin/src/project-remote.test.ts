@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
-import { serveApi } from '@mimir/api/testing';
 import {
   attachArtifact,
   createInitiative,
@@ -12,7 +11,6 @@ import {
 } from '@mimir/core';
 import type { Store } from '@mimir/core';
 import { createTestStore, projectIdOf } from '@mimir/core/testing';
-import type { Server } from 'bun';
 
 import { runCli } from './cli/run';
 import { fakeIo } from './cli/testing';
@@ -20,15 +18,13 @@ import { toolCreate, toolUpdate } from './mcp/tools';
 
 /**
  * The project remote (MMR-543), end to end: a Git clone URL stored normalized on
- * a project, read as `remote`, and written through create and update on each
- * transport. A blank value clears it. Only a project takes it; any other node,
+ * a project, read as `remote`, and written through create and update through the
+ * CLI and MCP. A blank value clears it. Only a project takes it; any other node,
  * seed, or artifact refuses it in the transport's own voice.
  */
 
 let store: Store;
 let closeStore: (() => Promise<void>) | undefined;
-let server: Server<undefined>;
-let base: string;
 let projectId: string;
 let phaseRef: string;
 let taskRef: string;
@@ -60,12 +56,9 @@ beforeEach(async () => {
   ).id;
   artifactRef = (await attachArtifact(store, { content: 'frozen', projectId, title: 'note' }))
     .renderedId;
-  server = serveApi(store, { version: '0.0.0-test' });
-  base = `http://127.0.0.1:${String(server.port)}`;
 });
 
 afterEach(async () => {
-  await server?.stop(true);
   await closeStore?.();
 });
 
@@ -76,39 +69,9 @@ async function cli(argv: string[], code = 0): Promise<string> {
   return [...io.out, ...io.err].join('\n');
 }
 
-async function patch(
-  path: string,
-  body: unknown,
-): Promise<{ status: number; json: Record<string, unknown> }> {
-  const res = await fetch(`${base}/api/${path}`, {
-    body: JSON.stringify(body),
-    headers: { 'content-type': 'application/json' },
-    method: 'PATCH',
-  });
-  return {
-    json: (await res.json()) as Record<string, unknown>,
-    status: res.status,
-  };
-}
-
 /** The stored remote of a project, read through `get`. */
 async function remoteOf(key: string): Promise<string | null | undefined> {
   return (await getNode(store, key)).remote;
-}
-
-async function post(
-  path: string,
-  body: unknown,
-): Promise<{ status: number; json: Record<string, unknown> }> {
-  const res = await fetch(`${base}/api/${path}`, {
-    body: JSON.stringify(body),
-    headers: { 'content-type': 'application/json' },
-    method: 'POST',
-  });
-  return {
-    json: (await res.json()) as Record<string, unknown>,
-    status: res.status,
-  };
 }
 
 const SSH = 'git@github.com:dbtlr/mimir.git';
@@ -168,24 +131,6 @@ test('MCP creates, updates, and clears a remote', async () => {
   expect(await remoteOf('BLK')).toBeNull();
 });
 
-test('HTTP creates a project with a remote, and PATCH sets and clears it', async () => {
-  const created = await post('projects', {
-    key: 'HTP',
-    name: 'h',
-    remote: SSH,
-  });
-  expect(created.status).toBe(201);
-  expect(created.json.remote).toBe(NORMAL);
-
-  const cleared = await patch('projects/HTP', { remote: '  ' });
-  expect(cleared.status).toBe(200);
-  expect(await remoteOf('HTP')).toBeNull();
-  const set = await patch('projects/HTP', { remote: SSH });
-  expect(set.json.remote).toBe(NORMAL);
-  expect((await patch('projects/HTP', { remote: 'nope' })).status).toBe(400);
-  expect(await remoteOf('HTP')).toBe(NORMAL);
-});
-
 test('the CLI refuses --remote on a task, a container, a seed, and an artifact', async () => {
   for (const ref of [taskRef, phaseRef]) {
     expect(await cli(['update', ref, '--remote', SSH], 1)).toContain(
@@ -215,17 +160,4 @@ test('MCP refuses remote on a task, a container, a seed, and an artifact', async
     type: 'task',
   });
   expect(created.isError).toBe(true);
-});
-
-test('HTTP refuses remote on a node, a seed, and an artifact', async () => {
-  for (const path of [
-    `nodes/${taskRef}`,
-    `nodes/${phaseRef}`,
-    `seeds/${seedRef}`,
-    `artifacts/${artifactRef}`,
-  ]) {
-    const res = await patch(path, { remote: SSH });
-    expect(res.status, path).toBe(400);
-    expect(JSON.stringify(res.json), path).toContain('remote');
-  }
 });

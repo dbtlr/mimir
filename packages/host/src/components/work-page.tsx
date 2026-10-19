@@ -6,9 +6,9 @@ import type { KeyboardEvent, ReactNode } from 'react';
 
 import { HostFaultError, isEngineRefusal } from '../api/errors';
 import { browserTimeZone } from '../api/queries';
-import { projectKeyOf } from '../api/types';
 import { workQuery } from '../api/view-queries';
 import { cn } from '../lib/cn';
+import { projectKeyOf } from '../lib/project-key';
 import { STATUS_META, STATUS_ORDER } from '../lib/status';
 import { absoluteTime } from '../lib/time';
 import { RAIL_ARTIFACT_CAP, newestArtifacts } from '../lib/work-page';

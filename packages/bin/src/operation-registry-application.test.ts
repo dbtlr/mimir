@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
-import { serveApi } from '@mimir/api/testing';
 import { OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
 import type { TaskStatusWord, UniformVerb } from '@mimir/contract';
 import {
@@ -20,7 +19,6 @@ import {
 } from '@mimir/core';
 import type { Store } from '@mimir/core';
 import { createTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
-import type { Server } from 'bun';
 
 import { runCli } from './cli/run';
 import { fakeIo } from './cli/testing';
@@ -30,16 +28,14 @@ import { toolUniform } from './mcp/tools';
  * The route-level propagation pin for the operation registry (ADR 0025, MMR-316)
  * — the ops sibling of the field application pin. Registering/routing a uniform
  * verb without wiring its `run` would be an advertise-without-execute gap; this
- * drives every uniform verb end-to-end through each real transport (the CLI via
- * `runCli`, HTTP via a live loopback server, MCP via `toolUniform` over a real
+ * drives every uniform verb end-to-end through each transport (the CLI via
+ * `runCli`, MCP via `toolUniform` over a real
  * store) from its correct pre-state and asserts the transition actually lands.
  * A registry entry whose transport dispatch doesn't reach the core turns it red.
  */
 
 let store: Store;
 let closeStore: (() => Promise<void>) | undefined;
-let server: Server<undefined>;
-let base: string;
 let projectId: string;
 let phaseId: string;
 
@@ -51,12 +47,9 @@ beforeEach(async () => {
   const initId = await nodeIdOf(store, `MMR-${String(init.seq)}`);
   const phase = await createPhase(store, { parentId: initId, title: 'phase' });
   phaseId = await nodeIdOf(store, `MMR-${String(phase.seq)}`);
-  server = serveApi(store, { version: '0.0.0-test' });
-  base = `http://127.0.0.1:${String(server.port)}`;
 });
 
 afterEach(async () => {
-  await server?.stop(true);
   await closeStore?.();
 });
 
@@ -141,31 +134,6 @@ const cliDrive: Driver = async (verb, ref) => {
   expect(code).toBe(0);
 };
 
-const httpDrive: Driver = async (verb, ref) => {
-  const path =
-    OP_FACTS[verb].subject === 'project'
-      ? `${base}/api/projects/${ref}/${verb}`
-      : `${base}/api/nodes/${ref}/${verb}`;
-  const res = await fetch(path, { method: 'POST' });
-  expect(res.status).toBe(200);
-};
-
-test('http unarchive rejects an unexpected body key', async () => {
-  // The one disclosed behavior change of the registry cutover: unarchive now
-  // enforces the empty body allow-list every other reason-less route already
-  // had. An unexpected key refuses as validation and the write never lands.
-  const key = await projectInPreState('unarchive');
-  const res = await fetch(`${base}/api/projects/${key}/unarchive`, {
-    body: JSON.stringify({ bogus: 1 }),
-    headers: { 'content-type': 'application/json' },
-    method: 'POST',
-  });
-  expect(res.status).toBe(400);
-  const body = (await res.json()) as { error?: { code?: string } };
-  expect(body.error?.code).toBe('validation');
-  expect(await projectArchived(key)).toBe(true);
-});
-
 const mcpDrive: Driver = async (verb, ref) => {
   const args = OP_FACTS[verb].subject === 'project' ? { key: ref } : { id: ref };
   const res = await toolUniform(store, verb, args);
@@ -174,7 +142,6 @@ const mcpDrive: Driver = async (verb, ref) => {
 
 const DRIVERS: [name: string, drive: Driver][] = [
   ['cli', cliDrive],
-  ['http', httpDrive],
   ['mcp', mcpDrive],
 ];
 

@@ -16,7 +16,6 @@
     "zod": "4.6.6"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.8",
-    "@mimir/api": "workspace:*"
+    "@electric-sql/pglite": "0.5.8"
   }
 }

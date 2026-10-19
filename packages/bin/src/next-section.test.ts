@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 
-import { serveApi } from '@mimir/api/testing';
 import {
   attachArtifact,
   createInitiative,
@@ -14,7 +13,6 @@ import {
 } from '@mimir/core';
 import type { Store } from '@mimir/core';
 import { createTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
-import type { Server } from 'bun';
 
 import { runCli } from './cli/run';
 import { fakeIo } from './cli/testing';
@@ -29,8 +27,6 @@ import { toolUpdate } from './mcp/tools';
 
 let store: Store;
 let closeStore: (() => Promise<void>) | undefined;
-let server: Server<undefined>;
-let base: string;
 let projectId: string;
 let initiativeRef: string;
 let phaseRef: string;
@@ -58,12 +54,9 @@ beforeEach(async () => {
     .id;
   artifactRef = (await attachArtifact(store, { content: 'frozen', projectId, title: 'note' }))
     .renderedId;
-  server = serveApi(store, { version: '0.0.0-test' });
-  base = `http://127.0.0.1:${String(server.port)}`;
 });
 
 afterEach(async () => {
-  await server?.stop(true);
   await closeStore?.();
 });
 
@@ -154,26 +147,6 @@ test('MCP applies the narrative to a container and a project', async () => {
   expect(await readNext('MMR')).toBe('mcp project direction');
 });
 
-test('HTTP applies the narrative to a container and a project', async () => {
-  const node = await fetch(`${base}/api/nodes/${phaseRef}`, {
-    body: JSON.stringify({ next: 'http direction' }),
-    headers: { 'content-type': 'application/json' },
-    method: 'PATCH',
-  });
-  expect(node.status).toBe(200);
-  expect(((await node.json()) as { next?: string }).next).toBe('http direction');
-  expect(await readNext(phaseRef)).toBe('http direction');
-
-  const project = await fetch(`${base}/api/projects/MMR`, {
-    body: JSON.stringify({ next: 'http project direction' }),
-    headers: { 'content-type': 'application/json' },
-    method: 'PATCH',
-  });
-  expect(project.status).toBe(200);
-  expect(((await project.json()) as { next?: string }).next).toBe('http project direction');
-  expect(await readNext('MMR')).toBe('http project direction');
-});
-
 // ── Create refuses the narrative ───────────────────────────────────────────
 
 /**
@@ -193,18 +166,6 @@ test('create refuses --direction and points at update (MMR-321)', async () => {
   expect(out).toContain('mimir update <id> --direction');
   // Refused before any write: the node was never created.
   expect(await cli(['tree', 'MMR'])).not.toContain('made with direction');
-});
-
-test('the HTTP create body rejects a stray next field (MMR-321)', async () => {
-  const res = await fetch(`${base}/api/nodes`, {
-    body: JSON.stringify({ next: 'prose', parent: 'MMR', title: 'via http', type: 'initiative' }),
-    headers: { 'content-type': 'application/json' },
-    method: 'POST',
-  });
-  expect(res.status).toBe(400);
-  expect(((await res.json()) as { error?: { message?: string } }).error?.message).toContain(
-    'unknown body field next',
-  );
 });
 
 // ── Read surface ───────────────────────────────────────────────────────────

@@ -113,8 +113,8 @@ prints where.
 
 The host exposes `GET /health` with its build version and supported schema version,
 without querying the store. The container's Docker health check probes this route
-with Bun and honors `MIMIR_PORT`. Record diagnostics remain at `/api/doctor`,
-scoped with `?project=KEY`; they exclude CLI configuration permission findings.
+with Bun and honors `MIMIR_PORT`. Record diagnostics reach the console through its `doctor` server function,
+scoped to one project; they exclude CLI configuration permission findings.
 
 ```sh
 bun run sandbox host <sandbox-id>

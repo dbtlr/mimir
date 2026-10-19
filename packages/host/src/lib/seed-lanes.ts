@@ -5,7 +5,7 @@ import type { EngineSeed } from '../api/browse-queries';
 
 /**
  * The seeds queue's lane grammar (MMR-247). Each seed's lane comes from the
- * contract's one classifier (MMR-245), which the CLI and the `/api` wire read
+ * contract's one classifier (MMR-245), which the CLI reads
  * too, so grouping never invents its own rule — it only buckets and orders.
  * Order is fixed: UNTRIAGED → READY TO RESOLVE → PROMOTED → PARKED → SETTLED
  * (the "dispose" wording the mocks predate is renamed to "resolve").

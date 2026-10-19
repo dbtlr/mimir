@@ -13,8 +13,6 @@ import { serveNodes } from './node-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
@@ -53,7 +51,6 @@ describe('record-health surfacing (MMR-185, mock 15b)', () => {
       },
     });
     serveNodes({ nodes: [engineProject({ id: 'MMR', title: 'Mimir' })] });
-    apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
     serveBrowse({ health: facet(2) });
     renderAt('/p/MMR');
 

@@ -19,8 +19,6 @@ import { failNotes, serveNodes } from './node-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
@@ -89,7 +87,6 @@ const sqlite = engineTask({
 beforeEach(() => {
   serveBrowse();
   serveViews();
-  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
 });
 
 /** Markdown with a list, inline and fenced code, and a link — one body for every surface. */

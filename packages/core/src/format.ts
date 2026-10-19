@@ -6,7 +6,6 @@ import type {
   OverviewReport,
   OverviewScratchpad,
   OverviewSession,
-  ReviewReport,
   Scratchpad,
   SearchHit,
   SeedView,
@@ -15,10 +14,6 @@ import type {
   TreeView,
   TriageReport,
   UpstreamResolution,
-  WorkFrontierTask,
-  WorkNowTask,
-  WorkReport,
-  WorkShippedTask,
 } from '@mimir/contract';
 
 import { overviewScratchpadOf } from './intent/queries';
@@ -478,9 +473,8 @@ function sessionToWire(entry: OverviewSession): Record<string, unknown> {
  * wire envelope — the section counts, the tasks through {@link nodeToWire} (the
  * same lean projection `list`/`next` emit), each awaiting row's `awaiting_on` ids
  * folded onto its task object, the recent-session entries, the hygiene listings,
- * and the owned direction prose. The single source the CLI `-f json` render, the
- * MCP `overview` tool, and the HTTP overview route all emit, so the three can't
- * drift.
+ * and the owned direction prose. The single source the CLI `-f json` render and
+ * the MCP `overview` tool both emit, so the two can't drift.
  *
  * `direction` rather than `next` for the prose: the envelope's `next` key is
  * already the ready-queue head. The node-level field keeps its `next` spelling
@@ -544,124 +538,6 @@ export function overviewToWire(report: OverviewReport): Record<string, unknown> 
       entries: report.sessions.entries.map(sessionToWire),
       shown: report.sessions.shown,
     },
-  };
-}
-
-/** A work-page frontier row: the lean task with the prerequisites it awaits folded on. */
-function frontierTaskToWire(row: WorkFrontierTask): Record<string, unknown> {
-  const wire: Record<string, unknown> = {
-    ...nodeToWire(row.task),
-    awaiting_on: row.awaitingOn,
-    // True on a container row; `type` says which kind of container.
-    break_down: row.breakDown,
-    stale: row.stale,
-  };
-  return wire;
-}
-
-/**
- * Map a {@link WorkReport} (MMR-469) to its wire object — the one shape the HTTP
- * work routes emit. Like the overview, each row is the lean task wire object with
- * the section's own fields folded onto it; a container appears only as a
- * `break_down` row in `frontier.to_groom`.
- */
-export function workToWire(report: WorkReport): Record<string, unknown> {
-  return {
-    frontier: {
-      next_to_unlock: report.frontier.nextToUnlock.map((group) => ({
-        prerequisite: {
-          id: group.prerequisite.id,
-          status: group.prerequisite.status,
-          title: group.prerequisite.title,
-        },
-        tasks: group.tasks.map(frontierTaskToWire),
-      })),
-      runnable: report.frontier.runnable.map(frontierTaskToWire),
-      to_groom: report.frontier.toGroom.map(frontierTaskToWire),
-      waiting_on_others: report.frontier.waitingOnOthers.map((row) => ({
-        ...nodeToWire(row.task),
-        block_reason: row.blockReason,
-        stale: row.stale,
-      })),
-    },
-    going_cold: report.goingCold.map((task) => ({ ...nodeToWire(task), stale: true })),
-    needs_you: report.needsYou.map((row) => ({
-      ...nodeToWire(row.task),
-      question: row.question,
-      reason: row.reason,
-      stale: row.stale,
-    })),
-    now: report.now.map(nowToWire),
-    scope: report.scope,
-    shipped: report.shipped.map(shippedToWire),
-  };
-}
-
-/** A work-page `now` row: the lean task with its start time, latest note, and Scratchpads folded on. */
-function nowToWire(row: WorkNowTask): Record<string, unknown> {
-  return {
-    ...nodeToWire(row.task),
-    latest_note:
-      row.latestNote === null
-        ? null
-        : { content: row.latestNote.content, created_at: row.latestNote.createdAt },
-    scratchpads: row.scratchpads,
-    stale: row.stale,
-    started_at: row.startedAt,
-  };
-}
-
-/** A finished task's wire row: the work page's Shipped rows and the review page's last finish. */
-function shippedToWire(row: WorkShippedTask): Record<string, unknown> {
-  return {
-    ...nodeToWire(row.task),
-    abandon_reason: row.abandonReason,
-    finished_at: row.finishedAt,
-    stale: row.stale,
-  };
-}
-
-/**
- * Map a {@link ReviewReport} (MMR-477) to its wire object — the shape
- * `GET /api/review` emits. Decision rows are the work page's `needs_you` rows
- * (the lean task wire object with `question`, `reason`, `stale` folded on).
- */
-export function reviewToWire(report: ReviewReport): Record<string, unknown> {
-  return {
-    decisions: report.decisions.map((group) => ({
-      project: group.project,
-      rows: group.rows.map((row) => ({
-        ...nodeToWire(row.task),
-        question: row.question,
-        reason: row.reason,
-        stale: row.stale,
-      })),
-    })),
-    going_cold: report.goingCold.map((row) => ({
-      ...nodeToWire(row.task),
-      project: row.project,
-      stale: true,
-    })),
-    last_finished: report.lastFinished === null ? null : shippedToWire(report.lastFinished),
-    now: report.now.map((row) => ({ ...nowToWire(row), project: row.project })),
-    projects: report.projects.map((p) => ({
-      decisions: p.decisions,
-      going_cold: p.goingCold,
-      in_flight: p.inFlight,
-      key: p.key,
-      live: p.live,
-      name: p.name,
-      triage: p.triage,
-    })),
-    queue: report.queue,
-    runnable: report.runnable.map((row) => ({ ...frontierTaskToWire(row), project: row.project })),
-    shipped: report.shipped.map((row) => ({ ...shippedToWire(row), project: row.project })),
-    triage: report.triage.map((group) => ({
-      findings: group.findings,
-      going_cold: group.goingCold,
-      project: group.project,
-      seeds: group.seeds.map(seedToWire),
-    })),
   };
 }
 

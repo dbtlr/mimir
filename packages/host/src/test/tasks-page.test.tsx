@@ -16,8 +16,6 @@ import { serveBareRecords } from './node-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
@@ -94,7 +92,6 @@ function serveProjects(only?: string) {
 function mockApi() {
   serveProjects();
   serveBrowse({ tasks: rows });
-  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
 }
 
 function renderTasks(initial = '/p/MMR/tasks') {
@@ -382,7 +379,6 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
   });
 
   it('unreachable with nothing cached keeps the honest error and disables + New task', async () => {
-    apiGet.mockRejectedValue(new Error('down'));
     failBrowseReads(new Error('down'));
     renderTasks();
     await expect(
@@ -435,9 +431,6 @@ function mockTerminalApi(
     const limit = data.limit ?? all.length;
     await gate(limit);
     return taskSet(all.slice(0, limit), all.length);
-  });
-  apiGet.mockImplementation(async (path: string) => {
-    throw new Error(`unexpected ${path}`);
   });
 }
 

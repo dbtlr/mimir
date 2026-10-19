@@ -18,8 +18,6 @@ import { serveNodes } from './node-fns';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
@@ -63,7 +61,6 @@ function serve(
   { nodes = [], upstream = [] }: { nodes?: EngineNode[]; upstream?: EngineNode[] } = {},
 ) {
   serveBrowse({ seeds: [record], upstream: { [record.id]: upstream } });
-  apiGet.mockImplementation((path: string) => Promise.reject(new Error(`unexpected ${path}`)));
   serveNodes({ nodes });
 }
 
@@ -84,7 +81,6 @@ function renderAt(url: string) {
 
 beforeEach(() => {
   serveViews();
-  apiGet.mockReset();
   serveShell({ projects: PROJECTS });
 });
 

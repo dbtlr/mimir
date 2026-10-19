@@ -18,24 +18,12 @@ vi.mock('../api/fns/views');
 
 /*
  * The review page and the work pages run on server functions (MMR-538): the
- * review report and the project and container work reads reach the Engine,
- * and none of it asks /api. The real fetch is stubbed, so any /api request is
- * recorded rather than mocked away. The work pages render here from a record
- * in hand, as the route does once its record has loaded.
+ * review report and the project and container work reads reach the Engine.
+ * The work pages render here from a record in hand, as the route does once its
+ * record has loaded.
  */
 
-let requested: string[];
-
 beforeEach(() => {
-  requested = [];
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (input: RequestInfo | URL) => {
-      const url = new URL(input instanceof Request ? input.url : String(input), location.origin);
-      requested.push(url.pathname);
-      return Response.json({ error: { message: 'not served' } }, { status: 503 });
-    }),
-  );
   serveShell({ projects: [engineProject({ id: 'MMR', title: 'Mimir' })] });
   serveViews({
     nodes: {
@@ -61,7 +49,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
 
@@ -69,7 +56,7 @@ const client = () =>
   new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } });
 
 describe('the review and work pages on server functions (MMR-538)', () => {
-  it('reads the review page, its rail, and the alert without asking /api', async () => {
+  it('reads the review page, its rail, and the alert', async () => {
     const router = createRouter({
       history: createMemoryHistory({ initialEntries: ['/'] }),
       routeTree,
@@ -84,10 +71,9 @@ describe('the review and work pages on server functions (MMR-538)', () => {
       screen.findByRole('heading', { level: 1, name: /Needs you/ }),
     ).resolves.toBeInTheDocument();
     expect(review).toHaveBeenCalledWith({ data: { timeZone: expect.any(String) } });
-    expect(requested.filter((path) => path.startsWith('/api'))).toStrictEqual([]);
   });
 
-  it('reads a project work page without asking /api', async () => {
+  it('reads a project work page', async () => {
     const record = engineProject({ id: 'MMR', title: 'Mimir' });
     await renderInRouter(<WorkPage record={record} offline={false} />, client());
 
@@ -95,10 +81,9 @@ describe('the review and work pages on server functions (MMR-538)', () => {
     expect(projectWork).toHaveBeenCalledWith({
       data: { project: 'MMR', timeZone: expect.any(String) },
     });
-    expect(requested.filter((path) => path.startsWith('/api'))).toStrictEqual([]);
   });
 
-  it('reads a container work page without asking /api', async () => {
+  it('reads a container work page', async () => {
     const record = engineContainer({
       id: 'MMR-105',
       status: 'in_progress',
@@ -120,6 +105,5 @@ describe('the review and work pages on server functions (MMR-538)', () => {
     expect(nodeWork).toHaveBeenCalledWith({
       data: { id: 'MMR-105', timeZone: expect.any(String) },
     });
-    expect(requested.filter((path) => path.startsWith('/api'))).toStrictEqual([]);
   });
 });

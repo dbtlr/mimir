@@ -5,7 +5,7 @@ description: Run the Mimir host container on Docker Desktop or a server, reach i
 # Run the Mimir host
 
 The host image, `ghcr.io/dbtlr/mimir-host`, carries the console, the Engine
-endpoint at `/trpc`, the transitional `/api`, and the store
+endpoint at `/trpc`, and the store
 ([ADR 0035](../decisions/0035-tanstack-start-container-host.md)). It reads its
 configuration from environment variables, migrates its store before it serves,
 and needs no CLI installation. `deploy/compose.yaml` runs it over SQLite, and
@@ -14,7 +14,7 @@ and needs no CLI installation. `deploy/compose.yaml` runs it over SQLite, and
 ## Keep the console on a single-user tailnet
 
 The host authenticates no one. Any client that reaches its port can read and
-write the whole board through the console, `/api`, or `/trpc`. The Host
+write the whole board through the console or `/trpc`. The Host
 allowlist and the cross-origin write check guard against hostile web pages,
 not against people.
 
@@ -207,31 +207,48 @@ A configuration or store failure at boot exits the host process. With
 host: startup refused: MIMIR_PORT must be an integer from 1 to 65535
 ```
 
-`GET /api/health` returns the same body as `/health`. `GET /api/doctor` reports the record findings that `mimir doctor` reports.
-Any store-backed request, such as `GET /api/projects`, proves that the store
-answers now.
+To prove that the store answers now, read it through the Engine endpoint. This
+request lists the active projects. It is a `GET` with a [superjson](https://github.com/flightcontrolhq/superjson)
+input, so pass the input as a query parameter:
 
-## Read an error from the API
+```sh
+curl --fail --silent --show-error --get http://127.0.0.1:64647/trpc/projects \
+  --data-urlencode 'input={"json":{}}'
+```
 
-Every store-backed `/api` endpoint answers failures in one envelope. Its `code`
-maps to an HTTP status:
+A healthy host answers `200` with a body that starts `{"result":{"data":{"json":[`,
+followed by the project list. A store the host cannot read answers `500`, which
+`--fail` turns into a non-zero exit. The console's Record health page shows the
+findings that `mimir doctor` reports.
+
+The retired `/api` answers every method with `410` and a JSON body whose error
+code is `gone` and whose hint names `/trpc`, so a stale probe such as
+`curl --fail .../api/projects` fails instead of passing on the console's HTML.
+The host serves no other HTTP routes besides `/health`, `/trpc`, and the
+console.
+
+## Read an error from the Engine endpoint
+
+Every `/trpc` failure carries the Mimir error under
+`error.json.data.mimirError`, with its `code`, `message`, and optional `hint`.
+The code maps to an HTTP status:
 
 | code         | HTTP status |
 | ------------ | ----------- |
 | `validation` | 400         |
 | `not_found`  | 404         |
 | `conflict`   | 409         |
-| `invariant`  | 409         |
+| `invariant`  | 500         |
 | `internal`   | 500         |
 
-A `409` carries one of two codes, and only one of them means trouble.
 `invariant` is the broken-store signal: the store raises it when its own
 consistency guarantees fail, such as a missing schema or one that does not match
 the host. The message says what failed and the remedy line says what to do.
 `conflict` is an ordinary state clash, such as a duplicate key or a write
 refused because the state already moved. Adjust the request instead of
-repairing the store. A `400` is an ordinary refusal of a malformed request. A `500` with `internal`
-means the request did not complete; the host log carries the detail.
+repairing the store. A `400` is an ordinary refusal of a malformed request.
+`internal` carries `mimirError: null`: the response says only `the request did
+not complete` and hints `run 'mimir doctor'`, and the host log carries the detail.
 
 ## Upgrade the host and the CLIs that share its Postgres
 
@@ -306,6 +323,6 @@ docker compose -f deploy/compose.yaml start mimir
 `packages/host/src/server/config.ts` (the variables),
 `packages/host/src/server/host.ts` (store open and migration),
 `packages/host/src/server/lifecycle.ts` (the guards and startup refusal),
-`packages/api/src/host.ts` (the Host allowlist and the cross-origin write
-check), `packages/api/src/respond.ts` (the error envelope),
+`packages/host/src/server/guard.ts` (the Host allowlist and the cross-origin write
+check), `packages/wire/src/server.ts` (the `/trpc` error mapping),
 `packages/host/src/start-routes/health.ts` (`/health`).

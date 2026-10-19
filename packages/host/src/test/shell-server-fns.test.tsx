@@ -23,35 +23,19 @@ vi.mock('../api/fns/views');
 
 /*
  * The shell runs on server functions (MMR-537): its project lists, sidebar
- * tree, and palette search reach the Engine, its version reads /health, and
- * none of it asks /api. The real fetch is stubbed, so any /api request the
- * chrome makes is recorded rather than mocked away. The pages are stubs: only
+ * tree, and palette search reach the Engine, and its version reads the host's
+ * /health. The review report behind the attention alert and the switcher's
+ * decision counts reach the Engine too (MMR-538). The pages are stubs: only
  * the chrome around them is under test.
- *
- * The review report behind the attention alert and the switcher's decision
- * counts went the same way (MMR-538), so the whole shell holds to no /api
- * request.
  */
-const ALLOWED_API: ReadonlySet<string> = new Set();
-
-let requested: string[];
+vi.mock('../api/health', () => ({
+  fetchHealth: async () => ({ schema: 1, status: 'ok', version: 'host-build' }),
+}));
 
 beforeEach(() => {
   serveViews();
   stubViewport('desktop');
   localStorage.clear();
-  requested = [];
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (input: RequestInfo | URL) => {
-      const url = new URL(input instanceof Request ? input.url : String(input), location.origin);
-      requested.push(url.pathname);
-      if (url.pathname === '/health') {
-        return Response.json({ schema: 1, status: 'ok', version: 'host-build' });
-      }
-      return Response.json({ error: { message: 'not served' } }, { status: 503 });
-    }),
-  );
   serveShell({
     archived: [engineProject({ archivedAt: new Date('2026-05-01T00:00:00.000Z'), id: 'OLD' })],
     hits: [searchHit({ id: 'MMR-3', title: 'Outline the console' })],
@@ -65,7 +49,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
 
@@ -95,7 +78,7 @@ function renderShell(path: string) {
 }
 
 describe('the shell on server functions (MMR-537)', () => {
-  it('reads its projects, tree, search, and version without asking /api', async () => {
+  it('reads its projects, tree, search, and version', async () => {
     const user = userEvent.setup();
     renderShell('/p/MMR');
 
@@ -130,9 +113,5 @@ describe('the shell on server functions (MMR-537)', () => {
     expect(tree).toHaveBeenCalledWith({ data: { id: 'MMR' } });
     expect(review).toHaveBeenCalledWith({ data: { timeZone: expect.any(String) } });
     expect(consoleSearch).toHaveBeenCalledWith({ data: { project: 'MMR', query: 'outline' } });
-    expect(requested).toContain('/health');
-    expect(
-      requested.filter((path) => path.startsWith('/api') && !ALLOWED_API.has(path)),
-    ).toStrictEqual([]);
   });
 });

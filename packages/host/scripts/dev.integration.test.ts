@@ -65,7 +65,7 @@ test('the development host serves and renders the kit with an isolated store', a
           throw new Error(`Vite exited before readiness (${child.exitCode}): ${diagnostics}`);
         }
         try {
-          const health = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(1000) });
+          const health = await fetch(`${base}/health`, { signal: AbortSignal.timeout(1000) });
           readiness = `${health.status} ${health.headers.get('content-type') ?? 'no content type'}`;
           if (health.ok && health.headers.get('content-type')?.includes('application/json')) {
             expect(await health.json()).toMatchObject({ status: 'ok' });
@@ -78,26 +78,15 @@ test('the development host serves and renders the kit with an isolated store', a
         await Bun.sleep(100);
       }
       if (!ready) {
-        throw new Error(`development API did not become ready (${readiness}): ${diagnostics}`);
-      }
-      const projects = await fetch(`${base}/api/projects`);
-      expect(projects.status).toBe(200);
-      expect(await projects.json()).toMatchObject({ items: [], total: 0 });
-      expect(await Bun.file(join(directory, 'store.sqlite')).exists()).toBe(true);
-
-      for (const [path, body] of [
-        ['/api/projects', { key: 'TST', name: 'Start Engine fixture' }],
-        ['/api/nodes', { parent: 'TST', title: 'Start Engine', type: 'initiative' }],
-        ['/api/nodes', { parent: 'TST-1', title: 'Complete through Start', type: 'task' }],
-      ] satisfies [string, object][]) {
-        const response = await fetch(`${base}${path}`, {
-          body: JSON.stringify(body),
-          headers: { 'content-type': 'application/json' },
-          method: 'POST',
-        });
-        expect(response.status).toBe(201);
+        throw new Error(`development host did not become ready (${readiness}): ${diagnostics}`);
       }
       const remote = new RemoteEngine({ url: `${base}/trpc` });
+      expect(await remote.projects({})).toEqual([]);
+      expect(await Bun.file(join(directory, 'store.sqlite')).exists()).toBe(true);
+
+      await remote.create({ key: 'TST', name: 'Start Engine fixture', type: 'project' });
+      await remote.create({ parent: 'TST', title: 'Start Engine', type: 'initiative' });
+      await remote.create({ parent: 'TST-1', title: 'Complete through Start', type: 'task' });
       const task = await remote.getNode({ id: 'TST-2' });
       expect(task).toMatchObject({ lifecycle: 'todo', title: 'Complete through Start' });
       expect(task.createdAt).toBeInstanceOf(Date);
@@ -113,8 +102,10 @@ test('the development host serves and renders the kit with an isolated store', a
       const completed = await remote.done({ id: 'TST-2' });
       expect(completed.lifecycle).toBe('done');
       expect(completed.completedAt).toBeInstanceOf(Date);
-      const detail = await fetch(`${base}/api/nodes/TST-2`);
-      expect(await detail.json()).toMatchObject({ id: 'TST-2', status: 'done' });
+      expect(await remote.getNode({ id: 'TST-2' })).toMatchObject({
+        id: 'TST-2',
+        lifecycle: 'done',
+      });
 
       const document = await fetch(`${base}/kit`);
       expect(document.status).toBe(200);

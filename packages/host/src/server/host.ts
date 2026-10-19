@@ -2,7 +2,6 @@ import { constants } from 'node:fs';
 import { access, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { createApiHandler } from '@mimir/api';
 import { buildStore, findingsProviderOf, LocalEngine, MimirError, SQLITE_FILE } from '@mimir/core';
 import { createEngineHandler } from '@mimir/wire/server';
 
@@ -11,7 +10,6 @@ import type { HostConfig } from './config';
 /** Open the host-owned store and finish migrations before exposing handlers. */
 export async function openHost(
   config: HostConfig,
-  version: string,
   log: (line: string) => void = (line) => console.error(line),
 ) {
   if (config.store.backend === 'sqlite') {
@@ -48,7 +46,6 @@ export async function openHost(
       // The record-health facet: a host concern, not an Engine method (ADR 0034).
       doctor: built.doctor.facet,
       engine,
-      handle: createApiHandler(built.store, { doctor: built.doctor.facet, version }),
       handleTrpc: createEngineHandler(engine),
     };
   } catch (error) {

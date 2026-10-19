@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
-import { serveApi } from '@mimir/api/testing';
 import { HANDLE_FIELD_KEYS } from '@mimir/contract';
 import type { NodeType } from '@mimir/contract';
 import {
@@ -16,7 +15,6 @@ import {
 } from '@mimir/core';
 import type { SpecUpdateField, Store } from '@mimir/core';
 import { createTestStore, nodeIdOf, projectIdOf } from '@mimir/core/testing';
-import type { Server } from 'bun';
 
 import { updateFieldFlags } from './cli/mutations';
 import { runCli } from './cli/run';
@@ -27,17 +25,15 @@ import { toolCreate, toolUpdate } from './mcp/tools';
  * The route-level propagation pin (ADR 0025, MMR-315): deriving only the ACCEPTED
  * field set on each transport leaves an accept-without-apply gap — a field a
  * transport advertises and lets through but never writes. This drives every
- * generic-`update` spec field end-to-end through each real transport (the CLI via
- * `runCli`, HTTP via a live loopback server, MCP via `toolUpdate` over a real
+ * generic-`update` spec field end-to-end through each transport (the CLI via
+ * `runCli`, MCP via `toolUpdate` over a real
  * store) and asserts the value actually lands on the node. A future spec field
- * with an existing kind must land on all three with zero transport edits; a
+ * with an existing kind must land on both with zero transport edits; a
  * transport that accepts-but-drops it turns this suite red.
  */
 
 let store: Store;
 let closeStore: (() => Promise<void>) | undefined;
-let server: Server<undefined>;
-let base: string;
 let projectId: string;
 let initiativeId: string;
 let initiativeRef: string;
@@ -63,12 +59,9 @@ beforeEach(async () => {
     title: 'a seed',
   });
   seedId = seed.id;
-  server = serveApi(store, { version: '0.0.0-test' });
-  base = `http://127.0.0.1:${String(server.port)}`;
 });
 
 afterEach(async () => {
-  await server?.stop(true);
   await closeStore?.();
 });
 
@@ -136,15 +129,6 @@ const cliUpdate: Driver = async (ref, field, native) => {
   expect(code).toBe(0);
 };
 
-const httpUpdate: Driver = async (ref, field, native) => {
-  const res = await fetch(`${base}/api/nodes/${ref}`, {
-    body: JSON.stringify({ [field.key]: native }),
-    headers: { 'content-type': 'application/json' },
-    method: 'PATCH',
-  });
-  expect(res.status).toBe(200);
-};
-
 const mcpUpdate: Driver = async (ref, field, native) => {
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const args = { id: ref, [field.update]: native } as Parameters<typeof toolUpdate>[1];
@@ -154,7 +138,6 @@ const mcpUpdate: Driver = async (ref, field, native) => {
 
 const DRIVERS: [name: string, drive: Driver][] = [
   ['cli', cliUpdate],
-  ['http', httpUpdate],
   ['mcp', mcpUpdate],
 ];
 
@@ -181,16 +164,16 @@ describe.each([...SPEC_UPDATE_FIELDS])('update field $key', (field) => {
 });
 
 /**
- * The create-path sibling gap (MMR-315): the create paths (HTTP `POST /api/nodes`,
- * the MCP `create` tool, CLI `create`) keep hand-mapped application — deriving them
+ * The create-path sibling gap (MMR-315): the create paths (the
+ * MCP `create` tool, CLI `create`) keep hand-mapped application — deriving them
  * fights `createNode`'s discriminated union — while their ACCEPTANCE derives from the
- * spec (HTTP `NODE_CREATE_FIELDS`, the MCP create schema's `fieldInputShape`, the CLI
+ * spec (the MCP create schema's `fieldInputShape`, the CLI
  * create flags). That is exactly the accept-without-apply shape the update fix closed,
  * left unpinned here: a future spec field would be accepted at create and silently
- * dropped. This drives every generic-`update` spec field through each real create
+ * dropped. This drives every generic-`update` spec field through each create
  * surface on the field's canonical node type and asserts the passed value lands.
  *
- * Coverage: every spec field is accepted AND applied at create on all three transports
+ * Coverage: every spec field is accepted AND applied at create on both transports
  * (a task carries external_ref/priority/size/summary/upstream and the four resume
  * handles branch/harness/host/session, MMR-320; a phase carries
  * open_ended/summary/target; an initiative open_ended/summary), so none is skipped —
@@ -245,22 +228,6 @@ const cliCreate: CreateDriver = async (type, field, native) => {
   return (JSON.parse(io.out.join('')) as { id: string }).id;
 };
 
-const httpCreate: CreateDriver = async (type, field, native) => {
-  const res = await fetch(`${base}/api/nodes`, {
-    body: JSON.stringify({
-      [field.key]: native,
-      parent: createParentFor(type),
-      title: `create-${field.key}`,
-      type,
-    }),
-    headers: { 'content-type': 'application/json' },
-    method: 'POST',
-  });
-  expect(res.status).toBe(201);
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return ((await res.json()) as { id: string }).id;
-};
-
 const mcpCreate: CreateDriver = async (type, field, native) => {
   const args = {
     [field.update]: native,
@@ -277,20 +244,19 @@ const mcpCreate: CreateDriver = async (type, field, native) => {
 
 const CREATE_DRIVERS: [name: string, drive: CreateDriver][] = [
   ['cli', cliCreate],
-  ['http', httpCreate],
   ['mcp', mcpCreate],
 ];
 
 // Guard (MMR-320): the create matrix above is generated from the spec, so a field
-// that quietly loses its `update` marker would take its three create cases with it
+// that quietly loses its `update` marker would take its create cases with it
 // and the suite would still pass. Name the handle fields explicitly, so the
-// three hand-written create arms can never go uncovered without a red test.
+// hand-written create arms can never go uncovered without a red test.
 test('the generated create matrix covers every resume handle', () => {
   const covered = new Set(SPEC_UPDATE_FIELDS.map((f) => f.key));
   for (const key of HANDLE_FIELD_KEYS) {
     expect(covered.has(key)).toBe(true);
   }
-  expect(CREATE_DRIVERS.map(([name]) => name)).toEqual(['cli', 'http', 'mcp']);
+  expect(CREATE_DRIVERS.map(([name]) => name)).toEqual(['cli', 'mcp']);
 });
 
 describe.each([...SPEC_UPDATE_FIELDS])('create field $key', (field) => {

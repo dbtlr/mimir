@@ -1,6 +1,5 @@
 import { expect, test } from 'bun:test';
 
-import { uniformRoutes } from '@mimir/api';
 import { OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
 import type { OpFact } from '@mimir/contract';
 import { assertOpFields, OP_SPECS } from '@mimir/core';
@@ -17,11 +16,11 @@ import {
 import { buildMcpServer, uniformToolDescription, uniformToolSchema } from './mcp/server';
 
 /**
- * The three transport surfaces for the twelve uniform verbs derive from one
+ * The transport surfaces for the twelve uniform verbs derive from one
  * operation registry (ADR 0025, MMR-316): the CLI's one dispatch arm + its help
- * (terse rows + per-command descriptors), the MCP tool registrations, and the
- * HTTP action routes. No transport hand-lists the verbs, and a new registry
- * entry surfaces on all three with zero transport edits — the property this
+ * (terse rows + per-command descriptors) and the MCP tool registrations. No
+ * transport hand-lists the verbs, and a new registry
+ * entry surfaces on both with zero transport edits — the property this
  * suite pins, the verb analogue of the field-transport derivation pair.
  */
 
@@ -59,9 +58,8 @@ test('the registry advertises exactly the twelve uniform verbs', () => {
   expect(OP_SPECS).toHaveLength(12);
 });
 
-test('every uniform verb surfaces on all three transports', () => {
+test('every uniform verb surfaces on both transports', () => {
   const tools = mcpToolNames();
-  const routes = new Set(Object.keys(uniformRoutes(inertStore())));
   for (const spec of OP_SPECS) {
     // CLI: a valid command with a per-command descriptor and a terse-help row.
     expect(COMMAND_HELP[spec.verb]).toBeDefined();
@@ -71,12 +69,6 @@ test('every uniform verb surfaces on all three transports', () => {
     const props = new Set(mcpToolProps(spec.verb));
     expect(props.has(spec.subject === 'project' ? 'key' : 'id')).toBe(true);
     expect(props.has('reason')).toBe(spec.reason === 'optional');
-    // HTTP: an action route on the subject's URL family.
-    const path =
-      spec.subject === 'project'
-        ? `/api/projects/:key/${spec.verb}`
-        : `/api/nodes/:id/${spec.verb}`;
-    expect(routes.has(path)).toBe(true);
   }
 });
 
@@ -229,7 +221,7 @@ test('the registry refuses a choice argument on a project subject', () => {
   expect(() => assertOpFields('claim', { ...projectFact, subject: 'task' })).not.toThrow();
 });
 
-test('a choice argument surfaces as a closed enum on MCP and a body key on HTTP, from the fact alone', () => {
+test('a choice argument surfaces as a closed enum on MCP, from the fact alone', () => {
   const fact: OpFact = {
     choice: { name: 'who', summary: 'whose move it is', values: ['me', 'them'] },
     reason: 'none',
@@ -294,15 +286,6 @@ test('the transport builders are pure over the registry: a synthetic verb propag
     summary: 'synthesize a task',
     transition: { axis: 'lifecycle', from: ['todo'], to: 'in_progress' },
   };
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  const synthetic = {
-    ...fact,
-    run: () => {
-      throw new Error('synthetic run is never invoked');
-    },
-    verb: 'synthesize',
-  } as unknown as NonNullable<Parameters<typeof uniformRoutes>[1]>[number];
-
   // CLI: the row synopsis + summary derive from the fact.
   expect(uniformArgSpec(fact)).toBe('<id> [reason]');
   expect(uniformSummary(fact)).toBe('synthesize a task (todo → in_progress)');
@@ -311,12 +294,8 @@ test('the transport builders are pure over the registry: a synthetic verb propag
   expect(uniformToolDescription(fact)).toBe(
     'Synthesize a task (todo → in_progress). Optionally records a reason on the transition. Echoes the updated node.',
   );
-  // HTTP: the derived route mounts on the node family under the verb.
-  expect(Object.keys(uniformRoutes(inertStore(), [synthetic]))).toEqual([
-    '/api/nodes/:id/synthesize',
-  ]);
 
-  // A project subject routes to the project family and takes a `key` arg.
+  // A project subject takes a `key` arg.
   const projectFact: OpFact = {
     reason: 'none',
     subject: 'project',
@@ -325,17 +304,6 @@ test('the transport builders are pure over the registry: a synthetic verb propag
   };
   expect(uniformArgSpec(projectFact)).toBe('<KEY>');
   expect(Object.keys(uniformToolSchema(projectFact))).toEqual(['key']);
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  const projectSpec = {
-    ...projectFact,
-    run: () => {
-      throw new Error('synthetic run is never invoked');
-    },
-    verb: 'freeze',
-  } as unknown as NonNullable<Parameters<typeof uniformRoutes>[1]>[number];
-  expect(Object.keys(uniformRoutes(inertStore(), [projectSpec]))).toEqual([
-    '/api/projects/:key/freeze',
-  ]);
 });
 
 // Guard: the fact table and the ordered list agree (no missing/extra entry).
