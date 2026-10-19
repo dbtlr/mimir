@@ -134,3 +134,8 @@ execution host and branch reset. CLI start binds its state-dependent fallback
 decision to the lifecycle and main identity snapshot checked in the write
 transaction. A concurrent release or main takeover causes refusal rather than
 starting under a stale assignment.
+
+The Engine's `start` accepts an optional `startExpectation` containing the
+observed lifecycle, main harness, and main session. The Loom CLI passes this
+snapshot through Engine so the transaction checks the same state used for
+fallback, without reaching around the Engine boundary.

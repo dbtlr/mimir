@@ -143,6 +143,11 @@ Indexes cover `parent_id` and `project_key`.
 
 **Resume handles** ([ADR 0026](decisions/0026-work-state-composition.md)): `harness` and `session` identify the main conversation or workflow. Optional `worker_harness` and `worker_session` identify a distinct agent entrusted with the whole task lifecycle, including its Mimir updates and helper agents. Helper sessions are not stored. Same-agent tasks leave worker fields unset. `host` and `branch` describe execution context.
 
+Engine `start` optionally takes `startExpectation: { lifecycle, harness, session }`.
+The transaction refuses a changed lifecycle or main identity before writing.
+The Loom CLI supplies this snapshot when deciding whether main identity can be
+filled from its shell; worker identity always comes from explicit inputs.
+
 Queue requires a nonblank main session. Start preserves established main identity and accepts explicit worker identity; matching session IDs collapse to the single-session form unless both harnesses explicitly differ. Worker harness requires a worker session, and a worker session requires a main session. Supplying a worker session without a worker harness clears any previous worker harness; omitting both preserves the assignment. Clearing the worker session clears its harness too. A queued main session cannot be cleared. Explicit reassignment through update is logged; ordinary scalar edits are not. Session IDs are compared exactly. Import preserves stored IDs and does not infer that whitespace-different IDs denote the same session; provider labels are compared with normalized whitespace.
 
 `done`, `abandon`, `unqueue`, `park`, and `block` clear all handles and echo what they cleared. Submit and return retain the assignment through review. Reopen, unpark, and unblock restore nothing; a new session re-establishes ownership on resume. CLI environment fallback establishes absent main identity at a direct start without worker flags. Worker identity is fully explicit. It never infers handoff or overwrites established main identity. MCP and updates do not infer shell identity. PR linkage rides `external_ref`.

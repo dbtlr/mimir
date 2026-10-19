@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { engineViews } from './engine-views';
-import { GROOMING_VALUES, PRIORITY_VALUES, SIZE_VALUES } from './enums';
+import { GROOMING_VALUES, LIFECYCLE_VALUES, PRIORITY_VALUES, SIZE_VALUES } from './enums';
 import { HANDLE_FIELD_ARGS } from './fields';
 import type { HandleFieldArg, HandleFieldKey } from './fields';
 import { OP_FACTS, UNIFORM_VERBS } from './ops';
@@ -14,9 +14,9 @@ import type { UniformVerb } from './ops';
  * flag text and resolving shorthand stays in the client. Every echo is a `Date`
  * view, like the reads.
  *
- * The uniform verbs are derived from {@link OP_FACTS} (ADR 0025): a verb's
- * input takes exactly the arguments its fact declares, so a new fact surfaces
- * here with no hand-written schema.
+ * The uniform verbs are derived from {@link OP_FACTS} (ADR 0025). A verb's
+ * data fields follow its fact; start also admits an ownership precondition
+ * checked inside the transaction.
  */
 
 const nullableText = z.string().nullable().optional();
@@ -27,6 +27,12 @@ const handles = z.strictObject({
   session: nullableText,
 });
 const tags = z.array(z.string()).optional();
+/** The state a caller used to decide start ownership; checked inside the write transaction. */
+const startExpectation = z.strictObject({
+  harness: z.string().nullable(),
+  lifecycle: z.enum(LIFECYCLE_VALUES).nullable(),
+  session: z.string().nullable(),
+});
 
 type Fact<V extends UniformVerb> = (typeof OP_FACTS)[V];
 type ReasonShape<V extends UniformVerb> =
@@ -58,7 +64,8 @@ type ChoiceShape<V extends UniformVerb> =
 /** The input fields a uniform verb's fact declares, beyond its subject id. */
 type UniformShape<V extends UniformVerb> = { id: z.ZodString } & ReasonShape<V> &
   FieldsShape<V> &
-  ChoiceShape<V>;
+  ChoiceShape<V> &
+  (V extends 'start' ? { startExpectation: z.ZodOptional<typeof startExpectation> } : unknown);
 type UniformOutput<V extends UniformVerb> =
   Fact<V> extends { seeds: true }
     ? z.ZodUnion<[typeof engineViews.node, typeof engineViews.seed]>
@@ -76,6 +83,7 @@ export type UniformArgs = {
   id: string;
   reason?: string;
   on?: string;
+  startExpectation?: z.output<typeof startExpectation>;
 } & Partial<Record<HandleFieldArg, string | null>>;
 
 /**
@@ -104,6 +112,9 @@ function uniformSchema(verb: UniformVerb, project: z.ZodString) {
   if ('choice' in fact) {
     // Left a string so the shared parseOpChoice owns the refusal wording.
     shape[fact.choice.name] = z.string().optional();
+  }
+  if (verb === 'start') {
+    shape.startExpectation = startExpectation.optional();
   }
   return {
     input: z.strictObject(shape),

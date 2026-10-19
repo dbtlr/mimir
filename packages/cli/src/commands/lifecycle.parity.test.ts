@@ -161,6 +161,15 @@ const START: SetupCase[] = [
   argv('start MMR-3 --session s-2 --harness codex', { setup: queued }),
   argv('start MMR-3', { setup: queued, tty: true }),
   argv('start MMR-3 --ascii', { setup: queued }),
+  // Explicit whole-task handoffs preserve the reservation's main identity.
+  argv('start MMR-3 --worker-harness claude --worker-session worker-1 -f json', { setup: queued }),
+  argv('start MMR-3 --worker-session worker-1 -f jsonl', { setup: queued }),
+  argv('start MMR-3 --worker-session run-1 -f json', { setup: queued }),
+  argv('start MMR-3 --worker-harness claude --worker-session worker-1', {
+    setup: queued,
+    tty: true,
+  }),
+  argv('start MMR-3 --worker-session worker-1 -f json'),
 ];
 
 const SUBMIT: SetupCase[] = [

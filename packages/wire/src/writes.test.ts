@@ -402,6 +402,21 @@ const writes: WriteCase[] = [
   ),
   write(
     'start',
+    'a reserved task with an observed main assignment',
+    (ids) => ({
+      id: ids.queuedTask,
+      startExpectation: { harness: 'orchestrator', lifecycle: 'queued', session: 'run-1' },
+      workerSession: 'worker-guarded',
+    }),
+    (node) => {
+      expect(node.lifecycle).toBe('in_progress');
+      expect(node.session).toBe('run-1');
+      expect(node.workerHarness).toBeNull();
+      expect(node.workerSession).toBe('worker-guarded');
+    },
+  ),
+  write(
+    'start',
     'a reserved task taken by a worker',
     (ids) => ({ id: ids.queuedTask, workerHarness: 'codex', workerSession: 'worker-1' }),
     (node) => {
@@ -551,6 +566,7 @@ test('the Engine carries every uniform verb, with the arguments its fact declare
       ...(fact.reason !== 'none' ? ['reason'] : []),
       ...('fields' in fact ? fact.fields.map((field) => HANDLE_FIELD_ARGS[field]) : []),
       ...('choice' in fact ? [fact.choice.name] : []),
+      ...(verb === 'start' ? ['startExpectation'] : []),
     ].toSorted();
     expect(keys).toEqual(expected);
   }
@@ -580,6 +596,26 @@ type Refusal = {
 };
 
 const refusals: Refusal[] = [
+  {
+    code: 'conflict',
+    input: (ids) => ({
+      id: ids.queuedTask,
+      startExpectation: { harness: 'orchestrator', lifecycle: 'queued', session: 'previous' },
+      workerSession: 'must-not-attach',
+    }),
+    label: 'a changed main identity since the start snapshot',
+    method: 'start',
+  },
+  {
+    code: 'conflict',
+    input: (ids) => ({
+      id: ids.todoTask,
+      session: 'must-not-attach',
+      startExpectation: { harness: null, lifecycle: 'queued', session: null },
+    }),
+    label: 'a released reservation since the start snapshot',
+    method: 'start',
+  },
   {
     code: 'validation',
     input: (ids: Ids) => ({ parent: ids.phase, title: 'U', type: 'task', upstream: 'none' }),

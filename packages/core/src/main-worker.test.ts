@@ -12,6 +12,42 @@ describe.each([
   ['SQLite', createTestStore],
   ['Postgres', createPgliteTestStore],
 ] as const)('%s main and worker ownership', (_label, createStore) => {
+  test('Engine start refuses a stale main assignment before recording worker ownership', async () => {
+    const fixture = await createStore();
+    try {
+      const engine = new LocalEngine(fixture.store);
+      await engine.create({ key: 'OWN', name: 'Ownership', type: 'project' });
+      const parent = await engine.create({ parent: 'OWN', title: 'i', type: 'initiative' });
+      const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
+      await engine.queue({ harness: 'codex', id: task.id, session: 'main' });
+      const observed = await engine.getNode({ id: task.id });
+      const startExpectation = {
+        harness: observed.harness ?? null,
+        lifecycle: observed.lifecycle ?? null,
+        session: observed.session ?? null,
+      };
+      await engine.update({ id: task.id, session: 'replacement-main' });
+      const before = withoutStamp(await fixture.store.export());
+      await expectMimirError('conflict', () =>
+        engine.start({ id: task.id, startExpectation, workerSession: 'worker' }),
+      );
+      expect(withoutStamp(await fixture.store.export())).toEqual(before);
+      const current = await engine.getNode({ id: task.id });
+      expect(
+        await engine.start({
+          id: task.id,
+          startExpectation: {
+            harness: current.harness ?? null,
+            lifecycle: current.lifecycle ?? null,
+            session: current.session ?? null,
+          },
+          workerSession: 'worker',
+        }),
+      ).toMatchObject({ session: 'replacement-main', workerSession: 'worker' });
+    } finally {
+      await fixture.close();
+    }
+  });
   test('a delegated start preserves its main conversation and records both identities', async () => {
     const fixture = await createStore();
     try {

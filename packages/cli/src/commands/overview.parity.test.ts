@@ -1,6 +1,8 @@
 import { argvCase } from '../testing/argv-case';
 import { parityCases } from '../testing/parity';
 import type { ParityCase } from '../testing/parity';
+import { twinCases } from '../testing/twin';
+import type { SetupCase } from '../testing/twin';
 
 const overview = (
   name: string,
@@ -51,3 +53,22 @@ parityCases(/^overview /, CASES, async (board) => {
   await board.engine.scratchCreate({ anchors: ['MMR-3'], project: 'MMR', title: 'Shape it' });
   return undefined;
 });
+
+const WORKER_CASES: SetupCase[] = [
+  {
+    ...argvCase(['overview', '-s', 'MMR', '-f', 'records']),
+    name: 'overview worker session with unknown harness',
+    setup: async (board) => {
+      await board.engine.update({ id: 'MMR-5', workerSession: 'unknown-provider-worker' });
+    },
+  },
+  {
+    ...argvCase(['overview', '-s', 'MMR', '-f', 'records']),
+    name: 'overview worker cleared',
+    setup: async (board) => {
+      await board.engine.update({ id: 'MMR-5', workerSession: null });
+    },
+  },
+];
+
+twinCases(/^overview worker /, WORKER_CASES);

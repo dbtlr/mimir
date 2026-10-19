@@ -17,8 +17,10 @@ OPTIONS
       --ref <ref>               A task's external reference.
       --upstream <KEY-sN|none>  A task's seed on another board, or none to clear.
       --host <text>             Resume handle: the host working on it.
-      --harness <text>          Resume handle: the agent harness.
-      --session <text>          Resume handle: the session id.
+      --harness <text>          Main conversation: the agent harness.
+      --session <text>          Main conversation: the session id.
+      --worker-harness <text>   Whole-task worker: the agent harness.
+      --worker-session <text>   Whole-task worker: the session id.
       --branch <text>           Resume handle: the Git branch.
       --open-ended              Mark a phase or initiative open-ended.
       --not-open-ended          Mark it not open-ended.

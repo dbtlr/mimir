@@ -8,8 +8,8 @@ ARGUMENTS
 
 OPTIONS
       --host <text>      The machine the work is happening on.
-      --harness <text>   The agent harness running it.
-      --session <text>   The session id to resume from. Required, after the shell environment fills it.
+      --harness <text>   The main conversation or workflow harness.
+      --session <text>   The main conversation or workflow session. Required, after the shell environment fills it.
       --branch <text>    The branch the work lives on.
       --ascii            Print without color, in ASCII glyphs.
   -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.

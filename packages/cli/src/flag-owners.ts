@@ -128,6 +128,11 @@ const FLAG_OWNERS: readonly FlagOwner[] = [
     hint: `'--${flag}' sets a resume handle at create/update/queue/start; list/next filter with '--eq ${flag}:KEY'`,
     owner: ['create', 'update', 'queue', 'start'],
   })),
+  ...['worker-harness', 'worker-session'].map((flag): FlagOwner => ({
+    flag,
+    hint: `'--${flag}' identifies the distinct task owner at start/update`,
+    owner: ['start', 'update'],
+  })),
   {
     flag: 'project',
     hint: `'--project' targets attach/seed/seeds; list/next scope a project with '-s, --scope KEY'`,

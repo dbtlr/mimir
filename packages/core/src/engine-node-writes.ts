@@ -245,6 +245,7 @@ async function uniformEngine(store: Store, verb: UniformVerb, input: unknown) {
     args.reason,
     handleArgs(args, spec.fields ?? []),
     choice,
+    args.startExpectation === undefined ? undefined : { startExpectation: args.startExpectation },
   );
   return 'key' in result ? projectEcho(store, result) : nodeEcho(store, result.id);
 }
