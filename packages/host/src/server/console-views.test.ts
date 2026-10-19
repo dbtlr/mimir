@@ -15,6 +15,7 @@ import {
   fileSeed,
   findingsProviderOf,
   LocalEngine,
+  nodeToWire,
   overviewToWire,
   reviewToWire,
   searchHitToWire,
@@ -68,7 +69,16 @@ beforeAll(async () => {
   await completeTask(store, done.id);
   const elsewhere = await createInitiative(store, { projectId: 'OTH', title: 'Elsewhere' });
   await createTask(store, { parentId: elsewhere.id, title: 'Ready elsewhere' });
-  await fileSeed(store, { kind: 'idea', project: 'OTH', title: 'Untriaged idea' });
+  const idea = await fileSeed(store, { kind: 'idea', project: 'OTH', title: 'Untriaged idea' });
+  // Work on two boards names the idea as its upstream, one task already settled.
+  await createTask(store, { parentId: phase.id, title: 'Waits on the idea', upstream: idea.id });
+  const settled = await createTask(store, {
+    parentId: elsewhere.id,
+    title: 'Settled on the idea',
+    upstream: idea.id,
+  });
+  await startTask(store, settled.id);
+  await completeTask(store, settled.id);
   ids = { initiative: initiative.id, phase: phase.id, submitted: submitted.id };
   local = new LocalEngine(store, { findings: findingsProviderOf(doctor) });
   const handle = createEngineHandler(local);
@@ -89,6 +99,12 @@ afterAll(async () => fixture.close());
 const asCore = (output: unknown): any =>
   // oxlint-disable-next-line unicorn/prefer-structured-clone -- structuredClone keeps Dates; the wire mappers need ISO strings
   JSON.parse(JSON.stringify(output));
+
+/** The `/api/nodes` body: the nodes in wire form and the total, without the set's window fields. */
+function nodeSetToWire(output: unknown): unknown {
+  const { items, total } = asCore(output);
+  return { items: items.map(nodeToWire), total };
+}
 
 /** The `/api/search` body: the hits in wire form and the total, without the set's window fields. */
 function searchToWire(output: unknown): unknown {
@@ -152,6 +168,18 @@ const cases: Case[] = [
     route: '/api/search?q=ENG-3',
     wire: searchToWire,
   },
+  {
+    engine: (engine) => engine.upstreamTasks({ seed: 'OTH-s1' }),
+    name: 'upstreamTasks across every board',
+    route: '/api/nodes?type=task&status=all&eq=upstream:OTH-s1',
+    wire: nodeSetToWire,
+  },
+  {
+    engine: (engine) => engine.upstreamTasks({ seed: 'OTH-s99' }),
+    name: 'upstreamTasks of a seed nothing names',
+    route: '/api/nodes?type=task&status=all&eq=upstream:OTH-s99',
+    wire: nodeSetToWire,
+  },
 ];
 
 test.each(cases)('console.$name equals its /api body, locally and remotely', async (c) => {
@@ -171,6 +199,11 @@ test('the fixture reaches every section the pages show', async () => {
   const work = await remote.console.projectWork({ project: 'ENG', timeZone: 'UTC' });
   expect(work.now[0]?.latestNote?.createdAt).toBeInstanceOf(Date);
   expect(work.frontier.toGroom.length).toBeGreaterThan(0);
+  const upstream = await remote.console.upstreamTasks({ seed: 'OTH-s1' });
+  expect(upstream.items.map((task) => task.title).toSorted()).toEqual([
+    'Settled on the idea',
+    'Waits on the idea',
+  ]);
 });
 
 test('the review page counts the findings the host supplies, and none without a provider', async () => {

@@ -7,6 +7,7 @@ export * from './dto';
 export * from './fields';
 export * from './ops';
 export * from './query';
+export * from './seed-lane';
 export type * from './wire';
 export * from './engine';
 export * from './errors';

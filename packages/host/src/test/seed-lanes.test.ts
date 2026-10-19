@@ -5,20 +5,21 @@ import {
   SEED_LANE_ORDER,
   groupSeedsByLane,
   isSeedKind,
+  laneOf,
   seedMatchesQuery,
   seedSummary,
 } from '../lib/seed-lanes';
-import { seed } from './fixtures';
+import { seedIn } from './browse-fixtures';
 
 describe('seed lane grouping (MMR-247)', () => {
   it('orders lanes UNTRIAGED → READY → PROMOTED → PARKED → SETTLED and drops empties', () => {
     // Deliberately out of order on input.
     const seeds = [
-      seed({ id: 'MMR-s4', lane: 'settled', lifecycle: 'resolved' }),
-      seed({ id: 'MMR-s5', lane: 'parked', lifecycle: 'parked' }),
-      seed({ id: 'MMR-s2', lane: 'ready', lifecycle: 'promoted' }),
-      seed({ id: 'MMR-s1', lane: 'untriaged' }),
-      seed({ id: 'MMR-s3', lane: 'promoted', lifecycle: 'promoted' }),
+      seedIn('settled', { id: 'MMR-s4' }),
+      seedIn('parked', { id: 'MMR-s5' }),
+      seedIn('ready', { id: 'MMR-s2' }),
+      seedIn('untriaged', { id: 'MMR-s1' }),
+      seedIn('promoted', { id: 'MMR-s3' }),
     ];
     const groups = groupSeedsByLane(seeds);
     expect(groups.map((g) => g.lane)).toStrictEqual(SEED_LANE_ORDER);
@@ -32,27 +33,24 @@ describe('seed lane grouping (MMR-247)', () => {
   });
 
   it('preserves server (FIFO) order within a lane', () => {
-    const seeds = [
-      seed({ id: 'MMR-s1', lane: 'untriaged' }),
-      seed({ id: 'MMR-s2', lane: 'untriaged' }),
-    ];
+    const seeds = [seedIn('untriaged', { id: 'MMR-s1' }), seedIn('untriaged', { id: 'MMR-s2' })];
     const [untriaged] = groupSeedsByLane(seeds);
     expect(untriaged?.seeds.map((s) => s.id)).toStrictEqual(['MMR-s1', 'MMR-s2']);
   });
 
   it('drops a lane with no seeds (no empty header)', () => {
-    const groups = groupSeedsByLane([seed({ lane: 'untriaged' })]);
+    const groups = groupSeedsByLane([seedIn('untriaged')]);
     expect(groups.map((g) => g.lane)).toStrictEqual(['untriaged']);
   });
 
   it('seedSummary counts untriaged as to-triage and ready as to-resolve', () => {
     const seeds = [
-      seed({ lane: 'untriaged' }),
-      seed({ lane: 'untriaged' }),
-      seed({ lane: 'ready', lifecycle: 'promoted' }),
-      seed({ lane: 'promoted', lifecycle: 'promoted' }),
-      seed({ lane: 'parked', lifecycle: 'parked' }),
-      seed({ lane: 'settled', lifecycle: 'resolved' }),
+      seedIn('untriaged'),
+      seedIn('untriaged'),
+      seedIn('ready'),
+      seedIn('promoted'),
+      seedIn('parked'),
+      seedIn('settled'),
     ];
     // A parked seed is set aside on purpose: it never counts as waiting on you.
     expect(seedSummary(seeds)).toStrictEqual({ toResolve: 1, toTriage: 2 });
@@ -69,9 +67,8 @@ describe('seed lane grouping (MMR-247)', () => {
   });
 
   it('seedMatchesQuery matches id, title, and lede case-insensitively', () => {
-    const s = seed({
+    const s = seedIn('untriaged', {
       id: 'MMR-s7',
-      lane: 'untriaged',
       lede: 'Scroll jumps on refetch',
       title: 'Banner Flicker',
     });
@@ -80,7 +77,14 @@ describe('seed lane grouping (MMR-247)', () => {
     expect(seedMatchesQuery(s, 'flicker')).toBe(true);
     expect(seedMatchesQuery(s, 'REFETCH')).toBe(true);
     expect(seedMatchesQuery(s, 'nowhere')).toBe(false);
-    expect(seedMatchesQuery(seed({ lane: 'settled', title: 'x' }), 'refetch')).toBe(false);
+    expect(seedMatchesQuery(seedIn('settled', { title: 'x' }), 'refetch')).toBe(false);
+  });
+
+  it('reads the lane of an Engine seed and of an /api wire seed alike', () => {
+    expect(laneOf({ lifecycle: 'promoted', readyToResolve: true })).toBe('ready');
+    expect(laneOf({ lifecycle: 'promoted', ready_to_resolve: true })).toBe('ready');
+    expect(laneOf({ lifecycle: 'promoted', ready_to_resolve: false })).toBe('promoted');
+    expect(laneOf({ lifecycle: 'rejected', readyToResolve: true })).toBe('settled');
   });
 
   it('isSeedKind accepts only the three kinds', () => {

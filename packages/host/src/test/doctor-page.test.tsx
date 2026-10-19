@@ -4,14 +4,17 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { WireDoctorFacet } from '../api/types';
+import { doctor } from '../api/fns/browse';
+import type { RecordHealth } from '../api/fns/browse';
 import { routeTree } from '../router';
+import { serveBrowse } from './browse-fns';
 import { emptyRead } from './fixtures';
 import { serveShell } from './shell-fns';
 
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 // The shell renders sonner's Toaster; the panel fires toast.success/error — stub
 // both so the copy-outcome assertions read the mock, not the DOM.
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
@@ -26,8 +29,14 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+/** Record health answers `health`; every other read is empty. */
+function serveDoctor(health: RecordHealth) {
+  serveBrowse({ health });
+  apiGet.mockImplementation((path: string) => Promise.resolve(emptyRead(path)));
+}
+
 /** A facet with one finding: a node whose parent names no row. */
-function damagedFacet(): WireDoctorFacet {
+function damagedFacet(): RecordHealth {
   return {
     finding_total: 1,
     groups: [
@@ -67,12 +76,11 @@ function renderAt(path: string) {
 
 describe('doctorPage record-health panel (MMR-185)', () => {
   it('renders a finding with its cause, row locator, and evidence', async () => {
-    apiGet.mockImplementation((path: string) =>
-      Promise.resolve(path.startsWith('/api/doctor') ? damagedFacet() : emptyRead(path)),
-    );
+    serveDoctor(damagedFacet());
     renderAt('/doctor?project=MMR');
 
     await expect(screen.findByText('Record health')).resolves.toBeDefined();
+    expect(doctor).toHaveBeenCalledWith({ data: { project: 'MMR' } });
     // Scoped header names the project.
     expect(screen.getByText('MMR · mimir doctor')).toBeDefined();
     // The amber summary banner and the project's group both count it (await the facet first).
@@ -100,9 +108,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
   it('copy location writes the row locator and toasts success only after the write resolves', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
-    apiGet.mockImplementation((path: string) =>
-      Promise.resolve(path.startsWith('/api/doctor') ? damagedFacet() : emptyRead(path)),
-    );
+    serveDoctor(damagedFacet());
     renderAt('/doctor?project=MMR');
 
     await userEvent.click(await screen.findByRole('button', { name: 'Copy location' }));
@@ -116,9 +122,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
   it('copy location toasts an error (never success) when the clipboard write rejects', async () => {
     const writeText = vi.fn().mockRejectedValue(new Error('denied'));
     Object.assign(navigator, { clipboard: { writeText } });
-    apiGet.mockImplementation((path: string) =>
-      Promise.resolve(path.startsWith('/api/doctor') ? damagedFacet() : emptyRead(path)),
-    );
+    serveDoctor(damagedFacet());
     renderAt('/doctor?project=MMR');
 
     await userEvent.click(await screen.findByRole('button', { name: 'Copy location' }));
@@ -130,9 +134,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
 
   it('copy location toasts an error when the clipboard API is absent (insecure context)', async () => {
     Object.assign(navigator, { clipboard: undefined });
-    apiGet.mockImplementation((path: string) =>
-      Promise.resolve(path.startsWith('/api/doctor') ? damagedFacet() : emptyRead(path)),
-    );
+    serveDoctor(damagedFacet());
     renderAt('/doctor?project=MMR');
 
     await userEvent.click(await screen.findByRole('button', { name: 'Copy location' }));
@@ -154,7 +156,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
       severity: 'error' as const,
       value: null,
     };
-    const twin: WireDoctorFacet = {
+    const twin: RecordHealth = {
       finding_total: 2,
       groups: [
         {
@@ -169,9 +171,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
       scanned_at: new Date().toISOString(),
       scope: null,
     };
-    apiGet.mockImplementation((path: string) =>
-      Promise.resolve(path.startsWith('/api/doctor') ? twin : emptyRead(path)),
-    );
+    serveDoctor(twin);
     const consoleError = vi.spyOn(console, 'error');
     renderAt('/doctor?project=MMR');
 
@@ -183,16 +183,16 @@ describe('doctorPage record-health panel (MMR-185)', () => {
   });
 
   it('shows the zero state when the store has no findings', async () => {
-    apiGet.mockImplementation((path: string) =>
-      Promise.resolve(
-        path.startsWith('/api/doctor')
-          ? { finding_total: 0, groups: [], scanned_at: new Date().toISOString(), scope: null }
-          : emptyRead(path),
-      ),
-    );
+    serveDoctor({
+      finding_total: 0,
+      groups: [],
+      scanned_at: new Date().toISOString(),
+      scope: null,
+    });
     renderAt('/doctor');
 
     await expect(screen.findByText('No findings')).resolves.toBeDefined();
+    expect(doctor).toHaveBeenCalledWith({ data: {} });
     // An unscoped scan also checked the config, so its clean state says so.
     expect(
       screen.getByText(/Every record is consistent and nothing in the config needs attention\./),
@@ -201,18 +201,12 @@ describe('doctorPage record-health panel (MMR-185)', () => {
   });
 
   it('claims nothing about the config in a project-scoped zero state', async () => {
-    apiGet.mockImplementation((path: string) =>
-      Promise.resolve(
-        path.startsWith('/api/doctor')
-          ? {
-              finding_total: 0,
-              groups: [],
-              scanned_at: new Date().toISOString(),
-              scope: { key: 'MMR', matched_records: 4 },
-            }
-          : emptyRead(path),
-      ),
-    );
+    serveDoctor({
+      finding_total: 0,
+      groups: [],
+      scanned_at: new Date().toISOString(),
+      scope: { key: 'MMR', matched_records: 4 },
+    });
     renderAt('/doctor?project=MMR');
 
     await expect(screen.findByText('No findings')).resolves.toBeDefined();
@@ -221,18 +215,12 @@ describe('doctorPage record-health panel (MMR-185)', () => {
   });
 
   it('names an unknown project scope instead of reporting it clean', async () => {
-    apiGet.mockImplementation((path: string) =>
-      Promise.resolve(
-        path.startsWith('/api/doctor')
-          ? {
-              finding_total: 0,
-              groups: [],
-              scanned_at: new Date().toISOString(),
-              scope: { key: 'ZZZ', matched_records: 0 },
-            }
-          : emptyRead(path),
-      ),
-    );
+    serveDoctor({
+      finding_total: 0,
+      groups: [],
+      scanned_at: new Date().toISOString(),
+      scope: { key: 'ZZZ', matched_records: 0 },
+    });
     renderAt('/doctor?project=ZZZ');
 
     await expect(screen.findByText('No project ZZZ')).resolves.toBeDefined();

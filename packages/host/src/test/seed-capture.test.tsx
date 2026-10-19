@@ -4,7 +4,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, vi } from 'vitest';
 
+import { seedCreate } from '../api/fns/browse';
 import { routeTree } from '../router';
+import { engineSeed } from './browse-fixtures';
+import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { emptyRead } from './fixtures';
 import { serveShell } from './shell-fns';
@@ -12,6 +15,7 @@ import { serveShell } from './shell-fns';
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 const { toast } = vi.hoisted(() => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
@@ -28,12 +32,10 @@ function mockApi() {
       engineProject({ id: 'NRN', status: 'ready', title: 'Norn' }),
     ],
   });
+  serveBrowse();
   apiGet.mockImplementation((path: string) => {
     if (path === '/health') {
       return Promise.resolve({ schema: 1, status: 'ok', version: '0.0.0' });
-    }
-    if (path.startsWith('/api/seeds?')) {
-      return Promise.resolve(emptyRead(path));
     }
     return Promise.resolve(emptyRead(path));
   });
@@ -59,7 +61,7 @@ function renderApp(initial = '/p/MMR/seeds') {
 describe('seed capture popover (12c, MMR-247)', () => {
   it('files the right body (project/title/kind, no requester) and resets on success', async () => {
     mockApi();
-    apiSend.mockResolvedValue({ id: 'MMR-s7' });
+    vi.mocked(seedCreate).mockResolvedValue(engineSeed({ id: 'MMR-s7' }));
     renderApp();
     const user = userEvent.setup();
 
@@ -72,15 +74,12 @@ describe('seed capture popover (12c, MMR-247)', () => {
     await user.click(screen.getByRole('button', { name: 'File ↵' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds', {
-        kind: 'bug',
-        project: 'MMR',
-        title: 'Tree lens loses scroll',
+      expect(seedCreate).toHaveBeenCalledWith({
+        data: { kind: 'bug', project: 'MMR', title: 'Tree lens loses scroll' },
       });
     });
     // never carries requester — a console-filed seed is self-filed
-    const body = apiSend.mock.calls[0]?.[2] as Record<string, unknown>;
-    expect(body).not.toHaveProperty('requester');
+    expect(vi.mocked(seedCreate).mock.calls[0]?.[0].data).not.toHaveProperty('requester');
     // success toasts and the popover closes (fields reset behind it)
     expect(toast.success).toHaveBeenCalledWith('Filed MMR-s7');
     await waitFor(() => {
@@ -90,7 +89,6 @@ describe('seed capture popover (12c, MMR-247)', () => {
 
   it('enter files; Shift+Enter adds a body line — the whole blob rides `title` (MMR-263)', async () => {
     mockApi();
-    apiSend.mockResolvedValue({ id: 'MMR-s8' });
     renderApp();
     const user = userEvent.setup();
 
@@ -102,15 +100,13 @@ describe('seed capture popover (12c, MMR-247)', () => {
     // Shift+Enter inserts a newline — it must NOT file.
     await user.keyboard('{Shift>}{Enter}{/Shift}');
     await user.type(field, 'body line');
-    expect(apiSend).not.toHaveBeenCalled();
+    expect(seedCreate).not.toHaveBeenCalled();
 
-    // A bare Enter files the whole capture blob as `title` (server splits it).
+    // A bare Enter files the whole capture blob as `title` (the Engine splits it).
     await user.keyboard('{Enter}');
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds', {
-        kind: 'bug',
-        project: 'MMR',
-        title: 'title line\nbody line',
+      expect(seedCreate).toHaveBeenCalledWith({
+        data: { kind: 'bug', project: 'MMR', title: 'title line\nbody line' },
       });
     });
   });

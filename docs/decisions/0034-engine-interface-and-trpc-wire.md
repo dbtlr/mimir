@@ -286,3 +286,38 @@ stays project-scoped.
 The console persists its query cache for offline reads. An Engine read
 restored from that snapshot must keep its `Date` instants, so the snapshot
 is encoded with superjson, the codec the tRPC wire already uses.
+
+## Refinement (2026-10-18 — the browsers, seeds, artifacts, and record health)
+
+The task, seed, and artifact browsers, the seed and artifact pages, and the
+seed writes run on server functions over the flat Engine methods: `list`,
+`seeds`, `artifacts`, `getSeed`, `getArtifact`, and the seed writes. The
+browsers live under their project (`/p/KEY/…`), so the project-scoped reads
+and the bare-key rule fit them, and no `console.*` variant is needed for
+them.
+
+**`console.upstreamTasks` is a seed page's outcomes.** A seed's page lists
+the tasks that name it as their upstream, and those tasks sit on the
+requesting boards, not the seed's own. The flat `list` cannot span boards
+under the bare-key rule, and a fan-out over every project from the browser
+would cost one request per board. `console.upstreamTasks` takes a seed id and
+answers the tasks on any board that name it, live or settled, in the set
+projection `/api/nodes` serves. A seed nothing names, or an id that names no
+seed, has none, as on `/api/nodes`. Like every `console.*` method it is
+registered on neither the CLI nor MCP.
+
+**The dependency picker reuses `console.search`.** The picker spans every
+project, so it asks the palette's search and keeps the open task hits.
+
+**A seed's lane is classified once, in the contract.** The `/api` wire serves
+each seed's lane, and an Engine seed carries the lifecycle and the
+ready-to-resolve flag the lane derives from. The classifier moves from core
+to the contract, so the CLI, the wire, and the console read one rule and the
+Engine output does not grow a derived field.
+
+**Record health is a host read, not an Engine method.** Decision 7 and the
+console-views refinement keep doctor with the host. The console reads it
+through a server function that calls the host's own doctor facet, as
+`/api/doctor` does. The server-function boundary still holds: the one module
+that opens the host runtime hands handlers the `Engine` and a narrow
+record-health accessor, and nothing else.

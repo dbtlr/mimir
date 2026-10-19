@@ -1,13 +1,15 @@
-import { SEED_KIND_VALUES } from '@mimir/contract';
+import { SEED_KIND_VALUES, seedLane } from '@mimir/contract';
 import type { SeedKind, SeedLane } from '@mimir/contract';
 
+import type { EngineSeed } from '../api/browse-queries';
 import type { WireSeed } from '../api/types';
 
 /**
- * The seeds queue's lane grammar (MMR-247). The server serves each seed's
- * `lane` (MMR-245), so grouping never re-derives it — it only buckets and
- * orders. Order is fixed: UNTRIAGED → READY TO RESOLVE → PROMOTED → PARKED →
- * SETTLED (the "dispose" wording the mocks predate is renamed to "resolve").
+ * The seeds queue's lane grammar (MMR-247). Each seed's lane comes from the
+ * contract's one classifier (MMR-245), which the CLI and the `/api` wire read
+ * too, so grouping never invents its own rule — it only buckets and orders.
+ * Order is fixed: UNTRIAGED → READY TO RESOLVE → PROMOTED → PARKED → SETTLED
+ * (the "dispose" wording the mocks predate is renamed to "resolve").
  */
 export const SEED_LANE_ORDER: readonly SeedLane[] = [
   'untriaged',
@@ -36,9 +38,26 @@ export const SEED_LANE_INK: Record<SeedLane, string> = {
   untriaged: 'text-accent-foreground',
 };
 
+/**
+ * What a seed's lane reads: its lifecycle and whether it is ready to resolve,
+ * in either read's spelling (an Engine seed or an `/api` wire seed).
+ */
+export type SeedStanding = Pick<EngineSeed, 'lifecycle'> &
+  (Pick<EngineSeed, 'readyToResolve'> | Pick<WireSeed, 'ready_to_resolve'>);
+
+/** Whether a promoted seed's spawned work has all settled. */
+export function isReadyToResolve(seed: SeedStanding): boolean {
+  return 'readyToResolve' in seed ? seed.readyToResolve : seed.ready_to_resolve;
+}
+
+/** The seed's exclusive lane. */
+export function laneOf(seed: SeedStanding): SeedLane {
+  return seedLane({ lifecycle: seed.lifecycle, readyToResolve: isReadyToResolve(seed) });
+}
+
 export type SeedLaneGroup = {
   lane: SeedLane;
-  seeds: WireSeed[];
+  seeds: EngineSeed[];
 };
 
 /**
@@ -46,10 +65,10 @@ export type SeedLaneGroup = {
  * a lane with no seeds shows no header. Within a lane the server's array order
  * (FIFO by creation) is preserved.
  */
-export function groupSeedsByLane(seeds: readonly WireSeed[]): SeedLaneGroup[] {
+export function groupSeedsByLane(seeds: readonly EngineSeed[]): SeedLaneGroup[] {
   const groups: SeedLaneGroup[] = [];
   for (const lane of SEED_LANE_ORDER) {
-    const inLane = seeds.filter((s) => s.lane === lane);
+    const inLane = seeds.filter((s) => laneOf(s) === lane);
     if (inLane.length > 0) {
       groups.push({ lane, seeds: inLane });
     }
@@ -58,7 +77,7 @@ export function groupSeedsByLane(seeds: readonly WireSeed[]): SeedLaneGroup[] {
 }
 
 /** Whether a seed matches a search query: id, title, or lede, case-insensitive. */
-export function seedMatchesQuery(seed: WireSeed, query: string): boolean {
+export function seedMatchesQuery(seed: EngineSeed, query: string): boolean {
   const needle = query.trim().toLowerCase();
   if (needle === '') {
     return true;
@@ -69,13 +88,17 @@ export function seedMatchesQuery(seed: WireSeed, query: string): boolean {
 }
 
 /** Header summary: how many seeds await triage (untriaged) and resolution (ready). */
-export function seedSummary(seeds: readonly WireSeed[]): { toTriage: number; toResolve: number } {
+export function seedSummary(seeds: readonly EngineSeed[]): {
+  toTriage: number;
+  toResolve: number;
+} {
   let toTriage = 0;
   let toResolve = 0;
   for (const s of seeds) {
-    if (s.lane === 'untriaged') {
+    const lane = laneOf(s);
+    if (lane === 'untriaged') {
       toTriage += 1;
-    } else if (s.lane === 'ready') {
+    } else if (lane === 'ready') {
       toResolve += 1;
     }
   }

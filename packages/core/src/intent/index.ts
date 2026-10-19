@@ -22,6 +22,7 @@ export {
   projectWorkOf,
   requireWorkTimeZone,
   reviewPageOf,
+  upstreamTasksOf,
 } from './console';
 export { type ReviewOptions, reviewOf } from './review';
 export { type WorkOptions, workPageOf } from './work';

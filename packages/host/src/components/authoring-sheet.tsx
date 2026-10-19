@@ -46,6 +46,21 @@ const PRIORITY_WASH: Record<Priority, string> = {
 
 const SIZE_GLYPH: Record<Size, string> = { large: 'l', medium: 'm', small: 's' };
 
+/**
+ * A dependency's status dot. A search hit names only work in flight or
+ * finished, so open work (ready, blocked, awaiting) shows a hollow ring.
+ */
+function DepStatusDot({ status }: { status: DepCandidate['status'] }) {
+  return status === undefined ? (
+    <span
+      aria-hidden
+      className="size-[5px] shrink-0 rounded-full inset-ring inset-ring-ink-faint"
+    />
+  ) : (
+    <StatusDot status={status} className="size-[5px]" />
+  );
+}
+
 /** DOM id for a dep-results option — the combobox's aria-activedescendant target. */
 function depOptionDomId(id: string) {
   return `authoring-dep-option-${id}`;
@@ -220,7 +235,7 @@ function AuthoringSheetBody({
     ...tasksQuery({ q: depQ }),
     enabled: type === 'task' && depQ.trim() !== '',
   });
-  const depOptions = (depQuery.data?.items ?? [])
+  const depOptions = (depQuery.data ?? [])
     .filter((n) => !deps.some((d) => d.id === n.id))
     .slice(0, 8);
   const depListOpen = type === 'task' && depSearch.trim() !== '' && depQ.trim() !== '';
@@ -700,7 +715,7 @@ function AuthoringSheetBody({
                         key={d.id}
                         className="inline-flex items-center gap-1.5 rounded-full bg-line/70 py-1 pr-1 pl-2.5 inset-ring inset-ring-line-bright"
                       >
-                        <StatusDot status={d.status} className="size-[5px]" />
+                        <DepStatusDot status={d.status} />
                         <span className="font-mono text-tag text-ink-faint">{d.id}</span>
                         <span className="max-w-48 truncate text-xs text-ink">{d.title}</span>
                         <button
@@ -757,7 +772,7 @@ function AuthoringSheetBody({
                             i === depActive && 'bg-well-800',
                           )}
                         >
-                          <StatusDot status={n.status} className="size-[5px]" />
+                          <DepStatusDot status={n.status} />
                           <span className="font-mono text-tag text-ink-faint">{n.id}</span>
                           <span className="truncate text-xs text-ink">{n.title}</span>
                         </button>

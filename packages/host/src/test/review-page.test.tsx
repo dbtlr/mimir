@@ -5,6 +5,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { getSeed, seedPark, seedPromote, seedReject } from '../api/fns/browse';
+import type { PromotedSeed } from '../api/seed-mutations';
 import type {
   WireNode,
   WireReviewProject,
@@ -13,6 +15,8 @@ import type {
   WireWorkNeedsYou,
 } from '../api/types';
 import { routeTree } from '../router';
+import { engineSeed } from './browse-fixtures';
+import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
 import { reviewReport, seed, task } from './fixtures';
 import { failShellReads, serveShell } from './shell-fns';
@@ -20,12 +24,14 @@ import { failShellReads, serveShell } from './shell-fns';
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 
 const NOW = Date.parse('2026-10-13T12:00:00.000Z');
 const hoursAgo = (h: number) => new Date(NOW - h * 60 * 60_000).toISOString();
 const daysAgo = (d: number) => new Date(NOW - d * 24 * 60 * 60_000).toISOString();
 
 beforeEach(() => {
+  serveBrowse();
   apiGet.mockReset();
   apiSend.mockReset();
   vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -616,6 +622,24 @@ async function openForWrite(before: WireReviewReport, after: WireReviewReport) {
     report = after;
     return Promise.resolve({});
   });
+  // The seed writes land as the task writes do; the promote sheet reads the seed's body.
+  const seeds = before.triage.flatMap((group) => group.seeds);
+  vi.mocked(getSeed).mockImplementation(async ({ data }) => {
+    const found = seeds.find((s) => s.id === data.id);
+    return engineSeed({ id: data.id, project: found?.project, title: found?.title });
+  });
+  vi.mocked(seedPark).mockImplementation(async ({ data }) => {
+    report = after;
+    return engineSeed({ id: data.id, lifecycle: 'parked' });
+  });
+  vi.mocked(seedReject).mockImplementation(async ({ data }) => {
+    report = after;
+    return engineSeed({ id: data.id, lifecycle: 'rejected' });
+  });
+  vi.mocked(seedPromote).mockImplementation(async ({ data }) => {
+    report = after;
+    return promotion(data.id);
+  });
   const client = renderReview();
   await screen.findByRole('heading', { level: 1 });
   return serving;
@@ -765,6 +789,13 @@ describe('review page decisions act in place (MMR-479)', () => {
   });
 });
 
+/** A promote's echo: the seed, now promoted, and the task it spawned. */
+const promotion = (id: string): PromotedSeed => ({
+  created: 'MMR-500',
+  seed: engineSeed({ id, lifecycle: 'promoted', spawned: ['MMR-500'] }),
+  spawnedId: 'MMR-500',
+});
+
 /** The read with LM's and MMR's untriaged seeds; a project with none drops out. */
 function triage(rows: { lm?: WireSeed[]; mmr?: WireSeed[] }) {
   return reviewReport({
@@ -795,9 +826,7 @@ describe('review page seed triage acts in place (MMR-479, MMR-506)', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Park' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s25/park', {
-        reason: 'after v1',
-      });
+      expect(seedPark).toHaveBeenCalledWith({ data: { id: 'MMR-s25', reason: 'after v1' } });
     });
     await waitFor(() => {
       expect(screen.queryByRole('link', { name: 'Oldest idea' })).toBeNull();
@@ -814,8 +843,8 @@ describe('review page seed triage acts in place (MMR-479, MMR-506)', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Reject' }));
 
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s25/reject', {
-        reason: 'Out of scope',
+      expect(seedReject).toHaveBeenCalledWith({
+        data: { id: 'MMR-s25', reason: 'Out of scope' },
       });
     });
   });
@@ -922,8 +951,8 @@ describe('review page seed triage acts in place (MMR-479, MMR-506)', () => {
       triage({ mmr: [firstSeed, secondSeed] }),
       triage({ mmr: [firstSeed, secondSeed] }),
     );
-    const promoted = Promise.withResolvers<object>();
-    apiSend.mockReturnValue(promoted.promise);
+    const promoted = Promise.withResolvers<PromotedSeed>();
+    vi.mocked(seedPromote).mockReturnValue(promoted.promise);
 
     await press('MMR-s25', 'Promote to task…');
     const promote = await screen.findByRole('button', { name: 'Promote ↵' });
@@ -936,7 +965,7 @@ describe('review page seed triage acts in place (MMR-479, MMR-506)', () => {
       expect(screen.queryByDisplayValue('Oldest idea')).toBeNull();
     });
     void serving.poll(triage({ mmr: [secondSeed] }));
-    promoted.resolve({ created: 'MMR-500', id: 'MMR-s25', lifecycle: 'promoted' });
+    promoted.resolve(promotion('MMR-s25'));
 
     await waitFor(() => {
       expect(
@@ -952,8 +981,8 @@ describe('review page seed triage acts in place (MMR-479, MMR-506)', () => {
       triage({ mmr: [firstSeed, secondSeed] }),
       triage({ mmr: [firstSeed, secondSeed] }),
     );
-    const promoted = Promise.withResolvers<object>();
-    apiSend.mockReturnValue(promoted.promise);
+    const promoted = Promise.withResolvers<PromotedSeed>();
+    vi.mocked(seedPromote).mockReturnValue(promoted.promise);
 
     await press('MMR-s25', 'Promote to task…');
     const promote = await screen.findByRole('button', { name: 'Promote ↵' });

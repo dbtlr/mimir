@@ -7,7 +7,7 @@ import type { ArtifactFilters as Filters } from '../api/browse-queries';
 import { ArtifactFilters } from '../components/artifact-filters';
 
 /** A stateful parent mirroring the page: merges each partial into the filters. */
-function Harness({ initial }: { initial: Filters }) {
+function Harness({ initial }: { initial: Omit<Filters, 'project'> }) {
   const [filters, setFilters] = useState(initial);
   return (
     <ArtifactFilters

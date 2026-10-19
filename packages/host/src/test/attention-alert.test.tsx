@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { WireReviewReport, WireWorkNeedsYou } from '../api/types';
 import { routeTree } from '../router';
+import { serveBrowse } from './browse-fns';
 import { project, reviewReport, seed, task, workReport } from './fixtures';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
@@ -13,6 +14,7 @@ import { stubViewport } from './viewport';
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 
 /**
  * The top-bar alert (ADR 0019, MMR-476 and MMR-492 refinements): the count of
@@ -21,6 +23,7 @@ vi.mock('../api/fns/shell');
  */
 
 beforeEach(() => {
+  serveBrowse();
   apiGet.mockReset();
   apiSend.mockReset();
   stubViewport('desktop');

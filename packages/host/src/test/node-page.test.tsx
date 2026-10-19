@@ -10,6 +10,7 @@ import { POLL_MS } from '../api/queries';
 import { createQueryClient } from '../api/query-client';
 import type { WireNode } from '../api/types';
 import { routeTree } from '../router';
+import { serveBrowse } from './browse-fns';
 import { engineTree } from './engine-fixtures';
 import { emptyRead, task, workReport } from './fixtures';
 import { serveShell } from './shell-fns';
@@ -17,6 +18,7 @@ import { serveShell } from './shell-fns';
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 vi.mock('sonner', async (orig) => ({
   // oxlint-disable-next-line typescript/consistent-type-imports
   ...(await orig<typeof import('sonner')>()),
@@ -83,6 +85,7 @@ const sqlite = task({
 });
 
 beforeEach(() => {
+  serveBrowse();
   apiGet.mockReset();
   apiSend.mockReset();
 });

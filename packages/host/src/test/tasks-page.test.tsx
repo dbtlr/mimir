@@ -1,3 +1,4 @@
+import type { EngineNode } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -5,8 +6,10 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, vi } from 'vitest';
 
 import { FINISHED_PAGE_SIZE } from '../api/browse-queries';
-import type { WireHome, WireNode } from '../api/types';
+import { list } from '../api/fns/browse';
 import { routeTree } from '../router';
+import { engineTask, taskSet } from './browse-fixtures';
+import { failBrowseReads, serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { emptyRead, task } from './fixtures';
 import { serveShell } from './shell-fns';
@@ -14,57 +17,58 @@ import { serveShell } from './shell-fns';
 const { apiGet, apiSend } = vi.hoisted(() => ({ apiGet: vi.fn(), apiSend: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet, apiSend }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 
 /** A home facet under project MMR; `open` marks the parent as a standing home. */
-function home(parentTitle: string, open = false): WireHome {
+function home(parentTitle: string, open = false): NonNullable<EngineNode['home']> {
   return {
-    parent_id: 'MMR-1',
-    parent_open_ended: open ? true : null,
-    parent_title: parentTitle,
-    project_key: 'MMR',
+    parentId: 'MMR-1',
+    parentOpenEnded: open ? true : null,
+    parentTitle,
+    projectKey: 'MMR',
   };
 }
 
 /** Five tasks across two projects, deliberately NOT in activity order. */
-const rows: WireNode[] = [
-  task({
+const rows: EngineNode[] = [
+  engineTask({
     home: home('Wire hardening'),
     id: 'MMR-10',
     lede: 'Make the wire honest.',
     status: 'ready',
     title: 'Doctor the wire',
-    updated_at: '2026-06-11T10:00:00.000Z',
+    updatedAt: new Date('2026-06-11T10:00:00.000Z'),
   }),
-  task({
+  engineTask({
     home: home('Storage cutover', true),
     id: 'MMR-12',
     status: 'done',
     summary: 'The schema landed.',
     title: 'Land the schema',
-    updated_at: '2026-06-10T12:00:00.000Z',
+    updatedAt: new Date('2026-06-10T12:00:00.000Z'),
   }),
-  task({
+  engineTask({
     home: home('Storage cutover', true),
     id: 'MMR-11',
     lede: 'The lede wins.',
     status: 'under_review',
     summary: 'The summary loses.',
     title: 'Review the cutover',
-    updated_at: '2026-06-11T11:00:00.000Z',
+    updatedAt: new Date('2026-06-11T11:00:00.000Z'),
   }),
-  task({
+  engineTask({
     home: home('Wire hardening'),
     id: 'MMR-13',
     status: 'abandoned',
     title: 'Old dead end',
-    updated_at: '2026-06-05T12:00:00.000Z',
+    updatedAt: new Date('2026-06-05T12:00:00.000Z'),
   }),
-  task({
-    home: { ...home('Layer 4'), project_key: 'NRN' },
+  engineTask({
+    home: { ...home('Layer 4'), projectKey: 'NRN' },
     id: 'NRN-4',
     status: 'ready',
     title: 'Hoist the lookup',
-    updated_at: '2026-06-11T12:00:00.000Z',
+    updatedAt: new Date('2026-06-11T12:00:00.000Z'),
   }),
 ];
 
@@ -79,16 +83,14 @@ function serveProjects(only?: string) {
 
 function mockApi() {
   serveProjects();
+  serveBrowse({ tasks: rows });
   apiGet.mockImplementation((path: string) => {
-    if (path.startsWith('/api/nodes?')) {
-      return Promise.resolve({ items: rows, total: rows.length });
-    }
     if (path.includes('/annotations')) {
       return Promise.resolve(emptyRead(path));
     }
     if (path.startsWith('/api/nodes/')) {
       // the task page's detail fetch after a row click
-      return Promise.resolve(rows[0]);
+      return Promise.resolve(task({ id: 'MMR-10', status: 'ready', title: 'Doctor the wire' }));
     }
     return Promise.reject(new Error(`unexpected ${path}`));
   });
@@ -114,12 +116,8 @@ function renderTasks(initial = '/p/MMR/tasks') {
 const search = (r: ReturnType<typeof renderTasks>) =>
   r.state.location.search as { status?: string; q?: string };
 
-/** The `/api/nodes?` list reads issued so far, as query-string objects. */
-const nodeReads = () =>
-  apiGet.mock.calls
-    .map((c) => c[0] as string)
-    .filter((p) => p.startsWith('/api/nodes?'))
-    .map((p) => new URLSearchParams(p.slice('/api/nodes?'.length)));
+/** The task-list reads issued so far, as the `list` inputs they sent. */
+const nodeReads = () => vi.mocked(list).mock.calls.map(([{ data }]) => data);
 
 /** The group headings on the page, in order (e.g. `Ready · 2`). */
 const groupHeadings = () =>
@@ -163,9 +161,11 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
     renderTasks();
     await screen.findByText('Doctor the wire');
     expect(screen.getByText('5 live')).toBeDefined();
-    const read = nodeReads().find((p) => p.get('col') === 'lede');
-    expect(read?.get('type')).toBe('task');
-    expect(read?.get('col')).toBe('lede');
+    expect(nodeReads()).toContainEqual({
+      facets: ['home', 'lede'],
+      project: 'MMR',
+      status: 'live',
+    });
   });
 
   it('groups only by status: no group menu, and an old group=project link is harmless', async () => {
@@ -255,7 +255,7 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
       expect(search(testRouter).status).toBe('terminal');
     });
     await waitFor(() => {
-      expect(nodeReads().some((p) => p.get('status') === 'terminal')).toBe(true);
+      expect(nodeReads().some((p) => p.status === 'terminal')).toBe(true);
     });
     expect(finished().getAttribute('aria-pressed')).toBe('true');
     expect(live().getAttribute('aria-pressed')).toBe('false');
@@ -278,7 +278,7 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
     expect(screen.getByRole('button', { name: 'Finished' }).getAttribute('aria-pressed')).toBe(
       'false',
     );
-    expect(nodeReads().some((p) => p.get('status') === 'ready')).toBe(true);
+    expect(nodeReads().some((p) => p.status === 'ready')).toBe(true);
     expect(screen.getByText('5 match')).toBeDefined();
 
     await user.click(screen.getByRole('button', { name: 'Remove status filter Ready' }));
@@ -295,13 +295,14 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
     await screen.findByText('Doctor the wire');
     expect(live().getAttribute('aria-pressed')).toBe('true');
     expect(screen.queryByRole('button', { name: /Remove status filter/ })).toBeNull();
-    expect(nodeReads().some((p) => p.get('status') === 'live')).toBe(true);
+    expect(nodeReads().some((p) => p.status === 'live')).toBe(true);
   });
 
   it('survives a numeric status in the URL', async () => {
     mockApi();
     renderTasks('/p/MMR/tasks?status=1');
-    await screen.findByText('Doctor the wire');
+    // `1` is no status, so no task can match it.
+    await screen.findByText('No tasks match.');
     expect(screen.getByRole('heading', { level: 1, name: 'Tasks' })).toBeDefined();
   });
 
@@ -329,6 +330,14 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
     expect(
       screen.getByRole('button', { name: 'Remove status filter Ready, Blocked' }),
     ).toBeDefined();
+    expect(nodeReads().some((p) => JSON.stringify(p.status) === '["ready","blocked"]')).toBe(true);
+  });
+
+  it('asks for no tasks when a deep-linked status names no selector', async () => {
+    mockApi();
+    renderTasks('/p/MMR/tasks?status=ready,new');
+    await expect(screen.findByText('No tasks match.')).resolves.toBeDefined();
+    expect(nodeReads()).toStrictEqual([]);
   });
 
   it('restores a deep-linked search and scopes the read to the project in the path', async () => {
@@ -337,8 +346,8 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
     await screen.findByText('Doctor the wire');
 
     expect(screen.getByRole('searchbox')).toHaveProperty('value', 'cutover');
-    const read = nodeReads().find((p) => p.get('q') === 'cutover');
-    expect(read?.get('project')).toBe('MMR');
+    const read = nodeReads().find((p) => p.q === 'cutover');
+    expect(read?.project).toBe('MMR');
   });
 
   it('has no project filter chip — the path names the project', async () => {
@@ -361,11 +370,12 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
       expect(search(testRouter).q).toBe('wire');
     });
     await waitFor(() => {
-      expect(nodeReads().some((p) => p.get('q') === 'wire')).toBe(true);
+      expect(nodeReads().some((p) => p.q === 'wire')).toBe(true);
     });
   });
 
   it('says so when nothing matches', async () => {
+    serveBrowse();
     apiGet.mockImplementation((path: string) => Promise.resolve(emptyRead(path)));
     renderTasks();
     await expect(screen.findByText('No tasks match.')).resolves.toBeDefined();
@@ -373,6 +383,7 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
 
   it('unreachable with nothing cached keeps the honest error and disables + New task', async () => {
     apiGet.mockRejectedValue(new Error('down'));
+    failBrowseReads(new Error('down'));
     renderTasks();
     await expect(
       screen.findByText(/Unreachable — is the Mimir host running\?/),
@@ -389,42 +400,43 @@ const showMore = () => screen.queryByRole('button', { name: 'Show more' });
 /** The `limit` of every terminal list read so far, in request order. */
 const terminalLimits = () =>
   nodeReads()
-    .filter((p) => p.get('status') === 'terminal')
-    .map((p) => p.get('limit'));
+    .filter((p) => p.status === 'terminal')
+    .map((p) => p.limit);
 
 /** Finished tasks, newest completion first: hour by hour, so the order is unambiguous. */
 const finishedTasks = (count: number) =>
   Array.from({ length: count }, (_, i) => {
-    const at = new Date(Date.UTC(2026, 5, 20, 23, 0, 0) - i * 3_600_000).toISOString();
-    return task({
-      completed_at: at,
+    const at = new Date(Date.UTC(2026, 5, 20, 23, 0, 0) - i * 3_600_000);
+    return engineTask({
+      completedAt: at,
       id: `MMR-${String(1000 + i)}`,
+      lifecycle: 'done',
       status: 'done',
       title: `Finished ${String(i)}`,
-      updated_at: at,
+      updatedAt: at,
     });
   });
 
 /**
- * Serves `/api/nodes` terminal reads honoring `limit` like the server (the
- * newest `limit` of `all`, whole `total`); other reads get `rows`. `gate`
- * lets a test hold or fail a read by its limit.
+ * Serves terminal task lists honoring `limit` like the Engine (the newest
+ * `limit` of `all`, whole `total`); other lists get `rows`. `gate` lets a test
+ * hold or fail a read by its limit.
  */
 function mockTerminalApi(
-  all: WireNode[],
+  all: EngineNode[],
   gate: (limit: number) => Promise<void> | undefined = () => undefined,
 ) {
   serveProjects('MMR');
-  apiGet.mockImplementation(async (path: string) => {
-    if (path.startsWith('/api/nodes?')) {
-      const p = new URLSearchParams(path.slice('/api/nodes?'.length));
-      if (p.get('status') !== 'terminal') {
-        return { items: rows, total: rows.length };
-      }
-      const limit = p.has('limit') ? Number(p.get('limit')) : all.length;
-      await gate(limit);
-      return { items: all.slice(0, limit), total: all.length };
+  serveBrowse();
+  vi.mocked(list).mockImplementation(async ({ data }) => {
+    if (data.status !== 'terminal') {
+      return taskSet(rows);
     }
+    const limit = data.limit ?? all.length;
+    await gate(limit);
+    return taskSet(all.slice(0, limit), all.length);
+  });
+  apiGet.mockImplementation(async (path: string) => {
     throw new Error(`unexpected ${path}`);
   });
 }
@@ -439,10 +451,10 @@ describe('tasksPage Finished view windows (MMR-460)', () => {
     await screen.findByText('Finished 0');
 
     expect(rowCount()).toBe(FINISHED_PAGE_SIZE);
-    expect(terminalLimits()).toStrictEqual([String(FINISHED_PAGE_SIZE)]);
-    const first = nodeReads().find((p) => p.get('status') === 'terminal');
-    expect(first?.has('offset')).toBe(false);
-    expect(first?.get('col')).toBe('lede');
+    expect(terminalLimits()).toStrictEqual([FINISHED_PAGE_SIZE]);
+    const first = nodeReads().find((p) => p.status === 'terminal');
+    expect(first?.offset).toBeUndefined();
+    expect(first?.facets).toContain('lede');
     expect(
       screen.getByText(`${String(FINISHED_PAGE_SIZE)} of ${String(finishedCount)} finished`),
     ).toBeDefined();
@@ -461,7 +473,7 @@ describe('tasksPage Finished view windows (MMR-460)', () => {
     await user.click(showMore() as HTMLElement);
     // The larger read is in flight: the shown rows stay, the button is inert.
     await waitFor(() => {
-      expect(terminalLimits()).toContain(String(FINISHED_PAGE_SIZE * 2));
+      expect(terminalLimits()).toContain(FINISHED_PAGE_SIZE * 2);
     });
     expect(rowCount()).toBe(FINISHED_PAGE_SIZE);
     expect(showMore()).toBeDisabled();
@@ -476,7 +488,7 @@ describe('tasksPage Finished view windows (MMR-460)', () => {
     await waitFor(() => {
       expect(rowCount()).toBe(finishedCount);
     });
-    expect(terminalLimits()).toContain(String(FINISHED_PAGE_SIZE * 3));
+    expect(terminalLimits()).toContain(FINISHED_PAGE_SIZE * 3);
     expect(showMore()).toBeNull();
     expect(screen.getByText(`${String(finishedCount)} finished`)).toBeDefined();
   });
@@ -530,12 +542,13 @@ describe('tasksPage Finished view windows (MMR-460)', () => {
   });
 
   it('orders Finished rows by completion, not by last edit', async () => {
-    const edited = task({
-      completed_at: '2026-05-01T00:00:00.000Z',
+    const edited = engineTask({
+      completedAt: new Date('2026-05-01T00:00:00.000Z'),
       id: 'MMR-3000',
+      lifecycle: 'done',
       status: 'done',
       title: 'Late edit',
-      updated_at: '2026-06-25T00:00:00.000Z',
+      updatedAt: new Date('2026-06-25T00:00:00.000Z'),
     });
     mockTerminalApi([...finishedTasks(3), edited]);
     renderTasks('/p/MMR/tasks?status=terminal');
@@ -555,8 +568,8 @@ describe('tasksPage Finished view windows (MMR-460)', () => {
     const reads = nodeReads();
     expect(reads.length).toBeGreaterThan(0);
     for (const read of reads) {
-      expect(read.has('limit')).toBe(false);
-      expect(read.has('offset')).toBe(false);
+      expect(read.limit).toBeUndefined();
+      expect(read.offset).toBeUndefined();
     }
     expect(showMore()).toBeNull();
   });
@@ -564,15 +577,20 @@ describe('tasksPage Finished view windows (MMR-460)', () => {
 
 describe('tasksPage grooming chips (MMR-466)', () => {
   it('shows the grooming state on todo rows only', async () => {
-    const groomRows: WireNode[] = [
-      task({ grooming: 'groomed', id: 'MMR-20', status: 'ready', title: 'Ready and groomed' }),
-      task({
+    const groomRows: EngineNode[] = [
+      engineTask({
+        grooming: 'groomed',
+        id: 'MMR-20',
+        status: 'ready',
+        title: 'Ready and groomed',
+      }),
+      engineTask({
         grooming: 'needs_answers',
         id: 'MMR-21',
         status: 'ready',
         title: 'Waiting on answers',
       }),
-      task({
+      engineTask({
         grooming: 'groomed',
         id: 'MMR-22',
         lifecycle: 'in_progress',
@@ -580,11 +598,8 @@ describe('tasksPage grooming chips (MMR-466)', () => {
         title: 'Already started',
       }),
     ];
-    apiGet.mockImplementation((path: string) =>
-      path.startsWith('/api/nodes')
-        ? Promise.resolve({ items: groomRows, total: groomRows.length })
-        : Promise.resolve(emptyRead(path)),
-    );
+    serveBrowse({ tasks: groomRows });
+    apiGet.mockImplementation((path: string) => Promise.resolve(emptyRead(path)));
     renderTasks();
 
     await screen.findByRole('link', { name: 'Ready and groomed' });

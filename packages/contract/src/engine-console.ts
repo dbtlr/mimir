@@ -103,8 +103,10 @@ const asOf = z.date().optional();
  * The console's methods (ADR 0034 decision 6). Their scope is what the page
  * needs, not the one project key that governs the CLI and MCP reads: `review`
  * spans every active project, the work pages take a project key or a container
- * id, the overview takes a project key, and `search` (the jump palette) spans
- * every project, ranking the optional `project` first. Keys are checked in
+ * id, the overview takes a project key, `search` (the jump palette) spans
+ * every project, ranking the optional `project` first, and `upstreamTasks` (a
+ * seed page's outcomes) finds the tasks on any board that name a seed as their
+ * upstream. Keys are checked in
  * core, so the refusals match the HTTP routes. The time zone is required there
  * for the pages that place a shipped window.
  */
@@ -137,6 +139,11 @@ export const consoleSchemas = {
     }),
     kind: 'query',
     output: engineViews.searchSet,
+  },
+  upstreamTasks: {
+    input: z.strictObject({ seed: z.string() }),
+    kind: 'query',
+    output: engineViews.nodeSet,
   },
 } as const;
 

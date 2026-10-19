@@ -21,7 +21,9 @@ export const GROOMING_ORDER: readonly Grooming[] = ['not_groomed', 'needs_answer
  * Grooming is a pre-start judgment (ADR 0033): only a todo task reads it, and
  * containers store none.
  */
-export function visibleGrooming(node: WireNode): Grooming | undefined {
+export function visibleGrooming(
+  node: Pick<WireNode, 'type' | 'lifecycle' | 'grooming'>,
+): Grooming | undefined {
   if (node.type !== 'task' || node.lifecycle !== 'todo') {
     return undefined;
   }

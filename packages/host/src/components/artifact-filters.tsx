@@ -8,7 +8,7 @@ import { BrowserSearch, FilterRow, MenuChip, RemovableChip } from './browser-lis
 const SEARCH_DEBOUNCE_MS = 250;
 
 /** The filters with no menu of their own: URL-addressable, shown as removable chips. */
-const REMOVABLE: { key: keyof Filters; label: (v: string) => string }[] = [
+const REMOVABLE: { key: Exclude<keyof Filters, 'project'>; label: (v: string) => string }[] = [
   { key: 'tag', label: (v) => `tag ${v}` },
   { key: 'atOrAfter', label: (v) => `on or after ${v}` },
   { key: 'atOrBefore', label: (v) => `on or before ${v}` },
@@ -30,10 +30,11 @@ export function ArtifactFilters({
   rowTags,
   onChange,
 }: {
-  filters: Filters;
+  /** The set filters; the path names the project, so the chips never edit it. */
+  filters: Omit<Filters, 'project'>;
   /** The loaded rows' tags — the kind menu offers the kinds they show. */
   rowTags: readonly (readonly string[])[];
-  onChange: (partial: Partial<Filters>) => void;
+  onChange: (partial: Partial<Omit<Filters, 'project'>>) => void;
 }) {
   const [q, setQ] = useState(filters.q ?? '');
 

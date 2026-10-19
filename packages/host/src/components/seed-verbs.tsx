@@ -1,15 +1,20 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
+import type { EngineSeed } from '../api/browse-queries';
 import { useParkSeed, useRejectSeed, useResolveSeed, useUnparkSeed } from '../api/seed-mutations';
-import type { WireSeed } from '../api/types';
 import { cn } from '../lib/cn';
+import { isReadyToResolve, laneOf } from '../lib/seed-lanes';
+import type { SeedStanding } from '../lib/seed-lanes';
 import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { useDisarmWhenSettled } from '../lib/use-row-focus-handoff';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
 import { ReasonDialog } from './reason-dialog';
 
 type PendingVerb = 'park' | 'reject' | 'resolve' | null;
+
+/** What the verbs read of a seed: its id, its lane's inputs, and the work it spawned. */
+type VerbSeed = Pick<EngineSeed, 'id' | 'spawned'> & SeedStanding;
 
 /** A surface whose seed stays put when acted on (the seed page) hands nothing on. */
 const NO_HANDOFF: RowFocusHandoff = { arm: () => undefined, disarm: () => undefined };
@@ -59,14 +64,14 @@ function VerbChip({
 }
 
 /** The spawned-work reference line, e.g. "spawned MMR-118 · done" (ready) or bare (promoted). */
-export function SpawnedRef({ seed }: { seed: WireSeed }) {
+export function SpawnedRef({ seed }: { seed: VerbSeed }) {
   if (seed.spawned.length === 0) {
     return null;
   }
   return (
     <span className="text-tag text-attention-foreground">
       spawned <span className="font-mono">{seed.spawned.join(', ')}</span>
-      {seed.ready_to_resolve && ' · done'}
+      {isReadyToResolve(seed) && ' · done'}
     </span>
   );
 }
@@ -92,7 +97,7 @@ export function SpawnedRef({ seed }: { seed: WireSeed }) {
  * promoted; on the ready lane Resolve keeps the lead and Promote falls in behind
  * it as a secondary chip.
  */
-export function SeedVerbs({
+export function SeedVerbs<S extends VerbSeed>({
   seed,
   onPromote,
   offline,
@@ -101,9 +106,9 @@ export function SeedVerbs({
   compact = false,
   className,
 }: {
-  seed: WireSeed;
+  seed: S;
   /** MMR-248: opens the promote sheet for this seed (the lead verb while live). */
-  onPromote?: (seed: WireSeed) => void;
+  onPromote?: (seed: S) => void;
   offline?: boolean;
   /** Show the spawned-work reference after the chips. */
   withSpawned?: boolean;
@@ -132,13 +137,14 @@ export function SeedVerbs({
     send();
   };
 
+  const lane = laneOf(seed);
   // A settled seed is frozen — no verbs (its rows render read-only).
-  if (seed.lane === 'settled') {
+  if (lane === 'settled') {
     return null;
   }
 
   const chips: ReactNode[] = [];
-  if (seed.lane === 'ready') {
+  if (lane === 'ready') {
     chips.push(
       <VerbChip
         compact={compact}
@@ -161,7 +167,7 @@ export function SeedVerbs({
       );
     }
   }
-  if (seed.lane === 'parked') {
+  if (lane === 'parked') {
     chips.push(
       <VerbChip
         compact={compact}
@@ -178,7 +184,7 @@ export function SeedVerbs({
       Reject…
     </VerbChip>,
   );
-  if (seed.lane === 'untriaged') {
+  if (lane === 'untriaged') {
     chips.push(
       <VerbChip compact={compact} key="park" disabled={off} onClick={() => setPending('park')}>
         Park…
@@ -188,7 +194,7 @@ export function SeedVerbs({
   // MMR-248 promote seam: the lead primary verb on untriaged/promoted (the ready
   // lane placed Promote as a secondary above). Promote is repeatable while the
   // seed is live — a further promote appends another spawned link.
-  if (onPromote !== undefined && seed.lane !== 'ready') {
+  if (onPromote !== undefined && lane !== 'ready') {
     chips.unshift(
       <VerbChip
         compact={compact}
@@ -197,9 +203,7 @@ export function SeedVerbs({
         disabled={off}
         onClick={() => onPromote(seed)}
       >
-        {seed.lane === 'untriaged' || seed.lane === 'parked'
-          ? 'Promote to task…'
-          : 'Promote again…'}
+        {lane === 'untriaged' || lane === 'parked' ? 'Promote to task…' : 'Promote again…'}
       </VerbChip>,
     );
   }

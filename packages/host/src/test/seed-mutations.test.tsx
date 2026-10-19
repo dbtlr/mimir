@@ -1,20 +1,36 @@
+import { MimirError } from '@mimir/contract';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  seedCreate,
+  seedPark,
+  seedPromote,
+  seedReject,
+  seedResolve,
+  seedUnpark,
+  seedUpdate,
+} from '../api/fns/browse';
+import {
   useFileSeed,
+  useParkSeed,
   usePromoteSeed,
   useRejectSeed,
   useResolveSeed,
+  useUnparkSeed,
   useUpdateSeed,
 } from '../api/seed-mutations';
+import { serveBrowse } from './browse-fns';
 
-const { apiSend } = vi.hoisted(() => ({ apiSend: vi.fn() }));
-vi.mock('../api/client', () => ({ apiSend }));
+vi.mock('../api/fns/browse');
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('sonner', () => ({ toast }));
+
+beforeEach(() => {
+  serveBrowse();
+});
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -26,75 +42,93 @@ function wrapper(client: QueryClient) {
   );
 }
 
-describe('seed mutation hooks (MMR-247)', () => {
-  it('useFileSeed POSTs /api/seeds and never sends requester (self-filed)', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-s1' });
-    const client = new QueryClient();
-    const { result } = renderHook(() => useFileSeed(), { wrapper: wrapper(client) });
+const render = <T,>(hook: () => T) =>
+  renderHook(hook, { wrapper: wrapper(new QueryClient()) }).result;
+
+describe('seed mutation hooks (MMR-247, MMR-540)', () => {
+  it('useFileSeed files through seedCreate and never sends requester (self-filed)', async () => {
+    const result = render(() => useFileSeed());
     result.current.mutate({ kind: 'bug', project: 'MMR', title: 'flaky' });
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds', {
-        kind: 'bug',
-        project: 'MMR',
-        title: 'flaky',
+      expect(seedCreate).toHaveBeenCalledWith({
+        data: { kind: 'bug', project: 'MMR', title: 'flaky' },
       });
     });
-    const body = apiSend.mock.calls[0]?.[2] as Record<string, unknown>;
-    expect(body).not.toHaveProperty('requester');
+    expect(vi.mocked(seedCreate).mock.calls[0]?.[0].data).not.toHaveProperty('requester');
   });
 
-  it('useRejectSeed POSTs the reject verb with the reason', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-s1', lifecycle: 'rejected' });
-    const client = new QueryClient();
-    const { result } = renderHook(() => useRejectSeed('MMR-s1'), { wrapper: wrapper(client) });
+  it('useRejectSeed sends seedReject with the reason', async () => {
+    const result = render(() => useRejectSeed('MMR-s1'));
     result.current.mutate('duplicate');
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s1/reject', {
-        reason: 'duplicate',
-      });
+      expect(seedReject).toHaveBeenCalledWith({ data: { id: 'MMR-s1', reason: 'duplicate' } });
     });
   });
 
-  it('useResolveSeed POSTs the resolve verb with the reason', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-s1', lifecycle: 'resolved' });
-    const client = new QueryClient();
-    const { result } = renderHook(() => useResolveSeed('MMR-s1'), { wrapper: wrapper(client) });
+  it('useResolveSeed sends seedResolve with the reason', async () => {
+    const result = render(() => useResolveSeed('MMR-s1'));
     result.current.mutate('already fixed');
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s1/resolve', {
-        reason: 'already fixed',
+      expect(seedResolve).toHaveBeenCalledWith({
+        data: { id: 'MMR-s1', reason: 'already fixed' },
       });
     });
   });
 
-  it('useUpdateSeed PATCHes /api/seeds/:id with the given fields', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-s1' });
-    const client = new QueryClient();
-    const { result } = renderHook(() => useUpdateSeed('MMR-s1'), { wrapper: wrapper(client) });
+  it('useParkSeed sends a trimmed reason, and none when it is blank', async () => {
+    const result = render(() => useParkSeed('MMR-s1'));
+    result.current.mutate('  after v1 ');
+    await waitFor(() => {
+      expect(seedPark).toHaveBeenCalledWith({ data: { id: 'MMR-s1', reason: 'after v1' } });
+    });
+    result.current.mutate(' ');
+    await waitFor(() => {
+      expect(seedPark).toHaveBeenLastCalledWith({ data: { id: 'MMR-s1' } });
+    });
+  });
+
+  it('useUnparkSeed sends seedUnpark with the id alone', async () => {
+    const result = render(() => useUnparkSeed('MMR-s1'));
+    result.current.mutate();
+    await waitFor(() => {
+      expect(seedUnpark).toHaveBeenCalledWith({ data: { id: 'MMR-s1' } });
+    });
+  });
+
+  it('useUpdateSeed sends seedUpdate with the given fields', async () => {
+    const result = render(() => useUpdateSeed('MMR-s1'));
     result.current.mutate({ description: 'a fuller body' });
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('PATCH', '/api/seeds/MMR-s1', {
-        description: 'a fuller body',
+      expect(seedUpdate).toHaveBeenCalledWith({
+        data: { description: 'a fuller body', id: 'MMR-s1' },
       });
     });
   });
 
-  it('usePromoteSeed POSTs the promote verb and returns the created sibling (MMR-248)', async () => {
-    apiSend.mockResolvedValue({ created: 'MMR-42', id: 'MMR-s1', lifecycle: 'promoted' });
-    const client = new QueryClient();
-    const { result } = renderHook(() => usePromoteSeed('MMR-s1'), { wrapper: wrapper(client) });
+  it('usePromoteSeed sends seedPromote and returns the spawned task (MMR-248)', async () => {
+    const result = render(() => usePromoteSeed('MMR-s1'));
     result.current.mutate({ parent: 'MMR-9', title: 'Tree lens scroll' });
     await waitFor(() => {
-      expect(apiSend).toHaveBeenCalledWith('POST', '/api/seeds/MMR-s1/promote', {
-        parent: 'MMR-9',
-        title: 'Tree lens scroll',
+      expect(seedPromote).toHaveBeenCalledWith({
+        data: { id: 'MMR-s1', parent: 'MMR-9', title: 'Tree lens scroll' },
       });
     });
-    expect(result.current.data).toMatchObject({ created: 'MMR-42', lifecycle: 'promoted' });
+    await waitFor(() => {
+      expect(result.current.data).toMatchObject({ created: 'MMR-900', spawnedId: 'MMR-900' });
+    });
+  });
+
+  it('usePromoteSeed carries the priority and size the sheet chose', async () => {
+    const result = render(() => usePromoteSeed('MMR-s1'));
+    result.current.mutate({ parent: 'MMR-9', priority: 'p1', size: 'small', tags: ['ux'] });
+    await waitFor(() => {
+      expect(seedPromote).toHaveBeenCalledWith({
+        data: { id: 'MMR-s1', parent: 'MMR-9', priority: 'p1', size: 'small', tags: ['ux'] },
+      });
+    });
   });
 
   it('invalidates the seeds keys on settle', async () => {
-    apiSend.mockResolvedValue({ id: 'MMR-s1' });
     const client = new QueryClient();
     const spy = vi.spyOn(client, 'invalidateQueries');
     const { result } = renderHook(() => useResolveSeed('MMR-s1'), { wrapper: wrapper(client) });
@@ -104,13 +138,16 @@ describe('seed mutation hooks (MMR-247)', () => {
     });
   });
 
-  it('toasts the server error verbatim on failure', async () => {
-    apiSend.mockRejectedValue(new Error('seed is terminal'));
-    const client = new QueryClient();
-    const { result } = renderHook(() => useUpdateSeed('MMR-s1'), { wrapper: wrapper(client) });
+  it("toasts the Engine's refusal verbatim on failure", async () => {
+    vi.mocked(seedUpdate).mockRejectedValue(
+      new MimirError('validation', 'seed MMR-s1 is resolved — a terminal seed is frozen'),
+    );
+    const result = render(() => useUpdateSeed('MMR-s1'));
     result.current.mutate({ title: 'x' });
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('seed is terminal');
+      expect(toast.error).toHaveBeenCalledWith(
+        'seed MMR-s1 is resolved — a terminal seed is frozen',
+      );
     });
   });
 });

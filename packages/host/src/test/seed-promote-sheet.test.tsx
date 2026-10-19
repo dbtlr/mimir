@@ -2,15 +2,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { WireSeed } from '../api/types';
+import type { EngineSeed } from '../api/browse-queries';
+import { getSeed } from '../api/fns/browse';
 import { SeedPromoteSheet } from '../components/seed-promote-sheet';
+import { seedIn } from './browse-fixtures';
+import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
-import { seed } from './fixtures';
 import { serveShell } from './shell-fns';
 
-const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
-vi.mock('../api/client', () => ({ apiGet, apiSend: vi.fn() }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('sonner', () => ({ toast }));
 // The sheet's only router touch is useNavigate for "& open"; stub it.
@@ -20,24 +21,19 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-/** Projects/tree reads the AuthoringSheet fires; the seed detail is per-test. */
-function baseReads(seedDetail: (path: string) => Promise<unknown> | undefined) {
+/** Projects/tree reads the AuthoringSheet fires; the seed detail read answers `detail`. */
+function baseReads(detail: Promise<EngineSeed>) {
   serveShell({
     projects: [engineProject({ id: 'MMR', title: 'Mimir' })],
     trees: {
       MMR: engineTree({ id: 'MMR', status: 'in_progress', title: 'Mimir', type: 'project' }),
     },
   });
-  apiGet.mockImplementation((path: string) => {
-    const detail = seedDetail(path);
-    if (detail !== undefined) {
-      return detail;
-    }
-    return Promise.resolve({ items: [], total: 0 });
-  });
+  serveBrowse();
+  vi.mocked(getSeed).mockReturnValue(detail);
 }
 
-function renderPromote(s: WireSeed) {
+function renderPromote(s: EngineSeed) {
   const onOpenChange = vi.fn();
   const client = new QueryClient({
     defaultOptions: { queries: { refetchInterval: false, retry: false } },
@@ -54,15 +50,16 @@ describe('seedPromoteSheet (MMR-248 dead-click fix)', () => {
   it('mounts at once with the list-row title and a pending description before the body lands', () => {
     // The detail read is queued but not yet flushed — the synchronous first render
     // must already show the sheet, not hang blank waiting on the body.
-    baseReads((path) =>
-      path === '/api/seeds/MMR-s1'
-        ? Promise.resolve({
-            ...seed({ id: 'MMR-s1', lane: 'untriaged', title: 'Scroll snaps to top' }),
-            description: 'lands later',
-          })
-        : undefined,
+    baseReads(
+      Promise.resolve(
+        seedIn('untriaged', {
+          description: 'lands later',
+          id: 'MMR-s1',
+          title: 'Scroll snaps to top',
+        }),
+      ),
     );
-    const s = seed({ id: 'MMR-s1', lane: 'untriaged', title: 'Scroll snaps to top' });
+    const s = seedIn('untriaged', { id: 'MMR-s1', title: 'Scroll snaps to top' });
     renderPromote(s);
 
     // the list-row title shows immediately, before the detail read resolves
@@ -72,17 +69,19 @@ describe('seedPromoteSheet (MMR-248 dead-click fix)', () => {
   });
 
   it('folds the body into the description once the (slow) detail read lands', async () => {
-    baseReads((path) =>
-      path === '/api/seeds/MMR-s1'
-        ? Promise.resolve({
-            ...seed({ id: 'MMR-s1', lane: 'untriaged', title: 'Scroll snaps to top' }),
-            description: 'Repro: scroll to bottom, it snaps back.',
-          })
-        : undefined,
+    baseReads(
+      Promise.resolve(
+        seedIn('untriaged', {
+          description: 'Repro: scroll to bottom, it snaps back.',
+          id: 'MMR-s1',
+          title: 'Scroll snaps to top',
+        }),
+      ),
     );
-    const s = seed({ id: 'MMR-s1', lane: 'untriaged', title: 'Scroll snaps to top' });
+    const s = seedIn('untriaged', { id: 'MMR-s1', title: 'Scroll snaps to top' });
     renderPromote(s);
 
+    expect(getSeed).toHaveBeenCalledWith({ data: { content: true, id: 'MMR-s1' } });
     await waitFor(() =>
       expect(screen.getByLabelText('Description')).toHaveValue(
         'Repro: scroll to bottom, it snaps back.',
@@ -92,10 +91,8 @@ describe('seedPromoteSheet (MMR-248 dead-click fix)', () => {
   });
 
   it('toasts and resets the promoting state when the body read errors', async () => {
-    baseReads((path) =>
-      path === '/api/seeds/MMR-s1' ? Promise.reject(new Error('boom')) : undefined,
-    );
-    const s = seed({ id: 'MMR-s1', lane: 'untriaged', title: 'Scroll snaps to top' });
+    baseReads(Promise.reject(new Error('boom')));
+    const s = seedIn('untriaged', { id: 'MMR-s1', title: 'Scroll snaps to top' });
     const { onOpenChange } = renderPromote(s);
 
     await waitFor(() =>

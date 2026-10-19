@@ -1,56 +1,55 @@
 import { describe, expect } from 'vitest';
 
-import { ARTIFACT_PAGE_SIZE, artifactParams, artifactsQuery } from '../api/browse-queries';
-import type { WireArtifactSummary } from '../api/types';
+import { ARTIFACT_PAGE_SIZE, artifactInput, artifactsQuery } from '../api/browse-queries';
+import type { ArtifactSummary } from '../api/browse-queries';
+import { engineArtifact } from './browse-fixtures';
 
-describe('artifactParams', () => {
-  it('omits empty filters', () => {
-    expect(artifactParams({})).toBe('');
+describe('artifactInput', () => {
+  it('names only the project when no filter is set', () => {
+    expect(artifactInput({ project: 'MMR' })).toStrictEqual({ project: 'MMR' });
   });
 
-  it('encodes only the set filters', () => {
-    const qs = artifactParams({ project: 'MMR', q: 'auth gate', tag: 'kind:spec' });
-    const p = new URLSearchParams(qs);
-    expect(p.get('project')).toBe('MMR');
-    expect(p.get('q')).toBe('auth gate');
-    expect(p.get('tag')).toBe('kind:spec');
-    expect(p.has('at-or-after')).toBe(false);
-    expect(p.has('tz')).toBe(false);
+  it('carries only the set filters, and no zone without a date', () => {
+    expect(artifactInput({ project: 'MMR', q: 'auth gate', tag: 'kind:spec' })).toStrictEqual({
+      project: 'MMR',
+      q: 'auth gate',
+      tag: 'kind:spec',
+    });
+    expect(artifactInput({ atOrAfter: '', project: 'MMR', q: '' })).toStrictEqual({
+      project: 'MMR',
+    });
   });
 
-  it('sends date filters field-qualified, with this browser zone', () => {
-    const p = new URLSearchParams(
-      artifactParams({ atOrAfter: '2026-06-01', atOrBefore: '2026-06-30' }),
-    );
-    expect(p.get('at-or-after')).toBe('created_at:2026-06-01');
-    expect(p.get('at-or-before')).toBe('created_at:2026-06-30');
-    expect(p.get('tz')).toBe(new Intl.DateTimeFormat().resolvedOptions().timeZone);
+  it('sends date filters on the creation instant, with this browser zone', () => {
+    expect(
+      artifactInput({ atOrAfter: '2026-06-01', atOrBefore: '2026-06-30', project: 'MMR' }),
+    ).toStrictEqual({
+      dates: [
+        { field: 'created_at', op: 'at-or-after', value: '2026-06-01' },
+        { field: 'created_at', op: 'at-or-before', value: '2026-06-30' },
+      ],
+      project: 'MMR',
+      timeZone: new Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
   });
 });
 
-const summary = (n: number): WireArtifactSummary => ({
-  created_at: '2026-06-16T00:00:00.000Z',
-  id: `MMR-a${String(n)}`,
-  links: [],
-  project: 'MMR',
-  tags: [],
-  title: `Artifact ${String(n)}`,
-});
+const summary = (n: number): ArtifactSummary => engineArtifact({ id: `MMR-a${String(n)}` });
 
-const page = (count: number, total: number) => ({
-  items: Array.from({ length: count }, (_, i) => summary(i + 1)),
-  total,
-});
+const page = (count: number, total: number) => {
+  const items = Array.from({ length: count }, (_, i) => summary(i + 1));
+  return { items, returned: items.length, startsAt: 0, total };
+};
 
 describe('artifactsQuery windowing', () => {
   it('advances the offset by rows already fetched', () => {
-    const { getNextPageParam } = artifactsQuery({});
+    const { getNextPageParam } = artifactsQuery({ project: 'MMR' });
     const first = page(ARTIFACT_PAGE_SIZE, ARTIFACT_PAGE_SIZE + 50);
     expect(getNextPageParam(first, [first], 0, [0])).toBe(ARTIFACT_PAGE_SIZE);
   });
 
   it('stops once every row up to total is on screen', () => {
-    const { getNextPageParam } = artifactsQuery({});
+    const { getNextPageParam } = artifactsQuery({ project: 'MMR' });
     const first = page(ARTIFACT_PAGE_SIZE, ARTIFACT_PAGE_SIZE + 50);
     const last = page(50, ARTIFACT_PAGE_SIZE + 50);
     expect(
@@ -59,7 +58,7 @@ describe('artifactsQuery windowing', () => {
   });
 
   it('stops on an empty page even when total says more (never loops)', () => {
-    const { getNextPageParam } = artifactsQuery({});
+    const { getNextPageParam } = artifactsQuery({ project: 'MMR' });
     const empty = page(0, 10);
     expect(getNextPageParam(empty, [empty], 0, [0])).toBeUndefined();
   });

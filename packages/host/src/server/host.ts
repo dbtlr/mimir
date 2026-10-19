@@ -45,6 +45,8 @@ export async function openHost(
     });
     return {
       close: built.close,
+      // The record-health facet: a host concern, not an Engine method (ADR 0034).
+      doctor: built.doctor.facet,
       engine,
       handle: createApiHandler(built.store, { doctor: built.doctor.facet, version }),
       handleTrpc: createEngineHandler(engine),

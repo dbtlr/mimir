@@ -8,6 +8,7 @@ import { ApiError } from '../api/errors';
 import { projects, unarchive } from '../api/fns/shell';
 import { createQueryClient } from '../api/query-client';
 import { routeTree } from '../router';
+import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { emptyRead, project, workReport } from './fixtures';
 import { serveShell } from './shell-fns';
@@ -15,6 +16,7 @@ import { serveShell } from './shell-fns';
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('../api/client', () => ({ apiGet }));
 vi.mock('../api/fns/shell');
+vi.mock('../api/fns/browse');
 
 const OLD = engineProject({
   archivedAt: new Date('2026-09-30T15:00:00.000Z'),
@@ -71,6 +73,7 @@ function renderAt(initial: string, client = quietClient()) {
 }
 
 beforeEach(() => {
+  serveBrowse();
   apiGet.mockReset();
   vi.mocked(projects).mockReset();
   vi.mocked(unarchive).mockReset();

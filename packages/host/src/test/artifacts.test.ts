@@ -70,10 +70,7 @@ describe('kind tags as filter values', () => {
   });
 });
 
-const row = (id: string, created: Date) => ({
-  created_at: created.toISOString(),
-  id,
-});
+const row = (id: string, created: Date) => ({ createdAt: created, id });
 
 describe('groupByDay', () => {
   // Local-time fixtures throughout: "now" is Fri 2026-10-09 12:00 local.
@@ -136,7 +133,7 @@ describe('groupByDay', () => {
   });
 
   it('puts undatable rows under Earlier', () => {
-    const groups = groupByDay([{ created_at: 'not-a-date', id: 'x' }], now);
+    const groups = groupByDay([{ createdAt: new Date('not-a-date'), id: 'x' }], now);
     expect(groups.map((g) => g.label)).toStrictEqual(['Earlier']);
   });
 

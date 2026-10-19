@@ -39,7 +39,11 @@ export function GroomingBadge({ state }: { state: Grooming }) {
  * The grooming chip for a node, or nothing when the node shows none (a started,
  * finished, or container node, or a server that sends no state).
  */
-export function GroomingChip({ node }: { node: WireNode }) {
+export function GroomingChip({
+  node,
+}: {
+  node: Pick<WireNode, 'type' | 'lifecycle' | 'grooming'>;
+}) {
   const state = visibleGrooming(node);
   return state === undefined ? null : <GroomingBadge state={state} />;
 }

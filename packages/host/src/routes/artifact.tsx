@@ -1,12 +1,14 @@
+import type { EngineTree } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
 import { artifactQuery } from '../api/browse-queries';
+import type { ArtifactRecord } from '../api/browse-queries';
 import { isNotFound } from '../api/errors';
 import { nodeQuery } from '../api/node-queries';
 import { projectsQuery, treeQuery } from '../api/shell-queries';
-import type { WireArtifact, WireArtifactDetail, WireArtifactLink, WireNode } from '../api/types';
+import type { WireArtifact, WireArtifactLink, WireNode } from '../api/types';
 import { projectKeyOf } from '../api/types';
 import { MarkdownBody } from '../components/markdown-body';
 import { MetaRow } from '../components/node-record';
@@ -15,7 +17,7 @@ import { RailSection, RecordLayout, RecordPending } from '../components/record-l
 import type { RailChip } from '../components/record-layout';
 import { StatusDot } from '../components/status-dot';
 import { ActionButton } from '../components/ui/action-button';
-import { sharedPathOf } from '../lib/ancestry';
+import { sharedPathOf, subtreeOf } from '../lib/ancestry';
 import { splitKindTags } from '../lib/artifacts';
 import { copyText } from '../lib/clipboard';
 import { cn } from '../lib/cn';
@@ -64,6 +66,18 @@ const seqOf = (id: string): number => Number(id.slice(id.indexOf('-') + 1));
 /** Linked records in id-number order; the wire sorts them as text, putting MMR-10 before MMR-9. */
 const byNumber = (links: readonly WireArtifactLink[]): WireArtifactLink[] =>
   links.toSorted((a, b) => seqOf(a.id) - seqOf(b.id));
+
+/**
+ * The attached records as the card lists them. The Engine names each by id;
+ * the project tree, which the page reads for its path, adds the title and
+ * status, and a record the tree cannot place keeps its bare id.
+ */
+function attachedLinks(ids: readonly string[], tree: EngineTree | undefined): WireArtifactLink[] {
+  return ids.map((id) => {
+    const node = tree === undefined ? undefined : subtreeOf(tree, id);
+    return node === undefined ? { id } : { id, status: node.status, title: node.title };
+  });
+}
 
 /** A linked record's standing: the loaded node's, or its status word alone. */
 function linkStanding(link: WireArtifactLink, node: WireNode | undefined): string | undefined {
@@ -163,7 +177,7 @@ function SiblingArtifacts({
 }
 
 /** Copy link, and the frozen body as a markdown download. */
-function ActionsPanel({ artifact }: { artifact: WireArtifactDetail }) {
+function ActionsPanel({ artifact }: { artifact: ArtifactRecord }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       <ActionButton
@@ -195,14 +209,14 @@ function DetailsPanel({
   artifact,
   projectTitle,
 }: {
-  artifact: WireArtifactDetail;
+  artifact: ArtifactRecord;
   projectTitle: string | undefined;
 }) {
   const { rest: tags } = splitKindTags(artifact.tags);
   return (
     <dl className="flex flex-col gap-1">
       <MetaRow label="Frozen">
-        {calendarDate(artifact.created_at)} · {ago(artifact.created_at)}
+        {calendarDate(artifact.createdAt)} · {ago(artifact.createdAt)}
       </MetaRow>
       <MetaRow label="Project">
         <Link to="/p/$key" params={{ key: artifact.project }} className={crumb}>
@@ -222,7 +236,7 @@ function ArtifactRecord({ artifactId }: { artifactId: string }) {
   const projects = useQuery(projectsQuery);
   // The tree is the whole board, so it is read once rather than polled.
   const tree = useQuery({ ...treeQuery(projectKey), refetchInterval: false });
-  const links = byNumber(artifact.data?.links ?? []);
+  const links = byNumber(attachedLinks(artifact.data?.links ?? [], tree.data));
   const hostId = links.length === 1 ? links[0]?.id : undefined;
   const host = useQuery({ ...nodeQuery(hostId ?? ''), enabled: hostId !== undefined });
   const conn = connectivity([artifact]);
@@ -314,7 +328,7 @@ function ArtifactRecord({ artifactId }: { artifactId: string }) {
           <span aria-hidden className="select-none">
             ❄{' '}
           </span>
-          Frozen {calendarDate(data.created_at)}
+          Frozen {calendarDate(data.createdAt)}
         </span>
       </div>
       <h1 className="text-dossier leading-[1.35] font-bold tracking-[-0.01em] wrap-anywhere text-ink-bright md:text-header">

@@ -2,7 +2,7 @@
  * Artifact-browser derivations (MMR-229, MMR-454): the KIND/TAGS split and the
  * list's grouping by local day. Both are read-side conventions, not wire
  * fields — `kind` is the `kind:` tag namespace (ADR 0005 grouping-by-tags),
- * and the day groups are derived locally from `created_at`.
+ * and the day groups are derived locally from `createdAt`.
  */
 
 /** The tag namespace the browser renders as KIND rather than a plain tag. */
@@ -111,11 +111,11 @@ function dayLabel(d: Date, now: Date): string {
 
 /**
  * Group rows by the local calendar day they were created on. Input order is
- * kept within a group (the API serves newest first) and groups appear in
+ * kept within a group (the Engine serves newest first) and groups appear in
  * encounter order, so a newest-first feed yields newest-first days. Rows with
  * no readable date land together under `Earlier`.
  */
-export function groupByDay<T extends { created_at: string }>(
+export function groupByDay<T extends { createdAt: Date }>(
   items: T[],
   now = Date.now(),
 ): DayGroup<T>[] {
@@ -123,7 +123,7 @@ export function groupByDay<T extends { created_at: string }>(
   const groups: DayGroup<T>[] = [];
   const byKey = new Map<string, DayGroup<T>>();
   for (const item of items) {
-    const at = new Date(item.created_at);
+    const at = item.createdAt;
     const valid = !Number.isNaN(at.getTime());
     const key = valid ? dayKey(at) : 'earlier';
     let group = byKey.get(key);
