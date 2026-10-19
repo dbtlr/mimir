@@ -1,0 +1,19 @@
+mimir bind · Bind this clone to a project: write git config mimir.project, the default --scope from then on. Bare, print the clone's bound project and fail when it is unbound.
+
+USAGE
+  mimir bind [key] [options]
+
+ARGUMENTS
+  key  An existing project key. Omit to print the clone's bound project.
+
+OPTIONS
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir bind MMR
+    write git config mimir.project
+  $ mimir bind
+    print the bound key; exit 1 when unbound

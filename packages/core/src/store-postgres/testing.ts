@@ -68,6 +68,21 @@ export async function createEmptyPglite(): Promise<PGlite> {
   return new PGlite({ loadDataDir: await emptyDataDir() });
 }
 
+/** A Kysely handle over a fresh, unmigrated database, for tests of the migrator's own callers. */
+export async function createEmptyPostgresDb(): Promise<Pick<PostgresTestStore, 'close' | 'db'>> {
+  const pg = await createEmptyPglite();
+  const db = new Kysely<DB>({ dialect: createPgliteDialect(pg) });
+  return {
+    close: async () => {
+      await db.destroy();
+      if (!pg.closed) {
+        await pg.close();
+      }
+    },
+    db,
+  };
+}
+
 export async function createPgliteTestStore(): Promise<PostgresTestStore> {
   const pg = new PGlite({ loadDataDir: await migratedDataDir() });
   const db = new Kysely<DB>({ dialect: createPgliteDialect(pg) });

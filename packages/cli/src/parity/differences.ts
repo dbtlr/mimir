@@ -194,6 +194,15 @@ export const NODE_REDIRECTS: readonly string[] = [
   'update MMR-3 --title x --groomed',
 ];
 
+/** One misplaced flag per machine-local verb, each a `flag-redirect` entry. */
+export const MACHINE_REDIRECTS: readonly string[] = [
+  'bind MMR --parent MMR-2',
+  'doctor -s MMR --parent MMR-2',
+  'store upgrade --parent MMR-2',
+  'store export - --parent MMR-2',
+  'store import x.json --parent MMR-2',
+];
+
 const MMR_549_READS: readonly ParityDifference[] = [
   { case: 'list -s MMR --bogus', kind: 'loom-voice', reason: LOOM_PARSER },
   { case: 'list argv: -s MMR --bogus -f json', kind: 'loom-voice', reason: LOOM_PARSER },
@@ -566,4 +575,36 @@ export const PARITY_DIFFERENCES: readonly ParityDifference[] = [
     kind: 'engine-refusal',
     reason: BLANK,
   },
+  // MMR-553: the machine-local commands.
+  { case: 'bind MMR -f yaml', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'bind MMR --bogus', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'bind argv: MMR extra', kind: 'loom-refusal', reason: STRAY },
+  { case: 'bind argv: MMR -f json -f ids', kind: 'loom-refusal', reason: REPEATED },
+  { case: 'doctor -s MMR -f yaml', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'doctor -s MMR --bogus', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'doctor argv: -s MMR -s XX', kind: 'loom-refusal', reason: REPEATED },
+  { case: 'doctor argv: extra', kind: 'loom-refusal', reason: STRAY },
+  { case: 'store', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'store frobnicate', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'store export (no file)', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'store import (no file)', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'store upgrade -f yaml', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'store upgrade --bogus', kind: 'loom-voice', reason: LOOM_PARSER },
+  ...['store upgrade --apply', 'store export <file> --apply', 'store export <file> --resume'].map(
+    (name): ParityDifference => ({
+      case: name,
+      kind: 'loom-voice',
+      reason:
+        'Loom scopes --apply and --resume to store import, so the other verbs reject them as unknown options; the old CLI named them in its own refusal.',
+    }),
+  ),
+  { case: 'store argv: upgrade extra', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'store argv: export - extra', kind: 'loom-voice', reason: LOOM_PARSER },
+  {
+    case: 'store argv: import <dir>/doc.json extra',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  { case: 'store argv: upgrade -f json -f ids', kind: 'loom-refusal', reason: REPEATED },
+  ...redirectEntries(MACHINE_REDIRECTS),
 ];

@@ -1,0 +1,14 @@
+mimir version · Print the version of this build.
+
+USAGE
+  mimir version [options]
+
+OPTIONS
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir version
+    for example 0.26.0

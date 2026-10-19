@@ -4,6 +4,7 @@ USAGE
   mimir <command> [options]
 
 COMMANDS
+  skills <command>   Install this application's agent skills.
   get                Read one full record: a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), or a seed (KEY-sN).
   next               List the ready tasks of one project in rank order.
   list               Select the nodes of one project by predicate, status, or tag.
@@ -31,6 +32,10 @@ COMMANDS
   groom              Mark tasks not_groomed | needs_answers | groomed.
   tag                Add tags to tasks, phases, initiatives, projects, or artifacts.
   untag              Remove tags from tasks, phases, initiatives, projects, or artifacts.
+  bind               Bind this clone to a project: write git config mimir.project, the default --scope from then on. Bare, print the clone's bound project and fail when it is unbound.
+  doctor             Run read-only store diagnostics and report the findings for a human to fix at the database. Non-gating: exits 0 after a successful read. Prints prose on a terminal and json when piped.
+  store <command>    Operate on the store itself: upgrade its schema, export it, or import a document.
+  version            Print the version of this build.
 
 GLOBAL OPTIONS
   -h, --help  Show this help.

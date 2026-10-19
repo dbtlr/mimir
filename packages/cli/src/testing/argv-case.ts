@@ -9,7 +9,7 @@ import type { ParityCase } from './parity';
 const shown = (word: string): string => (/\s|^$/.test(word) ? JSON.stringify(word) : word);
 
 /** The command groups whose second word names the subcommand a line runs. */
-const GROUPS: ReadonlySet<string> = new Set(['create', 'scratch']);
+const GROUPS: ReadonlySet<string> = new Set(['create', 'scratch', 'store']);
 
 /**
  * The case for `line` on a color terminal when `tty`. `path` names the command
@@ -39,9 +39,18 @@ export function argvCase(
 }
 
 /** The extras an argv case takes beyond its line. */
-export type ArgvExtras = { tty?: true; bound?: string; path?: readonly string[] };
+export type ArgvExtras = {
+  tty?: true;
+  bound?: string;
+  /** The clone's origin remote, for both CLIs. */
+  origin?: string;
+  path?: readonly string[];
+};
 
 /** The case for a literal command line, split on spaces: `argvLine('list -s MMR -f ids')`. */
 export function argvLine(line: string, extras: ArgvExtras = {}): ParityCase {
-  return argvCase(line.split(' '), extras.tty, extras.bound, extras.path);
+  return {
+    ...argvCase(line.split(' '), extras.tty, extras.bound, extras.path),
+    ...(extras.origin === undefined ? {} : { origin: extras.origin }),
+  };
 }
