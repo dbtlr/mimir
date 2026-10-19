@@ -2,7 +2,6 @@ import { SEED_KIND_VALUES, seedLane } from '@mimir/contract';
 import type { SeedKind, SeedLane } from '@mimir/contract';
 
 import type { EngineSeed } from '../api/browse-queries';
-import type { WireSeed } from '../api/types';
 
 /**
  * The seeds queue's lane grammar (MMR-247). Each seed's lane comes from the
@@ -38,21 +37,12 @@ export const SEED_LANE_INK: Record<SeedLane, string> = {
   untriaged: 'text-accent-foreground',
 };
 
-/**
- * What a seed's lane reads: its lifecycle and whether it is ready to resolve,
- * in either read's spelling (an Engine seed or an `/api` wire seed).
- */
-export type SeedStanding = Pick<EngineSeed, 'lifecycle'> &
-  (Pick<EngineSeed, 'readyToResolve'> | Pick<WireSeed, 'ready_to_resolve'>);
-
-/** Whether a promoted seed's spawned work has all settled. */
-export function isReadyToResolve(seed: SeedStanding): boolean {
-  return 'readyToResolve' in seed ? seed.readyToResolve : seed.ready_to_resolve;
-}
+/** What a seed's lane reads: its lifecycle and whether it is ready to resolve. */
+export type SeedStanding = Pick<EngineSeed, 'lifecycle' | 'readyToResolve'>;
 
 /** The seed's exclusive lane. */
 export function laneOf(seed: SeedStanding): SeedLane {
-  return seedLane({ lifecycle: seed.lifecycle, readyToResolve: isReadyToResolve(seed) });
+  return seedLane({ lifecycle: seed.lifecycle, readyToResolve: seed.readyToResolve });
 }
 
 export type SeedLaneGroup = {

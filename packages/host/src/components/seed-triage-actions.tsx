@@ -2,33 +2,11 @@ import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
 import { promoteSeedKey } from '../api/seed-mutations';
-import type { WireSeed } from '../api/types';
 import { reviewQuery } from '../api/view-queries';
 import type { ReviewReport, TriageSeed } from '../api/view-queries';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
 import { SeedPromoteSheet } from './seed-promote-sheet';
 import { SeedVerbs } from './seed-verbs';
-
-/**
- * A listed seed in the shape the seed verbs read. The review lists only
- * untriaged seeds, so the lane is known; the seed verbs move to the Engine's
- * shape with the seed pages.
- */
-const asUntriaged = (seed: TriageSeed): WireSeed => ({
-  created_at: seed.createdAt.toISOString(),
-  description: seed.description,
-  id: seed.id,
-  kind: seed.kind,
-  lane: 'untriaged',
-  lede: seed.lede,
-  lifecycle: seed.lifecycle,
-  project: seed.project,
-  ready_to_resolve: seed.readyToResolve,
-  requester: seed.requester,
-  spawned: seed.spawned,
-  title: seed.title,
-  updated_at: seed.updatedAt.toISOString(),
-});
 
 /** Whether a review read still lists a seed for triage. */
 const listsSeed = (report: ReviewReport | undefined, id: string): boolean =>
@@ -72,7 +50,7 @@ export function SeedTriageActions({
   return (
     <>
       <SeedVerbs
-        seed={asUntriaged(seed)}
+        seed={seed}
         offline={offline}
         handoff={handoff}
         withSpawned={false}
@@ -84,7 +62,7 @@ export function SeedTriageActions({
       />
       {promoting && (
         <SeedPromoteSheet
-          seed={asUntriaged(seed)}
+          seed={seed}
           open
           offline={offline}
           onOpenChange={(next) => {

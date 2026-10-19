@@ -9,7 +9,7 @@ import { routeTree } from '../router';
 import { recordHealth } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
-import { emptyRead, workReport } from './fixtures';
+import { emptyRead } from './fixtures';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 

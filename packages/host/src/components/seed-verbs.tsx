@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import type { EngineSeed } from '../api/browse-queries';
 import { useParkSeed, useRejectSeed, useResolveSeed, useUnparkSeed } from '../api/seed-mutations';
 import { cn } from '../lib/cn';
-import { isReadyToResolve, laneOf } from '../lib/seed-lanes';
+import { laneOf } from '../lib/seed-lanes';
 import type { SeedStanding } from '../lib/seed-lanes';
 import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { useDisarmWhenSettled } from '../lib/use-row-focus-handoff';
@@ -71,7 +71,7 @@ export function SpawnedRef({ seed }: { seed: VerbSeed }) {
   return (
     <span className="text-tag text-attention-foreground">
       spawned <span className="font-mono">{seed.spawned.join(', ')}</span>
-      {isReadyToResolve(seed) && ' · done'}
+      {seed.readyToResolve && ' · done'}
     </span>
   );
 }

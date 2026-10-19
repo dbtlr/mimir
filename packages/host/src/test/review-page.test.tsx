@@ -598,15 +598,15 @@ async function openForWrite(before: ReviewReport, after: ReviewReport) {
     return engineSeed({ id: data.id, project: found?.project, title: found?.title });
   });
   vi.mocked(seedPark).mockImplementation(async ({ data }) => {
-    report = after;
+    views.review = after;
     return engineSeed({ id: data.id, lifecycle: 'parked' });
   });
   vi.mocked(seedReject).mockImplementation(async ({ data }) => {
-    report = after;
+    views.review = after;
     return engineSeed({ id: data.id, lifecycle: 'rejected' });
   });
   vi.mocked(seedPromote).mockImplementation(async ({ data }) => {
-    report = after;
+    views.review = after;
     return promotion(data.id);
   });
   const client = renderReview();

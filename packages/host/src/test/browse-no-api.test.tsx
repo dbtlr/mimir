@@ -28,12 +28,14 @@ import {
 } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
-import { reviewReport, task } from './fixtures';
+import { task } from './fixtures';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
+import { serveViews } from './views-fns';
 
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
+vi.mock('../api/fns/views');
 vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success: vi.fn() } }));
 
 /*
@@ -42,15 +44,13 @@ vi.mock('sonner', () => ({ Toaster: () => null, toast: { error: vi.fn(), success
  * fetch is stubbed, so any /api request a page makes is recorded rather than
  * mocked away; the pages render inside the real shell and router.
  *
- * Three /api reads remain around these pages, each owned by another area: the
- * shell's review report behind the attention alert, which moves with the
- * review page (MMR-538); the project record the browsers' project gate reads;
- * and the single node read (`nodeQuery`) behind a promoted seed's spawned tasks
- * and an artifact's lone attached record. The last two move with the node
- * records (MMR-539). When they move, these allowances go and the test holds
- * these pages to no /api request at all.
+ * Two /api reads remain around these pages, each owned by another area: the
+ * project record the browsers' project gate reads, and the single node read
+ * (`nodeQuery`) behind a promoted seed's spawned tasks and an artifact's lone
+ * attached record. Both move with the node records (MMR-539). When they move,
+ * these allowances go and the test holds these pages to no /api request at all.
  */
-const ALLOWED_API: ReadonlySet<string> = new Set(['/api/review', '/api/projects/MMR']);
+const ALLOWED_API: ReadonlySet<string> = new Set(['/api/projects/MMR']);
 
 /** One node's record read, `nodeQuery`'s path: owned by MMR-539. */
 const NODE_READ = /^\/api\/nodes\/MMR-\d+$/;
@@ -80,9 +80,6 @@ beforeEach(() => {
       if (url.pathname === '/health') {
         return Response.json({ schema: 1, status: 'ok', version: 'host-build' });
       }
-      if (url.pathname === '/api/review') {
-        return Response.json(reviewReport());
-      }
       if (NODE_READ.test(url.pathname)) {
         const id = url.pathname.slice('/api/nodes/'.length);
         return Response.json(task({ id, status: 'ready', title: `Task ${id}` }));
@@ -101,6 +98,7 @@ beforeEach(() => {
       ]),
     },
   });
+  serveViews();
   serveBrowse({
     artifacts: [engineArtifact({ id: 'MMR-a1', title: 'The spec' })],
     health: recordHealth({ scope: { key: 'MMR', matched_records: 4 } }),

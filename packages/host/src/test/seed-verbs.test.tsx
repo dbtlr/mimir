@@ -8,7 +8,6 @@ import { seedPark, seedUnpark } from '../api/fns/browse';
 import { SeedVerbs } from '../components/seed-verbs';
 import { seedIn } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
-import { seed } from './fixtures';
 
 vi.mock('../api/fns/browse');
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
@@ -125,20 +124,5 @@ describe('seedVerbs parking (MMR-473)', () => {
         true,
       );
     });
-  });
-});
-
-describe('seedVerbs on an /api wire seed (the review page, until it moves)', () => {
-  it('reads the lane from the wire spelling of the ready flag', () => {
-    const client = new QueryClient();
-    render(
-      <QueryClientProvider client={client}>
-        <SeedVerbs
-          seed={seed({ lane: 'ready', lifecycle: 'promoted', ready_to_resolve: true })}
-          onPromote={vi.fn()}
-        />
-      </QueryClientProvider>,
-    );
-    expect(screen.getAllByRole('button')[0]).toHaveTextContent('Resolve…');
   });
 });
