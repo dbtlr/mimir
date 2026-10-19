@@ -178,6 +178,8 @@ starts. It is a lifecycle value because ownership has changed even though work
 has not begun.
 
 `queue` requires a nonblank session and atomically reserves an unheld todo task.
+An ordinary update cannot clear a queued task’s session; releasing its reservation
+uses `unqueue`.
 `start` accepts todo or queued. `unqueue` requires a reason, returns queued work
 to todo, and clears its handles. Queued tasks can finish or be abandoned, but
 must be unqueued before parking or blocking. Queued tasks leave `next` and

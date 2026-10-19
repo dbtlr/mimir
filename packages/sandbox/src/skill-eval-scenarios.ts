@@ -106,6 +106,12 @@ const hasExplicitHandle = (args: string[], flag: string): boolean => {
   const value = word === flag ? options[i + 1] : word?.slice(flag.length + 1);
   return value !== undefined && value.trim() !== '' && !value.startsWith('--');
 };
+
+/** A simple shell variable stays opaque; the exact task histories prove which tasks it affected. */
+const matchesTaskOperand = (operand: string | undefined, id: string | undefined): boolean =>
+  id !== undefined &&
+  operand !== undefined &&
+  (operand === id || /^\$(?:[A-Za-z_]\w*|\{[A-Za-z_]\w*\})$/.test(operand));
 const file = (e: Evidence, path: string): string => readFileSync(join(e.work, path), 'utf8');
 const newTasks = async (e: Evidence, project: string): Promise<TaskView[]> =>
   (await tasks(e, project)).filter((t) => !Object.values(e.ids).includes(t.id));
@@ -156,7 +162,7 @@ export const SCENARIOS: readonly Scenario[] = [
             (c) => !c.help && (c.verb === 'queue' || c.verb === 'start'),
           );
           const ordered = required.map(([verb, id]) =>
-            writes.findIndex((c) => c.verb === verb && c.args[0] === id),
+            writes.findIndex((c) => c.verb === verb && matchesTaskOperand(c.args[0], id)),
           );
           const [first, second, started] = ordered;
           return (

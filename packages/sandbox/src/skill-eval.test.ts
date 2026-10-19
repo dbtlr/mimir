@@ -208,6 +208,44 @@ const queueRunCommands = [
   'mimir unqueue QEV-3 "Run cancelled"',
 ];
 
+const queueRunLoopCommands = [
+  'for id in QEV-2 QEV-3; do mimir queue "$id" --harness codex --session eval-run-session; done',
+  ...queueRunCommands.slice(2),
+];
+
+test('queue-run accepts loop task operands and still requires exact stored transitions', async () => {
+  const scenario = scenarioNamed('queue-run');
+  for (const check of scenario.checks) {
+    expect(await check.test(queueRunEvidence(queueRunLoopCommands))).toBe(true);
+  }
+  const succession = scenario.checks.find(
+    (c) => c.name === 'records the run and worker succession',
+  );
+  expect(
+    await succession?.test(
+      queueRunEvidence(queueRunLoopCommands, {
+        'QEV-2': {
+          history: [],
+          hold: 'none',
+          id: 'QEV-2',
+          lifecycle: 'todo',
+          title: 'Worker task',
+          upstream: null,
+        },
+      }),
+    ),
+  ).toBe(false);
+  const handles = scenario.checks.find((c) => c.name === 'passes explicit run and worker handles');
+  expect(
+    await handles?.test(
+      queueRunEvidence([
+        'for id in QEV-2 QEV-3; do echo mimir queue "$id" --harness codex --session eval-run-session; done',
+        ...queueRunCommands.slice(2),
+      ]),
+    ),
+  ).toBe(false);
+});
+
 test('queue-run requires actual queue, worker start, and cancellation transitions', async () => {
   const scenario = scenarioNamed('queue-run');
   for (const check of scenario.checks) {

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, setSystemTime, test } from 'bun:test';
 
 import { engineSchemas } from '@mimir/contract';
 
@@ -15,6 +15,64 @@ describe.each([
   ['SQLite', createTestStore],
   ['Postgres', createPgliteTestStore],
 ] as const)('%s queue lifecycle', (label, createStore) => {
+  test(`${label}: queued updates keep a resumable run session`, async () => {
+    const fixture = await createStore();
+    try {
+      const engine = new LocalEngine(fixture.store);
+      await engine.create({ key: 'QUE', name: 'Queue', type: 'project' });
+      const parent = await engine.create({ parent: 'QUE', title: 'i', type: 'initiative' });
+      const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
+      await engine.queue({ id: task.id, session: 'run' });
+      for (const session of [null, '', '  ']) {
+        await expectMimirError('validation', () => engine.update({ id: task.id, session }));
+        expect((await engine.getNode({ id: task.id })).session).toBe('run');
+      }
+      await engine.update({ id: task.id, session: 'replacement-run', title: 'still reserved' });
+      expect((await engine.getNode({ id: task.id })).session).toBe('replacement-run');
+      await engine.start({ id: task.id });
+      await engine.update({ id: task.id, session: null });
+      expect((await engine.getNode({ id: task.id })).session).toBeNull();
+    } finally {
+      await fixture.close();
+    }
+  });
+  test(`${label}: held work cannot be reserved and refusals leave its state intact`, async () => {
+    const fixture = await createStore();
+    try {
+      const engine = new LocalEngine(fixture.store);
+      await engine.create({ key: 'QUE', name: 'Queue', type: 'project' });
+      const parent = await engine.create({ parent: 'QUE', title: 'i', type: 'initiative' });
+      for (const verb of ['park', 'block'] as const) {
+        const task = await engine.create({ parent: parent.id, title: verb, type: 'task' });
+        await engine[verb]({ id: task.id, reason: 'on hold' });
+        await expectMimirError('validation', () => engine.queue({ id: task.id, session: 'run' }));
+        const held = await engine.getNode({ facets: ['history'], id: task.id });
+        expect(held.lifecycle).toBe('todo');
+        expect(held.hold).toBe(verb === 'park' ? 'parked' : 'blocked');
+        expect(held.history).toHaveLength(1);
+      }
+    } finally {
+      await fixture.close();
+    }
+  });
+  test(`${label}: Now keeps the reservation time after later task edits`, async () => {
+    const fixture = await createStore();
+    try {
+      const engine = new LocalEngine(fixture.store);
+      await engine.create({ key: 'QUE', name: 'Queue', type: 'project' });
+      const parent = await engine.create({ parent: 'QUE', title: 'i', type: 'initiative' });
+      const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
+      setSystemTime(new Date('2026-10-19T12:00:00Z'));
+      await engine.queue({ id: task.id, session: 'run' });
+      setSystemTime(new Date('2026-10-19T12:10:00Z'));
+      await engine.update({ id: task.id, title: 'renamed' });
+      const page = await workPageOf(fixture.store, 'QUE', { timeZone: 'UTC' });
+      expect(page.now[0]?.startedAt).toBe('2026-10-19T12:00:00.000Z');
+    } finally {
+      setSystemTime();
+      await fixture.close();
+    }
+  });
   test(`${label}: queue records a reservation and start replaces every run handle`, async () => {
     const fixture = await createStore();
     try {
@@ -90,6 +148,37 @@ describe.each([
     }
   });
 
+  test(`${label}: transfer preview and apply refuse ownerless reservations without writing`, async () => {
+    const source = await createStore();
+    const target = await createStore();
+    try {
+      const engine = new LocalEngine(source.store);
+      await engine.create({ key: 'QUE', name: 'Queue', type: 'project' });
+      const parent = await engine.create({ parent: 'QUE', title: 'i', type: 'initiative' });
+      const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
+      await engine.queue({ id: task.id, session: 'run' });
+      const document = await source.store.export();
+      const before = await target.store.export();
+      for (const session of [null, '', '  ']) {
+        const malformed = structuredClone(document);
+        const queued = malformed.nodes.find((n) => n.id === task.id);
+        if (queued === undefined) {
+          throw new Error('fixture has no queued task');
+        }
+        queued.session = session;
+        for (const dryRun of [true, false]) {
+          await expectMimirError('validation', () =>
+            target.store.import(malformed, { dryRun, mode: 'fresh' }),
+          );
+          const after = await target.store.export();
+          expect({ ...after, exported_at: before.exported_at }).toEqual(before);
+        }
+      }
+    } finally {
+      await source.close();
+      await target.close();
+    }
+  });
   test(`${label}: version-6 transfers preserve queued reservations and version-5 remains readable`, async () => {
     const source = await createStore();
     const target = await createStore();

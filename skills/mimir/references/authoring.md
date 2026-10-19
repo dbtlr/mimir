@@ -217,6 +217,10 @@ One character rule: a value can't contain `·` surrounded by spaces — the
 transition log uses that separator to record handle moves, so the write refuses
 rather than storing a value the log would mis-read.
 
+A queued task must retain a nonblank session. To release its reservation, use
+`unqueue` with a reason. After starting or unqueueing, a blank update can clear
+the session as usual.
+
 ## Artifacts: frozen records
 
 Specs, plans, session logs — frozen documents attached to the work, stored in the

@@ -276,6 +276,11 @@ export async function updateNode(store: Store, id: string, fields: UpdateFields)
     // The resume handles (MMR-320) run the shared normalizer, so a blank clears
     // one and a multi-line paste can't break its `## History` echo line.
     applyHandlePatch(patch, fields);
+    if (node.lifecycle === 'queued' && patch.session === null) {
+      throw validation(
+        'a queued task must keep a nonblank session; unqueue it to release the reservation',
+      );
+    }
 
     // The `## Next` re-authoring is a body-section write, not a patch column —
     // but it must ride the same co-written `updated_at` stamp, so it is decided

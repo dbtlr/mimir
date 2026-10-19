@@ -81,11 +81,12 @@ export function parseCodexStream(stream: string): Transcript {
 
 /**
  * Every `mimir` call at command position: line start, after a control operator
- * or `$(`, or just inside a quoted `sh -c` body. `echo mimir` is not a call.
+ * or `$(`, after a loop's `do`, or just inside a quoted `sh -c` body.
+ * `echo mimir` is not a call.
  * A call's words stay on its own line; a substitution nested in it is its own call.
  */
 const CALL =
-  /(?:^|&&|\|\||[;|\n(]|\$\(|-[a-z]*c[ \t]+['"])[ \t]*(?:\S*\/)?mimir[ \t]+([a-z][a-z-]*)(?:[ \t]+([^\s'"&|;)]+))?((?:[^\n;&|$)]|\$(?!\())*)/g;
+  /(?:^|&&|\|\||[;|\n(]|\$\(|-[a-z]*c[ \t]+['"])[ \t]*(?:do[ \t]+)?(?:\S*\/)?mimir[ \t]+([a-z][a-z-]*)(?:[ \t]+([^\s'"&|;)]+))?((?:[^\n;&|$)]|\$(?!\())*)/g;
 const HELP = /(?:^|\s)(?:-h|--help)(?:$|[\s'"])/;
 
 /** Literal shell words for grading flags; variables stay opaque and are verified in the store. */
@@ -130,7 +131,9 @@ function argumentWords(source: string): string[] {
  */
 export function relativeCalls(commands: readonly string[]): string[] {
   return commands.filter((command) =>
-    /(?:^|&&|\|\||[;|\n(]|\$\(|-[a-z]*c[ \t]+['"])[ \t]*(?!\/|~)\S*\/mimir[ \t]/.test(command),
+    /(?:^|&&|\|\||[;|\n(]|\$\(|-[a-z]*c[ \t]+['"])[ \t]*(?:do[ \t]+)?(?!\/|~)\S*\/mimir[ \t]/.test(
+      command,
+    ),
   );
 }
 

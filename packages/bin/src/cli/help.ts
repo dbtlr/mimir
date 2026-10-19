@@ -60,7 +60,7 @@ export function uniformFlagRows(spec: OpFact): Row[] {
   const fields = specUpdateFields(spec.fields ?? []).flatMap((field) =>
     updateFieldFlags(field.update).map(([, flag]): Row => [
       flag,
-      `${FIELD_ARG_HELP[field.key] ?? `${field.key} recorded on the row`}${spec.requiredFields?.includes(field.key) === true ? ' (required)' : ''}`,
+      `${FIELD_ARG_HELP[field.key] ?? `${field.key} recorded on the row`}${spec.requiredFields?.includes(field.key) === true ? ' (required after CLI environment fallback)' : ''}`,
     ]),
   );
   const choice: Row[] =
@@ -250,8 +250,8 @@ options:
       --session <text>    create/queue/start/update: the session id to resume from
       --branch <text>     create/queue/start/update: the branch the work lives on
                           (the four task-only resume handles — cleared on
-                          done/abandon and on park/block; a blank on update
-                          clears one)
+                          done/abandon, unqueue, and on park/block; a blank
+                          on update clears one, except a queued session)
 
 machinery commands (the installation, host, or store — not the work itself):
   store upgrade | export <file> | import <file> [--apply] [--resume]
