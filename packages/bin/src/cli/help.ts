@@ -363,10 +363,7 @@ const UNIFORM_EXAMPLES: Record<UniformVerb, readonly string[]> = {
   unqueue: ['mimir unqueue MMR-3 "run cancelled"'],
 };
 
-/** The per-command descriptors for the fourteen uniform verbs, projected from the
- * operation facts (ADR 0025): the usage line, the summary (canonical sentence +
- * transition arrow), and the args (subject id-kind + optional reason) all derive;
- * only the examples are hand-authored. Merged into {@link COMMAND_HELP} below. */
+/** Keep required cancellation reasons distinct from optional transition notes in help. */
 function reasonArg(spec: OpFact): Row[] {
   if (spec.reason === 'required') {
     return [['<reason>', 'required note recorded in the transition log']];
@@ -374,6 +371,10 @@ function reasonArg(spec: OpFact): Row[] {
   return spec.reason === 'optional' ? [A_REASON] : [];
 }
 
+/** The per-command descriptors for the fourteen uniform verbs, projected from the
+ * operation facts (ADR 0025): the usage line, the summary (canonical sentence +
+ * transition arrow), and the args (subject id-kind + reason policy) all derive;
+ * only the examples are hand-authored. Merged into {@link COMMAND_HELP} below. */
 function uniformCommandHelp(): Record<string, CommandHelp> {
   const out: Record<string, CommandHelp> = {};
   for (const spec of UNIFORM_SPECS) {
