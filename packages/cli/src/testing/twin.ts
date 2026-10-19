@@ -53,6 +53,18 @@ export type Twin = {
  */
 export type Setup = (board: ParityBoard) => Promise<Tokens | void>;
 
+/** A case that moves the board to its own state, on top of the setup its family shares. */
+export type SetupCase = ParityCase & { setup?: Setup };
+
+/** `shared` then the case's own `setup`, as the one setup the case runs under. */
+function setupOf(c: SetupCase, shared?: Setup): Setup | undefined {
+  const own = c.setup;
+  if (own === undefined) {
+    return shared;
+  }
+  return async (board) => ({ ...(await shared?.(board)), ...(await own(board)) });
+}
+
 /**
  * What a case needs on each board beyond records, such as findings for doctor
  * to report. Runs on both boards after they are populated, before the case.
@@ -214,11 +226,12 @@ const stateFor = (board: ParityBoard, tokens: Tokens, bound: ParityCase) =>
  * breaks the parity rule. When both complete, the two boards must hold the same
  * state; when the new CLI refuses, its board must hold what an untouched one does.
  */
-export async function twinProblems<Case extends ParityCase>(
+export async function twinProblems<Case extends SetupCase>(
   c: Case,
-  setup?: Setup,
+  shared?: Setup,
   arrange?: Arrange<Case>,
 ): Promise<string[]> {
+  const setup = setupOf(c, shared);
   const twin = await openTwin(setup);
   try {
     const oldCase = bindCase(c, twin.old.tokens);
@@ -279,7 +292,7 @@ export async function twinProblems<Case extends ParityCase>(
  * `owner` matches must name one of `cases`. `setup` adds records the cases need,
  * and `arrange` readies each board for one case.
  */
-export function twinCases<Case extends ParityCase>(
+export function twinCases<Case extends SetupCase>(
   owner: RegExp,
   cases: readonly Case[],
   setup?: Setup,
