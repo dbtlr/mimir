@@ -1,6 +1,7 @@
-import { afterAll, beforeAll, expect, test } from 'bun:test';
+import { beforeAll, expect, test } from 'bun:test';
 import { spawnSync } from 'node:child_process';
 import { rmSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -30,10 +31,17 @@ const PROBES = {
 };
 const APP = fileURLToPath(new URL('app.ts', import.meta.url));
 
-/** Each linted file's diagnostic messages and help, keyed by the path relative to the repository. */
+/** Each linted file's diagnostic messages and help, keyed by its absolute path. */
 let findings: Map<string, string>;
 
 type Diagnostic = { filename: string; help?: string; message: string };
+
+/**
+ * A report's file name as an absolute path. The linter may name a file
+ * relative to the repository, absolutely, or as a `file://` URL.
+ */
+const absolute = (filename: string): string =>
+  filename.startsWith('file:') ? fileURLToPath(filename) : resolve(repository, filename);
 
 /**
  * Lint the files with only the layering rule on (its per-file options and
@@ -45,31 +53,36 @@ type Diagnostic = { filename: string; help?: string; message: string };
 function lint(paths: readonly string[]): Map<string, string> {
   const args = ['x', 'vp', 'lint', '--format', 'json', '-A', 'all', '-D', 'no-restricted-imports'];
   const run = spawnSync('bun', [...args, ...paths], { cwd: repository, encoding: 'utf8' });
-  let diagnostics: Diagnostic[];
+  let report: { diagnostics?: unknown } | undefined;
   try {
-    ({ diagnostics } = JSON.parse(run.stdout) as { diagnostics: Diagnostic[] });
+    report = JSON.parse(run.stdout) as { diagnostics?: unknown };
   } catch {
-    throw new Error(`vp lint wrote no JSON report:\n${run.stdout}${run.stderr}`);
+    // Reported below with the linter's own output.
+  }
+  if (!Array.isArray(report?.diagnostics)) {
+    throw new TypeError(`vp lint wrote no JSON report:\n${run.stdout}${run.stderr}`);
   }
   const grouped = new Map<string, string>();
-  for (const { filename, help = '', message } of diagnostics) {
-    grouped.set(filename, `${grouped.get(filename) ?? ''}${message}\n${help}\n`);
+  for (const { filename, help = '', message } of report.diagnostics as Diagnostic[]) {
+    const key = absolute(filename);
+    grouped.set(key, `${grouped.get(key) ?? ''}${message}\n${help}\n`);
   }
   return grouped;
 }
 
-const of = (path: string): string => findings.get(path.slice(repository.length)) ?? '';
+const of = (path: string): string => findings.get(resolve(path)) ?? '';
 
 beforeAll(() => {
-  for (const { path, source } of Object.values(PROBES)) {
-    writeFileSync(path, source);
-  }
-  findings = lint([...Object.values(PROBES).map(({ path }) => path), APP]);
-});
-
-afterAll(() => {
-  for (const { path } of Object.values(PROBES)) {
-    rmSync(path, { force: true });
+  // The probes break the repository's own lint run, so none outlives this hook.
+  try {
+    for (const { path, source } of Object.values(PROBES)) {
+      writeFileSync(path, source);
+    }
+    findings = lint([...Object.values(PROBES).map(({ path }) => path), APP]);
+  } finally {
+    for (const { path } of Object.values(PROBES)) {
+      rmSync(path, { force: true });
+    }
   }
 });
 
