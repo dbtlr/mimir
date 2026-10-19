@@ -50,6 +50,16 @@ test.each([
   ['scratch-agenda', ['scratch', 'agenda', '--help']],
   ['scratch-freeze', ['scratch', 'freeze', '--help']],
   ['scratch-discard', ['scratch', 'discard', '--help']],
+  // MMR-551: the structure and node writes.
+  ['create', ['create', '--help']],
+  ['create-task', ['create', 'task', '--help']],
+  ['update', ['update', '--help']],
+  ['bind', ['bind', '--help']],
+  ['doctor', ['doctor', '--help']],
+  ['store', ['store', '--help']],
+  ['store-import', ['store', 'import', '--help']],
+  ['version', ['version', '--help']],
+  ['self-update', ['self-update', '--help']],
 ])('the %s help page is pinned', async (name, argv) => {
   const run = await runArgv(board.app(), argv);
   expect(run.exitCode).toBe(0);

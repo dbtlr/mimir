@@ -69,6 +69,7 @@ export type { DB, PostgresHandle, UpgradeReport } from './store-postgres/index';
 export { SCHEMA_VERSION } from './store-sql/migrator';
 export { readInstallationAt, registerInstallation } from './installation';
 export { runInstallationCommand } from './installation/command';
+export { scriptRecordDirectory } from './installation/script-record';
 export {
   INSTALLATION_PROTOCOL_RESPONSE,
   requireInstallationProtocol,

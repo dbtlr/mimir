@@ -17,7 +17,7 @@ const matches = (text: string, pattern: RegExp): string[] => [
   ...new Set(text.matchAll(pattern).map((m) => m[0])),
 ];
 
-/** A read's value, or the way it failed, so a record a CLI wrongly removed still compares. */
+/** A read's value, or the way it failed, so a record a CLI wrongly removed (or a project it archived, which refuses reads) still compares. */
 async function read(ask: () => Promise<unknown>): Promise<unknown> {
   try {
     return await ask();
@@ -38,9 +38,9 @@ async function activePads(engine: ParityBoard['engine']): Promise<string[]> {
 }
 
 /**
- * The state of every record the case names or its output echoes: all seeds of
- * both boards, each Scratchpad by token or echoed id, and each node and
- * artifact id that appears. UUIDs, which differ by design, read as `<uuid>`.
+ * The state of every record the case names or its output echoes: all seeds,
+ * nodes, artifacts, and projects of both boards, each Scratchpad by token or
+ * echoed id, and each node and artifact id that appears. UUIDs, which differ by design, read as `<uuid>`.
  */
 export async function boardSnapshot(
   board: ParityBoard,
@@ -55,6 +55,7 @@ export async function boardSnapshot(
     ...named.map(([name, id]): [string, string] => [name, id]),
     ...echoed.map((id): [string, string] => ['<echoed>', id]),
   ];
+  const facets = [...FACET_NAMES];
   const snapshot = {
     // Every active pad on the board, so a refused write that still left a pad behind shows.
     activePads: await activePads(engine),
@@ -64,17 +65,25 @@ export async function boardSnapshot(
         await read(() => engine.getArtifact({ content: true, id })),
       ]),
     ),
+    // Every node, artifact, and project the board holds, so a write that touches a record its output never names (a moved sibling, a re-ranked one) still compares.
+    board: await Promise.all(
+      ['MMR', 'XX'].map(async (project) => [
+        await read(() => engine.list({ facets, project, status: 'all' })),
+        await read(() => engine.artifacts({ project })),
+      ]),
+    ),
     nodes: await Promise.all(
       matches(text.replaceAll(ARTIFACT_ID, ''), NODE_ID).map(async (id) => [
         id,
-        await read(() => engine.getNode({ facets: [...FACET_NAMES], id })),
+        await read(() => engine.getNode({ facets, id })),
       ]),
     ),
+    projects: await engine.projects({ facets, status: 'all' }),
     scratchpads: await Promise.all(
       pads.map(async ([name, id]) => [name, await read(() => engine.scratchGet({ id }))]),
     ),
     seeds: await Promise.all(
-      ['MMR', 'XX'].map((project) => engine.seeds({ project, status: 'all' })),
+      ['MMR', 'XX'].map((project) => read(() => engine.seeds({ project, status: 'all' }))),
     ),
   };
   return JSON.stringify(snapshot, null, 2).replaceAll(UUID, '<uuid>');

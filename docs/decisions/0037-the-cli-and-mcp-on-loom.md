@@ -68,7 +68,8 @@ are evolvable layout (ADR 0009).
 
 A failure is `{code, exitCode, message, hints}`. A domain refusal (a
 `MimirError`) exits 1 with its code in kebab case: `not-found`,
-`validation`, `conflict`, or `invariant`. A usage error Mimir raises, such as
+`validation`, `conflict`, or `invariant`; bare `bind` on a clone bound to no
+project exits 1 with `unbound`. A usage error Mimir raises, such as
 an unknown column or a bad priority, exits 2 with the code `usage` and keeps
 its message. A fault Loom's parser finds, such as an unknown option, a missing
 value, or a missing argument, exits 2 in Loom's words and with Loom's code. A
@@ -106,6 +107,14 @@ Loom's parser, piped or on a color terminal. The two must agree:
 - an argv the old CLI accepted and Loom's parser refuses, such as a repeated
   single-value option, a stray positional, or `-s` before the verb, is a
   difference entry of its own, which requires exit 2 and a code of Loom's;
+- an option the old CLI refused as a Mimir validation failure (exit 1) because
+  the command does not take it, such as `--remote` on `create initiative`, is
+  scoped to the command that declares it in Loom, so it is an unknown option
+  at exit 2; a difference entry of its own requires exit 1 from the old CLI
+  and exit 2 with a code of Loom's from the new;
+- input the old CLI accepted and the Engine refuses, such as blank annotation
+  text, is a difference entry of its own, which requires the old exit 0 and a
+  Mimir refusal (exit 1) from the new CLI that writes nothing;
 - help is pinned, never compared.
 
 Two differences every case carries are normalized rather than listed: through

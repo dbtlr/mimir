@@ -1,0 +1,37 @@
+import openaiMetadata from '../../../skills/mimir/agents/openai.yaml' with { type: 'text' };
+import refAuthoring from '../../../skills/mimir/references/authoring.md' with { type: 'text' };
+import refFinishing from '../../../skills/mimir/references/finishing.md' with { type: 'text' };
+import refQuerying from '../../../skills/mimir/references/querying.md' with { type: 'text' };
+import refScratchpad from '../../../skills/mimir/references/scratchpad.md' with { type: 'text' };
+import refSeeds from '../../../skills/mimir/references/seeds.md' with { type: 'text' };
+import refSetup from '../../../skills/mimir/references/setup.md' with { type: 'text' };
+import refStatusModel from '../../../skills/mimir/references/status-model.md' with { type: 'text' };
+import refTags from '../../../skills/mimir/references/tags.md' with { type: 'text' };
+/**
+ * The agent skill, embedded in the binary at compile time (text imports) so
+ * `mimir skills install` works anywhere the binary is and the installed skill
+ * can never skew from the surface this binary actually speaks (MMR-24).
+ * Imports point at the canonical in-repo copy (`skills/mimir/`) — the
+ * single source; a second checked-in copy drifts (MMR-264). A relative
+ * symlink at `.claude/skills/mimir` keeps Claude-harness project-skill
+ * discovery working, but the embed reads the real path directly (MMR-268).
+ */
+import skillRoot from '../../../skills/mimir/SKILL.md' with { type: 'text' };
+
+/** Relative path inside the installed skill directory → file content. */
+export const SKILL_FILES: readonly { path: string; content: string }[] = [
+  { content: skillRoot, path: 'SKILL.md' },
+  { content: refSetup, path: 'references/setup.md' },
+  { content: refAuthoring, path: 'references/authoring.md' },
+  { content: refQuerying, path: 'references/querying.md' },
+  { content: refScratchpad, path: 'references/scratchpad.md' },
+  { content: refFinishing, path: 'references/finishing.md' },
+  { content: refStatusModel, path: 'references/status-model.md' },
+  { content: refTags, path: 'references/tags.md' },
+  { content: refSeeds, path: 'references/seeds.md' },
+  // Codex's per-skill metadata (display name, implicit invocation); other hosts ignore it.
+  { content: openaiMetadata, path: 'agents/openai.yaml' },
+];
+
+/** The skill as Loom's skills plugin installs it: one folder, `mimir`, holding the embedded files. */
+export const MIMIR_SKILL = { files: () => SKILL_FILES, name: 'mimir' } as const;

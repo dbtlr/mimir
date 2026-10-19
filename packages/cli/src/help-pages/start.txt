@@ -1,0 +1,26 @@
+mimir start · Begin a task (todo/queued → in_progress).
+
+USAGE
+  mimir start <id> [options]
+
+ARGUMENTS
+  id  The task: KEY-seq.
+
+OPTIONS
+      --host <text>      The machine the work is happening on.
+      --harness <text>   The agent harness running it.
+      --session <text>   The session id to resume from.
+      --branch <text>    The branch the work lives on.
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir start MMR-3
+    begin the task
+  $ mimir start MMR-3 --host laptop --harness codex --session s-91 --branch feat/mmr-3
+    record the resume handles
+  $ mimir update MMR-3 --session s-92
+    resume or take over; there is no claim verb

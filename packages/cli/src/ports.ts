@@ -2,7 +2,9 @@
  * What a command needs from the composition root. Commands import neither
  * `@mimir/core` nor a store: `src/app.ts` supplies the Engine, the project
  * binding, and the pure grammar and wire codecs the CLI shares with the other
- * transports. The Engine is the only path to work state.
+ * transports. The Engine is the only path to work state, with one exception:
+ * `releasedByArchive` reads the store directly until the Engine echoes the
+ * tasks an archive freed (MMR-561).
  */
 import type {
   ArtifactDetail,
@@ -21,6 +23,8 @@ import type {
   TreeView,
   TriageReport,
 } from '@mimir/contract';
+
+import type { Machine } from './machine';
 
 /** The kind of record an id names, by its grammar alone. */
 export type IdKind = 'project' | 'node' | 'artifact' | 'seed';
@@ -72,4 +76,14 @@ export type Ports = {
   scope: (notify: (line: string) => void) => Promise<string | undefined>;
   grammar: Grammar;
   wire: Wire;
+  /** Ask a yes/no question on the terminal; only an interactive run asks. */
+  confirm: (question: string) => Promise<boolean>;
+  /** The machine-local services (MMR-553): the binding, doctor, and the store's own upgrade and transfer. */
+  machine: Machine;
+  /**
+   * The out-of-project tasks an archive of `key` just freed. The Engine does not
+   * report them, so the composition root reads them from the store; this is the
+   * one read around the Engine, and it goes when the Engine echoes them (MMR-561).
+   */
+  releasedByArchive: (key: string) => Promise<readonly string[]>;
 };

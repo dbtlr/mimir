@@ -19,6 +19,7 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test';
 
 import { runCli } from '@mimir/bin/src/cli';
+import type { Defaults } from '@mimir/bin/src/cli/run';
 import { fakeIo } from '@mimir/bin/src/cli/testing';
 import type { Store } from '@mimir/core';
 import { parseJson } from '@mimir/helpers';
@@ -33,6 +34,9 @@ import { runArgv } from './run';
 
 type App = ReturnType<typeof createApp>;
 
+/** An app over the board, its failures reading `argv` as the run's words. */
+export type AppFor = (argv?: readonly string[]) => App;
+
 /** One invocation, spelled by name; the old CLI's argv is derived from it. */
 export type ParityCase = {
   /** Unique, led by the command path, such as `get MMR-3 -f json`. */
@@ -42,6 +46,8 @@ export type ParityCase = {
   options?: Readonly<Record<string, string | readonly string[] | true>>;
   /** The project the clone is bound to, for both CLIs; unbound when absent. */
   bound?: string;
+  /** The origin remote of the clone, for both CLIs; none when absent. */
+  origin?: string;
   /** Both CLIs run this literal argv, the new one through Loom's parser, instead of by name. */
   argv?: readonly string[];
   /** Both CLIs write to a color terminal rather than a pipe. Argv cases only. */
@@ -78,6 +84,10 @@ export function argvOf(c: ParityCase): string[] {
 
 /** The old CLI's failure, read back from the JSON envelope it writes under `--format json`. */
 function oldFailure(stderr: string): ParityRun['failure'] {
+  // `bind` alone wrote its refusal as a bare line, never an envelope.
+  if (stderr.startsWith('unbound: ')) {
+    return { code: 'unbound', hints: [], message: stderr.trimEnd() };
+  }
   if (!stderr.startsWith('{"error"')) {
     return undefined;
   }
@@ -115,9 +125,19 @@ const joined = (lines: readonly string[]): string =>
 /** The process zone, which both CLIs render in. */
 const zone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-async function oldRun(store: Store, argv: string[], bound: string | undefined, tty = false) {
+/** One run of the old CLI over `store`, its stdout and stderr each as the writer emitted them. */
+export async function oldRun(
+  store: Store,
+  argv: string[],
+  bound: string | undefined,
+  tty = false,
+  extra: Defaults = {},
+) {
   const io = fakeIo(tty, { plain: !tty, zone });
-  const exitCode = await runCli(argv, () => store, io, { scope: () => Promise.resolve(bound) });
+  const exitCode = await runCli(argv, () => store, io, {
+    scope: () => Promise.resolve(bound),
+    ...extra,
+  });
   return { exitCode, stderr: joined(io.err), stdout: joined(io.out) };
 }
 
@@ -126,15 +146,20 @@ async function oldRun(store: Store, argv: string[], bound: string | undefined, t
  * is read from the JSON envelope, so a case that names no format runs again,
  * piped, under `--format json` to read it; a failed read changes nothing.
  */
-export async function runOld(store: Store, c: ParityCase): Promise<ParityRun> {
+export async function runOld(
+  store: Store,
+  c: ParityCase,
+  extra: Defaults = {},
+): Promise<ParityRun> {
   const argv = argvOf(c);
   const bound = c.bound;
-  const run = await oldRun(store, argv, bound, c.tty);
+  const run = await oldRun(store, argv, bound, c.tty, extra);
   if (run.exitCode === 0) {
     return { exitCode: 0, stdout: c.tty ? resetsNormalized(run.stdout) : run.stdout };
   }
   const failure =
-    oldFailure(run.stderr) ?? oldFailure((await oldRun(store, underJson(argv), bound)).stderr);
+    oldFailure(run.stderr) ??
+    oldFailure((await oldRun(store, underJson(argv), bound, false, extra)).stderr);
   return {
     exitCode: run.exitCode,
     stdout: run.stdout,
@@ -179,14 +204,18 @@ function proseFailure(stderr: string): ParityRun['failure'] {
 }
 
 /** Run an argv case through the new CLI's parser, reading a failure as `runOld` does. */
-async function runNewArgv(app: App, argv: readonly string[], tty = false): Promise<ParityRun> {
-  const run = await runArgv(app, [...argv], { tty });
+async function runNewArgv(
+  appFor: AppFor,
+  argv: readonly string[],
+  tty = false,
+): Promise<ParityRun> {
+  const run = await runArgv(appFor(argv), [...argv], { tty });
   if (run.exitCode === 0) {
     return { exitCode: 0, stdout: tty ? resetsNormalized(run.stdout) : run.stdout };
   }
   const json = run.stderr.startsWith('{"error"')
     ? run.stderr
-    : (await runArgv(app, underJson(argv))).stderr;
+    : (await runArgv(appFor(underJson(argv)), underJson(argv))).stderr;
   const failure = newFailure(json) ?? proseFailure(json);
   return {
     exitCode: run.exitCode,
@@ -196,11 +225,11 @@ async function runNewArgv(app: App, argv: readonly string[], tty = false): Promi
 }
 
 /** Run a case through the new CLI: by name, or through its parser for an argv case. */
-export async function runNew(app: App, c: ParityCase): Promise<ParityRun> {
+export async function runNew(appFor: AppFor, c: ParityCase): Promise<ParityRun> {
   if (c.argv !== undefined) {
-    return runNewArgv(app, c.argv, c.tty);
+    return runNewArgv(appFor, c.argv, c.tty);
   }
-  const outcome = await app.invoke(c.path, { args: c.args ?? {}, options: c.options ?? {} });
+  const outcome = await appFor().invoke(c.path, { args: c.args ?? {}, options: c.options ?? {} });
   if (outcome.status === 'cancelled') {
     return { exitCode: outcome.exitCode, stdout: '' };
   }
@@ -240,7 +269,14 @@ function lineDiff(old: string, next: string): { old: string; new: string }[] {
 const STRUCTURED = new Set(['json', 'jsonl', 'ids']);
 
 /** The failure codes Mimir raises; any other code is one of Loom's parser faults. */
-const MIMIR_CODES = new Set(['usage', 'not-found', 'validation', 'conflict', 'invariant']);
+const MIMIR_CODES = new Set([
+  'usage',
+  'not-found',
+  'validation',
+  'conflict',
+  'invariant',
+  'unbound',
+]);
 
 /** Why a Loom difference entry does not hold for the new failure; empty when it does. */
 function loomFaultProblems(got: ParityRun['failure']): string[] {
@@ -268,6 +304,57 @@ function loomRefusalProblems(old: ParityRun, next: ParityRun): string[] {
   const problems =
     next.exitCode === 2 ? [] : [`a loom-refusal exits 2, not ${String(next.exitCode)}`];
   return [...problems, ...loomFaultProblems(next.failure)];
+}
+
+/**
+ * A `stray-refusal` entry: the old CLI accepted words after `--` and ignored them;
+ * the new CLI refuses with its own usage failure at exit 2, naming those words.
+ */
+function strayRefusalProblems(c: ParityCase, old: ParityRun, next: ParityRun): string[] {
+  const dash = (c.argv ?? []).indexOf('--');
+  const words = dash === -1 ? [] : (c.argv ?? []).slice(dash + 1);
+  const want = `unexpected argument: ${words.join(' ')}`;
+  const problems: string[] = [];
+  if (old.exitCode !== 0) {
+    problems.push(
+      `a stray-refusal entry names a case the old CLI refused (exit ${String(old.exitCode)})`,
+    );
+  }
+  if (next.exitCode !== 2 || next.failure?.code !== 'usage') {
+    problems.push(
+      `a stray-refusal exits 2 with code usage, not exit ${String(next.exitCode)} code ${next.failure?.code ?? 'none'}`,
+    );
+  } else if (next.failure.message !== want) {
+    problems.push(`a stray-refusal message is "${want}", not "${next.failure.message}"`);
+  }
+  return problems;
+}
+
+/** A `loom-scoped` entry: the old CLI refused with exit 1, and Loom's parser refuses with exit 2. */
+function loomScopedProblems(old: ParityRun, next: ParityRun): string[] {
+  const problems =
+    old.exitCode === 1
+      ? []
+      : [`a loom-scoped entry names a case the old CLI exits ${String(old.exitCode)} for, not 1`];
+  if (next.exitCode !== 2) {
+    problems.push(`a loom-scoped refusal exits 2, not ${String(next.exitCode)}`);
+  }
+  return [...problems, ...loomFaultProblems(next.failure)];
+}
+
+/** An `engine-refusal` entry: the old CLI accepted, and the Engine refuses with a Mimir code. */
+function engineRefusalProblems(old: ParityRun, next: ParityRun): string[] {
+  if (old.exitCode !== 0) {
+    return [
+      `an engine-refusal entry names a case the old CLI refused too (exit ${String(old.exitCode)})`,
+    ];
+  }
+  if (next.exitCode !== 1 || next.failure === undefined || !MIMIR_CODES.has(next.failure.code)) {
+    return [
+      `an engine-refusal entry needs the new CLI to refuse with a Mimir code at exit 1, not exit ${String(next.exitCode)}`,
+    ];
+  }
+  return [];
 }
 
 /** A `loom-voice` entry: the new failure is Loom's own, and differs from the old one. */
@@ -384,6 +471,15 @@ export function parityProblems(
   if (entry?.kind === 'board-read') {
     return boardReadProblems(old, next);
   }
+  if (entry?.kind === 'stray-refusal') {
+    return strayRefusalProblems(c, old, next);
+  }
+  if (entry?.kind === 'loom-scoped') {
+    return loomScopedProblems(old, next);
+  }
+  if (entry?.kind === 'engine-refusal') {
+    return engineRefusalProblems(old, next);
+  }
   const problems: string[] = [];
   if (old.exitCode !== next.exitCode) {
     problems.push(`exit code: old ${String(old.exitCode)}, new ${String(next.exitCode)}`);
@@ -444,10 +540,10 @@ type CaseRewrite = (c: ParityCase) => ParityCase;
  * problems, and every checked-in difference entry whose case `owner` matches
  * must name one of `cases`, so a stale entry fails.
  */
-export function registerParity(
+export function registerParity<Case extends ParityCase>(
   owner: RegExp,
-  cases: readonly ParityCase[],
-  problemsOf: (c: ParityCase) => Promise<string[]>,
+  cases: readonly Case[],
+  problemsOf: (c: Case) => Promise<string[]>,
 ): void {
   test.each([...cases])('parity: $name', async (c) => {
     expect(await problemsOf(c)).toEqual([]);
@@ -485,9 +581,11 @@ export function parityCases(
   registerParity(owner, cases, async (c) => {
     const run = rewrite === undefined ? c : rewrite(c);
     const old = await runOld(board.store, run);
-    const now = await runNew(board.app(c.bound), run);
+    const now = await runNew((argv) => board.app(c.bound, argv), run);
     const isNewView = PARITY_DIFFERENCES.some((d) => d.case === c.name && d.kind === 'new-view');
-    const json = isNewView ? await runNew(board.app(c.bound), jsonVariant(run)) : undefined;
+    const json = isNewView
+      ? await runNew((argv) => board.app(c.bound, argv), jsonVariant(run))
+      : undefined;
     return parityProblems(board.app(), c, old, now, PARITY_DIFFERENCES, json);
   });
 }

@@ -13,6 +13,8 @@ import {
 import { dirname, isAbsolute } from 'node:path';
 
 import { requireInstallationProtocol } from './protocol';
+import { adoptionPaths, readScriptInstallation } from './script-record';
+import type { ScriptInstallation } from './script-record';
 
 export type InstallationPaths = { config: string; data: string; cache: string };
 type Binding = { mode: 'live' } | { mode: 'sandbox'; sandboxAuthority: string };
@@ -57,23 +59,78 @@ function parseReceipt(value: unknown): Installation {
   throw new Error('Invalid installation authority.');
 }
 
-/** Verify the receipt before any installation-bound state is read. */
-export function readInstallationAt(executable: string): Installation | undefined {
+/**
+ * What Loom's installation record says for this run: the script installation
+ * it holds, and the live directories an adoption binds, resolved only if one
+ * is due. `livePaths` returns `undefined` when this run must not adopt.
+ */
+export type ScriptVouch = {
+  installation: ScriptInstallation;
+  livePaths: () => InstallationPaths | undefined;
+};
+
+/** Whether the script installation names this executable and its bytes as they are. */
+function vouches(
+  vouch: ScriptVouch | undefined,
+  canonical: string,
+  sha256: () => string,
+): vouch is ScriptVouch {
+  if (vouch === undefined) {
+    return false;
+  }
+  try {
+    // The path check comes first so a binary the record does not name is never hashed.
+    return (
+      realpathSync(vouch.installation.path) === canonical && vouch.installation.sha256 === sha256()
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Verify the receipt before any installation-bound state is read. A script
+ * installation Loom's record vouches for (ADR 0031, refinement MMR-554) stands
+ * in for Mimir's installer: with no receipt it is adopted as live, binding the
+ * directories the vouch grants now (none, so no receipt, when it refuses), and
+ * a receipt whose digest it supersedes is re-recorded with its bindings kept.
+ * Anything else that does not match fails closed.
+ */
+export function readInstallationAt(
+  executable: string,
+  vouch?: ScriptVouch,
+): Installation | undefined {
   const canonical = realpathSync(executable);
   const file = receiptPath(canonical);
   if (!existsSync(file)) {
-    return undefined;
+    // An unregistered run with no script record hashes nothing.
+    if (!vouches(vouch, canonical, () => digest(canonical))) {
+      return undefined;
+    }
+    const paths = vouch.livePaths();
+    return paths && registerInstallation({ executable: canonical, mode: 'live', paths });
   }
   const value = parseReceipt(JSON.parse(readFileSync(file, 'utf8')));
-  if (value.executable !== canonical || value.sha256 !== digest(canonical)) {
-    throw new Error(
-      'Installation executable does not match its receipt. Reinstall Mimir explicitly.',
-    );
+  const sha256 = digest(canonical);
+  if (value.executable === canonical && value.sha256 === sha256) {
+    return value;
   }
-  return value;
+  if (value.executable === canonical && vouches(vouch, canonical, () => sha256)) {
+    return registerInstallation(value);
+  }
+  throw new Error(
+    'Installation executable does not match its receipt. Reinstall Mimir explicitly.',
+  );
 }
 
-/** Source interpreters cannot acquire installation authority from a receipt. */
+/** This process's installation, read once: `env.ts` and Postgres access both ask. */
+let processInstallation: { installation: Installation | undefined } | undefined;
+
+/**
+ * Source interpreters cannot acquire installation authority from a receipt.
+ * The read happens once per process, so an adoption's or a refusal's stderr
+ * line prints once however many callers ask.
+ */
 export function readInstallation(): Installation | undefined {
   if (
     !import.meta.url.startsWith('file:///$bunfs/') &&
@@ -81,7 +138,46 @@ export function readInstallation(): Installation | undefined {
   ) {
     return undefined;
   }
-  return readInstallationAt(process.execPath);
+  processInstallation ??= {
+    installation: readInstallationAt(process.execPath, scriptVouch(process.env, process.platform)),
+  };
+  return processInstallation.installation;
+}
+
+/**
+ * Loom's record vouches only outside a sandbox or test run, and adopts only
+ * the `$HOME` default directories: an adoption anywhere else could bind the
+ * real installation to throwaway directories for good, so it is refused. Both
+ * an adoption and a refusal say so on stderr.
+ */
+export function scriptVouch(
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform,
+  stderr: (line: string) => void = (line) => process.stderr.write(line),
+): ScriptVouch | undefined {
+  if (env.MIMIR_SANDBOX_AUTHORITY !== undefined || env.MIMIR_TEST_POSTGRES_URL !== undefined) {
+    return undefined;
+  }
+  const installation = readScriptInstallation(env, platform);
+  return (
+    installation && {
+      installation,
+      livePaths: () => {
+        const adoption = adoptionPaths(env, platform);
+        if ('refusal' in adoption) {
+          stderr(
+            `mimir: Loom's installation record names this binary, but this run does not adopt it as live: ${adoption.refusal}. ${adoption.remedy}. Until then it uses the development directories beside it.\n`,
+          );
+          return undefined;
+        }
+        const { paths } = adoption;
+        stderr(
+          `mimir: adopted this installation as live, binding config ${paths.config}, data ${paths.data}, cache ${paths.cache}.\n`,
+        );
+        return paths;
+      },
+    }
+  );
 }
 
 /** Registration is an explicit installer action; builds never call it. */

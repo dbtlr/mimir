@@ -53,6 +53,24 @@ export type Twin = {
  */
 export type Setup = (board: ParityBoard) => Promise<Tokens | void>;
 
+/** A case that moves the board to its own state, on top of the setup its family shares. */
+export type SetupCase = ParityCase & { setup?: Setup };
+
+/** `shared` then the case's own `setup`, as the one setup the case runs under. */
+function setupOf(c: SetupCase, shared?: Setup): Setup | undefined {
+  const own = c.setup;
+  if (own === undefined) {
+    return shared;
+  }
+  return async (board) => ({ ...(await shared?.(board)), ...(await own(board)) });
+}
+
+/**
+ * What a case needs on each board beyond records, such as findings for doctor
+ * to report. Runs on both boards after they are populated, before the case.
+ */
+export type Arrange<Case extends ParityCase> = (board: ParityBoard, c: Case) => void;
+
 /**
  * Add the records the write cases act on: seeds in every state, a task whose
  * upstream seed settled, and two Scratchpads. Returns the tokens naming them.
@@ -208,13 +226,24 @@ const stateFor = (board: ParityBoard, tokens: Tokens, bound: ParityCase) =>
  * breaks the parity rule. When both complete, the two boards must hold the same
  * state; when the new CLI refuses, its board must hold what an untouched one does.
  */
-export async function twinProblems(c: ParityCase, setup?: Setup): Promise<string[]> {
+export async function twinProblems<Case extends SetupCase>(
+  c: Case,
+  shared?: Setup,
+  arrange?: Arrange<Case>,
+): Promise<string[]> {
+  const setup = setupOf(c, shared);
   const twin = await openTwin(setup);
   try {
     const oldCase = bindCase(c, twin.old.tokens);
     const nextCase = bindCase(c, twin.next.tokens);
-    const oldRaw = await runOld(twin.old.board.store, oldCase);
-    const nextRaw = await runNew(twin.next.board.app(c.bound), nextCase);
+    arrange?.(twin.old.board, c);
+    arrange?.(twin.next.board, c);
+    const oldRaw = await runOld(
+      twin.old.board.store,
+      oldCase,
+      twin.old.board.oldDefaults(c.bound, c.origin),
+    );
+    const nextRaw = await runNew((argv) => twin.next.board.app(c.bound, argv, c.origin), nextCase);
     const problems = parityProblems(
       twin.next.board.app(),
       c,
@@ -260,8 +289,14 @@ export async function twinProblems(c: ParityCase, setup?: Setup): Promise<string
 /**
  * Register one write command's parity tests: every case runs on its own fresh
  * twin through `twinProblems`, and every checked-in difference entry whose case
- * `owner` matches must name one of `cases`. `setup` adds records the cases need.
+ * `owner` matches must name one of `cases`. `setup` adds records the cases need,
+ * and `arrange` readies each board for one case.
  */
-export function twinCases(owner: RegExp, cases: readonly ParityCase[], setup?: Setup): void {
-  registerParity(owner, cases, (c) => twinProblems(c, setup));
+export function twinCases<Case extends SetupCase>(
+  owner: RegExp,
+  cases: readonly Case[],
+  setup?: Setup,
+  arrange?: Arrange<Case>,
+): void {
+  registerParity(owner, cases, (c) => twinProblems(c, setup, arrange));
 }

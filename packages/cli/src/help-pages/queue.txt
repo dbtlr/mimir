@@ -1,0 +1,22 @@
+mimir queue · Reserve a task for an autonomous run (todo → queued).
+
+USAGE
+  mimir queue <id> [options]
+
+ARGUMENTS
+  id  The task: KEY-seq.
+
+OPTIONS
+      --host <text>      The machine the work is happening on.
+      --harness <text>   The agent harness running it.
+      --session <text>   The session id to resume from. Required, after the shell environment fills it.
+      --branch <text>    The branch the work lives on.
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir queue MMR-3 --harness codex --session run-91
+    reserve it for a run, recording the run handles

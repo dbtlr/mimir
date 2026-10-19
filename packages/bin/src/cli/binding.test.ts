@@ -252,13 +252,15 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-test('no source reads .mimir.toml; the only mention is the note that it is ignored', () => {
+test('no source reads .mimir.toml; the only mentions are the note that it is ignored, in each CLI', () => {
   const packages = join(import.meta.dir, '..', '..', '..');
   const mentions = readdirSync(packages)
     .flatMap((pkg) => sourceFiles(join(packages, pkg, 'src')))
     .filter((file) => readFileSync(file, 'utf8').includes('.mimir.toml'))
-    .map((file) => file.slice(packages.length + 1));
-  expect(mentions).toEqual(['bin/src/cli/bind.ts']);
+    .map((file) => file.slice(packages.length + 1))
+    // readdir order is the filesystem's, not alphabetical, on Linux.
+    .toSorted();
+  expect(mentions).toEqual(['bin/src/cli/bind.ts', 'cli/src/commands/bind.ts']);
 });
 
 test('an ordinary command on an ambiguous origin says to bind and stays cross-project', async () => {

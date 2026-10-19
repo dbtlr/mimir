@@ -1,0 +1,14 @@
+mimir self-update · Replace this application with another release.
+
+USAGE
+  mimir self-update [version] [options]
+
+ARGUMENTS
+  version  A release version to install, newer or older, such as 1.4.0.
+
+OPTIONS
+      --channel <channel>  The release channel to follow, such as stable or next.
+      --check              Report what an update would do and replace nothing.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.

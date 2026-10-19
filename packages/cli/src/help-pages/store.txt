@@ -1,0 +1,14 @@
+mimir store · Operate on the store itself: upgrade its schema, export it, or import a document.
+
+USAGE
+  mimir store <command> [options]
+
+COMMANDS
+  upgrade  Move the configured database's schema to this build's. A shared Postgres store moves only when an operator runs this once. Prints prose on a terminal and json when piped.
+  export   Write the whole store as a transfer document. Refuses to overwrite an existing file. Prints prose on a terminal and json when piped.
+  import   Read a transfer document into the store. A preview unless --apply is given. Prints prose on a terminal and json when piped.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+Run mimir store <command> --help for command details.
