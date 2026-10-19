@@ -1,0 +1,35 @@
+mimir create task · Create a task under a phase or initiative.
+
+USAGE
+  mimir create task [title] --parent <id> [options]
+
+ARGUMENTS
+  title  The task's title.
+
+OPTIONS
+      --parent <id>        The parent phase or initiative (KEY-seq).  (required)
+      --desc <text>        The description.
+      --summary <text>     A one-line summary.
+  -p, --priority <p0..p3>  p0, p1, p2, or p3.
+      --size <s|m|l>       s, m, or l.
+      --ref <ref>          An external reference, such as an issue URL.
+      --upstream <KEY-sN>  The seed on another board this task answers.
+      --host <text>        Resume handle: the host working on it.
+      --harness <text>     Resume handle: the agent harness.
+      --session <text>     Resume handle: the session id.
+      --branch <text>      Resume handle: the Git branch.
+  -t, --tag <tag>          Tag it. Repeat it for several.  (repeatable)
+      --groomed            Born groomed: carved from a finished design.
+      --ascii              Print without color, in ASCII glyphs.
+  -f, --format <format>    Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir create task "Wire the store" --parent MMR-4
+    a task under a phase
+  $ mimir create task "Spike" --parent MMR-4 --size s -p p1
+    sized and ranked
+  $ mimir create task --parent MMR-4 -- "--weird title"
+    a title that starts with a dash

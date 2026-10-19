@@ -11,8 +11,8 @@ import { createApp } from '../app';
 export type ParityBoard = {
   store: Store;
   engine: LocalEngine;
-  /** A new Loom CLI over the board, its clone bound to `bound` when given. */
-  app: (bound?: string) => ReturnType<typeof createApp>;
+  /** A new Loom CLI over the board, its clone bound to `bound` and its failures reading `argv` as the run's words, when given. */
+  app: (bound?: string, argv?: readonly string[]) => ReturnType<typeof createApp>;
   close: () => Promise<void>;
 };
 
@@ -90,7 +90,12 @@ export async function parityBoard(): Promise<ParityBoard> {
   const otherPhase = await engine.create({ parent: other.id, title: 'Far', type: 'phase' });
   await engine.create({ parent: otherPhase.id, title: 'Not ours', type: 'task' });
   return {
-    app: (bound) => createApp({ git: boundClone(bound), store: () => Promise.resolve(store) }),
+    app: (bound, argv) =>
+      createApp({
+        git: boundClone(bound),
+        store: () => Promise.resolve(store),
+        ...(argv === undefined ? {} : { argv: () => argv }),
+      }),
     close,
     engine,
     store,

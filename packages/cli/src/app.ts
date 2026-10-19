@@ -4,6 +4,8 @@
  * store, the project binding over the clone's git config, and the Loom
  * Application, and hands commands only the ports they read through.
  */
+import { createInterface } from 'node:readline/promises';
+
 import { Application, FatalError } from '@loomcli/core';
 import { format } from '@loomcli/plugins/format';
 import { help } from '@loomcli/plugins/help';
@@ -38,19 +40,27 @@ import {
 import type { BuiltStore, GitPort, Store } from '@mimir/core';
 
 import pkg from '../package.json';
+import { annotateCommand } from './commands/annotate';
 import { artifactsCommand } from './commands/artifacts';
+import { attachCommand } from './commands/attach';
+import { createCommand } from './commands/create';
+import { dependCommand, undependCommand } from './commands/depend';
 import { getCommand } from './commands/get';
+import { groomCommand } from './commands/groom';
 import { listCommand } from './commands/list';
 import { nextCommand } from './commands/next';
 import { overviewCommand } from './commands/overview';
+import { moveCommand, reorderCommand } from './commands/place';
 import { projectsCommand } from './commands/projects';
 import { scratchCommand } from './commands/scratch';
 import { searchCommand } from './commands/search';
 import { promoteCommand, rejectCommand, resolveCommand, seedCommand } from './commands/seed';
 import { seedsCommand } from './commands/seeds';
 import { statusCommand } from './commands/status';
+import { tagCommand, untagCommand } from './commands/tag';
 import { treeCommand } from './commands/tree';
 import { triageCommand } from './commands/triage';
+import { updateCommand } from './commands/update';
 import { defaultFormats } from './default-format';
 import { failures } from './failures';
 import type { Ports } from './ports';
@@ -61,6 +71,10 @@ export type CliSource = {
   store: () => Promise<Store>;
   /** The clone the binding is read from and written to. */
   git: GitPort;
+  /** Ask a yes/no question on the terminal; defaults to a prompt on this process's streams. */
+  confirm?: (question: string) => Promise<boolean>;
+  /** The words of the run, which a failure's hint reads; defaults to this process's. */
+  argv?: () => readonly string[];
 };
 
 /**
@@ -79,6 +93,19 @@ async function openStore(source: CliSource): Promise<Store> {
   }
 }
 
+/** A `[y/N]` prompt on stderr, answered on stdin. */
+async function promptYesNo(question: string): Promise<boolean> {
+  const lines = createInterface({
+    input: process.stdin,
+    output: process.stderr,
+  });
+  try {
+    return /^y(es)?$/i.test((await lines.question(`${question} [y/N] `)).trim());
+  } finally {
+    lines.close();
+  }
+}
+
 /** The ports over one source: one Engine, opened lazily and shared by every ask. */
 export function corePorts(source: CliSource): Ports {
   let engine: Promise<Engine> | undefined;
@@ -87,6 +114,7 @@ export function corePorts(source: CliSource): Ports {
     return engine;
   };
   return {
+    confirm: source.confirm ?? promptYesNo,
     engine: getEngine,
     grammar: {
       assertDates: assertDateFilters,
@@ -127,27 +155,41 @@ export function corePorts(source: CliSource): Ports {
  */
 export function createApp(source: CliSource) {
   const ports = corePorts(source);
-  return new Application('mimir', {
-    description: 'Query and manage work state.',
-    plugins: [failures(), help(), defaultFormats(), format({ short: 'f' })],
-    version: pkg.version,
-  })
-    .command(getCommand(ports))
-    .command(nextCommand(ports))
-    .command(listCommand(ports))
-    .command(projectsCommand(ports))
-    .command(statusCommand(ports))
-    .command(treeCommand(ports))
-    .command(overviewCommand(ports))
-    .command(artifactsCommand(ports))
-    .command(searchCommand(ports))
-    .command(seedsCommand(ports))
-    .command(seedCommand(ports))
-    .command(promoteCommand(ports))
-    .command(rejectCommand(ports))
-    .command(resolveCommand(ports))
-    .command(triageCommand(ports))
-    .command(scratchCommand(ports));
+  return (
+    new Application('mimir', {
+      description: 'Query and manage work state.',
+      plugins: [failures(source.argv), help(), defaultFormats(), format({ short: 'f' })],
+      version: pkg.version,
+    })
+      .command(getCommand(ports))
+      .command(nextCommand(ports))
+      .command(listCommand(ports))
+      .command(projectsCommand(ports))
+      .command(statusCommand(ports))
+      .command(treeCommand(ports))
+      .command(overviewCommand(ports))
+      .command(artifactsCommand(ports))
+      .command(searchCommand(ports))
+      .command(seedsCommand(ports))
+      .command(seedCommand(ports))
+      .command(promoteCommand(ports))
+      .command(rejectCommand(ports))
+      .command(resolveCommand(ports))
+      .command(triageCommand(ports))
+      .command(scratchCommand(ports))
+      // MMR-551: structure and node writes.
+      .command(createCommand(ports))
+      .command(updateCommand(ports))
+      .command(annotateCommand(ports))
+      .command(attachCommand(ports))
+      .command(dependCommand(ports))
+      .command(undependCommand(ports))
+      .command(moveCommand(ports))
+      .command(reorderCommand(ports))
+      .command(groomCommand(ports))
+      .command(tagCommand(ports))
+      .command(untagCommand(ports))
+  );
 }
 
 /** Run this process's argv against the configured store, then release the store. */
