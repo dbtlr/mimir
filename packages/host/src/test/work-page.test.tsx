@@ -272,6 +272,24 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
     expect(now).not.toHaveTextContent('Started');
   });
 
+  it('identifies each whole-task worker by session, even when they share a harness', async () => {
+    await open(
+      scope,
+      engineWork({
+        now: [
+          makeNowRow({ id: 'MMR-21', workerHarness: 'claude', workerSession: 'worker-alpha' }),
+          makeNowRow({ id: 'MMR-22', workerHarness: 'claude', workerSession: 'worker-beta' }),
+          makeNowRow({ id: 'MMR-23', workerHarness: null, workerSession: 'worker-gamma' }),
+        ],
+      }),
+    );
+
+    const now = await section('Now · 3');
+    expect(now).toHaveTextContent('worker claude worker-alpha');
+    expect(now).toHaveTextContent('worker claude worker-beta');
+    expect(now).toHaveTextContent('worker worker-gamma');
+  });
+
   it('lists what needs you with why, and the question a needs-answers task asks', async () => {
     await open(scope, engineWork({ needsYou: [reviewRow, blockedRow, answersRow] }));
 

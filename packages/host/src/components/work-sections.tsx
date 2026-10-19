@@ -74,7 +74,10 @@ export function NowRow({ row }: { row: NowTask }) {
             </span>
             {row.task.harness != null && <ContextPart>{row.task.harness}</ContextPart>}
             {row.task.workerSession != null && (
-              <ContextPart>worker {row.task.workerHarness ?? row.task.workerSession}</ContextPart>
+              <ContextPart>
+                worker {row.task.workerHarness != null && `${row.task.workerHarness} `}
+                {row.task.workerSession}
+              </ContextPart>
             )}
             {row.task.branch != null && <ContextPart mono>{row.task.branch}</ContextPart>}
             {row.scratchpads.length > 0 && <ContextPart>Scratchpad open</ContextPart>}

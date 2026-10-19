@@ -255,7 +255,8 @@ options:
       --worker-session <text> start/update: explicit distinct whole-task owner session
                           (all task-only resume handles are cleared on
                           done/abandon, unqueue, and on park/block; a blank
-                          on update clears one, except a queued session)
+                          on update clears one, except a queued session;
+                          blank worker-session clears both worker fields)
 
 machinery commands (the installation, host, or store — not the work itself):
   store upgrade | export <file> | import <file> [--apply] [--resume]

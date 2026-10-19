@@ -120,8 +120,9 @@ started that hits a question is blocked with `mimir block <id> --on you
   current task in scope is a task, even when the user says "park that".
 
 **Sweep before the session ends.** Run
-`mimir list --status in_progress --eq session:<main-session>` and, when you
-own tasks as a distinct worker,
+`mimir list --status in_progress --eq session:<main-session> --missing worker_session`
+for tasks you handle as the main agent. Tasks with a worker session remain
+that worker's responsibility. When you own tasks as a distinct worker, run
 `mimir list --status in_progress --eq worker_session:<worker-session>`.
 Settle every task you own: finish it, hand it forward with an `annotate`, or
 `park`, `block`, or `abandon` it. Also run
