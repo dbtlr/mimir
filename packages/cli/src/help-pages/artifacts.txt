@@ -1,0 +1,32 @@
+mimir artifacts · Read one project's artifact feed: frozen work products, newest first (KEY-aN).
+
+USAGE
+  mimir artifacts [options]
+
+OPTIONS
+  -s, --scope <KEY>                     The project to read. Defaults to the clone binding.
+  -t, --tag <tag>                       Only artifacts carrying this tag.
+      --before <created_at:DATE>        Only artifacts created before the date.  (repeatable)
+      --on <created_at:DATE>            Only artifacts created on the date.  (repeatable)
+      --after <created_at:DATE>         Only artifacts created after the date.  (repeatable)
+      --at-or-before <created_at:DATE>  Only artifacts created at or before the instant.  (repeatable)
+      --at-or-after <created_at:DATE>   Only artifacts created at or after the instant.  (repeatable)
+      --tz <IANA>                       Your zone: what a bare YYYY-MM-DD means, and what table and records render. Defaults to this machine's.
+  -q, --query <text>                    A case-insensitive substring of the title.
+  -n, --limit <n>                       Cap the result count.
+      --offset <n>                      Rows to skip: pages the newest-first feed.
+      --ascii                           Print without color, in ASCII glyphs.
+  -f, --format <format>                 Select the output format, table by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir artifacts
+    the bound project, newest first
+  $ mimir artifacts -s MMR -t session_summary
+    session retrospectives
+  $ mimir artifacts --at-or-after created_at:2026-07-01 -q auth
+    windowed
+  $ mimir artifacts -f ids
+    the newest ids, for a get

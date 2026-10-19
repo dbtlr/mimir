@@ -1,0 +1,20 @@
+mimir tree · Read the full subtree rooted at a node (KEY-seq) or project (KEY).
+
+USAGE
+  mimir tree <id> [options]
+
+ARGUMENTS
+  id  KEY-seq or KEY.
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir tree MMR
+    the full hierarchy under the project
+  $ mimir tree MMR-3
+    the subtree rooted at a phase or initiative

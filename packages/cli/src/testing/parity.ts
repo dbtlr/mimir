@@ -1,5 +1,3 @@
-import { runCli } from '@mimir/bin/src/cli';
-import { fakeIo } from '@mimir/bin/src/cli/testing';
 /**
  * The parity harness. Each case runs through the old CLI's `runCli` and the new
  * CLI over one store, by name through `app.invoke` or as a literal argv through
@@ -11,18 +9,26 @@ import { fakeIo } from '@mimir/bin/src/cli/testing';
  *   difference entry lists;
  * - a failure compares by exit code, code, message, and hints, except a fault
  *   Loom's parser raises in its own voice, which a difference entry names and
- *   which compares by exit code alone.
+ *   which compares by exit code alone, except a misplaced or retired flag,
+ *   which also compares its redirect hint;
  *
  * Two differences every case carries are normalized, not listed: help's
  * pointer hint on an argv failure, and Loom's style resets on a terminal.
  * Help is pinned on its own, never compared. Test-only.
  */
+import { afterAll, beforeAll, expect, test } from 'bun:test';
+
+import { runCli } from '@mimir/bin/src/cli';
+import { fakeIo } from '@mimir/bin/src/cli/testing';
 import type { Store } from '@mimir/core';
 import { parseJson } from '@mimir/helpers';
 
 import type { createApp } from '../app';
-import { HELP_POINTER, LOOM_RESETS } from '../parity/differences';
+import { HELP_POINTER, LOOM_RESETS, PARITY_DIFFERENCES } from '../parity/differences';
 import type { ParityDifference } from '../parity/differences';
+import { compactJson } from '../render/views';
+import { parityBoard } from './fixture';
+import type { ParityBoard } from './fixture';
 import { runArgv } from './run';
 
 type App = ReturnType<typeof createApp>;
@@ -265,6 +271,86 @@ function loomVoiceProblems(old: ParityRun, next: ParityRun): string[] {
   return problems;
 }
 
+/** `c` run under `--format json`, the document a `jsonl` line must be the compact form of. */
+export function jsonVariant(c: ParityCase): ParityCase {
+  return c.argv === undefined
+    ? { ...c, options: { ...c.options, format: 'json' } }
+    : { ...c, argv: underJson(c.argv) };
+}
+
+/**
+ * A `flag-redirect` entry: both CLIs refuse a flag the command does not own,
+ * Loom with its own unknown-option message and code, and the hints are the old
+ * CLI's redirect, so they and the exit code compare.
+ */
+function flagRedirectProblems(old: ParityRun, next: ParityRun): string[] {
+  const problems =
+    old.exitCode === next.exitCode
+      ? []
+      : [`exit code: old ${String(old.exitCode)}, new ${String(next.exitCode)}`];
+  if (old.failure === undefined) {
+    return [...problems, 'a flag-redirect entry names a case the old CLI did not refuse'];
+  }
+  problems.push(...loomFaultProblems(next.failure));
+  if (
+    next.failure !== undefined &&
+    JSON.stringify(old.failure.hints) !== JSON.stringify(next.failure.hints)
+  ) {
+    problems.push(
+      `failure hints: old ${JSON.stringify(old.failure.hints)}, new ${JSON.stringify(next.failure.hints)}`,
+    );
+  }
+  return problems;
+}
+
+/** A `new-view` entry: the new CLI exits 0 and prints each line as the compact form of its `-f json` document. */
+function newViewProblems(old: ParityRun, next: ParityRun, json: ParityRun | undefined): string[] {
+  if (next.exitCode !== 0) {
+    return [`a new-view entry needs the new CLI to exit 0, not ${String(next.exitCode)}`];
+  }
+  if (old.exitCode === 0 && old.stdout === next.stdout) {
+    return ['a new-view entry names outputs that match; remove it'];
+  }
+  if (json === undefined || json.exitCode !== 0) {
+    return ['a new-view entry needs the same case to exit 0 under -f json'];
+  }
+  const compact = compactJson(parseJson(json.stdout));
+  const lines = next.stdout.split('\n').filter((line) => line !== '');
+  return lines.length > 0 && lines.every((line) => line === compact)
+    ? []
+    : ['a new-view entry needs every output line to be the compact form of its -f json document'];
+}
+
+/** The record ids an output names: `KEY-seq`, `KEY-aN`, `KEY-sN`, and pad UUIDs. */
+function idsOf(stdout: string): Set<string> {
+  const pattern = /\b[A-Z][A-Z0-9]*-[as]?\d+\b|\b[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}\b/g;
+  return new Set(Array.from(stdout.matchAll(pattern), (match) => match[0]));
+}
+
+/**
+ * A `board-read` entry: the old CLI accepted; the new one refuses with a Mimir
+ * code, or exits 0 on the one board it names, so its ids are a subset of the
+ * old CLI's wider read.
+ */
+function boardReadProblems(old: ParityRun, next: ParityRun): string[] {
+  if (old.exitCode !== 0) {
+    return ['a board-read entry names a case the old CLI refused'];
+  }
+  if (next.exitCode === 0) {
+    if (old.stdout === next.stdout) {
+      return ['a board-read entry names outputs that match; remove it'];
+    }
+    const wider = idsOf(old.stdout);
+    const extra = [...idsOf(next.stdout)].filter((id) => !wider.has(id));
+    return extra.length === 0
+      ? []
+      : [`a board-read entry needs the new ids within the old ids; extra: ${extra.join(', ')}`];
+  }
+  return next.failure !== undefined && MIMIR_CODES.has(next.failure.code)
+    ? []
+    : ['a board-read entry needs the new refusal to carry a Mimir code'];
+}
+
 /**
  * Every way a case breaks the parity rule; empty when it holds. `differences`
  * is the checked-in list, and an entry that matches nothing is itself a break.
@@ -275,10 +361,20 @@ export function parityProblems(
   old: ParityRun,
   next: ParityRun,
   differences: readonly ParityDifference[],
+  json?: ParityRun,
 ): string[] {
   const entry = differences.find((d) => d.case === c.name);
   if (entry?.kind === 'loom-refusal') {
     return loomRefusalProblems(old, next);
+  }
+  if (entry?.kind === 'flag-redirect') {
+    return flagRedirectProblems(old, next);
+  }
+  if (entry?.kind === 'new-view') {
+    return newViewProblems(old, next, json);
+  }
+  if (entry?.kind === 'board-read') {
+    return boardReadProblems(old, next);
   }
   const problems: string[] = [];
   if (old.exitCode !== next.exitCode) {
@@ -330,4 +426,45 @@ export function parityProblems(
     );
   }
   return problems;
+}
+
+/** What a parity file's setup returns: how to rewrite each case once the board exists, if it must. */
+type CaseRewrite = (c: ParityCase) => ParityCase;
+
+/**
+ * Register one command's parity tests: every case runs through both CLIs over
+ * a fresh board, and every checked-in difference entry whose case `owner`
+ * matches must name one of `cases`, so a stale entry fails. `setup` fills the
+ * board before the cases run, and may return a rewrite for the cases that name
+ * what only the board knows, such as a generated id.
+ */
+export function parityCases(
+  owner: RegExp,
+  cases: readonly ParityCase[],
+  setup?: (board: ParityBoard) => Promise<CaseRewrite | undefined>,
+): void {
+  let board: ParityBoard;
+  let rewrite: CaseRewrite | undefined;
+  beforeAll(async () => {
+    board = await parityBoard();
+    rewrite = await setup?.(board);
+  });
+  afterAll(async () => {
+    await board.close();
+  });
+
+  test.each([...cases])('parity: $name', async (c) => {
+    const run = rewrite === undefined ? c : rewrite(c);
+    const old = await runOld(board.store, run);
+    const now = await runNew(board.app(c.bound), run);
+    const isNewView = PARITY_DIFFERENCES.some((d) => d.case === c.name && d.kind === 'new-view');
+    const json = isNewView ? await runNew(board.app(c.bound), jsonVariant(run)) : undefined;
+    expect(parityProblems(board.app(), c, old, now, PARITY_DIFFERENCES, json)).toEqual([]);
+  });
+
+  test(`every difference entry for ${String(owner)} names a case`, () => {
+    const names = new Set(cases.map((c) => c.name));
+    const stale = PARITY_DIFFERENCES.filter((d) => owner.test(d.case) && !names.has(d.case));
+    expect(stale).toEqual([]);
+  });
 }

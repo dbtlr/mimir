@@ -1,0 +1,18 @@
+mimir status · Read the rollup status and distribution of a node (KEY-seq) or project (KEY).
+
+USAGE
+  mimir status <id> [options]
+
+ARGUMENTS
+  id  KEY-seq or KEY.
+
+OPTIONS
+      --ascii            Print without color, in ASCII glyphs.
+  -f, --format <format>  Select the output format, json by default. One of: json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir status MMR-3
+    the rollup of an initiative or phase

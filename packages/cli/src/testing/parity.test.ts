@@ -70,3 +70,31 @@ test('a loom-refusal entry over a case the new CLI accepts is stale', () => {
     'a loom-refusal entry names a case the new CLI accepts (exit 0); remove it',
   ]);
 });
+
+const boardRead: ParityDifference[] = [{ case: c.name, kind: 'board-read', reason: 'one board' }];
+const printed = (...ids: string[]): ParityRun => ({ exitCode: 0, stdout: `${ids.join('\n')}\n` });
+
+test('a board-read entry holds when the new ids are a subset of the old ids', () => {
+  expect(parityProblems(app, c, printed('MMR-1', 'XX-1'), printed('MMR-1'), boardRead)).toEqual([]);
+});
+
+test('a board-read entry refuses a new id the old read never showed', () => {
+  expect(parityProblems(app, c, printed('MMR-1'), printed('MMR-1', 'XX-9'), boardRead)).toEqual([
+    'a board-read entry needs the new ids within the old ids; extra: XX-9',
+  ]);
+});
+
+const newView: ParityDifference[] = [{ case: c.name, kind: 'new-view', reason: 'jsonl' }];
+const json: ParityRun = { exitCode: 0, stdout: '{\n  "id": "MMR-3"\n}\n' };
+
+test('a new-view entry holds when each line is the compact form of the json document', () => {
+  const line: ParityRun = { exitCode: 0, stdout: '{"id":"MMR-3"}\n' };
+  expect(parityProblems(app, c, oldUsage, line, newView, json)).toEqual([]);
+});
+
+test('a new-view entry refuses a line that is not the json document compacted', () => {
+  const other: ParityRun = { exitCode: 0, stdout: '{"id":"MMR-4"}\n' };
+  expect(parityProblems(app, c, oldUsage, other, newView, json)).toEqual([
+    'a new-view entry needs every output line to be the compact form of its -f json document',
+  ]);
+});

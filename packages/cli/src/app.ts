@@ -4,29 +4,48 @@
  * store, the project binding over the clone's git config, and the Loom
  * Application, and hands commands only the ports they read through.
  */
-import { Application } from '@loomcli/core';
+import { Application, FatalError } from '@loomcli/core';
 import { format } from '@loomcli/plugins/format';
 import { help } from '@loomcli/plugins/help';
+import { MimirError } from '@mimir/contract';
 import type { Engine } from '@mimir/contract';
 import {
+  artifactSummaryToWire,
   artifactToWire,
   assertDateFilters,
   bindingScope,
   buildStore,
+  dateFilterWindows,
   gitPortAt,
   LocalEngine,
+  MAX_SEARCH_LIMIT,
   nodeToWire,
+  overviewScratchpadToWire,
+  overviewToWire,
+  parseDateFilterTokens,
   parseFilterToken,
   parseIdentity,
   requireTimeZone,
+  scratchpadToWire,
+  searchHitToWire,
   seedToWire,
   setToWire,
+  treeToWire,
 } from '@mimir/core';
 import type { BuiltStore, GitPort, Store } from '@mimir/core';
 
 import pkg from '../package.json';
+import { artifactsCommand } from './commands/artifacts';
 import { getCommand } from './commands/get';
+import { listCommand } from './commands/list';
 import { nextCommand } from './commands/next';
+import { overviewCommand } from './commands/overview';
+import { projectsCommand } from './commands/projects';
+import { scratchCommand } from './commands/scratch';
+import { searchCommand } from './commands/search';
+import { seedsCommand } from './commands/seeds';
+import { statusCommand } from './commands/status';
+import { treeCommand } from './commands/tree';
 import { defaultFormats } from './default-format';
 import { failures } from './failures';
 import type { Ports } from './ports';
@@ -39,23 +58,57 @@ export type CliSource = {
   git: GitPort;
 };
 
+/**
+ * Open the source's store. A plain Error from opening it (a config fault, an
+ * unregistered Postgres install) would reach the user as Loom's generic
+ * internal failure, so it becomes a FatalError that carries its message.
+ */
+async function openStore(source: CliSource): Promise<Store> {
+  try {
+    return await source.store();
+  } catch (error) {
+    if (error instanceof Error && !(error instanceof MimirError)) {
+      throw new FatalError(error.message, { cause: error });
+    }
+    throw error;
+  }
+}
+
 /** The ports over one source: one Engine, opened lazily and shared by every ask. */
 export function corePorts(source: CliSource): Ports {
   let engine: Promise<Engine> | undefined;
   const getEngine = (): Promise<Engine> => {
-    engine ??= (async () => new LocalEngine(await source.store()))();
+    engine ??= (async () => new LocalEngine(await openStore(source)))();
     return engine;
   };
   return {
     engine: getEngine,
     grammar: {
       assertDates: assertDateFilters,
+      dateFilters: (tokens, field, zone) => {
+        const filters = parseDateFilterTokens((op) => tokens[op], field);
+        // Resolved now and the window thrown away: a bad date is refused before the store opens.
+        dateFilterWindows(filters, zone);
+        return filters;
+      },
       filterToken: parseFilterToken,
       idKind: (token) => parseIdentity(token)?.kind,
+      maxSearchLimit: MAX_SEARCH_LIMIT,
       timeZone: requireTimeZone,
     },
     scope: (notify) => bindingScope(getEngine, source.git, notify)(),
-    wire: { artifact: artifactToWire, node: nodeToWire, seed: seedToWire, set: setToWire },
+    wire: {
+      artifact: artifactToWire,
+      artifactSummary: artifactSummaryToWire,
+      node: nodeToWire,
+      overview: overviewToWire,
+      scratchRow: overviewScratchpadToWire,
+      scratchpad: scratchpadToWire,
+      searchHit: searchHitToWire,
+      seed: seedToWire,
+      set: setToWire,
+      tree: treeToWire,
+    },
   };
 }
 
@@ -72,7 +125,16 @@ export function createApp(source: CliSource) {
     version: pkg.version,
   })
     .command(getCommand(ports))
-    .command(nextCommand(ports));
+    .command(nextCommand(ports))
+    .command(listCommand(ports))
+    .command(projectsCommand(ports))
+    .command(statusCommand(ports))
+    .command(treeCommand(ports))
+    .command(overviewCommand(ports))
+    .command(artifactsCommand(ports))
+    .command(searchCommand(ports))
+    .command(seedsCommand(ports))
+    .command(scratchCommand(ports));
 }
 
 /** Run this process's argv against the configured store, then release the store. */
