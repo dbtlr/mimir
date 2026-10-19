@@ -70,6 +70,7 @@ test('store upgrade on the default sqlite install opens the database and reports
         '0004_seed_parked',
         '0005_project_pinned',
         '0006_project_remote',
+        '0007_task_queued',
       ],
       from: 0,
       to: SCHEMA_VERSION,
@@ -88,14 +89,14 @@ test('store upgrade creates the schema, then reports it already current', async 
       await cmdStore(['store', 'upgrade'], {}, io, pg.deps(POSTGRES), 'records', noStore),
     ).toBe(0);
     expect(io.out.join('\n')).toContain(
-      'store: schema upgraded from 0 to 6 (0001_init, 0002_grooming, 0003_block_owner, 0004_seed_parked, 0005_project_pinned, 0006_project_remote)',
+      'store: schema upgraded from 0 to 7 (0001_init, 0002_grooming, 0003_block_owner, 0004_seed_parked, 0005_project_pinned, 0006_project_remote, 0007_task_queued)',
     );
 
     const again = fakeIo();
     expect(
       await cmdStore(['store', 'upgrade'], {}, again, pg.deps(POSTGRES), 'records', noStore),
     ).toBe(0);
-    expect(again.out.join('\n')).toContain('store: schema at version 6 (already current)');
+    expect(again.out.join('\n')).toContain('store: schema at version 7 (already current)');
     expect(pg.opened).toEqual([POSTGRES.store.url ?? '', POSTGRES.store.url ?? '']);
   } finally {
     await pg.db.destroy();
@@ -118,9 +119,10 @@ test('json format emits the upgrade report', async () => {
         '0004_seed_parked',
         '0005_project_pinned',
         '0006_project_remote',
+        '0007_task_queued',
       ],
       from: 0,
-      to: 6,
+      to: 7,
     });
   } finally {
     await pg.db.destroy();
@@ -184,7 +186,7 @@ test('a schema newer than the binary is the migrator refusal, not a silent downg
       message = error instanceof Error ? error.message : String(error);
     }
     expect(message).toContain('the Postgres store schema is version 99');
-    expect(message).toContain('this binary reads version 6');
+    expect(message).toContain('this binary reads version 7');
     // Nothing moved: the store is still on 99.
     const rows = await sql<{
       version: number;

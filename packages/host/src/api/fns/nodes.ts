@@ -78,10 +78,17 @@ export const annotate = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => (await engine()).annotate(data));
 
-/** Start a task: todo to in progress, claiming it with the resume handles. */
+/** Start a ready or queued task with the worker’s resume handles. */
 export const start = createServerFn({ method: 'POST' })
   .validator((input: EngineInput<'start'>) => parseEngineInput(engineSchemas.start.input, input))
   .handler(async ({ data }) => (await engine()).start(data));
+
+/** Release a run’s reservation with a cancellation reason. */
+export const unqueue = createServerFn({ method: 'POST' })
+  .validator((input: EngineInput<'unqueue'>) =>
+    parseEngineInput(engineSchemas.unqueue.input, input),
+  )
+  .handler(async ({ data }) => (await engine()).unqueue(data));
 
 /** Submit a task for review. */
 export const submit = createServerFn({ method: 'POST' })

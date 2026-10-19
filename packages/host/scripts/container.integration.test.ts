@@ -180,7 +180,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     const version = z
       .object({ version: z.string() })
       .parse(await Bun.file(new URL('../../bin/package.json', import.meta.url)).json()).version;
-    expect(await getJson(base, '/health')).toEqual({ schema: 6, status: 'ok', version });
+    expect(await getJson(base, '/health')).toEqual({ schema: 7, status: 'ok', version });
     const healthHead = await fetch(`${base}/health`, { method: 'HEAD' });
     expect(healthHead.status).toBe(200);
     expect(await healthHead.text()).toBe('');
@@ -451,7 +451,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     expect(await new RemoteEngine({ url: `${base}/trpc` }).projects({})).toEqual([]);
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0005_project_pinned');
     await docker(['rm', '--force', postgresHost]);
-    await sql('INSERT INTO schema_version (version, applied_at) VALUES (7, now());');
+    await sql('INSERT INTO schema_version (version, applied_at) VALUES (8, now());');
     await runPostgresHost();
     expect(await docker(['wait', postgresHost], 10_000)).not.toBe('0');
     expect(await docker(['logs', postgresHost])).toContain('update the image');

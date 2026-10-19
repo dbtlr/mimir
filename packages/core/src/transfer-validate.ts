@@ -146,6 +146,9 @@ function assertReferences(document: StoreExport): void {
     if (node.block_owner !== null && node.hold !== 'blocked') {
       faults.push(`node ${node.id}.block_owner is set only while the hold is blocked`);
     }
+    if (node.lifecycle === 'queued' && (node.session === null || node.session.trim() === '')) {
+      faults.push(`node ${node.id}.session is required while queued`);
+    }
     if (node.upstream !== null && !isSeedRef(node.upstream)) {
       faults.push(`node ${node.id}.upstream must be a seed identity`);
     }

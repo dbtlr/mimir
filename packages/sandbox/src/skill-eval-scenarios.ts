@@ -52,16 +52,19 @@ export type Scenario = {
 const transitionSchema = z.object({
   at: z.string(),
   from: z.string(),
+  handles: z.object({ harness: z.string().optional(), session: z.string().optional() }).optional(),
   kind: z.string(),
   reason: z.string().nullable(),
   to: z.string(),
 });
 const taskSchema = z.object({
   description: z.string().nullable().optional(),
+  harness: z.string().nullable().optional(),
   history: z.array(transitionSchema).optional().default([]),
   hold: z.string(),
   id: z.string(),
   lifecycle: z.string(),
+  session: z.string().nullable().optional(),
   title: z.string(),
   upstream: z.string().nullable(),
 });
@@ -94,6 +97,21 @@ const seeds = async (e: Evidence, project: string): Promise<z.infer<typeof seedS
 /** The agent ran this verb (and subcommand) for real; a help lookup does not count. */
 const called = (e: Evidence, verb: string, sub?: string): boolean =>
   e.calls.some((c) => !c.help && c.verb === verb && (sub === undefined || c.sub === sub));
+
+const hasExplicitHandle = (args: string[], flag: string): boolean => {
+  const end = args.indexOf('--');
+  const options = end === -1 ? args : args.slice(0, end);
+  const i = options.findLastIndex((word) => word === flag || word.startsWith(`${flag}=`));
+  const word = options[i];
+  const value = word === flag ? options[i + 1] : word?.slice(flag.length + 1);
+  return value !== undefined && value.trim() !== '' && !value.startsWith('--');
+};
+
+/** A simple shell variable stays opaque; the exact task histories prove which tasks it affected. */
+const matchesTaskOperand = (operand: string | undefined, id: string | undefined): boolean =>
+  id !== undefined &&
+  operand !== undefined &&
+  (operand === id || /^\$(?:[A-Za-z_]\w*|\{[A-Za-z_]\w*\})$/.test(operand));
 const file = (e: Evidence, path: string): string => readFileSync(join(e.work, path), 'utf8');
 const newTasks = async (e: Evidence, project: string): Promise<TaskView[]> =>
   (await tasks(e, project)).filter((t) => !Object.values(e.ids).includes(t.id));
@@ -129,6 +147,98 @@ export const UNIVERSAL_CHECKS: readonly Check[] = [
 ];
 
 export const SCENARIOS: readonly Scenario[] = [
+  {
+    bind: 'QEV',
+    checks: [
+      {
+        name: 'passes explicit run and worker handles',
+        test: (e) => {
+          const required = [
+            ['queue', e.ids.started],
+            ['queue', e.ids.cancelled],
+            ['start', e.ids.started],
+          ];
+          const writes = e.calls.filter(
+            (c) => !c.help && (c.verb === 'queue' || c.verb === 'start'),
+          );
+          const ordered = required.map(([verb, id]) =>
+            writes.findIndex((c) => c.verb === verb && matchesTaskOperand(c.args[0], id)),
+          );
+          const [first, second, started] = ordered;
+          return (
+            first !== undefined &&
+            second !== undefined &&
+            started !== undefined &&
+            first >= 0 &&
+            second >= 0 &&
+            started > Math.max(first, second) &&
+            writes.every(
+              (c) =>
+                hasExplicitHandle(c.args, '--harness') && hasExplicitHandle(c.args, '--session'),
+            )
+          );
+        },
+      },
+      {
+        name: 'records the run and worker succession',
+        test: async (e) => {
+          const started = await task(e, e.ids.started ?? '');
+          const lifecycle = started.history.filter((h) => h.kind === 'lifecycle');
+          const [queued, working] = lifecycle;
+          return (
+            started.lifecycle === 'in_progress' &&
+            started.hold === 'none' &&
+            started.harness === 'claude' &&
+            started.session === 'eval-worker-session' &&
+            lifecycle.length === 2 &&
+            queued?.from === 'todo' &&
+            queued.to === 'queued' &&
+            queued.handles?.harness === 'codex' &&
+            queued.handles.session === 'eval-run-session' &&
+            working?.from === 'queued' &&
+            working.to === 'in_progress' &&
+            working.handles?.harness === 'claude' &&
+            working.handles.session === 'eval-worker-session'
+          );
+        },
+      },
+      {
+        name: 'releases the cancelled reservation with a reason',
+        test: async (e) => {
+          const cancelled = await task(e, e.ids.cancelled ?? '');
+          const lifecycle = cancelled.history.filter((h) => h.kind === 'lifecycle');
+          const [queued, released] = lifecycle;
+          return (
+            cancelled.lifecycle === 'todo' &&
+            cancelled.hold === 'none' &&
+            cancelled.harness === null &&
+            cancelled.session === null &&
+            lifecycle.length === 2 &&
+            queued?.from === 'todo' &&
+            queued.to === 'queued' &&
+            queued.handles?.harness === 'codex' &&
+            queued.handles.session === 'eval-run-session' &&
+            released?.from === 'queued' &&
+            released.to === 'todo' &&
+            (released.reason?.trim().length ?? 0) > 0 &&
+            released.handles?.harness === 'codex' &&
+            released.handles.session === 'eval-run-session'
+          );
+        },
+      },
+    ],
+    files: {},
+    name: 'queue-run',
+    prompt: (ids) =>
+      `Record this autonomous run's lifecycle in Mimir. The orchestrator is codex session eval-run-session and reserves ${ids.started} and ${ids.cancelled}. Then a claude worker in session eval-worker-session picks up ${ids.started} and is still working on it. The rest of the run is cancelled before ${ids.cancelled} gets a worker; release that reservation with the cancellation reason. These are supplied run and worker identities for this exercise. Make the tracker changes on their behalf; no code edits, completion, or session summary is needed.`,
+    setup: async (mimir) => {
+      const core = await evalBoard(mimir);
+      return {
+        cancelled: await createTask(mimir, core, 'Document the public API'),
+        started: await createTask(mimir, core, 'Wire the health endpoint'),
+      };
+    },
+  },
   {
     bind: 'QEV',
     checks: [

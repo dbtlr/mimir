@@ -23,7 +23,7 @@ Commands differ in **one axis only — how they identify rows.** Everything down
 
 Supersedes `--predicate`. Three orthogonal pieces, AND-composed; **no OR** (accepted — `--in` covers within-field any-of). The DTO field renames `state` → **`status`** in the same stroke (one word on every surface; ADR 0008 Refinement).
 
-- **`--status <word>`** — the selection **universe**. Vocabulary = the closed status words (`ready` `awaiting` `in_progress` `blocked` `parked` `done` `abandoned`) + unions: **`live`** (the default — today's misnamed `all`), **`terminal`**, **`all`** (now honestly everything). Terminal selections order by `completed_at` desc (no rank outside the rankable set).
+- **`--status <word>`** — the selection **universe**. Vocabulary = the closed status words (`ready` `awaiting` `queued` `in_progress` `under_review` `blocked` `parked` `done` `abandoned`) + unions: **`live`** (the default — today's misnamed `all`), **`terminal`**, **`all`** (now honestly everything). Terminal selections order by `completed_at` desc (no rank outside the rankable set).
 - **`--is <verdict>` / `--not-is`** — the derived verdicts that aren't statuses: `stale`, `blocking`, `orphaned` (future `buried`). Repeatable.
 - **Field operators** — Norn's dogfooded `find` dialect, ported verbatim: `--eq`/`--not-eq FIELD:VALUE` · `--in`/`--not-in FIELD:V1,V2` (ANY-of) · `--has`/`--missing FIELD` · the five date ops `--on`/`--before`/`--after`/`--at-or-before`/`--at-or-after FIELD:DATE` ([ADR 0029](decisions/0029-caller-zoned-date-semantics.md)). Repeatable, AND-ed. **Queryable fields = the projection's bare fields** (no second vocabulary). **`tag` is a multi-valued pseudo-field**: `eq` = contains, `in` = any, `not-in` = none, `missing` = untagged.
 - **Date filters are caller-zoned** — one grammar for every date-bearing resource: the three node timestamps, an artifact's `created_at`, a seed's `created_at`. A bare `YYYY-MM-DD` is the **caller's** calendar day, resolved through one request-wide IANA timezone — the CLI's `--tz` (default: the invoking system's zone), MCP's `tz` argument, the browser's detected zone from the console. MCP and the Engine **refuse** a bare date with no zone. Windows are half-open (`on` runs from the day's opening instant up to the next day's, so a 23- or 25-hour DST day is exactly that long); `after` starts at the next day's opening instant and `at-or-before` ends there. A timestamp must carry `Z` or a numeric offset — zone-less is refused — and `before`/`after` are strict where `at-or-before`/`at-or-after` include the instant. `on` takes a bare date only.
@@ -80,7 +80,7 @@ One **flat, closed** vocabulary on every selection front-end — _the dot-facet 
 | `description`                                | all   |                                                                                                                                                             |
 | `priority`                                   | task  | `p0`–`p3` or null (signal, ADR 0007)                                                                                                                        |
 | `size`                                       | task  | `small` \| `medium` \| `large` or null                                                                                                                      |
-| `lifecycle`                                  | task  | raw axis — `todo` \| `in_progress` \| `done` \| `abandoned`                                                                                                 |
+| `lifecycle`                                  | task  | raw axis — `todo` \| `queued` \| `in_progress` \| `under_review` \| `done` \| `abandoned`                                                                                                 |
 | `hold`                                       | task  | raw axis — `none` \| `blocked` \| `parked`                                                                                                                  |
 | `hold_reason`                                | task  | or null                                                                                                                                                     |
 | `block_owner`                                | task  | who can clear a block (ADR 0001, `MMR-438`) — `you` \| `others` while `hold` is `blocked`, otherwise null; `--eq block_owner:you` filters; absent on a container |
@@ -234,7 +234,7 @@ never stale, so it is always false on `shipped` rows). `type` on each row
 tells a task from a container.
 
 - `scope`: `{ kind, id, title }`, where `kind` is `project`, `initiative`, or `phase`.
-- `now`: in-progress tasks. Adds `started_at` (the latest start or reopen),
+- `now`: queued or in-progress tasks. Adds `started_at` (the latest queue, start, or reopen),
   `latest_note` (`{ content, created_at }` or `null`), and `scratchpads`
   (`[{ id, title }]`, the active Scratchpads anchored to the task). The agent
   context (`harness`, `branch`, `host`, `session`, `external_ref`) is on the
@@ -295,7 +295,7 @@ refusal. Field names follow the work page's convention above.
 - `projects`: every active project, pinned first, then newest `last_activity_at`
   first, then key. Each carries `key`, `name`, and counts: `decisions`, `triage`
   (untriaged seeds + going cold + `doctor` findings), `in_flight` (status
-  `in_progress`), `live` (the `--status live` group: every status other than
+  `queued` or `in_progress`), `live` (the `--status live` group: every status other than
   `done` and `abandoned`, so parked work counts), and `going_cold` (tasks past the stale threshold).
 
 ## Doctor diagnostics
@@ -357,12 +357,12 @@ Mutations are high-level verbs (never a raw `status` patch — glossary **Lifecy
 
 | concern          | verb(s)                                                   | notes                                                                                                          |
 | ---------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| lifecycle        | `start` · `done` · `abandon(reason?)`                     | `done` stamps `completed_at`; `abandon` reason → transition log                                                |
-| hold             | `park(reason?)` · `unpark` · `block(reason?, on?)` · `unblock` | sets/clears the `hold` overlay; never touches lifecycle. `block`'s `on` is `you` \| `others` (who can clear it); omitted, it is `others` when the task has an `upstream`, else `you`. `unblock` and `park` leave no owner. A held task is refused, so changing an owner is `unblock` then `block` |
+| lifecycle        | `queue(session)` · `unqueue(reason)` · `start` · `submit` · `return(reason?)` · `done` · `abandon(reason?)` · `reopen(reason?)`                     | `queue` reserves todo work; `start` accepts todo or queued; `unqueue` requires a reason and clears handles; `done` stamps `completed_at`; reasons ride the transition log                                                |
+| hold             | `park(reason?)` · `unpark` · `block(reason?, on?)` · `unblock` | sets/clears the `hold` overlay; never touches lifecycle. `block`'s `on` is `you` \| `others` (who can clear it); omitted, it is `others` when the task has an `upstream`, else `you`. `unblock` and `park` leave no owner. Queued tasks must be unqueued first. A held task is refused, so changing an owner is `unblock` then `block` |
 | grooming         | `groom(ids, state, note?)`                                | sets the stored grooming judgment on tasks (ADR 0033); `needs_answers` requires the note; never touches lifecycle or hold, writes no transition-log row |
 | dependency edges | `depend(id, --on ids)` · `undepend`                       | **not** `block` — edges produce derived `awaiting`/`blocking`; the spec's `block_task`-for-edges is superseded |
 | structural       | `move(id, --to parent)`                                   | validates cycle/type                                                                                           |
-| data             | `update(id, fields)`                                      | dumb scalar patch; `status` excluded                                                                           |
+| data             | `update(id, fields)`                                      | scalar patch; `status` excluded; a queued session cannot be cleared                                                                           |
 
 - **Every mutation echoes the affected node** in the **lean projection** (`id, title, state, priority, size`) — a write needs no follow-up `get` (Norn's "prevent the extra turn"). In `--json` it returns the bare node object, **not** the set wrapper. (`attach` echoes the artifact id `{"artifact":{"id"}}`; `create project` echoes `{"project":{"key","name"}}` — the two echo exceptions.)
 - Every status-bearing verb appends its history entry in the same per-document atomic write as the state change (ADR 0003). A plan spanning independent documents may partially succeed and follows ADR 0023's verify-and-retry contract rather than cross-document rollback.
@@ -431,3 +431,14 @@ Errors flow through the same selection→format pipeline as success, but **strea
 The former build-time TBDs are settled and implemented (merged 2026-06-05; mimir-build-roadmap Phase 3): the **error envelope** + stream discipline (§Error rendering), the **exit-code taxonomy** (§Exit codes), and the **per-verb argument shapes** (§Verb surface). The intent verb list is the verbs in the Write contract. The CLI `--json` _input_ form was declined (YAGNI) — MCP is the structured-input path; the CLI takes flags/positionals (with stdin for `annotate`/`attach` content only). Known minor debt carried forward: an empty/blank required flag token (e.g. `--on ""`) resolves to `not_found`/exit 1 rather than `usage`/exit 2.
 
 - **Per-format worked examples** for each command.
+
+## Queued run reservations (MMR-564)
+
+`queue <id> --session <run-id>` reserves an unheld todo task. Its harness, host,
+branch, and session flags carry the run's handles. `start <id>` accepts a queued
+task and replaces those handles with the worker's. `unqueue <id> "reason"`
+returns the reservation to todo, clearing handles and logging what was cleared.
+Queue and unqueue are also uniform Engine methods and MCP tools; their required
+session and reason inputs are validated on every surface. Queued work appears
+in `list --status queued`, the console's Now section, and stale hygiene, while
+`next` excludes it.

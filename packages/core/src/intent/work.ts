@@ -177,14 +177,18 @@ function frontierPrereqs(set: DerivationSet, node: Node): NodeRef[] | undefined 
 export const latestOf = <T>(items: readonly T[] | undefined): T | undefined => items?.at(-1);
 
 /**
- * When the task last started: its latest move into in_progress that did not come
- * back from review. A start and a reopen count; a return from review continues
+ * When the task was reserved or last started: its latest move into in_progress that did not come
+ * back from review. A queue, start, and reopen count; a return from review continues
  * the same run of work.
  */
 function startedAtOf(task: Node, history: readonly HistoryEntry[]): string {
   const start = latestOf(
     history.filter(
-      (h) => h.kind === 'lifecycle' && h.to === 'in_progress' && h.from !== 'under_review',
+      (h) =>
+        h.kind === 'lifecycle' &&
+        (task.lifecycle === 'queued'
+          ? h.to === 'queued'
+          : h.to === 'in_progress' && h.from !== 'under_review'),
     ),
   );
   return start?.at ?? task.updated_at;
@@ -347,7 +351,7 @@ export function classifyWork(
   for (const node of tasks.toSorted(byRankOrder(set))) {
     const word = nodeStatusWord(set, node);
     const needsYouReason = needsYouReasonOf(node, word);
-    if (word === 'in_progress') {
+    if (word === 'in_progress' || word === 'queued') {
       buckets.now.push(node);
     } else if (needsYouReason !== undefined) {
       buckets.needsYou.push({ node, reason: needsYouReason });

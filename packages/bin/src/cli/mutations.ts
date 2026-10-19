@@ -21,6 +21,7 @@ import {
   depend,
   deriveSet,
   fileSeed,
+  findNodeInSet,
   getArtifact,
   groomTasks,
   inapplicableUpdateFields,
@@ -75,6 +76,7 @@ import { isMember } from '@mimir/helpers';
 import { arrow, ok } from '../presentation';
 import type { Format, Io } from '../presentation';
 import { CREATE_DASH_TITLE_HINT, usage } from './errors';
+import { detectHarness } from './harness-env';
 import { callerTimeZone, parseDateFilters, parsePriority, parseSize } from './parse';
 import {
   renderArtifactDetail,
@@ -165,26 +167,33 @@ function echoTransitionSuffix(t: OpTransition, plain: boolean): string {
 }
 
 /**
- * The one generic dispatch arm for the twelve uniform verbs (ADR 0025 Decision
- * 3) — the twelve hand-written `cmdStart`/`cmdArchive`/… handlers collapsed to a
+ * The generic dispatch arm for uniform verbs (ADR 0025 Decision
+ * 3) — the hand-written `cmdStart`/`cmdArchive`/… handlers collapsed to a
  * single registry-driven handler. Resolves the subject by its id-kind (a task
- * stem vs a project KEY), reads the optional reason tail per the verb's policy,
+ * stem vs a project KEY), reads the reason tail per the verb's policy,
  * runs the bound mutation, and echoes through the per-verb view template
  * (past-participle word + transition suffix + reason tail). Archive's
  * out-of-project released-dependents line and the project-echo shape stay a
  * narrow, documented CLI seam — verb-specific view behavior, not silent loss.
  *
  * A verb that declares extra data-plane fields ({@link OpFact.fields} — only
- * `start`'s resume handles) reads them through the SAME flag template and wire
- * parser the generic `update` uses, so nothing about the arm is verb-special.
+ * `start` and `queue`'s resume handles) reads them through the SAME flag template
+ * and wire parser the generic `update` uses. Their omitted harness and session
+ * flags can then fill from the invoking shell's environment.
  * A declared choice argument ({@link OpFact.choice} — only `block --on`) is read
  * the way `depend` reads its multi-valued `--on` (the last occurrence wins) and
  * validated against the fact's vocabulary.
  */
 export async function cmdUniform(c: Ctx, verb: UniformVerb): Promise<number> {
   const op = OPS[verb];
-  const reason = op.reason === 'optional' ? reasonTail(c) : undefined;
+  const reason = op.reason === 'none' ? undefined : reasonTail(c);
+  if (op.reason === 'required' && (reason === undefined || reason.trim() === '')) {
+    throw usage(`${verb} requires a reason`);
+  }
   const fields = readUniformFields(c, op.fields ?? []);
+  if (verb === 'start' || verb === 'queue') {
+    fillHarnessFields(c, fields);
+  }
   const choice =
     op.choice === undefined ? undefined : parseOpChoice(verb, op, lastFlag(c, op.choice.name));
   const word = pastParticiple(verb);
@@ -229,12 +238,40 @@ export async function cmdUniform(c: Ctx, verb: UniformVerb): Promise<number> {
     return 0;
   }
   const id = await resolveNode(c.store, subject, 'task');
+  // Start names the actual source now that it can begin either todo or queued work.
+  const startSource =
+    verb === 'start'
+      ? findNodeInSet(deriveSet(await c.store.loadWorkingSet()), id)?.lifecycle
+      : undefined;
   await op.run(c.store, id, reason, fields, choice);
-  const suffix = echoTransitionSuffix(op.transition, c.io.plain);
+  const suffix =
+    startSource === undefined
+      ? echoTransitionSuffix(op.transition, c.io.plain)
+      : ` · ${startSource} ${arrow(c.io.plain)} in_progress`;
   await echoNodeWith(c.store, id, c.format, c.io, (rid) =>
     withReason(`${word} ${rid}${suffix}`, reason),
   );
   return 0;
+}
+
+/** Fill omitted handle flags only when the shell identifies one unambiguous harness. */
+function fillHarnessFields(c: Ctx, fields: UpdateFields): void {
+  if (fields.harness !== undefined && fields.session !== undefined) {
+    return;
+  }
+  const detected = detectHarness(process.env);
+  if (detected.kind === 'conflict') {
+    c.io.error(
+      `note: detected multiple harnesses (${detected.harnesses.join(', ')}); pass --harness and --session explicitly`,
+    );
+  } else if (detected.kind === 'single') {
+    if (fields.harness === undefined) {
+      fields.harness = detected.harness;
+    }
+    if (fields.session === undefined && detected.session !== undefined) {
+      fields.session = detected.session;
+    }
+  }
 }
 
 /**
@@ -242,7 +279,7 @@ export async function cmdUniform(c: Ctx, verb: UniformVerb): Promise<number> {
  * 0026, MMR-320) — the same {@link updateFieldFlags} spelling and
  * {@link parseWireField} grammar `update` reads them by, so `mimir start MMR-3
  * --host …` and `mimir update MMR-3 --host …` cannot diverge. An empty
- * declaration (the other eleven verbs) reads nothing and allocates one empty
+ * declaration reads nothing and allocates one empty
  * object.
  */
 function readUniformFields(c: Ctx, keys: readonly DataFieldKey[]): UpdateFields {

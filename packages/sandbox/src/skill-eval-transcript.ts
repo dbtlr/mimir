@@ -9,7 +9,13 @@ export type Transcript = { commands: string[]; skills: string[]; finalText: stri
 
 /** One `mimir` call found in a shell command. `help` marks a `-h`/`--help` lookup,
  * which reads usage and acts on nothing. */
-export type MimirCall = { verb: string; sub?: string; help: boolean; command: string };
+export type MimirCall = {
+  verb: string;
+  sub?: string;
+  help: boolean;
+  command: string;
+  args: string[];
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -75,12 +81,49 @@ export function parseCodexStream(stream: string): Transcript {
 
 /**
  * Every `mimir` call at command position: line start, after a control operator
- * or `$(`, or just inside a quoted `sh -c` body. `echo mimir` is not a call.
+ * or `$(`, after a loop's `do`, or just inside a quoted `sh -c` body.
+ * `echo mimir` is not a call.
  * A call's words stay on its own line; a substitution nested in it is its own call.
  */
 const CALL =
-  /(?:^|&&|\|\||[;|\n(]|\$\(|-[a-z]*c[ \t]+['"])[ \t]*(?:\S*\/)?mimir[ \t]+([a-z][a-z-]*)(?:[ \t]+([^\s'"&|;)]+))?((?:[^\n;&|$)]|\$(?!\())*)/g;
+  /(?:^|&&|\|\||[;|\n(]|\$\(|-[a-z]*c[ \t]+['"])[ \t]*(?:do[ \t]+)?(?:\S*\/)?mimir[ \t]+([a-z][a-z-]*)(?:[ \t]+([^\s'"&|;)]+))?((?:[^\n;&|$)]|\$(?!\())*)/g;
 const HELP = /(?:^|\s)(?:-h|--help)(?:$|[\s'"])/;
+
+/** Literal shell words for grading flags; variables stay opaque and are verified in the store. */
+function argumentWords(source: string): string[] {
+  const words: string[] = [];
+  let word = '';
+  let quote = '';
+  let started = false;
+  for (let i = 0; i < source.length; i += 1) {
+    const ch = source[i] ?? '';
+    if (ch === '\\' && quote !== "'") {
+      word += source[i + 1] ?? '';
+      started = true;
+      i += 1;
+    } else if (ch === quote) {
+      quote = '';
+    } else if (quote === '' && (ch === '"' || ch === "'")) {
+      quote = ch;
+      started = true;
+    } else if (quote === '' && ch === '#' && !started) {
+      break;
+    } else if (quote === '' && /\s/.test(ch)) {
+      if (started) {
+        words.push(word);
+      }
+      word = '';
+      started = false;
+    } else {
+      word += ch;
+      started = true;
+    }
+  }
+  if (started) {
+    words.push(word);
+  }
+  return words;
+}
 
 /**
  * Calls through a relative path (`./mimir`, `bin/mimir`). The runner cannot
@@ -88,7 +131,9 @@ const HELP = /(?:^|\s)(?:-h|--help)(?:$|[\s'"])/;
  */
 export function relativeCalls(commands: readonly string[]): string[] {
   return commands.filter((command) =>
-    /(?:^|&&|\|\||[;|\n(]|\$\(|-[a-z]*c[ \t]+['"])[ \t]*(?!\/|~)\S*\/mimir[ \t]/.test(command),
+    /(?:^|&&|\|\||[;|\n(]|\$\(|-[a-z]*c[ \t]+['"])[ \t]*(?:do[ \t]+)?(?!\/|~)\S*\/mimir[ \t]/.test(
+      command,
+    ),
   );
 }
 
@@ -97,6 +142,7 @@ export function mimirCalls(commands: readonly string[]): MimirCall[] {
   for (const command of commands) {
     for (const match of command.matchAll(CALL)) {
       calls.push({
+        args: argumentWords(`${match[2] ?? ''}${match[3] ?? ''}`),
         command,
         help: HELP.test(` ${match[2] ?? ''}${match[3] ?? ''}`),
         sub: match[2],

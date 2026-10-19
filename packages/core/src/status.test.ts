@@ -79,8 +79,8 @@ describe('interpret cascade', () => {
     expect(interpret({ blocked: 2, done: 9, in_progress: 1, ready: 5 })).toBe('in_progress');
   });
 
-  test('ready beats awaiting/blocked/parked', () => {
-    expect(interpret({ awaiting: 3, blocked: 2, parked: 1, ready: 1 })).toBe('ready');
+  test('awaiting beats ready/blocked/parked', () => {
+    expect(interpret({ awaiting: 3, blocked: 2, parked: 1, ready: 1 })).toBe('awaiting');
   });
 
   test('under_review ranks just under in_progress, above ready (MMR-84)', () => {

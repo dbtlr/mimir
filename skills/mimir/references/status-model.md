@@ -5,7 +5,7 @@
 A **task** stores exactly two orthogonal status axes; nothing else stores status at all
 (the grooming state below is a separate stored judgment, not a status axis):
 
-- **lifecycle** — pure progress, moved by verbs: `todo → in_progress → done`, plus
+- **lifecycle** — pure progress, moved by verbs: `todo → queued → in_progress → done`, plus
   `abandoned`. (`done`/`abandoned` are **terminal**.) An **optional** `under_review`
   gate sits between `in_progress` and `done` (see below).
 - **hold** — why it is set aside: `none | blocked | parked`, each with a reason.
@@ -15,9 +15,30 @@ A **task** stores exactly two orthogonal status axes; nothing else stores status
   act) or `others` (someone outside the board must). It is set only while the hold is
   `blocked` and empty otherwise; `parked` has none. See "Who can clear a block" below.
 
-There is no editable status field. Verbs: `start` `submit` `return` `done` `abandon`
+There is no editable status field. Verbs: `queue` `unqueue` `start` `submit` `return` `done` `abandon`
 `reopen` · `block`/`unblock` · `park`/`unpark`. Every transition is logged (same
 transaction) with its reason — `get <id> --col history` shows the trail.
+
+### The `queued` reservation
+
+A run reserves work with `queue <id> --harness <harness> --session <run-session>`:
+`todo → queued`. A nonblank session is required. The reservation is
+compare-and-swap guarded, so competing orchestrators cannot both take it.
+Queued work is nonterminal and leaves `ready`, `next`, and overview's next list;
+it appears in `list --status queued`.
+
+- `start <id> --harness <harness> --session <worker-session>` accepts either
+  `todo` or `queued` and moves to `in_progress`. From queued it replaces all
+  run handles with the worker's supplied handles; history retains the linkage.
+- `unqueue <id> "reason"` moves `queued → todo`, clears all handles, and echoes
+  the released run handles in history. A nonblank cancellation reason is required.
+  The task reads `ready` again if its dependencies are settled, or `awaiting`
+  otherwise.
+- `done` and `abandon` accept queued tasks. `park` and `block` require `unqueue`
+  first, so a queued task always represents a run's reservation.
+- Queued work stays rankable alongside unheld `todo` and `in_progress` work.
+  Queueing and unqueueing preserve its rank, so cancellation restores its
+  previous place in `next` when ready. Stale reservations surface in hygiene.
 
 ### Who can clear a block
 
@@ -89,9 +110,10 @@ triages requests that are not yet tasks. A seed promoted into a task produces a
 What `list`/`get` show as `status` is computed:
 
 - **Task:** highest match wins:
-  `abandoned → done → blocked → parked → in_progress → under_review → awaiting → ready`.
+  `abandoned → done → blocked → parked → in_progress → under_review → queued → awaiting → ready`.
   - `ready` = todo, un-held, every dependency settled — actionable now.
   - `awaiting` = todo, un-held, ≥1 unsettled dependency — self-clears, don't chase.
+  - `queued` = reserved by a run, before a worker begins.
   - A dependency is **settled when its prerequisite is terminal** (`done` _or_
     `abandoned`) — abandoning a prereq never strands dependents.
   - **Started-but-held shows the hold word**, not `in_progress` — "set aside" is
@@ -99,10 +121,10 @@ What `list`/`get` show as `status` is computed:
 - **Container (phase/initiative/project):** no stored status — its truth is the
   **distribution** of its children's words (`mimir status KEY-3`), reduced to one
   word by a fixed precedence: _no children_ → `new` · any `in_progress` → that ·
-  any `under_review` → that · any `ready` → that · any `awaiting` · any `blocked` ·
+  any `under_review` → that · any `queued` → that · any `awaiting` · any `ready` · any `blocked` ·
   any `parked` · any `new` · all terminal → `done` (or `abandoned` if nothing was
-  done). The middle order is "distance to motion": under_review (past in_progress)
-  beats ready beats awaiting beats blocked beats parked. Rollup recurses —
+  done). Progress and reservations lead the middle order:
+  under_review beats queued beats awaiting beats ready beats blocked beats parked. Rollup recurses —
   a phase tallies tasks, an initiative tallies phases.
 
 ## Status groups (selection universes for `--status`)
@@ -114,15 +136,16 @@ What `list`/`get` show as `status` is computed:
 
 ## Verdicts (`--is` / `--not-is`) — judgments, not statuses
 
-- `stale` — `ready`/`in_progress`/`under_review` but untouched past the threshold
+- `stale` — `ready`/`queued`/`in_progress`/`under_review` but untouched past the threshold
   (14 days). Chases `blocked` and `under_review` (a review the human never got to)
-  too; **mutes `parked`** (deliberately shelved — don't nag).
+  too; queued reservations from a crashed run are chased by the same rule.
+  **Mutes `parked`** (deliberately shelved — don't nag).
 - `blocking` — has live dependents; finishing it unlocks work.
 - `orphaned` — live task whose every sibling is terminal — left behind.
 
 ## Containers aren't lifecycle-managed
 
-Lifecycle verbs (`start`, `submit`, `return`, `done`, `abandon`, `reopen`,
+Lifecycle verbs (`queue`, `unqueue`, `start`, `submit`, `return`, `done`, `abandon`, `reopen`,
 `park`/`unpark`, `block`/`unblock`) only act on **tasks**. Trying to `start` a phase or initiative is an error — the response
 names a ready child task to start instead. Complete the leaf tasks and the
 container's rollup follows automatically; there is nothing to do at the

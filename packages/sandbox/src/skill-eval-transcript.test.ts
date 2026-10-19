@@ -81,6 +81,20 @@ test('calls stay on their own line, so a following call is never swallowed', () 
   ]);
 });
 
+test('loop bodies yield their mimir invocation with an opaque shell variable operand', () => {
+  const calls = mimirCalls([
+    'for id in QEV-2 QEV-3; do mimir queue "$id" --harness codex --session eval-run-session; done',
+  ]);
+  expect(calls.map((c) => [c.verb, c.args])).toEqual([
+    ['queue', ['$id', '--harness', 'codex', '--session', 'eval-run-session']],
+  ]);
+});
+
+test('relative mimir calls inside loop bodies are surfaced as escapes', () => {
+  const command = 'for id in QEV-2 QEV-3; do ./mimir queue "$id"; done';
+  expect(relativeCalls([command])).toEqual([command]);
+});
+
 test('every path naming a mimir file is surfaced, from any position', () => {
   expect(
     binaryPaths([

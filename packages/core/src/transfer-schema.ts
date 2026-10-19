@@ -136,7 +136,7 @@ export const transferSchema = z.object({
         remote: project.remote ?? null,
       })),
   ),
-  // A version-1 to -4 document parses into the current shape: its nodes'
+  // A version-1 to -5 document parses into the current shape: its nodes'
   // missing `grooming` and `block_owner` and its projects' missing `pinned` and `remote` are
   // defaulted above, so the version normalizes too.
   schema_version: z
@@ -145,6 +145,7 @@ export const transferSchema = z.object({
       z.literal(2),
       z.literal(3),
       z.literal(4),
+      z.literal(5),
       z.literal(STORE_EXPORT_SCHEMA_VERSION),
     ])
     .transform((): typeof STORE_EXPORT_SCHEMA_VERSION => STORE_EXPORT_SCHEMA_VERSION),

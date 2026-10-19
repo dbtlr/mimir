@@ -55,6 +55,7 @@ import {
   parkSeed,
   parkTask,
   promoteSeed,
+  queueTask,
   renderId,
   seedLane,
   startTask,
@@ -179,6 +180,10 @@ class Board {
       case 'ready': {
         return; // a fresh todo, un-held task with no unmet deps is already ready
       }
+      case 'queued': {
+        await queueTask(this.store, id, { harness: 'codex', session: 'docs-run' });
+        return;
+      }
       case 'in_progress': {
         await startTask(this.store, id);
         return;
@@ -292,6 +297,11 @@ const AURORA_ZOO: readonly {
       title: 'Silent push delivery receipts',
     },
     word: 'under_review',
+  },
+  {
+    phase: 'Queued Run',
+    task: { leaf: 'queued', title: 'Prepare the next offline batch' },
+    word: 'queued',
   },
   {
     phase: 'Offline Mode',

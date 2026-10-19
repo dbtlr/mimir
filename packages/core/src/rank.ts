@@ -6,7 +6,7 @@ import type { StoreWriter } from './store';
 /**
  * Rank mechanics (ADR 0007). `rank` is a single relative order, core-owned
  * (never exposed), dense over the **rankable set** — a task with
- * `lifecycle ∈ {todo, in_progress}` and `hold = none`, scoped per project.
+ * `lifecycle ∈ {todo, queued, in_progress}` and `hold = none`, scoped per project.
  * Encoded as INTEGER-with-gaps: append is `MAX(rank) + STEP`; an insert between
  * neighbours takes their midpoint; when neighbours are adjacent `reindexRanks`
  * re-spreads the set (the rare O(n), amortized off the hot path, with an
@@ -26,7 +26,10 @@ export type RankPosition = 'top' | 'bottom' | 'before' | 'after';
  * not the agent's), so it is excluded. Tolerates `null` (a container) → false.
  */
 export function isRankable(lifecycle: Lifecycle | null, hold: Hold | null): boolean {
-  return (lifecycle === 'todo' || lifecycle === 'in_progress') && hold === 'none';
+  return (
+    (lifecycle === 'todo' || lifecycle === 'queued' || lifecycle === 'in_progress') &&
+    hold === 'none'
+  );
 }
 
 /** The single integer strictly between two ranks, or `null` if they are adjacent. */

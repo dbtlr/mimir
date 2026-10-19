@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildFeed } from '../lib/timeline';
+import { buildFeed, describeTransition } from '../lib/timeline';
 import type { HistoryEntry } from '../lib/timeline';
 
 const started: HistoryEntry = {
@@ -45,5 +45,12 @@ describe('buildFeed', () => {
     expect(buildFeed(createdAt, undefined, undefined)).toStrictEqual([
       { at: createdAt, sort: createdAt.getTime(), variant: 'created' },
     ]);
+  });
+});
+
+test('names reservation and cancellation transitions', () => {
+  expect(describeTransition({ ...started, to: 'queued' })).toStrictEqual({ label: 'Queued' });
+  expect(describeTransition({ ...started, from: 'queued', to: 'todo' })).toStrictEqual({
+    label: 'Unqueued',
   });
 });

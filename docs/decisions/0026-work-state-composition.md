@@ -81,3 +81,19 @@ prose is stored agent-authored state inside Mimir — justified because it is
 not derivable and its replace-whole grain leaves nothing to drift; the
 rejected alternatives (a pointer section, a `next` flag, a claim verb, stored
 telemetry) each reintroduced a sync surface or a second ordering authority.
+
+## 2026-10-19 refinement: run and worker handles (MMR-564, MMR-565)
+
+Decision 3 now distinguishes reservation from claim. `queue` records a run's
+handles and requires a nonblank session. `start` claims work from todo or queued.
+When starting queued work, it replaces all run handles with the worker's supplied
+handles. Omitted worker fields are cleared, rather than inherited from the run.
+Both transitions record their resulting handles in the append-only log.
+`unqueue` records the cancelled run's handles before clearing them.
+
+CLI `queue` and `start` fill omitted harness and session flags from an unambiguous
+shell environment. Explicit flags, including blanks, win. Multiple harness
+signals cause no automatic fill and a diagnostic asking for explicit handles.
+MCP does not infer identity from the server environment. Agents pass their own
+harness and session explicitly; automatic fill is a fallback. These handles
+remain pointers rather than a liveness guarantee.

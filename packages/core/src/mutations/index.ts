@@ -4,6 +4,8 @@ export { assertProjectActive } from './common';
 export {
   abandonTask,
   completeTask,
+  queueTask,
+  unqueueTask,
   reopenTask,
   returnTask,
   startTask,

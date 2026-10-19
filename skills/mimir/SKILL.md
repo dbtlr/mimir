@@ -39,7 +39,7 @@ orient before other work, quick questions included:
 These rules hold unless the user or the project's own instructions say
 otherwise. The references add detail and never relax them.
 
-**Statuses move through verbs.** `start`, `submit`, `return`, `done`,
+**Statuses move through verbs.** `queue`, `unqueue`, `start`, `submit`, `return`, `done`,
 `abandon`, `reopen`, `park`/`unpark`, and `block`/`unblock` are the only way to
 change a task's status. `update` patches fields and leaves status alone. Seeds
 move through `promote`, `reject`, `resolve`, and `park`/`unpark`.
@@ -47,8 +47,16 @@ move through `promote`, `reject`, `resolve`, and `park`/`unpark`.
 **Transition at the moment the claim becomes true.** A transition recorded
 later is a guess about the past, and the next agent reads it as fact.
 
-- `start <id>` when you choose a task, before the first edit. Every change,
-  however small, belongs to a task. Keep one task `in_progress` per session.
+- `queue <id> --harness <harness> --session <run-session>` when a workflow or
+  run reserves a task, using the orchestrator's handles. Queue every task the
+  run takes, before dispatching workers; `queued` keeps it out of `next`.
+- `start <id> --harness <harness> --session <worker-session>` when the worker
+  begins, before the first edit. Starting a queued task replaces the run's
+  handles with the worker's. Direct starts from ready work also use these
+  explicit flags. Every change belongs to a task; keep one task `in_progress`
+  per session.
+- `unqueue <id> "reason"` when a run is cancelled before a worker starts.
+  Release every remaining reservation with the cancellation reason.
 - `done <id>` after verification and before you tell the user the work is
   finished. Verification is evidence that the change does what the task
   asked: a test that exercises it passes, or you ran the behavior and observed
@@ -74,6 +82,11 @@ later is a guess about the past, and the next agent reads it as fact.
   found after a genuine `done` is a new task.
 - `annotate <id> "note"` when a decision, a surprise, or a scope change lands
   mid-task.
+
+**Identify every queue and start explicitly.** Always pass `--harness` and
+`--session`; read `references/authoring.md` for finding your own identity and
+the run → worker handle succession. Shell environment auto-fill is only a
+fallback when one harness is unambiguous; MCP callers must supply the handles.
 
 **Prefer groomed work.** A task carries a grooming state beside its status:
 `not_groomed`, `needs_answers`, or `groomed`. Choose groomed tasks from `next`
@@ -103,8 +116,11 @@ started that hits a question is blocked with `mimir block <id> --on you
 
 **Sweep before the session ends.** Run `mimir list --status in_progress` and
 settle every task you touched: finish it, hand it forward with an `annotate`,
-or `park`, `block`, or `abandon` it. Settle the Scratchpads you drove the same
-way: freeze, checkpoint, or discard.
+or `park`, `block`, or `abandon` it. Also run
+`mimir list --status queued --eq session:<id>` with your run session id and
+settle every reservation: hand it to a continuing run or `unqueue` it with a
+reason. A queued task must be unqueued before `park` or `block`. Settle the
+Scratchpads you drove the same way: freeze, checkpoint, or discard.
 
 **Finish in three pieces.** A work boundary may need a transition, a
 groom-next (rewrite the `## Next` direction; it is not the `groom` verb), or a

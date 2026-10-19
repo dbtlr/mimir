@@ -3,6 +3,7 @@ import { expect, test } from 'bun:test';
 import { sql } from 'kysely';
 
 import { createInitiative, createPhase, createProject, createTask } from '../create';
+import { LocalEngine } from '../engine';
 import { updateNode } from '../mutations';
 import { sandboxPostgresUrlFromEnvironment } from '../sandbox-authority';
 import { observe, seedWorkingSet, withoutStamp } from '../testing/conformance';
@@ -61,6 +62,7 @@ lane('upgradeSchema builds the schema from empty, and the gate then passes', asy
           '0004_seed_parked',
           '0005_project_pinned',
           '0006_project_remote',
+          '0007_task_queued',
         ],
         from: 0,
         to: SCHEMA_VERSION,
@@ -250,3 +252,27 @@ lane(
   },
   60_000,
 );
+
+lane('two orchestrators reserve one task with exactly one winning queue transition', async () => {
+  await onFreshSchema(async (url) => {
+    const handle = openPostgres(url);
+    try {
+      await upgradeSchema(handle.db);
+      const store = createPostgresStore(handle.db);
+      const engine = new LocalEngine(store);
+      await createProject(store, { key: 'QUE', name: 'Queue' });
+      const parent = await createInitiative(store, { projectId: 'QUE', title: 'i' });
+      const task = await createTask(store, { parentId: parent.id, title: 't' });
+      const results = await Promise.allSettled([
+        engine.queue({ id: task.id, session: 'run-a' }),
+        engine.queue({ id: task.id, session: 'run-b' }),
+      ]);
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      expect(results.filter((r) => r.status === 'rejected')).toHaveLength(1);
+      expect((await engine.getNode({ id: task.id })).status).toBe('queued');
+      expect(await store.bodySections.readHistory(task.id)).toHaveLength(1);
+    } finally {
+      await handle.close();
+    }
+  });
+});

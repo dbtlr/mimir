@@ -1,6 +1,5 @@
 import {
   HOLD_VALUES,
-  LIFECYCLE_VALUES,
   NODE_TYPE_VALUES,
   PRIORITY_VALUES,
   SEED_KIND_VALUES,
@@ -19,7 +18,7 @@ import {
  * until the migration that widens the constraint runs, an older binary's value
  * set is enforced by the database rather than by hope. A vocabulary that a later
  * migration widens is frozen here as the literals 0001 shipped with
- * (`seed.lifecycle`, widened by `0004_seed_parked`), so a fresh store climbs the
+ * (`seed.lifecycle`, widened by `0004_seed_parked`, and `node.lifecycle`, widened by `0007_task_queued`), so a fresh store climbs the
  * same steps an old one did.
  */
 
@@ -57,7 +56,7 @@ export const statements: readonly string[] = [
      title        text NOT NULL,
      description  text,
      summary      text,
-     lifecycle    text CHECK (lifecycle IN (${inList(LIFECYCLE_VALUES)})),
+     lifecycle    text CHECK (lifecycle IN ('todo', 'in_progress', 'under_review', 'done', 'abandoned')),
      hold         text CHECK (hold IN (${inList(HOLD_VALUES)})),
      hold_reason  text,
      priority     text CHECK (priority IN (${inList(PRIORITY_VALUES)})),

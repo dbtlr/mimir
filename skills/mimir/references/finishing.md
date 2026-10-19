@@ -14,6 +14,7 @@ boundary needs; when completing a task, compose all three in this order:
 Use the lifecycle or hold verb at the moment its claim becomes true:
 
 ```sh
+mimir unqueue KEY-9 "Run cancelled before dispatch"  # release an unstarted reservation
 mimir submit KEY-9                 # shippable; awaiting human review
 mimir done KEY-9                   # verified complete; no review gate remains
 mimir park KEY-9 "reason"          # deliberately deferred

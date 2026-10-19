@@ -68,6 +68,7 @@ export function highlightTerms(title: string, query: string): Segment[] {
  */
 export function hitStatus(hit: Pick<EngineSearchHit, 'lifecycle'>): StatusWord | undefined {
   switch (hit.lifecycle) {
+    case 'queued':
     case 'in_progress':
     case 'under_review':
     case 'done':

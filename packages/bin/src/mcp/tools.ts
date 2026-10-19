@@ -619,7 +619,7 @@ export function toolSearch(store: Store, args: SearchToolArgs): Promise<ToolResu
 // ---------------------------------------------------------------------------
 
 /**
- * The one generic handler for the twelve uniform verbs — the twelve per-verb
+ * The one generic handler for the fourteen uniform verbs — the per-verb
  * `toolStart`/`toolArchive`/… handlers collapsed to a single registry-driven
  * function (ADR 0025). Resolves the subject by its id-kind (a task stem vs a
  * project KEY), applies the reason per the verb's policy, runs the bound
@@ -647,7 +647,7 @@ export function toolUniform(
 ): Promise<ToolResult> {
   return guard(async () => {
     const op = OPS[verb];
-    const reason = op.reason === 'optional' ? args.reason : undefined;
+    const reason = op.reason === 'none' ? undefined : args.reason;
     if (op.subject === 'project') {
       const project = await op.run(store, await projectId(store, args.key ?? ''), reason);
       // The project subject guarantees a Project row from `run`.

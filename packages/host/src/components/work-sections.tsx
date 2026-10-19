@@ -69,7 +69,9 @@ export function NowRow({ row }: { row: NowTask }) {
       meta={
         <div className="flex flex-col gap-0.5">
           <p className="flex flex-wrap items-baseline gap-x-1.5">
-            <span>Started {ago(row.startedAt)}</span>
+            <span>
+              {row.task.status === 'queued' ? 'Queued' : 'Started'} {ago(row.startedAt)}
+            </span>
             {row.task.harness != null && <ContextPart>{row.task.harness}</ContextPart>}
             {row.task.branch != null && <ContextPart mono>{row.task.branch}</ContextPart>}
             {row.scratchpads.length > 0 && <ContextPart>Scratchpad open</ContextPart>}
@@ -93,7 +95,7 @@ function NowSection({ rows }: { rows: readonly NowTask[] }) {
       hint="What’s going on right now?"
     >
       {rows.length === 0 ? (
-        <Empty lead="Nothing running.">No task is in progress.</Empty>
+        <Empty lead="Nothing running.">No task is queued or in progress.</Empty>
       ) : (
         rows.map((row) => <NowRow key={row.task.id} row={row} />)
       )}

@@ -91,3 +91,15 @@ call sites, not the pure cascade:
 
 The `orphaned` verdict is muted for a task whose parent is open-ended (ADR 0001
 Refinement); `stale`/`blocking` are unchanged.
+
+## 2026-10-19 refinement: queued status and precedence (MMR-564)
+
+`queued` is a task and container status word. After terminal and hold checks,
+the task projection is `in_progress > under_review > queued > awaiting > ready`.
+A reservation therefore remains queued even when its dependencies are unmet.
+
+The container cascade uses `in_progress > under_review > queued > awaiting > ready`
+before blocked, parked, new, and the terminal fallback. The empty-container guard
+and terminal rules remain unchanged. This replaces the earlier ordering of ready
+and awaiting: outstanding dependency gates take precedence when no child is
+active, in review, or reserved.

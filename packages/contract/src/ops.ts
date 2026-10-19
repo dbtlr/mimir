@@ -5,12 +5,12 @@ import type { DataFieldKey } from './fields';
 
 /**
  * The operation facts (ADR 0025 Decision 3/4) — the pure-fact half of the
- * operation registry, the verb analogue of {@link FIELD_FACTS}. The twelve
- * **uniform verbs** (six lifecycle, four hold, `archive`/`unarchive` — the
+ * operation registry, the verb analogue of {@link FIELD_FACTS}. The fourteen
+ * **uniform verbs** (eight lifecycle, four hold, `archive`/`unarchive` — the
  * "subject id + optional reason" shape) declare their dispatch facts here once:
  * the subject id-kind, the reason policy, the (descriptive) state transition,
  * and one canonical summary sentence. From this one table the transports derive
- * their surfaces — the CLI's twelve switch arms collapse to one generic arm, MCP
+ * their surfaces — the CLI's uniform switch arms collapse to one generic arm, MCP
  * registrations loop-generate — while each keeps its own
  * invocation grammar. This module is data only: the `run` binding that delegates
  * to the core mutation fns lives in the core (`core/ops.ts`), which composes
@@ -25,9 +25,11 @@ import type { DataFieldKey } from './fields';
  * job, not one way forced onto every job (ADR 0025 Decision 3).
  */
 
-/** The twelve uniform-verb names, in concern-grouped order (lifecycle → hold →
+/** The fourteen uniform-verb names, in concern-grouped order (lifecycle → hold →
  * project), the order the transports iterate for grouped rendering. */
 export const UNIFORM_VERBS = [
+  'queue',
+  'unqueue',
   'start',
   'submit',
   'return',
@@ -46,9 +48,8 @@ export type UniformVerb = (typeof UNIFORM_VERBS)[number];
 /** The id-kind a uniform verb acts on: a work node (KEY-seq task) or a project (bare KEY). */
 export type OpSubject = 'task' | 'project';
 
-/** A uniform verb's reason policy — the only two the twelve span (ADR 0025): a
- * verb takes an optional reason (recorded on the transition log) or none. */
-export type OpReason = 'none' | 'optional';
+/** Whether a uniform verb takes no reason, an optional reason, or a required reason. */
+export type OpReason = 'none' | 'optional' | 'required';
 
 /** The two-valued archive axis a project moves along (`archive`/`unarchive`). */
 export type ArchiveState = 'active' | 'archived';
@@ -94,25 +95,27 @@ export type OpFact = {
   summary: string;
   /**
    * Extra **data-plane fields** the verb records at its transition, beyond the
-   * uniform "subject id + optional reason" shape (ADR 0026 Decision 3). Only
-   * `start` declares any — the four resume handles it stamps as the claim. Each
+   * uniform "subject id + optional reason" shape (ADR 0026 Decision 3).
+   * `queue` records run handles; `start` records worker claim handles. Each
    * key names a {@link FIELD_FACTS} entry with an `update` marker, so every
    * transport derives the arg from the SAME field spec its `update` surface
    * already derives from (one grammar, one wire parser, one spelling); the core
    * binds them into an update patch the verb's mutation applies.
    *
-   * Absent for the other eleven verbs, whose surfaces therefore render exactly
+   * Absent for verbs without data-plane fields, whose surfaces render exactly
    * as before — the fact is a knob three consumers read (CLI flags, MCP zod,
    * HTTP body allow-list), which is why it lives here rather than as three
    * per-transport `start` overrides (ADR 0025 Decision 4).
    */
   fields?: readonly DataFieldKey[];
+  /** Fields every caller must provide at this transition. */
+  requiredFields?: readonly DataFieldKey[];
   /**
    * An optional enum-valued argument the verb takes beyond its reason (MMR-465 —
    * only `block --on`). Like {@link OpFact.fields} it is one fact three consumers
    * read (CLI flag, MCP zod enum, HTTP body allow-list), so it lives here rather
    * than as per-transport `block` overrides (ADR 0025 Decision 4). Task subjects
-   * only. Absent for the other eleven verbs, whose surfaces render as before.
+   * only. Absent for the other verbs, whose surfaces render as before.
    */
   choice?: OpChoice;
   /**
@@ -140,7 +143,7 @@ export const OP_FACTS = {
     summary: 'abandon a task (kept, not deleted)',
     transition: {
       axis: 'lifecycle',
-      from: ['todo', 'in_progress', 'under_review'],
+      from: ['todo', 'queued', 'in_progress', 'under_review'],
       to: 'abandoned',
     },
   },
@@ -167,7 +170,11 @@ export const OP_FACTS = {
     reason: 'none',
     subject: 'task',
     summary: 'complete a task (approves a review)',
-    transition: { axis: 'lifecycle', from: ['todo', 'in_progress', 'under_review'], to: 'done' },
+    transition: {
+      axis: 'lifecycle',
+      from: ['todo', 'queued', 'in_progress', 'under_review'],
+      to: 'done',
+    },
   },
   park: {
     reason: 'optional',
@@ -175,6 +182,14 @@ export const OP_FACTS = {
     subject: 'task',
     summary: 'put a task on hold',
     transition: { axis: 'hold', from: 'none', to: 'parked' },
+  },
+  queue: {
+    fields: HANDLE_FIELD_KEYS,
+    reason: 'none',
+    requiredFields: ['session'],
+    subject: 'task',
+    summary: 'reserve a task for an autonomous run',
+    transition: { axis: 'lifecycle', from: ['todo'], to: 'queued' },
   },
   reopen: {
     reason: 'optional',
@@ -190,13 +205,13 @@ export const OP_FACTS = {
   },
   start: {
     // The claim records the resume handles (ADR 0026 Decision 3): `in_progress`
-    // already IS the claim, so there is no claim verb — resume or takeover is a
+    // is the worker claim; queued is the prior run reservation. Resume or takeover is a
     // plain `update` overwrite of these same fields.
     fields: HANDLE_FIELD_KEYS,
     reason: 'none',
     subject: 'task',
     summary: 'begin a task',
-    transition: { axis: 'lifecycle', from: ['todo'], to: 'in_progress' },
+    transition: { axis: 'lifecycle', from: ['todo', 'queued'], to: 'in_progress' },
   },
   submit: {
     reason: 'none',
@@ -223,9 +238,15 @@ export const OP_FACTS = {
     summary: 'clear the parked hold',
     transition: { axis: 'hold', from: 'parked', to: 'none' },
   },
+  unqueue: {
+    reason: 'required',
+    subject: 'task',
+    summary: 'cancel a reservation and return the task to todo',
+    transition: { axis: 'lifecycle', from: ['queued'], to: 'todo' },
+  },
 } as const satisfies Record<UniformVerb, OpFact>;
 
-/** Is `verb` one of the twelve uniform verbs? The transport membership gate. */
+/** Is `verb` one of the fourteen uniform verbs? The transport membership gate. */
 export function isUniformVerb(verb: string): verb is UniformVerb {
   return verb in OP_FACTS;
 }

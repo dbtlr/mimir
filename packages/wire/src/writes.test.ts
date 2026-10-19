@@ -17,6 +17,7 @@ import {
   LocalEngine,
   parkSeed,
   parkTask,
+  queueTask,
   startTask,
   submitTask,
   tagEntities,
@@ -41,6 +42,7 @@ type Ids = {
   parkedSeed: string;
   parkedTask: string;
   phase: string;
+  queuedTask: string;
   reviewTask: string;
   seed: string;
   startedTask: string;
@@ -65,6 +67,12 @@ async function buildFixture(): Promise<Fixture> {
   const task = (title: string, extra: { tags?: string[] } = {}) =>
     createTask(store, { parentId: phase.id, title, ...extra });
   const todoTask = await task('Todo');
+  const queuedTask = await task('Queued');
+  await queueTask(store, queuedTask.id, {
+    harness: 'orchestrator',
+    host: 'run-host',
+    session: 'run-1',
+  });
   const waitingTask = await task('Waiting');
   await depend(store, waitingTask.id, [todoTask.id]);
   const taggedTask = await task('Tagged', { tags: ['engine'] });
@@ -109,6 +117,7 @@ async function buildFixture(): Promise<Fixture> {
       parkedSeed: parked.id,
       parkedTask: parkedTask.id,
       phase: phase.id,
+      queuedTask: queuedTask.id,
       reviewTask: reviewTask.id,
       seed: seed.id,
       startedTask: startedTask.id,
@@ -351,6 +360,34 @@ const writes: WriteCase[] = [
     (result) => expect(result.removed).toBe(2),
   ),
   write(
+    'queue',
+    'an autonomous reservation',
+    (ids) => ({ harness: 'orchestrator', id: ids.todoTask, session: 'run-2' }),
+    (node) => {
+      expect(node.status).toBe('queued');
+      expect(node.session).toBe('run-2');
+    },
+  ),
+  write(
+    'unqueue',
+    'a cancelled reservation',
+    (ids) => ({ id: ids.queuedTask, reason: 'run cancelled' }),
+    (node) => {
+      expect(node.status).toBe('ready');
+      expect(node.session).toBeNull();
+    },
+  ),
+  write(
+    'start',
+    'a reserved task taken by a worker',
+    (ids) => ({ harness: 'codex', id: ids.queuedTask, session: 'worker-1' }),
+    (node) => {
+      expect(node.status).toBe('in_progress');
+      expect(node.session).toBe('worker-1');
+      expect(node.host).toBeNull();
+    },
+  ),
+  write(
     'start',
     'a todo task with resume handles',
     (ids) => ({ branch: 'feat/y', id: ids.todoTask, session: 's-1' }),
@@ -485,7 +522,7 @@ test('the Engine carries every uniform verb, with the arguments its fact declare
     const keys = Object.keys(schema.input.shape).toSorted();
     const expected = [
       'id',
-      ...(fact.reason === 'optional' ? ['reason'] : []),
+      ...(fact.reason !== 'none' ? ['reason'] : []),
       ...('fields' in fact ? fact.fields : []),
       ...('choice' in fact ? [fact.choice.name] : []),
     ].toSorted();

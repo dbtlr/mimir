@@ -118,7 +118,7 @@ The Engine carries every CLI and MCP read (`next`, `list`, `projects`,
 `getNode`, `getArtifact`, `getSeed`, `status`, `tree`, `overview`,
 `artifacts`, `search`, `seeds`, `scratchList`, `scratchGet`) and every node
 write (`create`, `update`, `updateProject`, `annotate`, `attach`, `depend`,
-`undepend`, `move`, `reorder`, `groom`, `tag`, `untag`, and the twelve uniform
+`undepend`, `move`, `reorder`, `groom`, `tag`, `untag`, and the fourteen uniform
 verbs, which are derived from the operation facts), plus every seed write
 (`seedCreate`, `seedPromote`, `seedResolve`, `seedReject`, `seedPark`,
 `seedUnpark`, `seedUpdate`, `triage`) and Scratchpad write (`scratchCreate`,

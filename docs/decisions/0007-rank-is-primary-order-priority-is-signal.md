@@ -39,3 +39,10 @@ date: 2026-06-04
 - A relative reorder verb (e.g. `reorder_task(id, before|after|top|bottom, ref?)`) on the core; the HTTP envelope may expose a combined move (priority + position) as a convenience, the MCP envelope keeps them separate.
 - Reindex, if ever needed, is bounded to one project's actionable tasks — never global.
 - **Deferred:** the `buried`/archaeology predicate family (post-v1); whether agents keep their _own_ ordering overlay (possibly a tag-scoped list — too unformed to design now).
+
+## 2026-10-19 refinement: reservations preserve rank (MMR-564)
+
+The rankable set is now `lifecycle ∈ {todo, queued, in_progress} ∧ hold = none`.
+Queueing preserves rank, and queued work can be reordered. `next` continues to
+select ready todo tasks, so reservations are excluded without losing their
+place. Unqueueing restores eligibility at the retained position.

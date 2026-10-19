@@ -19,6 +19,7 @@ export const MIGRATIONS = [
   { name: '0004_seed_parked', version: 4 },
   { name: '0005_project_pinned', version: 5 },
   { name: '0006_project_remote', version: 6 },
+  { name: '0007_task_queued', version: 7 },
 ] as const;
 
 export type Migration = (typeof MIGRATIONS)[number];

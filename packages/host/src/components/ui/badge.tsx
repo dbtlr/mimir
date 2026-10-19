@@ -29,7 +29,7 @@ export function Badge({ className, variant, ...props }: BadgeProps) {
  * The status chip — the wash idiom made literal, and the single documentation
  * point for it. Canonical wash ratio: `/12` hue fill under a 1px inset ring at
  * `/24` (~2x the fill alpha), with the hue's `-foreground` text tone.
- * segmented-control.tsx mirrors this ratio for the active segment. Nine literal
+ * segmented-control.tsx mirrors this ratio for the active segment. Literal
  * variants keyed by the status vocabulary so Tailwind extracts every class; the
  * ring rides in both themes (a light-mode legibility rule).
  */
@@ -58,6 +58,8 @@ export const statusChipVariants = cva(
         new: 'bg-status-new/12 text-status-new-foreground inset-ring inset-ring-status-new/24',
         parked:
           'bg-status-parked/12 text-status-parked-foreground inset-ring inset-ring-status-parked/24',
+        queued:
+          'bg-status-queued/12 text-status-queued-foreground inset-ring inset-ring-status-queued/24',
         ready:
           'bg-status-ready/12 text-status-ready-foreground inset-ring inset-ring-status-ready/24',
         under_review:

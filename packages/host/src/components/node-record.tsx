@@ -365,6 +365,7 @@ export function useNodeVerbs(nodeId: string) {
   const dialog = (
     <ReasonDialog
       verb={reasonVerb?.verb ?? null}
+      required={reasonVerb?.verb === 'unqueue'}
       open={reasonVerb !== null}
       onClose={() => setReasonVerb(null)}
       onConfirm={(reason) => {
