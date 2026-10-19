@@ -632,7 +632,7 @@ export function toolSearch(store: Store, args: SearchToolArgs): Promise<ToolResu
  * {@link applyUpdateFields} loop, so acceptance and application can't drift apart.
  * A declared choice argument (MMR-465 — only `block`'s `on`) is read by the
  * name the fact gives it and validated by the same {@link parseOpChoice} the CLI
- * and HTTP use.
+ * and the Engine use.
  */
 export type UniformToolArgs = {
   id?: string;
@@ -1214,7 +1214,7 @@ export function toolAttach(
 // ---------------------------------------------------------------------------
 
 /** Narrow a raw `kind` arg to the closed seed-kind enum, or throw. Shares the core
- * narrowing helper with the CLI/HTTP boundaries (M4). */
+ * narrowing helper with the CLI and Engine boundaries (M4). */
 function requireSeedKind(kind: string): SeedKind {
   const narrowed = asSeedKind(kind);
   if (narrowed === null) {
