@@ -378,6 +378,16 @@ describe('sidebar Projects section on All projects (MMR-562, MMR-567)', () => {
     expect(within(area).queryByRole('textbox')).toBeNull();
   });
 
+  it('says so when the project list cannot be read', async () => {
+    serveWorld();
+    rememberProject('FLT');
+    vi.mocked(projects).mockRejectedValue(new Error('unreachable'));
+    renderAt('/');
+    await expect(
+      within(await section()).findByText('Couldn’t load the projects.'),
+    ).resolves.toBeInTheDocument();
+  });
+
   it('is not on a project page', async () => {
     serveWorld();
     renderAt('/p/FLT');

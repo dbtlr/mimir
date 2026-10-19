@@ -55,7 +55,10 @@ export function SidebarProjects({ onNavigate }: { onNavigate?: () => void }) {
   // A pin in flight shows as already made; the server's list catches up on settle.
   const groups = groupProjects(overlayPins(projects.data ?? [], pendingPins));
   const rows = sidebarShortlist(groups);
-  if (rows.length === 0) {
+  // A remembered project frames the sidebar before the list arrives, so a
+  // failed first read still has a section to say so in.
+  const failed = rows.length === 0 && projects.isError;
+  if (rows.length === 0 && !failed) {
     return null;
   }
   return (
@@ -63,16 +66,20 @@ export function SidebarProjects({ onNavigate }: { onNavigate?: () => void }) {
       <h2 id={headingId} className="microlabel px-2 pb-1 text-ink-faint">
         Projects
       </h2>
-      <ul aria-label={groups.pinned.length > 0 ? 'Pinned projects' : 'Recent projects'}>
-        {rows.map((p) => (
-          <ProjectLink
-            key={p.id}
-            project={p}
-            decisions={decisions.get(p.id) ?? 0}
-            onNavigate={onNavigate}
-          />
-        ))}
-      </ul>
+      {failed ? (
+        <p className="px-2 py-1 text-xs text-ink-faint">Couldn’t load the projects.</p>
+      ) : (
+        <ul aria-label={groups.pinned.length > 0 ? 'Pinned projects' : 'Recent projects'}>
+          {rows.map((p) => (
+            <ProjectLink
+              key={p.id}
+              project={p}
+              decisions={decisions.get(p.id) ?? 0}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
