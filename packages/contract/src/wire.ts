@@ -10,10 +10,10 @@ import type { ErrorCode } from './errors';
 export type { ErrorCode };
 
 /**
- * The error envelope: `{"error":{code,message,hint?}}` on stderr (CLI) or as
- * the body of a host refusal (the network guard, the retired `/api`). `usage`
- * appears only on the CLI — a transport code for malformed invocations, never
- * raised by the core.
+ * The error envelope: `{"error":{code,message,hint?}}` on the CLI's stderr.
+ * `usage` appears only on the CLI — a transport code for malformed
+ * invocations, never raised by the core. The host's own refusals share the
+ * shape with host-only codes (`forbidden_host`, `forbidden_origin`, `gone`).
  */
 export type ErrorEnvelope = {
   error: {
