@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
 import { ApiError } from '../api/errors';
 import { getNode } from '../api/fns/nodes';
-import { projects, tree } from '../api/fns/shell';
+import { projects, tree, updateProject } from '../api/fns/shell';
 import { review } from '../api/fns/views';
 import { browserTimeZone } from '../api/queries';
 import type { ReviewReport } from '../api/view-queries';
@@ -132,6 +132,31 @@ async function activeSections() {
   );
 }
 
+/*
+ * The Projects section's world (MMR-562): two pinned projects, two others, and
+ * one archived.
+ */
+const atDay = (day: string) => new Date(`2026-09-${day}T00:00:00.000Z`);
+const dated = (id: string, day: string, extra: Partial<EngineNode> = {}) =>
+  engineProject({ id, lastActivityAt: atDay(day), title: `${id} title`, ...extra });
+const FLT = dated('FLT', '08', { pinned: true });
+const LOM = dated('LOM', '03', { pinned: true });
+const HND = dated('HND', '09');
+const MUN = dated('MUN', '07');
+const ARC = engineProject({ archivedAt: atDay('01'), id: 'ARC', title: 'Archived hindsight' });
+
+function serveWorld(decisionRows: ReviewReport['projects'] = []) {
+  serveShell({ archived: [ARC], projects: [FLT, LOM, HND, MUN] });
+  serveViews({ review: engineReview({ projects: decisionRows }) });
+}
+
+const section = async () => within(await sidebar()).findByRole('region', { name: 'Projects' });
+const search = async () =>
+  within(await section()).getByRole('combobox', { name: 'Search projects' });
+/** The keys of the rows a section lists: links at rest, options while searching. */
+const listedKeys = (area: HTMLElement) =>
+  [...area.querySelectorAll('[data-project]')].map((row) => row.getAttribute('data-project'));
+
 beforeEach(() => {
   serveBrowse();
   serveViews();
@@ -236,16 +261,16 @@ describe('sidebar on All projects (MMR-505)', () => {
   );
 
   it.each(['/', '/doctor'])(
-    'holds only Work on %s: no outline, Tasks, Seeds, or Artifacts',
+    'holds Work and the Projects section on %s: no outline, Tasks, Seeds, or Artifacts',
     async (path) => {
       serve([MMR]);
       renderAt(path);
       const nav = await sidebar();
-      expect(
-        within(nav)
-          .getAllByRole('link')
-          .map((l) => l.textContent),
-      ).toStrictEqual(['Work']);
+      expect(within(nav).getByRole('link', { name: 'Work' })).toBeInTheDocument();
+      expect(within(nav).getByRole('region', { name: 'Projects' })).toBeInTheDocument();
+      for (const name of ['Tasks', 'Seeds', 'Artifacts']) {
+        expect(within(nav).queryByRole('link', { name })).toBeNull();
+      }
       expect(within(nav).queryByRole('navigation', { name: 'Outline' })).toBeNull();
       expect(tree).not.toHaveBeenCalled();
     },
@@ -312,6 +337,170 @@ describe('sidebar on All projects (MMR-505)', () => {
       within(await sidebar()).findByRole('button', { name: /NRN.*Norn/ }),
     ).resolves.toBeInTheDocument();
     expect(within(await sidebar()).getByRole('link', { name: 'Seeds' })).toBeInTheDocument();
+  });
+});
+
+describe('sidebar Projects section on All projects (MMR-562)', () => {
+  it('lists the pinned projects as links to their work pages, with their decisions', async () => {
+    serveWorld([decisions('LOM', 2)]);
+    renderAt('/');
+    const area = await section();
+    await waitFor(() => {
+      expect(listedKeys(area)).toStrictEqual(['FLT', 'LOM']);
+    });
+    expect(within(area).getByRole('link', { name: /^FLT/ })).toHaveAttribute('href', '/p/FLT');
+    await expect(
+      within(area).findByRole('link', { name: /^LOM.*2 decisions/ }),
+    ).resolves.toBeInTheDocument();
+    expect(within(area).getByText('2 more projects. Search to find them.')).toBeInTheDocument();
+  });
+
+  it('lists the five most recently active projects when nothing is pinned', async () => {
+    const days = ['01', '06', '02', '05', '03', '04'];
+    serveShell({ projects: days.map((day, i) => dated(`P${String(i)}`, day)) });
+    renderAt('/');
+    const listed = await section();
+    await waitFor(() => {
+      expect(listedKeys(listed)).toStrictEqual(['P1', 'P3', 'P5', 'P4', 'P2']);
+    });
+    expect(within(await section()).getByText('1 more project. Search to find it.')).toBeVisible();
+  });
+
+  it('opens a pinned project with a click', async () => {
+    serveWorld();
+    const testRouter = renderAt('/');
+    await userEvent.click(await within(await section()).findByRole('link', { name: /^LOM/ }));
+    await waitFor(() => {
+      expect(testRouter.state.location.pathname).toBe('/p/LOM');
+    });
+  });
+
+  it('holds no listbox at rest, so the bare hotkeys still work', async () => {
+    serveWorld();
+    renderAt('/');
+    await within(await section()).findByRole('link', { name: /^FLT/ });
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('focuses the search with /', async () => {
+    serveWorld();
+    renderAt('/');
+    const box = await search();
+    await userEvent.keyboard('/');
+    expect(box).toHaveFocus();
+    expect(box).toHaveValue('');
+  });
+
+  it('filters every project as a search is typed, archived ones last', async () => {
+    serveWorld();
+    renderAt('/');
+    await userEvent.type(await search(), 'h');
+    const listed = await section();
+    await waitFor(() => {
+      expect(listedKeys(listed)).toStrictEqual(['HND', 'ARC']);
+    });
+    expect(within(await section()).queryByText(/more project/)).toBeNull();
+  });
+
+  it('says so when nothing matches', async () => {
+    serveWorld();
+    renderAt('/');
+    await userEvent.type(await search(), 'zz');
+    await expect(
+      within(await section()).findByText('No project matches “zz”.'),
+    ).resolves.toBeInTheDocument();
+  });
+
+  it('opens the first match on Enter', async () => {
+    serveWorld();
+    const testRouter = renderAt('/');
+    await userEvent.type(await search(), 'mun{Enter}');
+    await waitFor(() => {
+      expect(testRouter.state.location.pathname).toBe('/p/MUN');
+    });
+  });
+
+  it('moves through the pinned projects with the arrows once focused', async () => {
+    serveWorld();
+    const testRouter = renderAt('/');
+    await within(await section()).findByRole('link', { name: /^FLT/ });
+    await userEvent.click(await search());
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await waitFor(() => {
+      expect(testRouter.state.location.pathname).toBe('/p/LOM');
+    });
+  });
+
+  it('pins the highlighted match with Alt+P, without leaving the page', async () => {
+    serveWorld();
+    const testRouter = renderAt('/');
+    await userEvent.type(await search(), 'hnd');
+    await within(await section()).findByRole('option', { name: /^HND/ });
+    await userEvent.keyboard('{Alt>}p{/Alt}');
+    expect(updateProject).toHaveBeenCalledWith({ data: { id: 'HND', pinned: true } });
+    expect(testRouter.state.location.pathname).toBe('/');
+    await expect(screen.findByText('Pinned HND')).resolves.toBeInTheDocument();
+  });
+
+  it('clears the search on Escape, and leaves it on a second Escape', async () => {
+    serveWorld();
+    renderAt('/');
+    const box = await search();
+    await userEvent.type(box, 'hnd');
+    await userEvent.keyboard('{Escape}');
+    expect(box).toHaveValue('');
+    expect(box).toHaveFocus();
+    await userEvent.keyboard('{Escape}');
+    expect(box).not.toHaveFocus();
+    const listed = await section();
+    await waitFor(() => {
+      expect(listedKeys(listed)).toStrictEqual(['FLT', 'LOM']);
+    });
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('clears the search when focus leaves it', async () => {
+    serveWorld();
+    renderAt('/');
+    const box = await search();
+    await userEvent.type(box, 'hnd');
+    await userEvent.tab();
+    expect(box).toHaveValue('');
+  });
+
+  it('is not on a project page', async () => {
+    serveWorld();
+    renderAt('/p/FLT');
+    await within(await sidebar()).findByRole('link', { name: 'Seeds' });
+    expect(within(await sidebar()).queryByRole('region', { name: 'Projects' })).toBeNull();
+  });
+
+  it('closes the phone drawer behind a pick', async () => {
+    stubViewport('phone');
+    serveWorld();
+    const testRouter = renderAt('/');
+    await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
+    const drawer = await screen.findByRole('dialog', { name: 'All projects' });
+    await userEvent.click(await within(drawer).findByRole('link', { name: /^FLT/ }));
+    await waitFor(() => {
+      expect(testRouter.state.location.pathname).toBe('/p/FLT');
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+  });
+
+  it('clears a search in the phone drawer on Escape without closing the drawer', async () => {
+    stubViewport('phone');
+    serveWorld();
+    renderAt('/');
+    await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
+    const drawer = await screen.findByRole('dialog', { name: 'All projects' });
+    const box = within(drawer).getByRole('combobox', { name: 'Search projects' });
+    await userEvent.type(box, 'hnd');
+    await userEvent.keyboard('{Escape}');
+    expect(box).toHaveValue('');
+    expect(screen.getByRole('dialog', { name: 'All projects' })).toBeInTheDocument();
   });
 });
 
@@ -732,7 +921,7 @@ describe('sidebar drawer on a phone', () => {
     });
   });
 
-  it('opens on / with the All projects context: only Work, and it closes behind a pick', async () => {
+  it('opens on / with the All projects context: Work and Projects, and it closes behind a pick', async () => {
     serve([MMR, NRN], {}, [decisions('MMR', 1)]);
     const testRouter = renderAt('/');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
@@ -741,11 +930,8 @@ describe('sidebar drawer on a phone', () => {
     await expect(
       within(nav).findByRole('button', { name: /^All projects.*1 decision/ }),
     ).resolves.toBeInTheDocument();
-    expect(
-      within(nav)
-        .getAllByRole('link')
-        .map((l) => l.textContent),
-    ).toStrictEqual(['Work']);
+    expect(within(nav).getByRole('region', { name: 'Projects' })).toBeInTheDocument();
+    expect(within(nav).queryByRole('link', { name: 'Tasks' })).toBeNull();
     expect(within(nav).getByRole('link', { name: 'Work' })).toHaveAttribute('aria-current', 'page');
 
     await userEvent.click(within(nav).getByRole('button', { name: /^All projects/ }));

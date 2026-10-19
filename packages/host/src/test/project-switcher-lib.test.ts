@@ -5,6 +5,7 @@ import {
   groupProjects,
   overlayPins,
   projectSwitchTarget,
+  sidebarShortlist,
 } from '../lib/project-switcher';
 import { engineProject } from './engine-fixtures';
 
@@ -30,6 +31,34 @@ describe('groupProjects (MMR-497)', () => {
     ]);
     expect(groups.rest.map((p) => p.id)).toStrictEqual(['LIVE']);
     expect(groups.pinned).toStrictEqual([]);
+  });
+});
+
+const project = (id: string, pinned = false) => engineProject({ id, pinned });
+const ids = (list: readonly { id: string }[]) => list.map((p) => p.id);
+
+describe('sidebarShortlist (MMR-562)', () => {
+  it('shows the pinned projects and counts the rest as more', () => {
+    const shortlist = sidebarShortlist({
+      pinned: [project('A', true), project('B', true)],
+      rest: [project('C'), project('D'), project('E')],
+    });
+    expect(ids(shortlist.shown)).toStrictEqual(['A', 'B']);
+    expect(shortlist.more).toBe(3);
+  });
+
+  it('shows the five most recent when nothing is pinned', () => {
+    const rest = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((id) => project(id));
+    const shortlist = sidebarShortlist({ pinned: [], rest });
+    expect(ids(shortlist.shown)).toStrictEqual(['A', 'B', 'C', 'D', 'E']);
+    expect(shortlist.more).toBe(2);
+  });
+
+  it('shows every pin however many there are, with nothing more when all are pinned', () => {
+    const pinned = ['A', 'B', 'C', 'D', 'E', 'F'].map((id) => project(id, true));
+    const shortlist = sidebarShortlist({ pinned, rest: [] });
+    expect(ids(shortlist.shown)).toHaveLength(6);
+    expect(shortlist.more).toBe(0);
   });
 });
 
