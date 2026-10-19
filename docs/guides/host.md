@@ -224,14 +224,16 @@ findings that `mimir doctor` reports.
 The retired `/api` answers every method with `410` and a JSON body whose error
 code is `gone` and whose hint names `/trpc`, so a stale probe such as
 `curl --fail .../api/projects` fails instead of passing on the console's HTML.
-The host serves no other HTTP routes besides `/health`, `/trpc`, and the
-console.
+Besides that tombstone, the host serves `/health`, `/trpc`, the console's
+server functions under `/_serverFn`, and the console itself. The host guard
+covers every one of them.
 
 ## Read an error from the Engine endpoint
 
-Every `/trpc` failure carries the Mimir error under
+A refused `/trpc` call carries the Mimir error under
 `error.json.data.mimirError`, with its `code`, `message`, and optional `hint`.
-The code maps to an HTTP status:
+An internal failure sets `mimirError` to `null`, so a client checks for it
+before reading the code. The code maps to an HTTP status:
 
 | code         | HTTP status |
 | ------------ | ----------- |
