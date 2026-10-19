@@ -97,7 +97,10 @@ export function useGroom(id: string) {
 /**
  * One create for all three authorable node types (MMR-227) — the Engine
  * branches on `type`. `open_ended` is container-only; priority/size/external_ref
- * are task-only, and the Engine refuses a field on the wrong type.
+ * are task-only. `createData` drops a field that does not belong to the type,
+ * and a priority or size outside the Engine's values, before the call. The
+ * authoring sheet only offers valid values and sets task fields for tasks, so
+ * the drop never fires from the UI.
  */
 export type CreateNodeInput = {
   type: 'task' | 'phase' | 'initiative';
