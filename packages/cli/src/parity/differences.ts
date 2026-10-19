@@ -40,7 +40,18 @@ export type ParityDifference =
    * A board read names one project (ADR 0034). The old CLI accepted the argv;
    * the new one refuses it with a Mimir code, or exits 0 with different output.
    */
-  | { case: string; kind: 'board-read'; reason: string };
+  | { case: string; kind: 'board-read'; reason: string }
+  /**
+   * The old CLI refused with exit 1 and a Mimir code because the command does not
+   * take an option; Loom scopes options to the command that declares them, so its
+   * parser refuses with exit 2 and a code of its own. Both write nothing.
+   */
+  | { case: string; kind: 'loom-scoped'; reason: string }
+  /**
+   * The old CLI accepted and wrote; the Engine refuses the input with a Mimir code,
+   * exit 1, and writes nothing.
+   */
+  | { case: string; kind: 'engine-refusal'; reason: string };
 
 /**
  * Two reviewed differences every case carries, which the harness normalizes
@@ -58,6 +69,14 @@ export const LOOM_RESETS: readonly string[] = ['\u001B[22m', '\u001B[39m'];
 const LOOM_PARSER = "Loom's parser reports a structural fault in Loom's words and failure code.";
 const REPEATED = 'Loom refuses a repeated single-value option; the old CLI kept the last value.';
 const STRAY = 'Loom refuses a positional the command does not declare; the old CLI ignored it.';
+const EXCLUSIVE =
+  'Loom refuses options that exclude each other; the old CLI took the first one it read.';
+const ELSEWHERE =
+  'Loom scopes an option to the command that declares it; the old CLI took it on any create type and ignored it.';
+const NOT_TAKEN =
+  'Loom scopes an option to the command that declares it, so a flag this create type does not take is an unknown option at exit 2; the old CLI refused it as a validation failure at exit 1.';
+const BLANK =
+  'The Engine refuses blank text, a title, or a name with a validation failure; the old CLI accepted and wrote it.';
 const LEADING =
   'Loom scopes an option to the command that declares it; the old CLI read -s before the verb.';
 
@@ -154,6 +173,25 @@ export const SCRATCH_REDIRECTS: readonly string[] = [
   'scratch agenda add abc x --dry-run',
   'scratch freeze abc --direction x',
   'scratch discard abc --parent MMR-2',
+];
+
+/** One misplaced flag per node-write verb, each a `flag-redirect` entry. */
+export const NODE_REDIRECTS: readonly string[] = [
+  'annotate MMR-3 note --parent MMR-2',
+  'attach MMR-5 --file notes.md --parent MMR-2',
+  'create task x --parent MMR-2 --direction x',
+  'create phase x --parent MMR-1 --clear-links',
+  'create initiative x --parent MMR --not-pinned',
+  'create project x --key GAM -y --since 2020-01-01',
+  'depend MMR-5 --on MMR-3 --parent MMR-2',
+  'undepend MMR-5 --on MMR-3 --parent MMR-2',
+  'groom MMR-4 groomed --parent MMR-2',
+  'move MMR-5 --to MMR-1 --parent MMR-2',
+  'reorder MMR-3 --top --parent MMR-2',
+  'tag MMR-5 design --parent MMR-2',
+  'untag MMR-3 alpha --parent MMR-2',
+  'update MMR-3 --title x --clear-links',
+  'update MMR-3 --title x --groomed',
 ];
 
 const MMR_549_READS: readonly ParityDifference[] = [
@@ -283,4 +321,249 @@ export const PARITY_DIFFERENCES: readonly ParityDifference[] = [
   { case: 'scratch argv: -s MMR scratch create x', kind: 'loom-refusal', reason: LEADING },
   { case: 'promote argv: MMR-s1 extra --parent MMR-2', kind: 'loom-refusal', reason: STRAY },
   { case: 'resolve argv: MMR-s1 shipped -f json -f ids', kind: 'loom-refusal', reason: REPEATED },
+  // MMR-551: structure and node writes.
+  ...redirectEntries(NODE_REDIRECTS),
+  {
+    case: 'annotate argv: (no arguments)',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  {
+    case: 'annotate argv: MMR-3 "a note" --bogus',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  { case: 'depend argv: MMR-5', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'depend argv: --on MMR-3', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'undepend argv: MMR-4', kind: 'loom-voice', reason: LOOM_PARSER },
+  {
+    case: 'depend argv: MMR-5 --on MMR-3 --bogus',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  {
+    case: 'depend argv: MMR-5 --on MMR-3 --on MMR-4',
+    kind: 'loom-refusal',
+    reason: REPEATED,
+  },
+  {
+    case: 'depend argv: MMR-5 MMR-6 --on MMR-3',
+    kind: 'loom-refusal',
+    reason: STRAY,
+  },
+  { case: 'move argv: MMR-5', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'move argv: --to MMR-1', kind: 'loom-voice', reason: LOOM_PARSER },
+  {
+    case: 'move argv: MMR-5 --to MMR-1 --bogus',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  { case: 'reorder argv: MMR-3', kind: 'loom-voice', reason: LOOM_PARSER },
+  {
+    case: 'reorder argv: (no arguments)',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  {
+    case: 'reorder argv: MMR-3 --top --bogus',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  {
+    case: 'move argv: MMR-5 --to MMR-1 --to MMR-2',
+    kind: 'loom-refusal',
+    reason: REPEATED,
+  },
+  {
+    case: 'reorder argv: MMR-3 --before MMR-5 --before MMR-8',
+    kind: 'loom-refusal',
+    reason: REPEATED,
+  },
+  {
+    case: 'reorder argv: MMR-3 --top --bottom',
+    kind: 'loom-refusal',
+    reason: EXCLUSIVE,
+  },
+  {
+    case: 'reorder argv: MMR-3 --top --before MMR-5',
+    kind: 'loom-refusal',
+    reason: EXCLUSIVE,
+  },
+  { case: 'tag argv: MMR-5', kind: 'loom-voice', reason: LOOM_PARSER },
+  { case: 'tag argv: (no arguments)', kind: 'loom-voice', reason: LOOM_PARSER },
+  {
+    case: 'tag argv: MMR-5 design --bogus',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  { case: 'untag argv: MMR-3', kind: 'loom-voice', reason: LOOM_PARSER },
+  {
+    case: 'groom argv: (no arguments)',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  { case: 'groom argv: MMR-4', kind: 'loom-voice', reason: LOOM_PARSER },
+  {
+    case: 'groom argv: MMR-4 groomed --bogus',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  {
+    case: 'attach argv: MMR-5 --file <file> --bogus',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  {
+    case: 'attach argv: MMR-5 --file <file> --file <file>',
+    kind: 'loom-refusal',
+    reason: REPEATED,
+  },
+  {
+    case: 'attach argv: MMR-5 MMR-6 --file <file>',
+    kind: 'loom-refusal',
+    reason: STRAY,
+  },
+  {
+    case: 'create argv: project Gamma -y',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  {
+    case: 'create argv: project Gamma --key GAM -y --bogus',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  {
+    case: 'create argv: initiative Growth',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  {
+    case: 'create argv: initiative Growth --parent MMR --bogus',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  {
+    case: 'create argv: initiative --weird-title --parent MMR',
+    kind: 'flag-redirect',
+    reason: REDIRECT,
+  },
+  { case: 'create argv: phase Beta', kind: 'loom-voice', reason: LOOM_PARSER },
+  {
+    case: 'create argv: phase Beta --parent MMR-1 --bogus',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  {
+    case: 'create argv: task "Ship docs"',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  {
+    case: 'create argv: task "Ship docs" --parent MMR-2 --bogus',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  {
+    case: 'create argv: task --weird-title --parent MMR-2',
+    kind: 'flag-redirect',
+    reason: REDIRECT,
+  },
+  { case: 'create argv: epic Title', kind: 'loom-voice', reason: LOOM_PARSER },
+  {
+    case: 'create argv: (no arguments)',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  {
+    case: 'create argv: project Gamma --key GAM -y --parent MMR',
+    kind: 'loom-refusal',
+    reason: ELSEWHERE,
+  },
+  {
+    case: 'create argv: project Gamma --key GAM --key GAN -y',
+    kind: 'loom-refusal',
+    reason: REPEATED,
+  },
+  {
+    case: 'create argv: project Gamma Delta --key GAM -y',
+    kind: 'loom-refusal',
+    reason: STRAY,
+  },
+  {
+    case: 'create argv: initiative Growth More --parent MMR',
+    kind: 'loom-refusal',
+    reason: STRAY,
+  },
+  {
+    case: 'create argv: initiative Growth --parent MMR --target 2026-11',
+    kind: 'loom-refusal',
+    reason: ELSEWHERE,
+  },
+  {
+    case: 'create argv: task "Ship docs" --parent MMR-2 --target 2026-11',
+    kind: 'loom-refusal',
+    reason: ELSEWHERE,
+  },
+  {
+    case: 'create argv: task "Ship docs" --parent MMR-2 --parent MMR-1',
+    kind: 'loom-refusal',
+    reason: REPEATED,
+  },
+  {
+    case: 'create argv: task "Ship docs" More --parent MMR-2',
+    kind: 'loom-refusal',
+    reason: STRAY,
+  },
+  {
+    case: 'update argv: (no arguments)',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  {
+    case: 'update argv: MMR-3 --bogus',
+    kind: 'loom-voice',
+    reason: LOOM_PARSER,
+  },
+  {
+    case: 'update argv: MMR-3 --title a --title b',
+    kind: 'loom-refusal',
+    reason: REPEATED,
+  },
+  {
+    case: 'update argv: MMR-3 MMR-4 --title a',
+    kind: 'loom-refusal',
+    reason: STRAY,
+  },
+  {
+    case: 'create argv: project Gamma --key GAM -y --groomed',
+    kind: 'loom-scoped',
+    reason: NOT_TAKEN,
+  },
+  {
+    case: 'create argv: initiative Growth --parent MMR --groomed',
+    kind: 'loom-scoped',
+    reason: NOT_TAKEN,
+  },
+  {
+    case: 'create argv: initiative Growth --parent MMR --remote x',
+    kind: 'loom-scoped',
+    reason: NOT_TAKEN,
+  },
+  {
+    case: 'create argv: task "Ship docs" --parent MMR-2 --open-ended',
+    kind: 'loom-scoped',
+    reason: NOT_TAKEN,
+  },
+  { case: 'annotate argv: MMR-3 " "', kind: 'engine-refusal', reason: BLANK },
+  {
+    case: 'update argv: MMR-3 --title ""',
+    kind: 'engine-refusal',
+    reason: BLANK,
+  },
+  {
+    case: 'create argv: project " " --key GAM -y',
+    kind: 'engine-refusal',
+    reason: BLANK,
+  },
 ];

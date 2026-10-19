@@ -1,0 +1,15 @@
+mimir create · Create a project, initiative, phase, or task.
+
+USAGE
+  mimir create <command> [options]
+
+COMMANDS
+  project     Create a project. Its key is immutable, so creating one asks for confirmation.
+  initiative  Create an initiative under a project.
+  phase       Create a phase under an initiative.
+  task        Create a task under a phase or initiative.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+Run mimir create <command> --help for command details.

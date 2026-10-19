@@ -1,0 +1,45 @@
+mimir update · Change a task, phase, or initiative (KEY-seq), or a project (KEY).
+
+USAGE
+  mimir update <id> [options]
+
+ARGUMENTS
+  id  KEY-seq or KEY.
+
+OPTIONS
+      --title <text>            The new title.
+      --desc <text>             The new description.
+      --direction <text>        A container's ## Next narrative.
+      --summary <text>          A one-line summary.
+  -p, --priority <p0..p3>       p0, p1, p2, or p3.
+      --size <s|m|l>            s, m, or l.
+      --target <date>           A phase's target, such as 2026-11.
+      --ref <ref>               A task's external reference.
+      --upstream <KEY-sN|none>  A task's seed on another board, or none to clear.
+      --host <text>             Resume handle: the host working on it.
+      --harness <text>          Resume handle: the agent harness.
+      --session <text>          Resume handle: the session id.
+      --branch <text>           Resume handle: the Git branch.
+      --open-ended              Mark a phase or initiative open-ended.
+      --not-open-ended          Mark it not open-ended.
+      --name <text>             A project's new name.
+      --pinned                  Pin a project.
+      --not-pinned              Unpin a project.
+      --remote <url>            A project's Git remote; blank clears it.
+      --ascii                   Print without color, in ASCII glyphs.
+  -f, --format <format>         Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir update MMR-16 --title "Wire the store once"
+    retitle a task
+  $ mimir update MMR-16 -p p1 --size m
+    priority and size
+  $ mimir update MMR-4 --direction "Next: …"
+    a container's ## Next narrative
+  $ mimir update MMR --pinned
+    pin a project
+  $ mimir update MMR --remote git@github.com:dbtlr/mimir.git
+    a project's remote

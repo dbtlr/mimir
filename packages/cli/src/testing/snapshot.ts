@@ -27,9 +27,9 @@ async function read(ask: () => Promise<unknown>): Promise<unknown> {
 }
 
 /**
- * The state of every record the case names or its output echoes: all seeds of
- * both boards, each Scratchpad by token or echoed id, and each node and
- * artifact id that appears. UUIDs, which differ by design, read as `<uuid>`.
+ * The state of every record the case names or its output echoes: all seeds,
+ * nodes, artifacts, and projects of both boards, each Scratchpad by token or
+ * echoed id, and each node and artifact id that appears. UUIDs, which differ by design, read as `<uuid>`.
  */
 export async function boardSnapshot(
   board: ParityBoard,
@@ -44,6 +44,7 @@ export async function boardSnapshot(
     ...named.map(([name, id]): [string, string] => [name, id]),
     ...echoed.map((id): [string, string] => ['<echoed>', id]),
   ];
+  const facets = [...FACET_NAMES];
   const snapshot = {
     artifacts: await Promise.all(
       matches(text, ARTIFACT_ID).map(async (id) => [
@@ -51,12 +52,20 @@ export async function boardSnapshot(
         await read(() => engine.getArtifact({ content: true, id })),
       ]),
     ),
+    // Every node, artifact, and project the board holds, so a write that touches a record its output never names (a moved sibling, a re-ranked one) still compares.
+    board: await Promise.all(
+      ['MMR', 'XX'].map(async (project) => [
+        await engine.list({ facets, project, status: 'all' }),
+        await engine.artifacts({ project }),
+      ]),
+    ),
     nodes: await Promise.all(
       matches(text.replaceAll(ARTIFACT_ID, ''), NODE_ID).map(async (id) => [
         id,
-        await read(() => engine.getNode({ facets: [...FACET_NAMES], id })),
+        await read(() => engine.getNode({ facets, id })),
       ]),
     ),
+    projects: await engine.projects({ facets, status: 'all' }),
     scratchpads: await Promise.all(
       pads.map(async ([name, id]) => [name, await read(() => engine.scratchGet({ id }))]),
     ),
