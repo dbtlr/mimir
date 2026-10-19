@@ -256,7 +256,9 @@ options:
                           (all task-only resume handles are cleared on
                           done/abandon, unqueue, and on park/block; a blank
                           on update clears one, except a queued session;
-                          blank worker-session clears both worker fields)
+                          blank worker-session clears both worker fields;
+                          supplying worker-session without worker-harness
+                          clears any previous worker-harness)
 
 machinery commands (the installation, host, or store — not the work itself):
   store upgrade | export <file> | import <file> [--apply] [--resume]
@@ -747,7 +749,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ],
       [
         '--worker-harness/--worker-session <text>',
-        'task only: a distinct whole-task owner; worker-session requires main session; worker-harness optional; blank worker-session clears both',
+        'task only: a distinct whole-task owner; worker-session requires main session; omitted worker-harness becomes unknown when worker-session is supplied; blank worker-session clears both',
       ],
       ['--name <name>', 'project only (KEY): rename it'],
       [

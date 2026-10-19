@@ -108,6 +108,8 @@ test('a detached sandbox host does not consume launcher stdin', async () => {
     await mkdir(host, { recursive: true });
     await writeFile(join(host, 'package.json'), JSON.stringify({ scripts: { dev: 'bun dev.ts' } }));
     await writeFile(join(host, 'dev.ts'), "await Bun.write('input.txt', await Bun.stdin.text());");
+    const input = join(root, 'terminal-input.txt');
+    await writeFile(input, 'terminal input');
     const module = new URL('host.ts', import.meta.url).pathname;
     const child = Bun.spawn(
       [
@@ -115,10 +117,8 @@ test('a detached sandbox host does not consume launcher stdin', async () => {
         '-e',
         `import { launchHost } from ${JSON.stringify(module)}; await launchHost(${JSON.stringify(root)}, ${JSON.stringify(authority)}, { timeout: 3000 });`,
       ],
-      { stderr: 'pipe', stdin: 'pipe', stdout: 'pipe' },
+      { stderr: 'pipe', stdin: Bun.file(input), stdout: 'pipe' },
     );
-    await child.stdin.write('terminal input');
-    await child.stdin.end();
     const [exit, stderr] = await Promise.all([
       child.exited,
       new Response(child.stderr).text(),

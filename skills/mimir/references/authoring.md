@@ -205,6 +205,8 @@ flags. A start preserves an established main identity; conflicting main flags
 are refused, so a handoff uses `--worker-session` and optionally
 `--worker-harness`. A worker session without a harness leaves the harness
 unknown; the CLI never borrows it from the invoking shell. Explicit blanks win.
+Supplying a worker session without a worker harness also clears any previous
+worker harness during a takeover; omitting both fields preserves the assignment.
 Multiple detected harnesses produce a note only when main fallback applies.
 `update` and MCP never infer identity from their environment.
 

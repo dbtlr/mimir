@@ -80,6 +80,33 @@ describe.each([
       await fixture.close();
     }
   });
+  test('a session-only queued start replaces a preassigned worker without inheriting its harness', async () => {
+    const fixture = await createStore();
+    try {
+      const engine = new LocalEngine(fixture.store);
+      await engine.create({ key: 'OWN', name: 'Ownership', type: 'project' });
+      const parent = await engine.create({ parent: 'OWN', title: 'i', type: 'initiative' });
+      const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
+      await engine.queue({ harness: 'codex', id: task.id, session: 'main' });
+      await engine.update({ id: task.id, workerHarness: 'claude', workerSession: 'previous' });
+      const started = await engine.start({ id: task.id, workerSession: 'successor' });
+      expect(started).toMatchObject({
+        harness: 'codex',
+        session: 'main',
+        workerHarness: null,
+        workerSession: 'successor',
+      });
+      const history = (await engine.getNode({ facets: ['history'], id: task.id })).history ?? [];
+      expect(history.at(-1)?.handles).toEqual({
+        harness: 'codex',
+        session: 'main',
+        worker_session: 'successor',
+      });
+      expect(history.at(-2)?.handles?.worker_harness).toBe('claude');
+    } finally {
+      await fixture.close();
+    }
+  });
   test('start rejects an implicit main takeover without changing reservation or history', async () => {
     const fixture = await createStore();
     try {
@@ -117,7 +144,13 @@ describe.each([
         workerSession: 'first',
       });
       await engine.update({ host: 'new-host', id: task.id, title: 'renamed' });
-      await engine.update({ id: task.id, workerSession: 'second' });
+      const successor = await engine.update({ id: task.id, workerSession: 'second' });
+      expect(successor).toMatchObject({
+        harness: 'codex',
+        session: 'main',
+        workerHarness: null,
+        workerSession: 'second',
+      });
       await engine.update({
         id: task.id,
         session: 'new-main',
@@ -141,7 +174,7 @@ describe.each([
       expect(JSON.parse(history[1]?.to ?? '')).toEqual({
         harness: 'codex',
         session: 'main',
-        worker_harness: 'claude',
+        worker_harness: null,
         worker_session: 'second',
       });
       expect(history[2]?.handles).toEqual({

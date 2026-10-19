@@ -77,11 +77,8 @@ export function applyHandlePatch(patch: NodePatch, fields: HandleFields): void {
       patch[key] = normalizeHandle(value, key);
     }
   }
-  if (
-    fields.workerSession !== undefined &&
-    patch.worker_session === null &&
-    fields.workerHarness === undefined
-  ) {
+  // A supplied worker session establishes its own identity; an omitted harness stays unknown.
+  if (fields.workerSession !== undefined && fields.workerHarness === undefined) {
     patch.worker_harness = null;
   }
 }
