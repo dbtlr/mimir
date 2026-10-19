@@ -1,0 +1,17 @@
+mimir doctor · Run read-only store diagnostics and report the findings for a human to fix at the database. Non-gating: exits 0 after a successful read. Prints prose on a terminal and json when piped.
+
+USAGE
+  mimir doctor [options]
+
+OPTIONS
+  -s, --scope <KEY|all>  Limit to a project. Defaults to the clone binding; all checks every project.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help  Show this help.
+
+EXAMPLES
+  $ mimir doctor
+    check the bound project; findings are output, not the status
+  $ mimir doctor -s all -f json
+    every project, as a findings array
