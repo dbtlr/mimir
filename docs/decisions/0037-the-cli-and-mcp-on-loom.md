@@ -68,7 +68,8 @@ are evolvable layout (ADR 0009).
 
 A failure is `{code, exitCode, message, hints}`. A domain refusal (a
 `MimirError`) exits 1 with its code in kebab case: `not-found`,
-`validation`, `conflict`, or `invariant`. A usage error Mimir raises, such as
+`validation`, `conflict`, or `invariant`; bare `bind` on a clone bound to no
+project exits 1 with `unbound`. A usage error Mimir raises, such as
 an unknown column or a bad priority, exits 2 with the code `usage` and keeps
 its message. A fault Loom's parser finds, such as an unknown option, a missing
 value, or a missing argument, exits 2 in Loom's words and with Loom's code. A

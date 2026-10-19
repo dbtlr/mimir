@@ -54,6 +54,11 @@ test.each([
   ['create', ['create', '--help']],
   ['create-task', ['create', 'task', '--help']],
   ['update', ['update', '--help']],
+  ['bind', ['bind', '--help']],
+  ['doctor', ['doctor', '--help']],
+  ['store', ['store', '--help']],
+  ['store-import', ['store', 'import', '--help']],
+  ['version', ['version', '--help']],
 ])('the %s help page is pinned', async (name, argv) => {
   const run = await runArgv(board.app(), argv);
   expect(run.exitCode).toBe(0);

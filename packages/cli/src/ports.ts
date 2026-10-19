@@ -22,6 +22,8 @@ import type {
   TriageReport,
 } from '@mimir/contract';
 
+import type { Machine } from './machine';
+
 /** The kind of record an id names, by its grammar alone. */
 export type IdKind = 'project' | 'node' | 'artifact' | 'seed';
 
@@ -74,4 +76,6 @@ export type Ports = {
   wire: Wire;
   /** Ask a yes/no question on the terminal; only an interactive run asks. */
   confirm: (question: string) => Promise<boolean>;
+  /** The machine-local services (MMR-553): the binding, doctor, and the store's own upgrade and transfer. */
+  machine: Machine;
 };

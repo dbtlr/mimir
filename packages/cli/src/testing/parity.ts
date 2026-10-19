@@ -19,6 +19,7 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test';
 
 import { runCli } from '@mimir/bin/src/cli';
+import type { Defaults } from '@mimir/bin/src/cli/run';
 import { fakeIo } from '@mimir/bin/src/cli/testing';
 import type { Store } from '@mimir/core';
 import { parseJson } from '@mimir/helpers';
@@ -45,6 +46,8 @@ export type ParityCase = {
   options?: Readonly<Record<string, string | readonly string[] | true>>;
   /** The project the clone is bound to, for both CLIs; unbound when absent. */
   bound?: string;
+  /** The origin remote of the clone, for both CLIs; none when absent. */
+  origin?: string;
   /** Both CLIs run this literal argv, the new one through Loom's parser, instead of by name. */
   argv?: readonly string[];
   /** Both CLIs write to a color terminal rather than a pipe. Argv cases only. */
@@ -81,6 +84,10 @@ export function argvOf(c: ParityCase): string[] {
 
 /** The old CLI's failure, read back from the JSON envelope it writes under `--format json`. */
 function oldFailure(stderr: string): ParityRun['failure'] {
+  // `bind` alone wrote its refusal as a bare line, never an envelope.
+  if (stderr.startsWith('unbound: ')) {
+    return { code: 'unbound', hints: [], message: stderr.trimEnd() };
+  }
   if (!stderr.startsWith('{"error"')) {
     return undefined;
   }
@@ -118,9 +125,19 @@ const joined = (lines: readonly string[]): string =>
 /** The process zone, which both CLIs render in. */
 const zone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-async function oldRun(store: Store, argv: string[], bound: string | undefined, tty = false) {
+/** One run of the old CLI over `store`, its stdout and stderr each as the writer emitted them. */
+export async function oldRun(
+  store: Store,
+  argv: string[],
+  bound: string | undefined,
+  tty = false,
+  extra: Defaults = {},
+) {
   const io = fakeIo(tty, { plain: !tty, zone });
-  const exitCode = await runCli(argv, () => store, io, { scope: () => Promise.resolve(bound) });
+  const exitCode = await runCli(argv, () => store, io, {
+    scope: () => Promise.resolve(bound),
+    ...extra,
+  });
   return { exitCode, stderr: joined(io.err), stdout: joined(io.out) };
 }
 
@@ -129,15 +146,20 @@ async function oldRun(store: Store, argv: string[], bound: string | undefined, t
  * is read from the JSON envelope, so a case that names no format runs again,
  * piped, under `--format json` to read it; a failed read changes nothing.
  */
-export async function runOld(store: Store, c: ParityCase): Promise<ParityRun> {
+export async function runOld(
+  store: Store,
+  c: ParityCase,
+  extra: Defaults = {},
+): Promise<ParityRun> {
   const argv = argvOf(c);
   const bound = c.bound;
-  const run = await oldRun(store, argv, bound, c.tty);
+  const run = await oldRun(store, argv, bound, c.tty, extra);
   if (run.exitCode === 0) {
     return { exitCode: 0, stdout: c.tty ? resetsNormalized(run.stdout) : run.stdout };
   }
   const failure =
-    oldFailure(run.stderr) ?? oldFailure((await oldRun(store, underJson(argv), bound)).stderr);
+    oldFailure(run.stderr) ??
+    oldFailure((await oldRun(store, underJson(argv), bound, false, extra)).stderr);
   return {
     exitCode: run.exitCode,
     stdout: run.stdout,
@@ -247,7 +269,14 @@ function lineDiff(old: string, next: string): { old: string; new: string }[] {
 const STRUCTURED = new Set(['json', 'jsonl', 'ids']);
 
 /** The failure codes Mimir raises; any other code is one of Loom's parser faults. */
-const MIMIR_CODES = new Set(['usage', 'not-found', 'validation', 'conflict', 'invariant']);
+const MIMIR_CODES = new Set([
+  'usage',
+  'not-found',
+  'validation',
+  'conflict',
+  'invariant',
+  'unbound',
+]);
 
 /** Why a Loom difference entry does not hold for the new failure; empty when it does. */
 function loomFaultProblems(got: ParityRun['failure']): string[] {
@@ -484,10 +513,10 @@ type CaseRewrite = (c: ParityCase) => ParityCase;
  * problems, and every checked-in difference entry whose case `owner` matches
  * must name one of `cases`, so a stale entry fails.
  */
-export function registerParity(
+export function registerParity<Case extends ParityCase>(
   owner: RegExp,
-  cases: readonly ParityCase[],
-  problemsOf: (c: ParityCase) => Promise<string[]>,
+  cases: readonly Case[],
+  problemsOf: (c: Case) => Promise<string[]>,
 ): void {
   test.each([...cases])('parity: $name', async (c) => {
     expect(await problemsOf(c)).toEqual([]);
