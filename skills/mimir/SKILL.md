@@ -53,9 +53,10 @@ later is a guess about the past, and the next agent reads it as fact.
   keeps it out of `next`.
 - `start <id> --harness <main-harness> --session <main-session>` when that
   main agent begins the task, before the first edit. A distinct agent owning
-  the **whole task lifecycle** instead uses `start <id> --worker-harness
-  <worker-harness> --worker-session <worker-session>`, preserving the main
-  identity. Helper agents handling pieces of a task leave its identity alone.
+  the **whole task lifecycle** instead uses `start <id> --worker-session
+  <worker-session>`, adding `--worker-harness <worker-harness>` when known and
+  preserving the main identity. Helper agents handling pieces of a task leave
+  its identity alone.
   Direct solo starts use the main flags, with worker fields unset. Keep one
   task `in_progress` per task-owning session.
 - `unqueue <id> "reason"` when a run is cancelled before a worker starts.
@@ -89,9 +90,10 @@ later is a guess about the past, and the next agent reads it as fact.
 **Identify task owners explicitly.** Main flags identify the user conversation
 or workflow; worker flags identify a distinct whole-task owner. The same agent
 uses main flags and leaves worker fields unset. Read `references/authoring.md`
-for finding identities and recording a handoff. Always supply both worker
-flags for a handoff. Shell auto-fill can supply main identity on queue or an
-initial solo start; worker identity, updates, and MCP calls stay explicit.
+for finding identities and recording a handoff. Always supply `--worker-session`
+for a handoff; `--worker-harness` is optional. Shell auto-fill can supply main
+identity on queue or an initial solo start; worker identity, updates, and MCP
+calls stay explicit.
 
 **Prefer groomed work.** A task carries a grooming state beside its status:
 `not_groomed`, `needs_answers`, or `groomed`. Choose groomed tasks from `next`

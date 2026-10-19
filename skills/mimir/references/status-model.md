@@ -29,8 +29,8 @@ it appears in `list --status queued`.
 
 - `start <id>` accepts `todo` or `queued` and moves to `in_progress` while
   preserving an established main identity. The main agent supplies its main
-  flags; a distinct whole-task owner supplies `--worker-harness` and
-  `--worker-session`, both explicitly. Helper agents leave task identity alone.
+  flags; a distinct whole-task owner supplies `--worker-session` and optionally
+  `--worker-harness` when known. Helper agents leave task identity alone.
   Starting queued work preserves a worker preassigned with `update`, resets
   only host and branch, and applies supplied values. History retains both main
   and worker identities.

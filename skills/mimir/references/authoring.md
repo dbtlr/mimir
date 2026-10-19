@@ -184,7 +184,8 @@ mimir update KEY-9 --worker-session ''   # return ownership to the main agent
 ```
 
 Always supply the relevant identity explicitly on every queue and start:
-main flags for the user conversation, both worker flags for a distinct task owner.
+main flags for the user conversation, `--worker-session` for a distinct task
+owner, and `--worker-harness` when known.
 Use each harness's own knowledge of its resumable session. Inherited shell
 variables can describe an outer harness; they do not override that knowledge.
 
@@ -201,9 +202,8 @@ identity too before attaching a distinct worker.
 The CLI can fill omitted main flags for `queue` from one unambiguous shell.
 For `start`, it does so only with no established main identity and no worker
 flags. A start preserves an established main identity; conflicting main flags
-are refused, so a handoff
-uses worker flags. Worker identities are always explicit: supply both worker
-flags for a handoff. A worker session without a harness leaves the harness
+are refused, so a handoff uses `--worker-session` and optionally
+`--worker-harness`. A worker session without a harness leaves the harness
 unknown; the CLI never borrows it from the invoking shell. Explicit blanks win.
 Multiple detected harnesses produce a note only when main fallback applies.
 `update` and MCP never infer identity from their environment.

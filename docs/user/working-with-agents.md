@@ -82,8 +82,9 @@ mimir start AUR-8 --worker-harness claude --worker-session task-session
 ```
 
 Starting the task preserves the main session and an explicitly preassigned
-worker. Supply both worker flags to identify a handoff; the CLI does not infer
-worker identity from the invoking shell. The worker manages task state
+worker. Supply `--worker-session` to identify a handoff and `--worker-harness`
+when known; the harness can remain unknown. The CLI does not infer worker
+identity from the invoking shell. The worker manages task state
 through review and completion. Explicit reassignment through update retains
 previous identities in history.
 

@@ -747,7 +747,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
       ],
       [
         '--worker-harness/--worker-session <text>',
-        'task only: a distinct whole-task owner; supply both explicitly for handoff; blank worker-session clears both',
+        'task only: a distinct whole-task owner; worker-session requires main session; worker-harness optional; blank worker-session clears both',
       ],
       ['--name <name>', 'project only (KEY): rename it'],
       [
