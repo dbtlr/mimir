@@ -11,6 +11,7 @@ import { statements as blockOwnerStatements } from './migrations/0003-block-owne
 import { statements as seedParkedStatements } from './migrations/0004-seed-parked';
 import { statements as projectPinnedStatements } from './migrations/0005-project-pinned';
 import { statements as projectRemoteStatements } from './migrations/0006-project-remote';
+import { statements as taskQueuedStatements } from './migrations/0007-task-queued';
 import { createPgliteDialect } from './pglite';
 import { createEmptyPglite } from './testing';
 
@@ -53,6 +54,7 @@ test('an upgrade names the migrations it applied and lands the current version',
         '0005_project_pinned',
         '0006_project_remote',
         '0007_task_queued',
+        '0008_main_worker',
       ],
       from: 0,
       to: SCHEMA_VERSION,
@@ -98,6 +100,7 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
         '0005_project_pinned',
         '0006_project_remote',
         '0007_task_queued',
+        '0008_main_worker',
       ],
       from: 1,
       to: SCHEMA_VERSION,
@@ -151,6 +154,7 @@ test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by
         '0005_project_pinned',
         '0006_project_remote',
         '0007_task_queued',
+        '0008_main_worker',
       ],
       from: 2,
       to: SCHEMA_VERSION,
@@ -209,6 +213,7 @@ test('0004_seed_parked upgrades a version-3 store: seeds keep their lifecycle, p
         '0005_project_pinned',
         '0006_project_remote',
         '0007_task_queued',
+        '0008_main_worker',
       ],
       from: 3,
       to: SCHEMA_VERSION,
@@ -249,7 +254,12 @@ test('0005_project_pinned upgrades a version-4 store: projects keep their data a
     `.execute(db);
 
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0005_project_pinned', '0006_project_remote', '0007_task_queued'],
+      applied: [
+        '0005_project_pinned',
+        '0006_project_remote',
+        '0007_task_queued',
+        '0008_main_worker',
+      ],
       from: 4,
       to: SCHEMA_VERSION,
     });
@@ -297,7 +307,7 @@ test('0006_project_remote upgrades a version-5 store: projects keep their data a
     `.execute(db);
 
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0006_project_remote', '0007_task_queued'],
+      applied: ['0006_project_remote', '0007_task_queued', '0008_main_worker'],
       from: 5,
       to: SCHEMA_VERSION,
     });
@@ -423,7 +433,7 @@ test('seed_history.kind is constrained to the transition-kind vocabulary', async
     // A hand-written insert, not the app's typed writer: exercises the
     // database CHECK directly, the way an older or foreign client could.
     expect(
-      sql`insert into seed_history (seed_id, kind, at) values ('MMR-s1', 'not-a-real-kind', '2026-09-01T00:00:00.000Z')`.execute(
+      sql`insert into seed_history (seed_id, kind, at) values ('MMR-s1', 'assignment', '2026-09-01T00:00:00.000Z')`.execute(
         db,
       ),
     ).rejects.toThrow(/violates check constraint/);
@@ -455,55 +465,88 @@ test('migration progress reports committed steps even when a later migration fai
   }
 });
 
-test('0007_task_queued upgrades a version-6 store without changing existing node data', async () => {
-  const db = await freshDb();
-  try {
-    for (const statement of [
-      ...initStatements,
-      ...groomingStatements,
-      ...blockOwnerStatements,
-      ...seedParkedStatements,
-      ...projectPinnedStatements,
-      ...projectRemoteStatements,
-    ]) {
-      await sql.raw(statement).execute(db);
+test.each([6, 7])(
+  'upgrading version %i preserves node identities and transition history',
+  async (version) => {
+    const db = await freshDb();
+    try {
+      for (const statement of [
+        ...initStatements,
+        ...groomingStatements,
+        ...blockOwnerStatements,
+        ...seedParkedStatements,
+        ...projectPinnedStatements,
+        ...projectRemoteStatements,
+        ...(version === 7 ? taskQueuedStatements : []),
+      ]) {
+        await sql.raw(statement).execute(db);
+      }
+      await sql`INSERT INTO schema_version (version, applied_at) VALUES (1, 't'), (2, 't'), (3, 't'), (4, 't'), (5, 't'), (6, 't')`.execute(
+        db,
+      );
+      if (version === 7) {
+        await sql`INSERT INTO schema_version VALUES (7, 't')`.execute(db);
+      }
+      await sql`INSERT INTO project (key, name, created_at, updated_at) VALUES ('QUE', 'Queue', 'c', 'u')`.execute(
+        db,
+      );
+      await sql`INSERT INTO node (id, project_key, type, seq, title, lifecycle, hold, rank, grooming, session, created_at, updated_at) VALUES ('QUE-1', 'QUE', 'task', 1, 'first', 'todo', 'none', 1024, 'groomed', 'old', 'c', 'u')`.execute(
+        db,
+      );
+      await sql`INSERT INTO transition_log (id, node_id, kind, from_value, to_value, handles, at) VALUES (9, 'QUE-1', 'lifecycle', 'todo', 'in_progress', '{"session":"old"}', 'h')`.execute(
+        db,
+      );
+      const historyBefore = await sql`SELECT * FROM transition_log ORDER BY id`.execute(db);
+      if (version === 6) {
+        expect(
+          await sql`UPDATE node SET lifecycle = 'queued' WHERE id = 'QUE-1'`.execute(db).then(
+            () => false,
+            () => true,
+          ),
+        ).toBe(true);
+      }
+      expect(
+        await sql`INSERT INTO transition_log (node_id, kind, at) VALUES ('QUE-1', 'assignment', 'h')`
+          .execute(db)
+          .then(
+            () => false,
+            () => true,
+          ),
+      ).toBe(true);
+      expect((await upgradeSchema(db)).applied).toEqual(
+        version === 7 ? ['0008_main_worker'] : ['0007_task_queued', '0008_main_worker'],
+      );
+      expect((await sql`SELECT * FROM transition_log ORDER BY id`.execute(db)).rows).toEqual(
+        historyBefore.rows,
+      );
+      await sql`INSERT INTO transition_log (node_id, kind, at) VALUES ('QUE-1', 'assignment', 'h')`.execute(
+        db,
+      );
+      const nodes =
+        await sql`SELECT id, rank, session, grooming, created_at, updated_at, worker_harness, worker_session FROM node`.execute(
+          db,
+        );
+      expect(nodes.rows).toEqual([
+        {
+          created_at: 'c',
+          grooming: 'groomed',
+          id: 'QUE-1',
+          rank: 1024,
+          session: 'old',
+          updated_at: 'u',
+          worker_harness: null,
+          worker_session: null,
+        },
+      ]);
+      await sql`UPDATE node SET lifecycle = 'queued' WHERE id = 'QUE-1'`.execute(db);
+      expect(
+        await sql`UPDATE node SET lifecycle = 'bogus' WHERE id = 'QUE-1'`.execute(db).then(
+          () => false,
+          () => true,
+        ),
+      ).toBe(true);
+    } finally {
+      await db.destroy();
     }
-    await sql`INSERT INTO schema_version (version, applied_at) VALUES (1, 't'), (2, 't'), (3, 't'), (4, 't'), (5, 't'), (6, 't')`.execute(
-      db,
-    );
-    await sql`INSERT INTO project (key, name, created_at, updated_at) VALUES ('QUE', 'Queue', 'c', 'u')`.execute(
-      db,
-    );
-    await sql`INSERT INTO node (id, project_key, type, seq, title, lifecycle, hold, rank, grooming, session, created_at, updated_at) VALUES ('QUE-1', 'QUE', 'task', 1, 'first', 'todo', 'none', 1024, 'groomed', 'old', 'c', 'u')`.execute(
-      db,
-    );
-    expect(
-      await sql`UPDATE node SET lifecycle = 'queued' WHERE id = 'QUE-1'`.execute(db).then(
-        () => false,
-        () => true,
-      ),
-    ).toBe(true);
-    expect((await upgradeSchema(db)).applied).toEqual(['0007_task_queued']);
-    const nodes =
-      await sql`SELECT id, rank, session, grooming, created_at, updated_at FROM node`.execute(db);
-    expect(nodes.rows).toEqual([
-      {
-        created_at: 'c',
-        grooming: 'groomed',
-        id: 'QUE-1',
-        rank: 1024,
-        session: 'old',
-        updated_at: 'u',
-      },
-    ]);
-    await sql`UPDATE node SET lifecycle = 'queued' WHERE id = 'QUE-1'`.execute(db);
-    expect(
-      await sql`UPDATE node SET lifecycle = 'bogus' WHERE id = 'QUE-1'`.execute(db).then(
-        () => false,
-        () => true,
-      ),
-    ).toBe(true);
-  } finally {
-    await db.destroy();
-  }
-});
+  },
+);

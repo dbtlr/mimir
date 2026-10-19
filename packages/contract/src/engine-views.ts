@@ -85,6 +85,8 @@ export function nodeSchema<T extends z.ZodType>(instant: T) {
               harness: z.string().optional(),
               host: z.string().optional(),
               session: z.string().optional(),
+              worker_harness: z.string().optional(),
+              worker_session: z.string().optional(),
             })
             .optional(),
           kind: z.enum(TRANSITION_KIND_VALUES),
@@ -128,6 +130,8 @@ export function nodeSchema<T extends z.ZodType>(instant: T) {
     verdicts: z
       .object({ blocking: z.boolean(), orphaned: z.boolean(), stale: z.boolean() })
       .optional(),
+    workerHarness: z.string().nullable().optional(),
+    workerSession: z.string().nullable().optional(),
   });
 }
 

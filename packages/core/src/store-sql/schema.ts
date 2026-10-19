@@ -124,6 +124,8 @@ export type NodeTable = {
   host: string | null;
   harness: string | null;
   session: string | null;
+  worker_harness: string | null;
+  worker_session: string | null;
   branch: string | null;
   completed_at: string | null;
   target: string | null;

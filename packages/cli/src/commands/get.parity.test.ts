@@ -30,6 +30,8 @@ const CASES: ParityCase[] = [
   get('get MMR-4', 'MMR-4'),
   get('get MMR-4 -f json', 'MMR-4', { format: 'json' }),
   get('get MMR-5', 'MMR-5'),
+  get('get MMR-5 -f json', 'MMR-5', { format: 'json' }),
+  get('get MMR-5 --col history', 'MMR-5', { col: ['history'] }),
   get('get MMR-6', 'MMR-6'),
   get('get MMR-7 -f json', 'MMR-7', { format: 'json' }),
   get('get MMR-7', 'MMR-7'),

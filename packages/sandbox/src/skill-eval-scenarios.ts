@@ -52,21 +52,32 @@ export type Scenario = {
 const transitionSchema = z.object({
   at: z.string(),
   from: z.string(),
-  handles: z.object({ harness: z.string().optional(), session: z.string().optional() }).optional(),
+  handles: z
+    .object({
+      harness: z.string().optional(),
+      session: z.string().optional(),
+      worker_harness: z.string().optional(),
+      worker_session: z.string().optional(),
+    })
+    .optional(),
   kind: z.string(),
   reason: z.string().nullable(),
   to: z.string(),
 });
 const taskSchema = z.object({
+  branch: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   harness: z.string().nullable().optional(),
   history: z.array(transitionSchema).optional().default([]),
   hold: z.string(),
+  host: z.string().nullable().optional(),
   id: z.string(),
   lifecycle: z.string(),
   session: z.string().nullable().optional(),
   title: z.string(),
   upstream: z.string().nullable(),
+  worker_harness: z.string().nullable().optional(),
+  worker_session: z.string().nullable().optional(),
 });
 type TaskView = z.infer<typeof taskSchema>;
 const seedSchema = z.object({ id: z.string(), requester: z.string().nullable() });
@@ -172,9 +183,11 @@ export const SCENARIOS: readonly Scenario[] = [
             first >= 0 &&
             second >= 0 &&
             started > Math.max(first, second) &&
-            writes.every(
-              (c) =>
-                hasExplicitHandle(c.args, '--harness') && hasExplicitHandle(c.args, '--session'),
+            writes.every((c) =>
+              c.verb === 'queue'
+                ? hasExplicitHandle(c.args, '--harness') && hasExplicitHandle(c.args, '--session')
+                : hasExplicitHandle(c.args, '--worker-harness') &&
+                  hasExplicitHandle(c.args, '--worker-session'),
             )
           );
         },
@@ -188,8 +201,10 @@ export const SCENARIOS: readonly Scenario[] = [
           return (
             started.lifecycle === 'in_progress' &&
             started.hold === 'none' &&
-            started.harness === 'claude' &&
-            started.session === 'eval-worker-session' &&
+            started.harness === 'codex' &&
+            started.session === 'eval-run-session' &&
+            started.worker_harness === 'claude' &&
+            started.worker_session === 'eval-worker-session' &&
             lifecycle.length === 2 &&
             queued?.from === 'todo' &&
             queued.to === 'queued' &&
@@ -197,8 +212,10 @@ export const SCENARIOS: readonly Scenario[] = [
             queued.handles.session === 'eval-run-session' &&
             working?.from === 'queued' &&
             working.to === 'in_progress' &&
-            working.handles?.harness === 'claude' &&
-            working.handles.session === 'eval-worker-session'
+            working.handles?.harness === 'codex' &&
+            working.handles.session === 'eval-run-session' &&
+            working.handles.worker_harness === 'claude' &&
+            working.handles.worker_session === 'eval-worker-session'
           );
         },
       },
@@ -211,8 +228,12 @@ export const SCENARIOS: readonly Scenario[] = [
           return (
             cancelled.lifecycle === 'todo' &&
             cancelled.hold === 'none' &&
+            cancelled.host === null &&
+            cancelled.branch === null &&
             cancelled.harness === null &&
             cancelled.session === null &&
+            cancelled.worker_harness === null &&
+            cancelled.worker_session === null &&
             lifecycle.length === 2 &&
             queued?.from === 'todo' &&
             queued.to === 'queued' &&
@@ -237,6 +258,46 @@ export const SCENARIOS: readonly Scenario[] = [
         cancelled: await createTask(mimir, core, 'Document the public API'),
         started: await createTask(mimir, core, 'Wire the health endpoint'),
       };
+    },
+  },
+  {
+    bind: 'QEV',
+    checks: [
+      {
+        name: 'passes explicit main handles',
+        test: (e) =>
+          e.calls.some(
+            (call) =>
+              !call.help &&
+              call.verb === 'start' &&
+              matchesTaskOperand(call.args[0], e.ids.started) &&
+              hasExplicitHandle(call.args, '--harness') &&
+              hasExplicitHandle(call.args, '--session') &&
+              !call.args.some((arg) => arg.startsWith('--worker-')),
+          ),
+      },
+      {
+        name: 'records main ownership without a worker',
+        test: async (e) => {
+          const started = await task(e, e.ids.started ?? '');
+          return (
+            started.lifecycle === 'in_progress' &&
+            started.hold === 'none' &&
+            started.harness === 'codex' &&
+            started.session === 'eval-solo-session' &&
+            started.worker_harness === null &&
+            started.worker_session === null
+          );
+        },
+      },
+    ],
+    files: {},
+    name: 'solo-start',
+    prompt: (ids) =>
+      `Record the start of ${ids.started}. The main user conversation is codex session eval-solo-session and is handling the whole task itself. A helper may review a small piece later, but there is no distinct whole-task owner. Leave the task in progress; no code edits, completion, or session summary is needed. These are supplied identities for this exercise; make tracker changes on their behalf.`,
+    setup: async (mimir) => {
+      const core = await evalBoard(mimir);
+      return { started: await createTask(mimir, core, 'Handle a task in the main conversation') };
     },
   },
   {

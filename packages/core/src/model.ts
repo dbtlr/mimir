@@ -60,15 +60,18 @@ export type Node = {
    * dependency is deferred. Round-trips through the store like `external_ref`. */
   upstream: string | null;
   /**
-   * The in-flight execution metadata — the four **resume handles** (ADR 0026
+   * The in-flight execution metadata — the **resume handles** (ADR 0026
    * Decision 3, MMR-320): where the work is happening (`host`), under which agent
-   * harness, in which session, on which branch. Free strings, never telemetry.
+   * harness, in which main session, on which branch. Optional worker handles
+   * identify an agent entrusted with the whole task. Free strings, never telemetry.
    * `start` stamps them, a plain `update` overwrites them (resume/takeover), and
    * the terminal/hold verbs clear them; absence is always legitimate.
    */
   host: string | null;
   harness: string | null;
   session: string | null;
+  worker_harness: string | null;
+  worker_session: string | null;
   branch: string | null;
   completed_at: string | null;
 

@@ -28,7 +28,7 @@ word) · **direction** (the owned `## Next` prose, verbatim, of the project and 
 every container parenting live work — in flight or ready; top 5 of the true
 count, the rest named) · **in flight** (`queued` + `in_progress` +
 `under_review`, uncapped, each row showing its resume handles as
-`harness@host · branch · session` when set) · **active scratchpads** (true
+`harness@host · branch · session` plus a distinct worker when set) · **active scratchpads** (true
 count, top 5 — `uuid · project · title · N open Agenda · age · linked KEY…`,
 interrupted freezes flagged `freezing`; the resume surface for unsettled
 episodes, `references/scratchpad.md`) · **next** (the ready head, top 5 of
@@ -46,20 +46,22 @@ Every count in the render is a TRUE total — except recent sessions, whose
 header reads `N shown`. That section is composed from bounded reads and has no
 knowable total: `mimir artifacts -t session_summary` is the pageable view.
 
-Recent sessions is derived, not stored: transition rows grouped by the `session`
-handle stamped by `queue` or `start` (always with explicit `--harness` and
-`--session`). A retrospective joins on by linked-task
+Recent sessions is derived, not stored: transition rows grouped by the main `session`
+handle stamped by `queue` or `start` (with explicit main identity;
+separate worker flags identify a distinct whole-task owner). A retrospective joins on by linked-task
 overlap — attach it with `mimir attach <task> --file retro.md -t session_summary
 --summary "…"`, or, when the session ran on a Scratchpad, freeze that instead
 (`references/finishing.md`). Two limits are worth knowing:
 
 - **Only handle-moving boundaries are visible.** `queue`, `start`, and the clearing verbs
-  (`unqueue`, `done`/`abandon`, `park`/`block`) echo handles; `submit`/`return`/`reopen`/
-  `unpark`/`unblock` do not. A session that only reviewed work shows up solely
+  (`unqueue`, `done`/`abandon`, `park`/`block`) echo handles. Explicit identity
+  updates append assignment history. `submit`/`return`/`reopen`/`unpark`/`unblock`
+  do not attach a new identity. A session that only reviewed work shows up solely
   through its retrospective, as a knowledge-only entry.
 - **A takeover must re-state its session.** A clearing row echoes whatever the
   task still carried, so resuming someone else's work without
-  `mimir update <id> --session …` credits your `done` to their session.
+  `mimir update <id> --session …` (and worker flags for a distinct owner)
+  keeps the previous ownership on the record.
 
 Direction prose is written, not derived: `mimir update <KEY|container> --direction
 "…"` re-authors the whole section. A dormant container's prose stays one

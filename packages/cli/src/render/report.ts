@@ -61,13 +61,17 @@ export function renderTree(tree: TreeView, p: Presentation, depth = 0): string {
   return [line, ...tree.children.map((child) => renderTree(child, p, depth + 1))].join('\n');
 }
 
-/** The in-flight resume-handle clause: `harness@host · branch · session`, each part omitted when unset. */
+/** The in-flight main and optional worker handles, each part omitted when unset. */
 function handleClause(task: NodeView): string {
   const where =
     task.harness != null && task.host != null
       ? `${task.harness}@${task.host}`
       : (task.harness ?? task.host ?? null);
-  const parts = [where, task.branch, task.session].filter(
+  const worker =
+    task.workerSession == null
+      ? null
+      : `worker ${task.workerHarness == null ? '' : `${task.workerHarness} · `}${task.workerSession}`;
+  const parts = [where, task.branch, task.session, worker].filter(
     (part): part is string => part != null && part !== '',
   );
   return parts.length === 0 ? '' : ` · ${parts.join(' · ')}`;

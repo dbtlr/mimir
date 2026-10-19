@@ -9,6 +9,7 @@ import { Command } from '@loomcli/core';
 import { helpCommand } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
 import {
+  HANDLE_FIELD_ARGS,
   HANDLE_FIELD_KEYS,
   intentEncoders,
   isTerminalLifecycle,
@@ -16,7 +17,14 @@ import {
   OP_FACTS,
   projectNotFound,
 } from '@mimir/contract';
-import type { Engine, HandleFieldKey, OpFact, UniformArgs, UniformVerb } from '@mimir/contract';
+import type {
+  Engine,
+  HandleFieldArg,
+  HandleFieldKey,
+  OpFact,
+  UniformArgs,
+  UniformVerb,
+} from '@mimir/contract';
 import { detectHarness } from '@mimir/helpers';
 
 import { MimirUsageError } from '../failures';
@@ -70,7 +78,11 @@ export function describeVerbForAgent(verb: UniformVerb): string {
     op.seeds === true
       ? ' A seed id (KEY-sN) is accepted too: it moves the seed between untriaged and parked and echoes the seed.'
       : '';
-  return `${capitalized(op.summary)}${arrowOf(op)}.${reason}${required}${choice} ${echo}${seeds}`;
+  const ownership =
+    verb === 'start'
+      ? ' Preserves the main conversation. Explicit worker-session assigns a distinct whole-task owner; worker-harness is optional and is never inferred from the shell.'
+      : '';
+  return `${capitalized(op.summary)}${arrowOf(op)}.${reason}${required}${choice} ${echo}${seeds}${ownership}`;
 }
 
 /** The worked examples: the one part of a verb's help the facts do not carry. */
@@ -102,9 +114,16 @@ const EXAMPLES: Record<UniformVerb, { command: string; note: string }[]> = {
     { command: 'start MMR-3', note: 'begin the task' },
     {
       command: 'start MMR-3 --host laptop --harness codex --session s-91 --branch feat/mmr-3',
-      note: 'record the resume handles',
+      note: 'work in the main conversation',
     },
-    { command: 'update MMR-3 --session s-92', note: 'resume or take over; there is no claim verb' },
+    {
+      command: 'start MMR-3 --worker-session worker-92 --worker-harness claude',
+      note: 'hand the whole task to a distinct worker',
+    },
+    {
+      command: 'update MMR-3 --worker-session worker-93',
+      note: 'worker takeover; omitted harness becomes unknown',
+    },
   ],
   submit: [{ command: 'submit MMR-3', note: 'send it for review' }],
   unarchive: [{ command: 'unarchive SAGA', note: 'restore the project' }],
@@ -139,19 +158,6 @@ function transitionSuffix(op: OpFact, presentation: Presentation, source?: strin
   return from === undefined ? ` ${glyph} ${t.to}` : ` · ${from} ${glyph} ${t.to}`;
 }
 
-/**
- * The stored lifecycle `start` begins from, since it can begin a todo or a
- * queued task and the echo names which. A task that cannot be read is left to
- * the verb to refuse.
- */
-async function lifecycleOf(engine: Engine, id: string): Promise<string | undefined> {
-  try {
-    return (await engine.getNode({ id })).lifecycle;
-  } catch {
-    return undefined;
-  }
-}
-
 const withReason = (line: string, reason: string | undefined): string =>
   reason === undefined ? line : `${line} · ${reason}`;
 
@@ -162,7 +168,8 @@ type Invocation = {
   id: string;
   /** The reason words, joined; empty for none. */
   reason: string;
-  handles?: Readonly<Record<HandleFieldKey, string | undefined>>;
+  handles?: Readonly<Partial<Record<HandleFieldArg, string>>>;
+  startExpectation?: UniformArgs['startExpectation'];
   on?: string;
   presentation: Presentation;
 };
@@ -175,10 +182,14 @@ function engineArgs(call: Invocation): UniformArgs {
     args.reason = call.reason;
   }
   for (const key of HANDLE_FIELD_KEYS) {
-    const value = call.handles?.[key];
+    const arg = HANDLE_FIELD_ARGS[key];
+    const value = call.handles?.[arg];
     if (op.fields?.includes(key) === true && value !== undefined) {
-      args[key] = value;
+      args[arg] = value;
     }
+  }
+  if (call.startExpectation !== undefined) {
+    args.startExpectation = call.startExpectation;
   }
   if (op.choice !== undefined && call.on !== undefined) {
     args.on = call.on;
@@ -245,7 +256,10 @@ async function runVerb(ports: Ports, call: Invocation): Promise<LifecycleEcho> {
     throw new MimirUsageError(`${call.verb} requires a reason`);
   }
   for (const key of HANDLE_FIELD_KEYS) {
-    if (op.requiredFields?.includes(key) === true && (call.handles?.[key] ?? '').trim() === '') {
+    if (
+      op.requiredFields?.includes(key) === true &&
+      (call.handles?.[HANDLE_FIELD_ARGS[key]] ?? '').trim() === ''
+    ) {
       throw new MimirError('validation', `${call.verb} requires a nonblank ${key}`);
     }
   }
@@ -253,7 +267,7 @@ async function runVerb(ports: Ports, call: Invocation): Promise<LifecycleEcho> {
   const engine = await ports.engine();
   const forSeed = op.seeds === true && ports.grammar.idKind(call.id) === 'seed';
   const args = engineArgs(call);
-  const source = call.verb === 'start' ? await lifecycleOf(engine, call.id) : undefined;
+  const source = call.startExpectation?.lifecycle ?? undefined;
   const run = (): Promise<unknown> =>
     forSeed ? callSeed(engine, call.verb, args) : callUniform(engine, call.verb, args);
   let raw: unknown;
@@ -393,17 +407,25 @@ const handleDescription = (verb: UniformVerb, key: HandleFieldKey, summary: stri
     : summary;
 
 /**
- * The resume handles a `queue` or `start` records: the flags given, with harness
- * and session filled from the shell when it names one harness (MMR-564). Several
- * harnesses in one shell fill nothing and warn, since choosing would guess.
+ * Fill a new main identity from one unambiguous shell. An established main
+ * or explicit worker input suppresses fallback; worker identity stays explicit.
  */
 async function runHandles(
-  options: Readonly<Record<HandleFieldKey, string | undefined>>,
+  options: Readonly<Partial<Record<HandleFieldArg, string>>>,
+  verb: 'queue' | 'start',
+  starting: UniformArgs['startExpectation'],
   env: Readonly<Record<string, string | undefined>>,
   warn: (message: string) => Promise<void>,
-): Promise<Record<HandleFieldKey, string | undefined>> {
+): Promise<Partial<Record<HandleFieldArg, string>>> {
   const handles = { ...options };
-  if (handles.harness !== undefined && handles.session !== undefined) {
+  if (
+    (verb === 'start' &&
+      (starting?.harness != null ||
+        starting?.session != null ||
+        handles.workerHarness !== undefined ||
+        handles.workerSession !== undefined)) ||
+    (handles.harness !== undefined && handles.session !== undefined)
+  ) {
     return handles;
   }
   const detected = detectHarness(env);
@@ -422,30 +444,74 @@ async function runHandles(
 function handleVerb(verb: 'queue' | 'start', ports: Ports) {
   const describe = (key: HandleFieldKey, summary: string) =>
     text(handleDescription(verb, key, summary));
-  return new Command(verb, header(verb))
+  const base = new Command(verb, header(verb))
     .argument('id', { description: SUBJECT_DESCRIPTIONS.task, required: true })
     .option('host', describe('host', 'The machine the work is happening on.'))
-    .option('harness', describe('harness', 'The agent harness running it.'))
-    .option('session', describe('session', 'The session id to resume from.'))
-    .option('branch', describe('branch', 'The branch the work lives on.'))
+    .option('harness', describe('harness', 'The main conversation or workflow harness.'))
+    .option('session', describe('session', 'The main conversation or workflow session.'))
+    .option('branch', describe('branch', 'The branch the work lives on.'));
+  const command =
+    verb === 'start'
+      ? base
+          .option('worker-harness', text('The distinct whole-task worker harness, when known.'))
+          .option(
+            'worker-session',
+            text('The distinct whole-task worker session; requires a main session.'),
+          )
+      : base;
+  return command
     .option('ascii', asciiOption)
     .result<LifecycleEcho>({ views: echoViews })
     .views({}, { default: 'records' })
     .action(async ({ args, host, options, out, passthrough }) => {
       refuseStray(passthrough);
+      if (args.id.trim() === '') {
+        throw new MimirUsageError(`${verb} requires an id (KEY-seq)`);
+      }
       const presentation = presentationOf(host, options.ascii);
+      const observed =
+        verb === 'start'
+          ? await withListHint([args.id], async () =>
+              (await ports.engine()).getNode({ id: nodeToken(ports.grammar, args.id, 'task') }),
+            )
+          : undefined;
+      const startExpectation =
+        observed === undefined
+          ? undefined
+          : {
+              harness: observed.harness ?? null,
+              lifecycle: observed.lifecycle ?? null,
+              session: observed.session ?? null,
+            };
       const handles = await runHandles(
         {
           branch: options.branch,
           harness: options.harness,
           host: options.host,
           session: options.session,
+          workerHarness:
+            'worker-harness' in options && typeof options['worker-harness'] === 'string'
+              ? options['worker-harness']
+              : undefined,
+          workerSession:
+            'worker-session' in options && typeof options['worker-session'] === 'string'
+              ? options['worker-session']
+              : undefined,
         },
+        verb,
+        startExpectation,
         host.env,
         (message) => out.warn(message),
       );
       await out.results(
-        await runVerb(ports, { handles, id: args.id, presentation, reason: '', verb }),
+        await runVerb(ports, {
+          handles,
+          id: args.id,
+          presentation,
+          reason: '',
+          startExpectation,
+          verb,
+        }),
       );
     });
 }

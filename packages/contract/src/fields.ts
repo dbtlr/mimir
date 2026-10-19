@@ -33,17 +33,34 @@ export type DataFieldKey =
   | 'host'
   | 'harness'
   | 'session'
-  | 'branch';
+  | 'branch'
+  | 'worker_harness'
+  | 'worker_session';
 
 /**
- * The in-flight execution-metadata field keys (ADR 0026 Decision 3) — the four
+ * The in-flight execution-metadata field keys (ADR 0026 Decision 3) — the
  * **resume handles** a task carries while it is being worked: what is happening,
  * what did happen, how do I continue. Free strings, never telemetry: anything
  * recoverable *from* the session (model, durations, token counts) stays out.
+ * Main conversation, execution context, and optional whole-task worker are separate.
  * Listed in canonical (alphabetical) order, the order every derived surface —
  * the transport args, the `## History` echo — renders them in.
  */
-export const HANDLE_FIELD_KEYS = ['branch', 'harness', 'host', 'session'] as const;
+export const MAIN_HANDLE_FIELD_KEYS = ['branch', 'harness', 'host', 'session'] as const;
+export const HANDLE_FIELD_KEYS = [
+  ...MAIN_HANDLE_FIELD_KEYS,
+  'worker_harness',
+  'worker_session',
+] as const;
+export const HANDLE_FIELD_ARGS = {
+  branch: 'branch',
+  harness: 'harness',
+  host: 'host',
+  session: 'session',
+  worker_harness: 'workerHarness',
+  worker_session: 'workerSession',
+} as const;
+export type HandleFieldArg = (typeof HANDLE_FIELD_ARGS)[HandleFieldKey];
 export type HandleFieldKey = (typeof HANDLE_FIELD_KEYS)[number];
 
 /**
@@ -113,4 +130,16 @@ export const FIELD_FACTS = {
   summary: { appliesTo: ALL_TYPES, key: 'summary', kind: 'string', update: 'summary' },
   target: { appliesTo: ['phase'], key: 'target', kind: 'string', update: 'target' },
   upstream: { appliesTo: TASK, key: 'upstream', kind: 'seed-ref', update: 'upstream' },
+  worker_harness: {
+    appliesTo: TASK,
+    key: 'worker_harness',
+    kind: 'string',
+    update: 'workerHarness',
+  },
+  worker_session: {
+    appliesTo: TASK,
+    key: 'worker_session',
+    kind: 'string',
+    update: 'workerSession',
+  },
 } as const satisfies { [K in DataFieldKey]: FieldFact & { key: K } };

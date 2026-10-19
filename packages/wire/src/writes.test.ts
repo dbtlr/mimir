@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, setSystemTime, test } from 'bun:test';
 
-import { engineSchemas, OP_FACTS, UNIFORM_VERBS } from '@mimir/contract';
+import { engineSchemas, OP_FACTS, UNIFORM_VERBS, HANDLE_FIELD_ARGS } from '@mimir/contract';
 import type { Engine, EngineInput, EngineMethods } from '@mimir/contract';
 import {
   annotate,
@@ -232,6 +232,29 @@ const writes: WriteCase[] = [
   ),
   write(
     'update',
+    'main and whole-task worker assignment',
+    (ids) => ({
+      harness: 'codex',
+      id: ids.todoTask,
+      session: 'main',
+      workerHarness: 'claude',
+      workerSession: 'worker',
+    }),
+    async (node, _ids, read) => {
+      expect(node.workerHarness).toBe('claude');
+      expect(node.workerSession).toBe('worker');
+      const history = (await read.getNode({ facets: ['history'], id: node.id })).history;
+      expect(history?.at(-1)?.kind).toBe('assignment');
+      expect(history?.at(-1)?.handles).toEqual({
+        harness: 'codex',
+        session: 'main',
+        worker_harness: 'claude',
+        worker_session: 'worker',
+      });
+    },
+  ),
+  write(
+    'update',
     'a container direction and open-ended flag',
     (ids) => ({ id: ids.initiative, next: 'Ship the writes', openEnded: true }),
     (node) => {
@@ -379,11 +402,29 @@ const writes: WriteCase[] = [
   ),
   write(
     'start',
+    'a reserved task with an observed main assignment',
+    (ids) => ({
+      id: ids.queuedTask,
+      startExpectation: { harness: 'orchestrator', lifecycle: 'queued', session: 'run-1' },
+      workerSession: 'worker-guarded',
+    }),
+    (node) => {
+      expect(node.lifecycle).toBe('in_progress');
+      expect(node.session).toBe('run-1');
+      expect(node.workerHarness).toBeNull();
+      expect(node.workerSession).toBe('worker-guarded');
+    },
+  ),
+  write(
+    'start',
     'a reserved task taken by a worker',
-    (ids) => ({ harness: 'codex', id: ids.queuedTask, session: 'worker-1' }),
+    (ids) => ({ id: ids.queuedTask, workerHarness: 'codex', workerSession: 'worker-1' }),
     (node) => {
       expect(node.status).toBe('in_progress');
-      expect(node.session).toBe('worker-1');
+      expect(node.session).toBe('run-1');
+      expect(node.harness).toBe('orchestrator');
+      expect(node.workerHarness).toBe('codex');
+      expect(node.workerSession).toBe('worker-1');
       expect(node.host).toBeNull();
     },
   ),
@@ -523,8 +564,9 @@ test('the Engine carries every uniform verb, with the arguments its fact declare
     const expected = [
       'id',
       ...(fact.reason !== 'none' ? ['reason'] : []),
-      ...('fields' in fact ? fact.fields : []),
+      ...('fields' in fact ? fact.fields.map((field) => HANDLE_FIELD_ARGS[field]) : []),
       ...('choice' in fact ? [fact.choice.name] : []),
+      ...(verb === 'start' ? ['startExpectation'] : []),
     ].toSorted();
     expect(keys).toEqual(expected);
   }
@@ -554,6 +596,26 @@ type Refusal = {
 };
 
 const refusals: Refusal[] = [
+  {
+    code: 'conflict',
+    input: (ids) => ({
+      id: ids.queuedTask,
+      startExpectation: { harness: 'orchestrator', lifecycle: 'queued', session: 'previous' },
+      workerSession: 'must-not-attach',
+    }),
+    label: 'a changed main identity since the start snapshot',
+    method: 'start',
+  },
+  {
+    code: 'conflict',
+    input: (ids) => ({
+      id: ids.todoTask,
+      session: 'must-not-attach',
+      startExpectation: { harness: null, lifecycle: 'queued', session: null },
+    }),
+    label: 'a released reservation since the start snapshot',
+    method: 'start',
+  },
   {
     code: 'validation',
     input: (ids: Ids) => ({ parent: ids.phase, title: 'U', type: 'task', upstream: 'none' }),

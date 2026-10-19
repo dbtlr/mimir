@@ -1,13 +1,14 @@
-import { HANDLE_FIELD_KEYS } from '@mimir/contract';
-import type { ExecutionHandles, HandleFieldKey } from '@mimir/contract';
+import { HANDLE_FIELD_ARGS, HANDLE_FIELD_KEYS } from '@mimir/contract';
+import type { ExecutionHandles, HandleFieldArg, HandleFieldKey } from '@mimir/contract';
 
+import { hasRedundantWorker } from '../assignment';
 import { validation } from '../errors';
 import { flattenHandle, HANDLE_SEP, isEchoSafeHandle } from '../history-codec';
 import type { Node } from '../model';
 import type { NodePatch } from '../store';
 
 /**
- * The resume-handle machinery (ADR 0026 Decision 3, MMR-320) — the four in-flight
+ * The resume-handle machinery (ADR 0026 Decision 3, MMR-320) — the in-flight
  * fields' shared read/write rules, in one module because they have exactly two
  * boundaries and both must agree:
  *
@@ -26,11 +27,12 @@ import type { NodePatch } from '../store';
 
 /**
  * The patch slice the resume handles occupy — what `create`/`start` record and
- * `update` overwrites. Structurally the {@link UpdateFields} subset for the four
+ * `update` overwrites. Structurally the {@link UpdateFields} subset for these
  * keys; declared standalone so the codec-side machinery here doesn't depend on
  * the whole `update` vocabulary (`data.ts` compile-checks the correspondence).
  */
-export type HandleFields = Partial<Record<HandleFieldKey, string | null>>;
+export type MainHandleFields = Pick<HandleFields, 'branch' | 'harness' | 'host' | 'session'>;
+export type HandleFields = Partial<Record<HandleFieldArg, string | null>>;
 
 /**
  * Normalize a resume-handle value at the WRITE boundary (MMR-320): whitespace
@@ -65,16 +67,19 @@ export function normalizeHandle(value: string | null, field: HandleFieldKey): st
 /**
  * Copy the SET resume handles from a patch onto a {@link NodePatch}, normalized —
  * the one binding `create`, `start`, and `update` share, so no door can store a
- * value another would refuse. The camelCase arg name and the snake_case
- * store column coincide for all four (they are single words), so one loop
- * over {@link HANDLE_FIELD_KEYS} serves both sides.
+ * value another would refuse. {@link HANDLE_FIELD_ARGS} maps each persisted
+ * snake_case field to its camelCase argument.
  */
 export function applyHandlePatch(patch: NodePatch, fields: HandleFields): void {
   for (const key of HANDLE_FIELD_KEYS) {
-    const value = fields[key];
+    const value = fields[HANDLE_FIELD_ARGS[key]];
     if (value !== undefined) {
       patch[key] = normalizeHandle(value, key);
     }
+  }
+  // A supplied worker session establishes its own identity; an omitted harness stays unknown.
+  if (fields.workerSession !== undefined && fields.workerHarness === undefined) {
+    patch.worker_harness = null;
   }
 }
 
@@ -121,4 +126,36 @@ export function clearHandles(patch: NodePatch, task: Node): ExecutionHandles {
     }
   }
   return cleared;
+}
+
+/** Main conversation and optional whole-task worker identity, including nulls for lossless audit snapshots. */
+export function assignmentOf(task: Node) {
+  return {
+    harness: task.harness,
+    session: task.session,
+    worker_harness: task.worker_harness,
+    worker_session: task.worker_session,
+  };
+}
+
+/** Validate a complete identity after a patch, and omit a redundant same-agent worker. */
+export function validateAssignment(patch: NodePatch, task: Node): void {
+  const next = { ...task, ...patch };
+  if (
+    next.worker_harness !== null &&
+    (next.worker_session === null || next.worker_session.trim() === '')
+  ) {
+    throw validation('worker harness requires a nonblank worker session');
+  }
+  if (
+    next.worker_session !== null &&
+    next.worker_session.trim() !== '' &&
+    (next.session === null || next.session.trim() === '')
+  ) {
+    throw validation('worker session requires a nonblank main session');
+  }
+  if (hasRedundantWorker(next)) {
+    patch.worker_session = null;
+    patch.worker_harness = null;
+  }
 }

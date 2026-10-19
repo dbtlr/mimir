@@ -8,6 +8,8 @@ import {
   deriveSet,
   findNodeInSet,
   getArtifact,
+  queueTask,
+  unqueueTask,
   updateNode,
 } from '@mimir/core';
 import type { Store } from '@mimir/core';
@@ -835,4 +837,44 @@ test('records view surfaces upstream when set, omits it when unset (MMR-252)', a
   await runCli(['get', taskRef], () => store, set);
   expect(set.out.join('')).toContain('upstream');
   expect(set.out.join('')).toContain('NRN-s3');
+});
+
+test('start refuses a task unqueued after the CLI read its main identity', async () => {
+  await queueTask(store, taskRef, { harness: 'codex', session: 'main-session' });
+  let released = false;
+  const racingStore: Store = {
+    ...store,
+    transact: async (write) => {
+      if (!released) {
+        released = true;
+        await unqueueTask(store, taskRef, 'concurrent cancellation');
+      }
+      return store.transact(write);
+    },
+  };
+  const io = fakeIo(false);
+  expect(await runCli(['start', taskRef, '-f', 'json'], () => racingStore, io)).toBe(1);
+  expect(parseJson<{ error: { code: string } }>(io.err.join('')).error.code).toBe('conflict');
+  const read = fakeIo(false);
+  expect(await runCli(['get', taskRef, '--col', 'history', '-f', 'json'], () => store, read)).toBe(
+    0,
+  );
+  const task = parseJson<{
+    lifecycle: string;
+    session: string | null;
+    harness: string | null;
+    worker_session: string | null;
+    worker_harness: string | null;
+    history: { kind: string; to: string }[];
+  }>(read.out.join(''));
+  expect(task).toMatchObject({
+    harness: null,
+    lifecycle: 'todo',
+    session: null,
+    worker_harness: null,
+    worker_session: null,
+  });
+  expect(
+    task.history.filter((entry) => entry.kind === 'lifecycle').map((entry) => entry.to),
+  ).toEqual(['queued', 'todo']);
 });

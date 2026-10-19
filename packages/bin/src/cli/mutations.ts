@@ -177,8 +177,8 @@ function echoTransitionSuffix(t: OpTransition, plain: boolean): string {
  *
  * A verb that declares extra data-plane fields ({@link OpFact.fields} — only
  * `start` and `queue`'s resume handles) reads them through the SAME flag template
- * and wire parser the generic `update` uses. Their omitted harness and session
- * flags can then fill from the invoking shell's environment.
+ * and wire parser the generic `update` uses. Shell fallback fills the main
+ * identity only before one is established and no worker flag was supplied.
  * A declared choice argument ({@link OpFact.choice} — only `block --on`) is read
  * the way `depend` reads its multi-valued `--on` (the last occurrence wins) and
  * validated against the fact's vocabulary.
@@ -190,9 +190,6 @@ export async function cmdUniform(c: Ctx, verb: UniformVerb): Promise<number> {
     throw usage(`${verb} requires a reason`);
   }
   const fields = readUniformFields(c, op.fields ?? []);
-  if (verb === 'start' || verb === 'queue') {
-    fillHarnessFields(c, fields);
-  }
   const choice =
     op.choice === undefined ? undefined : parseOpChoice(verb, op, lastFlag(c, op.choice.name));
   const word = pastParticiple(verb);
@@ -238,11 +235,27 @@ export async function cmdUniform(c: Ctx, verb: UniformVerb): Promise<number> {
   }
   const id = await resolveNode(c.store, subject, 'task');
   // Start names the actual source now that it can begin either todo or queued work.
-  const startSource =
-    verb === 'start'
-      ? findNodeInSet(deriveSet(await c.store.loadWorkingSet()), id)?.lifecycle
-      : undefined;
-  await op.run(c.store, id, reason, fields, choice);
+  const starting =
+    verb === 'start' ? findNodeInSet(deriveSet(await c.store.loadWorkingSet()), id) : undefined;
+  const startSource = starting?.lifecycle;
+  const hasWorkerFlags = fields.workerHarness !== undefined || fields.workerSession !== undefined;
+  if (
+    verb === 'queue' ||
+    (verb === 'start' && !hasWorkerFlags && starting?.harness == null && starting?.session == null)
+  ) {
+    fillMainHarnessFields(c, fields);
+  }
+  const context =
+    starting === undefined
+      ? undefined
+      : {
+          startExpectation: {
+            harness: starting.harness ?? null,
+            lifecycle: starting.lifecycle ?? null,
+            session: starting.session ?? null,
+          },
+        };
+  await op.run(c.store, id, reason, fields, choice, context);
   const suffix =
     startSource === undefined
       ? echoTransitionSuffix(op.transition, c.io.plain)
@@ -253,8 +266,8 @@ export async function cmdUniform(c: Ctx, verb: UniformVerb): Promise<number> {
   return 0;
 }
 
-/** Fill omitted handle flags only when the shell identifies one unambiguous harness. */
-function fillHarnessFields(c: Ctx, fields: UpdateFields): void {
+/** Fill a new main identity from one unambiguous shell; worker identity stays explicit. */
+function fillMainHarnessFields(c: Ctx, fields: UpdateFields): void {
   if (fields.harness !== undefined && fields.session !== undefined) {
     return;
   }

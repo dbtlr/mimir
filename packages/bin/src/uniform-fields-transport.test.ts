@@ -78,11 +78,31 @@ const cliStart: Driver = async (ref, field, value) => {
   if (flag === undefined) {
     throw new Error(`no CLI flag for ${field.update}`);
   }
-  expect(await runCli(['start', ref, flag, value], () => store, fakeIo(false))).toBe(0);
+  const prerequisites: string[] = [];
+  if (field.key === 'worker_harness' || field.key === 'worker_session') {
+    prerequisites.push('--session', 'main-session');
+  }
+  if (field.key === 'worker_harness') {
+    prerequisites.push('--worker-session', 'worker-session');
+  }
+  expect(
+    await runCli(['start', ref, flag, value, ...prerequisites], () => store, fakeIo(false)),
+  ).toBe(0);
 };
 
 const mcpStart: Driver = async (ref, field, value) => {
-  const res = await toolUniform(store, 'start', { id: ref, [field.update]: value });
+  const prerequisites: { session?: string; workerSession?: string } = {};
+  if (field.key === 'worker_harness' || field.key === 'worker_session') {
+    prerequisites.session = 'main-session';
+  }
+  if (field.key === 'worker_harness') {
+    prerequisites.workerSession = 'worker-session';
+  }
+  const res = await toolUniform(store, 'start', {
+    id: ref,
+    [field.update]: value,
+    ...prerequisites,
+  });
   expect(res.isError).toBeUndefined();
 };
 

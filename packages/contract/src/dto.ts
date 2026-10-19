@@ -401,6 +401,8 @@ export type NodeView = {
   host?: string | null;
   harness?: string | null;
   session?: string | null;
+  workerHarness?: string | null;
+  workerSession?: string | null;
   branch?: string | null;
   completedAt?: string | null;
 

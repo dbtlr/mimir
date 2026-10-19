@@ -45,7 +45,7 @@ test.each([...UNIFORM_VERBS])('%s declares the inputs its fact names', (verb) =>
   );
   const declared = command.options.map((option) => option.name);
   for (const field of fact.fields ?? []) {
-    expect(declared).toContain(field);
+    expect(declared).toContain(field.replaceAll('_', '-'));
   }
   expect(declared.includes(fact.choice?.name ?? '')).toBe(fact.choice !== undefined);
   expect((command.description ?? '').toLowerCase()).toStartWith(fact.summary.toLowerCase());
@@ -75,7 +75,8 @@ const AGENT_DESCRIPTIONS: Record<string, string> = {
     'Reopen a terminal task (done/abandoned → in_progress). Optionally records a reason on the transition. Echoes the updated node.',
   return:
     'Send back for changes (under_review → in_progress). Optionally records a reason on the transition. Echoes the updated node.',
-  start: 'Begin a task (todo/queued → in_progress). Echoes the updated node.',
+  start:
+    'Begin a task (todo/queued → in_progress). Echoes the updated node. Preserves the main conversation. Explicit worker-session assigns a distinct whole-task owner; worker-harness is optional and is never inferred from the shell.',
   submit: 'Submit for review (in_progress → under_review). Echoes the updated node.',
   unarchive: 'Restore an archived project. Echoes the project.',
   unblock: 'Clear the blocked hold. Echoes the updated node.',
@@ -127,6 +128,28 @@ test('queue fills its harness and session from a shell naming one harness', asyn
   });
   expect(run.exitCode).toBe(0);
   expect(JSON.parse(run.stdout)).toMatchObject({ harness: 'claude', session: 'claude-session' });
+});
+
+test('a queued handoff preserves main identity and leaves an omitted worker harness unknown', async () => {
+  const fresh = await parityBoard();
+  try {
+    await fresh.engine.queue({ harness: 'codex', id: 'MMR-3', session: 'main-session' });
+    const run = await runArgv(
+      fresh.app(),
+      ['start', 'MMR-3', '--worker-session', 'worker-session', '-f', 'json'],
+      { env: { CLAUDECODE: '1', CLAUDE_CODE_SESSION_ID: 'incidental-session' } },
+    );
+    expect(run.exitCode, run.stderr).toBe(0);
+    expect(JSON.parse(run.stdout)).toMatchObject({
+      harness: 'codex',
+      session: 'main-session',
+      worker_harness: null,
+      worker_session: 'worker-session',
+    });
+    expect(run.stderr).toBe('');
+  } finally {
+    await fresh.close();
+  }
 });
 
 test('queue prefers the flags to the shell', async () => {

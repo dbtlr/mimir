@@ -151,5 +151,6 @@ export const TRANSITION_KIND_VALUES = [
   'dependency',
   'move',
   'archive',
+  'assignment',
 ] as const;
 export type TransitionKind = (typeof TRANSITION_KIND_VALUES)[number];

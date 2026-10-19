@@ -126,7 +126,13 @@ export async function parityBoard(replaced: BoardEdges = {}): Promise<ParityBoar
   await engine.annotate({ content: 'Settled; one; store.', id: store1.id });
   await engine.tag({ ids: [store1.id, views.id], tags: ['alpha'] });
   await engine.depend({ id: views.id, on: [store1.id] });
-  await engine.start({ id: ship.id });
+  await engine.start({
+    harness: 'codex',
+    id: ship.id,
+    session: 'main-session',
+    workerHarness: 'claude',
+    workerSession: 'task-worker-session',
+  });
   await engine.block({ id: blocked.id, reason: 'needs a reviewer' });
   await engine.start({ id: finished.id });
   await engine.done({ id: finished.id });

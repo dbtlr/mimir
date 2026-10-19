@@ -1,6 +1,7 @@
 import {
   engineSchemas,
   HANDLE_FIELD_KEYS,
+  HANDLE_FIELD_ARGS,
   UNIFORM_VERBS,
   intentViews,
   parseEngineInput,
@@ -209,9 +210,10 @@ export async function untagEngine(store: Store, input: EngineInput<'untag'>) {
 function handleArgs(args: UniformArgs, declared: readonly DataFieldKey[]): HandleFields {
   const fields: HandleFields = {};
   for (const key of HANDLE_FIELD_KEYS) {
-    const value = args[key];
+    const arg = HANDLE_FIELD_ARGS[key];
+    const value = args[arg];
     if (declared.includes(key) && value !== undefined) {
-      fields[key] = value;
+      fields[arg] = value;
     }
   }
   return fields;
@@ -243,6 +245,7 @@ async function uniformEngine(store: Store, verb: UniformVerb, input: unknown) {
     args.reason,
     handleArgs(args, spec.fields ?? []),
     choice,
+    args.startExpectation === undefined ? undefined : { startExpectation: args.startExpectation },
   );
   return 'key' in result ? projectEcho(store, result) : nodeEcho(store, result.id);
 }

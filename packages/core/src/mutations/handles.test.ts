@@ -118,8 +118,11 @@ test('update overwrites a handle — resume and takeover need no verb', async ()
   await startTask(store, id, CLAIM);
   const taken = await updateNode(store, id, { host: 'other.local', session: 's-NEXT' });
   expect(handlesOn(taken)).toEqual({ ...CLAIM, host: 'other.local', session: 's-NEXT' });
-  // An update is not a transition — it writes no History row (ADR 0003).
-  expect(await historyHandles(id)).toEqual([CLAIM]);
+  // Identity takeover is audited; execution context alone is not.
+  expect(await historyHandles(id)).toEqual([
+    CLAIM,
+    { ...CLAIM, host: 'other.local', session: 's-NEXT' },
+  ]);
 });
 
 test('update clears one handle with a blank, leaving the rest', async () => {

@@ -1,6 +1,6 @@
 import { BLOCK_OWNER_VALUES } from './enums';
 import type { Hold, Lifecycle } from './enums';
-import { HANDLE_FIELD_KEYS } from './fields';
+import { HANDLE_FIELD_KEYS, MAIN_HANDLE_FIELD_KEYS } from './fields';
 import type { DataFieldKey } from './fields';
 
 /**
@@ -184,7 +184,7 @@ export const OP_FACTS = {
     transition: { axis: 'hold', from: 'none', to: 'parked' },
   },
   queue: {
-    fields: HANDLE_FIELD_KEYS,
+    fields: MAIN_HANDLE_FIELD_KEYS,
     reason: 'none',
     requiredFields: ['session'],
     subject: 'task',
@@ -204,9 +204,8 @@ export const OP_FACTS = {
     transition: { axis: 'lifecycle', from: ['under_review'], to: 'in_progress' },
   },
   start: {
-    // The claim records the resume handles (ADR 0026 Decision 3): `in_progress`
-    // is the worker claim; queued is the prior run reservation. Resume or takeover is a
-    // plain `update` overwrite of these same fields.
+    // Starting preserves the main conversation and any explicitly assigned worker.
+    // Worker fields identify a whole-task handoff; a plain update records takeover.
     fields: HANDLE_FIELD_KEYS,
     reason: 'none',
     subject: 'task',

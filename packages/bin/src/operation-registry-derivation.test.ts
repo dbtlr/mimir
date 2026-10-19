@@ -158,7 +158,14 @@ test('golden: queue and start declare extra data-plane fields', () => {
     'queue',
     'start',
   ]);
-  expect(OP_FACTS.start.fields).toEqual(['branch', 'harness', 'host', 'session']);
+  expect(OP_FACTS.start.fields).toEqual([
+    'branch',
+    'harness',
+    'host',
+    'session',
+    'worker_harness',
+    'worker_session',
+  ]);
 });
 
 test('golden: the advertised MCP arg names are pinned per verb', () => {
@@ -167,7 +174,7 @@ test('golden: the advertised MCP arg names are pinned per verb', () => {
   expect(OP_SPECS.map((s) => `${s.verb}|${mcpToolProps(s.verb).join(',')}`)).toEqual([
     'queue|branch,harness,host,id,session',
     'unqueue|id,reason',
-    'start|branch,harness,host,id,session',
+    'start|branch,harness,host,id,session,workerHarness,workerSession',
     'submit|id',
     'return|id,reason',
     'done|id',
@@ -188,7 +195,7 @@ test('golden: the CLI usage lines and flag rows are pinned per verb', () => {
   expect(OP_SPECS.map((s) => `${s.verb}|${COMMAND_HELP[s.verb]?.usage ?? ''}`)).toEqual([
     'queue|mimir queue <id> [--branch <text>] [--harness <text>] [--host <text>] --session <text>',
     'unqueue|mimir unqueue <id> <reason>',
-    'start|mimir start <id> [--branch <text>] [--harness <text>] [--host <text>] [--session <text>]',
+    'start|mimir start <id> [--branch <text>] [--harness <text>] [--host <text>] [--session <text>] [--worker-harness <text>] [--worker-session <text>]',
     'submit|mimir submit <id>',
     'return|mimir return <id> [reason]',
     'done|mimir done <id>',
@@ -214,9 +221,11 @@ test('golden: the CLI usage lines and flag rows are pinned per verb', () => {
   ]);
   expect(COMMAND_HELP.start?.flags).toEqual([
     ['--branch', 'the branch the work lives on'],
-    ['--harness', 'the agent harness running it'],
+    ['--harness', 'the main conversation or workflow harness'],
     ['--host', 'the machine the work is happening on'],
-    ['--session', 'the session id to resume from'],
+    ['--session', 'the main conversation or workflow session'],
+    ['--worker-harness', 'the distinct whole-task owner harness'],
+    ['--worker-session', 'the distinct whole-task owner session'],
   ]);
 });
 

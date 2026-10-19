@@ -66,3 +66,28 @@ record needed by a future session.
 Before completion, verify the work, transition the task, update non-derivable
 direction when it changed, and attach a concise session summary. The chat
 transcript is not the work-state record; Mimir is.
+
+## Hand a whole task to another session
+
+The main session is the user conversation or workflow coordinating the work.
+A worker is a separate session entrusted with the whole task lifecycle,
+including any helper agents it uses. Helpers are not attached to the task.
+When the main agent works a task itself, a separate worker identity is absent.
+
+Reserve with the main session, then identify the worker explicitly:
+
+```bash
+mimir queue AUR-8 --harness codex --session workflow-session
+mimir start AUR-8 --worker-harness claude --worker-session task-session
+```
+
+Starting the task preserves the main session and an explicitly preassigned
+worker. Supply `--worker-session` to identify a handoff and `--worker-harness`
+when known; the harness can remain unknown. The CLI does not infer worker
+identity from the invoking shell. The worker manages task state
+through review and completion. Explicit reassignment through update retains
+previous identities in history.
+
+Park, block, cancellation, and settlement clear both identities and preserve
+them in history. Releasing a hold restores nothing; the next session sets
+its identity explicitly when it resumes the task.

@@ -85,6 +85,9 @@ One **flat, closed** vocabulary on every selection front-end — _the dot-facet 
 | `hold_reason`                                | task  | or null                                                                                                                                                     |
 | `block_owner`                                | task  | who can clear a block (ADR 0001, `MMR-438`) — `you` \| `others` while `hold` is `blocked`, otherwise null; `--eq block_owner:you` filters; absent on a container |
 | `grooming`                                   | task  | the stored grooming judgment (ADR 0033) — `not_groomed` \| `needs_answers` \| `groomed`; `--eq grooming:groomed` filters; absent on a container          |
+| `harness`, `session` | task | main conversation or coordinating workflow, or null |
+| `worker_harness`, `worker_session` | task | optional distinct agent entrusted with the whole task lifecycle |
+| `host`, `branch` | task | execution context, or null |
 | `target`                                     | phase | the milestone the phase aims at                                                                                                                             |
 | `external_ref`                               | task  | GitHub issue/PR linkage, or null                                                                                                                            |
 | `upstream`                                   | task  | the requester-side seed pointer (`KEY-sN`, MMR-244/245), reference-only, or null                                                                            |
@@ -237,7 +240,7 @@ tells a task from a container.
 - `now`: queued or in-progress tasks. Adds `started_at` (the latest queue, start, or reopen),
   `latest_note` (`{ content, created_at }` or `null`), and `scratchpads`
   (`[{ id, title }]`, the active Scratchpads anchored to the task). The agent
-  context (`harness`, `branch`, `host`, `session`, `external_ref`) is on the
+  context (`harness`, `session`, optional `worker_harness`/`worker_session`, `branch`, `host`, `external_ref`) is on the
   task object.
 - `needs_you`: under review, then blocks owned by `you`, then todo tasks whose
   grooming is `needs_answers`; newest first within each. Adds `reason`
@@ -362,7 +365,7 @@ Mutations are high-level verbs (never a raw `status` patch — glossary **Lifecy
 | grooming         | `groom(ids, state, note?)`                                | sets the stored grooming judgment on tasks (ADR 0033); `needs_answers` requires the note; never touches lifecycle or hold, writes no transition-log row |
 | dependency edges | `depend(id, --on ids)` · `undepend`                       | **not** `block` — edges produce derived `awaiting`/`blocking`; the spec's `block_task`-for-edges is superseded |
 | structural       | `move(id, --to parent)`                                   | validates cycle/type                                                                                           |
-| data             | `update(id, fields)`                                      | scalar patch; `status` excluded; a queued session cannot be cleared                                                                           |
+| data             | `update(id, fields)`                                      | scalar patch; `status` excluded; identity changes are audited and a queued session cannot be cleared                                                                           |
 
 - **Every mutation echoes the affected node** in the **lean projection** (`id, title, state, priority, size`) — a write needs no follow-up `get` (Norn's "prevent the extra turn"). In `--json` it returns the bare node object, **not** the set wrapper. (`attach` echoes the artifact id `{"artifact":{"id"}}`; `create project` echoes `{"project":{"key","name"}}` — the two echo exceptions.)
 - Every status-bearing verb appends its history entry in the same per-document atomic write as the state change (ADR 0003). A plan spanning independent documents may partially succeed and follows ADR 0023's verify-and-retry contract rather than cross-document rollback.
@@ -436,9 +439,25 @@ The former build-time TBDs are settled and implemented (merged 2026-06-05; mimir
 
 `queue <id> --session <run-id>` reserves an unheld todo task. Its harness, host,
 branch, and session flags carry the run's handles. `start <id>` accepts a queued
-task and replaces those handles with the worker's. `unqueue <id> "reason"`
+task, preserves main identity, and accepts explicit worker identity for a whole-task handoff. `unqueue <id> "reason"`
 returns the reservation to todo, clearing handles and logging what was cleared.
 Queue and unqueue are also uniform Engine methods and MCP tools; their required
 session and reason inputs are validated on every surface. Queued work appears
 in `list --status queued`, the console's Now section, and stale hygiene, while
 `next` excludes it.
+
+## Main and worker session identity (MMR-568)
+
+`harness` and `session` identify the main conversation or coordinating workflow.
+The optional `worker_harness` and `worker_session` fields identify a distinct
+agent entrusted with the whole task. Helpers are untracked, and direct work
+uses only the main identity. Engine arguments spell the worker fields
+`workerHarness` and `workerSession`; CLI flags are `--worker-harness` and
+`--worker-session`. Both fields support ordinary string selection.
+
+Queue records main identity. Start preserves it and accepts worker flags for an
+explicit handoff. An incidental shell environment cannot replace the main
+session or create a worker assignment. Worker fields are fully explicit; supplying
+worker flags on a direct start also requires an explicit or established main session. Updates remain explicit and identity
+changes append assignment history. Park, block, unqueue, and settlement clear
+all handles; submit and return preserve them.

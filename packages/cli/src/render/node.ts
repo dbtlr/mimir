@@ -170,6 +170,8 @@ function fieldPairs(node: NodeView, p: Presentation): [string, string][] {
     ['host', node.host],
     ['harness', node.harness],
     ['session', node.session],
+    ['worker harness', node.workerHarness],
+    ['worker session', node.workerSession],
     ['branch', node.branch],
     ['completed', node.completedAt == null ? undefined : formatInstant(node.completedAt, p.zone)],
     [

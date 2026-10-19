@@ -31,6 +31,8 @@ type UpdateOptions = {
   host?: string;
   harness?: string;
   session?: string;
+  'worker-harness'?: string;
+  'worker-session'?: string;
   branch?: string;
   'open-ended'?: boolean;
   'not-open-ended'?: boolean;
@@ -64,6 +66,8 @@ const NODE_ONLY_FLAGS = [
   'target',
   'title',
   'upstream',
+  'worker-harness',
+  'worker-session',
 ] as const;
 
 const given = (value: unknown): boolean => value !== undefined && value !== false;
@@ -115,6 +119,8 @@ function changedLabels(options: UpdateOptions): string[] {
     ['summary', options.summary],
     ['target', options.target],
     ['upstream', options.upstream],
+    ['worker-harness', options['worker-harness']],
+    ['worker-session', options['worker-session']],
   ];
   return labels
     .filter(([, value]) => value !== undefined && value !== false)
@@ -178,6 +184,8 @@ export function updateCommand(ports: Ports) {
         target: options.target,
         title: options.title,
         upstream,
+        workerHarness: options['worker-harness'],
+        workerSession: options['worker-session'],
       }),
     );
   }
@@ -222,8 +230,10 @@ export function updateCommand(ports: Ports) {
     .option('ref', text("A task's external reference.", 'ref'))
     .option('upstream', text("A task's seed on another board, or none to clear.", 'KEY-sN|none'))
     .option('host', text('Resume handle: the host working on it.'))
-    .option('harness', text('Resume handle: the agent harness.'))
-    .option('session', text('Resume handle: the session id.'))
+    .option('harness', text('Main conversation: the agent harness.'))
+    .option('session', text('Main conversation: the session id.'))
+    .option('worker-harness', text('Whole-task worker: the agent harness.'))
+    .option('worker-session', text('Whole-task worker: the session id.'))
     .option('branch', text('Resume handle: the Git branch.'))
     .option('open-ended', {
       description: 'Mark a phase or initiative open-ended.',
@@ -250,6 +260,18 @@ export function updateCommand(ports: Ports) {
       }
       if (kind === 'artifact' || kind === 'seed') {
         refuseProjectOnlyFlags(options, kind);
+        for (const flag of ['worker-harness', 'worker-session'] as const) {
+          if (given(options[flag])) {
+            throw kind === 'seed'
+              ? new MimirUsageError(
+                  `--${flag} doesn't apply to a seed — patch --title, --kind, or --desc`,
+                )
+              : new MimirError(
+                  'validation',
+                  `--${flag} doesn't apply to an artifact — title and summary are its mutable fields`,
+                );
+          }
+        }
         throw new MimirError(
           'validation',
           `update does not edit ${NOUNS[kind]} yet`,

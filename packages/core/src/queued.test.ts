@@ -73,7 +73,7 @@ describe.each([
       await fixture.close();
     }
   });
-  test(`${label}: queue records a reservation and start replaces every run handle`, async () => {
+  test(`${label}: queue records a reservation and start preserves main identity`, async () => {
     const fixture = await createStore();
     try {
       const engine = new LocalEngine(fixture.store);
@@ -89,10 +89,16 @@ describe.each([
       });
       expect(queued.status).toBe('queued');
       expect(queued.session).toBe('run');
-      const started = await engine.start({ harness: 'codex', id: task.id, session: 'worker' });
+      const started = await engine.start({
+        id: task.id,
+        workerHarness: 'codex',
+        workerSession: 'worker',
+      });
       expect(started.lifecycle).toBe('in_progress');
-      expect(started.session).toBe('worker');
-      expect(started.harness).toBe('codex');
+      expect(started.session).toBe('run');
+      expect(started.workerSession).toBe('worker');
+      expect(started.harness).toBe('orchestrator');
+      expect(started.workerHarness).toBe('codex');
       expect(started.host).toBeNull();
       expect(started.branch).toBeNull();
       const history = await fixture.store.bodySections.readHistory(task.id);
@@ -102,7 +108,16 @@ describe.each([
           'queued',
           { branch: 'run-branch', harness: 'orchestrator', host: 'run-host', session: 'run' },
         ],
-        ['queued', 'in_progress', { harness: 'codex', session: 'worker' }],
+        [
+          'queued',
+          'in_progress',
+          {
+            harness: 'orchestrator',
+            session: 'run',
+            worker_harness: 'codex',
+            worker_session: 'worker',
+          },
+        ],
       ]);
     } finally {
       await fixture.close();
@@ -193,10 +208,10 @@ describe.each([
         { ...previous, schema_version: 5 },
         { dryRun: false, mode: 'fresh' },
       );
-      expect((await legacy.store.export()).schema_version).toBe(6);
+      expect((await legacy.store.export()).schema_version).toBe(7);
       await engine.queue({ harness: 'loom', id: task.id, session: 'run' });
       const document = await source.store.export();
-      expect(document.schema_version).toBe(6);
+      expect(document.schema_version).toBe(7);
       await target.store.import(document, { dryRun: false, mode: 'fresh' });
       const imported = await new LocalEngine(target.store).getNode({ id: task.id });
       expect(imported.status).toBe('queued');

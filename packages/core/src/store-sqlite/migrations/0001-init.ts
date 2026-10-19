@@ -5,7 +5,6 @@ import {
   SEED_KIND_VALUES,
   SIZE_VALUES,
   TAG_ENTITY_TYPE_VALUES,
-  TRANSITION_KIND_VALUES,
 } from '@mimir/contract';
 
 /**
@@ -130,7 +129,7 @@ export const statements: readonly string[] = [
      id          integer PRIMARY KEY AUTOINCREMENT,
      node_id     text REFERENCES node(id),
      project_key text REFERENCES project(key),
-     kind        text NOT NULL CHECK (kind IN (${inList(TRANSITION_KIND_VALUES)})),
+     kind        text NOT NULL CHECK (kind IN (${inList(['lifecycle', 'hold', 'dependency', 'move', 'archive'])})),
      from_value  text,
      to_value    text,
      reason      text,
@@ -159,7 +158,7 @@ export const statements: readonly string[] = [
   `CREATE TABLE seed_history (
      id         integer PRIMARY KEY AUTOINCREMENT,
      seed_id    text NOT NULL REFERENCES seed(id),
-     kind       text NOT NULL CHECK (kind IN (${inList(TRANSITION_KIND_VALUES)})),
+     kind       text NOT NULL CHECK (kind IN (${inList(['lifecycle', 'hold', 'dependency', 'move', 'archive'])})),
      from_value text,
      to_value   text,
      reason     text,

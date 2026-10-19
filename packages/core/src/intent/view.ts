@@ -84,6 +84,8 @@ export async function buildNodeView(
     view.host = node.host;
     view.harness = node.harness;
     view.session = node.session;
+    view.workerHarness = node.worker_harness;
+    view.workerSession = node.worker_session;
     view.branch = node.branch;
     view.completedAt = node.completed_at;
   } else if (node.type === 'phase') {

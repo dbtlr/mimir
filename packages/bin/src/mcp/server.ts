@@ -2,6 +2,8 @@ import {
   BLOCK_OWNER_VALUES,
   GROOMING_VALUES,
   HOLD_VALUES,
+  HANDLE_FIELD_KEYS,
+  MAIN_HANDLE_FIELD_KEYS,
   isTerminalLifecycle,
   LIFECYCLE_VALUES,
   PRIORITY_VALUES,
@@ -795,7 +797,7 @@ export function buildMcpServer(
   register(
     server,
     'update',
-    "Patch a node's scalar fields (title, description, summary, priority, size, target, externalRef, upstream, openEnded, and the resume handles host/harness/session/branch), patch a project (KEY: name, description, next, pinned, remote), patch an artifact (KEY-aN: title, summary), or patch a live seed (KEY-sN: title, kind, description). openEnded (a phase/initiative opt-out of done-rollup) applies only to containers; upstream (a KEY-sN seed pointer) only to tasks — pass the literal string 'none' to clear it (omit it to leave it untouched; blank is rejected). The resume handles are task-only in-flight metadata (set them on start; overwrite them here to resume or take over; a blank clears one except a queued session). next is the owned direction narrative (the `## Next` body section) on a project, initiative, or phase — re-authored WHOLE on each write, never appended, and cleared by a blank string. pinned (a project only) pins it so the console lists it first, or unpins it with false. remote (a project only) is its Git clone URL, stored normalized so ssh and https forms compare equal; a blank string clears it. Echoes the updated record.",
+    "Patch a node's scalar fields (title, description, summary, priority, size, target, externalRef, upstream, openEnded, main resume handles host/harness/session/branch, and optional whole-task worker identity workerHarness/workerSession), patch a project (KEY: name, description, next, pinned, remote), patch an artifact (KEY-aN: title, summary), or patch a live seed (KEY-sN: title, kind, description). openEnded (a phase/initiative opt-out of done-rollup) applies only to containers; upstream (a KEY-sN seed pointer) only to tasks — pass the literal string 'none' to clear it (omit it to leave it untouched; blank is rejected). The resume handles are task-only in-flight metadata (set them on start; overwrite them here to resume or take over; a blank clears one except a queued session). workerSession requires a main session; supplying it without workerHarness clears any previous workerHarness. A blank workerSession clears both worker fields. Main or worker identity changes append an assignment history row. next is the owned direction narrative (the `## Next` body section) on a project, initiative, or phase — re-authored WHOLE on each write, never appended, and cleared by a blank string. pinned (a project only) pins it so the console lists it first, or unpins it with false. remote (a project only) is its Git clone URL, stored normalized so ssh and https forms compare equal; a blank string clears it. Echoes the updated record.",
     // The scalar-field args derive from the field spec (ADR 0025); the bespoke
     // identity/topology args (id) and the non-node targets (title/description/
     // next, seed kind) stay hand-listed. Sorted to keep the advertised
@@ -892,7 +894,13 @@ export function buildMcpServer(
     // Scalar-field args derive from the field spec (ADR 0025); the identity/topology
     // args (type/key/name/parent/title/tags) stay hand-listed. Sorted to keep order.
     sortedShape({
-      ...fieldInputShape(),
+      ...fieldInputShape(
+        SPEC_UPDATE_FIELDS.filter(
+          (field) =>
+            !HANDLE_FIELD_KEYS.some((key) => key === field.key) ||
+            MAIN_HANDLE_FIELD_KEYS.some((key) => key === field.key),
+        ),
+      ),
       description: z.string().optional(),
       groomed: z.boolean().optional(),
       key: z.string().optional(),

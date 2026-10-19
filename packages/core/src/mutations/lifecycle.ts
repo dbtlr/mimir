@@ -1,37 +1,62 @@
-import { validation } from '../errors';
+import { conflict, validation } from '../errors';
 import type { Node } from '../model';
 import { appendRank } from '../rank';
 import type { NodePatch, Store } from '../store';
 import { now } from '../time';
 import { logTransition, reloadNode, requireTask, stamp } from './common';
-import { applyHandlePatch, clearHandles, handlesOf } from './handles';
-import type { HandleFields } from './handles';
+import { applyHandlePatch, clearHandles, handlesOf, validateAssignment } from './handles';
+import type { HandleFields, MainHandleFields } from './handles';
 
 /**
  * Lifecycle verbs run their guard, patch, handle echo, and timestamp in one
  * transaction. Queue reserves a todo task for a run; start claims todo work or
- * replaces a queued run's handles with the worker's handles. Both preserve rank.
+ * preserves the main conversation while attaching an optional whole-task worker. Both preserve rank.
  * Unqueue clears the reservation handles and preserves rank. Terminal verbs
  * clear handles and rank; submit/return retain handles through human review.
  * Hold is left untouched on terminal transitions, preserving its history.
  */
 
-/** Begin work, replacing all run handles when starting a queued reservation. */
+/** The exact task state a caller used to decide whether ambient main identity could be filled. */
+export type StartExpectation = Pick<Node, 'lifecycle' | 'harness' | 'session'>;
+
+/** Begin work, preserving main identity and replacing queued execution context. */
 export async function startTask(
   store: Store,
   id: string,
   handles: HandleFields = {},
+  expectation?: StartExpectation,
 ): Promise<Node> {
   return store.transact(async (w) => {
     const task = await requireTask(w, id);
+    if (
+      expectation !== undefined &&
+      (task.lifecycle !== expectation.lifecycle ||
+        task.harness !== expectation.harness ||
+        task.session !== expectation.session)
+    ) {
+      throw conflict(
+        'task ownership changed before start',
+        'read the task again before deciding its main assignment',
+      );
+    }
     if (task.lifecycle !== 'todo' && task.lifecycle !== 'queued') {
       throw validation(`only a todo or queued task can be started (is ${String(task.lifecycle)})`);
     }
     const patch: NodePatch = { lifecycle: 'in_progress' };
     if (task.lifecycle === 'queued') {
-      clearHandles(patch, task);
+      patch.branch = null;
+      patch.host = null;
     }
     applyHandlePatch(patch, handles);
+    for (const key of ['harness', 'session'] as const) {
+      if (task[key] !== null && patch[key] !== undefined && patch[key] !== task[key]) {
+        throw validation(
+          `start preserves the main ${key}`,
+          'use workerHarness/workerSession (--worker-harness/--worker-session) for a whole-task worker, or update for explicit main takeover',
+        );
+      }
+    }
+    validateAssignment(patch, task);
     await w.updateNode(id, patch);
     await logTransition(w, {
       from_value: task.lifecycle,
@@ -45,11 +70,11 @@ export async function startTask(
   });
 }
 
-/** Reserve a todo task for a run; the worker later replaces the run's handles. */
+/** Reserve a todo task for its main conversation or workflow. */
 export async function queueTask(
   store: Store,
   id: string,
-  handles: HandleFields = {},
+  handles: MainHandleFields = {},
 ): Promise<Node> {
   return store.transact(async (w) => {
     const task = await requireTask(w, id);

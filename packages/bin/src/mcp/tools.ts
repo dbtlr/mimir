@@ -762,7 +762,10 @@ export function toolReorder(
  */
 type AssertNever<T extends never> = T;
 type _UpdateArgsCoverSpec = AssertNever<Exclude<SpecUpdateKey, keyof UpdateToolArgs>>;
-type _CreateArgsCoverSpec = AssertNever<Exclude<SpecUpdateKey, keyof CreateToolArgs>>;
+// Worker identities attach at start/update; create accepts the main handles.
+type _CreateArgsCoverSpec = AssertNever<
+  Exclude<SpecUpdateKey, keyof CreateToolArgs | 'workerHarness' | 'workerSession'>
+>;
 
 export type UpdateToolArgs = {
   id: string;
@@ -788,6 +791,8 @@ export type UpdateToolArgs = {
   host?: string;
   harness?: string;
   session?: string;
+  workerHarness?: string;
+  workerSession?: string;
   branch?: string;
   kind?: string;
   openEnded?: boolean;
@@ -875,6 +880,8 @@ async function updateProjectTool(
     host?: string;
     harness?: string;
     session?: string;
+    workerHarness?: string;
+    workerSession?: string;
     branch?: string;
   },
 ): Promise<ToolResult> {
@@ -930,6 +937,8 @@ async function updateArtifactTool(
     host?: string;
     harness?: string;
     session?: string;
+    workerHarness?: string;
+    workerSession?: string;
     branch?: string;
   },
 ): Promise<ToolResult> {
@@ -1357,6 +1366,8 @@ async function updateSeedTool(
     host?: string;
     harness?: string;
     session?: string;
+    workerHarness?: string;
+    workerSession?: string;
     branch?: string;
   },
 ): Promise<ToolResult> {

@@ -47,14 +47,18 @@ move through `promote`, `reject`, `resolve`, and `park`/`unpark`.
 **Transition at the moment the claim becomes true.** A transition recorded
 later is a guess about the past, and the next agent reads it as fact.
 
-- `queue <id> --harness <harness> --session <run-session>` when a workflow or
-  run reserves a task, using the orchestrator's handles. Queue every task the
-  run takes, before dispatching workers; `queued` keeps it out of `next`.
-- `start <id> --harness <harness> --session <worker-session>` when the worker
-  begins, before the first edit. Starting a queued task replaces the run's
-  handles with the worker's. Direct starts from ready work also use these
-  explicit flags. Every change belongs to a task; keep one task `in_progress`
-  per session.
+- `queue <id> --harness <main-harness> --session <main-session>` when a
+  workflow reserves a task, using the main user conversation's identity.
+  Queue every task the run takes before dispatching task owners; `queued`
+  keeps it out of `next`.
+- `start <id> --harness <main-harness> --session <main-session>` when that
+  main agent begins the task, before the first edit. A distinct agent owning
+  the **whole task lifecycle** instead uses `start <id> --worker-session
+  <worker-session>`, adding `--worker-harness <worker-harness>` when known and
+  preserving the main identity. Helper agents handling pieces of a task leave
+  its identity alone.
+  Direct solo starts use the main flags, with worker fields unset. Keep one
+  task `in_progress` per task-owning session.
 - `unqueue <id> "reason"` when a run is cancelled before a worker starts.
   Release every remaining reservation with the cancellation reason.
 - `done <id>` after verification and before you tell the user the work is
@@ -83,10 +87,13 @@ later is a guess about the past, and the next agent reads it as fact.
 - `annotate <id> "note"` when a decision, a surprise, or a scope change lands
   mid-task.
 
-**Identify every queue and start explicitly.** Always pass `--harness` and
-`--session`; read `references/authoring.md` for finding your own identity and
-the run → worker handle succession. Shell environment auto-fill is only a
-fallback when one harness is unambiguous; MCP callers must supply the handles.
+**Identify task owners explicitly.** Main flags identify the user conversation
+or workflow; worker flags identify a distinct whole-task owner. The same agent
+uses main flags and leaves worker fields unset. Read `references/authoring.md`
+for finding identities and recording a handoff. Always supply `--worker-session`
+for a handoff; `--worker-harness` is optional. Shell auto-fill can supply main
+identity on queue or an initial solo start; worker identity, updates, and MCP
+calls stay explicit.
 
 **Prefer groomed work.** A task carries a grooming state beside its status:
 `not_groomed`, `needs_answers`, or `groomed`. Choose groomed tasks from `next`
@@ -114,13 +121,19 @@ started that hits a question is blocked with `mimir block <id> --on you
   statable fix ("should we…?") is a seed too. Work you set aside to keep the
   current task in scope is a task, even when the user says "park that".
 
-**Sweep before the session ends.** Run `mimir list --status in_progress` and
-settle every task you touched: finish it, hand it forward with an `annotate`,
-or `park`, `block`, or `abandon` it. Also run
-`mimir list --status queued --eq session:<id>` with your run session id and
-settle every reservation: hand it to a continuing run or `unqueue` it with a
-reason. A queued task must be unqueued before `park` or `block`. Settle the
-Scratchpads you drove the same way: freeze, checkpoint, or discard.
+**Sweep before the session ends.** Run
+`mimir list --status in_progress --eq session:<main-session> --missing worker_session`
+for tasks you handle as the main agent. Tasks with a worker session remain
+that worker's responsibility. When you own tasks as a distinct worker, run
+`mimir list --status in_progress --eq worker_session:<worker-session>`.
+Settle every task you own: finish it, hand it forward with an `annotate`, or
+`park`, `block`, or `abandon` it. Also run
+`mimir list --status queued --eq session:<main-session>` and settle every
+reservation: hand it to a continuing run or `unqueue` it with a reason. A queued
+task must be unqueued before `park` or `block`. Holds clear all live handles;
+after release the next owner re-states the main and any distinct worker
+identity with `update`. Settle the Scratchpads you drove the same way: freeze,
+checkpoint, or discard.
 
 **Finish in three pieces.** A work boundary may need a transition, a
 groom-next (rewrite the `## Next` direction; it is not the `groom` verb), or a

@@ -324,6 +324,23 @@ describe('task page (MMR-449)', () => {
     expect(within(rail).queryByText('Unrelated episode')).toBeNull();
   });
 
+  it('shows the main conversation and the distinct whole-task worker', async () => {
+    serve({
+      ...sqlite,
+      harness: 'codex',
+      session: 'main-conversation',
+      status: 'in_progress',
+      workerHarness: 'claude',
+      workerSession: 'task-worker',
+    });
+    renderAt('/p/MMR/417');
+    const rail = await screen.findByRole('complementary', { name: 'Record details' });
+    await expect(within(rail).findByText('main-conversation')).resolves.toBeDefined();
+    expect(within(rail).getByText('Main session')).toBeDefined();
+    expect(within(rail).getByText('Worker session')).toBeDefined();
+    expect(within(rail).getByText('task-worker')).toBeDefined();
+  });
+
   it('moves a lowercase key to its canonical URL', async () => {
     serve(sqlite);
     const testRouter = renderAt('/p/mmr/417');
