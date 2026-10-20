@@ -6,5 +6,8 @@
     "@loomcli/core": "0.10.0",
     "@loomcli/plugins": "0.10.0",
     "zod": "4.6.6"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1"
   }
 }
