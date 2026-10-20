@@ -149,6 +149,11 @@ test('a handle flag that differs from the shell is not mixed with the shell iden
   const queued = invoke(env, ['--harness', 'custom'], 'queue');
   expect(queued.code).toBe(1);
   expect(queued.node).toMatchObject({ harness: null, lifecycle: 'todo', session: null });
+  expect(invoke(env, ['--session', 'explicit-session'], 'queue').node).toMatchObject({
+    harness: null,
+    lifecycle: 'queued',
+    session: 'explicit-session',
+  });
 });
 
 test('explicit blank handle flags clear instead of accepting fallback', () => {
@@ -158,6 +163,9 @@ test('explicit blank handle flags clear instead of accepting fallback', () => {
   expect(cleared.node).toMatchObject({ harness: null, session: null });
   expect(invoke(env, ['--harness', '']).node).toMatchObject({ harness: null, session: null });
   expect(invoke(env, ['--session', '']).node).toMatchObject({ harness: null, session: null });
+  const queued = invoke(env, ['--session', ''], 'queue');
+  expect(queued.code).toBe(1);
+  expect(queued.node).toMatchObject({ harness: null, lifecycle: 'todo', session: null });
 });
 
 const nestedEnv = {

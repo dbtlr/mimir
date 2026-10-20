@@ -189,6 +189,15 @@ test('queue with a different harness refuses rather than borrow the shell sessio
   expect(run.stderr).toContain('queue requires a nonblank session');
 });
 
+test('queue with a different session records it without the shell harness', async () => {
+  const run = await onFreshBoard(
+    ['queue', 'MMR-3', '--session', 'run-1', '-f', 'json'],
+    claudeShell,
+  );
+  expect(run.exitCode, run.stderr).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject({ harness: null, session: 'run-1' });
+});
+
 test('queue with a blank session refuses', async () => {
   const run = await onFreshBoard(['queue', 'MMR-3', '--session', ''], claudeShell);
   expect(run.exitCode).toBe(1);
