@@ -21,7 +21,7 @@ orient before other work, quick questions included:
    that only when the user wants work tracking (`references/setup.md`).
 2. Run `mimir bind`. It prints the project this clone is bound to, which is
    the default scope. A clone with no binding binds itself when its `origin`
-   matches a project's remote.
+   matches exactly one project's remote.
    - **Unbound** (`mimir bind` exits non-zero): this repo is not tracked.
      Carry on with the user's request without Mimir, and set it up only when
      the user asks (`references/setup.md`).
