@@ -71,7 +71,7 @@ import type {
   UpdateSeedFields,
   WireValue,
 } from '@mimir/core';
-import { detectHarness, isMember } from '@mimir/helpers';
+import { fillFromShell, isMember } from '@mimir/helpers';
 
 import { arrow, ok } from '../presentation';
 import type { Format, Io } from '../presentation';
@@ -271,18 +271,18 @@ function fillMainHarnessFields(c: Ctx, fields: UpdateFields): void {
   if (fields.harness !== undefined && fields.session !== undefined) {
     return;
   }
-  const detected = detectHarness(process.env);
-  if (detected.kind === 'conflict') {
+  const filled = fillFromShell(fields, process.env);
+  if (filled.kind === 'conflict') {
     c.io.error(
-      `note: detected multiple harnesses (${detected.harnesses.join(', ')}); pass --harness and --session explicitly`,
+      `note: detected multiple harnesses (${filled.harnesses.join(', ')}); pass --harness and --session explicitly`,
     );
-  } else if (detected.kind === 'single') {
-    if (fields.harness === undefined) {
-      fields.harness = detected.harness;
-    }
-    if (fields.session === undefined && detected.session !== undefined) {
-      fields.session = detected.session;
-    }
+    return;
+  }
+  if (fields.harness === undefined && filled.harness != null) {
+    fields.harness = filled.harness;
+  }
+  if (fields.session === undefined && filled.session != null) {
+    fields.session = filled.session;
   }
 }
 

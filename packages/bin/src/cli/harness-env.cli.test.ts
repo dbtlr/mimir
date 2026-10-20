@@ -124,16 +124,31 @@ test.each([
   },
 );
 
-test('explicit handle flags override fallback independently', () => {
+test('a handle flag that matches the shell lets it fill the other', () => {
+  const env = { CODEX_THREAD_ID: 'detected-thread' };
+  expect(invoke(env, ['--harness', 'codex']).node).toMatchObject({
+    harness: 'codex',
+    session: 'detected-thread',
+  });
+  expect(invoke(env, ['--session', 'detected-thread']).node).toMatchObject({
+    harness: 'codex',
+    session: 'detected-thread',
+  });
+});
+
+test('a handle flag that differs from the shell is not mixed with the shell identity', () => {
   const env = { CODEX_THREAD_ID: 'detected-thread' };
   expect(invoke(env, ['--harness', 'custom']).node).toMatchObject({
     harness: 'custom',
-    session: 'detected-thread',
+    session: null,
   });
   expect(invoke(env, ['--session', 'explicit-session']).node).toMatchObject({
-    harness: 'codex',
+    harness: null,
     session: 'explicit-session',
   });
+  const queued = invoke(env, ['--harness', 'custom'], 'queue');
+  expect(queued.code).toBe(1);
+  expect(queued.node).toMatchObject({ harness: null, lifecycle: 'todo', session: null });
 });
 
 test('explicit blank handle flags clear instead of accepting fallback', () => {
@@ -141,14 +156,8 @@ test('explicit blank handle flags clear instead of accepting fallback', () => {
   const cleared = invoke(env, ['--harness', '', '--session', '  ']);
   expect(cleared.code).toBe(0);
   expect(cleared.node).toMatchObject({ harness: null, session: null });
-  expect(invoke(env, ['--harness', '']).node).toMatchObject({
-    harness: null,
-    session: 'detected-thread',
-  });
-  expect(invoke(env, ['--session', '']).node).toMatchObject({
-    harness: 'codex',
-    session: null,
-  });
+  expect(invoke(env, ['--harness', '']).node).toMatchObject({ harness: null, session: null });
+  expect(invoke(env, ['--session', '']).node).toMatchObject({ harness: null, session: null });
 });
 
 const nestedEnv = {

@@ -160,11 +160,46 @@ test('queue prefers the flags to the shell', async () => {
   expect(JSON.parse(run.stdout)).toMatchObject({ harness: 'codex', session: 'run-1' });
 });
 
+const claudeShell = { CLAUDECODE: '1', CLAUDE_CODE_SESSION_ID: 'claude-session' };
+
+test('start with a different harness records the harness without the shell session', async () => {
+  const run = await onFreshBoard(
+    ['start', 'MMR-3', '--harness', 'codex', '-f', 'json'],
+    claudeShell,
+  );
+  expect(JSON.parse(run.stdout)).toMatchObject({ harness: 'codex', session: null });
+});
+
+test('start with a blank session records no harness from the shell', async () => {
+  const run = await onFreshBoard(['start', 'MMR-3', '--session', '', '-f', 'json'], claudeShell);
+  expect(JSON.parse(run.stdout)).toMatchObject({ harness: null, session: null });
+});
+
+test('start with the shell session fills the harness', async () => {
+  const run = await onFreshBoard(
+    ['start', 'MMR-3', '--session', 'claude-session', '-f', 'json'],
+    claudeShell,
+  );
+  expect(JSON.parse(run.stdout)).toMatchObject({ harness: 'claude', session: 'claude-session' });
+});
+
+test('queue with a different harness refuses rather than borrow the shell session', async () => {
+  const run = await onFreshBoard(['queue', 'MMR-3', '--harness', 'codex'], claudeShell);
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr).toContain('queue requires a nonblank session');
+});
+
+test('queue with a blank session refuses', async () => {
+  const run = await onFreshBoard(['queue', 'MMR-3', '--session', ''], claudeShell);
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr).toContain('queue requires a nonblank session');
+});
+
 test('start fills only what the flags leave out', async () => {
-  const run = await onFreshBoard(['start', 'MMR-3', '--session', 's-1', '-f', 'json'], {
+  const run = await onFreshBoard(['start', 'MMR-3', '--session', 'codex-thread', '-f', 'json'], {
     CODEX_THREAD_ID: 'codex-thread',
   });
-  expect(JSON.parse(run.stdout)).toMatchObject({ harness: 'codex', session: 's-1' });
+  expect(JSON.parse(run.stdout)).toMatchObject({ harness: 'codex', session: 'codex-thread' });
 });
 
 test('queue names the harnesses it will not choose between and refuses without a session', async () => {
