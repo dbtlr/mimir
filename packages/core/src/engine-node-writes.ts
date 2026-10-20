@@ -1,5 +1,6 @@
 import {
   engineSchemas,
+  engineViews,
   HANDLE_FIELD_KEYS,
   HANDLE_FIELD_ARGS,
   UNIFORM_VERBS,
@@ -28,6 +29,7 @@ import {
   depend,
   groomTasks,
   moveNode,
+  releasedByArchive,
   reorder,
   resolveAttachTargets,
   tagEntities,
@@ -247,7 +249,14 @@ async function uniformEngine(store: Store, verb: UniformVerb, input: unknown) {
     choice,
     args.startExpectation === undefined ? undefined : { startExpectation: args.startExpectation },
   );
-  return 'key' in result ? projectEcho(store, result) : nodeEcho(store, result.id);
+  if (!('key' in result)) {
+    return nodeEcho(store, result.id);
+  }
+  const echo = await projectEcho(store, result);
+  // The archive just landed, so what it freed is computed against the settled state.
+  return verb === 'archive'
+    ? engineViews.archive.parse({ ...echo, released: await releasedByArchive(store, result.key) })
+    : echo;
 }
 
 function stringOrUndefined(value: unknown): string | undefined {

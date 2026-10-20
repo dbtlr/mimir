@@ -167,3 +167,19 @@ test('a project remote round-trips through create, update, and get', async () =>
   await engine.updateProject({ id: 'REM', remote: 'git@github.com:o/r.git' });
   expect((await engine.updateProject({ id: 'REM', remote: '  ' })).remote).toBeNull();
 });
+
+test('archive echoes the project and only the out-of-project tasks it freed', async () => {
+  await createProject(fixture.store, { key: 'OTH', name: 'Other' });
+  const initiative = await createInitiative(fixture.store, { projectId: 'OTH', title: 'Other' });
+  const freed = await createTask(fixture.store, { parentId: initiative.id, title: 'freed' });
+  const waiting = await createTask(fixture.store, { parentId: initiative.id, title: 'waiting' });
+  const live = await createTask(fixture.store, { parentId: initiative.id, title: 'live' });
+  await engine.depend({ id: freed.id, on: [id] });
+  await engine.depend({ id: waiting.id, on: [id, live.id] });
+
+  const archived = await engine.archive({ id: 'ENG' });
+
+  expect(archived.id).toBe('ENG');
+  expect(archived.archivedAt).toBeInstanceOf(Date);
+  expect(archived.released).toEqual([freed.id]);
+});

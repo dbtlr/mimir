@@ -28,7 +28,6 @@ import {
   configPath,
   DEFAULT_STORE_BACKEND,
   dateFilterWindows,
-  deriveSet,
   findingLine,
   gitPortAt,
   LocalEngine,
@@ -44,10 +43,8 @@ import {
   postgresUrlMissing,
   promoteToWire,
   readRuntimeConfig,
-  releasedByArchive,
   requireTimeZone,
   resolveBinding,
-  resolveProjectKeyInSet,
   scratchpadReceiptToWire,
   scratchpadToWire,
   searchHitToWire,
@@ -330,11 +327,6 @@ export function corePorts(source: CliSource): Ports {
       source.machine === undefined
         ? unavailableMachine()
         : machineOver(source.machine, source.git, getEngine, () => fatalOnOpen(source.store)),
-    releasedByArchive: async (key) => {
-      const store = await fatalOnOpen(source.store);
-      const projectId = resolveProjectKeyInSet(deriveSet(await store.loadWorkingSet()), key);
-      return releasedByArchive(store, projectId);
-    },
     scope: (notify) => bindingScope(getEngine, source.git, notify)(),
     wire: {
       artifact: artifactToWire,
