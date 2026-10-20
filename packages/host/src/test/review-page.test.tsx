@@ -10,11 +10,12 @@ import { done, groom, returnTask, start } from '../api/fns/nodes';
 import { review } from '../api/fns/views';
 import type { PromotedSeed } from '../api/seed-mutations';
 import type { NeedsYouTask, ReviewReport, TriageSeed } from '../api/view-queries';
-import { routeTree } from '../router';
+import { reviewRoute, routeTree } from '../router';
 import { engineSeed } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
 import { engineTask } from './node-fixtures';
+import { renderRoute } from './router';
 import { failShellReads, serveShell } from './shell-fns';
 import {
   engineReview,
@@ -65,20 +66,6 @@ function decision(
 function serve(report: ReviewReport, archived: EngineNode[] = []) {
   serveViews({ review: report });
   serveShell({ archived });
-}
-
-function renderReview() {
-  const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: ['/'] }),
-    routeTree,
-  });
-  const client = new QueryClient();
-  render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={testRouter} />
-    </QueryClientProvider>,
-  );
-  return client;
 }
 
 const RAIL = 'Projects and spare-minute work';
@@ -147,7 +134,7 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
         queue: ['LM-196', 'MMR-52', 'MMR-480'],
       }),
     );
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     const head = await screen.findByRole('heading', { level: 1, name: /Needs you/ });
     expect(head.textContent).toContain('3');
@@ -177,7 +164,7 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
         shipped: [shippedRow('MMR-497', new Date(NOW))],
       }),
     );
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     await screen.findByRole('heading', { level: 1, name: /Needs you/ });
     const article = screen.getByRole('article');
@@ -197,7 +184,7 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
         projects: TWO_PROJECTS,
       }),
     );
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     const now = await screen.findByRole('region', { name: 'Now · 2' });
     const rows = now.querySelectorAll('[data-row-id]');
@@ -212,7 +199,7 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
 
   it('says nothing is running when no task is in progress', async () => {
     serve(engineReview({ projects: TWO_PROJECTS }));
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     const now = await screen.findByRole('region', { name: 'Now' });
     expect(now).toHaveTextContent('Nothing running.');
@@ -229,7 +216,7 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
         ],
       }),
     );
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     const shipped = await screen.findByRole('region', { name: 'Shipped · 3' });
     const days = within(shipped).getAllByRole('heading', { level: 3 });
@@ -246,7 +233,7 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
 
   it('says nothing shipped in the last 7 days', async () => {
     serve(engineReview({ projects: TWO_PROJECTS }));
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     const shipped = await screen.findByRole('region', { name: 'Shipped' });
     expect(shipped).toHaveTextContent('Nothing shipped in the last 7 days.');
@@ -261,7 +248,7 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
         shipped: [shippedRow('MMR-474', hoursAgo(2))],
       }),
     );
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     await expect(
       screen.findByRole('heading', { level: 1, name: 'Nothing needs you' }),
@@ -278,7 +265,7 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
 
   it('names a quiet board plainly when nothing is in flight or finished', async () => {
     serve(engineReview({ projects: [stripRow(MMR)] }));
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     await screen.findByRole('heading', { level: 1, name: 'Nothing needs you' });
     const needs = screen.getByRole('region', { name: 'Needs you' });
@@ -288,7 +275,7 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
 
   it('asks for the review in the browser’s time zone', async () => {
     serve(engineReview({ projects: TWO_PROJECTS }));
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     await screen.findByRole('heading', { level: 1 });
     expect(review).toHaveBeenCalledWith({ data: { timeZone: 'America/New_York' } });
@@ -306,7 +293,7 @@ describe('the review rail: the project health strip', () => {
         ],
       }),
     );
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     const rail = await screen.findByRole('complementary', { name: RAIL });
     expect(within(rail).getByRole('heading', { level: 2, name: 'Projects · 3' })).toBeDefined();
@@ -335,7 +322,7 @@ describe('the review rail: the project health strip', () => {
         title: 'Old project',
       }),
     ]);
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     await screen.findByRole('list', { name: 'Project health' });
     expect(screen.queryByRole('table')).toBeNull();
@@ -354,7 +341,7 @@ describe('the review rail: the project health strip', () => {
         title: 'Old project',
       }),
     ]);
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     await screen.findByRole('heading', { level: 1, name: 'Nothing needs you' });
     const rail = getRail();
@@ -365,7 +352,7 @@ describe('the review rail: the project health strip', () => {
 
   it('stacks the rail under the main column on a phone, with no chips', async () => {
     serve(engineReview({ projects: TWO_PROJECTS }));
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     const rail = await screen.findByRole('complementary', { name: RAIL });
     expect(screen.queryByRole('group', { name: RAIL })).toBeNull();
@@ -392,7 +379,7 @@ describe('the review rail: when you have a minute', () => {
         ],
       }),
     );
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     await screen.findByRole('list', { name: 'Project health' });
     const groups = within(minute())
@@ -408,7 +395,7 @@ describe('the review rail: when you have a minute', () => {
         runnable: [runnableRow('LM-233'), runnableRow('MMR-12')],
       }),
     );
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     await screen.findByRole('list', { name: 'Project health' });
     expect(
@@ -423,7 +410,7 @@ describe('the review rail: when you have a minute', () => {
 
   it('shows a quiet line when every group is empty', async () => {
     serve(engineReview({ projects: TWO_PROJECTS }));
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     await screen.findByRole('list', { name: 'Project health' });
     const section = within(getRail()).getByRole('region', { name: 'When you have a minute' });
@@ -438,7 +425,7 @@ describe('the review rail: when you have a minute', () => {
         runnable: [runnableRow('LM-233', 'Dry-run flag'), runnableRow('NORN-404', 'Orphans')],
       }),
     );
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     await screen.findByRole('list', { name: 'Project health' });
     const runnable = within(minute()).getByRole('region', { name: 'Runnable now' });
@@ -467,7 +454,7 @@ describe('the review rail: when you have a minute', () => {
         ],
       }),
     );
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     await screen.findByRole('list', { name: 'Project health' });
     const triageGroup = within(minute()).getByRole('region', { name: 'To triage' });
@@ -487,7 +474,7 @@ describe('the review rail: when you have a minute', () => {
         projects: TWO_PROJECTS,
       }),
     );
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     await screen.findByRole('list', { name: 'Project health' });
     const cold = within(minute()).getByRole('region', { name: 'Going cold' });
@@ -509,7 +496,7 @@ describe('the review rail: when you have a minute', () => {
         ],
       }),
     );
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     await screen.findByRole('list', { name: 'Project health' });
     const findings = within(minute()).getByRole('region', { name: 'Findings' });
@@ -534,7 +521,7 @@ describe('the review rail: when you have a minute', () => {
         ),
       }),
     );
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     await screen.findByRole('list', { name: 'Project health' });
     const runnable = within(minute()).getByRole('region', { name: 'Runnable now' });
@@ -546,7 +533,7 @@ describe('the review rail: when you have a minute', () => {
 
   it('offers a fresh store its first project', async () => {
     serve(engineReview());
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     await expect(screen.findByText('No projects yet.')).resolves.toBeDefined();
     expect(screen.queryByRole('region', { name: /Needs you/ })).toBeNull();
@@ -556,7 +543,7 @@ describe('the review rail: when you have a minute', () => {
   it('does not claim a fresh store before it knows whether projects are archived', async () => {
     serveViews({ review: engineReview() });
     failShellReads(new Error('archived read failed'));
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     await screen.findByRole('heading', { level: 1, name: 'Nothing needs you' });
     expect(screen.queryByText('No projects yet.')).toBeNull();
@@ -566,8 +553,9 @@ describe('the review rail: when you have a minute', () => {
 /**
  * Serve `before` as the review read until a write lands, then `after`, with the
  * reads the promote sheet makes for its home (MMR's tree, with one initiative).
+ * `withShell` mounts the full console, for a case that reads the shell's Toaster.
  */
-async function openForWrite(before: ReviewReport, after: ReviewReport) {
+async function openForWrite(before: ReviewReport, after: ReviewReport, withShell = false) {
   const views = serveViews({ review: before });
   const serving = {
     /** Serve `next` from the next review read, as a poll would. */
@@ -611,7 +599,20 @@ async function openForWrite(before: ReviewReport, after: ReviewReport) {
   vi.mocked(returnTask).mockImplementation(async () => land());
   vi.mocked(start).mockImplementation(async () => land());
   vi.mocked(groom).mockImplementation(async () => [land()]);
-  const client = renderReview();
+  const client = new QueryClient();
+  if (withShell) {
+    const router = createRouter({
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+      routeTree,
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+  } else {
+    await renderRoute([reviewRoute], '/', client);
+  }
   await screen.findByRole('heading', { level: 1 });
   return serving;
 }
@@ -702,7 +703,7 @@ describe('review page decisions act in place (MMR-479)', () => {
 
   it('offers no action on a block on you, which is cleared outside Mimir', async () => {
     serve(decisionsFor({ mmr: [block] }));
-    renderReview();
+    await renderRoute([reviewRoute], '/');
 
     await screen.findByText('Needs an API token');
     expect(screen.queryByRole('group', { name: 'Actions for MMR-52' })).toBeNull();
@@ -948,6 +949,7 @@ describe('review page seed triage acts in place (MMR-479, MMR-506)', () => {
     const serving = await openForWrite(
       triage({ mmr: [firstSeed, secondSeed] }),
       triage({ mmr: [firstSeed, secondSeed] }),
+      true,
     );
     const promoted = Promise.withResolvers<PromotedSeed>();
     vi.mocked(seedPromote).mockReturnValue(promoted.promise);

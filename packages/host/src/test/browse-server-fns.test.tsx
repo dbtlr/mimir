@@ -19,12 +19,20 @@ import {
   seeds,
 } from '../api/fns/browse';
 import { getNode } from '../api/fns/nodes';
-import { routeTree } from '../router';
+import {
+  artifactRoute,
+  artifactsRoute,
+  doctorRoute,
+  routeTree,
+  seedRoute,
+  tasksRoute,
+} from '../router';
 import { engineArtifact, engineArtifactRecord, recordHealth, seedIn } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
 import { engineTask } from './node-fixtures';
 import { serveNodes } from './node-fns';
+import { renderRoute } from './router';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
 import { serveViews } from './views-fns';
@@ -83,17 +91,19 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function renderAt(path: string) {
+const routes = [artifactRoute, artifactsRoute, doctorRoute, seedRoute, tasksRoute];
+
+const quietClient = () =>
+  new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } });
+
+/** The seeds browser opens the shell's seed capture, so its cases mount the full console tree. */
+function renderSeedsApp(path: string) {
   const router = createRouter({
     history: createMemoryHistory({ initialEntries: [path] }),
     routeTree,
   });
   render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } })
-      }
-    >
+    <QueryClientProvider client={quietClient()}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
@@ -102,16 +112,23 @@ function renderAt(path: string) {
 describe('the browsers, seeds, artifacts, and doctor on server functions (MMR-540)', () => {
   it.each([
     ['/p/MMR/tasks', 'Wire the browser', list],
-    ['/p/MMR/seeds', 'Name the project', seeds],
     ['/p/MMR/artifacts', 'The spec', artifacts],
   ])('%s reads its list', async (path, row, read) => {
-    renderAt(path);
+    await renderRoute(routes, path, quietClient());
     await expect(screen.findByRole('link', { name: row })).resolves.toBeInTheDocument();
     expect(read).toHaveBeenCalled();
   });
 
+  it('/p/MMR/seeds reads its list', async () => {
+    renderSeedsApp('/p/MMR/seeds');
+    await expect(
+      screen.findByRole('link', { name: 'Name the project' }),
+    ).resolves.toBeInTheDocument();
+    expect(seeds).toHaveBeenCalled();
+  });
+
   it('the artifact page reads the artifact and its attached records', async () => {
-    renderAt('/p/MMR/a1');
+    await renderRoute(routes, '/p/MMR/a1', quietClient());
     const card = await screen.findByRole('group', { name: 'Attached to · 2' });
     await waitFor(() => {
       expect(card).toHaveTextContent('task MMR-2');
@@ -120,7 +137,7 @@ describe('the browsers, seeds, artifacts, and doctor on server functions (MMR-54
   });
 
   it('the seed page reads the seed and the work waiting on it', async () => {
-    renderAt('/p/MMR/s1');
+    await renderRoute(routes, '/p/MMR/s1', quietClient());
     const outcome = await screen.findByRole('region', { name: 'What came of it' });
     await within(outcome).findByRole('link', { name: /Waits on it/ });
     expect(getSeed).toHaveBeenCalledWith({ data: { content: true, id: 'MMR-s1' } });
@@ -131,7 +148,7 @@ describe('the browsers, seeds, artifacts, and doctor on server functions (MMR-54
     vi.mocked(getArtifact).mockResolvedValue(
       engineArtifactRecord({ id: 'MMR-a1', links: ['MMR-2'] }),
     );
-    renderAt('/p/MMR/a1');
+    await renderRoute(routes, '/p/MMR/a1', quietClient());
     await screen.findByRole('group', { name: 'Attached to' });
     await waitFor(() => {
       expect(nodeReads()).toContain('MMR-2');
@@ -142,21 +159,21 @@ describe('the browsers, seeds, artifacts, and doctor on server functions (MMR-54
     vi.mocked(getSeed).mockResolvedValue(
       seedIn('promoted', { id: 'MMR-s1', spawned: ['MMR-3'], title: 'Name the project' }),
     );
-    renderAt('/p/MMR/s1');
+    await renderRoute(routes, '/p/MMR/s1', quietClient());
     const outcome = await screen.findByRole('region', { name: 'What came of it' });
     await within(outcome).findByRole('link', { name: /Task MMR-3/ });
     expect(nodeReads()).toContain('MMR-3');
   });
 
   it('the doctor page reads record health', async () => {
-    renderAt('/doctor?project=MMR');
+    await renderRoute(routes, '/doctor?project=MMR', quietClient());
     await expect(screen.findByText('No findings')).resolves.toBeInTheDocument();
     expect(doctor).toHaveBeenCalledWith({ data: { project: 'MMR' } });
   });
 
   it('files, edits, parks, rejects, and promotes a seed', async () => {
     const user = userEvent.setup();
-    renderAt('/p/MMR/seeds');
+    renderSeedsApp('/p/MMR/seeds');
     await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
     await user.type(await screen.findByLabelText('Seed'), 'A new idea');
     await user.click(screen.getByRole('button', { name: 'File ↵' }));

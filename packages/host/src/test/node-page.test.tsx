@@ -1,7 +1,6 @@
 import type { EngineNode } from '@mimir/contract';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,12 +9,13 @@ import { done, getNode, groom, move, park, start, tag, untag, update } from '../
 import { nodeWork } from '../api/fns/views';
 import { POLL_MS } from '../api/queries';
 import { createQueryClient } from '../api/query-client';
-import { routeTree } from '../router';
+import { nodeRoute, notFoundRoute } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineTree } from './engine-fixtures';
 import { engineContainer, engineNote, engineTag, engineTask, scratchpadRow } from './node-fixtures';
 import type { ScratchpadRow } from './node-fixtures';
 import { failNotes, serveNodes } from './node-fns';
+import { renderRoute } from './router';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
@@ -60,21 +60,9 @@ function serve(node: EngineNode, extra: Extra = {}) {
   });
 }
 
-function renderAt(
-  url: string,
-  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
-) {
-  const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: [url] }),
-    routeTree,
-  });
-  render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={testRouter} />
-    </QueryClientProvider>,
-  );
-  return testRouter;
-}
+const routes = [nodeRoute, notFoundRoute];
+
+const quietClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
 const sqlite = engineTask({
   description: 'SQLite dialect over `bun:sqlite`.',
@@ -111,14 +99,14 @@ function tagWrites(id: string) {
 /** Render the task page for `node` and wait for its desktop rail. */
 async function openTask(node: EngineNode, extra: Extra = {}) {
   serve(node, extra);
-  renderAt(`/p/MMR/${node.id.replace('MMR-', '')}`);
+  await renderRoute(routes, `/p/MMR/${node.id.replace('MMR-', '')}`, quietClient());
   return screen.findByRole('complementary', { name: 'Record details' });
 }
 
 describe('task page (MMR-449)', () => {
   it('opens a task directly at its URL', async () => {
     serve(sqlite);
-    renderAt('/p/MMR/417');
+    await renderRoute(routes, '/p/MMR/417', quietClient());
 
     await expect(
       screen.findByRole('heading', { level: 1, name: 'Add the SQLite dialect' }),
@@ -129,7 +117,7 @@ describe('task page (MMR-449)', () => {
 
   it('links its nearest container above the id for a phone, in place of a breadcrumb', async () => {
     serve(sqlite);
-    renderAt('/p/MMR/417');
+    await renderRoute(routes, '/p/MMR/417', quietClient());
 
     const parent = await screen.findByRole('link', { name: /SQLite replaces Norn/ });
     expect(parent.getAttribute('href')).toBe('/p/MMR/2');
@@ -159,7 +147,7 @@ describe('task page (MMR-449)', () => {
         ]),
       },
     });
-    renderAt('/p/MMR/9');
+    await renderRoute(routes, '/p/MMR/9', quietClient());
 
     // The brand is also named Mimir; the parent link is the one a desktop hides.
     await screen.findByRole('heading', { level: 1 });
@@ -171,7 +159,7 @@ describe('task page (MMR-449)', () => {
 
   it('redirects a bare id, in any case, to the record page', async () => {
     serve(sqlite);
-    const testRouter = renderAt('/mmr-417');
+    const { router: testRouter } = await renderRoute(routes, '/mmr-417', quietClient());
 
     await expect(
       screen.findByRole('heading', { level: 1, name: 'Add the SQLite dialect' }),
@@ -181,7 +169,7 @@ describe('task page (MMR-449)', () => {
 
   it('redirects a bare project key to the project page', async () => {
     serve(sqlite);
-    const testRouter = renderAt('/MMR');
+    const { router: testRouter } = await renderRoute(routes, '/MMR', quietClient());
 
     await waitFor(() => {
       expect(testRouter.state.location.pathname).toBe('/p/MMR');
@@ -191,7 +179,7 @@ describe('task page (MMR-449)', () => {
   it('shows its own not-found state when no record has the id', async () => {
     serveShell({ trees: { MMR: TREE } });
     serveNodes({ nodes: [] });
-    renderAt('/p/MMR/999');
+    await renderRoute(routes, '/p/MMR/999', quietClient());
 
     await expect(screen.findByText(/no record MMR-999/i)).resolves.toBeDefined();
     expect(screen.queryByText(/offline — last synced/i)).toBeNull();
@@ -199,7 +187,7 @@ describe('task page (MMR-449)', () => {
 
   it('names no node for a suffix that is not a node id, without a lookup', async () => {
     serve(sqlite);
-    renderAt('/p/MMR/x41');
+    await renderRoute(routes, '/p/MMR/x41', quietClient());
 
     await expect(screen.findByText(/no record at \/p\/MMR\/x41/i)).resolves.toBeDefined();
     expect(getNode).not.toHaveBeenCalled();
@@ -207,7 +195,7 @@ describe('task page (MMR-449)', () => {
 
   it('asks for a verdict while the task is under review', async () => {
     serve({ ...sqlite, externalRef: 'https://github.com/x/pull/360', status: 'under_review' });
-    renderAt('/p/MMR/417');
+    await renderRoute(routes, '/p/MMR/417', quietClient());
 
     await expect(screen.findByText(/needs your verdict/i)).resolves.toBeDefined();
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDefined();
@@ -223,7 +211,7 @@ describe('task page (MMR-449)', () => {
         type: 'phase',
       }),
     });
-    renderAt('/p/MMR/2');
+    await renderRoute(routes, '/p/MMR/2', quietClient());
 
     await expect(
       screen.findByRole('heading', { level: 1, name: 'SQLite replaces Norn' }),
@@ -242,7 +230,7 @@ describe('task page (MMR-449)', () => {
         dependsOn: [{ id: 'MMR-416', status: 'done', title: 'Extract a dialect seam' }],
       },
     });
-    renderAt('/p/MMR/417');
+    await renderRoute(routes, '/p/MMR/417', quietClient());
 
     const rail = await screen.findByRole('complementary', { name: 'Record details' });
     expect(
@@ -269,7 +257,7 @@ describe('task page (MMR-449)', () => {
         },
       ],
     });
-    renderAt('/p/MMR/417');
+    await renderRoute(routes, '/p/MMR/417', quietClient());
 
     const rail = await screen.findByRole('complementary', { name: 'Record details' });
     expect(within(rail).getByRole('link', { name: /Dialect spec/ })).toHaveAttribute(
@@ -287,7 +275,7 @@ describe('task page (MMR-449)', () => {
         dependsOn: [{ id: 'MMR-416', status: 'done', title: 'Extract a dialect seam' }],
       },
     });
-    renderAt('/p/MMR/417');
+    await renderRoute(routes, '/p/MMR/417', quietClient());
 
     const chips = await screen.findByRole('group', { name: 'Record details' });
     fireEvent.click(within(chips).getByRole('button', { name: /links/i }));
@@ -315,7 +303,7 @@ describe('task page (MMR-449)', () => {
         ],
       },
     );
-    renderAt('/p/MMR/417');
+    await renderRoute(routes, '/p/MMR/417', quietClient());
 
     const rail = await screen.findByRole('complementary', { name: 'Record details' });
     await expect(within(rail).findByText('SQLite cutover episode')).resolves.toBeDefined();
@@ -333,7 +321,7 @@ describe('task page (MMR-449)', () => {
       workerHarness: 'claude',
       workerSession: 'task-worker',
     });
-    renderAt('/p/MMR/417');
+    await renderRoute(routes, '/p/MMR/417', quietClient());
     const rail = await screen.findByRole('complementary', { name: 'Record details' });
     await expect(within(rail).findByText('main-conversation')).resolves.toBeDefined();
     expect(within(rail).getByText('Main session')).toBeDefined();
@@ -343,7 +331,7 @@ describe('task page (MMR-449)', () => {
 
   it('moves a lowercase key to its canonical URL', async () => {
     serve(sqlite);
-    const testRouter = renderAt('/p/mmr/417');
+    const { router: testRouter } = await renderRoute(routes, '/p/mmr/417', quietClient());
 
     await expect(
       screen.findByRole('heading', { level: 1, name: 'Add the SQLite dialect' }),
@@ -360,7 +348,7 @@ describe('task page (MMR-449)', () => {
         dependsOn: [{ id: 'MMR-416', status: 'done', title: 'Extract a dialect seam' }],
       },
     });
-    renderAt('/p/MMR/417');
+    await renderRoute(routes, '/p/MMR/417', quietClient());
     const chips = await screen.findByRole('group', { name: 'Record details' });
 
     fireEvent.click(within(chips).getByRole('button', { name: /details/i }));
@@ -382,7 +370,7 @@ describe('task page (MMR-449)', () => {
 
   it('closes a sheet when an action in it is chosen', async () => {
     serve(sqlite);
-    renderAt('/p/MMR/417');
+    await renderRoute(routes, '/p/MMR/417', quietClient());
     const chips = await screen.findByRole('group', { name: 'Record details' });
 
     fireEvent.click(within(chips).getByRole('button', { name: 'Actions' }));
@@ -395,7 +383,7 @@ describe('task page (MMR-449)', () => {
 
   it('sets the actions aside while the edit form is open', async () => {
     serve(sqlite);
-    renderAt('/p/MMR/417');
+    await renderRoute(routes, '/p/MMR/417', quietClient());
     const rail = await screen.findByRole('complementary', { name: 'Record details' });
 
     fireEvent.click(within(rail).getByRole('button', { name: 'Edit' }));
@@ -419,7 +407,7 @@ describe('container page (MMR-450)', () => {
 
   it('shows its direction in full, with a way to rewrite it', async () => {
     serve(phase);
-    renderAt('/p/MMR/2');
+    await renderRoute(routes, '/p/MMR/2', quietClient());
 
     const rail = await screen.findByRole('complementary', { name: 'Record details' });
     expect(within(rail).getByText('Land the dialect first.')).toBeDefined();
@@ -432,7 +420,7 @@ describe('container page (MMR-450)', () => {
 
   it('opens as the work page, with its path, its sections, and no task actions', async () => {
     serve(phase);
-    renderAt('/p/MMR/2');
+    await renderRoute(routes, '/p/MMR/2', quietClient());
 
     await expect(
       screen.findByRole('heading', { level: 1, name: 'SQLite replaces Norn' }),
@@ -452,7 +440,7 @@ describe('container page (MMR-450)', () => {
 
   it('asks for the work of its own subtree', async () => {
     serve(phase);
-    renderAt('/p/MMR/2');
+    await renderRoute(routes, '/p/MMR/2', quietClient());
 
     await screen.findByRole('region', { name: 'Now' });
     expect(nodeWork).toHaveBeenCalledWith({ data: { id: 'MMR-2', timeZone: 'America/New_York' } });
@@ -466,7 +454,7 @@ describe('container page (MMR-450)', () => {
       title: 'Hosted and external backends',
       type: 'initiative',
     });
-    renderAt('/p/MMR/1');
+    await renderRoute(routes, '/p/MMR/1', quietClient());
 
     await screen.findByRole('heading', { level: 1 });
     const parent = screen
@@ -481,7 +469,7 @@ describe('container page (MMR-450)', () => {
 
     it('opens on Work, with the timeline a tab away', async () => {
       serve(phase, withNote);
-      renderAt('/p/MMR/2');
+      await renderRoute(routes, '/p/MMR/2', quietClient());
 
       const tabs = await screen.findByRole('tablist');
       const work = within(tabs).getByRole('tab', { name: 'Work' });
@@ -499,7 +487,7 @@ describe('container page (MMR-450)', () => {
 
     it('Timeline puts ?tab=timeline in the URL and shows the notes and the composer', async () => {
       serve(phase, withNote);
-      const testRouter = renderAt('/p/MMR/2');
+      const { router: testRouter } = await renderRoute(routes, '/p/MMR/2', quietClient());
 
       fireEvent.click(await screen.findByRole('tab', { name: /Timeline/ }));
 
@@ -514,7 +502,11 @@ describe('container page (MMR-450)', () => {
 
     it('opens on Timeline at ?tab=timeline, and Work takes the parameter back out', async () => {
       serve(phase, withNote);
-      const testRouter = renderAt('/p/MMR/2?tab=timeline');
+      const { router: testRouter } = await renderRoute(
+        routes,
+        '/p/MMR/2?tab=timeline',
+        quietClient(),
+      );
 
       await expect(screen.findByText('Settled the dialect seam')).resolves.toBeDefined();
       fireEvent.click(screen.getByRole('tab', { name: 'Work' }));
@@ -525,7 +517,11 @@ describe('container page (MMR-450)', () => {
 
     it('drops a tab value it does not know', async () => {
       serve(phase, withNote);
-      const testRouter = renderAt('/p/MMR/2?tab=sections');
+      const { router: testRouter } = await renderRoute(
+        routes,
+        '/p/MMR/2?tab=sections',
+        quietClient(),
+      );
 
       await expect(screen.findByRole('region', { name: 'Now' })).resolves.toBeDefined();
       expect(testRouter.state.location.searchStr).toBe('');
@@ -533,7 +529,7 @@ describe('container page (MMR-450)', () => {
 
     it('arrow keys move between the tabs', async () => {
       serve(phase, withNote);
-      renderAt('/p/MMR/2');
+      await renderRoute(routes, '/p/MMR/2', quietClient());
 
       const work = await screen.findByRole('tab', { name: 'Work' });
       fireEvent.keyDown(work, { key: 'ArrowRight' });
@@ -544,7 +540,7 @@ describe('container page (MMR-450)', () => {
 
     it('a task page has no tabs, and ignores the parameter', async () => {
       serve(sqlite);
-      renderAt('/p/MMR/417?tab=timeline');
+      await renderRoute(routes, '/p/MMR/417?tab=timeline', quietClient());
 
       await screen.findByRole('heading', { level: 1, name: 'Add the SQLite dialect' });
       expect(screen.queryByRole('tablist')).toBeNull();
@@ -721,7 +717,7 @@ describe('task page verbs (MMR-453)', () => {
     serve(node);
     // An errored read over loaded data is the console's offline signal.
     failNotes();
-    renderAt('/p/MMR/51');
+    await renderRoute(routes, '/p/MMR/51', quietClient());
 
     const rail = await screen.findByRole('complementary', { name: 'Record details' });
     await waitFor(() => {
@@ -862,7 +858,7 @@ describe('live refresh (MMR-458)', () => {
     // Real time keeps ticking so findBy can still poll under the fake clock.
     vi.useFakeTimers({ shouldAdvanceTime: true });
     serve(sqlite);
-    renderAt('/p/MMR/417', createQueryClient());
+    await renderRoute(routes, '/p/MMR/417', createQueryClient());
     await screen.findByRole('heading', { level: 1, name: 'Add the SQLite dialect' });
 
     serve(sqlite, { notes: [engineNote('Annotated from the CLI', '2026-06-02T10:00:00.000Z')] });
@@ -1001,7 +997,7 @@ describe('task page grooming state (MMR-466)', () => {
 
   it('is offered from the Actions sheet on a phone', async () => {
     serve(groomed());
-    renderAt('/p/MMR/51');
+    await renderRoute(routes, '/p/MMR/51', quietClient());
     const chips = await screen.findByRole('group', { name: 'Record details' });
 
     fireEvent.click(within(chips).getByRole('button', { name: 'Actions' }));
@@ -1015,7 +1011,7 @@ describe('task page grooming state (MMR-466)', () => {
     const node = groomed();
     serve(node);
     failNotes();
-    renderAt('/p/MMR/51');
+    await renderRoute(routes, '/p/MMR/51', quietClient());
 
     const rail = await screen.findByRole('complementary', { name: 'Record details' });
     await waitFor(() => {

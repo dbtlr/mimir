@@ -1,14 +1,14 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, vi } from 'vitest';
 
 import { getNode } from '../api/fns/nodes';
 import { updateProject } from '../api/fns/shell';
-import { routeTree } from '../router';
+import { nodeRoute, projectRoute } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
 import { serveNodes } from './node-fns';
+import { renderRoute } from './router';
 import { failShellReads, serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
@@ -22,20 +22,9 @@ beforeEach(() => {
   serveViews();
 });
 
-function renderProject(key: string, search = '') {
-  const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: [`/p/${key}${search}`] }),
-    routeTree,
-  });
-  render(
-    <QueryClientProvider
-      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-    >
-      <RouterProvider router={testRouter} />
-    </QueryClientProvider>,
-  );
-  return testRouter;
-}
+const routes = [nodeRoute, projectRoute];
+
+const quietClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
 describe('project page archived-404 (MMR-230)', () => {
   it('a 404ing project renders the unavailable notice, not a false Offline banner', async () => {
@@ -43,7 +32,7 @@ describe('project page archived-404 (MMR-230)', () => {
     // portfolio reads (shell strips, picker) stay healthy.
     serveShell({ projects: [engineProject({ id: 'MMR', title: 'Mimir' })] });
     serveNodes({ nodes: [engineProject({ id: 'MMR', title: 'Mimir' })] });
-    renderProject('SR');
+    await renderRoute(routes, '/p/SR', quietClient());
 
     await expect(screen.findByText(/archived or no longer exists/i)).resolves.toBeDefined();
     // The server answered — the surface must not read as offline.
@@ -55,7 +44,7 @@ describe('project page archived-404 (MMR-230)', () => {
     failShellReads(new TypeError('fetch failed'));
     serveNodes();
     vi.mocked(getNode).mockRejectedValue(new TypeError('fetch failed'));
-    renderProject('SR');
+    await renderRoute(routes, '/p/SR', quietClient());
 
     await expect(screen.findByText(/offline — last synced/i)).resolves.toBeDefined();
     expect(screen.queryByText(/archived or no longer exists/i)).toBeNull();
@@ -101,7 +90,7 @@ function serveProject() {
 describe('project page (MMR-450, MMR-470)', () => {
   it('opens the project itself at /p/KEY as its work page: title, then direction in full', async () => {
     serveProject();
-    renderProject('MMR');
+    await renderRoute(routes, '/p/MMR', quietClient());
 
     await expect(screen.findByRole('heading', { level: 1, name: 'Mimir' })).resolves.toBeDefined();
     await expect(screen.findByRole('region', { name: 'Now' })).resolves.toBeDefined();
@@ -114,7 +103,7 @@ describe('project page (MMR-450, MMR-470)', () => {
 
   it('offers no board view, and its rail has no structure or other views (MMR-487, MMR-496)', async () => {
     serveProject();
-    renderProject('MMR');
+    await renderRoute(routes, '/p/MMR', quietClient());
 
     const rail = await screen.findByRole('complementary', { name: 'Record details' });
     expect(
@@ -129,14 +118,14 @@ describe('project page (MMR-450, MMR-470)', () => {
 
   it('an old /board link reads as no record rather than a board (MMR-487)', async () => {
     serveProject();
-    renderProject('MMR', '/board');
+    await renderRoute(routes, '/p/MMR/board', quietClient());
 
     await expect(screen.findByText('No record at /p/MMR/board.')).resolves.toBeDefined();
   });
 
   it('keeps New task and Project settings in the page head', async () => {
     serveProject();
-    renderProject('MMR');
+    await renderRoute(routes, '/p/MMR', quietClient());
 
     await screen.findByRole('heading', { level: 1, name: 'Mimir' });
     expect(screen.getByRole('button', { name: 'Project settings' })).toBeDefined();
@@ -146,7 +135,7 @@ describe('project page (MMR-450, MMR-470)', () => {
 
   it("rewrites the direction from the phone's Direction sheet", async () => {
     serveProject();
-    renderProject('MMR');
+    await renderRoute(routes, '/p/MMR', quietClient());
     const chips = await screen.findByRole('group', { name: 'Record details' });
 
     fireEvent.click(within(chips).getByRole('button', { name: 'Direction' }));
@@ -158,7 +147,7 @@ describe('project page (MMR-450, MMR-470)', () => {
   it('keeps the phone sheet open under the editor when a save fails, and the draft with it', async () => {
     serveProject();
     vi.mocked(updateProject).mockRejectedValue(new Error('write refused'));
-    renderProject('MMR');
+    await renderRoute(routes, '/p/MMR', quietClient());
     const chips = await screen.findByRole('group', { name: 'Record details' });
 
     fireEvent.click(within(chips).getByRole('button', { name: 'Direction' }));
@@ -183,17 +172,7 @@ describe('project page (MMR-450, MMR-470)', () => {
     ['/p/mmr/417?tab=timeline', '/p/MMR/417', '?tab=timeline'],
   ])('moves %s to its canonical spelling', async (url, pathname, search) => {
     serveProject();
-    const testRouter = createRouter({
-      history: createMemoryHistory({ initialEntries: [url] }),
-      routeTree,
-    });
-    render(
-      <QueryClientProvider
-        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-      >
-        <RouterProvider router={testRouter} />
-      </QueryClientProvider>,
-    );
+    const { router: testRouter } = await renderRoute(routes, url, quietClient());
 
     await waitFor(() => {
       expect(testRouter.state.location.pathname).toBe(pathname);

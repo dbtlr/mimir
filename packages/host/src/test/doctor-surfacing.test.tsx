@@ -1,15 +1,14 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { doctor } from '../api/fns/browse';
 import type { RecordHealth } from '../api/fns/browse';
-import { routeTree } from '../router';
+import { projectRoute } from '../router';
 import { recordHealth } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
 import { serveNodes } from './node-fns';
+import { renderRoute } from './router';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
@@ -30,18 +29,6 @@ function facet(n: number): RecordHealth {
   });
 }
 
-function renderAt(path: string) {
-  const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: [path] }),
-    routeTree,
-  });
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <RouterProvider router={testRouter} />
-    </QueryClientProvider>,
-  );
-}
-
 describe('record-health surfacing (MMR-185, mock 15b)', () => {
   it('puts an amber findings chip in the project header, linking to the panel', async () => {
     serveShell({
@@ -52,7 +39,7 @@ describe('record-health surfacing (MMR-185, mock 15b)', () => {
     });
     serveNodes({ nodes: [engineProject({ id: 'MMR', title: 'Mimir' })] });
     serveBrowse({ health: facet(2) });
-    renderAt('/p/MMR');
+    await renderRoute([projectRoute], '/p/MMR');
 
     const chip = await screen.findByRole('link', { name: /2 findings/ });
     expect(chip.getAttribute('href')).toContain('/doctor');

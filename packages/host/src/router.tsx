@@ -151,7 +151,7 @@ export const artifactRoute = createRoute({
  * Every unmatched path. A bare ID or project key (`/MMR-417`, `/mmr`)
  * redirects to its page by grammar alone; anything else is not found.
  */
-const notFoundRoute = createRoute({
+export const notFoundRoute = createRoute({
   beforeLoad: ({ params }) => {
     const target = bareIdRedirect(params._splat ?? '');
     if (target !== undefined) {
