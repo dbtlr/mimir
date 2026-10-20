@@ -1,0 +1,6024 @@
+{
+  "input": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "console": {
+        "type": "object",
+        "properties": {
+          "nodeWork": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "asOf": {
+                    "$ref": "#/$defs/__schema0"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "timeZone": {
+                    "$ref": "#/$defs/__schema1"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "openTasks": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "q": {
+                    "type": "string"
+                  }
+                },
+                "required": ["q"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "overview": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "asOf": {
+                    "$ref": "#/$defs/__schema0"
+                  },
+                  "project": {
+                    "type": "string"
+                  }
+                },
+                "required": ["project"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "projectWork": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "asOf": {
+                    "$ref": "#/$defs/__schema0"
+                  },
+                  "project": {
+                    "type": "string"
+                  },
+                  "timeZone": {
+                    "$ref": "#/$defs/__schema1"
+                  }
+                },
+                "required": ["project"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "review": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "asOf": {
+                    "$ref": "#/$defs/__schema0"
+                  },
+                  "timeZone": {
+                    "$ref": "#/$defs/__schema1"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "search": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "project": {
+                    "type": "string"
+                  },
+                  "query": {
+                    "type": "string"
+                  }
+                },
+                "required": ["query"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "upstreamTasks": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "seed": {
+                    "type": "string"
+                  }
+                },
+                "required": ["seed"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "nodeWork",
+          "openTasks",
+          "overview",
+          "projectWork",
+          "review",
+          "search",
+          "upstreamTasks"
+        ],
+        "additionalProperties": false
+      },
+      "engine": {
+        "type": "object",
+        "properties": {
+          "artifacts": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "dates": {
+                    "$ref": "#/$defs/__schema2"
+                  },
+                  "limit": {
+                    "$ref": "#/$defs/__schema3"
+                  },
+                  "offset": {
+                    "$ref": "#/$defs/__schema3"
+                  },
+                  "project": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "q": {
+                    "type": "string"
+                  },
+                  "tag": {
+                    "type": "string"
+                  },
+                  "timeZone": {
+                    "$ref": "#/$defs/__schema5"
+                  }
+                },
+                "required": ["project"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "getArtifact": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "getNode": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "facets": {
+                    "$ref": "#/$defs/__schema6"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "getSeed": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "list": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "facets": {
+                    "$ref": "#/$defs/__schema6"
+                  },
+                  "filters": {
+                    "$ref": "#/$defs/__schema7"
+                  },
+                  "limit": {
+                    "$ref": "#/$defs/__schema3"
+                  },
+                  "priority": {
+                    "$ref": "#/$defs/__schema8"
+                  },
+                  "project": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "q": {
+                    "$ref": "#/$defs/__schema9"
+                  },
+                  "size": {
+                    "$ref": "#/$defs/__schema10"
+                  },
+                  "timeZone": {
+                    "$ref": "#/$defs/__schema5"
+                  },
+                  "verdicts": {
+                    "$ref": "#/$defs/__schema11"
+                  },
+                  "offset": {
+                    "$ref": "#/$defs/__schema3"
+                  },
+                  "status": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/__schema12"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/__schema12"
+                        }
+                      }
+                    ]
+                  },
+                  "tag": {
+                    "type": "string"
+                  }
+                },
+                "required": ["project"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "next": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "facets": {
+                    "$ref": "#/$defs/__schema6"
+                  },
+                  "filters": {
+                    "$ref": "#/$defs/__schema7"
+                  },
+                  "limit": {
+                    "$ref": "#/$defs/__schema3"
+                  },
+                  "priority": {
+                    "$ref": "#/$defs/__schema8"
+                  },
+                  "project": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "q": {
+                    "$ref": "#/$defs/__schema9"
+                  },
+                  "size": {
+                    "$ref": "#/$defs/__schema10"
+                  },
+                  "timeZone": {
+                    "$ref": "#/$defs/__schema5"
+                  },
+                  "verdicts": {
+                    "$ref": "#/$defs/__schema11"
+                  }
+                },
+                "required": ["project"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "overview": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "asOf": {
+                    "format": "date-time",
+                    "type": "string",
+                    "x-mimir-type": "Date"
+                  },
+                  "project": {
+                    "$ref": "#/$defs/__schema4"
+                  }
+                },
+                "required": ["project"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "projects": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "facets": {
+                    "$ref": "#/$defs/__schema6"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["active", "archived", "all"]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "projectsByRemote": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "facets": {
+                    "$ref": "#/$defs/__schema6"
+                  },
+                  "remote": {
+                    "type": "string"
+                  }
+                },
+                "required": ["remote"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchGet": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchList": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "project": {
+                    "$ref": "#/$defs/__schema4"
+                  }
+                },
+                "required": ["project"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "search": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "project": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "query": {
+                    "type": "string"
+                  }
+                },
+                "required": ["project", "query"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "seeds": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "dates": {
+                    "$ref": "#/$defs/__schema2"
+                  },
+                  "project": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "requester": {
+                    "type": "string"
+                  },
+                  "sort": {
+                    "type": "string",
+                    "enum": ["asc", "desc"]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["new", "parked", "promoted", "resolved", "rejected", "live", "all"]
+                  },
+                  "timeZone": {
+                    "$ref": "#/$defs/__schema5"
+                  }
+                },
+                "required": ["project"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "status": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "tree": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "facets": {
+                    "$ref": "#/$defs/__schema6"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "queue": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "branch": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "harness": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "host": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "session": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id", "session"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "unqueue": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id", "reason"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "start": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "branch": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "harness": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "host": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "session": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "workerHarness": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "workerSession": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "startExpectation": {
+                    "type": "object",
+                    "properties": {
+                      "harness": {
+                        "type": ["string", "null"]
+                      },
+                      "lifecycle": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "todo",
+                              "queued",
+                              "in_progress",
+                              "under_review",
+                              "done",
+                              "abandoned"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "session": {
+                        "type": ["string", "null"]
+                      }
+                    },
+                    "required": ["harness", "lifecycle", "session"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "submit": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "return": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "done": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "abandon": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "reopen": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "park": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "unpark": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "block": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "on": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "unblock": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "archive": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "unarchive": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/__schema4"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "annotate": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                },
+                "required": ["content", "id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "attach": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string"
+                  },
+                  "links": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "project": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "summary": {
+                    "type": ["string", "null"]
+                  },
+                  "tags": {
+                    "$ref": "#/$defs/__schema14"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": ["content", "title"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "create": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "description": {
+                        "type": "string"
+                      },
+                      "key": {
+                        "$ref": "#/$defs/__schema4"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "remote": {
+                        "$ref": "#/$defs/__schema13"
+                      },
+                      "tags": {
+                        "$ref": "#/$defs/__schema14"
+                      },
+                      "type": {
+                        "type": "string",
+                        "const": "project"
+                      }
+                    },
+                    "required": ["key", "name", "type"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "description": {
+                        "type": "string"
+                      },
+                      "openEnded": {
+                        "type": "boolean"
+                      },
+                      "parent": {
+                        "$ref": "#/$defs/__schema4"
+                      },
+                      "summary": {
+                        "type": "string"
+                      },
+                      "tags": {
+                        "$ref": "#/$defs/__schema14"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string",
+                        "const": "initiative"
+                      }
+                    },
+                    "required": ["parent", "title", "type"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "description": {
+                        "type": "string"
+                      },
+                      "openEnded": {
+                        "type": "boolean"
+                      },
+                      "parent": {
+                        "type": "string"
+                      },
+                      "summary": {
+                        "type": "string"
+                      },
+                      "tags": {
+                        "$ref": "#/$defs/__schema14"
+                      },
+                      "target": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string",
+                        "const": "phase"
+                      }
+                    },
+                    "required": ["parent", "title", "type"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "description": {
+                        "type": "string"
+                      },
+                      "externalRef": {
+                        "type": "string"
+                      },
+                      "groomed": {
+                        "type": "boolean"
+                      },
+                      "handles": {
+                        "type": "object",
+                        "properties": {
+                          "branch": {
+                            "$ref": "#/$defs/__schema13"
+                          },
+                          "harness": {
+                            "$ref": "#/$defs/__schema13"
+                          },
+                          "host": {
+                            "$ref": "#/$defs/__schema13"
+                          },
+                          "session": {
+                            "$ref": "#/$defs/__schema13"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "parent": {
+                        "type": "string"
+                      },
+                      "priority": {
+                        "type": "string",
+                        "enum": ["p0", "p1", "p2", "p3"]
+                      },
+                      "size": {
+                        "type": "string",
+                        "enum": ["small", "medium", "large"]
+                      },
+                      "summary": {
+                        "type": "string"
+                      },
+                      "tags": {
+                        "$ref": "#/$defs/__schema14"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string",
+                        "const": "task"
+                      },
+                      "upstream": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["parent", "title", "type"],
+                    "additionalProperties": false
+                  }
+                ],
+                "x-mimir-discriminator": "type"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "depend": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "on": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/__schema15"
+                    }
+                  }
+                },
+                "required": ["id", "on"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "groom": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/__schema16"
+                    }
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": ["not_groomed", "needs_answers", "groomed"]
+                  }
+                },
+                "required": ["ids", "state"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "move": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id", "to"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "reorder": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "position": {
+                        "type": "string",
+                        "const": "top"
+                      }
+                    },
+                    "required": ["id", "position"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "position": {
+                        "type": "string",
+                        "const": "bottom"
+                      }
+                    },
+                    "required": ["id", "position"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "position": {
+                        "type": "string",
+                        "const": "before"
+                      },
+                      "ref": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["id", "position", "ref"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "position": {
+                        "type": "string",
+                        "const": "after"
+                      },
+                      "ref": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["id", "position", "ref"],
+                    "additionalProperties": false
+                  }
+                ],
+                "x-mimir-discriminator": "position"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "tag": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/__schema17"
+                    }
+                  },
+                  "tags": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/__schema18"
+                    }
+                  }
+                },
+                "required": ["ids", "tags"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "undepend": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "on": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/__schema19"
+                    }
+                  }
+                },
+                "required": ["id", "on"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "untag": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/__schema20"
+                    }
+                  },
+                  "tags": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/__schema21"
+                    }
+                  }
+                },
+                "required": ["ids", "tags"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "update": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "branch": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "description": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "externalRef": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "harness": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "host": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "next": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "openEnded": {
+                    "type": "boolean"
+                  },
+                  "priority": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["p0", "p1", "p2", "p3"]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "session": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "size": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["small", "medium", "large"]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "summary": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "target": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "upstream": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "workerHarness": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "workerSession": {
+                    "$ref": "#/$defs/__schema13"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "updateArtifact": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "summary": {
+                    "type": ["string", "null"]
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "updateProject": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "id": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "next": {
+                    "$ref": "#/$defs/__schema13"
+                  },
+                  "pinned": {
+                    "type": "boolean"
+                  },
+                  "remote": {
+                    "$ref": "#/$defs/__schema13"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchAgendaAdd": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedUpdatedAt": {
+                    "$ref": "#/$defs/__schema22"
+                  },
+                  "id": {
+                    "$ref": "#/$defs/__schema23"
+                  },
+                  "content": {
+                    "type": "string"
+                  }
+                },
+                "required": ["expectedUpdatedAt", "id", "content"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchAgendaComplete": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedUpdatedAt": {
+                    "$ref": "#/$defs/__schema22"
+                  },
+                  "id": {
+                    "$ref": "#/$defs/__schema23"
+                  },
+                  "number": {
+                    "$ref": "#/$defs/__schema24"
+                  }
+                },
+                "required": ["expectedUpdatedAt", "id", "number"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchAgendaSupersede": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedUpdatedAt": {
+                    "$ref": "#/$defs/__schema22"
+                  },
+                  "id": {
+                    "$ref": "#/$defs/__schema23"
+                  },
+                  "number": {
+                    "$ref": "#/$defs/__schema24"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": ["expectedUpdatedAt", "id", "number", "reason"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchCheckpoint": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedUpdatedAt": {
+                    "$ref": "#/$defs/__schema22"
+                  },
+                  "id": {
+                    "$ref": "#/$defs/__schema23"
+                  },
+                  "content": {
+                    "type": "string"
+                  }
+                },
+                "required": ["expectedUpdatedAt", "id", "content"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchCreate": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "anchors": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "project": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": ["project", "title"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchDiscard": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedUpdatedAt": {
+                    "$ref": "#/$defs/__schema22"
+                  },
+                  "id": {
+                    "$ref": "#/$defs/__schema23"
+                  },
+                  "force": {
+                    "type": "boolean"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": ["expectedUpdatedAt", "id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchFreeze": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedUpdatedAt": {
+                    "$ref": "#/$defs/__schema22"
+                  },
+                  "id": {
+                    "$ref": "#/$defs/__schema23"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": ["expectedUpdatedAt", "id", "summary"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchUpdate": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedUpdatedAt": {
+                    "$ref": "#/$defs/__schema22"
+                  },
+                  "id": {
+                    "$ref": "#/$defs/__schema23"
+                  },
+                  "anchors": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": ["expectedUpdatedAt", "id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "seedCreate": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": ["string", "null"]
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": ["idea", "bug", "feature"]
+                  },
+                  "project": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "requester": {
+                    "type": ["string", "null"]
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": ["kind", "project", "title"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "seedPark": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/__schema23"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "seedPromote": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": ["string", "null"]
+                  },
+                  "id": {
+                    "$ref": "#/$defs/__schema23"
+                  },
+                  "link": {
+                    "type": "string"
+                  },
+                  "parent": {
+                    "type": "string"
+                  },
+                  "priority": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["p0", "p1", "p2", "p3"]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "size": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["small", "medium", "large"]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "seedReject": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/__schema23"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id", "reason"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "seedResolve": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/__schema23"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id", "reason"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "seedUnpark": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/__schema23"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "seedUpdate": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": ["string", "null"]
+                  },
+                  "id": {
+                    "$ref": "#/$defs/__schema23"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": ["idea", "bug", "feature"]
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "triage": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "board": {
+                    "$ref": "#/$defs/__schema4"
+                  },
+                  "dryRun": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["board"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "artifacts",
+          "getArtifact",
+          "getNode",
+          "getSeed",
+          "list",
+          "next",
+          "overview",
+          "projects",
+          "projectsByRemote",
+          "scratchGet",
+          "scratchList",
+          "search",
+          "seeds",
+          "status",
+          "tree",
+          "queue",
+          "unqueue",
+          "start",
+          "submit",
+          "return",
+          "done",
+          "abandon",
+          "reopen",
+          "park",
+          "unpark",
+          "block",
+          "unblock",
+          "archive",
+          "unarchive",
+          "annotate",
+          "attach",
+          "create",
+          "depend",
+          "groom",
+          "move",
+          "reorder",
+          "tag",
+          "undepend",
+          "untag",
+          "update",
+          "updateArtifact",
+          "updateProject",
+          "scratchAgendaAdd",
+          "scratchAgendaComplete",
+          "scratchAgendaSupersede",
+          "scratchCheckpoint",
+          "scratchCreate",
+          "scratchDiscard",
+          "scratchFreeze",
+          "scratchUpdate",
+          "seedCreate",
+          "seedPark",
+          "seedPromote",
+          "seedReject",
+          "seedResolve",
+          "seedUnpark",
+          "seedUpdate",
+          "triage"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": ["console", "engine"],
+    "additionalProperties": false,
+    "$defs": {
+      "__schema0": {
+        "format": "date-time",
+        "type": "string",
+        "x-mimir-type": "Date"
+      },
+      "__schema1": {
+        "type": "string"
+      },
+      "__schema2": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "field": {
+              "type": "string"
+            },
+            "op": {
+              "type": "string",
+              "enum": ["before", "on", "after", "at-or-before", "at-or-after"]
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": ["field", "op", "value"],
+          "additionalProperties": false
+        }
+      },
+      "__schema3": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "__schema4": {
+        "type": "string",
+        "pattern": "^[A-Z]{2,4}$"
+      },
+      "__schema5": {
+        "type": "string"
+      },
+      "__schema6": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "deps",
+            "description",
+            "next",
+            "annotations",
+            "artifacts",
+            "history",
+            "tags",
+            "children",
+            "distribution",
+            "leafCounts",
+            "artifactCount",
+            "verdicts",
+            "home",
+            "lede"
+          ]
+        }
+      },
+      "__schema7": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "field": {
+              "type": "string"
+            },
+            "op": {
+              "type": "string",
+              "enum": [
+                "eq",
+                "not-eq",
+                "in",
+                "not-in",
+                "has",
+                "missing",
+                "before",
+                "on",
+                "after",
+                "at-or-before",
+                "at-or-after"
+              ]
+            },
+            "value": {
+              "type": ["string", "null"]
+            }
+          },
+          "required": ["field", "op", "value"],
+          "additionalProperties": false
+        }
+      },
+      "__schema8": {
+        "type": "string",
+        "enum": ["p0", "p1", "p2", "p3"]
+      },
+      "__schema9": {
+        "type": "string"
+      },
+      "__schema10": {
+        "type": "string",
+        "enum": ["small", "medium", "large"]
+      },
+      "__schema11": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "negate": {
+              "type": "boolean"
+            },
+            "verdict": {
+              "type": "string",
+              "enum": ["stale", "blocking", "orphaned"]
+            }
+          },
+          "required": ["negate", "verdict"],
+          "additionalProperties": false
+        }
+      },
+      "__schema12": {
+        "type": "string",
+        "enum": [
+          "ready",
+          "awaiting",
+          "blocked",
+          "parked",
+          "queued",
+          "in_progress",
+          "under_review",
+          "done",
+          "abandoned",
+          "live",
+          "terminal",
+          "all"
+        ]
+      },
+      "__schema13": {
+        "type": ["string", "null"]
+      },
+      "__schema14": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "__schema15": {
+        "type": "string"
+      },
+      "__schema16": {
+        "type": "string"
+      },
+      "__schema17": {
+        "type": "string"
+      },
+      "__schema18": {
+        "type": "string"
+      },
+      "__schema19": {
+        "type": "string"
+      },
+      "__schema20": {
+        "type": "string"
+      },
+      "__schema21": {
+        "type": "string"
+      },
+      "__schema22": {
+        "format": "date-time",
+        "type": "string",
+        "x-mimir-type": "Date"
+      },
+      "__schema23": {
+        "type": "string"
+      },
+      "__schema24": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
+      }
+    }
+  },
+  "output": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "console": {
+        "type": "object",
+        "properties": {
+          "nodeWork": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema0"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "openTasks": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema18"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "overview": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema63"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "projectWork": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema0"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "review": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "decisions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "project": {
+                          "$ref": "#/$defs/__schema67"
+                        },
+                        "rows": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/$defs/__schema13"
+                          }
+                        }
+                      },
+                      "required": ["project", "rows"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "goingCold": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "project": {
+                          "type": "string"
+                        },
+                        "task": {
+                          "$ref": "#/$defs/__schema9"
+                        }
+                      },
+                      "required": ["project", "task"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "lastFinished": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/__schema16"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "now": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "latestNote": {
+                          "$ref": "#/$defs/__schema14"
+                        },
+                        "scratchpads": {
+                          "$ref": "#/$defs/__schema15"
+                        },
+                        "stale": {
+                          "$ref": "#/$defs/__schema8"
+                        },
+                        "startedAt": {
+                          "$ref": "#/$defs/__schema10"
+                        },
+                        "task": {
+                          "$ref": "#/$defs/__schema9"
+                        },
+                        "project": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "latestNote",
+                        "scratchpads",
+                        "stale",
+                        "startedAt",
+                        "task",
+                        "project"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "projects": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "$ref": "#/$defs/__schema68"
+                        },
+                        "name": {
+                          "$ref": "#/$defs/__schema69"
+                        },
+                        "decisions": {
+                          "type": "number"
+                        },
+                        "goingCold": {
+                          "type": "number"
+                        },
+                        "inFlight": {
+                          "type": "number"
+                        },
+                        "live": {
+                          "type": "number"
+                        },
+                        "triage": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "name",
+                        "decisions",
+                        "goingCold",
+                        "inFlight",
+                        "live",
+                        "triage"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "queue": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "runnable": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "awaitingOn": {
+                          "$ref": "#/$defs/__schema6"
+                        },
+                        "breakDown": {
+                          "$ref": "#/$defs/__schema7"
+                        },
+                        "stale": {
+                          "$ref": "#/$defs/__schema8"
+                        },
+                        "task": {
+                          "$ref": "#/$defs/__schema9"
+                        },
+                        "project": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["awaitingOn", "breakDown", "stale", "task", "project"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "shipped": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "abandonReason": {
+                          "$ref": "#/$defs/__schema17"
+                        },
+                        "finishedAt": {
+                          "$ref": "#/$defs/__schema10"
+                        },
+                        "stale": {
+                          "$ref": "#/$defs/__schema8"
+                        },
+                        "task": {
+                          "$ref": "#/$defs/__schema9"
+                        },
+                        "project": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["abandonReason", "finishedAt", "stale", "task", "project"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "triage": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "findings": {
+                          "type": "number"
+                        },
+                        "goingCold": {
+                          "type": "number"
+                        },
+                        "project": {
+                          "$ref": "#/$defs/__schema67"
+                        },
+                        "seeds": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "createdAt": {
+                                "$ref": "#/$defs/__schema10"
+                              },
+                              "description": {
+                                "type": ["string", "null"]
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": ["idea", "bug", "feature"]
+                              },
+                              "lede": {
+                                "type": ["string", "null"]
+                              },
+                              "lifecycle": {
+                                "type": "string",
+                                "enum": ["new", "parked", "promoted", "resolved", "rejected"]
+                              },
+                              "project": {
+                                "type": "string"
+                              },
+                              "readyToResolve": {
+                                "type": "boolean"
+                              },
+                              "requester": {
+                                "type": ["string", "null"]
+                              },
+                              "spawned": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "updatedAt": {
+                                "$ref": "#/$defs/__schema10"
+                              }
+                            },
+                            "required": [
+                              "createdAt",
+                              "id",
+                              "kind",
+                              "lifecycle",
+                              "project",
+                              "readyToResolve",
+                              "requester",
+                              "spawned",
+                              "title",
+                              "updatedAt"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": ["findings", "goingCold", "project", "seeds"],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "decisions",
+                  "goingCold",
+                  "lastFinished",
+                  "now",
+                  "projects",
+                  "queue",
+                  "runnable",
+                  "shipped",
+                  "triage"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "search": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema70"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "upstreamTasks": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema18"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "nodeWork",
+          "openTasks",
+          "overview",
+          "projectWork",
+          "review",
+          "search",
+          "upstreamTasks"
+        ],
+        "additionalProperties": false
+      },
+      "engine": {
+        "type": "object",
+        "properties": {
+          "artifacts": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "createdAt": {
+                          "$ref": "#/$defs/__schema21"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "links": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "project": {
+                          "type": "string"
+                        },
+                        "summary": {
+                          "type": "string"
+                        },
+                        "tags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "title": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["createdAt", "id", "links", "project", "tags", "title"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "returned": {
+                    "type": "number"
+                  },
+                  "startsAt": {
+                    "type": "number"
+                  },
+                  "total": {
+                    "type": "number"
+                  },
+                  "warnings": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/__schema62"
+                    }
+                  }
+                },
+                "required": ["items", "returned", "startsAt", "total"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "getArtifact": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema71"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "getNode": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "getSeed": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema72"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "list": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema18"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "next": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema18"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "overview": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema63"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "projects": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema73"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "projectsByRemote": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema73"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchGet": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema74"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchList": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema66"
+                }
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "search": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema70"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "seeds": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema72"
+                }
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "status": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "distribution": {
+                    "$ref": "#/$defs/__schema11"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ready",
+                      "awaiting",
+                      "blocked",
+                      "parked",
+                      "queued",
+                      "in_progress",
+                      "under_review",
+                      "done",
+                      "abandoned",
+                      "new"
+                    ]
+                  },
+                  "type": {
+                    "$ref": "#/$defs/__schema12"
+                  }
+                },
+                "required": ["distribution", "id", "status", "type"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "tree": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "query"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema75"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "queue": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "unqueue": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "start": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "submit": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "return": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "done": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "abandon": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "reopen": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "park": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/__schema19"
+                  },
+                  {
+                    "$ref": "#/$defs/__schema72"
+                  }
+                ]
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "unpark": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/__schema19"
+                  },
+                  {
+                    "$ref": "#/$defs/__schema72"
+                  }
+                ]
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "block": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "unblock": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "archive": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "annotations": {
+                    "$ref": "#/$defs/__schema20"
+                  },
+                  "archivedAt": {
+                    "$ref": "#/$defs/__schema22"
+                  },
+                  "artifactCount": {
+                    "$ref": "#/$defs/__schema23"
+                  },
+                  "artifacts": {
+                    "$ref": "#/$defs/__schema24"
+                  },
+                  "blockOwner": {
+                    "$ref": "#/$defs/__schema25"
+                  },
+                  "branch": {
+                    "$ref": "#/$defs/__schema26"
+                  },
+                  "children": {
+                    "$ref": "#/$defs/__schema27"
+                  },
+                  "completedAt": {
+                    "$ref": "#/$defs/__schema28"
+                  },
+                  "createdAt": {
+                    "$ref": "#/$defs/__schema21"
+                  },
+                  "deps": {
+                    "$ref": "#/$defs/__schema29"
+                  },
+                  "description": {
+                    "$ref": "#/$defs/__schema30"
+                  },
+                  "distribution": {
+                    "$ref": "#/$defs/__schema31"
+                  },
+                  "externalRef": {
+                    "$ref": "#/$defs/__schema32"
+                  },
+                  "grooming": {
+                    "$ref": "#/$defs/__schema33"
+                  },
+                  "harness": {
+                    "$ref": "#/$defs/__schema34"
+                  },
+                  "history": {
+                    "$ref": "#/$defs/__schema35"
+                  },
+                  "hold": {
+                    "$ref": "#/$defs/__schema36"
+                  },
+                  "holdReason": {
+                    "$ref": "#/$defs/__schema37"
+                  },
+                  "home": {
+                    "$ref": "#/$defs/__schema38"
+                  },
+                  "host": {
+                    "$ref": "#/$defs/__schema39"
+                  },
+                  "id": {
+                    "$ref": "#/$defs/__schema40"
+                  },
+                  "lastActivityAt": {
+                    "$ref": "#/$defs/__schema41"
+                  },
+                  "leafCounts": {
+                    "$ref": "#/$defs/__schema42"
+                  },
+                  "lede": {
+                    "$ref": "#/$defs/__schema43"
+                  },
+                  "lifecycle": {
+                    "$ref": "#/$defs/__schema44"
+                  },
+                  "next": {
+                    "$ref": "#/$defs/__schema45"
+                  },
+                  "open_ended": {
+                    "$ref": "#/$defs/__schema46"
+                  },
+                  "parent": {
+                    "$ref": "#/$defs/__schema47"
+                  },
+                  "pinned": {
+                    "$ref": "#/$defs/__schema48"
+                  },
+                  "priority": {
+                    "$ref": "#/$defs/__schema49"
+                  },
+                  "remote": {
+                    "$ref": "#/$defs/__schema50"
+                  },
+                  "session": {
+                    "$ref": "#/$defs/__schema51"
+                  },
+                  "size": {
+                    "$ref": "#/$defs/__schema52"
+                  },
+                  "status": {
+                    "$ref": "#/$defs/__schema53"
+                  },
+                  "summary": {
+                    "$ref": "#/$defs/__schema54"
+                  },
+                  "tags": {
+                    "$ref": "#/$defs/__schema55"
+                  },
+                  "target": {
+                    "$ref": "#/$defs/__schema56"
+                  },
+                  "title": {
+                    "$ref": "#/$defs/__schema57"
+                  },
+                  "type": {
+                    "$ref": "#/$defs/__schema12"
+                  },
+                  "updatedAt": {
+                    "$ref": "#/$defs/__schema21"
+                  },
+                  "upstream": {
+                    "$ref": "#/$defs/__schema58"
+                  },
+                  "verdicts": {
+                    "$ref": "#/$defs/__schema59"
+                  },
+                  "workerHarness": {
+                    "$ref": "#/$defs/__schema60"
+                  },
+                  "workerSession": {
+                    "$ref": "#/$defs/__schema61"
+                  },
+                  "released": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "createdAt",
+                  "id",
+                  "parent",
+                  "status",
+                  "title",
+                  "type",
+                  "updatedAt",
+                  "released"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "unarchive": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "annotate": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "attach": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema71"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "create": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "depend": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "groom": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema73"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "move": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "reorder": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "tag": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": ["ids", "tags"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "undepend": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "untag": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "removed": {
+                    "type": "number"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": ["ids", "removed", "tags"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "update": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "updateArtifact": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema71"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "updateProject": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema19"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchAgendaAdd": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema74"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchAgendaComplete": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema74"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchAgendaSupersede": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema74"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchCheckpoint": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema74"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchCreate": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema74"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchDiscard": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "result": {
+                    "type": "string",
+                    "const": "discarded"
+                  }
+                },
+                "required": ["id", "result"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchFreeze": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema71"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "scratchUpdate": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema74"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "seedCreate": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema72"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "seedPark": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema72"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "seedPromote": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "created": {
+                    "type": "string"
+                  },
+                  "seed": {
+                    "$ref": "#/$defs/__schema72"
+                  },
+                  "spawnedId": {
+                    "type": "string"
+                  }
+                },
+                "required": ["seed", "spawnedId"],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "seedReject": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema72"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "seedResolve": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema72"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "seedUnpark": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema72"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "seedUpdate": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "$ref": "#/$defs/__schema72"
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          },
+          "triage": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "mutation"
+              },
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "board": {
+                    "type": "string"
+                  },
+                  "dryRun": {
+                    "type": "boolean"
+                  },
+                  "failures": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        },
+                        "task": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["message", "task"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "parked": {
+                    "type": "number"
+                  },
+                  "readyToResolve": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/__schema72"
+                    }
+                  },
+                  "untriaged": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/__schema72"
+                    }
+                  },
+                  "upstreamResolutions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "alreadyRecorded": {
+                          "type": "boolean"
+                        },
+                        "annotated": {
+                          "type": "boolean"
+                        },
+                        "blocked": {
+                          "type": "boolean"
+                        },
+                        "lifecycle": {
+                          "type": "string",
+                          "enum": ["new", "parked", "promoted", "resolved", "rejected"]
+                        },
+                        "reason": {
+                          "type": ["string", "null"]
+                        },
+                        "task": {
+                          "type": "string"
+                        },
+                        "upstream": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "alreadyRecorded",
+                        "annotated",
+                        "blocked",
+                        "lifecycle",
+                        "reason",
+                        "task",
+                        "upstream"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "board",
+                  "dryRun",
+                  "failures",
+                  "parked",
+                  "readyToResolve",
+                  "untriaged",
+                  "upstreamResolutions"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "schema"],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "artifacts",
+          "getArtifact",
+          "getNode",
+          "getSeed",
+          "list",
+          "next",
+          "overview",
+          "projects",
+          "projectsByRemote",
+          "scratchGet",
+          "scratchList",
+          "search",
+          "seeds",
+          "status",
+          "tree",
+          "queue",
+          "unqueue",
+          "start",
+          "submit",
+          "return",
+          "done",
+          "abandon",
+          "reopen",
+          "park",
+          "unpark",
+          "block",
+          "unblock",
+          "archive",
+          "unarchive",
+          "annotate",
+          "attach",
+          "create",
+          "depend",
+          "groom",
+          "move",
+          "reorder",
+          "tag",
+          "undepend",
+          "untag",
+          "update",
+          "updateArtifact",
+          "updateProject",
+          "scratchAgendaAdd",
+          "scratchAgendaComplete",
+          "scratchAgendaSupersede",
+          "scratchCheckpoint",
+          "scratchCreate",
+          "scratchDiscard",
+          "scratchFreeze",
+          "scratchUpdate",
+          "seedCreate",
+          "seedPark",
+          "seedPromote",
+          "seedReject",
+          "seedResolve",
+          "seedUnpark",
+          "seedUpdate",
+          "triage"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": ["console", "engine"],
+    "additionalProperties": false,
+    "$defs": {
+      "__schema0": {
+        "type": "object",
+        "properties": {
+          "frontier": {
+            "type": "object",
+            "properties": {
+              "nextToUnlock": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "prerequisite": {
+                      "$ref": "#/$defs/__schema1"
+                    },
+                    "tasks": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/__schema5"
+                      }
+                    }
+                  },
+                  "required": ["prerequisite", "tasks"],
+                  "additionalProperties": false
+                }
+              },
+              "runnable": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema5"
+                }
+              },
+              "toGroom": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema5"
+                }
+              },
+              "waitingOnOthers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "blockReason": {
+                      "type": ["string", "null"]
+                    },
+                    "stale": {
+                      "$ref": "#/$defs/__schema8"
+                    },
+                    "task": {
+                      "$ref": "#/$defs/__schema9"
+                    }
+                  },
+                  "required": ["blockReason", "stale", "task"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": ["nextToUnlock", "runnable", "toGroom", "waitingOnOthers"],
+            "additionalProperties": false
+          },
+          "goingCold": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/__schema9"
+            }
+          },
+          "needsYou": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/__schema13"
+            }
+          },
+          "now": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "latestNote": {
+                  "$ref": "#/$defs/__schema14"
+                },
+                "scratchpads": {
+                  "$ref": "#/$defs/__schema15"
+                },
+                "stale": {
+                  "$ref": "#/$defs/__schema8"
+                },
+                "startedAt": {
+                  "$ref": "#/$defs/__schema10"
+                },
+                "task": {
+                  "$ref": "#/$defs/__schema9"
+                }
+              },
+              "required": ["latestNote", "scratchpads", "stale", "startedAt", "task"],
+              "additionalProperties": false
+            }
+          },
+          "scope": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["project", "initiative", "phase"]
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "kind", "title"],
+            "additionalProperties": false
+          },
+          "shipped": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/__schema16"
+            }
+          }
+        },
+        "required": ["frontier", "goingCold", "needsYou", "now", "scope", "shipped"],
+        "additionalProperties": false
+      },
+      "__schema1": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/__schema2"
+          },
+          "status": {
+            "$ref": "#/$defs/__schema3"
+          },
+          "title": {
+            "$ref": "#/$defs/__schema4"
+          }
+        },
+        "required": ["id"],
+        "additionalProperties": false
+      },
+      "__schema2": {
+        "type": "string"
+      },
+      "__schema3": {
+        "type": "string",
+        "enum": [
+          "ready",
+          "awaiting",
+          "blocked",
+          "parked",
+          "queued",
+          "in_progress",
+          "under_review",
+          "done",
+          "abandoned",
+          "new"
+        ]
+      },
+      "__schema4": {
+        "type": "string"
+      },
+      "__schema5": {
+        "type": "object",
+        "properties": {
+          "awaitingOn": {
+            "$ref": "#/$defs/__schema6"
+          },
+          "breakDown": {
+            "$ref": "#/$defs/__schema7"
+          },
+          "stale": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "task": {
+            "$ref": "#/$defs/__schema9"
+          }
+        },
+        "required": ["awaitingOn", "breakDown", "stale", "task"],
+        "additionalProperties": false
+      },
+      "__schema6": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "__schema7": {
+        "type": "boolean"
+      },
+      "__schema8": {
+        "type": "boolean"
+      },
+      "__schema9": {
+        "type": "object",
+        "properties": {
+          "annotations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "content": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "$ref": "#/$defs/__schema10"
+                }
+              },
+              "required": ["content", "createdAt"],
+              "additionalProperties": false
+            }
+          },
+          "archivedAt": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema10"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "artifactCount": {
+            "type": "number"
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "createdAt": {
+                  "$ref": "#/$defs/__schema10"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": ["createdAt", "id", "tags", "title"],
+              "additionalProperties": false
+            }
+          },
+          "blockOwner": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["you", "others"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "branch": {
+            "type": ["string", "null"]
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/__schema1"
+            }
+          },
+          "completedAt": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema10"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "$ref": "#/$defs/__schema10"
+          },
+          "deps": {
+            "type": "object",
+            "properties": {
+              "awaitingOn": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "$ref": "#/$defs/__schema2"
+                    },
+                    "status": {
+                      "$ref": "#/$defs/__schema3"
+                    },
+                    "title": {
+                      "$ref": "#/$defs/__schema4"
+                    },
+                    "via": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["id"],
+                  "additionalProperties": false
+                }
+              },
+              "blocking": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema1"
+                }
+              },
+              "dependsOn": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema1"
+                }
+              }
+            },
+            "required": ["awaitingOn", "blocking", "dependsOn"],
+            "additionalProperties": false
+          },
+          "description": {
+            "type": ["string", "null"]
+          },
+          "distribution": {
+            "$ref": "#/$defs/__schema11"
+          },
+          "externalRef": {
+            "type": ["string", "null"]
+          },
+          "grooming": {
+            "type": "string",
+            "enum": ["not_groomed", "needs_answers", "groomed"]
+          },
+          "harness": {
+            "type": ["string", "null"]
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "$ref": "#/$defs/__schema10"
+                },
+                "from": {
+                  "type": ["string", "null"]
+                },
+                "handles": {
+                  "type": "object",
+                  "properties": {
+                    "branch": {
+                      "type": "string"
+                    },
+                    "harness": {
+                      "type": "string"
+                    },
+                    "host": {
+                      "type": "string"
+                    },
+                    "session": {
+                      "type": "string"
+                    },
+                    "worker_harness": {
+                      "type": "string"
+                    },
+                    "worker_session": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": ["lifecycle", "hold", "dependency", "move", "archive", "assignment"]
+                },
+                "reason": {
+                  "type": ["string", "null"]
+                },
+                "to": {
+                  "type": ["string", "null"]
+                }
+              },
+              "required": ["at", "from", "kind", "reason", "to"],
+              "additionalProperties": false
+            }
+          },
+          "hold": {
+            "type": "string",
+            "enum": ["none", "blocked", "parked"]
+          },
+          "holdReason": {
+            "type": ["string", "null"]
+          },
+          "home": {
+            "type": "object",
+            "properties": {
+              "parentId": {
+                "type": ["string", "null"]
+              },
+              "parentOpenEnded": {
+                "type": ["boolean", "null"]
+              },
+              "parentTitle": {
+                "type": ["string", "null"]
+              },
+              "projectKey": {
+                "type": "string"
+              }
+            },
+            "required": ["parentId", "parentOpenEnded", "parentTitle", "projectKey"],
+            "additionalProperties": false
+          },
+          "host": {
+            "type": ["string", "null"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "lastActivityAt": {
+            "$ref": "#/$defs/__schema10"
+          },
+          "leafCounts": {
+            "$ref": "#/$defs/__schema11"
+          },
+          "lede": {
+            "type": ["string", "null"]
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": ["todo", "queued", "in_progress", "under_review", "done", "abandoned"]
+          },
+          "next": {
+            "type": "string"
+          },
+          "open_ended": {
+            "type": ["boolean", "null"]
+          },
+          "parent": {
+            "type": ["string", "null"]
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["p0", "p1", "p2", "p3"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remote": {
+            "type": ["string", "null"]
+          },
+          "session": {
+            "type": ["string", "null"]
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["small", "medium", "large"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "awaiting",
+              "blocked",
+              "parked",
+              "queued",
+              "in_progress",
+              "under_review",
+              "done",
+              "abandoned",
+              "new"
+            ]
+          },
+          "summary": {
+            "type": ["string", "null"]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "createdAt": {
+                  "$ref": "#/$defs/__schema10"
+                },
+                "tag": {
+                  "type": "string"
+                }
+              },
+              "required": ["createdAt", "tag"],
+              "additionalProperties": false
+            }
+          },
+          "target": {
+            "type": ["string", "null"]
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/$defs/__schema12"
+          },
+          "updatedAt": {
+            "$ref": "#/$defs/__schema10"
+          },
+          "upstream": {
+            "type": ["string", "null"]
+          },
+          "verdicts": {
+            "type": "object",
+            "properties": {
+              "blocking": {
+                "type": "boolean"
+              },
+              "orphaned": {
+                "type": "boolean"
+              },
+              "stale": {
+                "type": "boolean"
+              }
+            },
+            "required": ["blocking", "orphaned", "stale"],
+            "additionalProperties": false
+          },
+          "workerHarness": {
+            "type": ["string", "null"]
+          },
+          "workerSession": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["createdAt", "id", "parent", "status", "title", "type", "updatedAt"],
+        "additionalProperties": false
+      },
+      "__schema10": {
+        "format": "date-time",
+        "type": "string",
+        "x-mimir-type": "Date"
+      },
+      "__schema11": {
+        "type": "object",
+        "propertyNames": {
+          "type": "string",
+          "enum": [
+            "ready",
+            "awaiting",
+            "blocked",
+            "parked",
+            "queued",
+            "in_progress",
+            "under_review",
+            "done",
+            "abandoned",
+            "new"
+          ]
+        },
+        "additionalProperties": {
+          "type": "number"
+        }
+      },
+      "__schema12": {
+        "type": "string",
+        "enum": ["initiative", "phase", "task", "project"]
+      },
+      "__schema13": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": ["string", "null"]
+          },
+          "reason": {
+            "type": "string",
+            "enum": ["under_review", "blocked", "needs_answers"]
+          },
+          "stale": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "task": {
+            "$ref": "#/$defs/__schema9"
+          }
+        },
+        "required": ["question", "reason", "stale", "task"],
+        "additionalProperties": false
+      },
+      "__schema14": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "content": {
+                "type": "string"
+              },
+              "createdAt": {
+                "$ref": "#/$defs/__schema10"
+              }
+            },
+            "required": ["content", "createdAt"],
+            "additionalProperties": false
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "__schema15": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": ["id", "title"],
+          "additionalProperties": false
+        }
+      },
+      "__schema16": {
+        "type": "object",
+        "properties": {
+          "abandonReason": {
+            "$ref": "#/$defs/__schema17"
+          },
+          "finishedAt": {
+            "$ref": "#/$defs/__schema10"
+          },
+          "stale": {
+            "$ref": "#/$defs/__schema8"
+          },
+          "task": {
+            "$ref": "#/$defs/__schema9"
+          }
+        },
+        "required": ["abandonReason", "finishedAt", "stale", "task"],
+        "additionalProperties": false
+      },
+      "__schema17": {
+        "type": ["string", "null"]
+      },
+      "__schema18": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/__schema19"
+            }
+          },
+          "returned": {
+            "type": "number"
+          },
+          "startsAt": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/__schema62"
+            }
+          }
+        },
+        "required": ["items", "returned", "startsAt", "total"],
+        "additionalProperties": false
+      },
+      "__schema19": {
+        "type": "object",
+        "properties": {
+          "annotations": {
+            "$ref": "#/$defs/__schema20"
+          },
+          "archivedAt": {
+            "$ref": "#/$defs/__schema22"
+          },
+          "artifactCount": {
+            "$ref": "#/$defs/__schema23"
+          },
+          "artifacts": {
+            "$ref": "#/$defs/__schema24"
+          },
+          "blockOwner": {
+            "$ref": "#/$defs/__schema25"
+          },
+          "branch": {
+            "$ref": "#/$defs/__schema26"
+          },
+          "children": {
+            "$ref": "#/$defs/__schema27"
+          },
+          "completedAt": {
+            "$ref": "#/$defs/__schema28"
+          },
+          "createdAt": {
+            "$ref": "#/$defs/__schema21"
+          },
+          "deps": {
+            "$ref": "#/$defs/__schema29"
+          },
+          "description": {
+            "$ref": "#/$defs/__schema30"
+          },
+          "distribution": {
+            "$ref": "#/$defs/__schema31"
+          },
+          "externalRef": {
+            "$ref": "#/$defs/__schema32"
+          },
+          "grooming": {
+            "$ref": "#/$defs/__schema33"
+          },
+          "harness": {
+            "$ref": "#/$defs/__schema34"
+          },
+          "history": {
+            "$ref": "#/$defs/__schema35"
+          },
+          "hold": {
+            "$ref": "#/$defs/__schema36"
+          },
+          "holdReason": {
+            "$ref": "#/$defs/__schema37"
+          },
+          "home": {
+            "$ref": "#/$defs/__schema38"
+          },
+          "host": {
+            "$ref": "#/$defs/__schema39"
+          },
+          "id": {
+            "$ref": "#/$defs/__schema40"
+          },
+          "lastActivityAt": {
+            "$ref": "#/$defs/__schema41"
+          },
+          "leafCounts": {
+            "$ref": "#/$defs/__schema42"
+          },
+          "lede": {
+            "$ref": "#/$defs/__schema43"
+          },
+          "lifecycle": {
+            "$ref": "#/$defs/__schema44"
+          },
+          "next": {
+            "$ref": "#/$defs/__schema45"
+          },
+          "open_ended": {
+            "$ref": "#/$defs/__schema46"
+          },
+          "parent": {
+            "$ref": "#/$defs/__schema47"
+          },
+          "pinned": {
+            "$ref": "#/$defs/__schema48"
+          },
+          "priority": {
+            "$ref": "#/$defs/__schema49"
+          },
+          "remote": {
+            "$ref": "#/$defs/__schema50"
+          },
+          "session": {
+            "$ref": "#/$defs/__schema51"
+          },
+          "size": {
+            "$ref": "#/$defs/__schema52"
+          },
+          "status": {
+            "$ref": "#/$defs/__schema53"
+          },
+          "summary": {
+            "$ref": "#/$defs/__schema54"
+          },
+          "tags": {
+            "$ref": "#/$defs/__schema55"
+          },
+          "target": {
+            "$ref": "#/$defs/__schema56"
+          },
+          "title": {
+            "$ref": "#/$defs/__schema57"
+          },
+          "type": {
+            "$ref": "#/$defs/__schema12"
+          },
+          "updatedAt": {
+            "$ref": "#/$defs/__schema21"
+          },
+          "upstream": {
+            "$ref": "#/$defs/__schema58"
+          },
+          "verdicts": {
+            "$ref": "#/$defs/__schema59"
+          },
+          "workerHarness": {
+            "$ref": "#/$defs/__schema60"
+          },
+          "workerSession": {
+            "$ref": "#/$defs/__schema61"
+          }
+        },
+        "required": ["createdAt", "id", "parent", "status", "title", "type", "updatedAt"],
+        "additionalProperties": false
+      },
+      "__schema20": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "content": {
+              "type": "string"
+            },
+            "createdAt": {
+              "$ref": "#/$defs/__schema21"
+            }
+          },
+          "required": ["content", "createdAt"],
+          "additionalProperties": false
+        }
+      },
+      "__schema21": {
+        "format": "date-time",
+        "type": "string",
+        "x-mimir-type": "Date"
+      },
+      "__schema22": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/__schema21"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "__schema23": {
+        "type": "number"
+      },
+      "__schema24": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "createdAt": {
+              "$ref": "#/$defs/__schema21"
+            },
+            "id": {
+              "type": "string"
+            },
+            "summary": {
+              "type": "string"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": ["createdAt", "id", "tags", "title"],
+          "additionalProperties": false
+        }
+      },
+      "__schema25": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": ["you", "others"]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "__schema26": {
+        "type": ["string", "null"]
+      },
+      "__schema27": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/__schema1"
+        }
+      },
+      "__schema28": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/__schema21"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "__schema29": {
+        "type": "object",
+        "properties": {
+          "awaitingOn": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/__schema2"
+                },
+                "status": {
+                  "$ref": "#/$defs/__schema3"
+                },
+                "title": {
+                  "$ref": "#/$defs/__schema4"
+                },
+                "via": {
+                  "type": "string"
+                }
+              },
+              "required": ["id"],
+              "additionalProperties": false
+            }
+          },
+          "blocking": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/__schema1"
+            }
+          },
+          "dependsOn": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/__schema1"
+            }
+          }
+        },
+        "required": ["awaitingOn", "blocking", "dependsOn"],
+        "additionalProperties": false
+      },
+      "__schema30": {
+        "type": ["string", "null"]
+      },
+      "__schema31": {
+        "$ref": "#/$defs/__schema11"
+      },
+      "__schema32": {
+        "type": ["string", "null"]
+      },
+      "__schema33": {
+        "type": "string",
+        "enum": ["not_groomed", "needs_answers", "groomed"]
+      },
+      "__schema34": {
+        "type": ["string", "null"]
+      },
+      "__schema35": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "at": {
+              "$ref": "#/$defs/__schema21"
+            },
+            "from": {
+              "type": ["string", "null"]
+            },
+            "handles": {
+              "type": "object",
+              "properties": {
+                "branch": {
+                  "type": "string"
+                },
+                "harness": {
+                  "type": "string"
+                },
+                "host": {
+                  "type": "string"
+                },
+                "session": {
+                  "type": "string"
+                },
+                "worker_harness": {
+                  "type": "string"
+                },
+                "worker_session": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "kind": {
+              "type": "string",
+              "enum": ["lifecycle", "hold", "dependency", "move", "archive", "assignment"]
+            },
+            "reason": {
+              "type": ["string", "null"]
+            },
+            "to": {
+              "type": ["string", "null"]
+            }
+          },
+          "required": ["at", "from", "kind", "reason", "to"],
+          "additionalProperties": false
+        }
+      },
+      "__schema36": {
+        "type": "string",
+        "enum": ["none", "blocked", "parked"]
+      },
+      "__schema37": {
+        "type": ["string", "null"]
+      },
+      "__schema38": {
+        "type": "object",
+        "properties": {
+          "parentId": {
+            "type": ["string", "null"]
+          },
+          "parentOpenEnded": {
+            "type": ["boolean", "null"]
+          },
+          "parentTitle": {
+            "type": ["string", "null"]
+          },
+          "projectKey": {
+            "type": "string"
+          }
+        },
+        "required": ["parentId", "parentOpenEnded", "parentTitle", "projectKey"],
+        "additionalProperties": false
+      },
+      "__schema39": {
+        "type": ["string", "null"]
+      },
+      "__schema40": {
+        "type": "string"
+      },
+      "__schema41": {
+        "$ref": "#/$defs/__schema21"
+      },
+      "__schema42": {
+        "$ref": "#/$defs/__schema11"
+      },
+      "__schema43": {
+        "type": ["string", "null"]
+      },
+      "__schema44": {
+        "type": "string",
+        "enum": ["todo", "queued", "in_progress", "under_review", "done", "abandoned"]
+      },
+      "__schema45": {
+        "type": "string"
+      },
+      "__schema46": {
+        "type": ["boolean", "null"]
+      },
+      "__schema47": {
+        "type": ["string", "null"]
+      },
+      "__schema48": {
+        "type": "boolean"
+      },
+      "__schema49": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": ["p0", "p1", "p2", "p3"]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "__schema50": {
+        "type": ["string", "null"]
+      },
+      "__schema51": {
+        "type": ["string", "null"]
+      },
+      "__schema52": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": ["small", "medium", "large"]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "__schema53": {
+        "type": "string",
+        "enum": [
+          "ready",
+          "awaiting",
+          "blocked",
+          "parked",
+          "queued",
+          "in_progress",
+          "under_review",
+          "done",
+          "abandoned",
+          "new"
+        ]
+      },
+      "__schema54": {
+        "type": ["string", "null"]
+      },
+      "__schema55": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "createdAt": {
+              "$ref": "#/$defs/__schema21"
+            },
+            "tag": {
+              "type": "string"
+            }
+          },
+          "required": ["createdAt", "tag"],
+          "additionalProperties": false
+        }
+      },
+      "__schema56": {
+        "type": ["string", "null"]
+      },
+      "__schema57": {
+        "type": "string"
+      },
+      "__schema58": {
+        "type": ["string", "null"]
+      },
+      "__schema59": {
+        "type": "object",
+        "properties": {
+          "blocking": {
+            "type": "boolean"
+          },
+          "orphaned": {
+            "type": "boolean"
+          },
+          "stale": {
+            "type": "boolean"
+          }
+        },
+        "required": ["blocking", "orphaned", "stale"],
+        "additionalProperties": false
+      },
+      "__schema60": {
+        "type": ["string", "null"]
+      },
+      "__schema61": {
+        "type": ["string", "null"]
+      },
+      "__schema62": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "const": "no_match_value"
+          },
+          "expected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "field": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": ["code", "expected", "field", "message", "value"],
+        "additionalProperties": false
+      },
+      "__schema63": {
+        "type": "object",
+        "properties": {
+          "awaiting": {
+            "type": "object",
+            "properties": {
+              "count": {
+                "type": "number"
+              },
+              "tasks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "awaitingOn": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "task": {
+                      "$ref": "#/$defs/__schema19"
+                    }
+                  },
+                  "required": ["awaitingOn", "task"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": ["count", "tasks"],
+            "additionalProperties": false
+          },
+          "direction": {
+            "type": "object",
+            "properties": {
+              "containers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "next": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["id", "next", "title"],
+                  "additionalProperties": false
+                }
+              },
+              "count": {
+                "type": "number"
+              },
+              "project": {
+                "type": ["string", "null"]
+              }
+            },
+            "required": ["containers", "count", "project"],
+            "additionalProperties": false
+          },
+          "hygiene": {
+            "type": "object",
+            "properties": {
+              "blocked": {
+                "type": "number"
+              },
+              "listings": {
+                "type": "object",
+                "properties": {
+                  "blocked": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/__schema64"
+                    }
+                  },
+                  "stale": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/__schema64"
+                    }
+                  },
+                  "untriaged": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "lede": {
+                          "type": ["string", "null"]
+                        },
+                        "title": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["id", "lede", "title"],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": ["blocked", "stale", "untriaged"],
+                "additionalProperties": false
+              },
+              "parkedSeeds": {
+                "type": "number"
+              },
+              "stale": {
+                "type": "number"
+              },
+              "untriaged": {
+                "type": "number"
+              }
+            },
+            "required": ["blocked", "listings", "parkedSeeds", "stale", "untriaged"],
+            "additionalProperties": false
+          },
+          "inFlight": {
+            "$ref": "#/$defs/__schema65"
+          },
+          "next": {
+            "$ref": "#/$defs/__schema65"
+          },
+          "project": {
+            "type": "object",
+            "properties": {
+              "distribution": {
+                "$ref": "#/$defs/__schema11"
+              },
+              "id": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ready",
+                  "awaiting",
+                  "blocked",
+                  "parked",
+                  "queued",
+                  "in_progress",
+                  "under_review",
+                  "done",
+                  "abandoned",
+                  "new"
+                ]
+              }
+            },
+            "required": ["distribution", "id", "status"],
+            "additionalProperties": false
+          },
+          "scratchpads": {
+            "type": "object",
+            "properties": {
+              "count": {
+                "type": "number"
+              },
+              "scratchpads": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/__schema66"
+                }
+              }
+            },
+            "required": ["count", "scratchpads"],
+            "additionalProperties": false
+          },
+          "sessions": {
+            "type": "object",
+            "properties": {
+              "entries": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "artifact": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "summary": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["id", "title"],
+                      "additionalProperties": false
+                    },
+                    "from": {
+                      "$ref": "#/$defs/__schema21"
+                    },
+                    "id": {
+                      "type": ["string", "null"]
+                    },
+                    "tasks": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/__schema1"
+                      }
+                    },
+                    "to": {
+                      "$ref": "#/$defs/__schema21"
+                    },
+                    "transitions": {
+                      "type": "number"
+                    }
+                  },
+                  "required": ["from", "id", "tasks", "to", "transitions"],
+                  "additionalProperties": false
+                }
+              },
+              "shown": {
+                "type": "number"
+              }
+            },
+            "required": ["entries", "shown"],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "awaiting",
+          "direction",
+          "hygiene",
+          "inFlight",
+          "next",
+          "project",
+          "scratchpads",
+          "sessions"
+        ],
+        "additionalProperties": false
+      },
+      "__schema64": {
+        "type": "object",
+        "properties": {
+          "stale": {
+            "type": "boolean"
+          },
+          "task": {
+            "$ref": "#/$defs/__schema19"
+          }
+        },
+        "required": ["stale", "task"],
+        "additionalProperties": false
+      },
+      "__schema65": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "number"
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/__schema19"
+            }
+          }
+        },
+        "required": ["count", "tasks"],
+        "additionalProperties": false
+      },
+      "__schema66": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "linkedWork": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "openAgenda": {
+            "type": "number"
+          },
+          "project": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["active", "freezing"]
+          },
+          "title": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "$ref": "#/$defs/__schema21"
+          }
+        },
+        "required": ["id", "linkedWork", "openAgenda", "project", "state", "title", "updatedAt"],
+        "additionalProperties": false
+      },
+      "__schema67": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "$ref": "#/$defs/__schema68"
+          },
+          "name": {
+            "$ref": "#/$defs/__schema69"
+          }
+        },
+        "required": ["key", "name"],
+        "additionalProperties": false
+      },
+      "__schema68": {
+        "type": "string"
+      },
+      "__schema69": {
+        "type": "string"
+      },
+      "__schema70": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "finished": {
+                  "type": "boolean"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": ["initiative", "phase", "task", "project", "seed", "artifact"]
+                },
+                "lifecycle": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "todo",
+                        "queued",
+                        "in_progress",
+                        "under_review",
+                        "done",
+                        "abandoned",
+                        "new",
+                        "parked",
+                        "promoted",
+                        "resolved",
+                        "rejected"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "link": {
+                  "type": "string",
+                  "enum": [
+                    "parent",
+                    "child",
+                    "depends_on",
+                    "blocks",
+                    "artifact",
+                    "upstream",
+                    "spawned",
+                    "downstream",
+                    "attached"
+                  ]
+                },
+                "match": {
+                  "type": "string",
+                  "enum": ["id", "title", "description", "link"]
+                },
+                "project": {
+                  "type": "string"
+                },
+                "snippet": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "$ref": "#/$defs/__schema21"
+                }
+              },
+              "required": [
+                "finished",
+                "id",
+                "kind",
+                "lifecycle",
+                "match",
+                "project",
+                "title",
+                "updatedAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "returned": {
+            "type": "number"
+          },
+          "startsAt": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/__schema62"
+            }
+          }
+        },
+        "required": ["items", "returned", "startsAt", "total"],
+        "additionalProperties": false
+      },
+      "__schema71": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "createdAt": {
+            "$ref": "#/$defs/__schema21"
+          },
+          "id": {
+            "type": "string"
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "project": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": ["createdAt", "id", "links", "project", "tags", "title"],
+        "additionalProperties": false
+      },
+      "__schema72": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "$ref": "#/$defs/__schema21"
+          },
+          "description": {
+            "type": ["string", "null"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["idea", "bug", "feature"]
+          },
+          "lede": {
+            "type": ["string", "null"]
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": ["new", "parked", "promoted", "resolved", "rejected"]
+          },
+          "project": {
+            "type": "string"
+          },
+          "readyToResolve": {
+            "type": "boolean"
+          },
+          "requester": {
+            "type": ["string", "null"]
+          },
+          "spawned": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "title": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "$ref": "#/$defs/__schema21"
+          }
+        },
+        "required": [
+          "createdAt",
+          "id",
+          "kind",
+          "lifecycle",
+          "project",
+          "readyToResolve",
+          "requester",
+          "spawned",
+          "title",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "__schema73": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/__schema19"
+        }
+      },
+      "__schema74": {
+        "type": "object",
+        "properties": {
+          "agenda": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "content": {
+                  "type": "string"
+                },
+                "number": {
+                  "type": "number"
+                },
+                "reason": {
+                  "type": ["string", "null"]
+                },
+                "state": {
+                  "type": "string",
+                  "enum": ["open", "done", "superseded"]
+                }
+              },
+              "required": ["content", "number", "reason", "state"],
+              "additionalProperties": false
+            }
+          },
+          "anchors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "$ref": "#/$defs/__schema21"
+          },
+          "freezingAt": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/__schema21"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "journal": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "$ref": "#/$defs/__schema21"
+                },
+                "content": {
+                  "type": "string"
+                },
+                "number": {
+                  "type": "number"
+                }
+              },
+              "required": ["at", "content", "number"],
+              "additionalProperties": false
+            }
+          },
+          "project": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "$ref": "#/$defs/__schema21"
+          }
+        },
+        "required": [
+          "agenda",
+          "anchors",
+          "createdAt",
+          "freezingAt",
+          "id",
+          "journal",
+          "project",
+          "title",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "__schema75": {
+        "type": "object",
+        "properties": {
+          "annotations": {
+            "$ref": "#/$defs/__schema20"
+          },
+          "archivedAt": {
+            "$ref": "#/$defs/__schema22"
+          },
+          "artifactCount": {
+            "$ref": "#/$defs/__schema23"
+          },
+          "artifacts": {
+            "$ref": "#/$defs/__schema24"
+          },
+          "blockOwner": {
+            "$ref": "#/$defs/__schema25"
+          },
+          "branch": {
+            "$ref": "#/$defs/__schema26"
+          },
+          "completedAt": {
+            "$ref": "#/$defs/__schema28"
+          },
+          "createdAt": {
+            "$ref": "#/$defs/__schema21"
+          },
+          "deps": {
+            "$ref": "#/$defs/__schema29"
+          },
+          "description": {
+            "$ref": "#/$defs/__schema30"
+          },
+          "distribution": {
+            "$ref": "#/$defs/__schema31"
+          },
+          "externalRef": {
+            "$ref": "#/$defs/__schema32"
+          },
+          "grooming": {
+            "$ref": "#/$defs/__schema33"
+          },
+          "harness": {
+            "$ref": "#/$defs/__schema34"
+          },
+          "history": {
+            "$ref": "#/$defs/__schema35"
+          },
+          "hold": {
+            "$ref": "#/$defs/__schema36"
+          },
+          "holdReason": {
+            "$ref": "#/$defs/__schema37"
+          },
+          "home": {
+            "$ref": "#/$defs/__schema38"
+          },
+          "host": {
+            "$ref": "#/$defs/__schema39"
+          },
+          "id": {
+            "$ref": "#/$defs/__schema40"
+          },
+          "lastActivityAt": {
+            "$ref": "#/$defs/__schema41"
+          },
+          "leafCounts": {
+            "$ref": "#/$defs/__schema42"
+          },
+          "lede": {
+            "$ref": "#/$defs/__schema43"
+          },
+          "lifecycle": {
+            "$ref": "#/$defs/__schema44"
+          },
+          "next": {
+            "$ref": "#/$defs/__schema45"
+          },
+          "open_ended": {
+            "$ref": "#/$defs/__schema46"
+          },
+          "parent": {
+            "$ref": "#/$defs/__schema47"
+          },
+          "pinned": {
+            "$ref": "#/$defs/__schema48"
+          },
+          "priority": {
+            "$ref": "#/$defs/__schema49"
+          },
+          "remote": {
+            "$ref": "#/$defs/__schema50"
+          },
+          "session": {
+            "$ref": "#/$defs/__schema51"
+          },
+          "size": {
+            "$ref": "#/$defs/__schema52"
+          },
+          "status": {
+            "$ref": "#/$defs/__schema53"
+          },
+          "summary": {
+            "$ref": "#/$defs/__schema54"
+          },
+          "tags": {
+            "$ref": "#/$defs/__schema55"
+          },
+          "target": {
+            "$ref": "#/$defs/__schema56"
+          },
+          "title": {
+            "$ref": "#/$defs/__schema57"
+          },
+          "type": {
+            "$ref": "#/$defs/__schema12"
+          },
+          "updatedAt": {
+            "$ref": "#/$defs/__schema21"
+          },
+          "upstream": {
+            "$ref": "#/$defs/__schema58"
+          },
+          "verdicts": {
+            "$ref": "#/$defs/__schema59"
+          },
+          "workerHarness": {
+            "$ref": "#/$defs/__schema60"
+          },
+          "workerSession": {
+            "$ref": "#/$defs/__schema61"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/__schema75"
+            }
+          }
+        },
+        "required": [
+          "createdAt",
+          "id",
+          "parent",
+          "status",
+          "title",
+          "type",
+          "updatedAt",
+          "children"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

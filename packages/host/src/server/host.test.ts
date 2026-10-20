@@ -1,5 +1,5 @@
 import { Database } from 'bun:sqlite';
-import { afterEach, expect, test } from 'bun:test';
+import { afterEach, expect, spyOn, test } from 'bun:test';
 import { randomUUID } from 'node:crypto';
 import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -9,6 +9,7 @@ import { configPath, warnConfigPermissions } from '@mimir/core';
 import { RemoteEngine } from '@mimir/wire/client';
 
 import { readHostConfig } from './config';
+import { guardEveryRoute, hostGuard } from './guard';
 import { openHost } from './host';
 
 const roots: string[] = [];
@@ -19,7 +20,7 @@ afterEach(async () => {
 test('the host shares Engine reads and completions over tRPC', async () => {
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-engine-'));
   roots.push(root);
-  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }));
+  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), '0.26.0');
   const server = Bun.serve({
     fetch: (request) => host.handleTrpc(request),
     hostname: '127.0.0.1',
@@ -29,7 +30,10 @@ test('the host shares Engine reads and completions over tRPC', async () => {
     await host.engine.create({ key: 'TST', name: 'Engine fixture', type: 'project' });
     await host.engine.create({ parent: 'TST', title: 'Host Engine', type: 'initiative' });
     await host.engine.create({ parent: 'TST-1', title: 'Complete over tRPC', type: 'task' });
-    const remote = new RemoteEngine({ url: new URL('/trpc', server.url).href });
+    const remote = new RemoteEngine({
+      url: new URL('/trpc', server.url).href,
+      version: '0.26.0',
+    });
     const read = await remote.getNode({ id: 'TST-2' });
     expect(read).toMatchObject({ lifecycle: 'todo', title: 'Complete over tRPC' });
     expect(read.createdAt).toBeInstanceOf(Date);
@@ -51,13 +55,13 @@ test('host migrates a named SQLite directory and preserves writes after reopenin
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-'));
   roots.push(root);
   const directory = join(root, 'data');
-  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: directory }));
+  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: directory }), '0.26.0');
   try {
     await host.engine.create({ key: 'TST', name: 'Disposable container project', type: 'project' });
   } finally {
     await host.close();
   }
-  const reopened = await openHost(await readHostConfig({ MIMIR_DATA_DIR: directory }));
+  const reopened = await openHost(await readHostConfig({ MIMIR_DATA_DIR: directory }), '0.26.0');
   try {
     const projects = await reopened.engine.projects({});
     expect(projects).toMatchObject([{ id: 'TST', title: 'Disposable container project' }]);
@@ -74,7 +78,7 @@ test('development host refuses Postgres without authority before connecting', as
       MIMIR_DATABASE_URL: 'postgres://live:secret@production.invalid/live',
     });
     // oxlint-disable-next-line typescript/await-thenable -- Bun awaits async matchers at runtime.
-    await expect(openHost(config)).rejects.toThrow('registered live installation');
+    await expect(openHost(config, '0.26.0')).rejects.toThrow('registered live installation');
   } finally {
     if (saved !== undefined) {
       process.env.MIMIR_SANDBOX_AUTHORITY = saved;
@@ -85,7 +89,7 @@ test('development host refuses Postgres without authority before connecting', as
 test('host doctor reports stored record findings and project scope', async () => {
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-doctor-'));
   roots.push(root);
-  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }));
+  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), '0.26.0');
   try {
     await host.engine.create({ key: 'TST', name: 'Doctor fixture', type: 'project' });
     // A hand-edited timestamp models corruption the diagnostic must report.
@@ -139,7 +143,7 @@ test('host doctor excludes findings from an unsafe CLI configuration', async () 
     const warnings: string[] = [];
     warnConfigPermissions(undefined, file, (line) => warnings.push(line));
     expect(warnings.join('\n')).toContain('chmod 600');
-    host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: paths.data }));
+    host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: paths.data }), '0.26.0');
     expect(await host.doctor(undefined)).toMatchObject({
       finding_total: 0,
       groups: [],
@@ -160,11 +164,11 @@ test('host logs applied SQLite migrations and refuses a schema ahead with an ima
   roots.push(root);
   const config = await readHostConfig({ MIMIR_DATA_DIR: root });
   const logs: string[] = [];
-  const host = await openHost(config, (line) => logs.push(line));
+  const host = await openHost(config, '0.26.0', (line) => logs.push(line));
   await host.close();
   expect(logs).toContain('host: applied migration 0005_project_pinned');
   logs.length = 0;
-  const current = await openHost(config, (line) => logs.push(line));
+  const current = await openHost(config, '0.26.0', (line) => logs.push(line));
   await current.close();
   expect(logs).toEqual([]);
   const database = new Database(join(root, 'store.sqlite'));
@@ -174,7 +178,7 @@ test('host logs applied SQLite migrations and refuses a schema ahead with an ima
   database.close();
   let refusal: unknown;
   try {
-    await openHost(config);
+    await openHost(config, '0.26.0');
   } catch (error) {
     refusal = error;
   }
@@ -188,7 +192,7 @@ const total = (groups: { findings: number }[]) =>
 test('the host Engine counts stored record findings in console.review', async () => {
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-review-findings-'));
   roots.push(root);
-  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }));
+  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), '0.26.0');
   try {
     await host.engine.create({ key: 'TST', name: 'Findings fixture', type: 'project' });
     const database = new Database(join(root, 'store.sqlite'));
@@ -200,6 +204,34 @@ test('the host Engine counts stored record findings in console.review', async ()
     const page = await host.engine.console.review({ timeZone: 'UTC' });
     expect(total(page.triage)).toBe(1);
   } finally {
+    await host.close();
+  }
+});
+
+test('Host guard refuses before the version window while local Engine calls stay outside it', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-window-'));
+  roots.push(root);
+  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), '0.26.0');
+  const log = spyOn(console, 'error').mockReturnValue(undefined);
+  try {
+    const guarded = guardEveryRoute(host.handleTrpc, Promise.resolve(hostGuard(['allowed.test'])));
+    const forbidden = await guarded(
+      new Request('http://allowed.test/trpc/projects', {
+        headers: { host: 'refused.test' },
+      }),
+    );
+    expect(forbidden.status).toBe(403);
+    expect(await forbidden.json()).toMatchObject({ error: { code: 'forbidden_host' } });
+    const missing = await guarded(
+      new Request('http://allowed.test/trpc/projects', {
+        headers: { host: 'allowed.test' },
+      }),
+    );
+    expect(missing.status).toBe(400);
+    expect(await missing.text()).toContain('missing x-mimir-version');
+    expect(await host.engine.projects({})).toEqual([]);
+  } finally {
+    log.mockRestore();
     await host.close();
   }
 });

@@ -15,7 +15,11 @@ test('two builds defer updates per tab and preserve offline operation', async ({
   await pageA.goto(fixture.origin);
   await pageA.evaluate(() => navigator.serviceWorker.ready);
   await expect(pageA.getByRole('status').filter({ hasText: 'Update' })).toHaveCount(0);
-  await expect(pageA.getByText(cachedProjectTitle, { exact: true })).toBeVisible();
+  await expect(
+    pageA
+      .getByRole('navigation', { name: 'All projects' })
+      .getByText(cachedProjectTitle, { exact: true }),
+  ).toBeVisible();
 
   await pageA.getByRole('button', { exact: true, name: 'All projects' }).click();
   await pageA.getByRole('button', { name: 'New project' }).click();
@@ -35,7 +39,10 @@ test('two builds defer updates per tab and preserve offline operation', async ({
 
   await pageB.bringToFront();
   await pageB.getByRole('button', { name: 'Refresh now' }).click();
-  await expect(pageB.getByTestId('console-version')).toHaveAttribute('title', /console build-b/);
+  await expect(pageB.getByTestId('console-version')).toHaveAttribute(
+    'title',
+    /console 0\.26\.0-next\.2/,
+  );
   await test.step('the deferred tab preserves input and adopts build B explicitly', async () => {
     await expect(title).toHaveValue('Unsaved operator work');
     await expect(
@@ -45,7 +52,10 @@ test('two builds defer updates per tab and preserve offline operation', async ({
     // closes that work before taking the explicit refresh transition.
     await pageA.getByRole('dialog').press('Escape');
     await pageA.getByRole('button', { name: 'Refresh now' }).click();
-    await expect(pageA.getByTestId('console-version')).toHaveAttribute('title', /console build-b/);
+    await expect(pageA.getByTestId('console-version')).toHaveAttribute(
+      'title',
+      /console 0\.26\.0-next\.2/,
+    );
   });
 
   await test.step('cached reads open offline and heal after reconnect', async () => {
@@ -58,7 +68,11 @@ test('two builds defer updates per tab and preserve offline operation', async ({
     await expect(pageA.getByRole('status').filter({ hasText: 'Offline' })).toBeVisible({
       timeout: 20_000,
     });
-    await expect(pageA.getByText(cachedProjectTitle, { exact: true })).toBeVisible();
+    await expect(
+      pageA
+        .getByRole('navigation', { name: 'All projects' })
+        .getByText(cachedProjectTitle, { exact: true }),
+    ).toBeVisible();
     await pageA.getByRole('button', { exact: true, name: 'All projects' }).click();
     await expect(pageA.getByRole('button', { name: 'New project' })).toBeDisabled();
 
@@ -96,7 +110,7 @@ test('two builds defer updates per tab and preserve offline operation', async ({
     await pageA.reload();
     const mismatch = pageA.getByRole('button', { name: 'refresh console' });
     await expect(mismatch).toBeVisible();
-    fixture.setHealthVersion('build-b');
+    fixture.setHealthVersion('0.26.0-next.2');
     await mismatch.click();
     await expect(pageA.getByRole('button', { name: 'refresh console' })).toHaveCount(0);
   });

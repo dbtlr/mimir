@@ -35,13 +35,14 @@ beforeEach(async () => {
   });
   id = task.id;
   local = new LocalEngine(fixture.store);
-  const handle = createEngineHandler(local);
+  const handle = createEngineHandler(local, { version: '0.26.0' });
   remote = new RemoteEngine({
     fetch: async (input, init) => {
       const response = await handle(new Request(input, init));
       return { json: () => response.json(), ok: response.ok };
     },
     url: 'http://engine.test/trpc',
+    version: '0.26.0',
   });
 });
 
@@ -133,13 +134,14 @@ test('explicit undefined survives serialization as an own property', async () =>
     ...(await read(input)),
     next: undefined,
   });
-  const handle = createEngineHandler(withOverride(local, { getNode }));
+  const handle = createEngineHandler(withOverride(local, { getNode }), { version: '0.26.0' });
   const client = new RemoteEngine({
     fetch: async (input, init) => {
       const response = await handle(new Request(input, init));
       return { json: () => response.json(), ok: response.ok };
     },
     url: 'http://engine.test/trpc',
+    version: '0.26.0',
   });
   const actual = await client.getNode({ id });
   expect(Object.hasOwn(actual, 'next')).toBe(true);
@@ -155,6 +157,7 @@ test('unexpected wire faults log their details without sending library text or s
         throw fault;
       },
     }),
+    { version: '0.26.0' },
   );
   const client = new RemoteEngine({
     fetch: async (input, init) => {
@@ -162,6 +165,7 @@ test('unexpected wire faults log their details without sending library text or s
       return { json: () => response.json(), ok: response.ok };
     },
     url: 'http://engine.test/trpc',
+    version: '0.26.0',
   });
   try {
     const failure: unknown = await client.done({ id }).catch((error: unknown) => error);
@@ -204,13 +208,14 @@ test('an output-schema fault logs the failing fields its stack omits, never send
   // The output schema is the contract under test, so the override breaks it on purpose.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const broken = { getNode } as unknown as Partial<Engine>;
-  const handle = createEngineHandler(withOverride(local, broken));
+  const handle = createEngineHandler(withOverride(local, broken), { version: '0.26.0' });
   const client = new RemoteEngine({
     fetch: async (input, init) => {
       const response = await handle(new Request(input, init));
       return { json: () => response.json(), ok: response.ok };
     },
     url: 'http://engine.test/trpc',
+    version: '0.26.0',
   });
   try {
     const failure: unknown = await client.getNode({ id }).catch((error: unknown) => error);

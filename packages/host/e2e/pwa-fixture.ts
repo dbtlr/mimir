@@ -111,7 +111,7 @@ export class PwaFixture {
     this.buildA = buildA;
     this.buildB = buildB;
     this.root = buildA;
-    this.healthVersion = 'build-a';
+    this.healthVersion = '0.26.0-next.1';
     this.server = createServer(async (request, response) => {
       try {
         await this.respond(request, response);
@@ -129,8 +129,8 @@ export class PwaFixture {
     const hostA = resolvePath(temporaryRoot, 'host-a');
     let fixture: PwaFixture | undefined;
     try {
-      await build(buildA, 'build-a', hostA);
-      await build(buildB, 'build-b');
+      await build(buildA, '0.26.0-next.1', hostA);
+      await build(buildB, '0.26.0-next.2');
       fixture = new PwaFixture(temporaryRoot, buildA, buildB);
       await fixture.startHost(hostA);
       await fixture.start();
@@ -160,7 +160,7 @@ export class PwaFixture {
 
   useBuildB(): void {
     this.root = this.buildB;
-    this.healthVersion = 'build-b';
+    this.healthVersion = '0.26.0-next.2';
   }
 
   /** Start build A's host over a scratch store and file the fixture project. */
@@ -201,7 +201,7 @@ export class PwaFixture {
 
   /** File a record on the host through its Engine, and answer its id. */
   async create(input: EngineInput<'create'>): Promise<{ id: string }> {
-    const engine = new RemoteEngine({ url: `${this.hostOrigin}/trpc` });
+    const engine = new RemoteEngine({ url: `${this.hostOrigin}/trpc`, version: '0.26.0-next.1' });
     const created = await engine.create(input);
     return { id: created.id };
   }
@@ -289,7 +289,12 @@ export class PwaFixture {
       });
       response.end(
         this.hostOnline
-          ? JSON.stringify({ schema: 10, status: 'ok', version: this.healthVersion })
+          ? JSON.stringify({
+              minClient: '0.26.0-next',
+              schema: 10,
+              status: 'ok',
+              version: this.healthVersion,
+            })
           : 'offline',
       );
       return;

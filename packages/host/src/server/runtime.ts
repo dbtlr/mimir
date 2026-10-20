@@ -1,3 +1,4 @@
+import { BUILD_VERSION } from '../lib/build-version';
 import { hostConfig } from './config';
 import { openHost } from './host';
 
@@ -23,5 +24,5 @@ export async function closeHost() {
 }
 
 async function openRuntime() {
-  return openHost(await hostConfig());
+  return openHost(await hostConfig(), BUILD_VERSION);
 }

@@ -1,7 +1,8 @@
 import { ApiError } from './errors';
 
-/** The host's `/health` body: its build and the store schema it expects (MMR-260). */
+/** The host's `/health` body: its build, minimum client, and supported store schema (MMR-260). */
 export type HostHealth = {
+  minClient: string;
   status: 'ok';
   version: string;
   schema: number;

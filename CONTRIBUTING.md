@@ -100,11 +100,15 @@ separate from the live console origin. Use the
 The shared network guards cover every host route, including static assets.
 `MIMIR_HOSTS` enables optional Host filtering; `MIMIR_URL` adds its hostname only
 when filtering is enabled. Cross-origin writes are always refused. `/health`
-reports the build and supported schema without querying the store, and Docker
-probes its JSON response with Bun. The console's `doctor` server function keeps the
+reports the build, minimum client, and supported schema without querying the
+store. Docker probes its JSON response with Bun. The console's `doctor` server function keeps the
 store's diagnostic facet without CLI configuration findings.
-`/trpc` serves the Engine through the same host guards. Token and version gates
-arrive with device pairing.
+`/trpc` serves the Engine through the same host guards. Every tRPC call requires
+`x-mimir-version` inside the host's version window:
+no older than `MIN_CLIENT` and no newer than the host by minor version.
+`RemoteEngine` takes the client build version and an optional headers hook.
+Refusals carry a `MimirError` and the CLI or host update remedy. Bearer
+authentication arrives with device pairing.
 Unexpected tRPC and server-function faults log structured diagnostics on stderr. tRPC replies
 omit stacks and replace internal library messages with a generic failure and doctor hint;
 domain errors retain their codes, messages, and hints.
@@ -136,6 +140,22 @@ Superjson preserves `Date` values and explicit `undefined` across the wire.
 Engine timestamps, including nested facet timestamps, are `Date` values;
 the existing intent DTOs and CLI and MCP renderings keep strings.
 Existing transports keep their direct-call paths until their migration phase.
+
+## Engine contract changes
+
+`bun run verify` compares the Engine and console schemas with the checked-in
+input and output JSON Schema snapshot at `packages/contract/engine-schemas.json`.
+After changing a schema, run `bun run contract:snapshot` and include its diff.
+Review the diff for compatibility and raise `MIN_CLIENT` in `@mimir/contract`
+when the change breaks older clients. Contract changes belong in minor releases;
+patch releases leave the schemas unchanged (ADR 0038).
+The generator labels Superjson Dates explicitly and admits only supported
+schema types, checks, and options. New behavior needs an explicit snapshot
+representation before the Engine can use it. Checks are admitted only on the
+schema types whose JSON conversion represents them. Conversion ignores Zod
+metadata so annotations cannot override validation constraints. Unsupported
+constraints or transforms stop generation instead of disappearing from
+compatibility review.
 
 ## Pull requests
 

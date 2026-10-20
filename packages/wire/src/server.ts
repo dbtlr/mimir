@@ -2,6 +2,7 @@ import {
   consoleSchemas,
   engineSchemas,
   MimirError,
+  MIN_CLIENT,
   parseEngineInput,
   UNIFORM_VERBS,
 } from '@mimir/contract';
@@ -14,12 +15,15 @@ import type {
   UniformVerb,
 } from '@mimir/contract';
 import { describeFault, formatDiagnostic } from '@mimir/helpers';
-import { initTRPC, TRPCError } from '@trpc/server';
+import { getTRPCErrorShape, initTRPC, transformTRPCResponse, TRPCError } from '@trpc/server';
 import type { TRPCMutationProcedure, TRPCQueryProcedure } from '@trpc/server';
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
+import { lt, parse } from 'semver';
 import superjson from 'superjson';
 
-const t = initTRPC.create({
+type VersionContext = { clientVersion: string | null; hostVersion: string };
+
+const t = initTRPC.context<VersionContext>().create({
   errorFormatter({ shape, error }) {
     const cause = error.cause;
     const internal = error.code === 'INTERNAL_SERVER_ERROR' && !(cause instanceof MimirError);
@@ -48,14 +52,59 @@ const domainCodes = {
   validation: 'BAD_REQUEST',
 } as const satisfies Record<ErrorCode, string>;
 
-const procedure = t.procedure.use(async ({ next }) => {
-  const result = await next();
-  if (!result.ok && result.error.cause instanceof MimirError) {
-    const cause = result.error.cause;
-    throw new TRPCError({ cause, code: domainCodes[cause.code], message: cause.message });
+const procedure = t.procedure
+  .use(async ({ next }) => {
+    const result = await next();
+    if (!result.ok && result.error.cause instanceof MimirError) {
+      const cause = result.error.cause;
+      throw new TRPCError({ cause, code: domainCodes[cause.code], message: cause.message });
+    }
+    return result;
+  })
+  .use(({ ctx, next }) => {
+    const refusal = versionRefusal(ctx);
+    if (refusal) {
+      throw refusal;
+    }
+    return next();
+  });
+
+function versionRefusal(ctx: VersionContext): MimirError | undefined {
+  if (!ctx.clientVersion) {
+    return new MimirError(
+      'validation',
+      'missing x-mimir-version header; client is outside the version window',
+      'update this CLI',
+    );
   }
-  return result;
-});
+  const client = parse(ctx.clientVersion);
+  if (!client) {
+    return new MimirError(
+      'validation',
+      'invalid x-mimir-version header; client is outside the version window',
+      'update this CLI',
+    );
+  }
+  if (lt(client, MIN_CLIENT)) {
+    return new MimirError(
+      'validation',
+      `client ${ctx.clientVersion} is older than the minimum supported client ${MIN_CLIENT}`,
+      'update this CLI',
+    );
+  }
+  const host = parse(ctx.hostVersion);
+  if (
+    host &&
+    (client.major > host.major || (client.major === host.major && client.minor > host.minor))
+  ) {
+    return new MimirError(
+      'validation',
+      `client ${ctx.clientVersion} is newer than host ${ctx.hostVersion} by minor version`,
+      'update the host first',
+    );
+  }
+  return undefined;
+}
 
 export type EngineProcedures = {
   [K in keyof EngineMethods]: (typeof engineSchemas)[K]['kind'] extends 'query'
@@ -329,12 +378,48 @@ export type EngineRouter = ReturnType<typeof createEngineRouter>;
  * The mounting host must apply request guards before dispatch, including
  * configured Host filtering and cross-origin write checks.
  */
-export function createEngineHandler(engine: Engine, endpoint = '/trpc') {
+export function createEngineHandler(
+  engine: Engine,
+  options: { version: string; endpoint?: string },
+) {
+  if (!parse(options.version)) {
+    throw new Error(`invalid host version: ${options.version}`);
+  }
   const router = createEngineRouter(engine);
-  return (req: Request) =>
-    fetchRequestHandler({
-      createContext: () => ({}),
-      endpoint,
+  return async (req: Request) => {
+    const context = {
+      clientVersion: req.headers.get('x-mimir-version'),
+      hostVersion: options.version,
+    };
+    const refusal = versionRefusal(context);
+    // Removed or re-kinded procedures must receive the remedy before tRPC resolves them.
+    if (refusal) {
+      const error = new TRPCError({
+        cause: refusal,
+        code: domainCodes[refusal.code],
+        message: refusal.message,
+      });
+      const shape = getTRPCErrorShape({
+        config: t._config,
+        ctx: context,
+        error,
+        input: undefined,
+        path: undefined,
+        type: 'unknown',
+      });
+      const result = { error: shape };
+      const url = new URL(req.url);
+      const body =
+        url.searchParams.get('batch') === '1'
+          ? url.pathname.split(/,|%2c/i).map(() => result)
+          : result;
+      return Response.json(transformTRPCResponse(t._config, body), {
+        status: shape.data.httpStatus,
+      });
+    }
+    return fetchRequestHandler({
+      createContext: () => context,
+      endpoint: options.endpoint ?? '/trpc',
       onError({ error }) {
         if (error.code === 'INTERNAL_SERVER_ERROR' && !(error.cause instanceof MimirError)) {
           const diagnostic = formatDiagnostic({
@@ -348,4 +433,5 @@ export function createEngineHandler(engine: Engine, endpoint = '/trpc') {
       req,
       router,
     });
+  };
 }

@@ -6,9 +6,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { MIN_CLIENT } from '@mimir/contract';
 import { RemoteEngine } from '@mimir/wire/client';
 import { chromium } from '@playwright/test';
 import type { Browser } from '@playwright/test';
+
+const clientVersion = MIN_CLIENT;
 
 const hostRoot = fileURLToPath(new URL('..', import.meta.url));
 const viteEntry = fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url));
@@ -80,7 +83,7 @@ test('the development host serves and renders the kit with an isolated store', a
       if (!ready) {
         throw new Error(`development host did not become ready (${readiness}): ${diagnostics}`);
       }
-      const remote = new RemoteEngine({ url: `${base}/trpc` });
+      const remote = new RemoteEngine({ url: `${base}/trpc`, version: clientVersion });
       expect(await remote.projects({})).toEqual([]);
       expect(await Bun.file(join(directory, 'store.sqlite')).exists()).toBe(true);
 
