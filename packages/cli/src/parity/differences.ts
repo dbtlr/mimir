@@ -85,6 +85,8 @@ const NOT_TAKEN =
   'Loom scopes an option to the command that declares it, so a flag this create type does not take is an unknown option at exit 2; the old CLI refused it as a validation failure at exit 1.';
 const BLANK =
   'The Engine refuses blank text, a title, or a name with a validation failure; the old CLI accepted and wrote it.';
+const KIND_ELSEWHERE =
+  'Only a seed has a kind; the old CLI ignored --kind on any other target, and the new CLI refuses it with a validation failure naming the flag.';
 const PASSTHROUGH =
   'The old CLI ignored words after `--` on a verb that takes no reason; the new CLI refuses them as a usage failure naming the words.';
 const LEADING =
@@ -565,6 +567,11 @@ export const PARITY_DIFFERENCES: readonly ParityDifference[] = [
     reason: REPEATED,
   },
   {
+    case: 'update argv: MMR-s1 --kind idea --kind bug',
+    kind: 'loom-refusal',
+    reason: REPEATED,
+  },
+  {
     case: 'update argv: MMR-3 MMR-4 --title a',
     kind: 'loom-refusal',
     reason: STRAY,
@@ -590,6 +597,9 @@ export const PARITY_DIFFERENCES: readonly ParityDifference[] = [
     reason: NOT_TAKEN,
   },
   { case: 'annotate argv: MMR-3 " "', kind: 'engine-refusal', reason: BLANK },
+  { case: 'update argv: MMR-3 --kind bug', kind: 'engine-refusal', reason: KIND_ELSEWHERE },
+  { case: 'update argv: MMR --kind bug', kind: 'engine-refusal', reason: KIND_ELSEWHERE },
+  { case: 'update argv: MMR-a1 --kind bug', kind: 'engine-refusal', reason: KIND_ELSEWHERE },
   {
     case: 'update argv: MMR-3 --title ""',
     kind: 'engine-refusal',

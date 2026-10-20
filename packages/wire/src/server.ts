@@ -147,6 +147,10 @@ function nodeWriteProcedures(engine: Engine) {
       .input((value: unknown) => parseEngineInput(engineSchemas.update.input, value))
       .output(engineSchemas.update.output)
       .mutation(({ input }) => engine.update(input)),
+    updateArtifact: procedure
+      .input((value: unknown) => parseEngineInput(engineSchemas.updateArtifact.input, value))
+      .output(engineSchemas.updateArtifact.output)
+      .mutation(({ input }) => engine.updateArtifact(input)),
     updateProject: procedure
       .input((value: unknown) => parseEngineInput(engineSchemas.updateProject.input, value))
       .output(engineSchemas.updateProject.output)

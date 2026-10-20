@@ -307,6 +307,22 @@ const writes: WriteCase[] = [
     (artifact) => expect(artifact.links).toEqual([]),
   ),
   write(
+    'updateArtifact',
+    'a title and a summary',
+    () => ({ id: 'ENG-a1', summary: 'A lede', title: 'Renamed proof' }),
+    (artifact) => {
+      expect(artifact.title).toBe('Renamed proof');
+      expect(artifact.summary).toBe('A lede');
+      expect(artifact.content).toBeUndefined();
+    },
+  ),
+  write(
+    'updateArtifact',
+    'no fields',
+    () => ({ id: 'ENG-a1' }),
+    (artifact) => expect(artifact.title).toBe('Existing'),
+  ),
+  write(
     'depend',
     'a prerequisite',
     (ids) => ({ id: ids.todoTask, on: [ids.startedTask] }),
@@ -766,6 +782,24 @@ const refusals: Refusal[] = [
     input: () => ({ id: 'NOPE', pinned: true }),
     label: 'an unknown project',
     method: 'updateProject',
+  },
+  {
+    code: 'validation',
+    input: () => ({ id: 'ENG-a1', title: '  ' }),
+    label: 'a blank artifact title',
+    method: 'updateArtifact',
+  },
+  {
+    code: 'not_found',
+    input: () => ({ id: 'ENG-a99', title: 'x' }),
+    label: 'an unknown artifact',
+    method: 'updateArtifact',
+  },
+  {
+    code: 'not_found',
+    input: (ids: Ids) => ({ id: ids.todoTask, title: 'x' }),
+    label: 'an id that is not an artifact',
+    method: 'updateArtifact',
   },
   {
     code: 'not_found',

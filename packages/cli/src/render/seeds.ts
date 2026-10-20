@@ -32,7 +32,8 @@ export function seedEcho(
   return { presentation, seed, signpost, wire: ports.wire.seed(seed) };
 }
 
-const seedRecordsOf = (echo: Readonly<SeedEcho>): string =>
+/** A written seed's `records` text: the signpost, then the seed. */
+export const seedRecordsOf = (echo: Readonly<SeedEcho>): string =>
   `${okLine(echo.presentation, echo.signpost)}\n${renderSeedRecords(echo.seed, echo.presentation)}`;
 
 /** `json` and `jsonl` of one seed print the same indented document, as the old CLI did. */

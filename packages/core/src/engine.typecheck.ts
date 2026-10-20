@@ -13,7 +13,12 @@ import type {
   ReviewOptions,
   WorkOptions,
 } from './intent';
-import type { AttachArtifactInput, UpdateFields, UpdateProjectFields } from './mutations';
+import type {
+  ArtifactUpdateFields,
+  AttachArtifactInput,
+  UpdateFields,
+  UpdateProjectFields,
+} from './mutations';
 import type { ScratchpadService } from './scratchpads';
 import type { SearchOptions } from './search/intent';
 import type {
@@ -103,6 +108,7 @@ export type EngineNodeWriteChecks = [
   >,
   Assert<SameKeys<keyof EngineInput<'update'>, keyof UpdateFields | 'id'>>,
   Assert<SameKeys<keyof EngineInput<'updateProject'>, keyof UpdateProjectFields | 'id'>>,
+  Assert<SameKeys<keyof EngineInput<'updateArtifact'>, keyof ArtifactUpdateFields | 'id'>>,
   Assert<
     SameKeys<
       Exclude<keyof EngineInput<'attach'>, 'links' | 'project'> | 'linkNodeIds' | 'projectId',

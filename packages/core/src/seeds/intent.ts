@@ -628,6 +628,9 @@ export async function updateSeed(
   // `update --title` inherits the capture title cap (MMR-263) — the same forcing
   // function, so a title can never grow past the cap after the fact.
   if (fields.title !== undefined) {
+    if (fields.title.trim() === '') {
+      throw validation('a seed requires a title');
+    }
     assertTitleWithinCap(fields.title);
   }
   // One projects read serves the board-active guard AND the echo (MMR-251).

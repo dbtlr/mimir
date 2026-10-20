@@ -8,6 +8,7 @@ import {
   PRIORITY_VALUES,
   PROJECT_STATUS_SELECTOR_VALUES,
   QUERY_OP_VALUES,
+  SEED_KIND_VALUES,
   SEED_STATUS_SELECTOR_VALUES,
   SIZE_VALUES,
   STATUS_SELECTOR_VALUES,
@@ -20,6 +21,7 @@ import type {
   Priority,
   ProjectStatusSelector,
   QueryOp,
+  SeedKind,
   SeedStatusSelector,
   Size,
   StatusSelector,
@@ -91,6 +93,19 @@ export function parsePriority(value: string | undefined): Priority | undefined {
   }
   if (!isMember(value, PRIORITY_VALUES)) {
     throw usage(`invalid priority: ${value} (expected ${PRIORITY_VALUES.join('|')})`);
+  }
+  return value;
+}
+
+/** A seed kind from the closed set; `undefined` stays absent. */
+export function parseSeedKind(value: string): SeedKind;
+export function parseSeedKind(value: string | undefined): SeedKind | undefined;
+export function parseSeedKind(value: string | undefined): SeedKind | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isMember(value, SEED_KIND_VALUES)) {
+    throw usage(`invalid kind: ${value} (expected ${SEED_KIND_VALUES.join('|')})`);
   }
   return value;
 }

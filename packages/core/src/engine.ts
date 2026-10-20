@@ -19,6 +19,7 @@ import {
   undependEngine,
   UniformEngineBase,
   untagEngine,
+  updateArtifactEngine,
   updateEngine,
   updateProjectEngine,
 } from './engine-node-writes';
@@ -221,6 +222,10 @@ export class LocalEngine extends UniformEngineBase implements Engine {
 
   update(input: EngineInput<'update'>) {
     return updateEngine(this.store, input);
+  }
+
+  updateArtifact(input: EngineInput<'updateArtifact'>) {
+    return updateArtifactEngine(this.store, input);
   }
 
   updateProject(input: EngineInput<'updateProject'>) {

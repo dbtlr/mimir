@@ -8,11 +8,10 @@ import { helpCommand, helpInput } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
 import { intentEncoders, SEED_KIND_VALUES } from '@mimir/contract';
 import type { SeedKind } from '@mimir/contract';
-import { isMember } from '@mimir/helpers';
 
 import { MimirUsageError } from '../failures';
 import { asciiOption, scopeOption, tagOption, text, writeHints } from '../options';
-import { parsePriority, parseSize, reasonWords } from '../parse';
+import { parsePriority, parseSeedKind, parseSize, reasonWords } from '../parse';
 import type { Ports } from '../ports';
 import { presentationOf } from '../render/presentation';
 import { seedEcho, seedEchoViews } from '../render/seeds';
@@ -37,10 +36,7 @@ function requireKind(kind: string | undefined): SeedKind {
   if (kind === undefined) {
     throw new MimirUsageError(`seed requires -k <${SEED_KIND_VALUES.join('|')}>`);
   }
-  if (!isMember(kind, SEED_KIND_VALUES)) {
-    throw new MimirUsageError(`invalid kind: ${kind} (expected ${SEED_KIND_VALUES.join('|')})`);
-  }
-  return kind;
+  return parseSeedKind(kind);
 }
 
 export function seedCommand(ports: Ports) {

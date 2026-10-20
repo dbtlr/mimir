@@ -254,15 +254,17 @@ test('create project asks for -y where there is no terminal to ask on', async ()
   expect(run.stderr).toContain('re-run with -y/--yes to confirm');
 });
 
-test('update does not edit an artifact or a seed yet, and names the task that adds each', async () => {
-  const artifact = await runArgv(board.app(), ['update', 'MMR-a1', '--summary', 'x']);
-  expect(artifact.exitCode).toBe(1);
-  expect(artifact.stderr).toContain('update does not edit an artifact yet');
-  expect(artifact.stderr).toContain('MMR-563');
-  const seed = await runArgv(board.app(), ['update', 'MMR-s1', '--title', 'x']);
-  expect(seed.exitCode).toBe(1);
-  expect(seed.stderr).toContain('update does not edit a seed yet');
-  expect(seed.stderr).toContain('MMR-552');
+test('update retitles an artifact and echoes it', async () => {
+  const run = await runArgv(board.app(), ['update', 'MMR-a1', '--title', 'Retitled', '-f', 'ids']);
+  expect(run.exitCode).toBe(0);
+  expect(run.stdout.trim()).toBe('MMR-a1');
+  expect((await board.engine.getArtifact({ id: 'MMR-a1' })).title).toBe('Retitled');
+});
+
+test('update changes a seed kind', async () => {
+  const run = await runArgv(board.app(), ['update', 'MMR-s1', '--kind', 'bug', '-f', 'ids']);
+  expect(run.exitCode).toBe(0);
+  expect((await board.engine.getSeed({ id: 'MMR-s1' })).kind).toBe('bug');
 });
 
 test('a usage fault in a node write opens no store', async () => {
@@ -276,6 +278,7 @@ test('a usage fault in a node write opens no store', async () => {
   });
   const runs = [
     [['update', 'MMR-3', '-p', 'zz'], 'invalid priority: zz'],
+    [['update', 'MMR-s1', '--kind', 'nope'], 'invalid kind: nope'],
     [['create', 'task', 'x', '--parent', 'MMR', '-f', 'json'], "a task's parent must be"],
     [['groom', 'MMR-3', 'bogus'], "unknown grooming state 'bogus'"],
     [['depend', 'MMR-4', '--on', ''], 'depend --on expects'],
