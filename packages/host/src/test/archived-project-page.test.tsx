@@ -7,10 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getNode } from '../api/fns/nodes';
 import { projects, unarchive } from '../api/fns/shell';
 import { createQueryClient } from '../api/query-client';
-import { routeTree } from '../router';
+import { projectRoute, routeTree, tasksRoute } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { serveNodes } from './node-fns';
+import { renderRoute } from './router';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
@@ -47,17 +48,20 @@ const projectReads = () =>
 const quietClient = () =>
   new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } });
 
-function renderAt(initial: string, client = quietClient()) {
-  const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: [initial] }),
-    routeTree,
-  });
+const routes = [projectRoute, tasksRoute];
+
+/** The full console tree: the case that uses it guards against the shell's own polling re-mounting the page. */
+function renderInShell(initial: string, client: QueryClient) {
   render(
     <QueryClientProvider client={client}>
-      <RouterProvider router={testRouter} />
+      <RouterProvider
+        router={createRouter({
+          history: createMemoryHistory({ initialEntries: [initial] }),
+          routeTree,
+        })}
+      />
     </QueryClientProvider>,
   );
-  return testRouter;
 }
 
 beforeEach(() => {
@@ -75,7 +79,7 @@ afterEach(() => {
 
 describe('an archived project’s address (MMR-506)', () => {
   it('says the project is archived, with its name and date, and offers Unarchive', async () => {
-    renderAt('/p/OLD');
+    await renderRoute(routes, '/p/OLD', quietClient());
 
     await expect(
       screen.findByRole('heading', { level: 1, name: 'Old project' }),
@@ -88,7 +92,7 @@ describe('an archived project’s address (MMR-506)', () => {
   });
 
   it('says what archiving hid without naming the retired board', async () => {
-    renderAt('/p/OLD');
+    await renderRoute(routes, '/p/OLD', quietClient());
 
     const notice = await screen.findByText(/This project is frozen/);
     expect(notice).toHaveTextContent('switcher’s active list');
@@ -97,7 +101,7 @@ describe('an archived project’s address (MMR-506)', () => {
   });
 
   it('says so under its browsers too', async () => {
-    renderAt('/p/OLD/tasks');
+    await renderRoute(routes, '/p/OLD/tasks', quietClient());
 
     await expect(
       screen.findByRole('button', { name: 'Unarchive Old project' }),
@@ -105,7 +109,7 @@ describe('an archived project’s address (MMR-506)', () => {
   });
 
   it('unarchives and lands on the project’s work page', async () => {
-    const testRouter = renderAt('/p/OLD/tasks');
+    const { router: testRouter } = await renderRoute(routes, '/p/OLD/tasks', quietClient());
 
     fireEvent.click(await screen.findByRole('button', { name: 'Unarchive Old project' }));
 
@@ -132,7 +136,7 @@ describe('an archived project’s address (MMR-506)', () => {
       vi.mocked(projects).mockReturnValue(refetch.promise);
       return send?.(...args) as Promise<EngineNode>;
     });
-    const testRouter = renderAt('/p/OLD/tasks');
+    const { router: testRouter } = await renderRoute(routes, '/p/OLD/tasks', quietClient());
 
     const button = await screen.findByRole('button', { name: 'Unarchive Old project' });
     fireEvent.click(button);
@@ -156,7 +160,7 @@ describe('an archived project’s address (MMR-506)', () => {
 
   it('stays still across poll intervals: no further project reads, and the notice never unmounts', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    renderAt('/p/OLD', createQueryClient());
+    renderInShell('/p/OLD', createQueryClient());
     const button = await screen.findByRole('button', { name: 'Unarchive Old project' });
     const removed: Node[] = [];
     const watch = new MutationObserver((records) => {
@@ -177,7 +181,7 @@ describe('an archived project’s address (MMR-506)', () => {
   });
 
   it('keeps the unavailable page for a key that names no project', async () => {
-    renderAt('/p/ZZZ');
+    await renderRoute(routes, '/p/ZZZ', quietClient());
 
     await expect(
       screen.findByRole('heading', { level: 1, name: 'Project unavailable' }),

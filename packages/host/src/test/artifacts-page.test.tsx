@@ -1,16 +1,15 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, vi } from 'vitest';
 
 import type { ArtifactSummary } from '../api/browse-queries';
 import { artifacts } from '../api/fns/browse';
-import { routeTree } from '../router';
+import { artifactsRoute } from '../router';
 import { engineArtifact } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { serveBareRecords } from './node-fns';
+import { renderRoute } from './router';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
@@ -33,19 +32,6 @@ const summary = (n: number, over: Partial<ArtifactSummary> = {}): ArtifactSummar
     ...over,
   });
 
-function renderArtifactsPage(url = '/p/MMR/artifacts') {
-  const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: [url] }),
-    routeTree,
-  });
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <RouterProvider router={testRouter} />
-    </QueryClientProvider>,
-  );
-  return testRouter;
-}
-
 /** Serve the given artifact rows (total = rows) and one project, MMR. */
 function serveRows(items: ArtifactSummary[]) {
   serveShell({ projects: [engineProject({ id: 'MMR' })] });
@@ -60,7 +46,7 @@ function lastArtifactsInput() {
 describe('artifactsPage', () => {
   it('renders the header count, the search box, and rows linking to their pages', async () => {
     serveRows([summary(8, { title: 'Artifacts browser' })]);
-    renderArtifactsPage();
+    await renderRoute([artifactsRoute], '/p/MMR/artifacts');
     const link = await screen.findByRole('link', { name: 'Artifacts browser' });
     expect(link).toHaveAttribute('href', '/p/MMR/a8');
     expect(screen.getByRole('heading', { level: 1, name: 'Artifacts' })).toBeInTheDocument();
@@ -77,7 +63,7 @@ describe('artifactsPage', () => {
         summary(2, { createdAt: new Date(2026, 9, 8, 9) }),
         summary(1, { createdAt: new Date(2025, 9, 6, 9) }),
       ]);
-      renderArtifactsPage();
+      await renderRoute([artifactsRoute], '/p/MMR/artifacts');
       await screen.findByText('Artifact 1');
       const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
       expect(headings).toStrictEqual(['Today', 'Yesterday', 'Oct 6, 2025']);
@@ -88,7 +74,7 @@ describe('artifactsPage', () => {
 
   it('shows the kind chip and the summary on a row', async () => {
     serveRows([summary(8, { summary: 'What the spec froze.', tags: ['kind:spec'] })]);
-    renderArtifactsPage();
+    await renderRoute([artifactsRoute], '/p/MMR/artifacts');
     await screen.findByText('Artifact 8');
     expect(screen.getByText('spec')).toBeInTheDocument();
     expect(screen.getByText('What the spec froze.')).toBeInTheDocument();
@@ -96,7 +82,7 @@ describe('artifactsPage', () => {
 
   it('the "on" ids open the records they name', async () => {
     serveRows([summary(8, { links: ['MMR-140'] })]);
-    const testRouter = renderArtifactsPage();
+    const { router: testRouter } = await renderRoute([artifactsRoute], '/p/MMR/artifacts');
     await userEvent.click(await screen.findByRole('link', { name: 'MMR-140' }));
     await waitFor(() => {
       expect(testRouter.state.location.pathname).toBe('/p/MMR/140');
@@ -105,7 +91,7 @@ describe('artifactsPage', () => {
 
   it('choosing a kind sets the tag param and refetches filtered', async () => {
     serveRows([summary(8, { tags: ['kind:spec'] })]);
-    const testRouter = renderArtifactsPage();
+    const { router: testRouter } = await renderRoute([artifactsRoute], '/p/MMR/artifacts');
     await screen.findByText('Artifact 8');
     await userEvent.click(screen.getByRole('button', { name: /Any kind/ }));
     await userEvent.click(await screen.findByRole('menuitem', { name: 'spec' }));
@@ -119,7 +105,7 @@ describe('artifactsPage', () => {
 
   it('scopes the read to the project in the path and offers no project chip', async () => {
     serveRows([summary(8)]);
-    renderArtifactsPage();
+    await renderRoute([artifactsRoute], '/p/MMR/artifacts');
     await screen.findByText('Artifact 8');
     expect(lastArtifactsInput()?.project).toBe('MMR');
     expect(screen.queryByRole('button', { name: /All projects/ })).toBeNull();
@@ -127,7 +113,7 @@ describe('artifactsPage', () => {
 
   it('a ?a= param opens no reader and reaches no query', async () => {
     serveRows([summary(8)]);
-    renderArtifactsPage('/p/MMR/artifacts?a=MMR-a8');
+    await renderRoute([artifactsRoute], '/p/MMR/artifacts?a=MMR-a8');
     await screen.findByText('Artifact 8');
     expect(screen.queryByTestId('artifact-reader')).toBeNull();
     expect(screen.queryByRole('complementary', { name: 'Provenance' })).toBeNull();
@@ -136,14 +122,14 @@ describe('artifactsPage', () => {
 
   it('a numeric q in the URL is the text it was typed as', async () => {
     serveRows([summary(8)]);
-    renderArtifactsPage('/p/MMR/artifacts?q=2026');
+    await renderRoute([artifactsRoute], '/p/MMR/artifacts?q=2026');
     await screen.findByText('Artifact 8');
     expect(lastArtifactsInput()?.q).toBe('2026');
   });
 
   it('date filters in the URL render as removable chips and reach the query', async () => {
     serveRows([summary(8)]);
-    renderArtifactsPage('/p/MMR/artifacts?atOrAfter=2026-06-01');
+    await renderRoute([artifactsRoute], '/p/MMR/artifacts?atOrAfter=2026-06-01');
     await screen.findByText('Artifact 8');
     expect(
       screen.getByRole('button', { name: 'Remove filter on or after 2026-06-01' }),
@@ -155,13 +141,13 @@ describe('artifactsPage', () => {
 
   it('says so when nothing matches', async () => {
     serveRows([]);
-    renderArtifactsPage();
+    await renderRoute([artifactsRoute], '/p/MMR/artifacts');
     await expect(screen.findByText('No artifacts match.')).resolves.toBeDefined();
   });
 
   it('scrolling the page pulls the next window, so every artifact is reachable', async () => {
     serveRows(Array.from({ length: 101 }, (_, i) => summary(i + 1)));
-    renderArtifactsPage();
+    await renderRoute([artifactsRoute], '/p/MMR/artifacts');
     await expect(screen.findByText('Artifact 1')).resolves.toBeDefined();
     expect(artifacts).toHaveBeenCalledWith({ data: { limit: 100, project: 'MMR' } });
     expect(screen.getByText('101 frozen')).toBeInTheDocument();

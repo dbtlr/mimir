@@ -9,7 +9,7 @@ import {
 import type { AnyRoute } from '@tanstack/react-router';
 import { render } from '@testing-library/react';
 import { createContext, useContext } from 'react';
-import type { ReactElement, ReactNode } from 'react';
+import type { ComponentType, ReactElement, ReactNode } from 'react';
 
 const Children = createContext<ReactNode>(null);
 
@@ -55,18 +55,32 @@ export async function renderInRouter(ui: ReactElement, client = new QueryClient(
  * `renderRoute([tasksRoute], '/p/MMR/tasks?status=ready')`. A link to a route
  * left out of the list changes `router.state.location` and renders the
  * not-found fallback, which suits tests that only check where a click goes.
- * Tests of the shell itself keep mounting `routeTree`.
+ * Pass `Wrapper` to supply a context the shell normally provides, such as
+ * `SeedCaptureProvider` for the seeds page. A test that claims something about
+ * route matching (a canonical spelling, a redirect, which route a path reaches)
+ * passes `consoleRoutes`, the real table. Tests of the shell itself keep
+ * mounting `routeTree`.
  */
 export async function renderRoute(
   routes: readonly AnyRoute[],
   initial: string,
   client = new QueryClient(),
+  Wrapper?: ComponentType<{ children: ReactNode }>,
 ) {
   // Imported lazily, so renderInRouter's tests never load the route tree.
   (await import('../router')).createConsoleRouter();
   const router = createRouter({
     history: createMemoryHistory({ initialEntries: [initial] }),
-    routeTree: createRootRoute({ component: Outlet }).addChildren([...routes]),
+    routeTree: createRootRoute({
+      component:
+        Wrapper === undefined
+          ? Outlet
+          : () => (
+              <Wrapper>
+                <Outlet />
+              </Wrapper>
+            ),
+    }).addChildren([...routes]),
   });
   await router.load();
   const view = render(

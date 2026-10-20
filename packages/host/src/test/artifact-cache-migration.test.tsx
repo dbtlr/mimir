@@ -1,14 +1,14 @@
-import { QueryClient, QueryClientProvider, dehydrate, hydrate } from '@tanstack/react-query';
+import { QueryClient, dehydrate, hydrate } from '@tanstack/react-query';
 import type { PersistedClient } from '@tanstack/react-query-persist-client';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { beforeEach, describe, expect, vi } from 'vitest';
 
 import { sanitizePersistedClient } from '../lib/persist';
-import { routeTree } from '../router';
+import { artifactsRoute } from '../router';
 import { engineArtifact } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { serveBareRecords } from './node-fns';
+import { renderRoute } from './router';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
@@ -74,18 +74,6 @@ describe('sanitizePersistedClient', () => {
   });
 });
 
-function renderArtifactsWith(client: QueryClient) {
-  const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: ['/p/MMR/artifacts'] }),
-    routeTree,
-  });
-  render(
-    <QueryClientProvider client={client}>
-      <RouterProvider router={testRouter} />
-    </QueryClientProvider>,
-  );
-}
-
 describe('artifacts route rehydrating a legacy warm cache', () => {
   it('degrades to a clean refetch instead of crashing the route', async () => {
     serveShell();
@@ -102,7 +90,7 @@ describe('artifacts route rehydrating a legacy warm cache', () => {
     const client = new QueryClient();
     hydrate(client, sanitizePersistedClient(persisted).clientState);
 
-    renderArtifactsWith(client);
+    await renderRoute([artifactsRoute], '/p/MMR/artifacts', client);
 
     // No crash: the route mounts and the fresh refetch renders.
     await expect(screen.findByText('Fresh artifact')).resolves.toBeDefined();

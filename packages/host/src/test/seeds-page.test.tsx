@@ -1,16 +1,17 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen, waitFor } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EngineSeed } from '../api/browse-queries';
 import { seeds } from '../api/fns/browse';
-import { routeTree } from '../router';
+import { SeedCaptureProvider } from '../components/seed-capture';
+import { seedsRoute } from '../router';
 import { seedIn } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
 import { serveBareRecords } from './node-fns';
+import { renderRoute } from './router';
 import { serveShell } from './shell-fns';
 import { serveViews } from './views-fns';
 
@@ -58,22 +59,11 @@ function mockApi(items: EngineSeed[] = list) {
   vi.mocked(seeds).mockResolvedValue(items);
 }
 
-function renderSeeds(initial = '/p/MMR/seeds') {
-  const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: [initial] }),
-    routeTree,
-  });
-  render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } })
-      }
-    >
-      <RouterProvider router={testRouter} />
-    </QueryClientProvider>,
-  );
-  return testRouter;
-}
+const quietClient = () =>
+  new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } });
+
+const renderSeeds = (initial = '/p/MMR/seeds') =>
+  renderRoute([seedsRoute], initial, quietClient(), SeedCaptureProvider);
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -82,7 +72,7 @@ afterEach(() => {
 describe('seedsPage (grouped reading list, MMR-454)', () => {
   it('renders the live lanes in fixed order with counted labels and hides empty ones', async () => {
     mockApi();
-    renderSeeds();
+    await renderSeeds();
     const untriaged = await screen.findByText('Untriaged · 1');
     const ready = screen.getByText('Ready to resolve · 1');
     const promoted = screen.getByText('Promoted · 1');
@@ -92,7 +82,7 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
 
   it('hides a live lane with no seeds', async () => {
     mockApi([seedIn('untriaged', { id: 'MMR-s1' })]);
-    renderSeeds();
+    await renderSeeds();
     await screen.findByText('Untriaged · 1');
     expect(screen.queryByText(/Ready to resolve/)).toBeNull();
     expect(screen.queryByText(/Promoted/)).toBeNull();
@@ -101,19 +91,19 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
 
   it('shows the to-triage and to-resolve counts in the header', async () => {
     mockApi();
-    renderSeeds();
+    await renderSeeds();
     await expect(screen.findByText('1 to triage · 1 to resolve')).resolves.toBeDefined();
   });
 
   it('omits a zero half of the header count', async () => {
     mockApi([seedIn('untriaged', { id: 'MMR-s1' })]);
-    renderSeeds();
+    await renderSeeds();
     await expect(screen.findByText('1 to triage')).resolves.toBeDefined();
   });
 
   it('links every row to the seed page and shows kind chip and lede', async () => {
     mockApi();
-    renderSeeds();
+    await renderSeeds();
     const link = await screen.findByRole('link', { name: 'Scroll snaps to top' });
     expect(link).toHaveAttribute('href', '/p/MMR/s1');
     expect(screen.getByRole('link', { name: 'Offline banner flicker' })).toHaveAttribute(
@@ -128,14 +118,14 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
 
   it('gives each row link the seed id as its accessible description', async () => {
     mockApi();
-    renderSeeds();
+    await renderSeeds();
     const link = await screen.findByRole('link', { name: 'Scroll snaps to top' });
     expect(link).toHaveAccessibleDescription('MMR-s1');
   });
 
   it('names the requester project only when the seed was filed from another project', async () => {
     mockApi();
-    renderSeeds();
+    await renderSeeds();
     await screen.findByText('Ready to resolve · 1');
     expect(screen.getByText(/^from NRN · /)).toBeDefined();
     expect(screen.getAllByText(/^from /)).toHaveLength(1);
@@ -144,7 +134,7 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
   it('folds parked seeds under their count until asked (MMR-473)', async () => {
     mockApi([...list, seedIn('parked', { id: 'MMR-s6', title: 'Someday idea' })]);
     const user = userEvent.setup();
-    renderSeeds();
+    await renderSeeds();
     await screen.findByText('Parked · 1');
     expect(screen.queryByText('Someday idea')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Show parked seeds' }));
@@ -154,7 +144,7 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
   it('folds settled seeds until "Show settled seeds" reveals them', async () => {
     mockApi();
     const user = userEvent.setup();
-    renderSeeds();
+    await renderSeeds();
     await screen.findByText('Settled · 2');
     expect(screen.queryByText('Old resolved thing')).toBeNull();
 
@@ -187,7 +177,7 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
   it('searches by title and by id', async () => {
     mockApi();
     const user = userEvent.setup();
-    renderSeeds();
+    await renderSeeds();
     const search = await screen.findByRole('searchbox', { name: 'Search seeds' });
     expect(search).toHaveAttribute('placeholder', 'Search seeds…');
 
@@ -206,7 +196,7 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
       seedIn('untriaged', { id: 'MMR-s1', title: 'Scroll snaps to top' }),
       seedIn('untriaged', { id: 'MMR-s2', title: 'Retry 45 times' }),
     ]);
-    renderSeeds('/p/MMR/seeds?q=45');
+    await renderSeeds('/p/MMR/seeds?q=45');
     await screen.findByText('Retry 45 times');
     expect(screen.queryByText('Scroll snaps to top')).toBeNull();
     expect(screen.getByRole('searchbox', { name: 'Search seeds' })).toHaveValue('45');
@@ -215,7 +205,7 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
   it('reflects the search in the q URL param after the debounce', async () => {
     mockApi();
     const user = userEvent.setup();
-    const testRouter = renderSeeds();
+    const { router: testRouter } = await renderSeeds();
     await user.type(await screen.findByRole('searchbox', { name: 'Search seeds' }), 'flicker');
     await waitFor(() => {
       expect(testRouter.state.location.search).toMatchObject({ q: 'flicker' });
@@ -225,7 +215,7 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
   it('filters by kind and records it in the URL', async () => {
     mockApi();
     const user = userEvent.setup();
-    const testRouter = renderSeeds();
+    const { router: testRouter } = await renderSeeds();
     await user.click(await screen.findByRole('button', { name: /Any kind/ }));
     await user.click(await screen.findByRole('menuitem', { name: 'bug' }));
 
@@ -238,7 +228,7 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
 
   it('applies a kind from the URL and drops an invalid one', async () => {
     mockApi();
-    renderSeeds('/p/MMR/seeds?kind=feature');
+    await renderSeeds('/p/MMR/seeds?kind=feature');
     await screen.findByText('Offline banner flicker');
     expect(screen.queryByText('Scroll snaps to top')).toBeNull();
     expect(screen.getByRole('button', { name: /feature/ })).toBeDefined();
@@ -246,14 +236,14 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
 
   it('ignores an invalid kind param', async () => {
     mockApi();
-    const testRouter = renderSeeds('/p/MMR/seeds?kind=epic');
+    const { router: testRouter } = await renderSeeds('/p/MMR/seeds?kind=epic');
     await screen.findByText('Scroll snaps to top');
     expect(testRouter.state.location.search).not.toHaveProperty('kind');
   });
 
   it('scopes the read to the project in the path and offers no project chip', async () => {
     mockApi();
-    renderSeeds('/p/NRN/seeds');
+    await renderSeeds('/p/NRN/seeds');
     await screen.findByText('Untriaged · 1');
     expect(seeds).toHaveBeenCalledWith({ data: { project: 'NRN', status: 'all' } });
     expect(screen.queryByRole('button', { name: /All projects/ })).toBeNull();
@@ -262,20 +252,20 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
   it('says "No seeds match." when the filters exclude everything', async () => {
     mockApi();
     const user = userEvent.setup();
-    renderSeeds();
+    await renderSeeds();
     await user.type(await screen.findByRole('searchbox', { name: 'Search seeds' }), 'zzzzz');
     await expect(screen.findByText('No seeds match.')).resolves.toBeDefined();
   });
 
   it('keeps the friendly empty copy when there are no seeds at all', async () => {
     mockApi([]);
-    renderSeeds();
+    await renderSeeds();
     await expect(screen.findByText(/No seeds yet/)).resolves.toBeDefined();
   });
 
   it('no longer opens a reading pane from ?seed=', async () => {
     mockApi();
-    renderSeeds('/p/MMR/seeds?seed=MMR-s1');
+    await renderSeeds('/p/MMR/seeds?seed=MMR-s1');
     await screen.findByText('Untriaged · 1');
     expect(screen.queryByRole('article')).toBeNull();
     expect(screen.queryByText('Select a seed to read.')).toBeNull();
@@ -285,14 +275,14 @@ describe('seedsPage (grouped reading list, MMR-454)', () => {
   it('opens the seed capture from "+ File a seed"', async () => {
     mockApi();
     const user = userEvent.setup();
-    renderSeeds();
+    await renderSeeds();
     await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
     await expect(screen.findByLabelText('Seed')).resolves.toBeDefined();
   });
 
   it('never says "dispose" — the shipped copy is "resolve"', async () => {
     mockApi();
-    renderSeeds();
+    await renderSeeds();
     await screen.findByText('Ready to resolve · 1');
     expect(document.body.textContent?.toLowerCase()).not.toContain('dispose');
   });

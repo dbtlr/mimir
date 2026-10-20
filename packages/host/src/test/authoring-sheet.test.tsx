@@ -2,7 +2,7 @@ import type { EngineTree } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, onTestFinished, vi } from 'vitest';
 
 import { consoleOpenTasks, seedPromote } from '../api/fns/browse';
 import { depend } from '../api/fns/nodes';
@@ -244,10 +244,22 @@ describe('authoringSheet', () => {
     // "open it" links to the created node's page without any further write.
     const openIt = screen.getByRole('link', { name: 'open it' });
     expect(openIt).toHaveAttribute('href', '/p/MMR/99');
-    // A modified click opens a new tab and leaves the retry posture alone.
+    // A modified click is left to the browser (a new tab) and leaves the retry
+    // posture alone. jsdom cannot open a tab, so a global listener records that
+    // the link did not cancel the click, then cancels jsdom's navigation.
+    let leftToBrowser = false;
+    const cancelNavigation = (event: MouseEvent) => {
+      leftToBrowser = !event.defaultPrevented;
+      event.preventDefault();
+    };
+    globalThis.addEventListener('click', cancelNavigation);
+    onTestFinished(() => {
+      globalThis.removeEventListener('click', cancelNavigation);
+    });
     await user.keyboard('{Meta>}');
     await user.click(openIt);
     await user.keyboard('{/Meta}');
+    expect(leftToBrowser).toBe(true);
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Retry deps ↵' })).toBeDefined();
     await user.click(openIt);

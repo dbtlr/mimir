@@ -1,8 +1,7 @@
 import { MimirError } from '@mimir/contract';
 import type { EngineNode, EngineTree } from '@mimir/contract';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HostFaultError } from '../api/errors';
@@ -10,11 +9,12 @@ import { done, groom as setGrooming, returnTask, start } from '../api/fns/nodes'
 import { nodeWork, projectWork } from '../api/fns/views';
 import type { NeedsYouTask, WorkReport } from '../api/view-queries';
 import type { RecordArtifact } from '../lib/work-page';
-import { routeTree } from '../router';
+import { nodeRoute, projectRoute } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
 import { engineContainer } from './node-fixtures';
 import { failNotes, serveNodes } from './node-fns';
+import { renderRoute } from './router';
 import { serveShell } from './shell-fns';
 import {
   engineWork,
@@ -167,25 +167,14 @@ const writeCalls = () =>
     0,
   );
 
-function renderAt(url: string) {
-  const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: [url] }),
-    routeTree,
-  });
-  render(
-    <QueryClientProvider
-      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-    >
-      <RouterProvider router={testRouter} />
-    </QueryClientProvider>,
-  );
-  return testRouter;
-}
+const routes = [nodeRoute, projectRoute];
+
+const quietClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
 /** Serve `report` for the scope, open its page, and wait for the title. */
 async function open(scope: Scope, report?: WorkReport | Error, tree?: EngineTree) {
   serve(scope, report, tree);
-  const testRouter = renderAt(scope.url);
+  const { router: testRouter } = await renderRoute(routes, scope.url, quietClient());
   await screen.findByRole('heading', { level: 1, name: scope.record.title });
   return testRouter;
 }
@@ -522,7 +511,7 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
   it('shows skeletons while the work read is pending', async () => {
     serve(scope);
     vi.mocked(scope.work).mockReturnValue(Promise.withResolvers<WorkReport>().promise);
-    renderAt(scope.url);
+    await renderRoute(routes, scope.url, quietClient());
 
     await screen.findByRole('heading', { level: 1, name: scope.record.title });
     expect(document.querySelector('[aria-busy]')).not.toBeNull();
@@ -652,7 +641,7 @@ async function openForWrite(before: WorkReport, after: WorkReport) {
       return echoed?.(options as never) as never;
     });
   }
-  renderAt(PROJECT_SCOPE.url);
+  await renderRoute(routes, PROJECT_SCOPE.url, quietClient());
   await screen.findByRole('heading', { level: 1, name: PROJECT.title });
 }
 
@@ -1096,7 +1085,7 @@ describe('work page offline', () => {
     serve(PHASE_SCOPE);
     // An errored read over loaded data is the console's offline signal.
     failNotes();
-    renderAt('/p/MMR/105');
+    await renderRoute(routes, '/p/MMR/105', quietClient());
 
     const frontier = await section('Frontier');
     await waitFor(() => {
@@ -1113,7 +1102,7 @@ describe('work page offline', () => {
       }),
     );
     failNotes();
-    renderAt('/p/MMR/105');
+    await renderRoute(routes, '/p/MMR/105', quietClient());
 
     const actions = await Promise.all(['MMR-12', 'MMR-14', 'MMR-20'].map(actionsOf));
     await waitFor(() => {

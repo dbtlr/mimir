@@ -1,28 +1,24 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { doctor } from '../api/fns/browse';
 import type { RecordHealth } from '../api/fns/browse';
-import { routeTree } from '../router';
+import { consoleRoutes } from '../router';
 import { serveBrowse } from './browse-fns';
-import { serveShell } from './shell-fns';
+import { renderRoute } from './router';
 import { serveViews } from './views-fns';
 
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
-// The shell renders sonner's Toaster; the panel fires toast.success/error — stub
-// both so the copy-outcome assertions read the mock, not the DOM.
+// The panel fires toast.success/error — stub both so the copy-outcome assertions
+// read the mock, not the DOM.
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('sonner', () => ({ Toaster: () => null, toast }));
 
-// The page sits in the shell, which reads the project lists; none exist here.
 beforeEach(() => {
   serveViews();
-  serveShell();
 });
 
 afterEach(() => {
@@ -61,22 +57,10 @@ function damagedFacet(): RecordHealth {
   };
 }
 
-function renderAt(path: string) {
-  const testRouter = createRouter({
-    history: createMemoryHistory({ initialEntries: [path] }),
-    routeTree,
-  });
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <RouterProvider router={testRouter} />
-    </QueryClientProvider>,
-  );
-}
-
 describe('doctorPage record-health panel (MMR-185)', () => {
   it('renders a finding with its cause, row locator, and evidence', async () => {
     serveDoctor(damagedFacet());
-    renderAt('/doctor?project=MMR');
+    await renderRoute(consoleRoutes, '/doctor?project=MMR');
 
     await expect(screen.findByText('Record health')).resolves.toBeDefined();
     expect(doctor).toHaveBeenCalledWith({ data: { project: 'MMR' } });
@@ -108,7 +92,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
     serveDoctor(damagedFacet());
-    renderAt('/doctor?project=MMR');
+    await renderRoute(consoleRoutes, '/doctor?project=MMR');
 
     await userEvent.click(await screen.findByRole('button', { name: 'Copy location' }));
     expect(writeText).toHaveBeenCalledWith('node/MMR-97');
@@ -122,7 +106,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
     const writeText = vi.fn().mockRejectedValue(new Error('denied'));
     Object.assign(navigator, { clipboard: { writeText } });
     serveDoctor(damagedFacet());
-    renderAt('/doctor?project=MMR');
+    await renderRoute(consoleRoutes, '/doctor?project=MMR');
 
     await userEvent.click(await screen.findByRole('button', { name: 'Copy location' }));
     await waitFor(() => {
@@ -134,7 +118,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
   it('copy location toasts an error when the clipboard API is absent (insecure context)', async () => {
     Object.assign(navigator, { clipboard: undefined });
     serveDoctor(damagedFacet());
-    renderAt('/doctor?project=MMR');
+    await renderRoute(consoleRoutes, '/doctor?project=MMR');
 
     await userEvent.click(await screen.findByRole('button', { name: 'Copy location' }));
     await waitFor(() => {
@@ -172,7 +156,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
     };
     serveDoctor(twin);
     const consoleError = vi.spyOn(console, 'error');
-    renderAt('/doctor?project=MMR');
+    await renderRoute(consoleRoutes, '/doctor?project=MMR');
 
     await expect(screen.findAllByText('dangling dependency')).resolves.toHaveLength(2);
     expect(
@@ -188,7 +172,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
       scanned_at: new Date().toISOString(),
       scope: null,
     });
-    renderAt('/doctor');
+    await renderRoute(consoleRoutes, '/doctor');
 
     await expect(screen.findByText('No findings')).resolves.toBeDefined();
     expect(doctor).toHaveBeenCalledWith({ data: {} });
@@ -206,7 +190,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
       scanned_at: new Date().toISOString(),
       scope: { key: 'MMR', matched_records: 4 },
     });
-    renderAt('/doctor?project=MMR');
+    await renderRoute(consoleRoutes, '/doctor?project=MMR');
 
     await expect(screen.findByText('No findings')).resolves.toBeDefined();
     expect(screen.getByText(/Every record is consistent in MMR\./)).toBeDefined();
@@ -220,7 +204,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
       scanned_at: new Date().toISOString(),
       scope: { key: 'ZZZ', matched_records: 0 },
     });
-    renderAt('/doctor?project=ZZZ');
+    await renderRoute(consoleRoutes, '/doctor?project=ZZZ');
 
     await expect(screen.findByText('No project ZZZ')).resolves.toBeDefined();
     expect(screen.queryByText('No findings')).toBeNull();

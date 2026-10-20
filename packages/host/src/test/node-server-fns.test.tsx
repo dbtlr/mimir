@@ -1,6 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 
@@ -16,11 +15,12 @@ import {
   untag,
   update,
 } from '../api/fns/nodes';
-import { routeTree } from '../router';
+import { nodeRoute, projectRoute } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
 import { engineContainer, engineNote, engineTag, engineTask } from './node-fixtures';
 import { serveNodes } from './node-fns';
+import { renderRoute } from './router';
 import { serveShell } from './shell-fns';
 import { stubViewport } from './viewport';
 import { serveViews } from './views-fns';
@@ -76,25 +76,14 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function renderAt(url: string) {
-  const router = createRouter({
-    history: createMemoryHistory({ initialEntries: [url] }),
-    routeTree,
-  });
-  render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } })
-      }
-    >
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
-  );
-}
+const routes = [nodeRoute, projectRoute];
+
+const quietClient = () =>
+  new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } });
 
 describe('the node records on server functions (MMR-539)', () => {
   it('reads a task’s record, notes, and board Scratchpads', async () => {
-    renderAt('/p/MMR/417');
+    await renderRoute(routes, '/p/MMR/417', quietClient());
 
     await expect(
       screen.findByRole('heading', { level: 1, name: 'Add the SQLite dialect' }),
@@ -110,7 +99,7 @@ describe('the node records on server functions (MMR-539)', () => {
   });
 
   it('reads a project’s and a container’s record', async () => {
-    renderAt('/p/MMR');
+    await renderRoute(routes, '/p/MMR', quietClient());
     await expect(
       screen.findByRole('heading', { level: 1, name: 'Mimir' }),
     ).resolves.toBeInTheDocument();
@@ -121,7 +110,7 @@ describe('the node records on server functions (MMR-539)', () => {
 
   it('writes a task’s verbs, edits, move, grooming, and notes', async () => {
     const user = userEvent.setup();
-    renderAt('/p/MMR/417');
+    await renderRoute(routes, '/p/MMR/417', quietClient());
     const rail = await screen.findByRole('complementary', { name: 'Record details' });
 
     // A lifecycle verb.
@@ -173,7 +162,7 @@ describe('the node records on server functions (MMR-539)', () => {
 test('cancels a queued task only after a reason is supplied', async () => {
   const user = userEvent.setup();
   serveNodes({ nodes: [engineTask({ ...SQLITE, lifecycle: 'queued', status: 'queued' })] });
-  renderAt('/p/MMR/417');
+  await renderRoute(routes, '/p/MMR/417', quietClient());
   const rail = await screen.findByRole('complementary', { name: 'Record details' });
   await user.click(within(rail).getByRole('button', { name: 'Cancel reservation…' }));
   const dialog = await screen.findByRole('dialog');
