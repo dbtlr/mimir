@@ -327,3 +327,13 @@ through a server function that calls the host's own doctor facet, as
 `/api/doctor` does. The server-function boundary still holds: the one module
 that opens the host runtime hands handlers the `Engine` and a narrow
 record-health accessor, and nothing else.
+
+## Refinement (2026-10-19 — the archive echo lists what it released)
+
+`archive` answers with the project record plus `released`, the ids of the
+out-of-project tasks the archive freed (ADR 0015 Refinement). The Engine
+computes them in the same call, after the archive lands, so a composition
+root with no store, such as a remote one (ADR 0037), can still name them.
+This replaces the node-writes refinement's rule that the archive echo does not
+list released dependents. `unarchive` and the other uniform verbs keep the
+record alone.

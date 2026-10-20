@@ -515,6 +515,7 @@ const writes: WriteCase[] = [
     (node) => {
       expect(node.id).toBe('OTH');
       expect(node.archivedAt).toBeInstanceOf(Date);
+      expect(node.released).toEqual([]);
     },
   ),
   write(
