@@ -8,8 +8,9 @@ import { sql } from 'kysely';
 
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import { SCHEMA_VERSION } from '../store-sql/migrator';
+import { createTokenStore } from '../tokens';
 import { openSqlite, SQLITE_FILE } from './client';
-import { createSqliteStore, readSchemaVersion } from './dialect';
+import { createSqliteStore, readSchemaVersion, sqliteDialect } from './dialect';
 import { statements as initStatements } from './migrations/0001-init';
 import { statements as groomingStatements } from './migrations/0002-grooming';
 import { statements as blockOwnerStatements } from './migrations/0003-block-owner';
@@ -61,6 +62,7 @@ test('opening a new file creates it, migrates it, and puts it in WAL mode', asyn
         '0006_project_remote',
         '0007_task_queued',
         '0008_main_worker',
+        '0009_device_tokens',
       ],
       from: 0,
       to: SCHEMA_VERSION,
@@ -108,6 +110,7 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
         '0006_project_remote',
         '0007_task_queued',
         '0008_main_worker',
+        '0009_device_tokens',
       ],
       from: 1,
       to: SCHEMA_VERSION,
@@ -162,6 +165,7 @@ test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by
         '0006_project_remote',
         '0007_task_queued',
         '0008_main_worker',
+        '0009_device_tokens',
       ],
       from: 2,
       to: SCHEMA_VERSION,
@@ -223,6 +227,7 @@ test('0004_seed_parked upgrades a version-3 store: seeds and their history survi
         '0006_project_remote',
         '0007_task_queued',
         '0008_main_worker',
+        '0009_device_tokens',
       ],
       from: 3,
       to: SCHEMA_VERSION,
@@ -305,6 +310,7 @@ test('0005_project_pinned upgrades a version-4 store: projects keep their data a
         '0006_project_remote',
         '0007_task_queued',
         '0008_main_worker',
+        '0009_device_tokens',
       ],
       from: 4,
       to: SCHEMA_VERSION,
@@ -356,7 +362,12 @@ test('0006_project_remote upgrades a version-5 store: projects keep their data a
   const handle = await openSqlite(path);
   try {
     expect(handle.upgrade).toEqual({
-      applied: ['0006_project_remote', '0007_task_queued', '0008_main_worker'],
+      applied: [
+        '0006_project_remote',
+        '0007_task_queued',
+        '0008_main_worker',
+        '0009_device_tokens',
+      ],
       from: 5,
       to: SCHEMA_VERSION,
     });
@@ -683,7 +694,9 @@ test.each([6, 7])(
     const handle = await openSqlite(path);
     try {
       expect(handle.upgrade.applied).toEqual(
-        version === 7 ? ['0008_main_worker'] : ['0007_task_queued', '0008_main_worker'],
+        version === 7
+          ? ['0008_main_worker', '0009_device_tokens']
+          : ['0007_task_queued', '0008_main_worker', '0009_device_tokens'],
       );
       const store = createSqliteStore(handle.db);
       const exported = await store.export();
@@ -745,3 +758,26 @@ test.each([6, 7])(
     }
   },
 );
+
+test('token redemption on two SQLite connections consumes once and rotates atomically', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'mimir-token-race-'));
+  const first = await openSqlite(join(directory, 'tokens.sqlite'));
+  const second = await openSqlite(join(directory, 'tokens.sqlite'));
+  try {
+    const one = createTokenStore({ db: first.db, dialect: sqliteDialect });
+    const two = createTokenStore({ db: second.db, dialect: sqliteDialect });
+    const prior = await one.redeem(await one.issueCode('laptop'));
+    const code = await one.issueCode('laptop');
+    const results = await Promise.all([one.redeem(code), two.redeem(code)]);
+    expect(results.filter((result) => result !== null)).toHaveLength(1);
+    expect(results.filter((result) => result === null)).toHaveLength(1);
+    expect(await one.list()).toHaveLength(1);
+    expect(await one.list({ all: true })).toHaveLength(2);
+    expect(await two.verify(prior?.token ?? '')).toBeNull();
+    expect(await two.verify(results.find((result) => result !== null)?.token ?? '')).toBe('laptop');
+  } finally {
+    await first.close();
+    await second.close();
+    rmSync(directory, { force: true, recursive: true });
+  }
+});

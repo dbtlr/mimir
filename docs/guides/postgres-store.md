@@ -105,13 +105,17 @@ See [Upgrade the host](host.md#upgrade-the-host-and-the-clis-that-share-its-post
 
 ## Back up
 
-`mimir store export` writes the whole store as one JSON document:
+Pairing codes and device tokens are host transport credentials and are excluded
+from export and import. Moving work state to another host requires pairing its
+devices again. Import preserves any credentials already held by the target host.
+
+`mimir store export` writes work state as one JSON document:
 
 ```sh
 mimir store export board.json
 ```
 
-The document holds every stored fact: the projects with their sequence
+The document holds the stored work-state facts: the projects with their sequence
 counters, the nodes, the dependency edges, the tags, the annotations, the
 artifacts with their frozen content, the seeds with their history, the
 scratchpads, the owned prose sections, and the transition log. It holds nothing
