@@ -9,15 +9,24 @@ import { RemoteEngine } from './client';
 import { createEngineHandler } from './server';
 
 let fixture: TestStore;
+let authorization: string;
 let local: LocalEngine;
 beforeEach(async () => {
   fixture = await createTestStore();
+  const credential = await fixture.tokens.redeem(await fixture.tokens.issueCode('wire-fixture'));
+  if (credential === null) {
+    throw new Error('fixture pairing failed');
+  }
+  authorization = `Bearer ${credential.token}`;
   local = new LocalEngine(fixture.store);
 });
 afterEach(async () => fixture.close());
 
 function client(version: string, stripVersion = false, hostVersion = '0.26.0-next.10') {
-  const handle = createEngineHandler(local, { version: hostVersion });
+  const handle = createEngineHandler(local, {
+    verifyToken: fixture.tokens.verify,
+    version: hostVersion,
+  });
   return new RemoteEngine({
     fetch: async (input, init) => {
       const request = new Request(input, init);
@@ -27,6 +36,7 @@ function client(version: string, stripVersion = false, hostVersion = '0.26.0-nex
       const response = await handle(request);
       return { json: () => response.json(), ok: response.ok };
     },
+    headers: { authorization },
     url: 'http://engine.test/trpc',
     version,
   });
@@ -116,7 +126,10 @@ test('refused mutation and console requests stop before input parsing or Engine 
 });
 
 test('the async headers hook runs on every call alongside the build version', async () => {
-  const handle = createEngineHandler(local, { version: '0.26.0' });
+  const handle = createEngineHandler(local, {
+    verifyToken: fixture.tokens.verify,
+    version: '0.26.0',
+  });
   let calls = 0;
   const seen: { device: string | null; version: string | null }[] = [];
   const remote = new RemoteEngine({
@@ -129,7 +142,11 @@ test('the async headers hook runs on every call alongside the build version', as
       const response = await handle(request);
       return { json: () => response.json(), ok: response.ok };
     },
-    headers: async () => ({ 'X-Mimir-Version': '0.25.0', 'x-device': String(++calls) }),
+    headers: async () => ({
+      'X-Mimir-Version': '0.25.0',
+      authorization,
+      'x-device': String(++calls),
+    }),
     url: 'http://engine.test/trpc',
     version: '0.26.0',
   });
@@ -146,13 +163,18 @@ test('the window admits an older minor still above the minimum client', async ()
 });
 
 test('an invalid host version cannot silently disable the upper bound', () => {
-  expect(() => createEngineHandler(local, { version: 'unknown' })).toThrow('invalid host version');
+  expect(() =>
+    createEngineHandler(local, { verifyToken: fixture.tokens.verify, version: 'unknown' }),
+  ).toThrow('invalid host version');
 });
 
 test.each(['removed procedure', 'changed procedure kind'])(
   'an old client still gets the update remedy for a %s',
   async (scenario) => {
-    const handle = createEngineHandler(local, { version: '0.26.0' });
+    const handle = createEngineHandler(local, {
+      verifyToken: fixture.tokens.verify,
+      version: '0.26.0',
+    });
     const remote = new RemoteEngine({
       fetch: async (input, init) => {
         const request =
@@ -162,6 +184,7 @@ test.each(['removed procedure', 'changed procedure kind'])(
         const response = await handle(request);
         return { json: () => response.json(), ok: response.ok };
       },
+      headers: { authorization },
       url: 'http://engine.test/trpc',
       version: '0.25.0',
     });
@@ -174,7 +197,10 @@ test.each(['removed procedure', 'changed procedure kind'])(
 test.each(['projects,projectsLegacy', 'projects%2CprojectsLegacy'])(
   'an out-of-window HTTP batch %s carries a version refusal per requested procedure',
   async (path) => {
-    const handle = createEngineHandler(local, { version: '0.26.0' });
+    const handle = createEngineHandler(local, {
+      verifyToken: fixture.tokens.verify,
+      version: '0.26.0',
+    });
     const response = await handle(
       new Request(`http://engine.test/trpc/${path}?batch=1`, {
         headers: { 'x-mimir-version': '0.25.0' },

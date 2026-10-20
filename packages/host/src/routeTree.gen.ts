@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './start-routes/__root'
 import { Route as HealthRouteImport } from './start-routes/health'
 import { Route as ApiSplatRouteImport } from './start-routes/api.$'
 import { Route as TrpcSplatRouteImport } from './start-routes/trpc.$'
+import { Route as AuthPairingRedeemRouteImport } from './start-routes/auth.pairing.redeem'
 
 const HealthRoute = HealthRouteImport.update({
   id: '/health',
@@ -28,35 +29,44 @@ const TrpcSplatRoute = TrpcSplatRouteImport.update({
   path: '/trpc/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthPairingRedeemRoute = AuthPairingRedeemRouteImport.update({
+  id: '/auth/pairing/redeem',
+  path: '/auth/pairing/redeem',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/health': typeof HealthRoute
   '/api/$': typeof ApiSplatRoute
   '/trpc/$': typeof TrpcSplatRoute
+  '/auth/pairing/redeem': typeof AuthPairingRedeemRoute
 }
 export interface FileRoutesByTo {
   '/health': typeof HealthRoute
   '/api/$': typeof ApiSplatRoute
   '/trpc/$': typeof TrpcSplatRoute
+  '/auth/pairing/redeem': typeof AuthPairingRedeemRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/health': typeof HealthRoute
   '/api/$': typeof ApiSplatRoute
   '/trpc/$': typeof TrpcSplatRoute
+  '/auth/pairing/redeem': typeof AuthPairingRedeemRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/health' | '/api/$' | '/trpc/$'
+  fullPaths: '/health' | '/api/$' | '/trpc/$' | '/auth/pairing/redeem'
   fileRoutesByTo: FileRoutesByTo
-  to: '/health' | '/api/$' | '/trpc/$'
-  id: '__root__' | '/health' | '/api/$' | '/trpc/$'
+  to: '/health' | '/api/$' | '/trpc/$' | '/auth/pairing/redeem'
+  id: '__root__' | '/health' | '/api/$' | '/trpc/$' | '/auth/pairing/redeem'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   HealthRoute: typeof HealthRoute
   ApiSplatRoute: typeof ApiSplatRoute
   TrpcSplatRoute: typeof TrpcSplatRoute
+  AuthPairingRedeemRoute: typeof AuthPairingRedeemRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +92,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrpcSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/pairing/redeem': {
+      id: '/auth/pairing/redeem'
+      path: '/auth/pairing/redeem'
+      fullPath: '/auth/pairing/redeem'
+      preLoaderRoute: typeof AuthPairingRedeemRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   HealthRoute: HealthRoute,
   ApiSplatRoute: ApiSplatRoute,
   TrpcSplatRoute: TrpcSplatRoute,
+  AuthPairingRedeemRoute: AuthPairingRedeemRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

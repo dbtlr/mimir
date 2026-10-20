@@ -13,6 +13,7 @@ import { sqliteStorePath } from './env';
 import type { BuiltStore } from './store-backend';
 import type { SqliteHandle } from './store-sqlite/index';
 import { createSqliteStore, openSqlite, sqliteDialect } from './store-sqlite/index';
+import { createTokenStore } from './tokens';
 
 /** Build the SQLite store for this process over the installation's database
  * file, migrating it forward on open. */
@@ -29,6 +30,7 @@ function builtOver(handle: SqliteHandle): BuiltStore {
     close: () => handle.close(),
     doctor: createSqlDoctorBackend(handle.db, sqliteDialect),
     store: createSqliteStore(handle.db),
+    tokens: createTokenStore({ db: handle.db, dialect: sqliteDialect }),
   };
 }
 

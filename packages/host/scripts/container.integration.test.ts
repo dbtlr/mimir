@@ -134,6 +134,43 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
   const password = randomUUID();
   const refusedContainers = [`${name}-unwritable`, `${name}-invalid`];
   try {
+    const pairingScript = join(secretDirectory, 'pairing.mjs');
+    const pairingBuild = await Bun.build({
+      entrypoints: [fileURLToPath(new URL('pairing-fixture.ts', import.meta.url))],
+      naming: 'pairing.mjs',
+      outdir: secretDirectory,
+      plugins: [
+        {
+          name: 'fixture-host-authority',
+          setup(build) {
+            // This helper runs only inside the test-owned host container, like its operator CLI.
+            build.onLoad({ filter: /\/core\/src\/host-authority\.ts$/ }, () => ({
+              contents: 'export const MIMIR_HOST_AUTHORITY = true;',
+              loader: 'ts',
+            }));
+          },
+        },
+      ],
+      target: 'bun',
+    });
+    if (!pairingBuild.success) {
+      throw new AggregateError(pairingBuild.logs, 'could not bundle the container pairing fixture');
+    }
+    const pairingMount = `type=bind,src=${pairingScript},dst=/run/integration/pairing.mjs,readonly`;
+    const pair = async (container: string, base: string, device: string) => {
+      const code = await docker(['exec', container, 'bun', '/run/integration/pairing.mjs', device]);
+      const response = await fetch(`${base}/auth/pairing/redeem`, {
+        body: JSON.stringify({ code }),
+        headers: { 'content-type': 'application/json' },
+        method: 'POST',
+      });
+      expect(response.status, 'redeem a container-issued pairing code').toBe(200);
+      const paired = z
+        .object({ device: z.string(), token: z.string() })
+        .parse(await response.json());
+      expect(paired.device).toBe(device);
+      return paired.token;
+    };
     await docker(['build', '--quiet', '--tag', image, '.'], 120_000);
     await docker(['volume', 'create', volume]);
     const run = async (container: string, user: string[] = []) => {
@@ -147,6 +184,8 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
         '127.0.0.1::64647',
         '--volume',
         `${volume}:/data`,
+        '--mount',
+        pairingMount,
         '--env',
         'MIMIR_HOSTS=allowed.example',
         '--env',
@@ -170,6 +209,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
       '/trpc',
       '/trpc/getNode',
       '/trpc/done',
+      '/auth/pairing/redeem',
       '/_serverFn/missing',
       '/health',
     ]) {
@@ -229,7 +269,15 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
       const response = await fetch(`${base}/health`, { headers: { host } });
       expect(response.status, host).toBe(200);
     }
-    // The CLI sends no Origin and the console sends its own: both writes land.
+    const token = await pair(name, base, 'container fixture');
+    const unauthorized = await fetch(`${base}/trpc/projects`, {
+      headers: { 'x-mimir-version': clientVersion },
+    });
+    expect(unauthorized.status).toBe(401);
+    expect(await unauthorized.json()).toMatchObject({
+      error: { json: { data: { code: 'UNAUTHORIZED' }, message: 'unauthorized' } },
+    });
+    // Paired clients can send no Origin or their own origin: both writes land.
     const engineWith = (headers: Record<string, string>) =>
       new RemoteEngine({
         fetch: (input, init) =>
@@ -237,6 +285,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
             ...init,
             headers: { ...Object.fromEntries(new Headers(init?.headers)), ...headers },
           }),
+        headers: { authorization: `Bearer ${token}` },
         url: `${base}/trpc`,
         version: clientVersion,
       });
@@ -247,7 +296,11 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
       await engineWith(headers).create({ key, name: key, type: 'project' });
     }
 
-    const remote = new RemoteEngine({ url: `${base}/trpc`, version: clientVersion });
+    const remote = new RemoteEngine({
+      headers: { authorization: `Bearer ${token}` },
+      url: `${base}/trpc`,
+      version: clientVersion,
+    });
     expect(
       await remote.create({ key: 'TST', name: 'Container integration project', type: 'project' }),
     ).toMatchObject({ id: 'TST', title: 'Container integration project' });
@@ -335,7 +388,11 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     await docker(['start', name]);
     base = await ready(name);
     expect(
-      await new RemoteEngine({ url: `${base}/trpc`, version: clientVersion }).getNode({
+      await new RemoteEngine({
+        headers: { authorization: `Bearer ${token}` },
+        url: `${base}/trpc`,
+        version: clientVersion,
+      }).getNode({
         id: task.id,
       }),
     ).toMatchObject({
@@ -345,7 +402,11 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
 
     await docker(['rm', '--force', name]);
     base = await run(rootContainer, ['--user', '0:0']);
-    const rooted = new RemoteEngine({ url: `${base}/trpc`, version: clientVersion });
+    const rooted = new RemoteEngine({
+      headers: { authorization: `Bearer ${token}` },
+      url: `${base}/trpc`,
+      version: clientVersion,
+    });
     expect(await rooted.getNode({ id: task.id })).toMatchObject({ id: task.id, lifecycle: 'done' });
     expect(
       await rooted.reopen({
@@ -423,6 +484,8 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
         'MIMIR_DATABASE_URL_FILE=/run/secrets/database-url',
         '--mount',
         `type=bind,src=${secret},dst=/run/secrets/database-url,readonly`,
+        '--mount',
+        pairingMount,
         image,
       ]);
     };
@@ -439,8 +502,13 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     expect(await crossOriginWithoutAllowlist.json()).toMatchObject({
       error: { code: 'forbidden_origin' },
     });
+    let postgresToken = await pair(postgresHost, base, 'postgres fixture');
     expect(
-      await new RemoteEngine({ url: `${base}/trpc`, version: clientVersion }).projects({}),
+      await new RemoteEngine({
+        headers: { authorization: `Bearer ${postgresToken}` },
+        url: `${base}/trpc`,
+        version: clientVersion,
+      }).projects({}),
     ).toEqual([]);
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0005_project_pinned');
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0006_project_remote');
@@ -465,8 +533,13 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     );
     await runPostgresHost();
     base = await ready(postgresHost, 12345);
+    postgresToken = await pair(postgresHost, base, 'postgres fixture');
     expect(
-      await new RemoteEngine({ url: `${base}/trpc`, version: clientVersion }).projects({}),
+      await new RemoteEngine({
+        headers: { authorization: `Bearer ${postgresToken}` },
+        url: `${base}/trpc`,
+        version: clientVersion,
+      }).projects({}),
     ).toEqual([]);
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0005_project_pinned');
     await docker(['rm', '--force', postgresHost]);

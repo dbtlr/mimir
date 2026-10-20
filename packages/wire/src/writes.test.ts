@@ -56,6 +56,11 @@ type Fixture = { close: () => Promise<void>; ids: Ids; local: LocalEngine; remot
 /** A store holding every state a write can start from; ids are deterministic per build. */
 async function buildFixture(): Promise<Fixture> {
   const fixture: TestStore = await createTestStore();
+  const credential = await fixture.tokens.redeem(await fixture.tokens.issueCode('wire-fixture'));
+  if (credential === null) {
+    throw new Error('fixture pairing failed');
+  }
+  const authorization = `Bearer ${credential.token}`;
   const { store } = fixture;
   await createProject(store, { key: 'ENG', name: 'Engine' });
   await createProject(store, { key: 'OTH', name: 'Other' });
@@ -99,12 +104,16 @@ async function buildFixture(): Promise<Fixture> {
   const parked = await fileSeed(store, { kind: 'idea', project: 'ENG', title: 'Parked idea' });
   await parkSeed(store, parked.id);
   const local = new LocalEngine(store);
-  const handle = createEngineHandler(local, { version: '0.26.0' });
+  const handle = createEngineHandler(local, {
+    verifyToken: fixture.tokens.verify,
+    version: '0.26.0',
+  });
   const remote = new RemoteEngine({
     fetch: async (input, init) => {
       const response = await handle(new Request(input, init));
       return { json: () => response.json(), ok: response.ok };
     },
+    headers: { authorization },
     url: 'http://engine.test/trpc',
     version: '0.26.0',
   });

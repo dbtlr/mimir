@@ -10,6 +10,9 @@ import { MIN_CLIENT } from '@mimir/contract';
 import { RemoteEngine } from '@mimir/wire/client';
 import { chromium } from '@playwright/test';
 import type { Browser } from '@playwright/test';
+import { z } from 'zod';
+
+import { issueFixtureCode } from './pairing-fixture';
 
 const clientVersion = MIN_CLIENT;
 
@@ -83,7 +86,44 @@ test('the development host serves and renders the kit with an isolated store', a
       if (!ready) {
         throw new Error(`development host did not become ready (${readiness}): ${diagnostics}`);
       }
-      const remote = new RemoteEngine({ url: `${base}/trpc`, version: clientVersion });
+      const unauthorized = await fetch(`${base}/trpc/projects`, {
+        headers: { 'x-mimir-version': clientVersion },
+      });
+      expect(unauthorized.status).toBe(401);
+      expect(await unauthorized.json()).toMatchObject({
+        error: { json: { data: { code: 'UNAUTHORIZED' }, message: 'unauthorized' } },
+      });
+      for (const method of ['GET', 'HEAD', 'PUT', 'DELETE', 'OPTIONS']) {
+        const unsupported = await fetch(`${base}/auth/pairing/redeem`, { method });
+        expect(unsupported.status, method).toBe(405);
+        expect(unsupported.headers.get('allow'), method).toBe('POST');
+        expect(unsupported.headers.get('cache-control'), method).toBe('no-store');
+      }
+      const code = await issueFixtureCode('development fixture', {
+        MIMIR_DATA_DIR: directory,
+      });
+      // Pairing is a host route: neither a client version nor an existing token is needed.
+      const redeem = await fetch(`${base}/auth/pairing/redeem`, {
+        body: JSON.stringify({ code }),
+        headers: { 'content-type': 'application/json' },
+        method: 'POST',
+      });
+      expect(redeem.status).toBe(200);
+      const paired = z.object({ device: z.string(), token: z.string() }).parse(await redeem.json());
+      expect(paired.device).toBe('development fixture');
+      expect(paired.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(redeem.headers.get('cache-control')).toBe('no-store');
+      const reused = await fetch(`${base}/auth/pairing/redeem`, {
+        body: JSON.stringify({ code }),
+        headers: { 'content-type': 'application/json' },
+        method: 'POST',
+      });
+      expect(reused.status).toBe(400);
+      const remote = new RemoteEngine({
+        headers: { authorization: `Bearer ${paired.token}` },
+        url: `${base}/trpc`,
+        version: clientVersion,
+      });
       expect(await remote.projects({})).toEqual([]);
       expect(await Bun.file(join(directory, 'store.sqlite')).exists()).toBe(true);
 

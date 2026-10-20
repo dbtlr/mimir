@@ -21,6 +21,7 @@ import {
   postgresDialect,
   upgradeSchema,
 } from './store-postgres/index';
+import { createTokenStore } from './tokens';
 
 /**
  * The refusal for a Postgres install with no connection URL. It names the key,
@@ -60,5 +61,6 @@ export async function buildPostgresStore(
     close: () => handle.close(),
     doctor: createSqlDoctorBackend(handle.db, postgresDialect),
     store: createPostgresStore(handle.db),
+    tokens: createTokenStore({ db: handle.db, dialect: postgresDialect }),
   };
 }

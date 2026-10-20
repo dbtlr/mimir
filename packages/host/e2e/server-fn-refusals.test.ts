@@ -1,3 +1,4 @@
+import { MIN_CLIENT } from '@mimir/contract';
 import { expect } from '@playwright/test';
 
 import { test } from './pwa-worker';
@@ -41,6 +42,20 @@ test('server functions answer refusals with their code and hide internal faults'
     );
   // Call from a page that runs no console, so nothing else reaches the host meanwhile.
   await page.goto(`${fixture.origin}/health`);
+
+  await test.step('console reads need no token while the remote Engine requires pairing', async () => {
+    expect(await callTree('FLT')).toContain('Damaged later');
+
+    for (const path of ['/trpc/projects', '/trpc/console.review']) {
+      const unpaired = await fetch(`${fixture.origin}${path}`, {
+        headers: { 'x-mimir-version': MIN_CLIENT },
+      });
+      expect(unpaired.status, path).toBe(401);
+      expect(await unpaired.json()).toMatchObject({
+        error: { json: { data: { code: 'UNAUTHORIZED' }, message: 'unauthorized' } },
+      });
+    }
+  });
 
   await test.step('an Engine refusal crosses with its code', async () => {
     const body = await callTree('NOPE');

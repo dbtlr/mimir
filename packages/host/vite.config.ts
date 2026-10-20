@@ -65,7 +65,7 @@ const pwaPlugins = VitePWA({
     globPatterns: ['**/*.css', '**/*.html', '**/*.js', '**/*.woff2'],
     // Server routes (the /api tombstone included) are never the app shell.
     navigateFallback: '/_shell.html',
-    navigateFallbackDenylist: [/^\/(api|trpc|_serverFn|health)([/?]|$)/],
+    navigateFallbackDenylist: [/^\/(api|auth|trpc|_serverFn|health)([/?]|$)/],
   },
 });
 // Start writes the shell after individual environment bundles close. Defer

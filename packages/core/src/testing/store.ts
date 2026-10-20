@@ -8,6 +8,8 @@ import type { NodePatch } from '../store';
 import { sqliteDialect } from '../store-sqlite/index';
 import { createSqliteTestStore } from '../store-sqlite/testing';
 import { now } from '../time';
+import { createTokenStore } from '../tokens';
+import type { TokenStore } from '../tokens';
 
 /**
  * The test substrate: a fresh, migrated SQLite {@link Store} in memory (ADR
@@ -23,6 +25,7 @@ export type TestStore = {
   artifacts: ArtifactStore;
   /** The SQL doctor over this store. */
   doctor: DoctorBackend;
+  tokens: TokenStore;
   close: () => Promise<void>;
 };
 
@@ -34,6 +37,7 @@ export async function createTestStore(): Promise<TestStore> {
     doctor: createSqlDoctorBackend(test_.db, sqliteDialect),
     seeds: test_.store.seeds,
     store: test_.store,
+    tokens: createTokenStore({ db: test_.db, dialect: sqliteDialect }),
   };
 }
 

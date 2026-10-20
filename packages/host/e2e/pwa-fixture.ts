@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 import type { EngineInput } from '@mimir/contract';
 import { RemoteEngine } from '@mimir/wire/client';
+import { z } from 'zod';
 
 import { assertPrecache } from '../scripts/assert-precache';
 
@@ -29,7 +30,7 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 /** The routes the host answers itself rather than the app shell. */
-const SERVER_ROUTE = /^\/(api|trpc|_serverFn)(\/|$)/;
+const SERVER_ROUTE = /^\/(api|trpc|_serverFn|auth\/pairing)(\/|$)/;
 
 /** Request headers the proxy does not forward: the host checks them against its own origin. */
 const UNFORWARDED = new Set(['connection', 'host', 'origin', 'referer']);
@@ -101,6 +102,7 @@ export class PwaFixture {
   private host: ChildProcess | undefined;
   private readonly hostLines: string[] = [];
   private hostOrigin = '';
+  private token = '';
   private storeFile = '';
   private root: string;
   private readonly server: Server;
@@ -191,6 +193,38 @@ export class PwaFixture {
     });
     this.hostOrigin = `http://127.0.0.1:${String(port)}`;
     await this.waitForHost();
+    const code = await new Promise<string>((resolve, reject) => {
+      const child = spawn(
+        'bun',
+        [resolvePath(HOST_ROOT, 'scripts/pairing-fixture.ts'), 'PWA fixture'],
+        { env, stdio: ['ignore', 'pipe', 'inherit'] },
+      );
+      let output = '';
+      child.stdout.setEncoding('utf8');
+      child.stdout.on('data', (chunk: string) => {
+        output += chunk;
+      });
+      child.once('error', reject);
+      child.once('exit', (exit) => {
+        if (exit === 0) {
+          resolve(output.trim());
+        } else {
+          reject(new Error(`PWA fixture pairing exited ${String(exit)}`));
+        }
+      });
+    });
+    const redeem = await fetch(`${this.hostOrigin}/auth/pairing/redeem`, {
+      body: JSON.stringify({ code }),
+      headers: { 'content-type': 'application/json' },
+      method: 'POST',
+    });
+    if (!redeem.ok) {
+      throw new Error(`PWA fixture pairing was refused (${redeem.status})`);
+    }
+    const paired = z
+      .object({ device: z.literal('PWA fixture'), token: z.string() })
+      .parse(await redeem.json());
+    this.token = paired.token;
     await this.create({ ...FIXTURE_PROJECT, type: 'project' });
   }
 
@@ -201,7 +235,11 @@ export class PwaFixture {
 
   /** File a record on the host through its Engine, and answer its id. */
   async create(input: EngineInput<'create'>): Promise<{ id: string }> {
-    const engine = new RemoteEngine({ url: `${this.hostOrigin}/trpc`, version: '0.26.0-next.1' });
+    const engine = new RemoteEngine({
+      headers: { authorization: `Bearer ${this.token}` },
+      url: `${this.hostOrigin}/trpc`,
+      version: '0.26.0-next.1',
+    });
     const created = await engine.create(input);
     return { id: created.id };
   }

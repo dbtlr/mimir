@@ -16,6 +16,7 @@ import { invariant } from './errors';
 import type { Store } from './store';
 import { buildPostgresStore } from './store-postgres-backend';
 import { buildSqliteStore } from './store-sqlite-backend';
+import type { TokenStore } from './tokens';
 
 export type BuiltStore = {
   store: Store;
@@ -23,6 +24,8 @@ export type BuiltStore = {
   close: () => Promise<void>;
   /** The backend's read-only doctor facet. */
   doctor: DoctorBackend;
+  /** Host transport credentials, outside work state and board transfers. */
+  tokens: TokenStore;
 };
 
 /**
