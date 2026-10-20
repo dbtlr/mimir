@@ -7,10 +7,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { MIN_CLIENT } from '@mimir/contract';
 import { RemoteEngine } from '@mimir/wire/client';
 import { z } from 'zod';
 
 import { POSTGRES_IMAGE } from '../../sandbox/src/workflow';
+
+const clientVersion = z
+  .object({ version: z.string() })
+  .parse(await Bun.file(new URL('../../bin/package.json', import.meta.url)).json()).version;
 
 const repository = fileURLToPath(new URL('../../..', import.meta.url));
 
@@ -178,10 +183,13 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
       expect(crossOrigin.status, path).toBe(403);
       expect(await crossOrigin.json(), path).toMatchObject({ error: { code: 'forbidden_origin' } });
     }
-    const version = z
-      .object({ version: z.string() })
-      .parse(await Bun.file(new URL('../../bin/package.json', import.meta.url)).json()).version;
-    expect(await getJson(base, '/health')).toEqual({ schema: 9, status: 'ok', version });
+    const version = clientVersion;
+    expect(await getJson(base, '/health')).toEqual({
+      minClient: MIN_CLIENT,
+      schema: 9,
+      status: 'ok',
+      version,
+    });
     const healthHead = await fetch(`${base}/health`, { method: 'HEAD' });
     expect(healthHead.status).toBe(200);
     expect(await healthHead.text()).toBe('');
@@ -230,6 +238,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
             headers: { ...Object.fromEntries(new Headers(init?.headers)), ...headers },
           }),
         url: `${base}/trpc`,
+        version: clientVersion,
       });
     for (const [key, headers] of [
       ['CLI', {}],
@@ -238,7 +247,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
       await engineWith(headers).create({ key, name: key, type: 'project' });
     }
 
-    const remote = new RemoteEngine({ url: `${base}/trpc` });
+    const remote = new RemoteEngine({ url: `${base}/trpc`, version: clientVersion });
     expect(
       await remote.create({ key: 'TST', name: 'Container integration project', type: 'project' }),
     ).toMatchObject({ id: 'TST', title: 'Container integration project' });
@@ -325,14 +334,18 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     await docker(['stop', '--time', '5', name]);
     await docker(['start', name]);
     base = await ready(name);
-    expect(await new RemoteEngine({ url: `${base}/trpc` }).getNode({ id: task.id })).toMatchObject({
+    expect(
+      await new RemoteEngine({ url: `${base}/trpc`, version: clientVersion }).getNode({
+        id: task.id,
+      }),
+    ).toMatchObject({
       id: task.id,
       lifecycle: 'done',
     });
 
     await docker(['rm', '--force', name]);
     base = await run(rootContainer, ['--user', '0:0']);
-    const rooted = new RemoteEngine({ url: `${base}/trpc` });
+    const rooted = new RemoteEngine({ url: `${base}/trpc`, version: clientVersion });
     expect(await rooted.getNode({ id: task.id })).toMatchObject({ id: task.id, lifecycle: 'done' });
     expect(
       await rooted.reopen({
@@ -426,7 +439,9 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     expect(await crossOriginWithoutAllowlist.json()).toMatchObject({
       error: { code: 'forbidden_origin' },
     });
-    expect(await new RemoteEngine({ url: `${base}/trpc` }).projects({})).toEqual([]);
+    expect(
+      await new RemoteEngine({ url: `${base}/trpc`, version: clientVersion }).projects({}),
+    ).toEqual([]);
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0005_project_pinned');
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0006_project_remote');
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0009_device_tokens');
@@ -450,7 +465,9 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     );
     await runPostgresHost();
     base = await ready(postgresHost, 12345);
-    expect(await new RemoteEngine({ url: `${base}/trpc` }).projects({})).toEqual([]);
+    expect(
+      await new RemoteEngine({ url: `${base}/trpc`, version: clientVersion }).projects({}),
+    ).toEqual([]);
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0005_project_pinned');
     await docker(['rm', '--force', postgresHost]);
     await sql('INSERT INTO schema_version (version, applied_at) VALUES (10, now());');

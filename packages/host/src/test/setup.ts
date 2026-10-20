@@ -54,7 +54,12 @@ vi.mock('@tanstack/react-start', async (importOriginal) => {
 vi.mock('../api/fns/engine', () => ({ engine: vi.fn() }));
 // oxlint-disable-next-line vitest/require-hook
 vi.mock('../api/health', () => ({
-  fetchHealth: async () => ({ schema: 1, status: 'ok', version: '0.0.0' }),
+  fetchHealth: async () => ({
+    minClient: '0.26.0-next',
+    schema: 1,
+    status: 'ok',
+    version: '0.0.0',
+  }),
 }));
 
 // Every human-facing timestamp renders in the reader's zone (ADR 0029), so the

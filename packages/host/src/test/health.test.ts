@@ -14,8 +14,15 @@ describe('fetchHealth', () => {
   it('reads the host build and schema from /health', async () => {
     const spy = vi
       .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(Response.json({ schema: 6, status: 'ok', version: '0.26.0' }));
-    await expect(fetchHealth()).resolves.toEqual({ schema: 6, status: 'ok', version: '0.26.0' });
+      .mockResolvedValue(
+        Response.json({ minClient: '0.26.0-next', schema: 6, status: 'ok', version: '0.26.0' }),
+      );
+    await expect(fetchHealth()).resolves.toEqual({
+      minClient: '0.26.0-next',
+      schema: 6,
+      status: 'ok',
+      version: '0.26.0',
+    });
     expect(spy).toHaveBeenCalledWith('/health', expect.anything());
   });
 

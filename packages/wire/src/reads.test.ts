@@ -85,13 +85,14 @@ beforeAll(async () => {
     seed: seed.id,
   };
   local = new LocalEngine(store);
-  const handle = createEngineHandler(local);
+  const handle = createEngineHandler(local, { version: '0.26.0' });
   remote = new RemoteEngine({
     fetch: async (input, init) => {
       const response = await handle(new Request(input, init));
       return { json: () => response.json(), ok: response.ok };
     },
     url: 'http://engine.test/trpc',
+    version: '0.26.0',
   });
 });
 

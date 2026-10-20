@@ -99,13 +99,14 @@ async function buildFixture(): Promise<Fixture> {
   const parked = await fileSeed(store, { kind: 'idea', project: 'ENG', title: 'Parked idea' });
   await parkSeed(store, parked.id);
   const local = new LocalEngine(store);
-  const handle = createEngineHandler(local);
+  const handle = createEngineHandler(local, { version: '0.26.0' });
   const remote = new RemoteEngine({
     fetch: async (input, init) => {
       const response = await handle(new Request(input, init));
       return { json: () => response.json(), ok: response.ok };
     },
     url: 'http://engine.test/trpc',
+    version: '0.26.0',
   });
   return {
     close: fixture.close,

@@ -53,15 +53,30 @@ describe('versionFooter (MMR-260)', () => {
       defaultOptions: { queries: { retry: false, staleTime: 5_000 } },
     });
     // Another tab wrote this a moment ago; it says nothing about the host now.
-    client.setQueryData(['health'], { schema: 4, status: 'ok', version: '0.13.0-next.68' });
-    fetchHealth.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
+    client.setQueryData(['health'], {
+      minClient: '0.26.0-next',
+      schema: 4,
+      status: 'ok',
+      version: '0.13.0-next.68',
+    });
+    fetchHealth.mockResolvedValue({
+      minClient: '0.26.0-next',
+      schema: 4,
+      status: 'ok',
+      version: '0.14.0-next.3',
+    });
     renderFooter(updateFixture().controller, client);
     await expect(screen.findByText('0.14.0-next.3')).resolves.toBeDefined();
     expect(fetchHealth).toHaveBeenCalled();
   });
 
   it('renders the host-reported version once /health answers', async () => {
-    fetchHealth.mockResolvedValue({ schema: 4, status: 'ok', version: '0.13.0-next.68' });
+    fetchHealth.mockResolvedValue({
+      minClient: '0.26.0-next',
+      schema: 4,
+      status: 'ok',
+      version: '0.13.0-next.68',
+    });
     renderFooter();
     await expect(screen.findByText('0.13.0-next.68')).resolves.toBeDefined();
     await expect(
@@ -71,7 +86,12 @@ describe('versionFooter (MMR-260)', () => {
   });
 
   it('renders the bundle version before the host answers', () => {
-    fetchHealth.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
+    fetchHealth.mockResolvedValue({
+      minClient: '0.26.0-next',
+      schema: 4,
+      status: 'ok',
+      version: '0.14.0-next.3',
+    });
     renderFooter();
     // synchronous assertion: the query is still pending, so the fallback
     // (the bundle's own version) is on screen, not the not-yet-fetched host's.
@@ -79,7 +99,12 @@ describe('versionFooter (MMR-260)', () => {
   });
 
   it('offers the shared refresh action when the host reports a different version', async () => {
-    fetchHealth.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
+    fetchHealth.mockResolvedValue({
+      minClient: '0.26.0-next',
+      schema: 4,
+      status: 'ok',
+      version: '0.14.0-next.3',
+    });
     const { controller, effects } = updateFixture();
     renderFooter(controller);
     await expect(screen.findByText('0.14.0-next.3')).resolves.toBeDefined();
@@ -88,7 +113,12 @@ describe('versionFooter (MMR-260)', () => {
   });
 
   it('activates a waiting worker through the same footer action', async () => {
-    fetchHealth.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
+    fetchHealth.mockResolvedValue({
+      minClient: '0.26.0-next',
+      schema: 4,
+      status: 'ok',
+      version: '0.14.0-next.3',
+    });
     const { controller, effects } = updateFixture();
     controller.workerWaiting();
     renderFooter(controller);
@@ -98,7 +128,12 @@ describe('versionFooter (MMR-260)', () => {
   });
 
   it('reloads directly after another tab has activated the update', async () => {
-    fetchHealth.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
+    fetchHealth.mockResolvedValue({
+      minClient: '0.26.0-next',
+      schema: 4,
+      status: 'ok',
+      version: '0.14.0-next.3',
+    });
     const { controller, effects } = updateFixture();
     controller.controllerChanged();
     renderFooter(controller);
@@ -108,7 +143,12 @@ describe('versionFooter (MMR-260)', () => {
   });
 
   it('disables the mismatch action while an update is applying', async () => {
-    fetchHealth.mockResolvedValue({ schema: 4, status: 'ok', version: '0.14.0-next.3' });
+    fetchHealth.mockResolvedValue({
+      minClient: '0.26.0-next',
+      schema: 4,
+      status: 'ok',
+      version: '0.14.0-next.3',
+    });
     const { controller } = updateFixture();
     controller.workerWaiting();
     await controller.refreshNow();

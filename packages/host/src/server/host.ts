@@ -3,15 +3,17 @@ import { access, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { buildStore, findingsProviderOf, LocalEngine, MimirError, SQLITE_FILE } from '@mimir/core';
-import { createEngineHandler } from '@mimir/wire/server';
+import { assertHostVersion, createEngineHandler } from '@mimir/wire/server';
 
 import type { HostConfig } from './config';
 
 /** Open the host-owned store and finish migrations before exposing handlers. */
 export async function openHost(
   config: HostConfig,
+  version: string,
   log: (line: string) => void = (line) => console.error(line),
 ) {
+  assertHostVersion(version);
   if (config.store.backend === 'sqlite') {
     try {
       await mkdir(config.dataDirectory, { recursive: true });
@@ -46,7 +48,7 @@ export async function openHost(
       // The record-health facet: a host concern, not an Engine method (ADR 0034).
       doctor: built.doctor.facet,
       engine,
-      handleTrpc: createEngineHandler(engine),
+      handleTrpc: createEngineHandler(engine, { version }),
     };
   } catch (error) {
     if (error instanceof MimirError && error.hint?.includes('newer schema')) {

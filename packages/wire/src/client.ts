@@ -14,6 +14,10 @@ import type { EngineRouter } from './server';
 
 type RemoteEngineOptions = {
   url: string;
+  version: string;
+  headers?:
+    | Record<string, string>
+    | (() => Record<string, string> | Promise<Record<string, string>>);
   fetch?: Parameters<typeof httpLink<EngineRouter>>[0]['fetch'];
 };
 
@@ -54,8 +58,21 @@ export class RemoteEngine extends UniformEngineBase implements Engine {
 
   constructor(options: RemoteEngineOptions) {
     super();
+    const { headers, version, ...linkOptions } = options;
     this.client = createTRPCClient<EngineRouter>({
-      links: [httpLink({ ...options, transformer: superjson })],
+      links: [
+        httpLink({
+          ...linkOptions,
+          headers: async () => {
+            const requestHeaders = new Headers(
+              typeof headers === 'function' ? await headers() : headers,
+            );
+            requestHeaders.set('x-mimir-version', version);
+            return Object.fromEntries(requestHeaders);
+          },
+          transformer: superjson,
+        }),
+      ],
     });
     this.console = consoleBindings(this.client);
   }

@@ -92,6 +92,14 @@ or a new output field. `RemoteEngine` does not parse Engine outputs, so an
 older client ignores a field it does not know. MCP needs no rule of its own: an
 older CLI exposes its own, smaller tool set.
 
+The upper bound compares major and minor versions only, and prereleases are no
+exception. The `MIN_CLIENT` floor is a full SemVer comparison. A host at `0.26.0-next.47` admits a client at `0.26.0-next.48`, even
+though the newer client may send a field the host refuses as a plain
+validation error, without the update-the-host remedy. Prereleases are
+development builds, and the host-first update order already covers them.
+Untagged development builds all report the same `-next` version, so a stricter
+prerelease order could not tell them apart.
+
 Until the CLI's direct-Postgres mode retires, a CLI that opens a shared
 Postgres store directly keeps ADR 0030's exact schema gate. Direct database
 access has no contract that a window could hold compatible.

@@ -74,13 +74,14 @@ beforeAll(async () => {
   await completeTask(store, settled.id);
   ids = { initiative: initiative.id, phase: phase.id, submitted: submitted.id };
   local = new LocalEngine(store, { findings: findingsProviderOf(doctor) });
-  const handle = createEngineHandler(local);
+  const handle = createEngineHandler(local, { version: '0.26.0' });
   remote = new RemoteEngine({
     fetch: async (input, init) => {
       const response = await handle(new Request(input, init));
       return { json: () => response.json(), ok: response.ok };
     },
     url: 'http://engine.test/trpc',
+    version: '0.26.0',
   });
 });
 

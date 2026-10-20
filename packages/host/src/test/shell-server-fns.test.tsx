@@ -29,7 +29,12 @@ vi.mock('../api/fns/views');
  * the chrome around them is under test.
  */
 vi.mock('../api/health', () => ({
-  fetchHealth: async () => ({ schema: 1, status: 'ok', version: 'host-build' }),
+  fetchHealth: async () => ({
+    minClient: '0.26.0-next',
+    schema: 1,
+    status: 'ok',
+    version: 'host-build',
+  }),
 }));
 
 beforeEach(() => {
