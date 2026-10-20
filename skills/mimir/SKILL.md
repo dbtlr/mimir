@@ -1,6 +1,6 @@
 ---
 name: mimir
-description: Drives Mimir, the work-state store for tasks, their hierarchy, statuses, artifacts, and scratchpads, through the `mimir` CLI. Use at the start of every session in a repo with a `.mimir.toml`, when a request names a Mimir task id such as `MMR-12`, and when the user asks to track work, check the task queue, set up a project, or keep a scratchpad.
+description: Drives Mimir, the work-state store for tasks, their hierarchy, statuses, artifacts, and scratchpads, through the `mimir` CLI. Use at the start of every session in a repo where `mimir bind` prints a project key, when a request names a Mimir task id such as `MMR-12`, and when the user asks to track work, check the task queue, set up a project, or keep a scratchpad.
 ---
 
 # Mimir
@@ -19,10 +19,12 @@ orient before other work, quick questions included:
 
 1. Run `command -v mimir`. If it is missing, Mimir is not installed. Mention
    that only when the user wants work tracking (`references/setup.md`).
-2. Look for `.mimir.toml` in this directory or an ancestor. It binds the repo
-   to its project and sets the default scope.
-   - **Unbound:** this repo is not tracked. Carry on with the user's request
-     without Mimir, and set it up only when the user asks (`references/setup.md`).
+2. Run `mimir bind`. It prints the project this clone is bound to, which is
+   the default scope. A clone with no binding binds itself when its `origin`
+   matches exactly one project's remote.
+   - **Unbound** (`mimir bind` exits non-zero): this repo is not tracked.
+     Carry on with the user's request without Mimir, and set it up only when
+     the user asks (`references/setup.md`).
    - **Bound:** orient from `mimir overview`. It shows the project rollup,
      direction, in-flight work, active Scratchpads, the ready queue, recent
      sessions, and hygiene (`references/querying.md`). If the session's
