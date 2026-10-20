@@ -2,7 +2,7 @@ import type { EngineTree } from '@mimir/contract';
 import { QueryClient } from '@tanstack/react-query';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, onTestFinished, vi } from 'vitest';
 
 import { consoleOpenTasks, seedPromote } from '../api/fns/browse';
 import { depend } from '../api/fns/nodes';
@@ -253,10 +253,12 @@ describe('authoringSheet', () => {
       event.preventDefault();
     };
     globalThis.addEventListener('click', cancelNavigation);
+    onTestFinished(() => {
+      globalThis.removeEventListener('click', cancelNavigation);
+    });
     await user.keyboard('{Meta>}');
     await user.click(openIt);
     await user.keyboard('{/Meta}');
-    globalThis.removeEventListener('click', cancelNavigation);
     expect(leftToBrowser).toBe(true);
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Retry deps ↵' })).toBeDefined();

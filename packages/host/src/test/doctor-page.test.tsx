@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { doctor } from '../api/fns/browse';
 import type { RecordHealth } from '../api/fns/browse';
-import { doctorRoute } from '../router';
+import { consoleRoutes } from '../router';
 import { serveBrowse } from './browse-fns';
 import { renderRoute } from './router';
 import { serveViews } from './views-fns';
@@ -60,7 +60,7 @@ function damagedFacet(): RecordHealth {
 describe('doctorPage record-health panel (MMR-185)', () => {
   it('renders a finding with its cause, row locator, and evidence', async () => {
     serveDoctor(damagedFacet());
-    await renderRoute([doctorRoute], '/doctor?project=MMR');
+    await renderRoute(consoleRoutes, '/doctor?project=MMR');
 
     await expect(screen.findByText('Record health')).resolves.toBeDefined();
     expect(doctor).toHaveBeenCalledWith({ data: { project: 'MMR' } });
@@ -92,7 +92,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
     serveDoctor(damagedFacet());
-    await renderRoute([doctorRoute], '/doctor?project=MMR');
+    await renderRoute(consoleRoutes, '/doctor?project=MMR');
 
     await userEvent.click(await screen.findByRole('button', { name: 'Copy location' }));
     expect(writeText).toHaveBeenCalledWith('node/MMR-97');
@@ -106,7 +106,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
     const writeText = vi.fn().mockRejectedValue(new Error('denied'));
     Object.assign(navigator, { clipboard: { writeText } });
     serveDoctor(damagedFacet());
-    await renderRoute([doctorRoute], '/doctor?project=MMR');
+    await renderRoute(consoleRoutes, '/doctor?project=MMR');
 
     await userEvent.click(await screen.findByRole('button', { name: 'Copy location' }));
     await waitFor(() => {
@@ -118,7 +118,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
   it('copy location toasts an error when the clipboard API is absent (insecure context)', async () => {
     Object.assign(navigator, { clipboard: undefined });
     serveDoctor(damagedFacet());
-    await renderRoute([doctorRoute], '/doctor?project=MMR');
+    await renderRoute(consoleRoutes, '/doctor?project=MMR');
 
     await userEvent.click(await screen.findByRole('button', { name: 'Copy location' }));
     await waitFor(() => {
@@ -156,7 +156,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
     };
     serveDoctor(twin);
     const consoleError = vi.spyOn(console, 'error');
-    await renderRoute([doctorRoute], '/doctor?project=MMR');
+    await renderRoute(consoleRoutes, '/doctor?project=MMR');
 
     await expect(screen.findAllByText('dangling dependency')).resolves.toHaveLength(2);
     expect(
@@ -172,7 +172,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
       scanned_at: new Date().toISOString(),
       scope: null,
     });
-    await renderRoute([doctorRoute], '/doctor');
+    await renderRoute(consoleRoutes, '/doctor');
 
     await expect(screen.findByText('No findings')).resolves.toBeDefined();
     expect(doctor).toHaveBeenCalledWith({ data: {} });
@@ -190,7 +190,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
       scanned_at: new Date().toISOString(),
       scope: { key: 'MMR', matched_records: 4 },
     });
-    await renderRoute([doctorRoute], '/doctor?project=MMR');
+    await renderRoute(consoleRoutes, '/doctor?project=MMR');
 
     await expect(screen.findByText('No findings')).resolves.toBeDefined();
     expect(screen.getByText(/Every record is consistent in MMR\./)).toBeDefined();
@@ -204,7 +204,7 @@ describe('doctorPage record-health panel (MMR-185)', () => {
       scanned_at: new Date().toISOString(),
       scope: { key: 'ZZZ', matched_records: 0 },
     });
-    await renderRoute([doctorRoute], '/doctor?project=ZZZ');
+    await renderRoute(consoleRoutes, '/doctor?project=ZZZ');
 
     await expect(screen.findByText('No project ZZZ')).resolves.toBeDefined();
     expect(screen.queryByText('No findings')).toBeNull();

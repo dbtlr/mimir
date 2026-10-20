@@ -53,7 +53,7 @@ const client = () =>
   new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } });
 
 describe('the review and work pages on server functions (MMR-538)', () => {
-  it('reads the review page and its rail', async () => {
+  it('reads the review page', async () => {
     await renderRoute([reviewRoute], '/', client());
 
     await expect(

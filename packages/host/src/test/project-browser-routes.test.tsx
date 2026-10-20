@@ -9,18 +9,7 @@ import { artifacts, list, seeds } from '../api/fns/browse';
 import { projects } from '../api/fns/shell';
 import { SeedCaptureProvider } from '../components/seed-capture';
 import { readRememberedProject, rememberProject } from '../lib/current-project';
-import {
-  artifactsRoute,
-  legacyArtifactsRoute,
-  legacySeedsRoute,
-  legacyTasksRoute,
-  nodeRoute,
-  projectRoute,
-  reviewRoute,
-  routeTree,
-  seedsRoute,
-  tasksRoute,
-} from '../router';
+import { consoleRoutes, routeTree } from '../router';
 import { taskSet } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
@@ -63,23 +52,11 @@ function serve(active: EngineNode[]) {
   });
 }
 
-const routes = [
-  artifactsRoute,
-  legacyArtifactsRoute,
-  legacySeedsRoute,
-  legacyTasksRoute,
-  nodeRoute,
-  projectRoute,
-  reviewRoute,
-  seedsRoute,
-  tasksRoute,
-];
-
 const quietClient = () =>
   new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } });
 
 const renderAt = (initial: string) =>
-  renderRoute(routes, initial, quietClient(), SeedCaptureProvider);
+  renderRoute(consoleRoutes, initial, quietClient(), SeedCaptureProvider);
 
 function renderInShell(initial: string) {
   render(

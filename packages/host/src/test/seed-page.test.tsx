@@ -8,7 +8,7 @@ import type { EngineSeed } from '../api/browse-queries';
 import { ApiError } from '../api/errors';
 import { consoleUpstreamTasks, seedUpdate } from '../api/fns/browse';
 import { getNode } from '../api/fns/nodes';
-import { notFoundRoute, seedRoute } from '../router';
+import { consoleRoutes } from '../router';
 import { seedIn } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject } from './engine-fixtures';
@@ -64,8 +64,6 @@ function serve(
   serveNodes({ nodes });
 }
 
-const routes = [notFoundRoute, seedRoute];
-
 const quietClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
 beforeEach(() => {
@@ -76,7 +74,7 @@ beforeEach(() => {
 describe('seed page (MMR-451)', () => {
   it('opens a seed at /p/KEY/sN with its id, kind, lane, title, and body', async () => {
     serve(crossBoardBug);
-    await renderRoute(routes, '/p/NRN/s30', quietClient());
+    await renderRoute(consoleRoutes, '/p/NRN/s30', quietClient());
 
     await expect(
       screen.findByRole('heading', { level: 1, name: crossBoardBug.title }),
@@ -89,7 +87,7 @@ describe('seed page (MMR-451)', () => {
 
   it('reads as a request: the requesting board asks the owning board', async () => {
     serve(crossBoardBug);
-    await renderRoute(routes, '/p/NRN/s30', quietClient());
+    await renderRoute(consoleRoutes, '/p/NRN/s30', quietClient());
 
     const card = await screen.findByRole('group', { name: 'Request' });
     await waitFor(() => expect(card).toHaveTextContent(/Mimir\s*MMR\s*asks\s*Norn\s*NRN/));
@@ -97,7 +95,7 @@ describe('seed page (MMR-451)', () => {
 
   it('a seed filed on its own board is your request', async () => {
     serve(seedIn('untriaged', { id: 'MMR-s7', requester: null, title: 'Own idea' }));
-    await renderRoute(routes, '/p/MMR/s7', quietClient());
+    await renderRoute(consoleRoutes, '/p/MMR/s7', quietClient());
 
     const card = await screen.findByRole('group', { name: 'Request' });
     await waitFor(() => expect(card).toHaveTextContent(/You\s*ask\s*Mimir\s*MMR/));
@@ -105,7 +103,7 @@ describe('seed page (MMR-451)', () => {
 
   it('moves a lowercase key to its canonical spelling', async () => {
     serve(crossBoardBug);
-    const { router: testRouter } = await renderRoute(routes, '/p/nrn/s30', quietClient());
+    const { router: testRouter } = await renderRoute(consoleRoutes, '/p/nrn/s30', quietClient());
 
     await screen.findByRole('heading', { level: 1, name: crossBoardBug.title });
     expect(testRouter.state.location.pathname).toBe('/p/NRN/s30');
@@ -113,14 +111,14 @@ describe('seed page (MMR-451)', () => {
 
   it('moves an uppercase S to the canonical seed path', async () => {
     serve(crossBoardBug);
-    const { router: upper } = await renderRoute(routes, '/p/NRN/S30', quietClient());
+    const { router: upper } = await renderRoute(consoleRoutes, '/p/NRN/S30', quietClient());
     await screen.findByRole('heading', { level: 1, name: crossBoardBug.title });
     expect(upper.state.location.pathname).toBe('/p/NRN/s30');
   });
 
   it('moves a zero-padded seed number to its canonical path', async () => {
     serve(crossBoardBug);
-    const { router: padded } = await renderRoute(routes, '/p/NRN/s030', quietClient());
+    const { router: padded } = await renderRoute(consoleRoutes, '/p/NRN/s030', quietClient());
     await screen.findByRole('heading', { level: 1, name: crossBoardBug.title });
     expect(padded.state.location.pathname).toBe('/p/NRN/s30');
   });
@@ -128,7 +126,7 @@ describe('seed page (MMR-451)', () => {
   it('strips the padding as text, keeping every digit of a long seed number', async () => {
     serve(crossBoardBug);
     const { router: long } = await renderRoute(
-      routes,
+      consoleRoutes,
       '/p/NRN/s0123456789012345678901',
       quietClient(),
     );
@@ -137,7 +135,7 @@ describe('seed page (MMR-451)', () => {
 
   it('redirects a bare seed id to its page', async () => {
     serve(crossBoardBug);
-    const { router: testRouter } = await renderRoute(routes, '/nrn-s30', quietClient());
+    const { router: testRouter } = await renderRoute(consoleRoutes, '/nrn-s30', quietClient());
 
     await screen.findByRole('heading', { level: 1, name: crossBoardBug.title });
     expect(testRouter.state.location.pathname).toBe('/p/NRN/s30');
@@ -145,7 +143,7 @@ describe('seed page (MMR-451)', () => {
 
   it('owns the not-found state when no seed has the id', async () => {
     serve(crossBoardBug);
-    await renderRoute(routes, '/p/NRN/s99', quietClient());
+    await renderRoute(consoleRoutes, '/p/NRN/s99', quietClient());
 
     await expect(screen.findByText('No record NRN-s99.')).resolves.toBeInTheDocument();
   });
@@ -153,7 +151,7 @@ describe('seed page (MMR-451)', () => {
   describe('what came of it', () => {
     it('says so when nothing was promoted and nothing waits on the seed', async () => {
       serve(crossBoardBug);
-      await renderRoute(routes, '/p/NRN/s30', quietClient());
+      await renderRoute(consoleRoutes, '/p/NRN/s30', quietClient());
 
       await expect(
         screen.findByText(
@@ -165,7 +163,7 @@ describe('seed page (MMR-451)', () => {
     it('does not claim nothing waits on the seed when the upstream read fails', async () => {
       serve(crossBoardBug);
       vi.mocked(consoleUpstreamTasks).mockRejectedValue(new ApiError('unreachable', 500));
-      await renderRoute(routes, '/p/NRN/s30', quietClient());
+      await renderRoute(consoleRoutes, '/p/NRN/s30', quietClient());
 
       await expect(
         screen.findByText('Couldn’t check which tasks wait on this seed.'),
@@ -175,7 +173,7 @@ describe('seed page (MMR-451)', () => {
 
     it('links each spawned task to its page with its state', async () => {
       serve(readyToResolve, { nodes: [abandoned] });
-      await renderRoute(routes, '/p/MMR/s23', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/s23', quietClient());
 
       const outcome = await screen.findByRole('region', { name: 'What came of it' });
       const link = await within(outcome).findByRole('link', { name: /Shape the session skill/ });
@@ -186,7 +184,7 @@ describe('seed page (MMR-451)', () => {
     it('lists tasks on any board that name the seed as upstream', async () => {
       const waiting = engineTask({ id: 'MMR-378', status: 'blocked', title: 'Chunk the export' });
       serve(crossBoardBug, { upstream: [waiting] });
-      await renderRoute(routes, '/p/NRN/s30', quietClient());
+      await renderRoute(consoleRoutes, '/p/NRN/s30', quietClient());
 
       const outcome = await screen.findByRole('region', { name: 'What came of it' });
       const link = await within(outcome).findByRole('link', { name: /Chunk the export/ });
@@ -202,7 +200,7 @@ describe('seed page (MMR-451)', () => {
         title: 'Worked around it',
       });
       serve(crossBoardBug, { upstream: [finished] });
-      await renderRoute(routes, '/p/NRN/s30', quietClient());
+      await renderRoute(consoleRoutes, '/p/NRN/s30', quietClient());
 
       const outcome = await screen.findByRole('region', { name: 'What came of it' });
       await within(outcome).findByRole('link', { name: /Worked around it/ });
@@ -214,7 +212,7 @@ describe('seed page (MMR-451)', () => {
   describe('your call', () => {
     it('offers triage on an untriaged seed, naming the owning board', async () => {
       serve(crossBoardBug);
-      await renderRoute(routes, '/p/NRN/s30', quietClient());
+      await renderRoute(consoleRoutes, '/p/NRN/s30', quietClient());
 
       const decision = await screen.findByRole('region', { name: 'Your call' });
       await waitFor(() => expect(decision).toHaveTextContent('work on the Norn board'));
@@ -226,7 +224,7 @@ describe('seed page (MMR-451)', () => {
 
     it('names a parked seed and offers to unpark it (MMR-473)', async () => {
       serve({ ...crossBoardBug, lifecycle: 'parked' });
-      await renderRoute(routes, '/p/NRN/s30', quietClient());
+      await renderRoute(consoleRoutes, '/p/NRN/s30', quietClient());
 
       const decision = await screen.findByRole('region', { name: 'Your call' });
       await waitFor(() => expect(decision).toHaveTextContent('set aside'));
@@ -238,7 +236,7 @@ describe('seed page (MMR-451)', () => {
 
     it('offers resolve on a seed whose only task settled, and says how it ended', async () => {
       serve(readyToResolve, { nodes: [abandoned] });
-      await renderRoute(routes, '/p/MMR/s23', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/s23', quietClient());
 
       const decision = await screen.findByRole('region', { name: 'Your call' });
       await waitFor(() =>
@@ -254,7 +252,7 @@ describe('seed page (MMR-451)', () => {
 
     it('offers another promotion while the seed’s work is under way', async () => {
       serve(seedIn('promoted', { id: 'MMR-s8', spawned: [] }));
-      await renderRoute(routes, '/p/MMR/s8', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/s8', quietClient());
 
       const decision = await screen.findByRole('region', { name: 'Your call' });
       const labels = within(decision)
@@ -265,7 +263,7 @@ describe('seed page (MMR-451)', () => {
 
     it('asks nothing of a settled seed', async () => {
       serve(seedIn('settled', { id: 'MMR-s9', title: 'Done seed' }));
-      await renderRoute(routes, '/p/MMR/s9', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/s9', quietClient());
 
       await screen.findByRole('heading', { level: 1, name: 'Done seed' });
       expect(screen.getByText('Resolved')).toBeInTheDocument();
@@ -276,7 +274,7 @@ describe('seed page (MMR-451)', () => {
   describe('actions', () => {
     it('edits the title, kind, and description of a live seed', async () => {
       serve(crossBoardBug);
-      await renderRoute(routes, '/p/NRN/s30', quietClient());
+      await renderRoute(consoleRoutes, '/p/NRN/s30', quietClient());
 
       const rail = await screen.findByRole('complementary', { name: 'Record details' });
       await userEvent.click(within(rail).getByRole('button', { name: 'Edit' }));
@@ -299,7 +297,7 @@ describe('seed page (MMR-451)', () => {
     it('sends only what changed, so an over-cap older title never blocks an edit', async () => {
       const longTitle = 'x'.repeat(150);
       serve({ ...crossBoardBug, title: longTitle });
-      await renderRoute(routes, '/p/NRN/s30', quietClient());
+      await renderRoute(consoleRoutes, '/p/NRN/s30', quietClient());
 
       const rail = await screen.findByRole('complementary', { name: 'Record details' });
       await userEvent.click(within(rail).getByRole('button', { name: 'Edit' }));
@@ -313,7 +311,7 @@ describe('seed page (MMR-451)', () => {
 
     it('closes an edit that changed nothing without a write', async () => {
       serve(crossBoardBug);
-      await renderRoute(routes, '/p/NRN/s30', quietClient());
+      await renderRoute(consoleRoutes, '/p/NRN/s30', quietClient());
 
       const rail = await screen.findByRole('complementary', { name: 'Record details' });
       await userEvent.click(within(rail).getByRole('button', { name: 'Edit' }));
@@ -327,7 +325,7 @@ describe('seed page (MMR-451)', () => {
 
     it('offers no edit once the seed is settled', async () => {
       serve(seedIn('settled', { id: 'MMR-s9', lifecycle: 'rejected', title: 'Gone' }));
-      await renderRoute(routes, '/p/MMR/s9', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/s9', quietClient());
 
       const rail = await screen.findByRole('complementary', { name: 'Record details' });
       await within(rail).findByText('Copy link');
@@ -338,7 +336,7 @@ describe('seed page (MMR-451)', () => {
       const writeText = vi.fn().mockResolvedValue(undefined);
       Object.assign(navigator, { clipboard: { writeText } });
       serve(crossBoardBug);
-      await renderRoute(routes, '/p/NRN/s30', quietClient());
+      await renderRoute(consoleRoutes, '/p/NRN/s30', quietClient());
 
       const rail = await screen.findByRole('complementary', { name: 'Record details' });
       await userEvent.click(within(rail).getByRole('button', { name: 'Copy link' }));

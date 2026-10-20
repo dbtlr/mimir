@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, vi } from 'vitest';
 
 import { getNode } from '../api/fns/nodes';
 import { updateProject } from '../api/fns/shell';
-import { nodeRoute, projectRoute } from '../router';
+import { consoleRoutes } from '../router';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
 import { serveNodes } from './node-fns';
@@ -22,8 +22,6 @@ beforeEach(() => {
   serveViews();
 });
 
-const routes = [nodeRoute, projectRoute];
-
 const quietClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
 describe('project page archived-404 (MMR-230)', () => {
@@ -32,7 +30,7 @@ describe('project page archived-404 (MMR-230)', () => {
     // portfolio reads (shell strips, picker) stay healthy.
     serveShell({ projects: [engineProject({ id: 'MMR', title: 'Mimir' })] });
     serveNodes({ nodes: [engineProject({ id: 'MMR', title: 'Mimir' })] });
-    await renderRoute(routes, '/p/SR', quietClient());
+    await renderRoute(consoleRoutes, '/p/SR', quietClient());
 
     await expect(screen.findByText(/archived or no longer exists/i)).resolves.toBeDefined();
     // The server answered — the surface must not read as offline.
@@ -44,7 +42,7 @@ describe('project page archived-404 (MMR-230)', () => {
     failShellReads(new TypeError('fetch failed'));
     serveNodes();
     vi.mocked(getNode).mockRejectedValue(new TypeError('fetch failed'));
-    await renderRoute(routes, '/p/SR', quietClient());
+    await renderRoute(consoleRoutes, '/p/SR', quietClient());
 
     await expect(screen.findByText(/offline — last synced/i)).resolves.toBeDefined();
     expect(screen.queryByText(/archived or no longer exists/i)).toBeNull();
@@ -90,7 +88,7 @@ function serveProject() {
 describe('project page (MMR-450, MMR-470)', () => {
   it('opens the project itself at /p/KEY as its work page: title, then direction in full', async () => {
     serveProject();
-    await renderRoute(routes, '/p/MMR', quietClient());
+    await renderRoute(consoleRoutes, '/p/MMR', quietClient());
 
     await expect(screen.findByRole('heading', { level: 1, name: 'Mimir' })).resolves.toBeDefined();
     await expect(screen.findByRole('region', { name: 'Now' })).resolves.toBeDefined();
@@ -103,7 +101,7 @@ describe('project page (MMR-450, MMR-470)', () => {
 
   it('offers no board view, and its rail has no structure or other views (MMR-487, MMR-496)', async () => {
     serveProject();
-    await renderRoute(routes, '/p/MMR', quietClient());
+    await renderRoute(consoleRoutes, '/p/MMR', quietClient());
 
     const rail = await screen.findByRole('complementary', { name: 'Record details' });
     expect(
@@ -118,14 +116,14 @@ describe('project page (MMR-450, MMR-470)', () => {
 
   it('an old /board link reads as no record rather than a board (MMR-487)', async () => {
     serveProject();
-    await renderRoute(routes, '/p/MMR/board', quietClient());
+    await renderRoute(consoleRoutes, '/p/MMR/board', quietClient());
 
     await expect(screen.findByText('No record at /p/MMR/board.')).resolves.toBeDefined();
   });
 
   it('keeps New task and Project settings in the page head', async () => {
     serveProject();
-    await renderRoute(routes, '/p/MMR', quietClient());
+    await renderRoute(consoleRoutes, '/p/MMR', quietClient());
 
     await screen.findByRole('heading', { level: 1, name: 'Mimir' });
     expect(screen.getByRole('button', { name: 'Project settings' })).toBeDefined();
@@ -135,7 +133,7 @@ describe('project page (MMR-450, MMR-470)', () => {
 
   it("rewrites the direction from the phone's Direction sheet", async () => {
     serveProject();
-    await renderRoute(routes, '/p/MMR', quietClient());
+    await renderRoute(consoleRoutes, '/p/MMR', quietClient());
     const chips = await screen.findByRole('group', { name: 'Record details' });
 
     fireEvent.click(within(chips).getByRole('button', { name: 'Direction' }));
@@ -147,7 +145,7 @@ describe('project page (MMR-450, MMR-470)', () => {
   it('keeps the phone sheet open under the editor when a save fails, and the draft with it', async () => {
     serveProject();
     vi.mocked(updateProject).mockRejectedValue(new Error('write refused'));
-    await renderRoute(routes, '/p/MMR', quietClient());
+    await renderRoute(consoleRoutes, '/p/MMR', quietClient());
     const chips = await screen.findByRole('group', { name: 'Record details' });
 
     fireEvent.click(within(chips).getByRole('button', { name: 'Direction' }));
@@ -172,7 +170,7 @@ describe('project page (MMR-450, MMR-470)', () => {
     ['/p/mmr/417?tab=timeline', '/p/MMR/417', '?tab=timeline'],
   ])('moves %s to its canonical spelling', async (url, pathname, search) => {
     serveProject();
-    const { router: testRouter } = await renderRoute(routes, url, quietClient());
+    const { router: testRouter } = await renderRoute(consoleRoutes, url, quietClient());
 
     await waitFor(() => {
       expect(testRouter.state.location.pathname).toBe(pathname);

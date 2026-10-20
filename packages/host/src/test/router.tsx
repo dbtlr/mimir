@@ -55,8 +55,10 @@ export async function renderInRouter(ui: ReactElement, client = new QueryClient(
  * `renderRoute([tasksRoute], '/p/MMR/tasks?status=ready')`. A link to a route
  * left out of the list changes `router.state.location` and renders the
  * not-found fallback, which suits tests that only check where a click goes.
- * Pass `wrapper` to supply a context the shell normally provides, such as
- * `SeedCaptureProvider` for the seeds page. Tests of the shell itself keep
+ * Pass `Wrapper` to supply a context the shell normally provides, such as
+ * `SeedCaptureProvider` for the seeds page. A test that claims something about
+ * route matching (a canonical spelling, a redirect, which route a path reaches)
+ * passes `consoleRoutes`, the real table. Tests of the shell itself keep
  * mounting `routeTree`.
  */
 export async function renderRoute(

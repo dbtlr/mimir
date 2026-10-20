@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ArtifactRecord } from '../api/browse-queries';
 import { getArtifact } from '../api/fns/browse';
 import { tree } from '../api/fns/shell';
-import { artifactRoute, notFoundRoute } from '../router';
+import { consoleRoutes } from '../router';
 import { engineArtifactRecord } from './browse-fixtures';
 import { serveBrowse } from './browse-fns';
 import { engineProject, engineTree } from './engine-fixtures';
@@ -103,8 +103,6 @@ function serve(record: ArtifactRecord, nodes: EngineNode[] = []) {
   serveNodes({ nodes });
 }
 
-const routes = [artifactRoute, notFoundRoute];
-
 const quietClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
 const path = () => screen.findByRole('navigation', { name: 'Path' });
@@ -118,7 +116,7 @@ beforeEach(() => {
 describe('artifact page (MMR-452)', () => {
   it('opens an artifact at /p/KEY/aN with its id, kind, title, lede, and frozen body', async () => {
     serve(spec, [hostTask]);
-    await renderRoute(routes, '/p/MMR/a232', quietClient());
+    await renderRoute(consoleRoutes, '/p/MMR/a232', quietClient());
 
     await expect(
       screen.findByRole('heading', { level: 1, name: spec.title }),
@@ -134,7 +132,7 @@ describe('artifact page (MMR-452)', () => {
   describe('attached to one record', () => {
     it('runs the path through that record', async () => {
       serve(spec, [hostTask]);
-      await renderRoute(routes, '/p/MMR/a232', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/a232', quietClient());
 
       const nav = await path();
       await waitFor(() =>
@@ -149,7 +147,7 @@ describe('artifact page (MMR-452)', () => {
 
     it('shows the record in a card above the body, linked to its page with how it stands', async () => {
       serve(spec, [hostTask]);
-      await renderRoute(routes, '/p/MMR/a232', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/a232', quietClient());
 
       const card = await screen.findByRole('group', { name: 'Attached to' });
       const link = within(card).getByRole('link', { name: /MMR-432/ });
@@ -160,7 +158,7 @@ describe('artifact page (MMR-452)', () => {
 
     it("lists the record's artifacts in the rail, this one marked as current", async () => {
       serve(spec, [hostTask]);
-      await renderRoute(routes, '/p/MMR/a232', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/a232', quietClient());
 
       const aside = await rail();
       await within(aside).findByText("MMR-432's artifacts · 2");
@@ -175,7 +173,7 @@ describe('artifact page (MMR-452)', () => {
     it('runs the path through the record even when the tree cannot be read', async () => {
       serve(spec, [hostTask]);
       vi.mocked(tree).mockRejectedValue(new Error('tree unreachable'));
-      await renderRoute(routes, '/p/MMR/a232', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/a232', quietClient());
 
       const nav = await path();
       await waitFor(() =>
@@ -196,7 +194,7 @@ describe('artifact page (MMR-452)', () => {
         updatedAt: new Date('2026-06-01T10:00:00.000Z'),
       });
       serve({ ...spec, links: ['MMR-437'] }, [phase]);
-      await renderRoute(routes, '/p/MMR/a232', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/a232', quietClient());
 
       const card = await screen.findByRole('group', { name: 'Attached to' });
       await within(card).findByText('Console phase 1, as loaded');
@@ -207,7 +205,7 @@ describe('artifact page (MMR-452)', () => {
   describe('attached to several records', () => {
     it('runs the path to the nearest container holding them all', async () => {
       serve(picks);
-      await renderRoute(routes, '/p/MMR/a239', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/a239', quietClient());
 
       const nav = await path();
       await waitFor(() =>
@@ -222,7 +220,7 @@ describe('artifact page (MMR-452)', () => {
 
     it('lists every record it is attached to, each linked with its state', async () => {
       serve(picks);
-      await renderRoute(routes, '/p/MMR/a239', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/a239', quietClient());
 
       const card = await screen.findByRole('group', { name: 'Attached to · 3' });
       const links = within(card).getAllByRole('link');
@@ -245,7 +243,7 @@ describe('artifact page (MMR-452)', () => {
         },
       });
       serve({ ...picks, links: ['MMR-10', 'MMR-9'] });
-      await renderRoute(routes, '/p/MMR/a239', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/a239', quietClient());
 
       const card = await screen.findByRole('group', { name: 'Attached to · 2' });
       expect(
@@ -258,7 +256,7 @@ describe('artifact page (MMR-452)', () => {
     it('folds past five records, and unfolds and refolds on request', async () => {
       const many = Array.from({ length: 7 }, (_, i) => `MMR-${String(i + 1)}`);
       serve({ ...picks, links: many });
-      await renderRoute(routes, '/p/MMR/a239', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/a239', quietClient());
 
       const card = await screen.findByRole('group', { name: 'Attached to · 7' });
       expect(within(card).getAllByRole('link')).toHaveLength(5);
@@ -270,7 +268,7 @@ describe('artifact page (MMR-452)', () => {
 
     it("lists no single record's artifacts", async () => {
       serve(picks);
-      await renderRoute(routes, '/p/MMR/a239', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/a239', quietClient());
 
       const aside = await rail();
       await within(aside).findByText('Copy link');
@@ -281,7 +279,7 @@ describe('artifact page (MMR-452)', () => {
   describe('attached to no record', () => {
     it('falls back to provenance: the path is the project, and the rail links it', async () => {
       serve(loose);
-      await renderRoute(routes, '/p/MMR/a9', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/a9', quietClient());
 
       const nav = await path();
       await waitFor(() =>
@@ -306,7 +304,7 @@ describe('artifact page (MMR-452)', () => {
       const writeText = vi.fn().mockResolvedValue(undefined);
       Object.assign(navigator, { clipboard: { writeText } });
       serve(spec, [hostTask]);
-      await renderRoute(routes, '/p/MMR/a232', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/a232', quietClient());
 
       const aside = await rail();
       await userEvent.click(within(aside).getByRole('button', { name: 'Copy link' }));
@@ -315,7 +313,7 @@ describe('artifact page (MMR-452)', () => {
 
     it('downloads the frozen body as markdown named for the artifact', async () => {
       serve(spec, [hostTask]);
-      await renderRoute(routes, '/p/MMR/a232', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/a232', quietClient());
 
       const aside = await rail();
       const download = await within(aside).findByRole('link', { name: 'Download .md' });
@@ -330,7 +328,7 @@ describe('artifact page (MMR-452)', () => {
   describe('addressing', () => {
     it('redirects a bare artifact id to its page', async () => {
       serve(spec, [hostTask]);
-      const { router: testRouter } = await renderRoute(routes, '/mmr-a232', quietClient());
+      const { router: testRouter } = await renderRoute(consoleRoutes, '/mmr-a232', quietClient());
 
       await screen.findByRole('heading', { level: 1, name: spec.title });
       expect(testRouter.state.location.pathname).toBe('/p/MMR/a232');
@@ -338,7 +336,11 @@ describe('artifact page (MMR-452)', () => {
 
     it('moves any other spelling to the canonical path', async () => {
       serve(spec, [hostTask]);
-      const { router: testRouter } = await renderRoute(routes, '/p/mmr/A0232', quietClient());
+      const { router: testRouter } = await renderRoute(
+        consoleRoutes,
+        '/p/mmr/A0232',
+        quietClient(),
+      );
 
       await screen.findByRole('heading', { level: 1, name: spec.title });
       expect(testRouter.state.location.pathname).toBe('/p/MMR/a232');
@@ -346,7 +348,7 @@ describe('artifact page (MMR-452)', () => {
 
     it('shows not-found for a key off the grammar rather than redirecting', async () => {
       serve(spec);
-      const { router: testRouter } = await renderRoute(routes, '/p/MM-X/a1', quietClient());
+      const { router: testRouter } = await renderRoute(consoleRoutes, '/p/MM-X/a1', quietClient());
 
       await expect(screen.findByText('No record at /p/MM-X/a1.')).resolves.toBeInTheDocument();
       expect(testRouter.state.location.pathname).toBe('/p/MM-X/a1');
@@ -354,14 +356,14 @@ describe('artifact page (MMR-452)', () => {
 
     it('owns the not-found state when no artifact has the id', async () => {
       serve(spec);
-      await renderRoute(routes, '/p/MMR/a999', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/a999', quietClient());
 
       await expect(screen.findByText('No record MMR-a999.')).resolves.toBeInTheDocument();
     });
 
     it('shows not-found without a lookup for a suffix off the grammar', async () => {
       serve(spec);
-      await renderRoute(routes, '/p/MMR/a2x', quietClient());
+      await renderRoute(consoleRoutes, '/p/MMR/a2x', quietClient());
 
       await expect(screen.findByText('No record at /p/MMR/a2x.')).resolves.toBeInTheDocument();
       expect(getArtifact).not.toHaveBeenCalled();
