@@ -49,9 +49,9 @@ const absolute = (filename: string): string =>
  * messages still come from the repository config) and without type
  * information, then group the diagnostics by file. The rule reads import
  * specifiers alone, and the type program it would otherwise build can take
- * seconds on a cold CI runner. The JSON format reads the same on a terminal, under CI, and under
- * GitHub Actions, where the default format turns graphical or into
- * annotations that drop the rule's custom help.
+ * seconds on a cold CI runner. The JSON format reads the same on a terminal,
+ * under CI, and under GitHub Actions, where the default format turns
+ * graphical or into annotations that drop the rule's custom help.
  */
 function lint(paths: readonly string[]): Map<string, string> {
   const args = ['x', 'vp', 'lint', '--format', 'json', '-A', 'all', '-D', 'no-restricted-imports'];
@@ -105,7 +105,7 @@ test('a command module that imports the test-support helpers is refused', () => 
   expect(of(PROBES.testing.path)).toContain('only tests import packages/cli/src/testing');
 });
 
-test('the lint run skips type information, so it stays fast on a cold runner', () => {
+test('the lint run reports no type errors, so it runs without type information', () => {
   expect(of(PROBES.typed.path)).toBe('');
 });
 
