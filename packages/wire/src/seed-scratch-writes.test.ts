@@ -11,7 +11,7 @@ import {
   fileSeed,
   LocalEngine,
 } from '@mimir/core';
-import { createTestStore, errorOf } from '@mimir/core/testing';
+import { createTestStore, errorOf, pairTestDevice } from '@mimir/core/testing';
 import type { TestStore } from '@mimir/core/testing';
 
 import { RemoteEngine } from './client';
@@ -41,11 +41,7 @@ let ids: { archivedPad: string; initiative: string; pad: string; seed: string; t
 
 beforeEach(async () => {
   fixture = await createTestStore();
-  const credential = await fixture.tokens.redeem(await fixture.tokens.issueCode('wire-fixture'));
-  if (credential === null) {
-    throw new Error('fixture pairing failed');
-  }
-  authorization = `Bearer ${credential.token}`;
+  authorization = `Bearer ${await pairTestDevice(fixture.tokens, 'wire-fixture')}`;
   const { store } = fixture;
   await createProject(store, { key: 'ENG', name: 'Engine' });
   await createProject(store, { key: 'OTH', name: 'Other' });

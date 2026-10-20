@@ -18,7 +18,7 @@ import {
   submitTask,
 } from '@mimir/core';
 import type { DoctorFacet } from '@mimir/core';
-import { createTestStore, errorOf } from '@mimir/core/testing';
+import { createTestStore, errorOf, pairTestDevice } from '@mimir/core/testing';
 import type { TestStore } from '@mimir/core/testing';
 import { RemoteEngine } from '@mimir/wire/client';
 import { createEngineHandler } from '@mimir/wire/server';
@@ -42,11 +42,7 @@ const doctor = async (): Promise<DoctorFacet> => ({
 
 beforeAll(async () => {
   fixture = await createTestStore();
-  const credential = await fixture.tokens.redeem(await fixture.tokens.issueCode('wire-fixture'));
-  if (credential === null) {
-    throw new Error('fixture pairing failed');
-  }
-  authorization = `Bearer ${credential.token}`;
+  authorization = `Bearer ${await pairTestDevice(fixture.tokens, 'wire-fixture')}`;
   const { store } = fixture;
   await createProject(store, { key: 'ENG', name: 'Engine' });
   await createProject(store, { key: 'OTH', name: 'Other' });

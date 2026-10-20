@@ -1,26 +1,33 @@
+import { normalizeDeviceName } from '@mimir/core';
 import type { BuiltStore } from '@mimir/core';
 
 const WINDOW_MS = 10 * 60 * 1000;
-const FAILURE_LIMIT = 5;
+const REQUEST_LIMIT = 10;
 
-/** Redeem host credentials outside the Engine and its version/bearer checks. */
-export function createPairingHandler({
+const noStore = { 'cache-control': 'no-store' };
+
+/**
+ * The pairing host routes, outside the Engine and its version/bearer checks:
+ * a client files a request, the operator approves its code on the host, and
+ * the client polls with its secret until it collects the device token.
+ */
+export function createPairingHandlers({
   tokens,
   log = (line) => console.error(line),
   clock = Date.now,
 }: Pick<BuiltStore, 'tokens'> & { log?: (line: string) => void; clock?: () => number }) {
-  let failures: number[] = [];
-  let pending = Promise.resolve();
+  let admitted: number[] = [];
+  // Host-wide, in memory: client addresses are not trustworthy behind Caddy and the tailnet.
   const limited = () => {
     const at = clock();
-    failures = failures.filter((time) => time > at - WINDOW_MS);
-    const oldest = failures[0];
-    return failures.length >= FAILURE_LIMIT && oldest !== undefined
+    admitted = admitted.filter((time) => time > at - WINDOW_MS);
+    const oldest = admitted[0];
+    return admitted.length >= REQUEST_LIMIT && oldest !== undefined
       ? Response.json(
-          { error: 'too many pairing attempts' },
+          { error: 'too many pairing requests' },
           {
             headers: {
-              'cache-control': 'no-store',
+              ...noStore,
               'retry-after': String(Math.ceil((oldest + WINDOW_MS - at) / 1000)),
             },
             status: 429,
@@ -28,54 +35,80 @@ export function createPairingHandler({
         )
       : null;
   };
-  return async (request: Request) => {
-    const refusal = limited();
-    if (refusal) {
-      return refusal;
-    }
-    const input: unknown = await request.json().catch(() => null);
-    // Serialize the limit check with redemption so concurrent failures cannot admit a sixth try.
-    // oxlint-disable-next-line promise/prefer-await-to-then -- Queue this redemption behind the prior result.
-    const result = pending.then(async () => {
+  const event = (name: string, fields: Record<string, string> = {}) =>
+    log(JSON.stringify({ event: name, ...fields, time: new Date(clock()).toISOString() }));
+  // Driver errors may embed credential input; log only the fault event and time.
+  const fault = (name: string) => {
+    event(name);
+    return Response.json(
+      { error: 'the request did not complete' },
+      { headers: noStore, status: 500 },
+    );
+  };
+  return {
+    poll: async (request: Request) => {
+      const secret = stringField(await request.json().catch(() => null), 'poll_secret');
+      if (secret === null) {
+        return Response.json({ error: 'invalid pairing poll' }, { headers: noStore, status: 400 });
+      }
+      try {
+        const answer = await tokens.poll(secret);
+        if (answer.status === 'approved') {
+          event('pairing_completed', { device: answer.device });
+        }
+        return Response.json(answer, { headers: noStore });
+      } catch {
+        return fault('pairing_poll_fault');
+      }
+    },
+    request: async (request: Request) => {
+      const refusal = limited();
+      if (refusal) {
+        return refusal;
+      }
+      const name = stringField(await request.json().catch(() => null), 'device');
+      const device = name === null ? null : normalizeDeviceName(name);
+      if (device === null) {
+        return Response.json(
+          { error: 'invalid pairing request' },
+          { headers: noStore, status: 400 },
+        );
+      }
+      // Recheck and reserve synchronously, so concurrent creations cannot pass the limit.
       const blocked = limited();
       if (blocked) {
         return blocked;
       }
-      let credential: Awaited<ReturnType<typeof tokens.redeem>>;
+      const at = clock();
+      admitted.push(at);
       try {
-        credential =
-          typeof input === 'object' &&
-          input !== null &&
-          'code' in input &&
-          typeof input.code === 'string'
-            ? await tokens.redeem(input.code)
-            : null;
+        const created = await tokens.request(device);
+        event('pairing_requested', { device });
+        return Response.json(created, { headers: noStore });
       } catch {
-        // Driver errors may embed credential input; log only the fault event and time.
-        log(
-          JSON.stringify({ event: 'pairing_redeem_fault', time: new Date(clock()).toISOString() }),
-        );
-        return Response.json(
-          { error: 'the request did not complete' },
-          { headers: { 'cache-control': 'no-store' }, status: 500 },
-        );
+        // A store fault created nothing, so it releases its reservation.
+        const reservation = admitted.indexOf(at);
+        if (reservation !== -1) {
+          admitted.splice(reservation, 1);
+        }
+        return fault('pairing_request_fault');
       }
-      if (credential === null) {
-        const at = clock();
-        failures.push(at);
-        log(JSON.stringify({ event: 'pairing_redeem_failed', time: new Date(at).toISOString() }));
-        return Response.json(
-          { error: 'invalid pairing code' },
-          { headers: { 'cache-control': 'no-store' }, status: 400 },
-        );
-      }
-      return Response.json(credential, { headers: { 'cache-control': 'no-store' } });
-    });
-    // oxlint-disable-next-line promise/prefer-await-to-then -- Release the queue after success or failure.
-    pending = result.then(
-      () => undefined,
-      () => undefined,
-    );
-    return result;
+    },
   };
+}
+
+function stringField(input: unknown, key: string): string | null {
+  if (typeof input !== 'object' || input === null || !(key in input)) {
+    return null;
+  }
+  const value: unknown = Reflect.get(input, key);
+  return typeof value === 'string' ? value : null;
+}
+
+/** Pairing routes accept only POST. */
+export function postOnly() {
+  return Response.json(
+    { error: 'method not allowed' },
+    { headers: { ...noStore, allow: 'POST' }, status: 405 },
+  );
 }

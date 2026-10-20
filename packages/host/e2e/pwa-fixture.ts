@@ -10,9 +10,9 @@ import { fileURLToPath } from 'node:url';
 
 import type { EngineInput } from '@mimir/contract';
 import { RemoteEngine } from '@mimir/wire/client';
-import { z } from 'zod';
 
 import { assertPrecache } from '../scripts/assert-precache';
+import { pairFixtureDevice } from '../scripts/pairing-client';
 
 const HOST_ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -193,38 +193,26 @@ export class PwaFixture {
     });
     this.hostOrigin = `http://127.0.0.1:${String(port)}`;
     await this.waitForHost();
-    const code = await new Promise<string>((resolve, reject) => {
-      const child = spawn(
-        'bun',
-        [resolvePath(HOST_ROOT, 'scripts/pairing-fixture.ts'), 'PWA fixture'],
-        { env, stdio: ['ignore', 'pipe', 'inherit'] },
-      );
-      let output = '';
-      child.stdout.setEncoding('utf8');
-      child.stdout.on('data', (chunk: string) => {
-        output += chunk;
-      });
-      child.once('error', reject);
-      child.once('exit', (exit) => {
-        if (exit === 0) {
-          resolve(output.trim());
-        } else {
-          reject(new Error(`PWA fixture pairing exited ${String(exit)}`));
-        }
-      });
-    });
-    const redeem = await fetch(`${this.hostOrigin}/auth/pairing/redeem`, {
-      body: JSON.stringify({ code }),
-      headers: { 'content-type': 'application/json' },
-      method: 'POST',
-    });
-    if (!redeem.ok) {
-      throw new Error(`PWA fixture pairing was refused (${redeem.status})`);
-    }
-    const paired = z
-      .object({ device: z.literal('PWA fixture'), token: z.string() })
-      .parse(await redeem.json());
-    this.token = paired.token;
+    // The fixture approves as the operator would, through a script over the host's store.
+    this.token = await pairFixtureDevice(
+      this.hostOrigin,
+      'PWA fixture',
+      (code) =>
+        new Promise<void>((resolve, reject) => {
+          const child = spawn('bun', [resolvePath(HOST_ROOT, 'scripts/pairing-fixture.ts'), code], {
+            env,
+            stdio: ['ignore', 'ignore', 'inherit'],
+          });
+          child.once('error', reject);
+          child.once('exit', (exit) => {
+            if (exit === 0) {
+              resolve();
+            } else {
+              reject(new Error(`PWA fixture pairing approval exited ${String(exit)}`));
+            }
+          });
+        }),
+    );
     await this.create({ ...FIXTURE_PROJECT, type: 'project' });
   }
 

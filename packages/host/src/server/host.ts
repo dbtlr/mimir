@@ -6,7 +6,7 @@ import { buildStore, findingsProviderOf, LocalEngine, MimirError, SQLITE_FILE } 
 import { assertHostVersion, createEngineHandler } from '@mimir/wire/server';
 
 import type { HostConfig } from './config';
-import { createPairingHandler } from './pairing';
+import { createPairingHandlers } from './pairing';
 
 /** Open the host-owned store and finish migrations before exposing handlers. */
 export async function openHost(
@@ -44,12 +44,14 @@ export async function openHost(
     const engine = new LocalEngine(built.store, {
       findings: findingsProviderOf(built.doctor.facet),
     });
+    const pairing = createPairingHandlers({ log, tokens: built.tokens });
     return {
       close: built.close,
       // The record-health facet: a host concern, not an Engine method (ADR 0034).
       doctor: built.doctor.facet,
       engine,
-      handleRedeem: createPairingHandler({ log, tokens: built.tokens }),
+      handlePairingPoll: pairing.poll,
+      handlePairingRequest: pairing.request,
       handleTrpc: createEngineHandler(engine, { verifyToken: built.tokens.verify, version }),
       tokens: built.tokens,
     };

@@ -9,7 +9,15 @@ import { createPgliteTestStore } from './store-postgres/testing';
 import { sqliteDialect } from './store-sqlite/dialect';
 import { createSqliteTestStore } from './store-sqlite/testing';
 import { refusalOf } from './testing/conformance';
-import { createTokenStore, normalizePairingCode } from './tokens';
+import { pairTestDevice } from './testing/store';
+import {
+  createTokenStore,
+  formatPairingCode,
+  normalizeDeviceName,
+  normalizePairingCode,
+} from './tokens';
+
+const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
 
 describe.each([
   { dialect: sqliteDialect, name: 'SQLite', open: createSqliteTestStore },
@@ -35,51 +43,197 @@ describe.each([
       advance: (ms: number) => {
         time = new Date(time.getTime() + ms);
       },
+      requests: () => handle.db.selectFrom('pairing_requests').selectAll().execute(),
       tokens,
     };
   }
 
-  test('replaces a pending code and consumes the replacement once', async () => {
-    const { db, tokens } = await fixture();
-    const oldCode = await tokens.issueCode('laptop');
-    const code = await tokens.issueCode('laptop');
-    expect(await tokens.redeem(oldCode)).toBeNull();
-    const redeemed = await tokens.redeem(`${code.slice(0, 4)}-${code.slice(4)}`.toLowerCase());
-    expect(redeemed?.device).toBe('laptop');
-    expect(redeemed?.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    expect(await tokens.redeem(code)).toBeNull();
-    expect(await db.selectFrom('pairing_codes').selectAll().execute()).toEqual([]);
+  test('a request answers a formatted code, a poll secret, its expiry and interval, hashed at rest', async () => {
+    const { requests, tokens } = await fixture();
+    const request = await tokens.request('laptop');
+    expect(request).toEqual({
+      expires_at: '2026-10-20T12:10:00.000Z',
+      interval: 2,
+      poll_secret: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+      user_code: expect.stringMatching(/^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/),
+    });
+    const rows = await requests();
+    expect(rows).toEqual([
+      {
+        approved_at: null,
+        created_at: '2026-10-20T12:00:00.000Z',
+        denied_at: null,
+        device: 'laptop',
+        expires_at: '2026-10-20T12:10:00.000Z',
+        id: expect.any(String),
+        poll_secret_hash: sha256(request.poll_secret),
+        user_code_hash: sha256(request.user_code.replace('-', '')),
+      },
+    ]);
+    const stored = JSON.stringify(rows);
+    expect(stored).not.toContain(request.poll_secret);
+    expect(stored).not.toContain(request.user_code.replace('-', ''));
+  });
+
+  test('a request stays pending until approved, and the first approved poll mints the token once', async () => {
+    const { db, requests, tokens } = await fixture();
+    const request = await tokens.request('laptop');
+    expect(await tokens.poll(request.poll_secret)).toEqual({ status: 'pending' });
+    const code = request.user_code.toLowerCase().replace('-', '');
+    expect(await tokens.approve(code)).toEqual({ device: 'laptop', rotates: false });
+    expect(await tokens.approve(request.user_code)).toBeNull();
+    expect(await tokens.deny(request.user_code)).toBeNull();
+    const approved = await tokens.poll(request.poll_secret);
+    expect(approved).toEqual({
+      device: 'laptop',
+      status: 'approved',
+      token: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+    });
+    expect(await tokens.poll(request.poll_secret)).toEqual({ status: 'expired' });
+    expect(await requests()).toEqual([]);
     const row = await db.selectFrom('device_tokens').selectAll().executeTakeFirstOrThrow();
-    expect(row.token_hash).toBe(
-      createHash('sha256')
-        .update(redeemed?.token ?? '')
-        .digest('hex'),
-    );
+    expect(row.token_hash).toBe(sha256(approved.status === 'approved' ? approved.token : ''));
     expect(row.user).toBe('owner');
     expect(row.last_used_at).toBeNull();
     expect(row.revoked_at).toBeNull();
+    expect(await tokens.list({ all: true })).toHaveLength(1);
   });
 
-  test('expiry refuses a code at the ten-minute boundary without rotating a token', async () => {
-    const { tokens, advance } = await fixture();
-    const first = await tokens.redeem(await tokens.issueCode('laptop'));
-    const code = await tokens.issueCode('laptop');
+  test('a denied request answers denied once, then expired, and never mints', async () => {
+    const { requests, tokens } = await fixture();
+    const request = await tokens.request('laptop');
+    expect(await tokens.deny(request.user_code)).toEqual({ device: 'laptop' });
+    expect(await tokens.deny(request.user_code)).toBeNull();
+    expect(await tokens.approve(request.user_code)).toBeNull();
+    expect(await tokens.poll(request.poll_secret)).toEqual({ status: 'denied' });
+    expect(await tokens.poll(request.poll_secret)).toEqual({ status: 'expired' });
+    expect(await requests()).toEqual([]);
+    expect(await tokens.list({ all: true })).toEqual([]);
+  });
+
+  test('unknown poll secrets and codes match nothing', async () => {
+    const { tokens } = await fixture();
+    await tokens.request('laptop');
+    expect(await tokens.poll('unknown')).toEqual({ status: 'expired' });
+    expect(await tokens.approve('ZZZZ-ZZZZ')).toBeNull();
+    expect(await tokens.approve('not a code')).toBeNull();
+    expect(await tokens.deny('not a code')).toBeNull();
+  });
+
+  test('a request expires at ten minutes, even after approval, and later requests purge it', async () => {
+    const { advance, requests, tokens } = await fixture();
+    const undecided = await tokens.request('undecided');
+    const approved = await tokens.request('approved');
+    const denied = await tokens.request('denied');
+    advance(10 * 60 * 1000 - 1);
+    expect(await tokens.approve(approved.user_code)).toEqual({
+      device: 'approved',
+      rotates: false,
+    });
+    expect(await tokens.deny(denied.user_code)).toEqual({ device: 'denied' });
+    advance(1);
+    expect(await tokens.approve(undecided.user_code)).toBeNull();
+    expect(await tokens.deny(undecided.user_code)).toBeNull();
+    expect(await tokens.listPending()).toEqual([]);
+    for (const request of [undecided, approved, denied]) {
+      expect(await tokens.poll(request.poll_secret)).toEqual({ status: 'expired' });
+    }
+    expect(await tokens.list({ all: true })).toEqual([]);
+    await tokens.request('stale');
     advance(10 * 60 * 1000);
-    expect(await tokens.redeem(code)).toBeNull();
-    expect(await tokens.redeem('unknown!')).toBeNull();
-    expect(await tokens.verify(first?.token ?? '')).toBe('laptop');
+    await tokens.request('fresh');
+    expect((await requests()).map((row) => row.device)).toEqual(['fresh']);
+  });
+
+  test('approving a device with an active token reports rotation; the old token stops at mint', async () => {
+    const { advance, tokens } = await fixture();
+    const first = await pairTestDevice(tokens, 'laptop');
+    advance(1000);
+    const request = await tokens.request('laptop');
+    expect(await tokens.approve(request.user_code)).toEqual({ device: 'laptop', rotates: true });
+    expect(await tokens.verify(first)).toBe('laptop');
+    const second = await tokens.poll(request.poll_secret);
+    expect(second.status).toBe('approved');
+    expect(await tokens.verify(first)).toBeNull();
+    expect(await tokens.verify(second.status === 'approved' ? second.token : '')).toBe('laptop');
+    expect((await tokens.list({ all: true })).map((row) => row.revoked_at)).toEqual([
+      '2026-10-20T12:00:01.000Z',
+      null,
+    ]);
+  });
+
+  test('a new request for a device replaces its earlier request', async () => {
+    const { requests, tokens } = await fixture();
+    const earlier = await tokens.request('laptop');
+    await tokens.approve(earlier.user_code);
+    const later = await tokens.request('laptop');
+    expect(await tokens.poll(earlier.poll_secret)).toEqual({ status: 'expired' });
+    expect(await tokens.approve(earlier.user_code)).toBeNull();
+    expect(await requests()).toHaveLength(1);
+    expect(await tokens.approve(later.user_code)).toEqual({ device: 'laptop', rotates: false });
+    expect((await tokens.poll(later.poll_secret)).status).toBe('approved');
+  });
+
+  test('pending listings show live undecided requests without codes or secrets', async () => {
+    const { advance, tokens } = await fixture();
+    await tokens.request('workstation');
+    advance(1000);
+    await tokens.request('laptop');
+    const approved = await tokens.request('approved');
+    const denied = await tokens.request('denied');
+    await tokens.approve(approved.user_code);
+    await tokens.deny(denied.user_code);
+    expect(await tokens.listPending()).toEqual([
+      {
+        created_at: '2026-10-20T12:00:00.000Z',
+        device: 'workstation',
+        expires_at: '2026-10-20T12:10:00.000Z',
+      },
+      {
+        created_at: '2026-10-20T12:00:01.000Z',
+        device: 'laptop',
+        expires_at: '2026-10-20T12:10:01.000Z',
+      },
+    ]);
+  });
+
+  test('requests normalize the device name and refuse an unusable one', async () => {
+    const { requests, tokens } = await fixture();
+    await tokens.request('  laptop  ');
+    expect((await requests()).map((row) => row.device)).toEqual(['laptop']);
+    for (const device of ['', '   ', 'tab\there', 'x'.repeat(129)]) {
+      expect(await refusalOf(tokens.request(device))).toContain('device name');
+    }
+  });
+
+  test('approval accepts Crockford confusables and refuses other syntax', async () => {
+    const { db, tokens } = await fixture();
+    await db
+      .insertInto('pairing_requests')
+      .values({
+        approved_at: null,
+        created_at: '2026-10-20T12:00:00.000Z',
+        denied_at: null,
+        device: 'confusable',
+        expires_at: '2026-10-20T12:10:00.000Z',
+        id: 'confusable',
+        poll_secret_hash: sha256('secret'),
+        user_code_hash: sha256('0101ABCD'),
+      })
+      .execute();
+    expect(await tokens.approve('oIoL-abcd ')).toBeNull();
+    expect(await tokens.approve('oIoL-abcd')).toEqual({ device: 'confusable', rotates: false });
   });
 
   test('verifies, rotates and revokes tokens while retaining history without hashes in listings', async () => {
     const { tokens, advance } = await fixture();
-    const first = await tokens.redeem(await tokens.issueCode('laptop'));
-    expect(first).not.toBeNull();
-    expect(await tokens.verify(first?.token ?? '')).toBe('laptop');
+    const first = await pairTestDevice(tokens, 'laptop');
+    expect(await tokens.verify(first)).toBe('laptop');
     expect(await tokens.verify('unknown')).toBeNull();
     advance(1000);
-    const second = await tokens.redeem(await tokens.issueCode('laptop'));
-    expect(await tokens.verify(first?.token ?? '')).toBeNull();
-    expect(await tokens.verify(second?.token ?? '')).toBe('laptop');
+    const second = await pairTestDevice(tokens, 'laptop');
+    expect(await tokens.verify(first)).toBeNull();
+    expect(await tokens.verify(second)).toBe('laptop');
     expect(await tokens.list()).toEqual([
       {
         created_at: '2026-10-20T12:00:01.000Z',
@@ -93,7 +247,7 @@ describe.each([
     expect(await tokens.list({ all: true })).toHaveLength(2);
     await tokens.revoke('laptop');
     await tokens.revoke('missing');
-    expect(await tokens.verify(second?.token ?? '')).toBeNull();
+    expect(await tokens.verify(second)).toBeNull();
     expect(await tokens.list()).toEqual([]);
     expect((await tokens.list({ all: true })).map((row) => row.revoked_at)).toEqual([
       '2026-10-20T12:00:01.000Z',
@@ -103,8 +257,7 @@ describe.each([
 
   test('updates last_used only after more than five minutes, starting with first use', async () => {
     const { tokens, advance } = await fixture();
-    const redeemed = await tokens.redeem(await tokens.issueCode('laptop'));
-    const token = redeemed?.token ?? '';
+    const token = await pairTestDevice(tokens, 'laptop');
     expect((await tokens.list()).at(0)?.last_used_at).toBeNull();
     expect(await tokens.verify(token)).toBe('laptop');
     advance(5 * 60 * 1000);
@@ -118,8 +271,7 @@ describe.each([
   test('throttles parseable clocks at exactly five minutes and updates one millisecond later', async () => {
     let instant = '2026-10-20T12:00:00Z';
     const { tokens } = await fixture(() => instant);
-    const paired = await tokens.redeem(await tokens.issueCode('laptop'));
-    const token = paired?.token ?? '';
+    const token = await pairTestDevice(tokens, 'laptop');
     expect(await tokens.verify(token)).toBe('laptop');
     const firstUse = (await tokens.list()).at(0)?.last_used_at;
     instant = '2026-10-20T12:05:00Z';
@@ -133,32 +285,38 @@ describe.each([
   test('compares previously persisted noncanonical usage timestamps by instant', async () => {
     let instant = '2026-10-20T12:00:00.000Z';
     const { db, tokens } = await fixture(() => instant);
-    const paired = await tokens.redeem(await tokens.issueCode('laptop'));
+    const token = await pairTestDevice(tokens, 'laptop');
     // A token written by the original injectable-clock implementation.
     await db.updateTable('device_tokens').set({ last_used_at: '2026-10-20T12:00:00Z' }).execute();
     instant = '2026-10-20T12:05:00Z';
-    expect(await tokens.verify(paired?.token ?? '')).toBe('laptop');
+    expect(await tokens.verify(token)).toBe('laptop');
     expect((await tokens.list()).at(0)?.last_used_at).toBe('2026-10-20T12:00:00Z');
     instant = '2026-10-20T12:05:00.001Z';
-    expect(await tokens.verify(paired?.token ?? '')).toBe('laptop');
+    expect(await tokens.verify(token)).toBe('laptop');
     expect((await tokens.list()).at(0)?.last_used_at).toBe('2026-10-20T12:05:00.001Z');
   });
 
   test('persists canonical instants for parseable clocks throughout the credential lifecycle', async () => {
     let instant = '2026-10-20T12:00:00+00:00';
-    const { db, tokens } = await fixture(() => instant);
-    const code = await tokens.issueCode('laptop');
-    const pending = await db.selectFrom('pairing_codes').selectAll().executeTakeFirstOrThrow();
-    expect(pending.created_at).toBe('2026-10-20T12:00:00.000Z');
-    expect(pending.expires_at).toBe('2026-10-20T12:10:00.000Z');
-    const first = await tokens.redeem(code);
-    expect(await tokens.verify(first?.token ?? '')).toBe('laptop');
+    const { requests, tokens } = await fixture(() => instant);
+    const request = await tokens.request('laptop');
+    expect(request.expires_at).toBe('2026-10-20T12:10:00.000Z');
+    expect(await requests()).toMatchObject([
+      { created_at: '2026-10-20T12:00:00.000Z', expires_at: '2026-10-20T12:10:00.000Z' },
+    ]);
+    await tokens.approve(request.user_code);
+    expect((await requests()).at(0)?.approved_at).toBe('2026-10-20T12:00:00.000Z');
+    const first = await tokens.poll(request.poll_secret);
+    expect(await tokens.verify(first.status === 'approved' ? first.token : '')).toBe('laptop');
     expect((await tokens.list()).at(0)).toMatchObject({
       created_at: '2026-10-20T12:00:00.000Z',
       last_used_at: '2026-10-20T12:00:00.000Z',
     });
     instant = '2026-10-20T08:00:01-04:00';
-    await tokens.redeem(await tokens.issueCode('laptop'));
+    const denied = await tokens.request('denied');
+    await tokens.deny(denied.user_code);
+    expect((await requests()).at(0)?.denied_at).toBe('2026-10-20T12:00:01.000Z');
+    await pairTestDevice(tokens, 'laptop');
     expect((await tokens.list({ all: true })).at(0)?.revoked_at).toBe('2026-10-20T12:00:01.000Z');
     expect((await tokens.list()).at(0)?.created_at).toBe('2026-10-20T12:00:01.000Z');
     instant = '2026-10-20T12:00:02Z';
@@ -169,42 +327,44 @@ describe.each([
   test.each([
     {
       accepted: true,
-      issued: '2026-10-20T12:00:00.500Z',
       label: '500ms before expiry, no milliseconds',
-      redeemed: '2026-10-20T12:10:00Z',
+      requested: '2026-10-20T12:00:00.500Z',
+      settled: '2026-10-20T12:10:00Z',
     },
     {
       accepted: false,
-      issued: '2026-10-20T12:00:00Z',
       label: 'exact expiry, no milliseconds',
-      redeemed: '2026-10-20T12:10:00Z',
+      requested: '2026-10-20T12:00:00Z',
+      settled: '2026-10-20T12:10:00Z',
     },
     {
       accepted: false,
-      issued: '2026-10-20T12:00:00+00:00',
       label: 'exact expiry, UTC offset without milliseconds',
-      redeemed: '2026-10-20T12:10:00+00:00',
+      requested: '2026-10-20T12:00:00+00:00',
+      settled: '2026-10-20T12:10:00+00:00',
     },
     {
       accepted: false,
-      issued: '2026-10-20T12:00:00Z',
       label: 'one millisecond after expiry',
-      redeemed: '2026-10-20T12:10:00.001Z',
+      requested: '2026-10-20T12:00:00Z',
+      settled: '2026-10-20T12:10:00.001Z',
     },
-  ])('compares pairing expiry by instant: $label', async ({ accepted, issued, redeemed }) => {
-    let instant: string = issued;
+  ])('compares pairing expiry by instant: $label', async ({ accepted, requested, settled }) => {
+    let instant: string = requested;
     const { tokens } = await fixture(() => instant);
-    const code = await tokens.issueCode('laptop');
-    instant = redeemed;
-    const result = await tokens.redeem(code);
-    expect(result?.device ?? null).toBe(accepted ? 'laptop' : null);
+    const request = await tokens.request('laptop');
+    instant = settled;
+    expect((await tokens.approve(request.user_code))?.device ?? null).toBe(
+      accepted ? 'laptop' : null,
+    );
+    expect((await tokens.poll(request.poll_secret)).status).toBe(accepted ? 'approved' : 'expired');
   });
 
   test('exports work state without credentials and imports without replacing local credentials', async () => {
     const source = await fixture();
     await createProject(source.store, { key: 'DEMO', name: 'Demo' });
-    const sourceToken = await source.tokens.redeem(await source.tokens.issueCode('source'));
-    await source.tokens.issueCode('pending-source');
+    const sourceToken = await pairTestDevice(source.tokens, 'source');
+    await source.tokens.request('pending-source');
     const document = await source.store.export();
     expect(Object.keys(document).toSorted()).toEqual([
       'annotations',
@@ -221,45 +381,33 @@ describe.each([
       'transitions',
     ]);
     const target = await fixture();
-    const targetToken = await target.tokens.redeem(await target.tokens.issueCode('local'));
-    const pending = await target.tokens.issueCode('pending-local');
+    const targetToken = await pairTestDevice(target.tokens, 'local');
+    const pending = await target.tokens.request('pending-local');
     const before = await target.tokens.list({ all: true });
     const enriched = {
       ...document,
       device_tokens: await source.db.selectFrom('device_tokens').selectAll().execute(),
-      pairing_codes: await source.db.selectFrom('pairing_codes').selectAll().execute(),
+      pairing_requests: await source.requests(),
     };
     await target.store.import(enriched, { dryRun: true, mode: 'fresh' });
     await target.store.import(enriched, { dryRun: false, mode: 'fresh' });
     await target.store.import(enriched, { dryRun: false, mode: 'resume' });
     expect(await target.tokens.list({ all: true })).toEqual(before);
-    expect(await target.tokens.verify(sourceToken?.token ?? '')).toBeNull();
-    expect(await target.tokens.verify(targetToken?.token ?? '')).toBe('local');
-    expect((await target.tokens.redeem(pending))?.device).toBe('pending-local');
+    expect(await target.tokens.verify(sourceToken)).toBeNull();
+    expect(await target.tokens.verify(targetToken)).toBe('local');
+    expect(await target.tokens.approve(pending.user_code)).toMatchObject({
+      device: 'pending-local',
+    });
     expect((await target.store.export()).projects).toEqual(document.projects);
     const fresh = await fixture();
     await fresh.store.import(document, { dryRun: false, mode: 'fresh' });
     expect(await fresh.tokens.list({ all: true })).toEqual([]);
-    expect(await fresh.db.selectFrom('pairing_codes').selectAll().execute()).toEqual([]);
-  });
-
-  test('accepts Crockford confusables when redeeming and refuses other syntax', async () => {
-    const { db, tokens } = await fixture();
-    await db
-      .insertInto('pairing_codes')
-      .values({
-        code_hash: createHash('sha256').update('0101ABCD').digest('hex'),
-        created_at: '2026-10-20T12:00:00.000Z',
-        device: 'confusable',
-        expires_at: '2026-10-20T12:10:00.000Z',
-      })
-      .execute();
-    expect((await tokens.redeem('oIoL-abcd'))?.device).toBe('confusable');
+    expect(await fresh.requests()).toEqual([]);
   });
 
   test('enforces one active token per device and unique hashes even for revoked tokens', async () => {
     const { db, tokens } = await fixture();
-    await tokens.redeem(await tokens.issueCode('laptop'));
+    await pairTestDevice(tokens, 'laptop');
     const row = await db.selectFrom('device_tokens').selectAll().executeTakeFirstOrThrow();
     expect(
       await refusalOf(
@@ -285,10 +433,11 @@ describe.each([
     expect(await tokens.list()).toHaveLength(1);
   });
 
-  test('rolls back code consumption and prior revocation if the new token cannot be stored', async () => {
+  test('rolls back request consumption and prior revocation if the new token cannot be stored', async () => {
     const { db, tokens } = await fixture();
-    const prior = await tokens.redeem(await tokens.issueCode('laptop'));
-    const code = await tokens.issueCode('laptop');
+    const prior = await pairTestDevice(tokens, 'laptop');
+    const request = await tokens.request('laptop');
+    await tokens.approve(request.user_code);
     const rejectInsert =
       name === 'SQLite'
         ? `CREATE TRIGGER reject_token BEFORE INSERT ON device_tokens BEGIN SELECT RAISE(ABORT, 'injected token storage failure'); END`
@@ -301,20 +450,22 @@ describe.each([
         )
         .execute(db);
     }
-    expect(await refusalOf(tokens.redeem(code))).toContain('injected token storage failure');
-    expect(await tokens.verify(prior?.token ?? '')).toBe('laptop');
+    expect(await refusalOf(tokens.poll(request.poll_secret))).toContain(
+      'injected token storage failure',
+    );
+    expect(await tokens.verify(prior)).toBe('laptop');
     if (name === 'SQLite') {
       await sql.raw('DROP TRIGGER reject_token').execute(db);
     } else {
       await sql.raw('DROP TRIGGER reject_token ON device_tokens').execute(db);
     }
-    expect((await tokens.redeem(code))?.device).toBe('laptop');
-    expect(await tokens.verify(prior?.token ?? '')).toBeNull();
+    expect((await tokens.poll(request.poll_secret)).status).toBe('approved');
+    expect(await tokens.verify(prior)).toBeNull();
   });
 
   test('refuses a token revoked between the first read and the usage write transaction', async () => {
     const { db, tokens } = await fixture();
-    const redeemed = await tokens.redeem(await tokens.issueCode('laptop'));
+    const token = await pairTestDevice(tokens, 'laptop');
     const raced = createTokenStore({
       db,
       dialect: {
@@ -325,22 +476,8 @@ describe.each([
         },
       },
     });
-    expect(await raced.verify(redeemed?.token ?? '')).toBeNull();
+    expect(await raced.verify(token)).toBeNull();
     expect((await tokens.list({ all: true })).at(0)?.last_used_at).toBeNull();
-  });
-
-  test('issues eight Crockford characters, hashed at rest, with a ten-minute TTL', async () => {
-    const { db, tokens } = await fixture();
-    const code = await tokens.issueCode('laptop');
-    expect(code).toMatch(/^[0-9A-HJKMNP-TV-Z]{8}$/);
-    expect(await db.selectFrom('pairing_codes').selectAll().execute()).toEqual([
-      {
-        code_hash: createHash('sha256').update(code).digest('hex'),
-        created_at: '2026-10-20T12:00:00.000Z',
-        device: 'laptop',
-        expires_at: '2026-10-20T12:10:00.000Z',
-      },
-    ]);
   });
 });
 
@@ -359,5 +496,19 @@ test('normalizes only the eight-character code with an optional middle hyphen', 
     'ABﬀDEFG',
   ]) {
     expect(normalizePairingCode(input)).toBeNull();
+  }
+});
+
+test('formats a normalized code for display with a middle hyphen', () => {
+  expect(formatPairingCode('0111ABCD')).toBe('0111-ABCD');
+  expect(normalizePairingCode(formatPairingCode('0111ABCD'))).toBe('0111ABCD');
+});
+
+test('normalizes a device name by trimming it and refuses empty, control, or overlong names', () => {
+  expect(normalizeDeviceName('  Drews-MacBook-Pro.local ')).toBe('Drews-MacBook-Pro.local');
+  expect(normalizeDeviceName('laptop (work)')).toBe('laptop (work)');
+  expect(normalizeDeviceName('x'.repeat(128))).toBe('x'.repeat(128));
+  for (const input of ['', '  ', 'line\nbreak', 'nul\u0000', 'del\u007F', 'x'.repeat(129)]) {
+    expect(normalizeDeviceName(input)).toBeNull();
   }
 });

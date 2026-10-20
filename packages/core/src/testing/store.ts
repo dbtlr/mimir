@@ -41,6 +41,19 @@ export async function createTestStore(): Promise<TestStore> {
   };
 }
 
+/** Pair a device through request, approval, and poll, and answer its device token. */
+export async function pairTestDevice(tokens: TokenStore, device: string): Promise<string> {
+  const request = await tokens.request(device);
+  if ((await tokens.approve(request.user_code)) === null) {
+    throw new Error('fixture pairing approval matched no request');
+  }
+  const answer = await tokens.poll(request.poll_secret);
+  if (answer.status !== 'approved') {
+    throw new Error(`fixture pairing poll answered ${answer.status}`);
+  }
+  return answer.token;
+}
+
 /**
  * Resolve a project's canonical key from a fresh working set.
  */

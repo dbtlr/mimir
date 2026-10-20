@@ -18,8 +18,12 @@ export async function handleTrpc(request: Request) {
   return (await hostRuntime()).handleTrpc(request);
 }
 
-export async function handleRedeem(request: Request) {
-  return (await hostRuntime()).handleRedeem(request);
+export async function handlePairingRequest(request: Request) {
+  return (await hostRuntime()).handlePairingRequest(request);
+}
+
+export async function handlePairingPoll(request: Request) {
+  return (await hostRuntime()).handlePairingPoll(request);
 }
 
 export async function closeHost() {

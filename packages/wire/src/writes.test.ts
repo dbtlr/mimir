@@ -22,7 +22,7 @@ import {
   submitTask,
   tagEntities,
 } from '@mimir/core';
-import { createTestStore, errorOf } from '@mimir/core/testing';
+import { createTestStore, errorOf, pairTestDevice } from '@mimir/core/testing';
 import type { TestStore } from '@mimir/core/testing';
 
 import { RemoteEngine } from './client';
@@ -56,11 +56,7 @@ type Fixture = { close: () => Promise<void>; ids: Ids; local: LocalEngine; remot
 /** A store holding every state a write can start from; ids are deterministic per build. */
 async function buildFixture(): Promise<Fixture> {
   const fixture: TestStore = await createTestStore();
-  const credential = await fixture.tokens.redeem(await fixture.tokens.issueCode('wire-fixture'));
-  if (credential === null) {
-    throw new Error('fixture pairing failed');
-  }
-  const authorization = `Bearer ${credential.token}`;
+  const authorization = `Bearer ${await pairTestDevice(fixture.tokens, 'wire-fixture')}`;
   const { store } = fixture;
   await createProject(store, { key: 'ENG', name: 'Engine' });
   await createProject(store, { key: 'OTH', name: 'Other' });

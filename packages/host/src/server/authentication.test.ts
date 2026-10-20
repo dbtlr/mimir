@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { RemoteEngine } from '@mimir/wire/client';
+import { z } from 'zod';
 
 import { readHostConfig } from './config';
 import { openHost } from './host';
@@ -36,30 +37,33 @@ function remote(authorization?: string, version = '0.26.0') {
   });
 }
 
-async function redeem(code: string) {
-  return host.handleRedeem(
-    new Request('http://host.test/auth/pairing/redeem', {
-      body: JSON.stringify({ code }),
-      method: 'POST',
-    }),
-  );
+function post(path: string, body: unknown) {
+  return new Request(`http://host.test/auth/pairing/${path}`, {
+    body: JSON.stringify(body),
+    method: 'POST',
+  });
+}
+
+async function poll(secret: string) {
+  return host.handlePairingPoll(post('poll', { poll_secret: secret }));
+}
+
+// File a request over HTTP and approve its code on the host, as an operator would.
+async function approvedRequest(device: string) {
+  const response = await host.handlePairingRequest(post('requests', { device }));
+  expect(response.status).toBe(200);
+  const request = z
+    .object({ poll_secret: z.string(), user_code: z.string() })
+    .parse(await response.json());
+  expect(await host.tokens.approve(request.user_code)).toMatchObject({ device });
+  return request;
 }
 
 async function pair(device: string) {
-  const response = await redeem(await host.tokens.issueCode(device));
+  const response = await poll((await approvedRequest(device)).poll_secret);
   expect(response.status).toBe(200);
-  const credential: unknown = await response.json();
-  if (
-    !(
-      typeof credential === 'object' &&
-      credential !== null &&
-      'token' in credential &&
-      typeof credential.token === 'string'
-    )
-  ) {
-    throw new Error('expected a device token');
-  }
-  return credential.token;
+  return z.object({ status: z.literal('approved'), token: z.string() }).parse(await response.json())
+    .token;
 }
 
 test.each([
@@ -136,46 +140,48 @@ test.each(['projects,removed', 'projects%2Cremoved'])(
   },
 );
 
-test('expired, used, and unknown codes have identical HTTP failures', async () => {
-  const expired = await host.tokens.issueCode('expired');
+test('expired, consumed, and unknown poll secrets have identical answers', async () => {
+  const expired = await approvedRequest('expired');
   const database = new Database(join(root, 'store.sqlite'));
   try {
-    // Simulate a pending code whose ten-minute lifetime has passed.
-    database.run("UPDATE pairing_codes SET expires_at = '2000-01-01T00:00:00.000Z'");
+    // Simulate an approved request whose ten-minute lifetime has passed.
+    database.run("UPDATE pairing_requests SET expires_at = '2000-01-01T00:00:00.000Z'");
   } finally {
     database.close();
   }
-  const used = await host.tokens.issueCode('used');
-  expect((await redeem(used)).status).toBe(200);
-  for (const code of [expired, used, 'UNKNOWN1']) {
-    const response = await redeem(code);
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: 'invalid pairing code' });
+  const consumed = await approvedRequest('consumed');
+  expect((await poll(consumed.poll_secret)).status).toBe(200);
+  for (const secret of [expired.poll_secret, consumed.poll_secret, 'unknown']) {
+    const response = await poll(secret);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: 'expired' });
   }
+  expect((await host.tokens.list()).map((token) => token.device)).toEqual(['consumed']);
 });
 
-test('redemption store faults return a safe 500 and the same code works after recovery', async () => {
-  const code = await host.tokens.issueCode('recovering-device');
+test('poll store faults return a safe 500 and the same approval mints after recovery', async () => {
+  const request = await approvedRequest('recovering-device');
   lines.length = 0;
   const database = new Database(join(root, 'store.sqlite'));
   database.run('ALTER TABLE device_tokens RENAME TO unavailable_device_tokens');
   try {
     for (let i = 0; i < 5; i++) {
-      const response = await redeem(code);
+      const response = await poll(request.poll_secret);
       expect(response.status).toBe(500);
       expect(response.headers.get('cache-control')).toBe('no-store');
       expect(await response.json()).toEqual({ error: 'the request did not complete' });
     }
     expect(lines).toHaveLength(5);
     for (const line of lines) {
-      expect(JSON.parse(line)).toEqual({ event: 'pairing_redeem_fault', time: expect.any(String) });
-      expect(line).not.toContain(code);
+      expect(JSON.parse(line)).toEqual({ event: 'pairing_poll_fault', time: expect.any(String) });
+      expect(line).not.toContain(request.poll_secret);
       expect(line).not.toContain('device_tokens');
     }
   } finally {
     database.run('ALTER TABLE unavailable_device_tokens RENAME TO device_tokens');
     database.close();
   }
-  // Store faults preserve the code and do not spend the invalid-code budget or jam the queue.
-  expect((await redeem(code)).status).toBe(200);
+  // A failed mint rolls back, so the approved request still collects its token.
+  const recovered = await poll(request.poll_secret);
+  expect(await recovered.json()).toMatchObject({ device: 'recovering-device', status: 'approved' });
 });

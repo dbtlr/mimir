@@ -36,10 +36,18 @@ test('the host shares Engine reads and completions over tRPC', async () => {
       data: { code: 'UNAUTHORIZED', httpStatus: 401 },
       message: 'unauthorized',
     });
-    const code = await host.tokens.issueCode('host-test');
-    const response = await host.handleRedeem(
-      new Request('http://host.test/auth/pairing/redeem', {
-        body: JSON.stringify({ code }),
+    const filed = await host.handlePairingRequest(
+      new Request('http://host.test/auth/pairing/requests', {
+        body: JSON.stringify({ device: 'host-test' }),
+        method: 'POST',
+      }),
+    );
+    expect(filed.status).toBe(200);
+    const request = await filed.json();
+    await host.tokens.approve(request.user_code);
+    const response = await host.handlePairingPoll(
+      new Request('http://host.test/auth/pairing/poll', {
+        body: JSON.stringify({ poll_secret: request.poll_secret }),
         method: 'POST',
       }),
     );

@@ -1,17 +1,36 @@
 import { createHash, randomBytes } from 'node:crypto';
 
-import type { Kysely, Selectable } from 'kysely';
+import type { Kysely, Selectable, Transaction } from 'kysely';
 
+import { validation } from './errors';
 import type { StoreDialect } from './store-sql/dialect';
 import type { DB } from './store-sql/schema';
 import { now } from './time';
 
 const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-const CODE_TTL_MS = 10 * 60 * 1000;
+const REQUEST_TTL_MS = 10 * 60 * 1000;
 const USAGE_INTERVAL_MS = 5 * 60 * 1000;
+const DEVICE_NAME_MAX = 128;
+/** Seconds a pairing client waits between polls. */
+export const PAIRING_POLL_INTERVAL = 2;
 
 type TokenRow = Selectable<DB['device_tokens']>;
 export type DeviceToken = Omit<TokenRow, 'token_hash'>;
+export type PendingPairing = Pick<
+  Selectable<DB['pairing_requests']>,
+  'device' | 'created_at' | 'expires_at'
+>;
+/** What a client receives when it files a pairing request; only it ever sees the poll secret. */
+export type PairingRequest = {
+  user_code: string;
+  poll_secret: string;
+  expires_at: string;
+  interval: number;
+};
+/** A poll's answer. Unknown, consumed, and expired requests all answer `expired`. */
+export type PairingPoll =
+  | { status: 'pending' | 'denied' | 'expired' }
+  | { status: 'approved'; device: string; token: string };
 export type TokenStore = ReturnType<typeof createTokenStore>;
 
 /** Host transport credentials, deliberately outside the Engine and Store transfer. */
@@ -26,24 +45,81 @@ export function createTokenStore({
 }) {
   // SQL expiry comparisons require canonical instants, including injected clocks.
   const clockInstant = () => new Date(clock()).toISOString();
+  // Settle the request a poll secret names; the delete makes approval single-use.
+  const settle = async (tx: Transaction<DB>, secretHash: string): Promise<PairingPoll> => {
+    const at = clockInstant();
+    const approved = await tx
+      .deleteFrom('pairing_requests')
+      .where('poll_secret_hash', '=', secretHash)
+      .where('approved_at', 'is not', null)
+      .where('expires_at', '>', at)
+      .returning('device')
+      .executeTakeFirst();
+    if (approved !== undefined) {
+      return {
+        device: approved.device,
+        status: 'approved',
+        token: await mint(tx, approved.device, at),
+      };
+    }
+    const denied = await tx
+      .deleteFrom('pairing_requests')
+      .where('poll_secret_hash', '=', secretHash)
+      .where('denied_at', 'is not', null)
+      .where('expires_at', '>', at)
+      .returning('id')
+      .executeTakeFirst();
+    if (denied !== undefined) {
+      return { status: 'denied' };
+    }
+    const remaining = await tx
+      .selectFrom('pairing_requests')
+      .select('expires_at')
+      .where('poll_secret_hash', '=', secretHash)
+      .executeTakeFirst();
+    if (remaining !== undefined && Date.parse(remaining.expires_at) > Date.parse(at)) {
+      return { status: 'pending' };
+    }
+    await tx.deleteFrom('pairing_requests').where('poll_secret_hash', '=', secretHash).execute();
+    return { status: 'expired' };
+  };
+  // Decide an undecided, unexpired request by its user code.
+  const decide = async (input: string, decision: 'approved_at' | 'denied_at') => {
+    const code = normalizePairingCode(input);
+    if (code === null) {
+      return null;
+    }
+    return dialect.write(db, async (tx) => {
+      const at = clockInstant();
+      const decided = await tx
+        .updateTable('pairing_requests')
+        .set({ [decision]: at })
+        .where('user_code_hash', '=', hash(code))
+        .where('approved_at', 'is', null)
+        .where('denied_at', 'is', null)
+        .where('expires_at', '>', at)
+        .returning('device')
+        .executeTakeFirst();
+      if (decided === undefined) {
+        return null;
+      }
+      const active = await tx
+        .selectFrom('device_tokens')
+        .select('id')
+        .where('device', '=', decided.device)
+        .where('revoked_at', 'is', null)
+        .executeTakeFirst();
+      return { device: decided.device, rotates: active !== undefined };
+    });
+  };
   return {
-    issueCode: (device: string) =>
-      dialect.write(db, async (tx) => {
-        const code = Array.from(randomBytes(8), (byte) => CROCKFORD.charAt(byte % 32)).join('');
-        const created_at = clockInstant();
-        const row = {
-          code_hash: hash(code),
-          created_at,
-          device,
-          expires_at: new Date(Date.parse(created_at) + CODE_TTL_MS).toISOString(),
-        };
-        await tx
-          .insertInto('pairing_codes')
-          .values(row)
-          .onConflict((oc) => oc.column('device').doUpdateSet(row))
-          .execute();
-        return code;
-      }),
+    /** Approve a live request by the code its client displays; `rotates` when the device holds an active token. */
+    approve: (userCode: string): Promise<{ device: string; rotates: boolean } | null> =>
+      decide(userCode, 'approved_at'),
+    deny: async (userCode: string): Promise<{ device: string } | null> => {
+      const denied = await decide(userCode, 'denied_at');
+      return denied === null ? null : { device: denied.device };
+    },
     list: async ({ all = false }: { all?: boolean } = {}): Promise<DeviceToken[]> => {
       let query = db
         .selectFrom('device_tokens')
@@ -56,41 +132,74 @@ export function createTokenStore({
       }
       return query.execute();
     },
-    redeem: async (input: string): Promise<{ token: string; device: string } | null> => {
-      const code = normalizePairingCode(input);
-      if (code === null) {
-        return null;
+    /** Live requests awaiting a decision. Codes are stored hashed, so the operator reads them from the client. */
+    listPending: (): Promise<PendingPairing[]> =>
+      db
+        .selectFrom('pairing_requests')
+        .select(['device', 'created_at', 'expires_at'])
+        .where('approved_at', 'is', null)
+        .where('denied_at', 'is', null)
+        .where('expires_at', '>', clockInstant())
+        .orderBy('created_at')
+        .orderBy('device')
+        .execute(),
+    poll: async (pollSecret: string): Promise<PairingPoll> => {
+      const secretHash = hash(pollSecret);
+      // Most polls find an undecided request; answer those without a write transaction.
+      const row = await db
+        .selectFrom('pairing_requests')
+        .select(['approved_at', 'denied_at', 'expires_at'])
+        .where('poll_secret_hash', '=', secretHash)
+        .executeTakeFirst();
+      if (row === undefined) {
+        return { status: 'expired' };
+      }
+      if (
+        row.approved_at === null &&
+        row.denied_at === null &&
+        Date.parse(row.expires_at) > Date.parse(clockInstant())
+      ) {
+        return { status: 'pending' };
+      }
+      return dialect.write(db, (tx) => settle(tx, secretHash));
+    },
+    /** File a pairing request for a device, replacing any earlier request it has. */
+    request: (input: string): Promise<PairingRequest> => {
+      const device = normalizeDeviceName(input);
+      if (device === null) {
+        return Promise.reject(
+          validation(
+            'the device name must be 1 to 128 characters without control characters',
+            'name the device with printable text',
+          ),
+        );
       }
       return dialect.write(db, async (tx) => {
-        const at = clockInstant();
-        const pending = await tx
-          .deleteFrom('pairing_codes')
-          .where('code_hash', '=', hash(code))
-          .where('expires_at', '>', at)
-          .returning('device')
-          .executeTakeFirst();
-        if (pending === undefined) {
-          return null;
-        }
+        const created_at = clockInstant();
+        const code = Array.from(randomBytes(8), (byte) => CROCKFORD.charAt(byte % 32)).join('');
+        const pollSecret = randomBytes(32).toString('base64url');
+        const row = {
+          approved_at: null,
+          created_at,
+          denied_at: null,
+          device,
+          expires_at: new Date(Date.parse(created_at) + REQUEST_TTL_MS).toISOString(),
+          id: crypto.randomUUID(),
+          poll_secret_hash: hash(pollSecret),
+          user_code_hash: hash(code),
+        };
+        await tx.deleteFrom('pairing_requests').where('expires_at', '<=', created_at).execute();
         await tx
-          .updateTable('device_tokens')
-          .set({ revoked_at: at })
-          .where('device', '=', pending.device)
-          .where('revoked_at', 'is', null)
+          .insertInto('pairing_requests')
+          .values(row)
+          .onConflict((oc) => oc.column('device').doUpdateSet(row))
           .execute();
-        const token = randomBytes(32).toString('base64url');
-        await tx
-          .insertInto('device_tokens')
-          .values({
-            created_at: at,
-            device: pending.device,
-            id: crypto.randomUUID(),
-            last_used_at: null,
-            revoked_at: null,
-            token_hash: hash(token),
-          })
-          .execute();
-        return { device: pending.device, token };
+        return {
+          expires_at: row.expires_at,
+          interval: PAIRING_POLL_INTERVAL,
+          poll_secret: pollSecret,
+          user_code: formatPairingCode(code),
+        };
       });
     },
     revoke: (device: string) =>
@@ -151,6 +260,29 @@ function hash(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
+// Rotate at mint: the device's prior token stops verifying when the new one is issued.
+async function mint(tx: Transaction<DB>, device: string, at: string): Promise<string> {
+  await tx
+    .updateTable('device_tokens')
+    .set({ revoked_at: at })
+    .where('device', '=', device)
+    .where('revoked_at', 'is', null)
+    .execute();
+  const token = randomBytes(32).toString('base64url');
+  await tx
+    .insertInto('device_tokens')
+    .values({
+      created_at: at,
+      device,
+      id: crypto.randomUUID(),
+      last_used_at: null,
+      revoked_at: null,
+      token_hash: hash(token),
+    })
+    .execute();
+  return token;
+}
+
 /** Accept the printed separator and Crockford's O/I/L confusables. */
 export function normalizePairingCode(code: string): string | null {
   if (!/^[0-9A-Za-z]{4}-?[0-9A-Za-z]{4}$/.test(code)) {
@@ -159,5 +291,18 @@ export function normalizePairingCode(code: string): string | null {
   const normalized = code.toUpperCase().replaceAll('O', '0').replace(/[IL]/g, '1');
   return /^[0-9A-HJKMNP-TV-Z]{4}-?[0-9A-HJKMNP-TV-Z]{4}$/.test(normalized)
     ? normalized.replace('-', '')
+    : null;
+}
+
+/** Print a normalized code as `XXXX-XXXX`, the form clients display. */
+export function formatPairingCode(code: string): string {
+  return `${code.slice(0, 4)}-${code.slice(4)}`;
+}
+
+/** Trim a device name; refuse an empty, overlong, or control-character name. */
+export function normalizeDeviceName(name: string): string | null {
+  const trimmed = name.trim();
+  return trimmed.length > 0 && trimmed.length <= DEVICE_NAME_MAX && !/\p{Cc}/u.test(trimmed)
+    ? trimmed
     : null;
 }
