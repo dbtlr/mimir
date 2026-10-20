@@ -25,20 +25,27 @@ export type NodeEcho = {
 const withNote = (echo: Readonly<NodeEcho>, body: string): string =>
   echo.note === undefined ? body : `${echo.note}\n${body}`;
 
+/** A written record's `records` text, under its note. */
+export const nodeEchoRecords = (echo: Readonly<NodeEcho>): string =>
+  withNote(echo, renderRecords(echo.node, echo.presentation));
+
+/** A written record's `table` text, under its note. */
+export const nodeEchoTable = (echo: Readonly<NodeEcho>): string =>
+  withNote(
+    echo,
+    renderTable(
+      { items: [echo.node], returned: 1, startsAt: 0, total: 1 },
+      echo.presentation,
+      'task',
+    ),
+  );
+
 /** The views of a written record; the default is `records`. */
 export const nodeEchoViews = recordViews<NodeEcho>({
   ids: (echo) => echo.node.id,
   json: (echo) => prettyJson(echo.wire),
-  records: (echo) => withNote(echo, renderRecords(echo.node, echo.presentation)),
-  table: (echo) =>
-    withNote(
-      echo,
-      renderTable(
-        { items: [echo.node], returned: 1, startsAt: 0, total: 1 },
-        echo.presentation,
-        'task',
-      ),
-    ),
+  records: nodeEchoRecords,
+  table: nodeEchoTable,
 });
 
 /**

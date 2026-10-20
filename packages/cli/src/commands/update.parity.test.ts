@@ -1,9 +1,17 @@
 import { NODE_REDIRECTS } from '../parity/differences';
 import { argvCase as argv, argvLine } from '../testing/argv-case';
-import type { ParityCase } from '../testing/parity';
 import { twinCases } from '../testing/twin';
+import type { SetupCase } from '../testing/twin';
 
-const CASES: ParityCase[] = [
+/** A case that runs after the seed `MMR-s1` has settled, which freezes it. */
+const settled = (words: string[], settle: 'seedReject' | 'seedResolve'): SetupCase => ({
+  ...argv(words),
+  setup: async (board) => {
+    await board.engine[settle]({ id: 'MMR-s1', reason: 'settled' });
+  },
+});
+
+const CASES: SetupCase[] = [
   // A task, through every format.
   argv(['update', 'MMR-3', '--title', 'Wire the store once']),
   argv(['update', 'MMR-3', '--title', 'Wire the store once', '-f', 'json']),
@@ -61,7 +69,46 @@ const CASES: ParityCase[] = [
   argv(['update', 'MMR', '--remote', '']),
   argv(['update', 'XX', '--pinned', '--name', 'Other']),
   argv(['update', 'MMR']),
+  // An artifact, through every format.
+  argv(['update', 'MMR-a1', '--title', 'x']),
+  argv(['update', 'MMR-a1', '--title', 'x', '-f', 'json']),
+  argv(['update', 'MMR-a1', '--title', 'x', '-f', 'jsonl']),
+  argv(['update', 'MMR-a1', '--title', 'x', '-f', 'ids']),
+  argv(['update', 'MMR-a1', '--title', 'x', '-f', 'table']),
+  argv(['update', 'MMR-a1', '--title', 'x', '--ascii']),
+  argv(['update', 'MMR-a1', '--title', 'x'], true),
+  argv(['update', 'MMR-a1', '--summary', 'x']),
+  argv(['update', 'MMR-a1', '--summary', '']),
+  argv(['update', 'MMR-a1', '--title', 'both', '--summary', 'and']),
+  argv(['update', 'MMR-a1']),
+  // A seed, through every format.
+  argv(['update', 'MMR-s1', '--title', 'x']),
+  argv(['update', 'MMR-s1', '--title', 'x', '-f', 'json']),
+  argv(['update', 'MMR-s1', '--title', 'x', '-f', 'jsonl']),
+  argv(['update', 'MMR-s1', '--title', 'x', '-f', 'ids']),
+  argv(['update', 'MMR-s1', '--title', 'x', '-f', 'table']),
+  argv(['update', 'MMR-s1', '--title', 'x', '--ascii']),
+  argv(['update', 'MMR-s1', '--title', 'x'], true),
+  argv(['update', 'MMR-s1', '--kind', 'bug']),
+  argv(['update', 'MMR-s1', '-k', 'feature', '--desc', 'y', '--title', 'z']),
+  argv(['update', 'MMR-s1', '--desc', 'x']),
+  argv(['update', 'MMR-s1']),
   // Refusals Mimir raises.
+  argv(['update', 'MMR-a1', '--title', '']),
+  argv(['update', 'MMR-a99', '--title', 'x']),
+  argv(['update', 'MMR-a1', '-p', 'p1']),
+  argv(['update', 'MMR-a1', '--desc', 'x']),
+  argv(['update', 'MMR-a1', '--direction', 'x', '--ref', 'GH-1']),
+  argv(['update', 'MMR-s1', '--kind', 'nope']),
+  argv(['update', 'MMR-s1', '--title', '  ']),
+  settled(['update', 'MMR-s1', '--title', 'late'], 'seedResolve'),
+  settled(['update', 'MMR-s1', '--kind', 'bug'], 'seedReject'),
+  argv(['update', 'MMR-s1', '-p', 'p1']),
+  argv(['update', 'MMR-s1', '--summary', 'x']),
+  argv(['update', 'MMR-s99', '--title', 'x']),
+  argv(['update', 'MMR-3', '--kind', 'bug']),
+  argv(['update', 'MMR', '--kind', 'bug']),
+  argv(['update', 'MMR-a1', '--kind', 'bug']),
   argv(['update', 'MMR-99', '--title', 'x']),
   argv(['update', 'MMR-99', '--title', 'x', '-f', 'json']),
   argv(['update', 'NOPE', '--name', 'x']),
@@ -106,6 +153,7 @@ const CASES: ParityCase[] = [
   // Invocations the old CLI accepted and Loom's parser refuses.
   argv(['update', 'MMR-3', '--title', 'a', '--title', 'b']),
   argv(['update', 'MMR-3', 'MMR-4', '--title', 'a']),
+  argv(['update', 'MMR-s1', '--kind', 'idea', '--kind', 'bug']),
   // Misplaced flags, redirected as the old CLI redirected them.
   ...NODE_REDIRECTS.filter((line) => line.startsWith('update ')).map((line) => argvLine(line)),
 ];

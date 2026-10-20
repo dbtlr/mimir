@@ -8,7 +8,7 @@ import { OP_FACTS, UNIFORM_VERBS } from './ops';
 import type { UniformVerb } from './ops';
 
 /**
- * The node-write Engine schemas (MMR-517): create, update, annotate, attach,
+ * The node-write Engine schemas (MMR-517): create, update, updateArtifact, annotate, attach,
  * depend, undepend, move, reorder, groom, tag, untag, and the fourteen uniform
  * verbs. Ids are canonical (`KEY-seq`, or a bare `KEY` for a project); parsing
  * flag text and resolving shorthand stays in the client. Every echo is a `Date`
@@ -286,6 +286,15 @@ export function nodeWriteSchemas(project: z.ZodString) {
       }),
       kind: 'mutation',
       output: engineViews.node,
+    },
+    updateArtifact: {
+      input: z.strictObject({
+        id: z.string(),
+        summary: z.string().nullable().optional(),
+        title: z.string().optional(),
+      }),
+      kind: 'mutation',
+      output: engineViews.artifactDetail,
     },
     updateProject: {
       input: z.strictObject({

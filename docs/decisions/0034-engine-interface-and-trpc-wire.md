@@ -337,3 +337,11 @@ root with no store, such as a remote one (ADR 0037), can still name them.
 This replaces the node-writes refinement's rule that the archive echo does not
 list released dependents. `unarchive` and the other uniform verbs keep the
 record alone.
+
+## Refinement (2026-10-19 — artifact edits)
+
+`updateArtifact` is an Engine method beside `updateProject`, following the
+one-method-per-record-kind rule. It takes an artifact id (`KEY-aN`) and an
+optional `title` and `summary`; a `null` summary clears it, and a blank title is
+refused. It answers with the artifact's detail without its content, as
+`getArtifact` does by default. An id that names no artifact is not found.

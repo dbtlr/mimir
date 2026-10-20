@@ -1,10 +1,10 @@
-mimir update · Change a task, phase, or initiative (KEY-seq), or a project (KEY).
+mimir update · Change a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), or a seed (KEY-sN).
 
 USAGE
   mimir update <id> [options]
 
 ARGUMENTS
-  id  KEY-seq or KEY.
+  id  KEY-seq, KEY, KEY-aN, or KEY-sN.
 
 OPTIONS
       --title <text>            The new title.
@@ -28,6 +28,7 @@ OPTIONS
       --pinned                  Pin a project.
       --not-pinned              Unpin a project.
       --remote <url>            A project's Git remote; blank clears it.
+  -k, --kind <kind>             A seed's kind: idea, bug, feature.
       --ascii                   Print without color, in ASCII glyphs.
   -f, --format <format>         Select the output format, records by default. One of: ids, json, jsonl, records, table.
 
@@ -43,5 +44,9 @@ EXAMPLES
     a container's ## Next narrative
   $ mimir update MMR --pinned
     pin a project
+  $ mimir update MMR-a1 --title "…"
+    retitle an artifact
+  $ mimir update MMR-s1 --kind bug
+    change a seed's kind
   $ mimir update MMR --remote git@github.com:dbtlr/mimir.git
     a project's remote

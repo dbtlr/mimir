@@ -49,7 +49,7 @@ const SURFACES: readonly Surface[] = [
   { cli: 'tree', methods: ['tree'] },
   { cli: 'scratch get', mcp: 'scratch_get', methods: ['scratchGet'] },
   { cli: 'scratch list', mcp: 'scratch_list', methods: ['scratchList'] },
-  // Node writes. `update` also patches a project key or a seed id, and `park` and
+  // Node writes. `update` also patches a project key, an artifact, or a seed id, and `park` and
   // `unpark` also move a seed, each through the seed- or project-typed method.
   same('annotate'),
   same('attach'),
@@ -61,7 +61,7 @@ const SURFACES: readonly Surface[] = [
   same('tag'),
   same('undepend'),
   same('untag'),
-  same('update', 'update', 'updateProject', 'seedUpdate'),
+  same('update', 'update', 'updateProject', 'updateArtifact', 'seedUpdate'),
   // The uniform verbs, one CLI command and MCP tool each.
   ...UNIFORM_VERBS.map((verb) => same(verb, verb, ...(SEED_VARIANT[verb] ?? []))),
   // Seed writes.

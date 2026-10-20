@@ -23,7 +23,7 @@ COMMANDS
   triage             Reconcile a board's seeds: list the untriaged and ready-to-resolve ones, and annotate the tasks whose upstream seed settled. A report, never a gate.
   scratch <command>  Read and keep Scratchpads, the working state of one episode.
   create <command>   Create a project, initiative, phase, or task.
-  update             Change a task, phase, or initiative (KEY-seq), or a project (KEY).
+  update             Change a task, phase, or initiative (KEY-seq), a project (KEY), an artifact (KEY-aN), or a seed (KEY-sN).
   annotate           Append a note to a task, phase, or initiative.
   attach             Attach a document to a project as an artifact, linked to nodes.
   depend             Make a task, phase, or initiative wait on the others named by --on.

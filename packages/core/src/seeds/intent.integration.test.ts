@@ -287,6 +287,15 @@ describe('seed verbs (intent)', () => {
     expect(ok.title).toBe('z'.repeat(120));
   });
 
+  test('update refuses a blank title like filing one does', async () => {
+    await seedbed();
+    await fileSeed(store, { kind: 'idea', project: 'MMR', requester: null, title: 'short' });
+    expect(await rejectMessage(() => updateSeed(store, 'MMR-s1', { title: '  ' }))).toBe(
+      'a seed requires a title',
+    );
+    expect(await rejectCode(() => updateSeed(store, 'MMR-s1', { title: '' }))).toBe('validation');
+  });
+
   test('promote (create) spawns a task, links it, and moves new → promoted; repeatable', async () => {
     const { phaseRef: parent } = await seedbed();
     await fileSeed(store, { kind: 'feature', project: 'MMR', requester: null, title: 's' });

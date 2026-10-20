@@ -35,6 +35,7 @@ import {
   tagEntities,
   undepend,
   untagEntities,
+  updateArtifact,
   updateNode,
   updateProject,
 } from './mutations';
@@ -147,6 +148,22 @@ export async function attachEngine(
     title,
   });
   return intentViews.artifactDetail.parse(await getArtifact(store, renderedId, { content: true }));
+}
+
+/** Retitle or re-summarize an artifact, then echo its detail without the body, as `get` does. */
+export async function updateArtifactEngine(
+  store: Store,
+  input: EngineInput<'updateArtifact'>,
+): Promise<EngineOutput<'updateArtifact'>> {
+  const { id, ...fields } = parseEngineInput(engineSchemas.updateArtifact.input, input);
+  const identity = parseIdentity(id);
+  if (identity?.kind !== 'artifact') {
+    throw notFound(`${id} doesn't exist`);
+  }
+  if (fields.title !== undefined || fields.summary !== undefined) {
+    await updateArtifact(store, { key: identity.key, seq: identity.seq }, fields);
+  }
+  return intentViews.artifactDetail.parse(await getArtifact(store, id));
 }
 
 export async function dependEngine(store: Store, input: EngineInput<'depend'>) {

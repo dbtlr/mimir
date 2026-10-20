@@ -164,6 +164,10 @@ export class RemoteEngine extends UniformEngineBase implements Engine {
     return domainResult(this.client.update.mutate(input));
   }
 
+  updateArtifact(input: EngineInput<'updateArtifact'>) {
+    return domainResult(this.client.updateArtifact.mutate(input));
+  }
+
   updateProject(input: EngineInput<'updateProject'>) {
     return domainResult(this.client.updateProject.mutate(input));
   }

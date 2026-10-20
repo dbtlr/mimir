@@ -6,52 +6,15 @@ import { Command } from '@loomcli/core';
 import { helpCommand } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
 import { CHEAP_FACETS, intentEncoders } from '@mimir/contract';
-import type { ArtifactDetail, NodeView, SeedView } from '@mimir/contract';
 
 import { asciiOption, colOption } from '../options';
 import { parseFacets } from '../parse';
 import type { Ports } from '../ports';
-import { renderRecords, renderTable } from '../render/node';
+import { idOf, recordsOf, tableOf } from '../render/get';
+import type { GetValue } from '../render/get';
 import { presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
-import { renderArtifactRecords, renderArtifactTable, renderSeedRecords } from '../render/records';
 import { prettyJson, recordViews } from '../render/views';
-
-/** The record `get` read, with its wire object and how the styled views render it. */
-export type GetValue = { presentation: Presentation; wire: Record<string, unknown> } & (
-  | { kind: 'node'; node: NodeView; expandAnnotations: boolean }
-  | { kind: 'artifact'; artifact: ArtifactDetail }
-  | { kind: 'seed'; seed: SeedView }
-);
-
-function recordsOf(value: Readonly<GetValue>): string {
-  if (value.kind === 'node') {
-    return renderRecords(value.node, value.presentation, value.expandAnnotations);
-  }
-  if (value.kind === 'artifact') {
-    return renderArtifactRecords(value.artifact, value.presentation);
-  }
-  return renderSeedRecords(value.seed, value.presentation);
-}
-
-/** A seed has no table of its own: its `table` is its record. */
-function tableOf(value: Readonly<GetValue>): string {
-  if (value.kind === 'node') {
-    const one = { items: [value.node], returned: 1, startsAt: 0, total: 1 };
-    return renderTable(one, value.presentation, 'task');
-  }
-  if (value.kind === 'artifact') {
-    return renderArtifactTable(value.artifact, value.presentation);
-  }
-  return renderSeedRecords(value.seed, value.presentation);
-}
-
-function idOf(value: Readonly<GetValue>): string {
-  if (value.kind === 'node') {
-    return value.node.id;
-  }
-  return value.kind === 'artifact' ? value.artifact.id : value.seed.id;
-}
 
 /** `jsonl` of one record prints the same indented document as `json`, as the old CLI did. */
 const views = recordViews<GetValue>({
