@@ -21,11 +21,15 @@ describe.each([
       await close();
     }
   });
-  async function fixture() {
+  async function fixture(clock?: () => string) {
     const handle = await open();
     closes.push(handle.close);
     let time = new Date('2026-10-20T12:00:00.000Z');
-    const tokens = createTokenStore({ clock: () => time.toISOString(), db: handle.db, dialect });
+    const tokens = createTokenStore({
+      clock: clock ?? (() => time.toISOString()),
+      db: handle.db,
+      dialect,
+    });
     return {
       ...handle,
       advance: (ms: number) => {
@@ -109,6 +113,91 @@ describe.each([
     advance(1);
     expect(await tokens.verify(token)).toBe('laptop');
     expect((await tokens.list()).at(0)?.last_used_at).toBe('2026-10-20T12:05:00.001Z');
+  });
+
+  test('throttles parseable clocks at exactly five minutes and updates one millisecond later', async () => {
+    let instant = '2026-10-20T12:00:00Z';
+    const { tokens } = await fixture(() => instant);
+    const paired = await tokens.redeem(await tokens.issueCode('laptop'));
+    const token = paired?.token ?? '';
+    expect(await tokens.verify(token)).toBe('laptop');
+    const firstUse = (await tokens.list()).at(0)?.last_used_at;
+    instant = '2026-10-20T12:05:00Z';
+    expect(await tokens.verify(token)).toBe('laptop');
+    expect((await tokens.list()).at(0)?.last_used_at).toBe(firstUse);
+    instant = '2026-10-20T12:05:00.001Z';
+    expect(await tokens.verify(token)).toBe('laptop');
+    expect((await tokens.list()).at(0)?.last_used_at).toBe('2026-10-20T12:05:00.001Z');
+  });
+
+  test('compares previously persisted noncanonical usage timestamps by instant', async () => {
+    let instant = '2026-10-20T12:00:00.000Z';
+    const { db, tokens } = await fixture(() => instant);
+    const paired = await tokens.redeem(await tokens.issueCode('laptop'));
+    // A token written by the original injectable-clock implementation.
+    await db.updateTable('device_tokens').set({ last_used_at: '2026-10-20T12:00:00Z' }).execute();
+    instant = '2026-10-20T12:05:00Z';
+    expect(await tokens.verify(paired?.token ?? '')).toBe('laptop');
+    expect((await tokens.list()).at(0)?.last_used_at).toBe('2026-10-20T12:00:00Z');
+    instant = '2026-10-20T12:05:00.001Z';
+    expect(await tokens.verify(paired?.token ?? '')).toBe('laptop');
+    expect((await tokens.list()).at(0)?.last_used_at).toBe('2026-10-20T12:05:00.001Z');
+  });
+
+  test('persists canonical instants for parseable clocks throughout the credential lifecycle', async () => {
+    let instant = '2026-10-20T12:00:00+00:00';
+    const { db, tokens } = await fixture(() => instant);
+    const code = await tokens.issueCode('laptop');
+    const pending = await db.selectFrom('pairing_codes').selectAll().executeTakeFirstOrThrow();
+    expect(pending.created_at).toBe('2026-10-20T12:00:00.000Z');
+    expect(pending.expires_at).toBe('2026-10-20T12:10:00.000Z');
+    const first = await tokens.redeem(code);
+    expect(await tokens.verify(first?.token ?? '')).toBe('laptop');
+    expect((await tokens.list()).at(0)).toMatchObject({
+      created_at: '2026-10-20T12:00:00.000Z',
+      last_used_at: '2026-10-20T12:00:00.000Z',
+    });
+    instant = '2026-10-20T08:00:01-04:00';
+    await tokens.redeem(await tokens.issueCode('laptop'));
+    expect((await tokens.list({ all: true })).at(0)?.revoked_at).toBe('2026-10-20T12:00:01.000Z');
+    expect((await tokens.list()).at(0)?.created_at).toBe('2026-10-20T12:00:01.000Z');
+    instant = '2026-10-20T12:00:02Z';
+    await tokens.revoke('laptop');
+    expect((await tokens.list({ all: true })).at(1)?.revoked_at).toBe('2026-10-20T12:00:02.000Z');
+  });
+
+  test.each([
+    {
+      accepted: true,
+      issued: '2026-10-20T12:00:00.500Z',
+      label: '500ms before expiry, no milliseconds',
+      redeemed: '2026-10-20T12:10:00Z',
+    },
+    {
+      accepted: false,
+      issued: '2026-10-20T12:00:00Z',
+      label: 'exact expiry, no milliseconds',
+      redeemed: '2026-10-20T12:10:00Z',
+    },
+    {
+      accepted: false,
+      issued: '2026-10-20T12:00:00+00:00',
+      label: 'exact expiry, UTC offset without milliseconds',
+      redeemed: '2026-10-20T12:10:00+00:00',
+    },
+    {
+      accepted: false,
+      issued: '2026-10-20T12:00:00Z',
+      label: 'one millisecond after expiry',
+      redeemed: '2026-10-20T12:10:00.001Z',
+    },
+  ])('compares pairing expiry by instant: $label', async ({ accepted, issued, redeemed }) => {
+    let instant: string = issued;
+    const { tokens } = await fixture(() => instant);
+    const code = await tokens.issueCode('laptop');
+    instant = redeemed;
+    const result = await tokens.redeem(code);
+    expect(result?.device ?? null).toBe(accepted ? 'laptop' : null);
   });
 
   test('exports work state without credentials and imports without replacing local credentials', async () => {

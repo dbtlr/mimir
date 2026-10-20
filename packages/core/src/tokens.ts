@@ -24,11 +24,13 @@ export function createTokenStore({
   dialect: StoreDialect;
   clock?: () => string;
 }) {
+  // SQL expiry comparisons require canonical instants, including injected clocks.
+  const clockInstant = () => new Date(clock()).toISOString();
   return {
     issueCode: (device: string) =>
       dialect.write(db, async (tx) => {
         const code = Array.from(randomBytes(8), (byte) => CROCKFORD.charAt(byte % 32)).join('');
-        const created_at = clock();
+        const created_at = clockInstant();
         const row = {
           code_hash: hash(code),
           created_at,
@@ -60,7 +62,7 @@ export function createTokenStore({
         return null;
       }
       return dialect.write(db, async (tx) => {
-        const at = clock();
+        const at = clockInstant();
         const pending = await tx
           .deleteFrom('pairing_codes')
           .where('code_hash', '=', hash(code))
@@ -95,7 +97,7 @@ export function createTokenStore({
       dialect.write(db, async (tx) => {
         await tx
           .updateTable('device_tokens')
-          .set({ revoked_at: clock() })
+          .set({ revoked_at: clockInstant() })
           .where('device', '=', device)
           .where('revoked_at', 'is', null)
           .execute();
@@ -111,8 +113,8 @@ export function createTokenStore({
       if (row === undefined) {
         return null;
       }
-      const staleBefore = new Date(Date.parse(clock()) - USAGE_INTERVAL_MS).toISOString();
-      if (row.last_used_at !== null && row.last_used_at >= staleBefore) {
+      const staleBefore = Date.parse(clockInstant()) - USAGE_INTERVAL_MS;
+      if (row.last_used_at !== null && Date.parse(row.last_used_at) >= staleBefore) {
         return row.device;
       }
       // Recheck revocation and staleness after acquiring the write transaction:
@@ -127,7 +129,7 @@ export function createTokenStore({
         if (active === undefined) {
           return null;
         }
-        const at = clock();
+        const at = clockInstant();
         if (
           active.last_used_at === null ||
           Date.parse(at) - Date.parse(active.last_used_at) > USAGE_INTERVAL_MS
