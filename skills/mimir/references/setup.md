@@ -23,14 +23,18 @@ the `--apply` flag to write it).
 
 ## Case 1 — the project exists, this working copy isn't bound
 
-A checked-in `.mimir.toml` normally travels with the repo. If it's absent but the
-project exists in the store (`mimir projects` lists its key):
+A clone binds itself when its `origin` matches the remote a project records. If
+`mimir bind` still reports it unbound but the project exists in the store
+(`mimir projects` lists its key):
 
 ```sh
-mimir bind KEY        # validates KEY exists, writes ./.mimir.toml
+mimir bind KEY        # validates KEY exists, writes git config mimir.project
 ```
 
-Done. Commit the file — every clone is then bound for free.
+Done. When the project has no remote yet and the origin is a network remote,
+`bind` also records it on the project, so every other clone of the repo binds for
+free. Linked worktrees share the binding. A clone with no `origin`, or one whose origin several projects share,
+needs its own `mimir bind KEY`.
 
 ## Case 2 — new project
 
@@ -50,7 +54,7 @@ mimir create project "Display Name" --key KEY -y
 mimir bind KEY
 ```
 
-Commit `.mimir.toml`.
+The bind is per clone and is not committed.
 
 ## Structure: start minimal
 
