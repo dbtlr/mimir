@@ -41,13 +41,25 @@ export function createPairingHandler({
       if (blocked) {
         return blocked;
       }
-      const credential =
-        typeof input === 'object' &&
-        input !== null &&
-        'code' in input &&
-        typeof input.code === 'string'
-          ? await tokens.redeem(input.code)
-          : null;
+      let credential: Awaited<ReturnType<typeof tokens.redeem>>;
+      try {
+        credential =
+          typeof input === 'object' &&
+          input !== null &&
+          'code' in input &&
+          typeof input.code === 'string'
+            ? await tokens.redeem(input.code)
+            : null;
+      } catch {
+        // Driver errors may embed credential input; log only the fault event and time.
+        log(
+          JSON.stringify({ event: 'pairing_redeem_fault', time: new Date(clock()).toISOString() }),
+        );
+        return Response.json(
+          { error: 'the request did not complete' },
+          { headers: { 'cache-control': 'no-store' }, status: 500 },
+        );
+      }
       if (credential === null) {
         const at = clock();
         failures.push(at);

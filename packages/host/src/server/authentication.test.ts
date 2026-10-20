@@ -11,9 +11,13 @@ import { openHost } from './host';
 
 let root: string;
 let host: Awaited<ReturnType<typeof openHost>>;
+let lines: string[];
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), 'mimir-auth-'));
-  host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), '0.26.0', () => undefined);
+  lines = [];
+  host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), '0.26.0', (line) =>
+    lines.push(line),
+  );
 });
 afterEach(async () => {
   await host.close();
@@ -148,4 +152,30 @@ test('expired, used, and unknown codes have identical HTTP failures', async () =
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: 'invalid pairing code' });
   }
+});
+
+test('redemption store faults return a safe 500 and the same code works after recovery', async () => {
+  const code = await host.tokens.issueCode('recovering-device');
+  lines.length = 0;
+  const database = new Database(join(root, 'store.sqlite'));
+  database.run('ALTER TABLE device_tokens RENAME TO unavailable_device_tokens');
+  try {
+    for (let i = 0; i < 5; i++) {
+      const response = await redeem(code);
+      expect(response.status).toBe(500);
+      expect(response.headers.get('cache-control')).toBe('no-store');
+      expect(await response.json()).toEqual({ error: 'the request did not complete' });
+    }
+    expect(lines).toHaveLength(5);
+    for (const line of lines) {
+      expect(JSON.parse(line)).toEqual({ event: 'pairing_redeem_fault', time: expect.any(String) });
+      expect(line).not.toContain(code);
+      expect(line).not.toContain('device_tokens');
+    }
+  } finally {
+    database.run('ALTER TABLE unavailable_device_tokens RENAME TO device_tokens');
+    database.close();
+  }
+  // Store faults preserve the code and do not spend the invalid-code budget or jam the queue.
+  expect((await redeem(code)).status).toBe(200);
 });

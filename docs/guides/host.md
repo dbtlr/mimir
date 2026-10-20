@@ -246,6 +246,10 @@ the code. After five failures in a rolling ten minutes, all attempts return
 `429` with `Retry-After` in seconds, including valid codes. The limit covers the
 whole host and resets when the host restarts.
 
+A credential-store fault returns a generic `500` with `Cache-Control: no-store`.
+The fault log records the event and time without driver details or the code.
+Store faults do not consume the invalid-code limit.
+
 Every `/trpc` procedure, including `console.*`, requires `Authorization: Bearer`
 with an active device token. The host guard runs first, then the version window,
 then the bearer check. Console server functions use the local Engine and require
