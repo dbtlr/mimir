@@ -244,10 +244,20 @@ describe('authoringSheet', () => {
     // "open it" links to the created node's page without any further write.
     const openIt = screen.getByRole('link', { name: 'open it' });
     expect(openIt).toHaveAttribute('href', '/p/MMR/99');
-    // A modified click opens a new tab and leaves the retry posture alone.
+    // A modified click is left to the browser (a new tab) and leaves the retry
+    // posture alone. jsdom cannot open a tab, so a global listener records that
+    // the link did not cancel the click, then cancels jsdom's navigation.
+    let leftToBrowser = false;
+    const cancelNavigation = (event: MouseEvent) => {
+      leftToBrowser = !event.defaultPrevented;
+      event.preventDefault();
+    };
+    globalThis.addEventListener('click', cancelNavigation);
     await user.keyboard('{Meta>}');
     await user.click(openIt);
     await user.keyboard('{/Meta}');
+    globalThis.removeEventListener('click', cancelNavigation);
+    expect(leftToBrowser).toBe(true);
     expect(onOpenChange).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Retry deps ↵' })).toBeDefined();
     await user.click(openIt);
