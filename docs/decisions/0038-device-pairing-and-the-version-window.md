@@ -187,7 +187,7 @@ schema that does not match its own.
 | Command | Effect |
 | --- | --- |
 | `pair <device>` | Prints a pairing code, and notes when an active token will be replaced. _Superseded by the 2026-10-20 addendum (MMR-584)._ |
-| `unpair <device>` | Revokes the device's token and keeps the row. |
+| `unpair <device>` | Revokes the device's token and keeps the row. _Refined by the 2026-10-20 addendum (MMR-584): it also discards the device's pairing requests._ |
 | `tokens [--all]` | Lists user, device, created, last used, and revoked. |
 | `doctor` | Reports the record-health facet that the console reads. |
 | `store export <file\|->` | Writes the transfer document. |
@@ -282,9 +282,23 @@ unchanged.
    `expired`, so a poll reveals nothing about secrets it does not hold.
 
 A request that has expired never matches, approved or not. A device has at
-most one request: a new request replaces the earlier one, as a new code
-replaced a pending code. Both pairing routes are host routes outside the
-version window and the bearer check, like the redeem endpoint before them.
+most one request. A new request replaces a pending or denied one, as a new
+code replaced a pending code. A new request never replaces an approved
+request that its client has not collected: the host refuses it with `409` and
+the remedy to deny or unpair the device on the host, or to wait for the
+approval to expire. Otherwise anyone on the tailnet could file a request for
+the device and knock the approved client out between approval and poll.
+
+Denying an approved request that its client has not collected withdraws the
+approval, and the next poll answers `denied`. Unpairing a device revokes its
+token and discards its requests in one transaction, so an approval it has not
+collected cannot still mint a token. If the approved answer is lost in
+transit, the device pairs again: its earlier token was revoked at mint.
+
+Both pairing routes are host routes outside the version window and the bearer
+check, like the redeem endpoint before them. Any other path under `/auth`,
+including the removed `/auth/pairing/redeem`, answers a JSON `404` instead of
+the console's HTML shell, as the retired `/api` answers its tombstone.
 
 ### Two values separate naming a request from collecting it
 
@@ -306,7 +320,9 @@ can still file requests. After 10 requests in a rolling 10 minutes, the host
 refuses every new request with `429` and `Retry-After` until the window
 slides. As before, the limit counts the whole host, lives in memory, and
 resets when the host restarts. A malformed body answers one uniform `400`,
-creates nothing, and does not count. A store fault does not count. Polls are
+creates nothing, and does not count. A `409` refusal and a store fault also
+create nothing and do not count, so the limit counts only requests the host
+stored. Polls are
 not limited, and a malformed poll answers a uniform `400`.
 
 ### Migration 0010 replaces the codes table
@@ -344,7 +360,7 @@ The `mimir-host` table replaces `pair <device>` with three commands:
 | --- | --- |
 | `pending` | Lists live requests awaiting a decision: device, created, and expires. |
 | `approve <code>` | Approves the request, and notes when an active token will be replaced. |
-| `deny <code>` | Denies the request. |
+| `deny <code>` | Denies the request, or withdraws an approval its client has not collected. |
 
 `mimir-host approve` is the only approval surface for now. Approval from the
 console is follow-up work (MMR-585).

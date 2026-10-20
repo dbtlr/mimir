@@ -82,7 +82,6 @@ describe.each([
     const code = request.user_code.toLowerCase().replace('-', '');
     expect(await tokens.approve(code)).toEqual({ device: 'laptop', rotates: false });
     expect(await tokens.approve(request.user_code)).toBeNull();
-    expect(await tokens.deny(request.user_code)).toBeNull();
     const approved = await tokens.poll(request.poll_secret);
     expect(approved).toEqual({
       device: 'laptop',
@@ -162,16 +161,55 @@ describe.each([
     ]);
   });
 
-  test('a new request for a device replaces its earlier request', async () => {
+  test('a new request for a device replaces its pending or denied request', async () => {
     const { requests, tokens } = await fixture();
-    const earlier = await tokens.request('laptop');
-    await tokens.approve(earlier.user_code);
+    const pending = await tokens.request('laptop');
+    const denied = await tokens.request('laptop');
+    expect(await tokens.poll(pending.poll_secret)).toEqual({ status: 'expired' });
+    expect(await tokens.approve(pending.user_code)).toBeNull();
+    await tokens.deny(denied.user_code);
     const later = await tokens.request('laptop');
-    expect(await tokens.poll(earlier.poll_secret)).toEqual({ status: 'expired' });
-    expect(await tokens.approve(earlier.user_code)).toBeNull();
+    expect(await tokens.poll(denied.poll_secret)).toEqual({ status: 'expired' });
     expect(await requests()).toHaveLength(1);
     expect(await tokens.approve(later.user_code)).toEqual({ device: 'laptop', rotates: false });
     expect((await tokens.poll(later.poll_secret)).status).toBe('approved');
+  });
+
+  test('a new request cannot displace an approved, uncollected request until it expires', async () => {
+    const { advance, requests, tokens } = await fixture();
+    const approved = await tokens.request('laptop');
+    await tokens.approve(approved.user_code);
+    const refusal = await refusalOf(tokens.request('laptop'));
+    expect(refusal).toContain('approved pairing request');
+    expect(refusal).toContain('deny or unpair');
+    expect((await requests()).map((row) => row.approved_at)).toEqual(['2026-10-20T12:00:00.000Z']);
+    advance(10 * 60 * 1000);
+    const later = await tokens.request('laptop');
+    expect(await tokens.poll(approved.poll_secret)).toEqual({ status: 'expired' });
+    expect(await tokens.approve(later.user_code)).toEqual({ device: 'laptop', rotates: false });
+  });
+
+  test('denying an approved, uncollected request withdraws the approval before any mint', async () => {
+    const { tokens } = await fixture();
+    const request = await tokens.request('laptop');
+    await tokens.approve(request.user_code);
+    expect(await tokens.deny(request.user_code.toLowerCase())).toEqual({ device: 'laptop' });
+    expect(await tokens.approve(request.user_code)).toBeNull();
+    expect(await tokens.poll(request.poll_secret)).toEqual({ status: 'denied' });
+    expect(await tokens.list({ all: true })).toEqual([]);
+  });
+
+  test('unpairing a device discards its requests, so an approved one never mints', async () => {
+    const { requests, tokens } = await fixture();
+    const prior = await pairTestDevice(tokens, 'laptop');
+    const request = await tokens.request('laptop');
+    await tokens.approve(request.user_code);
+    await tokens.request('other');
+    await tokens.revoke('laptop');
+    expect(await tokens.verify(prior)).toBeNull();
+    expect(await tokens.poll(request.poll_secret)).toEqual({ status: 'expired' });
+    expect(await tokens.list()).toEqual([]);
+    expect((await requests()).map((row) => row.device)).toEqual(['other']);
   });
 
   test('pending listings show live undecided requests without codes or secrets', async () => {

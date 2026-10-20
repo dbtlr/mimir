@@ -230,7 +230,9 @@ code is `gone` and whose hint names `/trpc`, so a stale probe such as
 `curl --fail .../api/projects` fails instead of passing on the console's HTML.
 Besides that tombstone, the host serves `/health`, `/auth/pairing/requests`, `/auth/pairing/poll`, `/trpc`, the console's
 server functions under `/_serverFn`, and the console itself. The host guard
-covers every one of them.
+covers every one of them. Any other path under `/auth`, including the removed
+`/auth/pairing/redeem`, answers `404` with a JSON body whose error code is
+`not_found`.
 
 ## Pair a device
 
@@ -255,15 +257,28 @@ request returns:
 ```
 
 The client displays `user_code` for the operator and keeps `poll_secret` to
-itself. A request is valid for ten minutes, and a new request for the same
-device replaces the earlier one. Each request logs the device and the time,
+itself. A request is valid for ten minutes. A new request for the same device
+replaces its pending or denied request. While the device has an approved
+request that its client has not collected, a new request returns `409`:
+
+```json
+{
+  "error": "this device has an approved pairing request awaiting collection",
+  "hint": "deny or unpair the device on the host, or wait for the approval to expire"
+}
+```
+
+Each request logs the device and the time,
 never the code or the secret. After ten requests in a rolling ten minutes,
 every new request returns `429` with `Retry-After` in seconds. The limit
-covers the whole host and resets when the host restarts. Malformed requests
-and store faults do not count toward it.
+covers the whole host and resets when the host restarts. Malformed requests,
+`409` refusals, and store faults create nothing and do not count toward it.
 
 The operator approves or denies the request on the host by its user code. The
-code is read case-insensitively, with the hyphen optional. The `mimir-host
+code is read case-insensitively, with the hyphen optional. Denying an approved
+request that its client has not collected withdraws the approval, and the next
+poll answers `denied`. Unpairing a device discards its requests, so an approval
+it has not collected never mints a token. The `mimir-host
 approve` and `mimir-host deny` commands that do this are planned in
 [ADR 0038](../decisions/0038-device-pairing-and-the-version-window.md) and are
 not yet in the image.
@@ -279,7 +294,8 @@ every `interval` seconds. Each answer is a `200` with a `status`:
 | `expired` | The request expired, was consumed, or never existed. |
 
 The first approved poll returns the token once. It also revokes the device's
-earlier token, so pairing again rotates it. A body without a string
+earlier token, so pairing again rotates it. If that answer is lost in transit,
+pair the device again: its earlier token was already revoked at mint. A body without a string
 `poll_secret` returns `400` with `{"error":"invalid pairing poll"}`. Polls are
 not rate limited.
 

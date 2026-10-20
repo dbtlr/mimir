@@ -101,18 +101,19 @@ test('the development host serves and renders the kit with an isolated store', a
           expect(unsupported.headers.get('cache-control'), `${method} ${path}`).toBe('no-store');
         }
       }
-      // The host-minted code exchange is gone: its path answers as any unknown path does.
-      const answerTo = async (path: string) => {
-        const response = await fetch(`${base}${path}`, {
-          body: JSON.stringify({ code: 'ABCD-EFGH' }),
-          headers: { 'content-type': 'application/json' },
-          method: 'POST',
+      // The host-minted code exchange is gone; unknown /auth paths answer a JSON 404, never the shell.
+      for (const [path, method] of [
+        ['/auth/pairing/redeem', 'POST'],
+        ['/auth/pairing/redeem', 'GET'],
+        ['/auth', 'GET'],
+      ] as const) {
+        const unknown = await fetch(`${base}${path}`, { method });
+        expect(unknown.status, `${method} ${path}`).toBe(404);
+        expect(unknown.headers.get('cache-control'), `${method} ${path}`).toBe('no-store');
+        expect(await unknown.json(), `${method} ${path}`).toMatchObject({
+          error: { code: 'not_found' },
         });
-        return { status: response.status, type: response.headers.get('content-type') };
-      };
-      const redeem = await answerTo('/auth/pairing/redeem');
-      expect(redeem.type).not.toContain('application/json');
-      expect(redeem).toEqual(await answerTo('/auth/pairing/never-a-route'));
+      }
       // Pairing is a host route: neither a client version nor an existing token is needed.
       const post = (path: string, body: unknown) =>
         fetch(`${base}/auth/pairing/${path}`, {

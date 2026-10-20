@@ -194,3 +194,30 @@ test('store faults answer a safe 500, log no detail, and spend no request budget
   broken = false;
   await file(handlers, 'recovered');
 });
+
+test('a request cannot displace an approved, uncollected one: 409 with the remedy, no budget spent', async () => {
+  const lines: string[] = [];
+  const handlers = createPairingHandlers({
+    log: (line) => lines.push(line),
+    tokens: fixture.tokens,
+  });
+  const approved = await file(handlers, 'laptop');
+  await fixture.tokens.approve(approved.user_code);
+  lines.length = 0;
+  for (let i = 0; i < 12; i++) {
+    const response = await handlers.request(post('requests', { device: 'laptop' }));
+    expect(response.status).toBe(409);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(await response.json()).toEqual({
+      error: 'this device has an approved pairing request awaiting collection',
+      hint: 'deny or unpair the device on the host, or wait for the approval to expire',
+    });
+  }
+  expect(lines).toEqual([]);
+  // Refusals created nothing, so nine creations remain in the window.
+  for (let i = 0; i < 9; i++) {
+    await file(handlers, `device-${String(i)}`);
+  }
+  expect((await handlers.request(post('requests', { device: 'limited' }))).status).toBe(429);
+  expect((await poll(handlers, approved.poll_secret)).body).toMatchObject({ status: 'approved' });
+});

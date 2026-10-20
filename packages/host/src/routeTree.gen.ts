@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './start-routes/__root'
 import { Route as HealthRouteImport } from './start-routes/health'
 import { Route as ApiSplatRouteImport } from './start-routes/api.$'
+import { Route as AuthSplatRouteImport } from './start-routes/auth.$'
 import { Route as TrpcSplatRouteImport } from './start-routes/trpc.$'
 import { Route as AuthPairingPollRouteImport } from './start-routes/auth.pairing.poll'
 import { Route as AuthPairingRequestsRouteImport } from './start-routes/auth.pairing.requests'
@@ -23,6 +24,11 @@ const HealthRoute = HealthRouteImport.update({
 const ApiSplatRoute = ApiSplatRouteImport.update({
   id: '/api/$',
   path: '/api/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthSplatRoute = AuthSplatRouteImport.update({
+  id: '/auth/$',
+  path: '/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TrpcSplatRoute = TrpcSplatRouteImport.update({
@@ -44,6 +50,7 @@ const AuthPairingRequestsRoute = AuthPairingRequestsRouteImport.update({
 export interface FileRoutesByFullPath {
   '/health': typeof HealthRoute
   '/api/$': typeof ApiSplatRoute
+  '/auth/$': typeof AuthSplatRoute
   '/trpc/$': typeof TrpcSplatRoute
   '/auth/pairing/poll': typeof AuthPairingPollRoute
   '/auth/pairing/requests': typeof AuthPairingRequestsRoute
@@ -51,6 +58,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/health': typeof HealthRoute
   '/api/$': typeof ApiSplatRoute
+  '/auth/$': typeof AuthSplatRoute
   '/trpc/$': typeof TrpcSplatRoute
   '/auth/pairing/poll': typeof AuthPairingPollRoute
   '/auth/pairing/requests': typeof AuthPairingRequestsRoute
@@ -59,6 +67,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/health': typeof HealthRoute
   '/api/$': typeof ApiSplatRoute
+  '/auth/$': typeof AuthSplatRoute
   '/trpc/$': typeof TrpcSplatRoute
   '/auth/pairing/poll': typeof AuthPairingPollRoute
   '/auth/pairing/requests': typeof AuthPairingRequestsRoute
@@ -68,6 +77,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/health'
     | '/api/$'
+    | '/auth/$'
     | '/trpc/$'
     | '/auth/pairing/poll'
     | '/auth/pairing/requests'
@@ -75,6 +85,7 @@ export interface FileRouteTypes {
   to:
     | '/health'
     | '/api/$'
+    | '/auth/$'
     | '/trpc/$'
     | '/auth/pairing/poll'
     | '/auth/pairing/requests'
@@ -82,6 +93,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/health'
     | '/api/$'
+    | '/auth/$'
     | '/trpc/$'
     | '/auth/pairing/poll'
     | '/auth/pairing/requests'
@@ -90,6 +102,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   HealthRoute: typeof HealthRoute
   ApiSplatRoute: typeof ApiSplatRoute
+  AuthSplatRoute: typeof AuthSplatRoute
   TrpcSplatRoute: typeof TrpcSplatRoute
   AuthPairingPollRoute: typeof AuthPairingPollRoute
   AuthPairingRequestsRoute: typeof AuthPairingRequestsRoute
@@ -109,6 +122,13 @@ declare module '@tanstack/react-router' {
       path: '/api/$'
       fullPath: '/api/$'
       preLoaderRoute: typeof ApiSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/$': {
+      id: '/auth/$'
+      path: '/auth/$'
+      fullPath: '/auth/$'
+      preLoaderRoute: typeof AuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/trpc/$': {
@@ -138,6 +158,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   HealthRoute: HealthRoute,
   ApiSplatRoute: ApiSplatRoute,
+  AuthSplatRoute: AuthSplatRoute,
   TrpcSplatRoute: TrpcSplatRoute,
   AuthPairingPollRoute: AuthPairingPollRoute,
   AuthPairingRequestsRoute: AuthPairingRequestsRoute,

@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 
 import type { Kysely, Selectable, Transaction } from 'kysely';
 
-import { validation } from './errors';
+import { conflict, validation } from './errors';
 import type { StoreDialect } from './store-sql/dialect';
 import type { DB } from './store-sql/schema';
 import { now } from './time';
@@ -83,23 +83,25 @@ export function createTokenStore({
     await tx.deleteFrom('pairing_requests').where('poll_secret_hash', '=', secretHash).execute();
     return { status: 'expired' };
   };
-  // Decide an undecided, unexpired request by its user code.
-  const decide = async (input: string, decision: 'approved_at' | 'denied_at') => {
+  // Approve an undecided request, or deny one not yet denied (withdrawing an
+  // uncollected approval), by its user code. Expired requests never match.
+  const decide = async (input: string, decision: 'approve' | 'deny') => {
     const code = normalizePairingCode(input);
     if (code === null) {
       return null;
     }
     return dialect.write(db, async (tx) => {
       const at = clockInstant();
-      const decided = await tx
+      let query = tx
         .updateTable('pairing_requests')
-        .set({ [decision]: at })
+        .set(decision === 'approve' ? { approved_at: at } : { approved_at: null, denied_at: at })
         .where('user_code_hash', '=', hash(code))
-        .where('approved_at', 'is', null)
         .where('denied_at', 'is', null)
-        .where('expires_at', '>', at)
-        .returning('device')
-        .executeTakeFirst();
+        .where('expires_at', '>', at);
+      if (decision === 'approve') {
+        query = query.where('approved_at', 'is', null);
+      }
+      const decided = await query.returning('device').executeTakeFirst();
       if (decided === undefined) {
         return null;
       }
@@ -115,9 +117,10 @@ export function createTokenStore({
   return {
     /** Approve a live request by the code its client displays; `rotates` when the device holds an active token. */
     approve: (userCode: string): Promise<{ device: string; rotates: boolean } | null> =>
-      decide(userCode, 'approved_at'),
+      decide(userCode, 'approve'),
+    /** Deny a live request by its code, including an approval its client has not collected. */
     deny: async (userCode: string): Promise<{ device: string } | null> => {
-      const denied = await decide(userCode, 'denied_at');
+      const denied = await decide(userCode, 'deny');
       return denied === null ? null : { device: denied.device };
     },
     list: async ({ all = false }: { all?: boolean } = {}): Promise<DeviceToken[]> => {
@@ -163,7 +166,11 @@ export function createTokenStore({
       }
       return dialect.write(db, (tx) => settle(tx, secretHash));
     },
-    /** File a pairing request for a device, replacing any earlier request it has. */
+    /**
+     * File a pairing request for a device, replacing its pending or denied
+     * request. An approved request its client has not collected is refused
+     * instead, so another client cannot displace it before the poll.
+     */
     request: (input: string): Promise<PairingRequest> => {
       const device = normalizeDeviceName(input);
       if (device === null) {
@@ -189,11 +196,20 @@ export function createTokenStore({
           user_code_hash: hash(code),
         };
         await tx.deleteFrom('pairing_requests').where('expires_at', '<=', created_at).execute();
-        await tx
+        const filed = await tx
           .insertInto('pairing_requests')
           .values(row)
-          .onConflict((oc) => oc.column('device').doUpdateSet(row))
-          .execute();
+          .onConflict((oc) =>
+            oc.column('device').doUpdateSet(row).where('pairing_requests.approved_at', 'is', null),
+          )
+          .returning('id')
+          .executeTakeFirst();
+        if (filed === undefined) {
+          throw conflict(
+            `${device} has an approved pairing request its client has not collected`,
+            'deny or unpair the device on the host, or wait for the approval to expire',
+          );
+        }
         return {
           expires_at: row.expires_at,
           interval: PAIRING_POLL_INTERVAL,
@@ -202,8 +218,10 @@ export function createTokenStore({
         };
       });
     },
+    /** Unpair a device: revoke its token and discard its requests, so no approval can still mint. */
     revoke: (device: string) =>
       dialect.write(db, async (tx) => {
+        await tx.deleteFrom('pairing_requests').where('device', '=', device).execute();
         await tx
           .updateTable('device_tokens')
           .set({ revoked_at: clockInstant() })

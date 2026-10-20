@@ -1,4 +1,4 @@
-import { normalizeDeviceName } from '@mimir/core';
+import { MimirError, normalizeDeviceName } from '@mimir/core';
 import type { BuiltStore } from '@mimir/core';
 
 const WINDOW_MS = 10 * 60 * 1000;
@@ -85,11 +85,20 @@ export function createPairingHandlers({
         const created = await tokens.request(device);
         event('pairing_requested', { device });
         return Response.json(created, { headers: noStore });
-      } catch {
-        // A store fault created nothing, so it releases its reservation.
+      } catch (error) {
+        // A refusal or a store fault created nothing, so it releases its reservation.
         const reservation = admitted.indexOf(at);
         if (reservation !== -1) {
           admitted.splice(reservation, 1);
+        }
+        if (error instanceof MimirError && error.code === 'conflict') {
+          return Response.json(
+            {
+              error: 'this device has an approved pairing request awaiting collection',
+              hint: 'deny or unpair the device on the host, or wait for the approval to expire',
+            },
+            { headers: noStore, status: 409 },
+          );
         }
         return fault('pairing_request_fault');
       }
@@ -110,5 +119,19 @@ export function postOnly() {
   return Response.json(
     { error: 'method not allowed' },
     { headers: { ...noStore, allow: 'POST' }, status: 405 },
+  );
+}
+
+/** Unknown `/auth` paths get a refusal a client can read, not the console's HTML shell with a 200. */
+export function unknownAuthResponse() {
+  return Response.json(
+    {
+      error: {
+        code: 'not_found',
+        hint: 'pair through POST /auth/pairing/requests and POST /auth/pairing/poll',
+        message: 'the host has no such /auth route',
+      },
+    },
+    { headers: noStore, status: 404 },
   );
 }
