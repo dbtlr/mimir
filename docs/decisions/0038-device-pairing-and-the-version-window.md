@@ -19,6 +19,8 @@ administers paired devices.
 
 ### A device pairs once and then sends a bearer token
 
+_The code-issue part of this section is superseded by the 2026-10-20 addendum (MMR-584). The bearer check and its order stand._
+
 The operator names a device on the host, and the host issues a one-time
 pairing code for it. The CLI on that device redeems the code and receives a
 device token. The CLI then sends the token as `Authorization: Bearer` on every
@@ -39,6 +41,8 @@ check applies to it, and its server functions require no token. The
 every other procedure.
 
 ### Codes and tokens are host transport credentials
+
+_The `pairing_codes` table is superseded by the 2026-10-20 addendum (MMR-584). `device_tokens` and the token lifecycle stand._
 
 Migration 0009 adds two tables in both dialects:
 
@@ -106,6 +110,8 @@ access has no contract that a window could hold compatible.
 
 ### The redeem limit is host-wide
 
+_Superseded by the 2026-10-20 addendum (MMR-584)._
+
 Every failed redeem answers one uniform `400`, whether the code is unknown,
 expired, or already used. After 5 failed redeems in a rolling 10 minutes, the
 host refuses every redeem, valid codes included, with `429` and `Retry-After`
@@ -118,6 +124,8 @@ the tailnet a client's address is not trustworthy. Bearer checks are not
 limited, because a 256-bit token cannot be guessed.
 
 ### The CLI keeps its credentials beside its config
+
+_The origin-mismatch remedy is refined by the 2026-10-20 addendum (MMR-584)._
 
 `config.toml` holds exactly one of `[host]` and `[store]`. Holding both is a
 configuration error that names the fix. `[host]` holds the host's `url`.
@@ -134,6 +142,8 @@ place. The CLI refuses:
   `origin`. The remedy is `mimir pair <url> <code>`.
 
 ### `mimir pair` connects a CLI to a host
+
+_The steps are superseded by the 2026-10-20 addendum (MMR-584). The `doctor` and `store` paragraphs stand._
 
 `mimir pair <url> <code>`:
 
@@ -176,7 +186,7 @@ schema that does not match its own.
 
 | Command | Effect |
 | --- | --- |
-| `pair <device>` | Prints a pairing code, and notes when an active token will be replaced. |
+| `pair <device>` | Prints a pairing code, and notes when an active token will be replaced. _Superseded by the 2026-10-20 addendum (MMR-584)._ |
 | `unpair <device>` | Revokes the device's token and keeps the row. |
 | `tokens [--all]` | Lists user, device, created, last used, and revoked. |
 | `doctor` | Reports the record-health facet that the console reads. |
@@ -241,3 +251,126 @@ boundary. Pairing does not make a host safe to expose beyond it.
 - The host gains a store migration, so its first pairing release follows the
   host-first update order. Direct-Postgres CLIs refuse the new schema under
   ADR 0030's gate until they are updated.
+
+## Addendum (2026-10-20, MMR-584): the client requests pairing and the host approves it
+
+The client starts pairing and the operator approves it on the host, as in
+`gh auth login` and the OAuth device authorization grant (RFC 8628). This
+replaces the host-minted pairing code, `mimir-host pair`, and the redeem
+endpoint. Bearer tokens, the version window, and the token lifecycle are
+unchanged.
+
+### The flow
+
+1. The client sends `POST /auth/pairing/requests` with `{"device": "<name>"}`.
+   The host trims the name and refuses one that is empty, longer than 128
+   characters, or holds a control character.
+2. The host stores a pairing request and answers `user_code`, `poll_secret`,
+   `expires_at`, and `interval`. The user code is 8 Crockford base32
+   characters, displayed as `XXXX-XXXX` and read as pairing codes were read:
+   case-insensitively, with the hyphen optional and confusable letters folded.
+   The poll secret is 256 random bits, base64url-encoded. A request is valid
+   for 10 minutes, and `interval` is 2 seconds.
+3. The client displays the user code and polls `POST /auth/pairing/poll` with
+   `{"poll_secret": "<secret>"}` every `interval` seconds.
+4. The operator approves or denies the request on the host by its user code.
+5. A poll answers `pending`, `denied`, `expired`, or `approved` with `device`
+   and `token`. The first approved poll mints the device token, revokes the
+   device's active token, and deletes the request in one transaction, so a
+   second poll cannot mint again. A denied request answers `denied` once and
+   is then deleted. An unknown, consumed, or expired poll secret answers
+   `expired`, so a poll reveals nothing about secrets it does not hold.
+
+A request that has expired never matches, approved or not. A device has at
+most one request: a new request replaces the earlier one, as a new code
+replaced a pending code. Both pairing routes are host routes outside the
+version window and the bearer check, like the redeem endpoint before them.
+
+### Two values separate naming a request from collecting it
+
+The user code only identifies the request to the operator. Only the holder of
+the poll secret collects the token, and only the client ever sees the secret.
+Someone who sees the client's screen, or watches the operator type the code,
+cannot take the token.
+
+The store keeps only SHA-256 hashes of user codes, poll secrets, and tokens. A
+hash cannot be turned back into a code, so the pending listing shows each
+request's device, creation time, and expiry, and the operator reads the code
+from the client's screen.
+
+### The limit moves to request creation
+
+The user code is typed only on the host, so it cannot be guessed over the
+network, and the poll secret is as unguessable as a token. A network client
+can still file requests. After 10 requests in a rolling 10 minutes, the host
+refuses every new request with `429` and `Retry-After` until the window
+slides. As before, the limit counts the whole host, lives in memory, and
+resets when the host restarts. A malformed body answers one uniform `400`,
+creates nothing, and does not count. A store fault does not count. Polls are
+not limited, and a malformed poll answers a uniform `400`.
+
+### Migration 0010 replaces the codes table
+
+Migration 0009 has shipped, so it stays as written. Migration 0010 drops
+`pairing_codes` and creates `pairing_requests` in both dialects: `id`,
+`device` (unique), `user_code_hash` (unique), `poll_secret_hash` (unique),
+`created_at`, `expires_at`, `approved_at`, and `denied_at`. A check refuses a
+request that is both approved and denied. `device_tokens` is unchanged. A code
+pending at upgrade is lost, which costs at most one 10-minute pairing. Filing
+a request purges expired ones. Pairing requests, like tokens, stay out of the
+transfer document.
+
+### `mimir pair` requests and waits
+
+`mimir pair <url> [--device <name>]` replaces `mimir pair <url> <code>`. The
+device name defaults to the machine's hostname. The command:
+
+1. Reduces the URL to its origin. It accepts `http` and `https`.
+2. Refuses when `config.toml` has `[store]`, and lists the migration steps.
+3. Checks `/health` and the version window before it files a request.
+4. Files the request and prints the user code with the `mimir-host approve`
+   command to run on the host.
+5. Blocks and polls at the host's interval until a terminal answer.
+6. On approval, writes `credentials.toml`, and then `[host] url` in
+   `config.toml`, and prints `paired as <device> with <origin> (host <version>)`.
+   On `denied` or `expired`, it writes nothing and exits non-zero.
+
+The credentials file's origin-mismatch remedy becomes `mimir pair <url>`. The
+command still takes its input as arguments and does not prompt.
+
+The `mimir-host` table replaces `pair <device>` with three commands:
+
+| Command | Effect |
+| --- | --- |
+| `pending` | Lists live requests awaiting a decision: device, created, and expires. |
+| `approve <code>` | Approves the request, and notes when an active token will be replaced. |
+| `deny <code>` | Denies the request. |
+
+`mimir-host approve` is the only approval surface for now. Approval from the
+console is follow-up work (MMR-585).
+
+### Why
+
+- **The operator's approval is the decision that matters.** On a single-user
+  tailnet, the host trusts a device because the operator admitted it. The
+  request flow keeps that decision on the host.
+- **The operator should not have to start every pairing on the host.** With
+  host-minted codes, pairing a laptop meant opening a shell on the host first,
+  then carrying a code across. Now the client starts, and the operator
+  confirms a code already on screen.
+- **Two values keep a seen code harmless.** The code shown on screen cannot
+  collect the token, so displaying it costs nothing.
+
+### Considered and rejected
+
+- **Host-minted codes, the original decision.** They made the operator start
+  every pairing from the host. Under the tailnet threat model the operator's
+  approval is what matters, and the request flow keeps that approval while
+  letting the client start.
+- **One code that both identifies the request and collects the token.**
+  Anyone who saw the code could poll for the token before the client did.
+- **User codes stored recoverably, so the pending listing can show them.**
+  The listing would hold live credentials in the clear. The code is already on
+  the client's screen.
+- **A redeem-style limit on polls.** A 256-bit poll secret cannot be guessed,
+  as a bearer token cannot.

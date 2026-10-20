@@ -110,9 +110,10 @@ no older than `MIN_CLIENT` and no newer than the host by minor version.
 Version refusals carry a `MimirError` and the CLI or host update remedy.
 After the version check, every tRPC procedure requires `Authorization: Bearer`
 with an active device token. Missing or invalid tokens receive a uniform
-`UNAUTHORIZED` transport error. `POST /auth/pairing/redeem` exchanges a one-time
-code for `{device, token}`, outside the version and bearer checks. The host-wide
-redeem limit blocks every attempt after five failures in a rolling ten minutes.
+`UNAUTHORIZED` transport error. Outside the version and bearer checks,
+`POST /auth/pairing/requests` files a pairing request and `POST /auth/pairing/poll`
+collects `{device, token}` once the operator approves its code on the host. The
+host-wide creation limit refuses new requests after ten in a rolling ten minutes.
 Unexpected tRPC and server-function faults log structured diagnostics on stderr. tRPC replies
 omit stacks and replace internal library messages with a generic failure and doctor hint;
 domain errors retain their codes, messages, and hints.

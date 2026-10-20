@@ -105,7 +105,7 @@ See [Upgrade the host](host.md#upgrade-the-host-and-the-clis-that-share-its-post
 
 ## Back up
 
-Pairing codes and device tokens are host transport credentials and are excluded
+Pairing requests and device tokens are host transport credentials and are excluded
 from export and import. Moving work state to another host requires pairing its
 devices again. Import preserves any credentials already held by the target host.
 

@@ -228,27 +228,64 @@ findings that `mimir doctor` reports.
 The retired `/api` answers every method with `410` and a JSON body whose error
 code is `gone` and whose hint names `/trpc`, so a stale probe such as
 `curl --fail .../api/projects` fails instead of passing on the console's HTML.
-Besides that tombstone, the host serves `/health`, `/auth/pairing/redeem`, `/trpc`, the console's
+Besides that tombstone, the host serves `/health`, `/auth/pairing/requests`, `/auth/pairing/poll`, `/trpc`, the console's
 server functions under `/_serverFn`, and the console itself. The host guard
 covers every one of them.
 
-## Redeem a pairing code
+## Pair a device
 
-`POST /auth/pairing/redeem` accepts JSON `{"code":"XXXX-XXXX"}` and returns
-`{"device":"device-name","token":"device-token"}`. The device name comes from
-the code issued on the host. Redemption requires neither a bearer token nor a
-version header, and responses set `Cache-Control: no-store`.
-Other methods return `405` with `Allow: POST`.
+A client asks to pair, an operator approves the request on the host, and the
+client polls until it collects its device token. Both pairing routes require
+neither a bearer token nor a version header. Responses set
+`Cache-Control: no-store`, and other methods return `405` with `Allow: POST`.
 
-An unknown, expired, used, or malformed code returns the same `400` body:
-`{"error":"invalid pairing code"}`. Each failed redemption logs its time without
-the code. After five failures in a rolling ten minutes, all attempts return
-`429` with `Retry-After` in seconds, including valid codes. The limit covers the
-whole host and resets when the host restarts.
+`POST /auth/pairing/requests` accepts JSON `{"device":"device-name"}`. The host
+trims the name. A missing, empty, or non-string name, a name longer than 128
+characters, a name with a control character, or a body that is not JSON
+returns the same `400` body: `{"error":"invalid pairing request"}`. A valid
+request returns:
 
-A credential-store fault returns a generic `500` with `Cache-Control: no-store`.
-The fault log records the event and time without driver details or the code.
-Store faults do not consume the invalid-code limit.
+```json
+{
+  "user_code": "XXXX-XXXX",
+  "poll_secret": "poll-secret",
+  "expires_at": "2026-10-20T12:10:00.000Z",
+  "interval": 2
+}
+```
+
+The client displays `user_code` for the operator and keeps `poll_secret` to
+itself. A request is valid for ten minutes, and a new request for the same
+device replaces the earlier one. Each request logs the device and the time,
+never the code or the secret. After ten requests in a rolling ten minutes,
+every new request returns `429` with `Retry-After` in seconds. The limit
+covers the whole host and resets when the host restarts. Malformed requests
+and store faults do not count toward it.
+
+The operator approves or denies the request on the host by its user code. The
+code is read case-insensitively, with the hyphen optional. The `mimir-host
+approve` and `mimir-host deny` commands that do this are planned in
+[ADR 0038](../decisions/0038-device-pairing-and-the-version-window.md) and are
+not yet in the image.
+
+`POST /auth/pairing/poll` accepts JSON `{"poll_secret":"poll-secret"}`. Poll
+every `interval` seconds. Each answer is a `200` with a `status`:
+
+| `status` | Meaning |
+| --- | --- |
+| `pending` | The operator has not decided. Poll again. |
+| `approved` | The body also holds `device` and `token`. The request is consumed. |
+| `denied` | The operator denied the request. The request is consumed. |
+| `expired` | The request expired, was consumed, or never existed. |
+
+The first approved poll returns the token once. It also revokes the device's
+earlier token, so pairing again rotates it. A body without a string
+`poll_secret` returns `400` with `{"error":"invalid pairing poll"}`. Polls are
+not rate limited.
+
+A credential-store fault on either route returns a generic `500` with
+`Cache-Control: no-store`. The fault log records the event and time without
+driver details, codes, or secrets.
 
 Every `/trpc` procedure, including `console.*`, requires `Authorization: Bearer`
 with an active device token. The host guard runs first, then the version window,
@@ -358,5 +395,7 @@ docker compose -f deploy/compose.yaml start mimir
 `packages/host/src/server/host.ts` (store open and migration),
 `packages/host/src/server/lifecycle.ts` (the guards and startup refusal),
 `packages/host/src/server/guard.ts` (the Host allowlist and the cross-origin write
-check), `packages/wire/src/server.ts` (the `/trpc` error mapping),
+check), `packages/host/src/server/pairing.ts` (the pairing routes and their limit),
+`packages/core/src/tokens.ts` (pairing requests and device tokens),
+`packages/wire/src/server.ts` (the `/trpc` error mapping),
 `packages/host/src/start-routes/health.ts` (`/health`).
