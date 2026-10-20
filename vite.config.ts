@@ -252,6 +252,11 @@ export default defineConfig({
         ignores: ['dist/**', '**/routeTree.gen.ts', '**/.output/**'],
         overrides: layerOverrides,
         rules: { ...quarantinedRules, ...styleOptOuts },
+        // MIMIR_LINT_TYPE_AWARE=0 lints without type information (and so
+        // without type checking). The CLI layering test sets it: its import
+        // rule needs no types, and building the type program on a cold CI
+        // runner can take seconds (MMR-572).
+        typeAware: process.env.MIMIR_LINT_TYPE_AWARE !== '0',
       },
       node: {
         files: [

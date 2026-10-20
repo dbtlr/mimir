@@ -28,6 +28,7 @@ const PROBES = {
     path: probe('testing'),
     source: "export { parityBoard } from '../testing/fixture';\n",
   },
+  typed: { path: probe('typed'), source: "export const count: number = 'one';\n" },
 };
 const APP = fileURLToPath(new URL('app.ts', import.meta.url));
 
@@ -45,14 +46,20 @@ const absolute = (filename: string): string =>
 
 /**
  * Lint the files with only the layering rule on (its per-file options and
- * messages still come from the repository config) and group the diagnostics
- * by file. The JSON format reads the same on a terminal, under CI, and under
- * GitHub Actions, where the default format turns graphical or into
- * annotations that drop the rule's custom help.
+ * messages still come from the repository config) and without type
+ * information, then group the diagnostics by file. The rule reads import
+ * specifiers alone, and the type program it would otherwise build can take
+ * seconds on a cold CI runner. The JSON format reads the same on a terminal,
+ * under CI, and under GitHub Actions, where the default format turns
+ * graphical or into annotations that drop the rule's custom help.
  */
 function lint(paths: readonly string[]): Map<string, string> {
   const args = ['x', 'vp', 'lint', '--format', 'json', '-A', 'all', '-D', 'no-restricted-imports'];
-  const run = spawnSync('bun', [...args, ...paths], { cwd: repository, encoding: 'utf8' });
+  const run = spawnSync('bun', [...args, ...paths], {
+    cwd: repository,
+    encoding: 'utf8',
+    env: { ...process.env, MIMIR_LINT_TYPE_AWARE: '0' },
+  });
   let report: { diagnostics?: unknown } | undefined;
   try {
     report = JSON.parse(run.stdout) as { diagnostics?: unknown };
@@ -96,6 +103,10 @@ test('a command module that imports the old binary is refused', () => {
 
 test('a command module that imports the test-support helpers is refused', () => {
   expect(of(PROBES.testing.path)).toContain('only tests import packages/cli/src/testing');
+});
+
+test('the lint run reports no type errors, so it runs without type information', () => {
+  expect(of(PROBES.typed.path)).toBe('');
 });
 
 test('the composition root imports core, and a command the contract, cleanly', () => {
