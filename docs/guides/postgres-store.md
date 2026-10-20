@@ -123,9 +123,8 @@ derived — status and rollups are recomputed on read from these same
 facts. Identity is preserved: every `KEY-seq`, `KEY-aN`, and `KEY-sN`, every
 timestamp, and the counters. The document carries a `schema_version` of its own,
 separate from the database schema version, so a later binary knows what it
-reads. Export is fail-closed: it refuses, and names the records, when the store
-holds something the document cannot carry, so the backup is never quietly
-narrower than the store.
+reads. The transfer document carries work state only. The database schema
+enforces its identities and references when records are written.
 
 Export refuses to overwrite an existing file. Name a new path, or remove the
 old backup first. Write `-` instead of a path to send the document to stdout,
