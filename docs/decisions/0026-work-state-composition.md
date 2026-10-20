@@ -92,7 +92,9 @@ Both transitions record their resulting handles in the append-only log.
 `unqueue` records the cancelled run's handles before clearing them.
 
 CLI `queue` and `start` fill omitted harness and session flags from an unambiguous
-shell environment. Explicit flags, including blanks, win. Multiple harness
+shell environment. Explicit flags, including blanks, win. The shell fills only
+when every passed flag equals its own value, so an explicit identity from another
+harness or session is never mixed with the shell's. Multiple harness
 signals cause no automatic fill and a diagnostic asking for explicit handles.
 MCP does not infer identity from the server environment. Agents pass their own
 harness and session explicitly; automatic fill is a fallback. These handles

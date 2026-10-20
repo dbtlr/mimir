@@ -11,7 +11,7 @@
  * be parsed safely without coupling this util to a specific validation library.
  */
 
-export { detectHarness } from './harness-env';
+export { detectHarness, fillFromShell } from './harness-env';
 export { describeFault, formatDiagnostic } from './diagnostics';
 export { DEV_PORT, parsePort } from './ports';
 export { UNREADABLE, ago, formatDay, formatInstant, relativeTime } from './time';

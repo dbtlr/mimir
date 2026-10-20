@@ -25,7 +25,7 @@ import type {
   UniformArgs,
   UniformVerb,
 } from '@mimir/contract';
-import { detectHarness } from '@mimir/helpers';
+import { fillFromShell } from '@mimir/helpers';
 
 import { MimirUsageError } from '../failures';
 import { nodeToken, withListHint, withProjectHint } from '../node-input';
@@ -428,16 +428,19 @@ async function runHandles(
   ) {
     return handles;
   }
-  const detected = detectHarness(env);
-  if (detected.kind === 'conflict') {
+  const filled = fillFromShell(handles, env);
+  if (filled.kind === 'conflict') {
     await warn(
-      `detected multiple harnesses (${detected.harnesses.join(', ')}); pass --harness and --session explicitly`,
+      `detected multiple harnesses (${filled.harnesses.join(', ')}); pass --harness and --session explicitly`,
     );
-  } else if (detected.kind === 'single') {
-    handles.harness ??= detected.harness;
-    handles.session ??= detected.session;
+    return handles;
   }
-  return handles;
+  const { harness, session } = filled;
+  return {
+    ...handles,
+    ...(harness == null ? {} : { harness }),
+    ...(session == null ? {} : { session }),
+  };
 }
 
 /** `queue` and `start` record the resume handles as the reservation or the claim (ADR 0026). */
