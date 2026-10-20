@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test';
-import { copyFile, mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -50,7 +50,7 @@ beforeAll(async () => {
   await mkdir(bound);
   await mkdir(unbound);
   await copyFile(join(repository, 'dist', 'mimir'), binary);
-  await run(['chmod', '755', binary], root);
+  await chmod(binary, 0o755);
   await run(['git', 'init', '-q'], bound);
   await run(['git', 'config', 'mimir.project', 'DEMO'], bound);
   await run([binary, 'create', 'project', 'Demo', '--key', 'DEMO', '-y'], root);
@@ -102,10 +102,22 @@ test.skipIf(!enabled)(
   30_000,
 );
 
+// `overview` reads one board, so the same scope-less call reads the bound board
+// from the clone and refuses outside it. (`next` widens to the portfolio when unbound.)
 test.skipIf(!enabled)(
-  'mimir mcp spawned outside a bound clone refuses with the needs-a-project error',
+  'a scope-less overview from the bound clone reads that project',
   async () => {
-    // `next` with no scope widens to the portfolio when unbound; `overview` reads one board and refuses.
+    const result = await callFrom('overview', bound);
+    expect(result.isError, result.text).toBe(false);
+    expect(result.text).toContain('the bound task');
+    expect(result.text).not.toContain('the other task');
+  },
+  30_000,
+);
+
+test.skipIf(!enabled)(
+  'the same overview from an unbound directory refuses with the needs-a-project error',
+  async () => {
     const result = await callFrom('overview', unbound);
     expect(result.isError).toBe(true);
     expect(result.text).toContain('overview needs a project');
