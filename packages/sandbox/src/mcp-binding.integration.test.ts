@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
-import { isolatedEnvironment } from './process';
+import { command, isolatedEnvironment } from './process';
 
 /**
  * `mimir mcp` resolves its Project Binding from the directory it is spawned in
@@ -24,18 +24,9 @@ let binary: string;
 let bound: string;
 let unbound: string;
 
+/** One setup command, bounded and fully drained by the shared sandbox helper. */
 async function run(args: string[], cwd: string): Promise<void> {
-  const child = Bun.spawn(args, {
-    cwd,
-    env: isolatedEnvironment(),
-    stderr: 'pipe',
-    stdin: 'ignore',
-    stdout: 'pipe',
-  });
-  const [code, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
-  if (code !== 0) {
-    throw new Error(`${args.join(' ')} exited ${code}: ${stderr}`);
-  }
+  await command(args, { cwd, timeout: 60_000 });
 }
 
 beforeAll(async () => {
