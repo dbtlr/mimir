@@ -62,6 +62,7 @@ export async function renderRoute(
   initial: string,
   client = new QueryClient(),
 ) {
+  // Imported lazily, so renderInRouter's tests never load the route tree.
   (await import('../router')).createConsoleRouter();
   const router = createRouter({
     history: createMemoryHistory({ initialEntries: [initial] }),

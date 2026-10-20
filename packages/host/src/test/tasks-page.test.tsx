@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, vi } from 'vitest';
 
 import { FINISHED_PAGE_SIZE } from '../api/browse-queries';
 import { list } from '../api/fns/browse';
-import { tree } from '../api/fns/shell';
 import { tasksRoute } from '../router';
 import { taskSet } from './browse-fixtures';
 import { failBrowseReads, serveBrowse } from './browse-fns';
@@ -138,7 +137,8 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
     mockApi();
     await renderTasks();
     await screen.findByText('Doctor the wire');
-    expect(vi.mocked(tree)).not.toHaveBeenCalled();
+    // The Shell's first element is its skip link; no page renders one.
+    expect(screen.queryByRole('link', { name: 'Skip to content' })).toBeNull();
   });
 
   it('the header names the live count and reads the portfolio task selection with the lede', async () => {
@@ -313,9 +313,7 @@ describe('tasksPage (grouped reading list, MMR-454)', () => {
     await renderTasks('/p/MMR/tasks?status=ready,blocked');
     await screen.findByText('Doctor the wire');
     expect(
-      screen.getByRole('button', {
-        name: 'Remove status filter Ready, Blocked',
-      }),
+      screen.getByRole('button', { name: 'Remove status filter Ready, Blocked' }),
     ).toBeDefined();
     expect(nodeReads().some((p) => JSON.stringify(p.status) === '["ready","blocked"]')).toBe(true);
   });
