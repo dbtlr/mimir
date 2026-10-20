@@ -1,15 +1,13 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
+import { screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { nodeWork, projectWork, review } from '../api/fns/views';
 import { WorkPage } from '../components/work-page';
-import { routeTree } from '../router';
+import { reviewRoute } from '../router';
 import { engineProject } from './engine-fixtures';
 import { engineContainer } from './node-fixtures';
-import { renderInRouter } from './router';
-import { serveShell } from './shell-fns';
+import { renderInRouter, renderRoute } from './router';
 import { engineReview, engineWork, needsYouRow, nowRow, stripRow } from './views-fixtures';
 import { serveViews } from './views-fns';
 
@@ -24,7 +22,6 @@ vi.mock('../api/fns/views');
  */
 
 beforeEach(() => {
-  serveShell({ projects: [engineProject({ id: 'MMR', title: 'Mimir' })] });
   serveViews({
     nodes: {
       'MMR-105': engineWork({
@@ -56,16 +53,8 @@ const client = () =>
   new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } });
 
 describe('the review and work pages on server functions (MMR-538)', () => {
-  it('reads the review page, its rail, and the alert', async () => {
-    const router = createRouter({
-      history: createMemoryHistory({ initialEntries: ['/'] }),
-      routeTree,
-    });
-    render(
-      <QueryClientProvider client={client()}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>,
-    );
+  it('reads the review page and its rail', async () => {
+    await renderRoute([reviewRoute], '/', client());
 
     await expect(
       screen.findByRole('heading', { level: 1, name: /Needs you/ }),
