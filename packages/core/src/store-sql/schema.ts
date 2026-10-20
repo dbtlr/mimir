@@ -234,7 +234,26 @@ export type SchemaVersionTable = {
   applied_at: string;
 };
 
+export type PairingCodeTable = {
+  device: string;
+  code_hash: string;
+  created_at: string;
+  expires_at: string;
+};
+
+export type DeviceTokenTable = {
+  id: string;
+  user: Generated<string>;
+  device: string;
+  token_hash: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+};
+
 export type DB = {
+  pairing_codes: PairingCodeTable;
+  device_tokens: DeviceTokenTable;
   annotation: AnnotationTable;
   artifact: ArtifactTable;
   artifact_link: ArtifactLinkTable;

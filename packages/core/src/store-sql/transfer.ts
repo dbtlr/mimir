@@ -43,8 +43,11 @@ import { loadWorkingSet } from './working-set';
 
 /**
  * The SQL store's export and import (ADR 0030 Decision 4) — the whole
- * store's stored facts out to one backend-neutral document, and such a document
+ * store's work-state facts out to one backend-neutral document, and such a document
  * back in with every id, sequence, and timestamp preserved.
+ *
+ * Host pairing codes and device tokens are deliberately absent from both
+ * directions (ADR 0038). Import leaves the target host's credentials intact.
  *
  * **The export never refuses.** The relational schema makes every corrupt
  * state unrepresentable — an orphan violates a foreign key, a collider violates

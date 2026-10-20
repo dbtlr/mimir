@@ -7,7 +7,9 @@ import { LocalEngine } from '../engine';
 import { updateNode } from '../mutations';
 import { sandboxPostgresUrlFromEnvironment } from '../sandbox-authority';
 import { observe, seedWorkingSet, withoutStamp } from '../testing/conformance';
+import { createTokenStore } from '../tokens';
 import { openPostgres } from './client';
+import { postgresDialect } from './dialect';
 import {
   assertSchemaCurrent,
   createPostgresStore,
@@ -64,6 +66,7 @@ lane('upgradeSchema builds the schema from empty, and the gate then passes', asy
           '0006_project_remote',
           '0007_task_queued',
           '0008_main_worker',
+          '0009_device_tokens',
         ],
         from: 0,
         to: SCHEMA_VERSION,
@@ -312,6 +315,35 @@ lane(
         expect(started.history?.[1]?.handles?.worker_session).toBe(worker);
       } finally {
         await handle.close();
+      }
+    });
+  },
+);
+
+lane(
+  'token redemption on competing Postgres connections consumes once and rotates atomically',
+  async () => {
+    await onFreshSchema(async (url) => {
+      const first = openPostgres(url);
+      const second = openPostgres(url);
+      try {
+        await upgradeSchema(first.db);
+        const one = createTokenStore({ db: first.db, dialect: postgresDialect });
+        const two = createTokenStore({ db: second.db, dialect: postgresDialect });
+        const prior = await one.redeem(await one.issueCode('laptop'));
+        const code = await one.issueCode('laptop');
+        const results = await Promise.all([one.redeem(code), two.redeem(code)]);
+        expect(results.filter((result) => result !== null)).toHaveLength(1);
+        expect(results.filter((result) => result === null)).toHaveLength(1);
+        expect(await one.list()).toHaveLength(1);
+        expect(await one.list({ all: true })).toHaveLength(2);
+        expect(await two.verify(prior?.token ?? '')).toBeNull();
+        expect(await two.verify(results.find((result) => result !== null)?.token ?? '')).toBe(
+          'laptop',
+        );
+      } finally {
+        await first.close();
+        await second.close();
       }
     });
   },

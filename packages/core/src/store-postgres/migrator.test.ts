@@ -55,6 +55,7 @@ test('an upgrade names the migrations it applied and lands the current version',
         '0006_project_remote',
         '0007_task_queued',
         '0008_main_worker',
+        '0009_device_tokens',
       ],
       from: 0,
       to: SCHEMA_VERSION,
@@ -101,6 +102,7 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
         '0006_project_remote',
         '0007_task_queued',
         '0008_main_worker',
+        '0009_device_tokens',
       ],
       from: 1,
       to: SCHEMA_VERSION,
@@ -155,6 +157,7 @@ test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by
         '0006_project_remote',
         '0007_task_queued',
         '0008_main_worker',
+        '0009_device_tokens',
       ],
       from: 2,
       to: SCHEMA_VERSION,
@@ -214,6 +217,7 @@ test('0004_seed_parked upgrades a version-3 store: seeds keep their lifecycle, p
         '0006_project_remote',
         '0007_task_queued',
         '0008_main_worker',
+        '0009_device_tokens',
       ],
       from: 3,
       to: SCHEMA_VERSION,
@@ -259,6 +263,7 @@ test('0005_project_pinned upgrades a version-4 store: projects keep their data a
         '0006_project_remote',
         '0007_task_queued',
         '0008_main_worker',
+        '0009_device_tokens',
       ],
       from: 4,
       to: SCHEMA_VERSION,
@@ -307,7 +312,12 @@ test('0006_project_remote upgrades a version-5 store: projects keep their data a
     `.execute(db);
 
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0006_project_remote', '0007_task_queued', '0008_main_worker'],
+      applied: [
+        '0006_project_remote',
+        '0007_task_queued',
+        '0008_main_worker',
+        '0009_device_tokens',
+      ],
       from: 5,
       to: SCHEMA_VERSION,
     });
@@ -514,7 +524,9 @@ test.each([6, 7])(
           ),
       ).toBe(true);
       expect((await upgradeSchema(db)).applied).toEqual(
-        version === 7 ? ['0008_main_worker'] : ['0007_task_queued', '0008_main_worker'],
+        version === 7
+          ? ['0008_main_worker', '0009_device_tokens']
+          : ['0007_task_queued', '0008_main_worker', '0009_device_tokens'],
       );
       expect((await sql`SELECT * FROM transition_log ORDER BY id`.execute(db)).rows).toEqual(
         historyBefore.rows,

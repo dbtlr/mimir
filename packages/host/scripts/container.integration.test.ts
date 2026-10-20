@@ -155,6 +155,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     };
     let base = await run(name);
     expect(await docker(['logs', name])).toContain('applied migration 0005_project_pinned');
+    expect(await docker(['logs', name])).toContain('applied migration 0009_device_tokens');
     for (const path of [
       '/',
       '/_shell.html',
@@ -180,7 +181,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     const version = z
       .object({ version: z.string() })
       .parse(await Bun.file(new URL('../../bin/package.json', import.meta.url)).json()).version;
-    expect(await getJson(base, '/health')).toEqual({ schema: 8, status: 'ok', version });
+    expect(await getJson(base, '/health')).toEqual({ schema: 9, status: 'ok', version });
     const healthHead = await fetch(`${base}/health`, { method: 'HEAD' });
     expect(healthHead.status).toBe(200);
     expect(await healthHead.text()).toBe('');
@@ -428,6 +429,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     expect(await new RemoteEngine({ url: `${base}/trpc` }).projects({})).toEqual([]);
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0005_project_pinned');
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0006_project_remote');
+    expect(await docker(['logs', postgresHost])).toContain('applied migration 0009_device_tokens');
     await docker(['rm', '--force', postgresHost]);
     const sql = async (statement: string) =>
       docker([
@@ -444,14 +446,14 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
         statement,
       ]);
     await sql(
-      'ALTER TABLE project DROP COLUMN remote; ALTER TABLE project DROP COLUMN pinned; ALTER TABLE node DROP COLUMN worker_harness; ALTER TABLE node DROP COLUMN worker_session; ALTER TABLE transition_log DROP CONSTRAINT transition_log_assignment_node_check; DELETE FROM schema_version WHERE version >= 5;',
+      'ALTER TABLE project DROP COLUMN remote; ALTER TABLE project DROP COLUMN pinned; ALTER TABLE node DROP COLUMN worker_harness; ALTER TABLE node DROP COLUMN worker_session; ALTER TABLE transition_log DROP CONSTRAINT transition_log_assignment_node_check; DROP TABLE device_tokens; DROP TABLE pairing_codes; DELETE FROM schema_version WHERE version >= 5;',
     );
     await runPostgresHost();
     base = await ready(postgresHost, 12345);
     expect(await new RemoteEngine({ url: `${base}/trpc` }).projects({})).toEqual([]);
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0005_project_pinned');
     await docker(['rm', '--force', postgresHost]);
-    await sql('INSERT INTO schema_version (version, applied_at) VALUES (9, now());');
+    await sql('INSERT INTO schema_version (version, applied_at) VALUES (10, now());');
     await runPostgresHost();
     expect(await docker(['wait', postgresHost], 10_000)).not.toBe('0');
     expect(await docker(['logs', postgresHost])).toContain('update the image');

@@ -105,13 +105,17 @@ See [Upgrade the host](host.md#upgrade-the-host-and-the-clis-that-share-its-post
 
 ## Back up
 
-`mimir store export` writes the whole store as one JSON document:
+Pairing codes and device tokens are host transport credentials and are excluded
+from export and import. Moving work state to another host requires pairing its
+devices again. Import preserves any credentials already held by the target host.
+
+`mimir store export` writes work state as one JSON document:
 
 ```sh
 mimir store export board.json
 ```
 
-The document holds every stored fact: the projects with their sequence
+The document holds the stored work-state facts: the projects with their sequence
 counters, the nodes, the dependency edges, the tags, the annotations, the
 artifacts with their frozen content, the seeds with their history, the
 scratchpads, the owned prose sections, and the transition log. It holds nothing
@@ -119,9 +123,8 @@ derived — status and rollups are recomputed on read from these same
 facts. Identity is preserved: every `KEY-seq`, `KEY-aN`, and `KEY-sN`, every
 timestamp, and the counters. The document carries a `schema_version` of its own,
 separate from the database schema version, so a later binary knows what it
-reads. Export is fail-closed: it refuses, and names the records, when the store
-holds something the document cannot carry, so the backup is never quietly
-narrower than the store.
+reads. The transfer document carries work state only. The database schema
+enforces its identities and references when records are written.
 
 Export refuses to overwrite an existing file. Name a new path, or remove the
 old backup first. Write `-` instead of a path to send the document to stdout,
