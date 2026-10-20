@@ -378,13 +378,18 @@ export type EngineRouter = ReturnType<typeof createEngineRouter>;
  * The mounting host must apply request guards before dispatch, including
  * configured Host filtering and cross-origin write checks.
  */
+/** A host without a SemVer build version has no upper bound for the window to enforce. */
+export function assertHostVersion(version: string) {
+  if (!parse(version)) {
+    throw new Error(`invalid host version: ${version}`);
+  }
+}
+
 export function createEngineHandler(
   engine: Engine,
   options: { version: string; endpoint?: string },
 ) {
-  if (!parse(options.version)) {
-    throw new Error(`invalid host version: ${options.version}`);
-  }
+  assertHostVersion(options.version);
   const router = createEngineRouter(engine);
   return async (req: Request) => {
     const context = {

@@ -3,7 +3,7 @@ import { access, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { buildStore, findingsProviderOf, LocalEngine, MimirError, SQLITE_FILE } from '@mimir/core';
-import { createEngineHandler } from '@mimir/wire/server';
+import { assertHostVersion, createEngineHandler } from '@mimir/wire/server';
 
 import type { HostConfig } from './config';
 
@@ -13,6 +13,7 @@ export async function openHost(
   version: string,
   log: (line: string) => void = (line) => console.error(line),
 ) {
+  assertHostVersion(version);
   if (config.store.backend === 'sqlite') {
     try {
       await mkdir(config.dataDirectory, { recursive: true });

@@ -5,7 +5,7 @@ import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { configPath, warnConfigPermissions } from '@mimir/core';
+import { configPath, SQLITE_FILE, warnConfigPermissions } from '@mimir/core';
 import { RemoteEngine } from '@mimir/wire/client';
 
 import { readHostConfig } from './config';
@@ -68,6 +68,18 @@ test('host migrates a named SQLite directory and preserves writes after reopenin
   } finally {
     await reopened.close();
   }
+});
+
+test('an invalid host version is refused before the store is opened or migrated', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-'));
+  roots.push(root);
+  const directory = join(root, 'data');
+  const config = await readHostConfig({ MIMIR_DATA_DIR: directory });
+  // oxlint-disable-next-line typescript/await-thenable -- Bun awaits async matchers at runtime.
+  await expect(openHost(config, 'not-a-version')).rejects.toThrow(
+    'invalid host version: not-a-version',
+  );
+  expect(await Bun.file(join(directory, SQLITE_FILE)).exists()).toBe(false);
 });
 
 test('development host refuses Postgres without authority before connecting', async () => {
