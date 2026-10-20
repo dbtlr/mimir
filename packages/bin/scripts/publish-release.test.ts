@@ -39,6 +39,8 @@ function sha256(bytes: Uint8Array) {
 
 const encode = (text: string) => new TextEncoder().encode(text);
 
+const LOOPBACK = '127.0.0.1';
+
 class FakeGitHub {
   readonly releases: FakeRelease[] = [];
   readonly events: string[] = [];
@@ -52,12 +54,22 @@ class FakeGitHub {
   private readonly server: ReturnType<typeof Bun.serve>;
   private readonly hung: (() => void)[] = [];
 
-  constructor() {
-    this.server = Bun.serve({ fetch: (request) => this.handle(request), port: 0 });
+  /**
+   * Binds exactly the address `url` names. The default wildcard bind lets the
+   * kernel hand out a port some other process holds on 127.0.0.1, and that
+   * more specific listener then answers the fake's URL (MMR-559). `port`
+   * exists for the binding test; every other caller takes a free one.
+   */
+  constructor(port = 0) {
+    this.server = Bun.serve({
+      fetch: (request) => this.handle(request),
+      hostname: LOOPBACK,
+      port,
+    });
   }
 
   get url() {
-    return `http://127.0.0.1:${this.server.port}`;
+    return `http://${LOOPBACK}:${this.server.port}`;
   }
 
   stop() {
@@ -352,6 +364,19 @@ function problemsOf(outcome: Awaited<ReturnType<typeof run>>['outcome']) {
   return outcome.problems;
 }
 
+describe('FakeGitHub', () => {
+  // A wildcard bind can share a port with a 127.0.0.1-only listener, which then
+  // answers the fake's URL instead of the fake (MMR-559).
+  test('never starts on a loopback port another listener already holds', () => {
+    const decoy = Bun.serve({ fetch: () => new Response('decoy'), hostname: LOOPBACK, port: 0 });
+    try {
+      expect(() => new FakeGitHub(decoy.port)).toThrow();
+    } finally {
+      void decoy.stop(true);
+    }
+  });
+});
+
 describe('publishRelease', () => {
   test('stages a draft, uploads every asset, verifies, then publishes', async () => {
     const { outcome } = await run();
@@ -485,10 +510,17 @@ describe('publishRelease', () => {
 
     const { outcome } = await run();
 
-    expect(outcome.status).toBe('refused');
-    const problems = problemsOf(outcome);
-    expect(problems[0]).toContain('already public');
-    expect(problems).toContain('mimir-darwin-arm64: missing');
+    // The whole outcome, so a failure prints every problem, including which request gave up.
+    const sumsSize = readFileSync(join(dir, 'SHA256SUMS')).byteLength;
+    expect(outcome).toEqual({
+      problems: [
+        'v1.2.3 is already public but its asset set is wrong; refusing to modify it',
+        'mimir-darwin-arm64: missing',
+        'mimir-linux-x64: missing',
+        `SHA256SUMS: size 0 != ${sumsSize}`,
+      ],
+      status: 'refused',
+    });
     expect(github.events).toEqual([]);
     expect(github.releases[0]?.draft).toBe(false);
   });
