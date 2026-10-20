@@ -192,3 +192,12 @@ migration to server functions. The host serves the console, `/trpc`, and
 same host guard. The Host allowlist and cross-origin write check now live in
 `packages/host/src/server/guard.ts`. [ADR 0012](0012-http-api-true-resource-envelope.md)
 records the retirement of the resource envelope.
+
+## Addendum (2026-10-20, MMR-573): device pairing
+
+[ADR 0038](0038-device-pairing-and-the-version-window.md) defines the token
+check that the authentication paragraph above leaves to device pairing. A
+remote CLI sends a bearer device token on every Engine procedure under
+`/trpc`. The console's server functions still take no token, so the
+unauthenticated posture and the tailnet boundary above remain in force.
+Pairing names and revokes devices but is not a security boundary.
