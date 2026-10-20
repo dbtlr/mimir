@@ -345,3 +345,14 @@ one-method-per-record-kind rule. It takes an artifact id (`KEY-aN`) and an
 optional `title` and `summary`; a `null` summary clears it, and a blank title is
 refused. It answers with the artifact's detail without its content, as
 `getArtifact` does by default. An id that names no artifact is not found.
+
+## Refinement (2026-10-20 — the transport checks of Decision 5)
+
+[ADR 0038](0038-device-pairing-and-the-version-window.md) settles the three
+transport checks that Decision 5 assigns to middleware. Decision 5's version
+gate is a compatibility window: middleware refuses a client older than `MIN_CLIENT` or
+newer than the host by minor version. The token check is a bearer device token
+on every Engine procedure under `/trpc`, and it runs after the host guard and
+the version window. The pairing rate limit guards the redeem endpoint, a host
+route outside the Engine and outside the bearer check, like `/health`. Codes
+and tokens stay off the Engine.

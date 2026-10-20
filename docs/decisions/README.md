@@ -56,10 +56,11 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0031](0031-installation-authority-and-disposable-development.md) | Installation authority and scripted disposable development |
 | [0032](0032-sqlite-local-tier-shared-sql-store.md)                | SQLite is the local tier, beside Postgres, on one shared SQL store |
 | [0033](0033-task-grooming-state.md)                               | Tasks carry a stored grooming state                                |
-| [0034](0034-engine-interface-and-trpc-wire.md)                    | The Engine is a plain interface, and the remote wire is tRPC       |
+| [0034](0034-engine-interface-and-trpc-wire.md)                    | The Engine is a plain interface, and the remote wire is tRPC (transport checks refined by 0038) |
 | [0035](0035-tanstack-start-container-host.md)                    | The host is a TanStack Start container                            |
 | [0036](0036-project-binding-through-git-config.md)               | A clone binds to its project through git config and the project remote |
 | [0037](0037-the-cli-and-mcp-on-loom.md)                         | The CLI and MCP on Loom                                            |
+| [0038](0038-device-pairing-and-the-version-window.md)            | Device pairing and the version window                              |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model
