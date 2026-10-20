@@ -20,7 +20,8 @@ to a host, after which that device holds a revocable credential for it.
 Pairing identifies a device; it is not an access boundary.
 
 **Version window**: The range of client versions a host accepts: none older
-than its minimum supported client, and none from a newer release than its own.
+than its minimum supported client, and none whose minor version is newer than
+the host's.
 
 **Main session**: The user conversation or workflow coordinating a task. Its
 `harness` and `session` remain the primary return point during an assignment.

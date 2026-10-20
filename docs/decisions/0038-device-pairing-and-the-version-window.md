@@ -32,8 +32,11 @@ random bits, base64url-encoded.
 
 The host guard (ADR 0035) runs first, then the version window, then the bearer
 check. The redeem endpoint and `/health` are host routes outside the Engine
-and outside the bearer check. The console's server functions do not require a
-token.
+and outside the bearer check. The console reaches the Engine through its server
+functions, not through `/trpc`, so neither the version window nor the bearer
+check applies to it, and its server functions require no token. The
+`console.*` procedures on `/trpc` (ADR 0034 Decision 6) take both checks like
+every other procedure.
 
 ### Codes and tokens are host transport credentials
 
@@ -81,7 +84,10 @@ regenerated. The reviewer of the regeneration diff decides whether the change
 breaks older clients and so whether `MIN_CLIENT` rises. No tool classifies the
 diff automatically.
 
-Additive changes stay inside the window: a new method, a new optional input,
+The window admits versions, so the Engine contract changes only in a minor
+release. A patch release leaves the schemas unchanged, which lets a client
+newer than the host by patch call nothing the host lacks. Additive changes
+stay inside the window for older clients: a new method, a new optional input,
 or a new output field. `RemoteEngine` does not parse Engine outputs, so an
 older client ignores a field it does not know. MCP needs no rule of its own: an
 older CLI exposes its own, smaller tool set.
