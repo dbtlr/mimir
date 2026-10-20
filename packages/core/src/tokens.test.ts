@@ -223,6 +223,23 @@ describe.each([
     expect(await tokens.verify(prior?.token ?? '')).toBeNull();
   });
 
+  test('refuses a token revoked between the first read and the usage write transaction', async () => {
+    const { db, tokens } = await fixture();
+    const redeemed = await tokens.redeem(await tokens.issueCode('laptop'));
+    const raced = createTokenStore({
+      db,
+      dialect: {
+        ...dialect,
+        write: async (database, action) => {
+          await tokens.revoke('laptop');
+          return dialect.write(database, action);
+        },
+      },
+    });
+    expect(await raced.verify(redeemed?.token ?? '')).toBeNull();
+    expect((await tokens.list({ all: true })).at(0)?.last_used_at).toBeNull();
+  });
+
   test('issues eight Crockford characters, hashed at rest, with a ten-minute TTL', async () => {
     const { db, tokens } = await fixture();
     const code = await tokens.issueCode('laptop');
@@ -241,7 +258,17 @@ describe.each([
 test('normalizes only the eight-character code with an optional middle hyphen', () => {
   expect(normalizePairingCode('oIlL-abcd')).toBe('0111ABCD');
   expect(normalizePairingCode('oIolabcd')).toBe('0101ABCD');
-  for (const input of ['', 'ABCD-EFGU', 'ABC-DEF12', ' ABCDEFGH', 'ABCD--EFGH', 'ABCDEFGH ']) {
+  for (const input of [
+    '',
+    'ABCD-EFGU',
+    'ABC-DEF12',
+    ' ABCDEFGH',
+    'ABCD--EFGH',
+    'ABCDEFGH ',
+    'ABßDEFG',
+    'ABıDEFGH',
+    'ABﬀDEFG',
+  ]) {
     expect(normalizePairingCode(input)).toBeNull();
   }
 });

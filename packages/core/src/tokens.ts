@@ -151,6 +151,9 @@ function hash(value: string): string {
 
 /** Accept the printed separator and Crockford's O/I/L confusables. */
 export function normalizePairingCode(code: string): string | null {
+  if (!/^[0-9A-Za-z]{4}-?[0-9A-Za-z]{4}$/.test(code)) {
+    return null;
+  }
   const normalized = code.toUpperCase().replaceAll('O', '0').replace(/[IL]/g, '1');
   return /^[0-9A-HJKMNP-TV-Z]{4}-?[0-9A-HJKMNP-TV-Z]{4}$/.test(normalized)
     ? normalized.replace('-', '')
