@@ -54,7 +54,10 @@ export function serveShell(world: Partial<ShellWorld> = {}): ShellWorld {
       : engineNode({ parent: data.parent, status: 'ready', title: data.title, type: data.type }),
   );
   vi.mocked(updateProject).mockImplementation(async ({ data }) => projectOf(data.id));
-  vi.mocked(archive).mockImplementation(async ({ data }) => projectOf(data.id));
+  vi.mocked(archive).mockImplementation(async ({ data }) => ({
+    ...projectOf(data.id),
+    released: [],
+  }));
   vi.mocked(unarchive).mockImplementation(async ({ data }) => projectOf(data.id));
   return state;
 }

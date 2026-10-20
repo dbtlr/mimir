@@ -174,6 +174,8 @@ function viewSchemas<T extends z.ZodType>(instant: T) {
   const section = z.object({ count: z.number(), tasks: z.array(node) });
   const attention = z.object({ stale: z.boolean(), task: node });
   return {
+    /** An archived project's record plus the out-of-project tasks the archive freed. */
+    archive: node.extend({ released: z.array(z.string()) }),
     artifactDetail: z.object({
       content: z.string().optional(),
       createdAt: instant,

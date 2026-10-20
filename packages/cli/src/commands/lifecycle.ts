@@ -287,12 +287,14 @@ async function runVerb(ports: Ports, call: Invocation): Promise<LifecycleEcho> {
   }
   if (op.subject === 'project') {
     const node = intentEncoders.node.parse(raw);
+    // Only archive echoes what it freed; the other project verbs release nothing.
+    const released = call.verb === 'archive' ? intentEncoders.archive.parse(raw).released : [];
     const archivedAt = ports.wire.node(node).archived_at;
     return {
       archivedAt: typeof archivedAt === 'string' ? archivedAt : null,
       key: node.id,
       presentation,
-      released: call.verb === 'archive' ? await ports.releasedByArchive(node.id) : [],
+      released,
       signpost: withReason(`${word} ${node.id}`, reason),
     };
   }

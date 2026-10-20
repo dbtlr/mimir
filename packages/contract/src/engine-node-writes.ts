@@ -66,8 +66,9 @@ type UniformShape<V extends UniformVerb> = { id: z.ZodString } & ReasonShape<V> 
   FieldsShape<V> &
   ChoiceShape<V> &
   (V extends 'start' ? { startExpectation: z.ZodOptional<typeof startExpectation> } : unknown);
-type UniformOutput<V extends UniformVerb> =
-  Fact<V> extends { seeds: true }
+type UniformOutput<V extends UniformVerb> = V extends 'archive'
+  ? typeof engineViews.archive
+  : Fact<V> extends { seeds: true }
     ? z.ZodUnion<[typeof engineViews.node, typeof engineViews.seed]>
     : typeof engineViews.node;
 type UniformSchemas = {
@@ -85,6 +86,14 @@ export type UniformArgs = {
   on?: string;
   startExpectation?: z.output<typeof startExpectation>;
 } & Partial<Record<HandleFieldArg, string | null>>;
+
+/** `archive` echoes the project plus what it released; a seed-taking verb may echo a seed. */
+function uniformOutput(verb: UniformVerb, fact: object) {
+  if (verb === 'archive') {
+    return engineViews.archive;
+  }
+  return 'seeds' in fact ? z.union([engineViews.node, engineViews.seed]) : engineViews.node;
+}
 
 /**
  * One uniform verb's input and output, built from its operation fact: the
@@ -119,7 +128,7 @@ function uniformSchema(verb: UniformVerb, project: z.ZodString) {
   return {
     input: z.strictObject(shape),
     kind: 'mutation',
-    output: 'seeds' in fact ? z.union([engineViews.node, engineViews.seed]) : engineViews.node,
+    output: uniformOutput(verb, fact),
   };
 }
 

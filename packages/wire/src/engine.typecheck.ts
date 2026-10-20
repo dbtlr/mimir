@@ -51,6 +51,7 @@ type EveryKey<A, B> =
 type Intent = { [K in keyof typeof intentViews]: z.input<(typeof intentViews)[K]> };
 /** Each decoded view accepts exactly the string-valued core projection it replaces. */
 type CoreProjections = {
+  archive: NodeView & { released: string[] };
   artifactDetail: ArtifactDetail;
   artifactSet: SetResult<ArtifactSummary>;
   node: NodeView;
