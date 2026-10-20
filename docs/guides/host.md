@@ -13,8 +13,9 @@ and needs no CLI installation. `deploy/compose.yaml` runs it over SQLite, and
 
 ## Keep the console on a single-user tailnet
 
-The host authenticates no one. Any client that reaches its port can read and
-write the whole board through the console or `/trpc`. The Host
+The console requires no authentication. Any client that reaches its port can read and
+write the whole board through console server functions. `/trpc` requires a paired
+device token. The Host
 allowlist and the cross-origin write check guard against hostile web pages,
 not against people.
 
@@ -192,8 +193,8 @@ header pass.
 
 ## Check health
 
-`GET /health` returns `{"schema":5,"status":"ok","version":"0.26.0"}` and
-never reads the store. The host answers no request until its store has opened
+`GET /health` returns `status`, `version`, `minClient`, and the supported `schema`
+without a token or a store query. The host answers no request until its store has opened
 and migrated, so a 200 means the store was usable at boot. It does not prove
 that the store is reachable now. The image's Docker health check probes
 `/health` over loopback every 10 seconds. `docker compose ps` shows the
@@ -209,10 +210,13 @@ host: startup refused: MIMIR_PORT must be an integer from 1 to 65535
 
 To prove that the store answers now, read it through the Engine endpoint. This
 request lists the active projects. It is a `GET` with a [superjson](https://github.com/flightcontrolhq/superjson)
-input, so pass the input as a query parameter:
+input, so pass the input as a query parameter. Set `MIMIR_DEVICE_TOKEN` to a paired
+device token and `MIMIR_CLIENT_VERSION` to the calling client's build version:
 
 ```sh
 curl --fail --silent --show-error --get http://127.0.0.1:64647/trpc/projects \
+  --header "Authorization: Bearer $MIMIR_DEVICE_TOKEN" \
+  --header "x-mimir-version: $MIMIR_CLIENT_VERSION" \
   --data-urlencode 'input={"json":{}}'
 ```
 
@@ -224,9 +228,33 @@ findings that `mimir doctor` reports.
 The retired `/api` answers every method with `410` and a JSON body whose error
 code is `gone` and whose hint names `/trpc`, so a stale probe such as
 `curl --fail .../api/projects` fails instead of passing on the console's HTML.
-Besides that tombstone, the host serves `/health`, `/trpc`, the console's
+Besides that tombstone, the host serves `/health`, `/auth/pairing/redeem`, `/trpc`, the console's
 server functions under `/_serverFn`, and the console itself. The host guard
 covers every one of them.
+
+## Redeem a pairing code
+
+`POST /auth/pairing/redeem` accepts JSON `{"code":"XXXX-XXXX"}` and returns
+`{"device":"device-name","token":"device-token"}`. The device name comes from
+the code issued on the host. Redemption requires neither a bearer token nor a
+version header, and responses set `Cache-Control: no-store`.
+Other methods return `405` with `Allow: POST`.
+
+An unknown, expired, used, or malformed code returns the same `400` body:
+`{"error":"invalid pairing code"}`. Each failed redemption logs its time without
+the code. After five failures in a rolling ten minutes, all attempts return
+`429` with `Retry-After` in seconds, including valid codes. The limit covers the
+whole host and resets when the host restarts.
+
+A credential-store fault returns a generic `500` with `Cache-Control: no-store`.
+The fault log records the event and time without driver details or the code.
+Store faults do not consume the invalid-code limit.
+
+Every `/trpc` procedure, including `console.*`, requires `Authorization: Bearer`
+with an active device token. The host guard runs first, then the version window,
+then the bearer check. Console server functions use the local Engine and require
+neither header. See [ADR 0038](../decisions/0038-device-pairing-and-the-version-window.md)
+for the credential lifecycle and compatibility window.
 
 ## Read an error from the Engine endpoint
 
@@ -242,6 +270,10 @@ before reading the code. The code maps to an HTTP status:
 | `conflict`   | 409         |
 | `invariant`  | 500         |
 | `internal`   | 500         |
+
+A missing, malformed, unknown, revoked, or rotated bearer token returns `401`,
+with `error.json.message` set to `unauthorized`, `error.json.data.code` set to
+`UNAUTHORIZED`, and `mimirError: null`.
 
 `invariant` is the broken-store signal: the store raises it when its own
 consistency guarantees fail, such as a missing schema or one that does not match

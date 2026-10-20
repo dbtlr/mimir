@@ -20,12 +20,18 @@ import { RemoteEngine } from './client';
 import { createEngineHandler, createEngineRouter } from './server';
 
 let fixture: TestStore;
+let authorization: string;
 let local: LocalEngine;
 let remote: RemoteEngine;
 let id: string;
 
 beforeEach(async () => {
   fixture = await createTestStore();
+  const credential = await fixture.tokens.redeem(await fixture.tokens.issueCode('wire-fixture'));
+  if (credential === null) {
+    throw new Error('fixture pairing failed');
+  }
+  authorization = `Bearer ${credential.token}`;
   await createProject(fixture.store, { key: 'ENG', name: 'Engine' });
   const parent = await createInitiative(fixture.store, { projectId: 'ENG', title: 'Engine' });
   const task = await createTask(fixture.store, {
@@ -35,12 +41,16 @@ beforeEach(async () => {
   });
   id = task.id;
   local = new LocalEngine(fixture.store);
-  const handle = createEngineHandler(local, { version: '0.26.0' });
+  const handle = createEngineHandler(local, {
+    verifyToken: fixture.tokens.verify,
+    version: '0.26.0',
+  });
   remote = new RemoteEngine({
     fetch: async (input, init) => {
       const response = await handle(new Request(input, init));
       return { json: () => response.json(), ok: response.ok };
     },
+    headers: { authorization },
     url: 'http://engine.test/trpc',
     version: '0.26.0',
   });
@@ -134,12 +144,16 @@ test('explicit undefined survives serialization as an own property', async () =>
     ...(await read(input)),
     next: undefined,
   });
-  const handle = createEngineHandler(withOverride(local, { getNode }), { version: '0.26.0' });
+  const handle = createEngineHandler(withOverride(local, { getNode }), {
+    verifyToken: fixture.tokens.verify,
+    version: '0.26.0',
+  });
   const client = new RemoteEngine({
     fetch: async (input, init) => {
       const response = await handle(new Request(input, init));
       return { json: () => response.json(), ok: response.ok };
     },
+    headers: { authorization },
     url: 'http://engine.test/trpc',
     version: '0.26.0',
   });
@@ -157,13 +171,14 @@ test('unexpected wire faults log their details without sending library text or s
         throw fault;
       },
     }),
-    { version: '0.26.0' },
+    { verifyToken: fixture.tokens.verify, version: '0.26.0' },
   );
   const client = new RemoteEngine({
     fetch: async (input, init) => {
       const response = await handle(new Request(input, init));
       return { json: () => response.json(), ok: response.ok };
     },
+    headers: { authorization },
     url: 'http://engine.test/trpc',
     version: '0.26.0',
   });
@@ -194,6 +209,30 @@ test('unexpected wire faults log their details without sending library text or s
   }
 });
 
+test('a credential store fault fails closed with the generic wire refusal', async () => {
+  const log = spyOn(console, 'error').mockReturnValue(undefined);
+  const handle = createEngineHandler(local, {
+    verifyToken: () => Promise.reject(new Error('credential database private detail')),
+    version: '0.26.0',
+  });
+  try {
+    const response = await handle(
+      new Request('http://engine.test/trpc/projects', {
+        headers: { authorization, 'x-mimir-version': '0.26.0' },
+      }),
+    );
+    expect(response.status).toBe(500);
+    const body = await response.text();
+    expect(body).toContain('the request did not complete');
+    expect(body).not.toContain('credential database private detail');
+    expect(body).not.toContain('stack');
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(await local.projects({})).toHaveLength(1);
+  } finally {
+    log.mockRestore();
+  }
+});
+
 /** The full Engine with one method replaced, for wire-behavior probes. */
 function withOverride(engine: Engine, override: Partial<Engine>): Engine {
   return Object.assign(Object.create(engine) as Engine, override);
@@ -208,12 +247,16 @@ test('an output-schema fault logs the failing fields its stack omits, never send
   // The output schema is the contract under test, so the override breaks it on purpose.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const broken = { getNode } as unknown as Partial<Engine>;
-  const handle = createEngineHandler(withOverride(local, broken), { version: '0.26.0' });
+  const handle = createEngineHandler(withOverride(local, broken), {
+    verifyToken: fixture.tokens.verify,
+    version: '0.26.0',
+  });
   const client = new RemoteEngine({
     fetch: async (input, init) => {
       const response = await handle(new Request(input, init));
       return { json: () => response.json(), ok: response.ok };
     },
+    headers: { authorization },
     url: 'http://engine.test/trpc',
     version: '0.26.0',
   });

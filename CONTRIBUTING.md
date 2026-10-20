@@ -81,7 +81,7 @@ server bundles; `hostRuntime()` exposes the Engine for console server functions.
 Prerendering ignores deployment configuration and uses a loopback-only request
 guard. Serving launchers still validate the complete runtime configuration.
 The final client assets and PWA output live in `packages/host/.output/public`.
-The service worker precaches that shell and excludes `/trpc`,
+The service worker precaches that shell and excludes `/auth`, `/trpc`,
 `/_serverFn`, and `/health` from navigation fallback. The compiled `mimir`
 binary does not embed them: the console ships only in the host image.
 
@@ -107,14 +107,18 @@ store's diagnostic facet without CLI configuration findings.
 `x-mimir-version` inside the host's version window:
 no older than `MIN_CLIENT` and no newer than the host by minor version.
 `RemoteEngine` takes the client build version and an optional headers hook.
-Refusals carry a `MimirError` and the CLI or host update remedy. Bearer
-authentication arrives with device pairing.
+Version refusals carry a `MimirError` and the CLI or host update remedy.
+After the version check, every tRPC procedure requires `Authorization: Bearer`
+with an active device token. Missing or invalid tokens receive a uniform
+`UNAUTHORIZED` transport error. `POST /auth/pairing/redeem` exchanges a one-time
+code for `{device, token}`, outside the version and bearer checks. The host-wide
+redeem limit blocks every attempt after five failures in a rolling ten minutes.
 Unexpected tRPC and server-function faults log structured diagnostics on stderr. tRPC replies
 omit stacks and replace internal library messages with a generic failure and doctor hint;
 domain errors retain their codes, messages, and hints.
 
-The host is unauthenticated: every reachable client can read and mutate
-the store. Publish local test ports on loopback
+The console remains unauthenticated: every reachable client can read and mutate
+the store through server functions. Publish local test ports on loopback
 (`-p 127.0.0.1:64647:64647`). Hosted port publishing must restrict access to
 the single-user tailnet, as ADR 0035 requires.
 

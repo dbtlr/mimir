@@ -373,11 +373,6 @@ export function createEngineRouter(engine: Engine) {
 
 export type EngineRouter = ReturnType<typeof createEngineRouter>;
 
-/**
- * A Fetch adapter over the host's store-owning Engine.
- * The mounting host must apply request guards before dispatch, including
- * configured Host filtering and cross-origin write checks.
- */
 /** A host without a SemVer build version has no upper bound for the window to enforce. */
 export function assertHostVersion(version: string) {
   if (!parse(version)) {
@@ -385,9 +380,17 @@ export function assertHostVersion(version: string) {
   }
 }
 
+/**
+ * Enforce the version window and bearer credentials before Engine dispatch.
+ * The mounting host applies Host filtering and cross-origin write checks first.
+ */
 export function createEngineHandler(
   engine: Engine,
-  options: { version: string; endpoint?: string },
+  options: {
+    version: string;
+    endpoint?: string;
+    verifyToken: (token: string) => Promise<string | null>;
+  },
 ) {
   assertHostVersion(options.version);
   const router = createEngineRouter(engine);
@@ -397,46 +400,76 @@ export function createEngineHandler(
       hostVersion: options.version,
     };
     const refusal = versionRefusal(context);
-    // Removed or re-kinded procedures must receive the remedy before tRPC resolves them.
+    // Refuse before tRPC resolves procedures, methods, or inputs.
     if (refusal) {
-      const error = new TRPCError({
-        cause: refusal,
-        code: domainCodes[refusal.code],
-        message: refusal.message,
-      });
-      const shape = getTRPCErrorShape({
-        config: t._config,
-        ctx: context,
-        error,
-        input: undefined,
-        path: undefined,
-        type: 'unknown',
-      });
-      const result = { error: shape };
-      const url = new URL(req.url);
-      const body =
-        url.searchParams.get('batch') === '1'
-          ? url.pathname.split(/,|%2c/i).map(() => result)
-          : result;
-      return Response.json(transformTRPCResponse(t._config, body), {
-        status: shape.data.httpStatus,
-      });
+      return requestRefusal(
+        req,
+        context,
+        new TRPCError({
+          cause: refusal,
+          code: domainCodes[refusal.code],
+          message: refusal.message,
+        }),
+      );
+    }
+    try {
+      const bearer = /^Bearer +([A-Za-z0-9\-._~+/]+=*)$/i.exec(
+        req.headers.get('authorization') ?? '',
+      );
+      if (!bearer || (await options.verifyToken(bearer[1] ?? '')) === null) {
+        return requestRefusal(
+          req,
+          context,
+          new TRPCError({ code: 'UNAUTHORIZED', message: 'unauthorized' }),
+        );
+      }
+    } catch (error) {
+      logRequestFault(req, error);
+      return requestRefusal(
+        req,
+        context,
+        new TRPCError({ cause: error, code: 'INTERNAL_SERVER_ERROR' }),
+      );
     }
     return fetchRequestHandler({
       createContext: () => context,
       endpoint: options.endpoint ?? '/trpc',
       onError({ error }) {
         if (error.code === 'INTERNAL_SERVER_ERROR' && !(error.cause instanceof MimirError)) {
-          const diagnostic = formatDiagnostic({
-            ...describeFault(error.cause ?? error),
-            method: req.method,
-            path: new URL(req.url).pathname,
-          });
-          console.error(`✗ host: request did not complete — ${diagnostic}`);
+          logRequestFault(req, error.cause ?? error);
         }
       },
       req,
       router,
     });
   };
+}
+
+/** Preserve the tRPC envelope for early refusals, including one error per batched call. */
+function requestRefusal(req: Request, context: VersionContext, error: TRPCError) {
+  const shape = getTRPCErrorShape({
+    config: t._config,
+    ctx: context,
+    error,
+    input: undefined,
+    path: undefined,
+    type: 'unknown',
+  });
+  const result = { error: shape };
+  const url = new URL(req.url);
+  const body =
+    url.searchParams.get('batch') === '1' ? url.pathname.split(/,|%2c/i).map(() => result) : result;
+  return Response.json(transformTRPCResponse(t._config, body), {
+    headers: { 'cache-control': 'no-store' },
+    status: shape.data.httpStatus,
+  });
+}
+
+function logRequestFault(req: Request, error: unknown) {
+  const diagnostic = formatDiagnostic({
+    ...describeFault(error),
+    method: req.method,
+    path: new URL(req.url).pathname,
+  });
+  console.error(`✗ host: request did not complete — ${diagnostic}`);
 }

@@ -27,10 +27,29 @@ test('the host shares Engine reads and completions over tRPC', async () => {
     port: 0,
   });
   try {
+    const unpaired = new RemoteEngine({
+      url: new URL('/trpc', server.url).href,
+      version: '0.26.0',
+    });
+    const refusal: unknown = await unpaired.projects({}).catch((error: unknown) => error);
+    expect(refusal).toMatchObject({
+      data: { code: 'UNAUTHORIZED', httpStatus: 401 },
+      message: 'unauthorized',
+    });
+    const code = await host.tokens.issueCode('host-test');
+    const response = await host.handleRedeem(
+      new Request('http://host.test/auth/pairing/redeem', {
+        body: JSON.stringify({ code }),
+        method: 'POST',
+      }),
+    );
+    expect(response.status).toBe(200);
+    const { token } = await response.json();
     await host.engine.create({ key: 'TST', name: 'Engine fixture', type: 'project' });
     await host.engine.create({ parent: 'TST', title: 'Host Engine', type: 'initiative' });
     await host.engine.create({ parent: 'TST-1', title: 'Complete over tRPC', type: 'task' });
     const remote = new RemoteEngine({
+      headers: { authorization: `Bearer ${token}` },
       url: new URL('/trpc', server.url).href,
       version: '0.26.0',
     });
@@ -220,7 +239,7 @@ test('the host Engine counts stored record findings in console.review', async ()
   }
 });
 
-test('Host guard refuses before the version window while local Engine calls stay outside it', async () => {
+test('Host guard, version window, and bearer check run in order while local Engine calls stay outside them', async () => {
   const root = await mkdtemp(join(tmpdir(), 'mimir-host-window-'));
   roots.push(root);
   const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), '0.26.0');
@@ -241,6 +260,15 @@ test('Host guard refuses before the version window while local Engine calls stay
     );
     expect(missing.status).toBe(400);
     expect(await missing.text()).toContain('missing x-mimir-version');
+    const unauthorized = await guarded(
+      new Request('http://allowed.test/trpc/projects', {
+        headers: { host: 'allowed.test', 'x-mimir-version': '0.26.0' },
+      }),
+    );
+    expect(unauthorized.status).toBe(401);
+    expect(await unauthorized.json()).toMatchObject({
+      error: { json: { message: 'unauthorized' } },
+    });
     expect(await host.engine.projects({})).toEqual([]);
   } finally {
     log.mockRestore();

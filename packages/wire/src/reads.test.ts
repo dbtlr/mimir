@@ -22,6 +22,7 @@ import { RemoteEngine } from './client';
 import { createEngineHandler } from './server';
 
 let fixture: TestStore;
+let authorization: string;
 let local: LocalEngine;
 let remote: RemoteEngine;
 let ids: {
@@ -35,6 +36,11 @@ let ids: {
 
 beforeAll(async () => {
   fixture = await createTestStore();
+  const credential = await fixture.tokens.redeem(await fixture.tokens.issueCode('wire-fixture'));
+  if (credential === null) {
+    throw new Error('fixture pairing failed');
+  }
+  authorization = `Bearer ${credential.token}`;
   const { store } = fixture;
   await createProject(store, {
     key: 'ENG',
@@ -85,12 +91,16 @@ beforeAll(async () => {
     seed: seed.id,
   };
   local = new LocalEngine(store);
-  const handle = createEngineHandler(local, { version: '0.26.0' });
+  const handle = createEngineHandler(local, {
+    verifyToken: fixture.tokens.verify,
+    version: '0.26.0',
+  });
   remote = new RemoteEngine({
     fetch: async (input, init) => {
       const response = await handle(new Request(input, init));
       return { json: () => response.json(), ok: response.ok };
     },
+    headers: { authorization },
     url: 'http://engine.test/trpc',
     version: '0.26.0',
   });
