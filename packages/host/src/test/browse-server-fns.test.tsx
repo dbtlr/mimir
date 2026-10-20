@@ -1,6 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -19,12 +18,13 @@ import {
   seeds,
 } from '../api/fns/browse';
 import { getNode } from '../api/fns/nodes';
+import { SeedCaptureProvider } from '../components/seed-capture';
 import {
   artifactRoute,
   artifactsRoute,
   doctorRoute,
-  routeTree,
   seedRoute,
+  seedsRoute,
   tasksRoute,
 } from '../router';
 import { engineArtifact, engineArtifactRecord, recordHealth, seedIn } from './browse-fixtures';
@@ -91,23 +91,10 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const routes = [artifactRoute, artifactsRoute, doctorRoute, seedRoute, tasksRoute];
+const routes = [artifactRoute, artifactsRoute, doctorRoute, seedRoute, seedsRoute, tasksRoute];
 
 const quietClient = () =>
   new QueryClient({ defaultOptions: { queries: { refetchInterval: false, retry: false } } });
-
-/** The seeds browser opens the shell's seed capture, so its cases mount the full console tree. */
-function renderSeedsApp(path: string) {
-  const router = createRouter({
-    history: createMemoryHistory({ initialEntries: [path] }),
-    routeTree,
-  });
-  render(
-    <QueryClientProvider client={quietClient()}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
-  );
-}
 
 describe('the browsers, seeds, artifacts, and doctor on server functions (MMR-540)', () => {
   it.each([
@@ -120,7 +107,7 @@ describe('the browsers, seeds, artifacts, and doctor on server functions (MMR-54
   });
 
   it('/p/MMR/seeds reads its list', async () => {
-    renderSeedsApp('/p/MMR/seeds');
+    await renderRoute(routes, '/p/MMR/seeds', quietClient(), SeedCaptureProvider);
     await expect(
       screen.findByRole('link', { name: 'Name the project' }),
     ).resolves.toBeInTheDocument();
@@ -173,7 +160,7 @@ describe('the browsers, seeds, artifacts, and doctor on server functions (MMR-54
 
   it('files, edits, parks, rejects, and promotes a seed', async () => {
     const user = userEvent.setup();
-    renderSeedsApp('/p/MMR/seeds');
+    await renderRoute(routes, '/p/MMR/seeds', quietClient(), SeedCaptureProvider);
     await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
     await user.type(await screen.findByLabelText('Seed'), 'A new idea');
     await user.click(screen.getByRole('button', { name: 'File ↵' }));
