@@ -11,6 +11,12 @@ const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const REQUEST_TTL_MS = 10 * 60 * 1000;
 const USAGE_INTERVAL_MS = 5 * 60 * 1000;
 const DEVICE_NAME_MAX = 128;
+/**
+ * Characters that render as nothing or reorder text: every \p{C} (control, format, bidi,
+ * surrogate, private use, unassigned), default-ignorables such as fillers and variation
+ * selectors, line and paragraph separators, and the braille blank.
+ */
+const NON_PRINTING = /[\p{C}\p{Default_Ignorable_Code_Point}\p{Zl}\p{Zp}\u2800]/u;
 /** Seconds a pairing client waits between polls. */
 export const PAIRING_POLL_INTERVAL = 2;
 
@@ -199,7 +205,7 @@ export function createTokenStore({
       if (device === null) {
         return Promise.reject(
           validation(
-            'the device name must be 1 to 128 characters without control characters',
+            'the device name must be 1 to 128 characters without control or invisible characters',
             'name the device with printable text',
           ),
         );
@@ -243,25 +249,29 @@ export function createTokenStore({
     },
     /**
      * Unpair a device: revoke its token and discard its requests, so no
-     * approval can still mint. Answers how many of each it removed.
+     * approval can still mint. The name matches as typed or as a request would
+     * normalize it, so a name stored before normalization stays revocable.
+     * Answers how many of each it removed.
      */
-    revoke: (device: string): Promise<{ requests: number; tokens: number }> =>
-      dialect.write(db, async (tx) => {
+    revoke: (input: string): Promise<{ requests: number; tokens: number }> => {
+      const devices = [...new Set([input, normalizeDeviceName(input) ?? input])];
+      return dialect.write(db, async (tx) => {
         const requests = await tx
           .deleteFrom('pairing_requests')
-          .where('device', '=', device)
+          .where('device', 'in', devices)
           .executeTakeFirst();
         const tokens = await tx
           .updateTable('device_tokens')
           .set({ revoked_at: clockInstant() })
-          .where('device', '=', device)
+          .where('device', 'in', devices)
           .where('revoked_at', 'is', null)
           .executeTakeFirst();
         return {
           requests: Number(requests.numDeletedRows),
           tokens: Number(tokens.numUpdatedRows),
         };
-      }),
+      });
+    },
     verify: async (token: string): Promise<string | null> => {
       const tokenHash = hash(token);
       const row = await db
@@ -361,10 +371,21 @@ export function formatPairingCode(code: string): string {
   return `${code.slice(0, 4)}-${code.slice(4)}`;
 }
 
-/** Trim a device name; refuse an empty, overlong, or control-character name. */
+/**
+ * Normalize a device name to NFC, trimmed, with each run of spaces as one ASCII space;
+ * refuse an empty, overlong, or non-printing name. Names that differ only in hidden
+ * characters, composition, or spacing cannot pass for a paired device on an approval
+ * card; look-alike letters from other scripts stay distinct.
+ * Emoji that need a joiner or variation selector are refused with the rest.
+ */
 export function normalizeDeviceName(name: string): string | null {
-  const trimmed = name.trim();
-  return trimmed.length > 0 && trimmed.length <= DEVICE_NAME_MAX && !/\p{Cc}/u.test(trimmed)
-    ? trimmed
+  const normalized = name
+    .normalize('NFC')
+    .trim()
+    .replace(/\p{Zs}+/gu, ' ');
+  return normalized.length > 0 &&
+    normalized.length <= DEVICE_NAME_MAX &&
+    !NON_PRINTING.test(normalized)
+    ? normalized
     : null;
 }

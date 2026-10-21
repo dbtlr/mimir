@@ -281,7 +281,14 @@ describe.each([
     const { requests, tokens } = await fixture();
     await tokens.request('  laptop  ');
     expect((await requests()).map((row) => row.device)).toEqual(['laptop']);
-    for (const device of ['', '   ', 'tab\there', 'x'.repeat(129)]) {
+    for (const device of [
+      '',
+      '   ',
+      'tab\there',
+      'laptop\u200B',
+      'pal\u202Epot',
+      'x'.repeat(129),
+    ]) {
       expect(await refusalOf(tokens.request(device))).toContain('device name');
     }
   });
@@ -333,6 +340,25 @@ describe.each([
       '2026-10-20T12:00:01.000Z',
       '2026-10-20T12:00:01.000Z',
     ]);
+  });
+
+  test('revoke matches a typed name the way requests normalize it', async () => {
+    const { tokens } = await fixture();
+    await pairTestDevice(tokens, 'my laptop');
+    await tokens.request('caf\u00E9');
+    expect(await tokens.revoke('  my \u00A0laptop ')).toEqual({ requests: 0, tokens: 1 });
+    expect(await tokens.revoke('cafe\u0301')).toEqual({ requests: 1, tokens: 0 });
+  });
+
+  test('revoke still matches a name stored before normalization exactly as stored', async () => {
+    const { db, requests, tokens } = await fixture();
+    await pairTestDevice(tokens, 'laptop');
+    await tokens.request('laptop');
+    await db.updateTable('device_tokens').set({ device: 'my  laptop' }).execute();
+    await db.updateTable('pairing_requests').set({ device: 'my  laptop' }).execute();
+    expect(await tokens.revoke('my  laptop')).toEqual({ requests: 1, tokens: 1 });
+    expect(await tokens.list()).toEqual([]);
+    expect(await requests()).toEqual([]);
   });
 
   test('updates last_used only after more than five minutes, starting with first use', async () => {
@@ -584,11 +610,34 @@ test('formats a normalized code for display with a middle hyphen', () => {
   expect(normalizePairingCode(formatPairingCode('0111ABCD'))).toBe('0111ABCD');
 });
 
-test('normalizes a device name by trimming it and refuses empty, control, or overlong names', () => {
+test('normalizes a device name by trimming it and refuses empty, non-printing, or overlong names', () => {
   expect(normalizeDeviceName('  Drews-MacBook-Pro.local ')).toBe('Drews-MacBook-Pro.local');
   expect(normalizeDeviceName('laptop (work)')).toBe('laptop (work)');
+  expect(normalizeDeviceName('Café 笔记本')).toBe('Café 笔记本');
+  expect(normalizeDeviceName('cafe\u0301')).toBe('caf\u00E9');
+  expect(normalizeDeviceName('my\u00A0laptop')).toBe('my laptop');
+  expect(normalizeDeviceName('my  \u3000laptop')).toBe('my laptop');
   expect(normalizeDeviceName('x'.repeat(128))).toBe('x'.repeat(128));
-  for (const input of ['', '  ', 'line\nbreak', 'nul\u0000', 'del\u007F', 'x'.repeat(129)]) {
+  for (const input of [
+    '',
+    '  ',
+    'line\nbreak',
+    'nul\u0000',
+    'del\u007F',
+    'zero\u200Bwidth',
+    'byte\uFEFForder',
+    'pal\u202Epot',
+    'isolate\u2066',
+    'line\u2028separator',
+    'private\uE000',
+    'lone\uD800',
+    'grapheme\u034Fjoiner',
+    'hangul\u3164filler',
+    'variation\uFE0Fselector',
+    'variation\u{E0100}supplement',
+    'braille\u2800blank',
+    'x'.repeat(129),
+  ]) {
     expect(normalizeDeviceName(input)).toBeNull();
   }
 });
