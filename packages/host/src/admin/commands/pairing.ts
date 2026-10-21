@@ -92,7 +92,7 @@ function noLiveRequest(code: string): MimirError {
   return new MimirError(
     'not_found',
     `no live pairing request matches ${code}`,
-    "check the code the device shows; 'mimir-host pending' lists the live requests",
+    "check the code the device shows; 'mimir-host pending' lists the requests awaiting a decision, and a request leaves it once decided",
   );
 }
 

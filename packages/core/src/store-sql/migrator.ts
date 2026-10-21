@@ -52,10 +52,14 @@ export async function readSchemaVersion(
  * never moves its schema itself (ADR 0035, ADR 0038): the host creates and
  * migrates its store when it starts.
  */
-export const OWNER_SCHEMA_REMEDY: StoreDialect['schemaRemedy'] = {
+export const OWNER_SCHEMA_REMEDY: SchemaRemedy = {
   behind: 'restart the host with this build; it migrates the store when it starts',
   missing: 'start the host once; it creates the store when it starts',
+  newer: 'update the image; a newer schema is never downgraded',
 };
+
+/** What a schema refusal tells the operator to do; `newer` defaults to upgrading the binary. */
+export type SchemaRemedy = StoreDialect['schemaRemedy'] & { newer?: string };
 
 /**
  * Refuse to use a store whose schema this binary does not exactly match.
@@ -65,7 +69,7 @@ export const OWNER_SCHEMA_REMEDY: StoreDialect['schemaRemedy'] = {
 export async function assertSchemaCurrent(
   db: Kysely<DB>,
   dialect: StoreDialect,
-  remedy: StoreDialect['schemaRemedy'] = dialect.schemaRemedy,
+  remedy: SchemaRemedy = dialect.schemaRemedy,
 ): Promise<void> {
   const version = await readSchemaVersion(db, dialect);
   if (version === null) {
@@ -74,7 +78,7 @@ export async function assertSchemaCurrent(
   if (version > SCHEMA_VERSION) {
     throw invariant(
       `the ${dialect.label} store schema is version ${String(version)}; this binary reads version ${String(SCHEMA_VERSION)}`,
-      'upgrade the binary; a newer schema is never downgraded',
+      remedy.newer ?? 'upgrade the binary; a newer schema is never downgraded',
     );
   }
   if (version < SCHEMA_VERSION) {

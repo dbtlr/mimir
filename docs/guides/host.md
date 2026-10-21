@@ -338,7 +338,8 @@ store, or a schema other than the image's, is refused and left unchanged.
 
 Codes are stored hashed, so `pending` cannot show them: read the code from the
 device. Listings print a table on a terminal and JSON when piped, and `-f`
-picks a format. `mimir-host` has no `store upgrade`.
+picks a format. `docker compose exec` gives the command a terminal, so pass
+`-T` or `-f json` when you pipe its output. `mimir-host` has no `store upgrade`.
 
 ## Read an error from the Engine endpoint
 

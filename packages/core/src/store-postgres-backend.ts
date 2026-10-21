@@ -48,7 +48,8 @@ export async function buildPostgresStore(
   }
   const handle = openPostgres(url);
   try {
-    if (options.upgrade === true) {
+    // An existing-only open never moves the schema, even when asked to upgrade.
+    if (options.upgrade === true && options.existing !== true) {
       await upgradeSchema(handle.db, options.onMigration);
     }
     await assertSchemaCurrent(

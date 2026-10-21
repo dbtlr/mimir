@@ -61,8 +61,9 @@ export type StoreOverride = {
   upgrade?: boolean;
   /**
    * Open the store as its owner left it: refuse a missing SQLite file or any
-   * schema but this build's, and write nothing. A Postgres store is never
-   * created or migrated without `upgrade`, so this only changes its remedy.
+   * schema but this build's, and write nothing. It wins over `upgrade`. A
+   * Postgres store is otherwise never moved without `upgrade`, so there it
+   * only changes the remedy.
    */
   existing?: boolean;
   onMigration?: (name: string) => void;

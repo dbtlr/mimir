@@ -37,15 +37,15 @@ test('mimir-host refuses a schema other than its own and leaves the file as it w
   const run = await fixture.run(['pending']);
   expect(run.exitCode).toBe(1);
   expect(run.stderr).toContain('the SQLite store schema is version 999');
+  expect(run.stderr).toContain('update the image');
   expect(readFileSync(fixture.file).equals(before)).toBe(true);
-  fixtures.splice(0);
-  await fixture.close().catch(() => undefined);
 });
 
 test('mimir-host has no store upgrade: the host migrates on boot', async () => {
   const fixture = await fixtureOf();
   const run = await fixture.run(['store', 'upgrade']);
   expect(run.exitCode).toBe(2);
+  expect(run.stderr).toContain('Unknown command "upgrade"');
 });
 
 test('store export and import carry a board between hosts through standard streams', async () => {
