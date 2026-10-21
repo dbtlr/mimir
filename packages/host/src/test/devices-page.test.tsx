@@ -122,6 +122,7 @@ describe('devices page (MMR-585)', () => {
     });
     vi.mocked(unpairDevice).mockImplementation(async () => {
       world.paired = [];
+      return { requests: 0, tokens: 1 };
     });
     await renderRoute(consoleRoutes, '/devices');
 

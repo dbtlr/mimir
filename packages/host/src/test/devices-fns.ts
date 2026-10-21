@@ -61,7 +61,7 @@ export function serveDevices(world: Partial<DevicesWorld> = {}): DevicesWorld {
   vi.mocked(denyPairing).mockImplementation(async ({ data }) => ({
     device: consume(data.code).device,
   }));
-  vi.mocked(unpairDevice).mockImplementation(async () => {});
+  vi.mocked(unpairDevice).mockImplementation(async () => ({ requests: 0, tokens: 1 }));
   return state;
 }
 
