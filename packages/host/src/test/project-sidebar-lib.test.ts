@@ -23,7 +23,7 @@ describe('sectionOfPath', () => {
     expect(sectionOfPath(path, type)).toBe(section);
   });
 
-  it.each(['/', '/doctor', '/nowhere'])('%s is in none', (path) => {
+  it.each(['/', '/doctor', '/devices', '/pair', '/nowhere'])('%s is in none', (path) => {
     expect(sectionOfPath(path)).toBeUndefined();
   });
 
@@ -63,7 +63,10 @@ describe('sidebarContextOf (MMR-505)', () => {
     expect(sidebarContextOf(path)).toStrictEqual({ key: 'MMR', kind: 'project' });
   });
 
-  it.each(['/', '/doctor', '/tasks', '/nowhere'])('%s frames All projects', (path) => {
-    expect(sidebarContextOf(path)).toStrictEqual({ kind: 'all' });
-  });
+  it.each(['/', '/doctor', '/devices', '/pair', '/tasks', '/nowhere'])(
+    '%s frames All projects',
+    (path) => {
+      expect(sidebarContextOf(path)).toStrictEqual({ kind: 'all' });
+    },
+  );
 });

@@ -105,13 +105,7 @@ export function createTokenStore({
       if (decided === undefined) {
         return null;
       }
-      const active = await tx
-        .selectFrom('device_tokens')
-        .select('id')
-        .where('device', '=', decided.device)
-        .where('revoked_at', 'is', null)
-        .executeTakeFirst();
-      return { device: decided.device, rotates: active !== undefined };
+      return { device: decided.device, rotates: await holdsActiveToken(tx, decided.device) };
     });
   };
   return {
@@ -146,6 +140,35 @@ export function createTokenStore({
         .orderBy('created_at')
         .orderBy('device')
         .execute(),
+    /**
+     * Read a live undecided request by its code without deciding it, so the
+     * console can show what an approval would do. `rotates` is as in `approve`.
+     */
+    lookup: async (
+      userCode: string,
+    ): Promise<{
+      device: string;
+      created_at: string;
+      expires_at: string;
+      rotates: boolean;
+    } | null> => {
+      const code = normalizePairingCode(userCode);
+      if (code === null) {
+        return null;
+      }
+      // Two reads, not atomic: `rotates` is display-only, and `decide` recomputes it.
+      const found = await db
+        .selectFrom('pairing_requests')
+        .select(['device', 'created_at', 'expires_at'])
+        .where('user_code_hash', '=', hash(code))
+        .where('approved_at', 'is', null)
+        .where('denied_at', 'is', null)
+        .where('expires_at', '>', clockInstant())
+        .executeTakeFirst();
+      return found === undefined
+        ? null
+        : { ...found, rotates: await holdsActiveToken(db, found.device) };
+    },
     poll: async (pollSecret: string): Promise<PairingPoll> => {
       const secretHash = hash(pollSecret);
       // Most polls find an undecided request; answer those without a write transaction.
@@ -282,6 +305,17 @@ export function createTokenStore({
       });
     },
   };
+}
+
+// Does the device hold an unrevoked token? Approving it then replaces that token.
+async function holdsActiveToken(executor: Kysely<DB> | Transaction<DB>, device: string) {
+  const active = await executor
+    .selectFrom('device_tokens')
+    .select('id')
+    .where('device', '=', device)
+    .where('revoked_at', 'is', null)
+    .executeTakeFirst();
+  return active !== undefined;
 }
 
 function hash(value: string): string {

@@ -42,6 +42,15 @@ describe('shouldPersistQuery', () => {
     ).toBe(false);
   });
 
+  it('pairing codes and paired devices are never persisted (MMR-585)', () => {
+    for (const key of [
+      ['devices', 'lookup', 'K7QM-2XRD'],
+      ['devices', 'paired'],
+    ]) {
+      expect(shouldPersistQuery({ queryKey: key, state: { data: [] } })).toBe(false);
+    }
+  });
+
   it('a query that never got data is not persisted', () => {
     expect(shouldPersistQuery({ queryKey: ['projects'], state: { data: undefined } })).toBe(false);
   });

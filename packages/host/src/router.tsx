@@ -15,9 +15,11 @@ import { isSeedKind } from './lib/seed-lanes';
 import { ArtifactPage } from './routes/artifact';
 import { ArtifactsPage } from './routes/artifacts';
 import { BrowserRedirect } from './routes/browser-redirect';
+import { DevicesPage } from './routes/devices';
 import { DoctorPage } from './routes/doctor';
 import { NodePage } from './routes/node';
 import { NotFoundPage } from './routes/not-found';
+import { PairPage } from './routes/pair';
 import { ProjectPage } from './routes/project';
 import { ReviewPage } from './routes/review';
 import { SeedPage } from './routes/seed';
@@ -246,6 +248,28 @@ export const doctorRoute = createRoute({
     typeof search.project === 'string' && search.project !== '' ? { project: search.project } : {},
 });
 
+export type PairSearch = {
+  /** The pairing code to check, as `mimir pair` prints it in the URL it shows. */
+  code?: string;
+};
+
+/** `/pair` — approve or deny a device's pairing request by its code (MMR-585). */
+export const pairRoute = createRoute({
+  component: PairPage,
+  getParentRoute: () => rootRoute,
+  path: '/pair',
+  validateSearch: (search: Record<string, unknown>): PairSearch => ({
+    code: textParam(search.code),
+  }),
+});
+
+/** `/devices` — the requests waiting on the operator and the paired devices (MMR-585). */
+export const devicesRoute = createRoute({
+  component: DevicesPage,
+  getParentRoute: () => rootRoute,
+  path: '/devices',
+});
+
 export type SeedsSearch = {
   /** Client-side text filter over id, title, and lede. */
   q?: string;
@@ -365,6 +389,8 @@ export const consoleRoutes = [
   legacySeedsRoute,
   legacyTasksRoute,
   doctorRoute,
+  pairRoute,
+  devicesRoute,
   ...devRoutes,
   notFoundRoute,
 ] as const;

@@ -362,8 +362,14 @@ The `mimir-host` table replaces `pair <device>` with three commands:
 | `approve <code>` | Approves the request, and notes when an active token will be replaced. |
 | `deny <code>` | Denies the request, or withdraws an approval its client has not collected. |
 
-`mimir-host approve` is the only approval surface for now. Approval from the
-console is follow-up work (MMR-585).
+The console's `/pair` page is a second approval surface (MMR-585). It takes the
+same code, checks it against the waiting requests, and shows the device, when
+the request was filed, and when it expires. The operator then approves or
+denies it, and the page warns when approving replaces a paired device's token.
+A wrong, used, or expired code gets one message. `/devices` lists the waiting
+requests and the paired devices, and unpairs a device after an inline
+confirmation. `mimir pair` prints the `/pair?code=` URL so the code arrives
+prefilled (MMR-579).
 
 ### Why
 

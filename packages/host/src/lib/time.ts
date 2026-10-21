@@ -24,6 +24,17 @@ export function ago(at: Instant | number, now = Date.now()): string {
   return agoIn(readable(at), now);
 }
 
+/** Time left until a future instant, as a phrase: "in 9m" / "in <1m"; "now" once it has passed. */
+export function until(at: Instant | number, now = Date.now()): string {
+  const target = new Date(readable(at)).getTime();
+  if (target <= now) {
+    return 'now';
+  }
+  // The shared ladder reads a past instant; swapping the arguments reads the time left.
+  const left = relativeTimeIn(now, target);
+  return left === 'now' ? 'in <1m' : `in ${left}`;
+}
+
 /** Full local timestamp for a record page's meta rows, with its zone label — an
  * absolute reading is ambiguous without one. The locale is pinned to `en-US`
  * like the CLI helpers': the zone read from the machine, the spelling never, so

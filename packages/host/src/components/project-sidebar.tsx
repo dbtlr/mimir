@@ -248,9 +248,37 @@ function ProjectBody({ projectKey, onNavigate }: { projectKey: string; onNavigat
 }
 
 /**
- * The All projects sidebar content: Work, which is `/`, then the Projects
- * section (MMR-562). The router marks Work the page on `/` (and not on
- * `/doctor`).
+ * Devices is `/devices`, and `/pair`, which approves a request, belongs to it:
+ * the link is the page on `/devices` and the current section on `/pair`.
+ */
+function DevicesLink({ onNavigate }: { onNavigate?: () => void }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const linkProps = useLinkProps({
+    activeOptions: { exact: true, includeSearch: false },
+    onClick: onNavigate,
+    to: '/devices',
+  });
+  let current: 'page' | 'true' | undefined;
+  if (pathname === '/devices') {
+    current = 'page';
+  } else if (pathname === '/pair') {
+    current = 'true';
+  }
+  return (
+    <a
+      {...linkProps}
+      aria-current={current}
+      className={cn(ROW, 'py-1.5 text-meta max-lg:py-2.5', SECTION_CURRENT)}
+    >
+      Devices
+    </a>
+  );
+}
+
+/**
+ * The All projects sidebar content: Work, which is `/`, Devices, which is
+ * `/devices` (MMR-585), then the Projects section (MMR-562). The router marks
+ * Work the page on `/` (and not on `/doctor`).
  */
 function AllProjectsBody({ onNavigate }: { onNavigate?: () => void }) {
   return (
@@ -263,6 +291,7 @@ function AllProjectsBody({ onNavigate }: { onNavigate?: () => void }) {
       >
         Work
       </Link>
+      <DevicesLink onNavigate={onNavigate} />
       <SidebarProjects onNavigate={onNavigate} />
     </>
   );

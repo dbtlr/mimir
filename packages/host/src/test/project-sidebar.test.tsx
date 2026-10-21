@@ -17,6 +17,7 @@ import { subtreeOf } from '../lib/ancestry';
 import { rememberProject } from '../lib/current-project';
 import { routeTree } from '../router';
 import { serveBrowse } from './browse-fns';
+import { serveDevices } from './devices-fns';
 import { engineNode, engineProject, engineTree } from './engine-fixtures';
 import { serveNodes } from './node-fns';
 import { serveShell } from './shell-fns';
@@ -28,6 +29,7 @@ vi.mock('../api/fns/nodes');
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
+vi.mock('../api/fns/devices');
 
 /*
  * The shell's project sidebar (ADR 0013, MMR-492 refinement): the current
@@ -155,6 +157,7 @@ const listedKeys = (area: HTMLElement) =>
 
 beforeEach(() => {
   serveBrowse();
+  serveDevices();
   serveViews();
   localStorage.clear();
   stubViewport('desktop');
@@ -244,7 +247,7 @@ describe('sidebar names the current project', () => {
 });
 
 describe('sidebar on All projects (MMR-505)', () => {
-  it.each(['/', '/doctor'])(
+  it.each(['/', '/doctor', '/devices', '/pair'])(
     'reads All projects on %s, whatever project was last visited',
     async (path) => {
       serve([MMR, NRN]);
@@ -285,6 +288,18 @@ describe('sidebar on All projects (MMR-505)', () => {
     expect(work).toHaveAttribute('href', '/');
     expect(work).not.toHaveAttribute('aria-current');
   });
+
+  it.each(['/devices', '/pair'])(
+    'links Devices to /devices and marks it current on %s (MMR-585)',
+    async (path) => {
+      renderAt(path);
+      const nav = await sidebar();
+      const devices = within(nav).getByRole('link', { name: 'Devices' });
+      expect(devices).toHaveAttribute('href', '/devices');
+      expect(devices).toHaveAttribute('aria-current');
+      expect(within(nav).getByRole('link', { name: 'Work' })).not.toHaveAttribute('aria-current');
+    },
+  );
 
   it('counts the decisions across every project in the header', async () => {
     serve([MMR, NRN], {}, [decisions('MMR', 2), decisions('NRN', 3)]);
@@ -412,7 +427,7 @@ describe('sidebar Projects section on All projects (MMR-562, MMR-567)', () => {
 });
 
 describe('sidebar landmarks name their context (MMR-505)', () => {
-  it.each(['/', '/doctor'])('are All projects on %s', async (path) => {
+  it.each(['/', '/doctor', '/devices', '/pair'])('are All projects on %s', async (path) => {
     renderAt(path);
     await screen.findByRole('navigation', { name: 'All projects' });
     expect(screen.getByRole('complementary', { name: 'All projects' })).toBeInTheDocument();

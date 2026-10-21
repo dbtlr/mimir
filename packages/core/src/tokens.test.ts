@@ -235,6 +235,48 @@ describe.each([
     ]);
   });
 
+  test('lookup reads a live undecided request by its code, formatted or not, without writing', async () => {
+    const { requests, tokens } = await fixture();
+    const request = await tokens.request('laptop');
+    const before = await requests();
+    const found = {
+      created_at: '2026-10-20T12:00:00.000Z',
+      device: 'laptop',
+      expires_at: '2026-10-20T12:10:00.000Z',
+      rotates: false,
+    };
+    expect(await tokens.lookup(request.user_code)).toEqual(found);
+    expect(await tokens.lookup(request.user_code.replace('-', '').toLowerCase())).toEqual(found);
+    expect(await requests()).toEqual(before);
+  });
+
+  test('lookup matches nothing for an unknown, malformed, expired, approved, or denied code', async () => {
+    const { advance, tokens } = await fixture();
+    const expired = await tokens.request('expired');
+    advance(10 * 60 * 1000);
+    const approved = await tokens.request('approved');
+    const denied = await tokens.request('denied');
+    await tokens.approve(approved.user_code);
+    await tokens.deny(denied.user_code);
+    expect(await tokens.lookup('ZZZZ-ZZZZ')).toBeNull();
+    expect(await tokens.lookup('not a code')).toBeNull();
+    expect(await tokens.lookup(expired.user_code)).toBeNull();
+    expect(await tokens.lookup(approved.user_code)).toBeNull();
+    expect(await tokens.lookup(denied.user_code)).toBeNull();
+  });
+
+  test('lookup reports rotation only while the device holds an active token', async () => {
+    const { advance, tokens } = await fixture();
+    expect((await tokens.lookup((await tokens.request('laptop')).user_code))?.rotates).toBe(false);
+    await pairTestDevice(tokens, 'laptop');
+    advance(1000);
+    const again = await tokens.request('laptop');
+    expect((await tokens.lookup(again.user_code))?.rotates).toBe(true);
+    await tokens.revoke('laptop');
+    const afterUnpair = await tokens.request('laptop');
+    expect((await tokens.lookup(afterUnpair.user_code))?.rotates).toBe(false);
+  });
+
   test('requests normalize the device name and refuse an unusable one', async () => {
     const { requests, tokens } = await fixture();
     await tokens.request('  laptop  ');

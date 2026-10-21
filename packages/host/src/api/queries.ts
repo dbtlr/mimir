@@ -32,7 +32,8 @@ export const INFINITE_QUERY_KEY_ROOTS: ReadonlySet<string> = new Set(['artifacts
 
 /**
  * Key roots of the queries kept out of the persisted offline snapshot: passing
- * questions, not board state. A restored entry would also take the client's
+ * questions, not board state (`devices` holds pairing codes and paired devices).
+ * A restored entry would also take the client's
  * week-long `gcTime`, so it would outlive every reload.
  */
-export const UNPERSISTED_QUERY_KEY_ROOTS: ReadonlySet<string> = new Set(['search']);
+export const UNPERSISTED_QUERY_KEY_ROOTS: ReadonlySet<string> = new Set(['devices', 'search']);
