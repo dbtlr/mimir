@@ -5,7 +5,7 @@
  * `close` releases the database. Nothing outside the binary is needed: no
  * external tool, no server.
  */
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, statSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import { createSqlDoctorBackend } from './doctor/sql/backend';
@@ -52,4 +52,24 @@ export function openInstallationSqlite(
 ): Promise<SqliteHandle> {
   mkdirSync(dirname(path), { recursive: true });
   return openSqlite(path, { onMigration });
+}
+
+/**
+ * Whether the SQLite store at `path` holds any project, archived ones
+ * included. A missing or zero-length file holds none and is not created. A
+ * present file is opened as it lies, so the check migrates nothing and changes
+ * nothing in the store; it refuses a schema other than this build's, as that
+ * open does.
+ */
+export async function sqliteStoreHoldsProjects(path: string = sqliteStorePath()): Promise<boolean> {
+  if ((statSync(path, { throwIfNoEntry: false })?.size ?? 0) === 0) {
+    return false;
+  }
+  const handle = await openExistingSqlite(path);
+  try {
+    const row = await handle.db.selectFrom('project').select('key').limit(1).executeTakeFirst();
+    return row !== undefined;
+  } finally {
+    await handle.close();
+  }
 }

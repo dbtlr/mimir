@@ -20,7 +20,17 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { healthOf, readConfig, readCredentials, writeCredentials } from '@mimir/core';
+import {
+  archiveProject,
+  buildSqliteStore,
+  createProject,
+  healthOf,
+  openSqlite,
+  readConfig,
+  readCredentials,
+  SCHEMA_VERSION,
+  writeCredentials,
+} from '@mimir/core';
 import { createTestStore, pairingHost } from '@mimir/core/testing';
 import type { TestStore } from '@mimir/core/testing';
 import { formatInstant } from '@mimir/helpers';
@@ -67,6 +77,7 @@ let fixture: TestStore;
 let dir: string;
 let configFile: string;
 let credentialsFile: string;
+let sqliteFile: string;
 let host: HostState;
 let clock: number;
 let sleeps: number;
@@ -77,6 +88,7 @@ beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), 'mimir-pair-'));
   configFile = join(dir, 'config', 'config.toml');
   credentialsFile = join(dir, 'config', 'credentials.toml');
+  sqliteFile = join(dir, 'data', 'store.sqlite');
   host = {
     afterPoll: undefined,
     approveAt: 1,
@@ -163,6 +175,7 @@ const pairEdges = (): PairSource => ({
   hostname: () => hostName,
   now: () => clock,
   sleep,
+  sqliteFile,
 });
 
 const machineEdges = () => ({
@@ -197,6 +210,20 @@ function expectUntouched(config?: string): void {
     expect(existsSync(configFile)).toBe(false);
   } else {
     expect(readFileSync(configFile, 'utf8')).toBe(config);
+  }
+}
+
+/** Put a local SQLite board in place with one project, archived when asked. */
+async function seedLocalBoard(archived = false): Promise<void> {
+  mkdirSync(join(dir, 'data'), { recursive: true });
+  const built = await buildSqliteStore(sqliteFile);
+  try {
+    await createProject(built.store, { description: null, key: 'LOC', name: 'Local' });
+    if (archived) {
+      await archiveProject(built.store, 'LOC');
+    }
+  } finally {
+    await built.close();
   }
 }
 
@@ -337,6 +364,100 @@ test('a config that declares [store] refuses with the migration steps and writes
   expect(run.stderr).toContain('mimir-host store import');
   expect(run.stderr).toContain('remove [store]');
   expect(run.stderr).toContain(`mimir pair ${ORIGIN}`);
+  expect(host.paths).toEqual([]);
+  expectUntouched(STORE_CONFIG);
+});
+
+test('a local SQLite board that holds work refuses with the migration steps and writes nothing', async () => {
+  await seedLocalBoard();
+  const run = await pair([ORIGIN, '--device', 'laptop']);
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr).toContain(sqliteFile);
+  expect(run.stderr).toContain('would leave it behind');
+  expect(run.stderr).toContain('mimir store export');
+  expect(run.stderr).toContain('mimir-host store import');
+  expect(run.stderr).toContain(`mimir pair ${ORIGIN} --leave-local-board`);
+  expect(host.paths).toEqual([]);
+  expectUntouched();
+});
+
+test('a local board whose only project is archived still refuses', async () => {
+  await seedLocalBoard(true);
+  const run = await pair([ORIGIN, '--device', 'laptop']);
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr).toContain(sqliteFile);
+  expect(host.paths).toEqual([]);
+});
+
+test('a local board the check cannot read, such as one at an older schema, refuses as holding work', async () => {
+  await seedLocalBoard();
+  const handle = await openSqlite(sqliteFile);
+  await handle.db.deleteFrom('schema_version').where('version', '=', SCHEMA_VERSION).execute();
+  await handle.close();
+  const run = await pair([ORIGIN, '--device', 'laptop']);
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr).toContain(
+    `${sqliteFile} could not be read (the SQLite store schema is version`,
+  );
+  expect(run.stderr).toContain(`mimir pair ${ORIGIN} --leave-local-board`);
+  expect(host.paths).toEqual([]);
+  expectUntouched();
+});
+
+test('a zero-length local board file holds nothing and pairs normally', async () => {
+  mkdirSync(join(dir, 'data'), { recursive: true });
+  writeFileSync(sqliteFile, '');
+  const run = await pair([ORIGIN, '--device', 'laptop']);
+  expect(run.exitCode).toBe(0);
+});
+
+test('an install that already names a host re-pairs without checking the board it left behind', async () => {
+  await seedLocalBoard();
+  await seedConfig(`[host]\nurl = "${ORIGIN}"\n`);
+  const run = await pair([ORIGIN, '--device', 'laptop']);
+  expect(run.exitCode).toBe(0);
+  expect(readCredentials(ORIGIN, credentialsFile).device).toBe('laptop');
+});
+
+test('--yes alone does not pair over a local board that holds work', async () => {
+  await seedLocalBoard();
+  const run = await pair([ORIGIN, '--device', 'laptop', '--yes']);
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr).toContain('--leave-local-board');
+  expect(host.paths).toEqual([]);
+  expectUntouched();
+});
+
+test('an empty local board pairs normally', async () => {
+  mkdirSync(join(dir, 'data'), { recursive: true });
+  const built = await buildSqliteStore(sqliteFile);
+  await built.close();
+  const run = await pair([ORIGIN, '--device', 'laptop']);
+  expect(run.exitCode).toBe(0);
+  expect(readConfig(configFile).host?.url).toBe(ORIGIN);
+});
+
+test('an absent local board pairs normally and is not created', async () => {
+  const run = await pair([ORIGIN, '--device', 'laptop']);
+  expect(run.exitCode).toBe(0);
+  expect(existsSync(sqliteFile)).toBe(false);
+});
+
+test('--leave-local-board pairs over a local board that holds work, which stays as it was', async () => {
+  await seedLocalBoard();
+  const before = readFileSync(sqliteFile);
+  const run = await pair([ORIGIN, '--device', 'laptop', '--leave-local-board']);
+  expect(run.exitCode).toBe(0);
+  expect(readConfig(configFile).host?.url).toBe(ORIGIN);
+  expect(readFileSync(sqliteFile).equals(before)).toBe(true);
+});
+
+test('--leave-local-board does not lift the [store] refusal', async () => {
+  await seedConfig(STORE_CONFIG);
+  await seedLocalBoard();
+  const run = await pair([ORIGIN, '--device', 'laptop', '--leave-local-board']);
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr).toContain('declares [store]');
   expect(host.paths).toEqual([]);
   expectUntouched(STORE_CONFIG);
 });

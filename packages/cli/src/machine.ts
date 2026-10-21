@@ -96,6 +96,12 @@ export type PairingPoll =
  * reads. It never needs the Engine, because pairing is what repairs a broken
  * `[host]` or credentials file.
  */
+/** A default install's SQLite board, as pairing sees it; one the check cannot read may hold work. */
+export type LocalBoard =
+  | { status: 'empty' }
+  | { status: 'work' }
+  | { status: 'unreadable'; reason: string };
+
 export type Pairing = {
   /** The config file, which refusals name. */
   configFile: string;
@@ -103,6 +109,10 @@ export type Pairing = {
   origin: (url: string) => string | undefined;
   /** Whether the config declares `[store]`, a local board that pairing would orphan. */
   declaresStore: () => boolean;
+  /** The SQLite file the default install keeps its board in, which refusals name. */
+  sqliteFile: string;
+  /** What that SQLite file holds: work is any project, archived included; an absent file is empty. */
+  localBoard: () => Promise<LocalBoard>;
   /**
    * The pairing the config holds now: the origin its `[host]` names, if usable, and the
    * device name that host knows this machine by, when the credentials record one for it.

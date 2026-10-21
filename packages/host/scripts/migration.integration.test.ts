@@ -124,12 +124,14 @@ test('a CLI-only install moves its board into a host and keeps working through i
     // 6. Remove [store], as the guide says.
     writeFileSync(installation.configFile, '');
 
-    // 7. Pair, approving the code the CLI prints on the host.
+    // 7. Pair, approving the code the CLI prints on the host. The old store
+    // still holds the exported board, so pairing is told to leave it behind.
     const pairing = installation.spawn([
       'pair',
       base,
       '--device',
       device,
+      '--leave-local-board',
       '--no-input',
       '-f',
       'json',
