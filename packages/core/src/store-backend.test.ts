@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { configPath } from './config';
 import { MimirError } from './errors';
 import { sandboxPostgresUrlFromEnvironment } from './sandbox-authority';
-import { buildStore, hostOrigin } from './store-backend';
+import { buildStore } from './store-backend';
 import { openPostgres, upgradeSchema } from './store-postgres/index';
 import { createThrowawaySchema } from './store-postgres/testing';
 import { buildSqliteStore } from './store-sqlite-backend';
@@ -163,53 +163,28 @@ test('an unusable [store] section is fatal, never a fallback to another store', 
 });
 
 // Each store has one owner (ADR 0038): an install that names a host keeps no
-// local store, so no CLI, old or new, opens one in the host's place.
-test('a config with [host] builds no local store', async () => {
-  for (const host of [{ url: 'https://mimir.example.test' }, { problem: 'invalid-url' as const }]) {
+// local store, so a CLI that cannot reach the host opens none in its place.
+test('a config with a usable [host] builds no local store', async () => {
+  const refusal: unknown = await buildStore({
+    host: { url: 'https://mimir.example.test' },
+    store: {},
+  }).catch((error: unknown) => error);
+  expect(refusal).toBeInstanceOf(MimirError);
+  expect((refusal as MimirError).message).toContain(`[host] is set in ${configPath()}`);
+  expect((refusal as MimirError).hint).toBe(
+    'use a mimir release with remote mode, or remove [host] to use a local store',
+  );
+});
+
+// A broken `[host]` is refused with its own fix, as remote mode would refuse it.
+test('a config with a broken [host] builds no local store and names the fix', async () => {
+  for (const [host, hint] of [
+    [{ problem: 'invalid-url' }, "set [host] url to the host's http or https URL"],
+    [{ problem: 'with-store' }, 'keep one: remove [store] to use the host'],
+  ] as const) {
     const refusal: unknown = await buildStore({ host, store: {} }).catch((error: unknown) => error);
     expect(refusal).toBeInstanceOf(MimirError);
-    expect((refusal as MimirError).message).toContain('[host]');
-    expect((refusal as MimirError).message).toContain(configPath());
-    expect((refusal as MimirError).hint).toContain('mimir-host');
-  }
-});
-
-test('[host] beside [store] is one refusal that names both ways out', async () => {
-  const config = { host: { problem: 'with-store' as const }, store: {} };
-  for (const attempt of [() => buildStore(config), async () => hostOrigin(config, '/cfg.toml')]) {
-    const refusal: unknown = await attempt().catch((error: unknown) => error);
-    expect(refusal).toBeInstanceOf(MimirError);
-    expect((refusal as MimirError).message).toContain('both [host] and [store]');
-    expect((refusal as MimirError).hint).toBe(
-      'keep one: remove [store] to use the host, or remove [host] to use the local store',
-    );
-  }
-});
-
-test('hostOrigin reduces [host] url to its origin', () => {
-  expect(hostOrigin({ host: { url: 'https://Mimir.Example.test/trpc/' }, store: {} })).toBe(
-    'https://mimir.example.test',
-  );
-  expect(hostOrigin({ host: { url: 'http://127.0.0.1:64647' }, store: {} })).toBe(
-    'http://127.0.0.1:64647',
-  );
-});
-
-test('hostOrigin refuses an unusable or absent [host] with the key to set', () => {
-  for (const host of [
-    { problem: 'malformed' as const },
-    { problem: 'invalid-url' as const },
-    undefined,
-  ]) {
-    let refusal: unknown;
-    try {
-      hostOrigin({ ...(host === undefined ? {} : { host }), store: {} }, '/cfg.toml');
-    } catch (error) {
-      refusal = error;
-    }
-    expect(refusal).toBeInstanceOf(MimirError);
-    expect((refusal as MimirError).message).toContain('/cfg.toml');
-    expect((refusal as MimirError).hint).toBe("set [host] url to the host's http or https URL");
+    expect((refusal as MimirError).hint).toStartWith(hint);
   }
 });
 

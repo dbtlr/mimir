@@ -21,7 +21,7 @@ import { createTestStore, pairTestDevice } from '@mimir/core/testing';
 import type { TestStore } from '@mimir/core/testing';
 import { createEngineHandler } from '@mimir/wire/server';
 
-import { createApp, remoteSource } from './app';
+import { createApp, remoteSource, workStateSource } from './app';
 import type { HostSend } from './app';
 import { boundClone } from './testing/fixture';
 import { runArgv } from './testing/run';
@@ -70,13 +70,26 @@ function hostFetch(request: Request): Promise<Response> {
   })(request);
 }
 
-/** The CLI in remote mode over `config`, bound to MMR. */
+/** A local-store edge remote mode must never reach. */
+const opensStore = (): never => {
+  throw new Error('remote mode opened a local store');
+};
+
+/** The CLI in remote mode over `config`, bound to MMR, with every local-store edge refusing. */
 function remoteApp(
   config: GlobalConfig = { host: { url: `${ORIGIN}/` }, store: {} },
   fetch: HostSend = hostFetch,
 ) {
   return createApp({
     git: boundClone('MMR'),
+    machine: {
+      cwd: dir,
+      doctor: opensStore,
+      openPostgres: opensStore,
+      openSqlite: opensStore,
+      readConfig: () => config,
+      readStdin: () => Promise.resolve(''),
+    },
     remote: remoteSource({ config, configFile: join(dir, 'config.toml'), credentialsFile, fetch }),
   });
 }
@@ -110,9 +123,10 @@ test('writes land in the host store', async () => {
 });
 
 test('an Engine refusal reads the same remotely as locally', async () => {
-  const run = await runArgv(remoteApp(), ['get', 'MMR-999']);
-  expect(run.exitCode).toBe(1);
-  expect(run.stderr).toContain('MMR-999');
+  const local = createApp({ git: boundClone('MMR'), store: () => Promise.resolve(fixture.store) });
+  const expected = await runArgv(local, ['get', 'MMR-999']);
+  expect(expected.exitCode).toBe(1);
+  expect(await runArgv(remoteApp(), ['get', 'MMR-999'])).toEqual(expected);
 });
 
 test('a host outside the version window refuses with its remedy', async () => {
@@ -135,14 +149,12 @@ test('a token the host does not accept is refused with the pair remedy', async (
 const down = () =>
   Promise.reject(new TypeError('Unable to connect. Is the computer able to access the url?'));
 
-/** A reverse proxy answering for a host that is not running. */
-const proxy = () => Promise.resolve(new Response('', { status: 502 }));
-
 test('an unreachable host is named by its origin', async () => {
   const run = await runArgv(remoteApp(undefined, down), ['projects']);
   expect(run.exitCode).toBe(1);
   expect(run.stderr).toContain(`cannot reach the host at ${ORIGIN}`);
-  expect(run.stderr).not.toContain('Something went wrong');
+  expect(run.stderr).toContain('check that the host is running and that this machine can reach it');
+  expect(run.stderr).not.toContain('UNHANDLED');
 });
 
 // The token is bound to the origin that issued it, so it never follows a
@@ -162,14 +174,54 @@ test('a redirect is refused, not followed', async () => {
   expect(run.stderr).toContain(
     `the host at ${ORIGIN} redirected to https://elsewhere.example.test`,
   );
+  expect(run.stderr).toContain('mimir pair https://elsewhere.example.test');
+  expect(run.stderr).not.toContain('UNHANDLED');
   expect(requests.map((request) => request.redirect)).toEqual(['manual']);
 });
 
-test('a proxy in front of a stopped host reads as unavailable', async () => {
-  const run = await runArgv(remoteApp(undefined, proxy), ['projects']);
-  expect(run.exitCode).toBe(1);
-  expect(run.stderr).toContain(`the host at ${ORIGIN} is unavailable (HTTP 502)`);
+/** A server redirecting to a relative location that carries terminal escapes. */
+const hostile = () =>
+  Promise.resolve(new Response(null, { headers: { location: '/x?\u001b[2Jgone' }, status: 302 }));
+
+// A Location header is the answering server's text; only a parsed origin reaches the terminal.
+test('a redirect to an unparsable location shows no target', async () => {
+  const run = await runArgv(remoteApp(undefined, hostile), ['projects']);
+  expect(run.stderr).toContain(`the host at ${ORIGIN} redirected`);
+  expect(run.stderr).not.toContain('gone');
+  expect(run.stderr).toContain('set [host] url to the address the host serves');
 });
+
+test.each([502, 503, 504])(
+  'a proxy answering %i for a stopped host reads as unavailable',
+  async (status) => {
+    const proxy = () => Promise.resolve(new Response('', { status }));
+    const run = await runArgv(remoteApp(undefined, proxy), ['projects']);
+    expect(run.exitCode).toBe(1);
+    expect(run.stderr).toContain(`the host at ${ORIGIN} is unavailable (HTTP ${String(status)})`);
+  },
+);
+
+// A url that names the wrong service, or a proxy's error or login page,
+// answers without JSON.
+test.each([200, 403, 404, 429, 500])(
+  'an HTML answer with HTTP %i is refused, not an internal error',
+  async (status) => {
+    const page = () =>
+      Promise.resolve(
+        new Response('<html><body>not mimir</body></html>', {
+          headers: { 'content-type': 'text/html' },
+          status,
+        }),
+      );
+    const run = await runArgv(remoteApp(undefined, page), ['projects']);
+    expect(run.exitCode).toBe(1);
+    expect(run.stderr).toContain(
+      `the host at ${ORIGIN} answered HTTP ${String(status)} without a Mimir response`,
+    );
+    expect(run.stderr).toContain('check that [host] url names a mimir host');
+    expect(run.stderr).not.toContain('UNHANDLED');
+  },
+);
 
 test.each([
   ['[host] beside [store]', { problem: 'with-store' }, 'both [host] and [store]'],
@@ -217,15 +269,52 @@ test('credentials recorded for another host are refused before any request', asy
   expect(requests).toEqual([]);
 });
 
-test.each([['store export -'], ['store import board.json --apply'], ['store upgrade']])(
+test.each([['store export -'], ['store import board.json --apply'], ['doctor']])(
   '%s refuses in remote mode and points to mimir-host',
   async (line) => {
     const run = await runArgv(remoteApp(), line.split(' '));
     expect(run.exitCode).toBe(1);
-    expect(run.stderr).toContain('mimir-host');
+    expect(run.stderr).toContain(`lives on the host at ${ORIGIN}`);
+    expect(run.stderr).toContain('docker exec mimir-host mimir-host');
     expect(requests).toEqual([]);
   },
 );
+
+// mimir-host never migrates: the host migrates its store when it starts (ADR 0038).
+test('store upgrade in remote mode points to updating the host', async () => {
+  const run = await runArgv(remoteApp(), ['store', 'upgrade']);
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr).toContain('which migrates it when it starts');
+  expect(run.stderr).toContain('update the host to upgrade its store');
+  expect(run.stderr).not.toContain('mimir-host');
+});
+
+test.each([['store export -'], ['store upgrade'], ['doctor']])(
+  '%s under a broken [host] refuses with the config fix',
+  async (line) => {
+    const run = await runArgv(
+      remoteApp({ host: { problem: 'with-store' }, store: {} }),
+      line.split(' '),
+    );
+    expect(run.exitCode).toBe(1);
+    expect(run.stderr).toContain('keep one: remove [store] to use the host');
+  },
+);
+
+// The switch runMimir composes through: any `[host]` section means remote.
+test('a config with any [host] section takes its work state from the host', async () => {
+  const files = { configFile: join(dir, 'config.toml'), credentialsFile };
+  expect(workStateSource({ store: {} }, opensStore, files)).toEqual({ store: opensStore });
+  for (const host of [{ url: ORIGIN }, { problem: 'invalid-url' as const }]) {
+    const source = workStateSource({ host, store: {} }, opensStore, files);
+    if (!('remote' in source)) {
+      throw new Error('expected a remote source');
+    }
+    const run = await runArgv(createApp({ git: boundClone('MMR'), ...source }), ['projects']);
+    expect(run.exitCode).toBe(1);
+    expect(run.stderr).not.toContain('remote mode opened a local store');
+  }
+});
 
 test('a run that needs no work state reads no credentials', async () => {
   rmSync(credentialsFile);

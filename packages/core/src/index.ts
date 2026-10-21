@@ -47,7 +47,7 @@ export { credentialsPath, readCredentials, writeCredentials } from './credential
 export type { Credentials } from './credentials';
 export { acceptedHosts, hostnameOf, isHostName, normalizeServeUrl } from './address';
 export type { ServeConfig } from './address';
-export { assertUsableStoreConfig, buildStore, hostOrigin } from './store-backend';
+export { assertUsableStoreConfig, buildStore } from './store-backend';
 export type { BuiltStore, StoreOverride } from './store-backend';
 export { buildSqliteStore, openInstallationSqlite } from './store-sqlite-backend';
 export { assertPostgresAccess } from './postgres-access';

@@ -15,10 +15,11 @@ import {
   renameSync,
   rmSync,
   statSync,
-  writeSync,
+  writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { urlOrigin } from './config';
 import { runtimePaths } from './env';
 import { invariant } from './errors';
 
@@ -39,8 +40,13 @@ export function credentialsPath(): string {
 /** Any permission bit for group or others: the file is the owner's alone. */
 const SHARED_BITS = 0o077;
 
-/** A TOML basic string; JSON's escapes are a subset of TOML's. */
-const tomlString = (value: string): string => JSON.stringify(value);
+/**
+ * A TOML basic string. JSON's escapes are a subset of TOML's once the two
+ * differences are closed: TOML forbids a raw DEL, and it has no escape for a
+ * lone surrogate, which becomes U+FFFD.
+ */
+const tomlString = (value: string): string =>
+  JSON.stringify(value.toWellFormed()).replaceAll('\x7f', String.raw`\u007f`);
 
 /**
  * Write the credentials atomically: a private temporary file beside the
@@ -64,7 +70,7 @@ export function writeCredentials(credentials: Credentials, file: string = creden
   try {
     try {
       fchmodSync(descriptor, 0o600);
-      writeSync(descriptor, text);
+      writeFileSync(descriptor, text);
       fsyncSync(descriptor);
     } finally {
       closeSync(descriptor);
@@ -92,11 +98,15 @@ export function readCredentials(origin: string, file: string = credentialsPath()
     throw invariant(`no device credentials at ${file}`, pair);
   }
   const mode = statSync(file).mode & 0o777;
+  const octal = `0${mode.toString(8).padStart(3, '0')}`;
   if ((mode & SHARED_BITS) !== 0) {
     throw invariant(
-      `${file} is accessible to group or others (mode 0${mode.toString(8)})`,
+      `${file} is accessible to group or others (mode ${octal})`,
       `chmod 600 ${file}`,
     );
+  }
+  if ((mode & 0o400) === 0) {
+    throw invariant(`${file} is not readable by its owner (mode ${octal})`, `chmod 600 ${file}`);
   }
   let parsed: object;
   try {
@@ -116,7 +126,8 @@ export function readCredentials(origin: string, file: string = credentialsPath()
   ) {
     throw invariant(`${file} is missing origin, device, token, or issued_at`, pair);
   }
-  if (recorded !== origin) {
+  // Compared as origins, so a hand-edited `https://Host/` still matches.
+  if (urlOrigin(recorded) !== origin) {
     throw invariant(`${file} holds credentials for ${recorded}, not ${origin}`, pair);
   }
   return { device, issuedAt, origin, token };

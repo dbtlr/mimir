@@ -8,6 +8,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
 import { runtimePaths } from './env';
+import { invariant } from './errors';
 
 /** Installation-bound path. Explicit bases are for isolated configuration tools. */
 export function configPath(configHome?: string): string {
@@ -97,12 +98,17 @@ function storeSection(raw: unknown): StoreConfig {
   };
 }
 
-function isHostUrl(value: unknown): value is string {
+/**
+ * The origin of an http or https URL, or undefined for anything else. A host
+ * is addressed by its origin alone (ADR 0038): the config, the credentials
+ * file, and pairing all reduce a URL through this one rule.
+ */
+export function urlOrigin(value: unknown): string | undefined {
   if (typeof value !== 'string' || !URL.canParse(value)) {
-    return false;
+    return undefined;
   }
-  const { protocol } = new URL(value);
-  return protocol === 'http:' || protocol === 'https:';
+  const url = new URL(value);
+  return url.protocol === 'http:' || url.protocol === 'https:' ? url.origin : undefined;
 }
 
 function hostSection(raw: unknown, withStore: boolean): HostConfig {
@@ -112,7 +118,32 @@ function hostSection(raw: unknown, withStore: boolean): HostConfig {
   if (!isTable(raw)) {
     return { problem: 'malformed' };
   }
-  return isHostUrl(raw.url) ? { url: raw.url } : { problem: 'invalid-url' };
+  return typeof raw.url === 'string' && urlOrigin(raw.url) !== undefined
+    ? { url: raw.url }
+    : { problem: 'invalid-url' };
+}
+
+/**
+ * The origin of the host a remote install names (ADR 0038). Refuses a config
+ * that also holds `[store]`, and one without a usable `[host]`, each with the
+ * fix; `file` names the config the sections came from.
+ */
+export function hostOrigin(config: GlobalConfig, file: string = configPath()): string {
+  const host = config.host;
+  if (host?.problem === 'with-store') {
+    throw invariant(
+      `${file} holds both [host] and [store]`,
+      'keep one: remove [store] to use the host, or remove [host] to use the local store',
+    );
+  }
+  const origin = urlOrigin(host?.url);
+  if (origin === undefined) {
+    throw invariant(
+      `[host] is unusable (${host?.problem ?? 'missing'}) in ${file}`,
+      "set [host] url to the host's http or https URL",
+    );
+  }
+  return origin;
 }
 
 /**

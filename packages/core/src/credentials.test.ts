@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { chmodSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
+import { configPath } from './config';
 import { credentialsPath, readCredentials, writeCredentials } from './credentials';
 import type { Credentials } from './credentials';
 import { MimirError } from './errors';
@@ -42,7 +43,8 @@ function refusalOf(attempt: () => unknown): MimirError {
 }
 
 test('credentials live beside config.toml', () => {
-  expect(credentialsPath()).toEndWith('/mimir/credentials.toml');
+  expect(dirname(credentialsPath())).toBe(dirname(configPath()));
+  expect(credentialsPath()).toEndWith('/credentials.toml');
 });
 
 test('written credentials read back for their origin', () => {
@@ -74,6 +76,14 @@ test('a device name with quotes, backslashes, and newlines round-trips', () => {
   expect(readCredentials(ORIGIN, file).device).toBe(device);
 });
 
+// JSON escapes are not all TOML escapes: a raw DEL and a lone surrogate would
+// write a file the reader then refuses, so pairing would look successful and
+// every run after it would fail.
+test('a device name with DEL or a lone surrogate still writes readable credentials', () => {
+  writeCredentials({ ...paired, device: 'a\u007fb x\ud800y' }, file);
+  expect(readCredentials(ORIGIN, file).device).toBe('a\u007fb x\ufffdy');
+});
+
 test('missing credentials are refused with the pair remedy', () => {
   const refusal = refusalOf(() => readCredentials(ORIGIN, file));
   expect(refusal.message).toContain(file);
@@ -91,6 +101,16 @@ test('a file that group or others can access is refused with chmod 600', () => {
   }
 });
 
+test('a file its owner cannot read is refused with chmod 600, not the pair remedy', () => {
+  writeCredentials(paired, file);
+  for (const mode of [0o000, 0o200]) {
+    chmodSync(file, mode);
+    const refusal = refusalOf(() => readCredentials(ORIGIN, file));
+    expect(refusal.message).toContain(`mode 0${mode.toString(8).padStart(3, '0')}`);
+    expect(refusal.hint).toBe(`chmod 600 ${file}`);
+  }
+});
+
 test('an unreadable or incomplete file is refused with the pair remedy, token unechoed', () => {
   for (const text of [
     'not = = toml',
@@ -102,6 +122,11 @@ test('an unreadable or incomplete file is refused with the pair remedy, token un
     expect(refusal.message).toContain(file);
     expect(refusal.hint).toBe(`mimir pair ${ORIGIN}`);
   }
+});
+
+test('a recorded origin is compared as an origin, not as text', () => {
+  writeCredentials({ ...paired, origin: 'https://Mimir.Example.test:443/' }, file);
+  expect(readCredentials(ORIGIN, file).token).toBe(paired.token);
 });
 
 test('credentials recorded for another origin are refused before any request', () => {

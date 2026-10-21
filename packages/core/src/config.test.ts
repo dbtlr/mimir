@@ -16,9 +16,12 @@ import {
   configPath,
   configPathStats,
   DEFAULT_STORE_BACKEND,
+  hostOrigin,
   readConfig,
   readRuntimeConfig,
+  urlOrigin,
 } from './config';
+import { MimirError } from './errors';
 
 let dir: string;
 beforeEach(() => {
@@ -182,6 +185,49 @@ test('readConfig flags [host] beside [store], even an empty [store]', () => {
   const file = join(dir, 'config.toml');
   writeFileSync(file, '[store]\n[host]\nurl = "http://mimir.example.test:64647"\n');
   expect(readConfig(file).host).toEqual({ problem: 'with-store' });
+});
+
+test('urlOrigin reduces an http or https URL to its origin and refuses the rest', () => {
+  expect(urlOrigin('https://Mimir.Example.test:443/trpc/?q=1')).toBe('https://mimir.example.test');
+  expect(urlOrigin('http://user:pw@127.0.0.1:64647/')).toBe('http://127.0.0.1:64647');
+  expect(urlOrigin('http://[::1]:80')).toBe('http://[::1]');
+  for (const value of ['ftp://mimir.example.test', 'not a url', '', 7, undefined]) {
+    expect(urlOrigin(value)).toBeUndefined();
+  }
+});
+
+test('hostOrigin is the origin of a usable [host] url', () => {
+  expect(hostOrigin({ host: { url: 'https://Mimir.Example.test/trpc/' }, store: {} })).toBe(
+    'https://mimir.example.test',
+  );
+});
+
+test('hostOrigin refuses [host] beside [store] with both ways out', () => {
+  expect(() => hostOrigin({ host: { problem: 'with-store' }, store: {} }, '/cfg.toml')).toThrow(
+    new MimirError(
+      'invariant',
+      '/cfg.toml holds both [host] and [store]',
+      'keep one: remove [store] to use the host, or remove [host] to use the local store',
+    ),
+  );
+});
+
+test('hostOrigin refuses an unusable or absent [host] with the key to set', () => {
+  for (const host of [
+    { problem: 'malformed' as const },
+    { problem: 'invalid-url' as const },
+    undefined,
+  ]) {
+    let refusal: unknown;
+    try {
+      hostOrigin({ ...(host === undefined ? {} : { host }), store: {} }, '/cfg.toml');
+    } catch (error) {
+      refusal = error;
+    }
+    expect(refusal).toBeInstanceOf(MimirError);
+    expect((refusal as MimirError).message).toContain('/cfg.toml');
+    expect((refusal as MimirError).hint).toBe("set [host] url to the host's http or https URL");
+  }
 });
 
 test('configPathStats walks the file and each directory up to and including home', () => {
