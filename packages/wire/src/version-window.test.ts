@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 
 import { MimirError } from '@mimir/contract';
 import { LocalEngine } from '@mimir/core';
-import { createTestStore } from '@mimir/core/testing';
+import { createTestStore, pairTestDevice } from '@mimir/core/testing';
 import type { TestStore } from '@mimir/core/testing';
 
 import { RemoteEngine } from './client';
@@ -13,11 +13,7 @@ let authorization: string;
 let local: LocalEngine;
 beforeEach(async () => {
   fixture = await createTestStore();
-  const credential = await fixture.tokens.redeem(await fixture.tokens.issueCode('wire-fixture'));
-  if (credential === null) {
-    throw new Error('fixture pairing failed');
-  }
-  authorization = `Bearer ${credential.token}`;
+  authorization = `Bearer ${await pairTestDevice(fixture.tokens, 'wire-fixture')}`;
   local = new LocalEngine(fixture.store);
 });
 afterEach(async () => fixture.close());

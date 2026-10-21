@@ -13,7 +13,7 @@ import {
   startTask,
   MimirError,
 } from '@mimir/core';
-import { createTestStore, errorOf } from '@mimir/core/testing';
+import { createTestStore, errorOf, pairTestDevice } from '@mimir/core/testing';
 import type { TestStore } from '@mimir/core/testing';
 
 import { RemoteEngine } from './client';
@@ -27,11 +27,7 @@ let id: string;
 
 beforeEach(async () => {
   fixture = await createTestStore();
-  const credential = await fixture.tokens.redeem(await fixture.tokens.issueCode('wire-fixture'));
-  if (credential === null) {
-    throw new Error('fixture pairing failed');
-  }
-  authorization = `Bearer ${credential.token}`;
+  authorization = `Bearer ${await pairTestDevice(fixture.tokens, 'wire-fixture')}`;
   await createProject(fixture.store, { key: 'ENG', name: 'Engine' });
   const parent = await createInitiative(fixture.store, { projectId: 'ENG', title: 'Engine' });
   const task = await createTask(fixture.store, {

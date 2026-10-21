@@ -12,7 +12,7 @@ import { chromium } from '@playwright/test';
 import type { Browser } from '@playwright/test';
 import { z } from 'zod';
 
-import { issueFixtureCode } from './pairing-fixture';
+import { approveFixtureRequest } from './pairing-fixture';
 
 const clientVersion = MIN_CLIENT;
 
@@ -93,32 +93,52 @@ test('the development host serves and renders the kit with an isolated store', a
       expect(await unauthorized.json()).toMatchObject({
         error: { json: { data: { code: 'UNAUTHORIZED' }, message: 'unauthorized' } },
       });
-      for (const method of ['GET', 'HEAD', 'PUT', 'DELETE', 'OPTIONS']) {
-        const unsupported = await fetch(`${base}/auth/pairing/redeem`, { method });
-        expect(unsupported.status, method).toBe(405);
-        expect(unsupported.headers.get('allow'), method).toBe('POST');
-        expect(unsupported.headers.get('cache-control'), method).toBe('no-store');
+      for (const path of ['/auth/pairing/requests', '/auth/pairing/poll']) {
+        for (const method of ['GET', 'HEAD', 'PUT', 'DELETE', 'OPTIONS']) {
+          const unsupported = await fetch(`${base}${path}`, { method });
+          expect(unsupported.status, `${method} ${path}`).toBe(405);
+          expect(unsupported.headers.get('allow'), `${method} ${path}`).toBe('POST');
+          expect(unsupported.headers.get('cache-control'), `${method} ${path}`).toBe('no-store');
+        }
       }
-      const code = await issueFixtureCode('development fixture', {
-        MIMIR_DATA_DIR: directory,
-      });
+      // The host-minted code exchange is gone; unknown /auth paths answer a JSON 404, never the shell.
+      for (const [path, method] of [
+        ['/auth/pairing/redeem', 'POST'],
+        ['/auth/pairing/redeem', 'GET'],
+        ['/auth', 'GET'],
+      ] as const) {
+        const unknown = await fetch(`${base}${path}`, { method });
+        expect(unknown.status, `${method} ${path}`).toBe(404);
+        expect(unknown.headers.get('cache-control'), `${method} ${path}`).toBe('no-store');
+        expect(await unknown.json(), `${method} ${path}`).toMatchObject({
+          error: { code: 'not_found' },
+        });
+      }
       // Pairing is a host route: neither a client version nor an existing token is needed.
-      const redeem = await fetch(`${base}/auth/pairing/redeem`, {
-        body: JSON.stringify({ code }),
-        headers: { 'content-type': 'application/json' },
-        method: 'POST',
-      });
-      expect(redeem.status).toBe(200);
-      const paired = z.object({ device: z.string(), token: z.string() }).parse(await redeem.json());
+      const post = (path: string, body: unknown) =>
+        fetch(`${base}/auth/pairing/${path}`, {
+          body: JSON.stringify(body),
+          headers: { 'content-type': 'application/json' },
+          method: 'POST',
+        });
+      const filed = await post('requests', { device: 'development fixture' });
+      expect(filed.status).toBe(200);
+      expect(filed.headers.get('cache-control')).toBe('no-store');
+      const request = z
+        .object({ interval: z.number(), poll_secret: z.string(), user_code: z.string() })
+        .parse(await filed.json());
+      const pollOnce = async () =>
+        (await post('poll', { poll_secret: request.poll_secret })).json();
+      expect(await pollOnce()).toEqual({ status: 'pending' });
+      expect(await approveFixtureRequest(request.user_code, { MIMIR_DATA_DIR: directory })).toEqual(
+        { device: 'development fixture', rotates: false },
+      );
+      const paired = z
+        .object({ device: z.string(), status: z.literal('approved'), token: z.string() })
+        .parse(await pollOnce());
       expect(paired.device).toBe('development fixture');
       expect(paired.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
-      expect(redeem.headers.get('cache-control')).toBe('no-store');
-      const reused = await fetch(`${base}/auth/pairing/redeem`, {
-        body: JSON.stringify({ code }),
-        headers: { 'content-type': 'application/json' },
-        method: 'POST',
-      });
-      expect(reused.status).toBe(400);
+      expect(await pollOnce()).toEqual({ status: 'expired' });
       const remote = new RemoteEngine({
         headers: { authorization: `Bearer ${paired.token}` },
         url: `${base}/trpc`,

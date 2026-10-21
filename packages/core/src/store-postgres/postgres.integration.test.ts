@@ -7,6 +7,7 @@ import { LocalEngine } from '../engine';
 import { updateNode } from '../mutations';
 import { sandboxPostgresUrlFromEnvironment } from '../sandbox-authority';
 import { observe, seedWorkingSet, withoutStamp } from '../testing/conformance';
+import { pairTestDevice } from '../testing/store';
 import { createTokenStore } from '../tokens';
 import { openPostgres } from './client';
 import { postgresDialect } from './dialect';
@@ -67,6 +68,7 @@ lane('upgradeSchema builds the schema from empty, and the gate then passes', asy
           '0007_task_queued',
           '0008_main_worker',
           '0009_device_tokens',
+          '0010_pairing_requests',
         ],
         from: 0,
         to: SCHEMA_VERSION,
@@ -321,7 +323,7 @@ lane(
 );
 
 lane(
-  'token redemption on competing Postgres connections consumes once and rotates atomically',
+  'an approved poll on competing Postgres connections mints once and rotates atomically',
   async () => {
     await onFreshSchema(async (url) => {
       const first = openPostgres(url);
@@ -330,17 +332,22 @@ lane(
         await upgradeSchema(first.db);
         const one = createTokenStore({ db: first.db, dialect: postgresDialect });
         const two = createTokenStore({ db: second.db, dialect: postgresDialect });
-        const prior = await one.redeem(await one.issueCode('laptop'));
-        const code = await one.issueCode('laptop');
-        const results = await Promise.all([one.redeem(code), two.redeem(code)]);
-        expect(results.filter((result) => result !== null)).toHaveLength(1);
-        expect(results.filter((result) => result === null)).toHaveLength(1);
+        const prior = await pairTestDevice(one, 'laptop');
+        const request = await one.request('laptop');
+        await one.approve(request.user_code);
+        const results = await Promise.all([
+          one.poll(request.poll_secret),
+          two.poll(request.poll_secret),
+        ]);
+        const minted = results.flatMap((result) =>
+          result.status === 'approved' ? [result.token] : [],
+        );
+        expect(minted).toHaveLength(1);
+        expect(results.map((result) => result.status).toSorted()).toEqual(['approved', 'expired']);
         expect(await one.list()).toHaveLength(1);
         expect(await one.list({ all: true })).toHaveLength(2);
-        expect(await two.verify(prior?.token ?? '')).toBeNull();
-        expect(await two.verify(results.find((result) => result !== null)?.token ?? '')).toBe(
-          'laptop',
-        );
+        expect(await two.verify(prior)).toBeNull();
+        expect(await two.verify(minted[0] ?? '')).toBe('laptop');
       } finally {
         await first.close();
         await second.close();

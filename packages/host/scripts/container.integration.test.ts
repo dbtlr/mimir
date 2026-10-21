@@ -12,6 +12,7 @@ import { RemoteEngine } from '@mimir/wire/client';
 import { z } from 'zod';
 
 import { POSTGRES_IMAGE } from '../../sandbox/src/workflow';
+import { pairFixtureDevice } from './pairing-client';
 
 const clientVersion = z
   .object({ version: z.string() })
@@ -157,20 +158,11 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
       throw new AggregateError(pairingBuild.logs, 'could not bundle the container pairing fixture');
     }
     const pairingMount = `type=bind,src=${pairingScript},dst=/run/integration/pairing.mjs,readonly`;
-    const pair = async (container: string, base: string, device: string) => {
-      const code = await docker(['exec', container, 'bun', '/run/integration/pairing.mjs', device]);
-      const response = await fetch(`${base}/auth/pairing/redeem`, {
-        body: JSON.stringify({ code }),
-        headers: { 'content-type': 'application/json' },
-        method: 'POST',
-      });
-      expect(response.status, 'redeem a container-issued pairing code').toBe(200);
-      const paired = z
-        .object({ device: z.string(), token: z.string() })
-        .parse(await response.json());
-      expect(paired.device).toBe(device);
-      return paired.token;
-    };
+    // The client files the request over HTTP; the container-local script stands in for the operator.
+    const pair = (container: string, base: string, device: string) =>
+      pairFixtureDevice(base, device, (code) =>
+        docker(['exec', container, 'bun', '/run/integration/pairing.mjs', code]),
+      );
     await docker(['build', '--quiet', '--tag', image, '.'], 120_000);
     await docker(['volume', 'create', volume]);
     const run = async (container: string, user: string[] = []) => {
@@ -200,6 +192,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     let base = await run(name);
     expect(await docker(['logs', name])).toContain('applied migration 0005_project_pinned');
     expect(await docker(['logs', name])).toContain('applied migration 0009_device_tokens');
+    expect(await docker(['logs', name])).toContain('applied migration 0010_pairing_requests');
     for (const path of [
       '/',
       '/_shell.html',
@@ -209,7 +202,8 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
       '/trpc',
       '/trpc/getNode',
       '/trpc/done',
-      '/auth/pairing/redeem',
+      '/auth/pairing/requests',
+      '/auth/pairing/poll',
       '/_serverFn/missing',
       '/health',
     ]) {
@@ -226,7 +220,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     const version = clientVersion;
     expect(await getJson(base, '/health')).toEqual({
       minClient: MIN_CLIENT,
-      schema: 9,
+      schema: 10,
       status: 'ok',
       version,
     });
@@ -513,6 +507,9 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0005_project_pinned');
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0006_project_remote');
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0009_device_tokens');
+    expect(await docker(['logs', postgresHost])).toContain(
+      'applied migration 0010_pairing_requests',
+    );
     await docker(['rm', '--force', postgresHost]);
     const sql = async (statement: string) =>
       docker([
@@ -529,7 +526,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
         statement,
       ]);
     await sql(
-      'ALTER TABLE project DROP COLUMN remote; ALTER TABLE project DROP COLUMN pinned; ALTER TABLE node DROP COLUMN worker_harness; ALTER TABLE node DROP COLUMN worker_session; ALTER TABLE transition_log DROP CONSTRAINT transition_log_assignment_node_check; DROP TABLE device_tokens; DROP TABLE pairing_codes; DELETE FROM schema_version WHERE version >= 5;',
+      'ALTER TABLE project DROP COLUMN remote; ALTER TABLE project DROP COLUMN pinned; ALTER TABLE node DROP COLUMN worker_harness; ALTER TABLE node DROP COLUMN worker_session; ALTER TABLE transition_log DROP CONSTRAINT transition_log_assignment_node_check; DROP TABLE device_tokens; DROP TABLE pairing_requests; DELETE FROM schema_version WHERE version >= 5;',
     );
     await runPostgresHost();
     base = await ready(postgresHost, 12345);
@@ -543,7 +540,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     ).toEqual([]);
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0005_project_pinned');
     await docker(['rm', '--force', postgresHost]);
-    await sql('INSERT INTO schema_version (version, applied_at) VALUES (10, now());');
+    await sql('INSERT INTO schema_version (version, applied_at) VALUES (11, now());');
     await runPostgresHost();
     expect(await docker(['wait', postgresHost], 10_000)).not.toBe('0');
     expect(await docker(['logs', postgresHost])).toContain('update the image');

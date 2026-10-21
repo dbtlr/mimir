@@ -22,6 +22,7 @@ import { statements as projectRemote } from './migrations/0006-project-remote';
 import { statements as taskQueued } from './migrations/0007-task-queued';
 import { statements as mainWorker } from './migrations/0008-main-worker';
 import { statements as deviceTokens } from './migrations/0009-device-tokens';
+import { statements as pairingRequests } from './migrations/0010-pairing-requests';
 import { serializable, snapshotRead } from './tx';
 
 /**
@@ -102,6 +103,7 @@ export const postgresDialect: StoreDialect = {
     '0007_task_queued': taskQueued,
     '0008_main_worker': mainWorker,
     '0009_device_tokens': deviceTokens,
+    '0010_pairing_requests': pairingRequests,
   },
   // A shared store upgrades by one explicit act, never as a side effect of a
   // binary opening it (ADR 0030).

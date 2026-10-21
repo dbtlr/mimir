@@ -15,8 +15,9 @@ and owns their shared store.
 **Store owner**: The sole Mimir authority for a store, either a local CLI or
 one host. Remote clients access a host-owned store through that host.
 
-**Pairing**: The one-time exchange in which an operator admits a named device
-to a host, after which that device holds a revocable credential for it.
+**Pairing**: The one-time exchange in which a named device asks to join a host
+and an operator approves it there, after which that device holds a revocable
+credential for it.
 Pairing identifies a device; it is not an access boundary.
 
 **Version window**: The range of client versions a host accepts: none older

@@ -234,11 +234,15 @@ export type SchemaVersionTable = {
   applied_at: string;
 };
 
-export type PairingCodeTable = {
+export type PairingRequestTable = {
+  id: string;
   device: string;
-  code_hash: string;
+  user_code_hash: string;
+  poll_secret_hash: string;
   created_at: string;
   expires_at: string;
+  approved_at: string | null;
+  denied_at: string | null;
 };
 
 export type DeviceTokenTable = {
@@ -252,7 +256,7 @@ export type DeviceTokenTable = {
 };
 
 export type DB = {
-  pairing_codes: PairingCodeTable;
+  pairing_requests: PairingRequestTable;
   device_tokens: DeviceTokenTable;
   annotation: AnnotationTable;
   artifact: ArtifactTable;

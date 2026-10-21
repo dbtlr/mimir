@@ -22,6 +22,7 @@ export const MIGRATIONS = [
   { name: '0007_task_queued', version: 7 },
   { name: '0008_main_worker', version: 8 },
   { name: '0009_device_tokens', version: 9 },
+  { name: '0010_pairing_requests', version: 10 },
 ] as const;
 
 export type Migration = (typeof MIGRATIONS)[number];

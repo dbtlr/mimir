@@ -11,8 +11,10 @@
 import { Route as rootRouteImport } from './start-routes/__root'
 import { Route as HealthRouteImport } from './start-routes/health'
 import { Route as ApiSplatRouteImport } from './start-routes/api.$'
+import { Route as AuthSplatRouteImport } from './start-routes/auth.$'
 import { Route as TrpcSplatRouteImport } from './start-routes/trpc.$'
-import { Route as AuthPairingRedeemRouteImport } from './start-routes/auth.pairing.redeem'
+import { Route as AuthPairingPollRouteImport } from './start-routes/auth.pairing.poll'
+import { Route as AuthPairingRequestsRouteImport } from './start-routes/auth.pairing.requests'
 
 const HealthRoute = HealthRouteImport.update({
   id: '/health',
@@ -24,49 +26,86 @@ const ApiSplatRoute = ApiSplatRouteImport.update({
   path: '/api/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthSplatRoute = AuthSplatRouteImport.update({
+  id: '/auth/$',
+  path: '/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TrpcSplatRoute = TrpcSplatRouteImport.update({
   id: '/trpc/$',
   path: '/trpc/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthPairingRedeemRoute = AuthPairingRedeemRouteImport.update({
-  id: '/auth/pairing/redeem',
-  path: '/auth/pairing/redeem',
+const AuthPairingPollRoute = AuthPairingPollRouteImport.update({
+  id: '/auth/pairing/poll',
+  path: '/auth/pairing/poll',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthPairingRequestsRoute = AuthPairingRequestsRouteImport.update({
+  id: '/auth/pairing/requests',
+  path: '/auth/pairing/requests',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/health': typeof HealthRoute
   '/api/$': typeof ApiSplatRoute
+  '/auth/$': typeof AuthSplatRoute
   '/trpc/$': typeof TrpcSplatRoute
-  '/auth/pairing/redeem': typeof AuthPairingRedeemRoute
+  '/auth/pairing/poll': typeof AuthPairingPollRoute
+  '/auth/pairing/requests': typeof AuthPairingRequestsRoute
 }
 export interface FileRoutesByTo {
   '/health': typeof HealthRoute
   '/api/$': typeof ApiSplatRoute
+  '/auth/$': typeof AuthSplatRoute
   '/trpc/$': typeof TrpcSplatRoute
-  '/auth/pairing/redeem': typeof AuthPairingRedeemRoute
+  '/auth/pairing/poll': typeof AuthPairingPollRoute
+  '/auth/pairing/requests': typeof AuthPairingRequestsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/health': typeof HealthRoute
   '/api/$': typeof ApiSplatRoute
+  '/auth/$': typeof AuthSplatRoute
   '/trpc/$': typeof TrpcSplatRoute
-  '/auth/pairing/redeem': typeof AuthPairingRedeemRoute
+  '/auth/pairing/poll': typeof AuthPairingPollRoute
+  '/auth/pairing/requests': typeof AuthPairingRequestsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/health' | '/api/$' | '/trpc/$' | '/auth/pairing/redeem'
+  fullPaths:
+    | '/health'
+    | '/api/$'
+    | '/auth/$'
+    | '/trpc/$'
+    | '/auth/pairing/poll'
+    | '/auth/pairing/requests'
   fileRoutesByTo: FileRoutesByTo
-  to: '/health' | '/api/$' | '/trpc/$' | '/auth/pairing/redeem'
-  id: '__root__' | '/health' | '/api/$' | '/trpc/$' | '/auth/pairing/redeem'
+  to:
+    | '/health'
+    | '/api/$'
+    | '/auth/$'
+    | '/trpc/$'
+    | '/auth/pairing/poll'
+    | '/auth/pairing/requests'
+  id:
+    | '__root__'
+    | '/health'
+    | '/api/$'
+    | '/auth/$'
+    | '/trpc/$'
+    | '/auth/pairing/poll'
+    | '/auth/pairing/requests'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   HealthRoute: typeof HealthRoute
   ApiSplatRoute: typeof ApiSplatRoute
+  AuthSplatRoute: typeof AuthSplatRoute
   TrpcSplatRoute: typeof TrpcSplatRoute
-  AuthPairingRedeemRoute: typeof AuthPairingRedeemRoute
+  AuthPairingPollRoute: typeof AuthPairingPollRoute
+  AuthPairingRequestsRoute: typeof AuthPairingRequestsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -85,6 +124,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/$': {
+      id: '/auth/$'
+      path: '/auth/$'
+      fullPath: '/auth/$'
+      preLoaderRoute: typeof AuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/trpc/$': {
       id: '/trpc/$'
       path: '/trpc/$'
@@ -92,11 +138,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrpcSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/auth/pairing/redeem': {
-      id: '/auth/pairing/redeem'
-      path: '/auth/pairing/redeem'
-      fullPath: '/auth/pairing/redeem'
-      preLoaderRoute: typeof AuthPairingRedeemRouteImport
+    '/auth/pairing/poll': {
+      id: '/auth/pairing/poll'
+      path: '/auth/pairing/poll'
+      fullPath: '/auth/pairing/poll'
+      preLoaderRoute: typeof AuthPairingPollRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/pairing/requests': {
+      id: '/auth/pairing/requests'
+      path: '/auth/pairing/requests'
+      fullPath: '/auth/pairing/requests'
+      preLoaderRoute: typeof AuthPairingRequestsRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -105,8 +158,10 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   HealthRoute: HealthRoute,
   ApiSplatRoute: ApiSplatRoute,
+  AuthSplatRoute: AuthSplatRoute,
   TrpcSplatRoute: TrpcSplatRoute,
-  AuthPairingRedeemRoute: AuthPairingRedeemRoute,
+  AuthPairingPollRoute: AuthPairingPollRoute,
+  AuthPairingRequestsRoute: AuthPairingRequestsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

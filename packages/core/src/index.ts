@@ -75,8 +75,20 @@ export {
   requireInstallationProtocol,
 } from './installation/protocol';
 
-export { createTokenStore, normalizePairingCode } from './tokens';
-export type { DeviceToken, TokenStore } from './tokens';
+export {
+  createTokenStore,
+  formatPairingCode,
+  normalizeDeviceName,
+  normalizePairingCode,
+  PAIRING_POLL_INTERVAL,
+} from './tokens';
+export type {
+  DeviceToken,
+  PairingPoll,
+  PairingRequest,
+  PendingPairing,
+  TokenStore,
+} from './tokens';
 export type { StoreDialect } from './store-sql/dialect';
 export { sqliteDialect } from './store-sqlite/dialect';
 export { postgresDialect } from './store-postgres/dialect';

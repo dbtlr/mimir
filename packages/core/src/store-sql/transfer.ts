@@ -46,7 +46,7 @@ import { loadWorkingSet } from './working-set';
  * store's work-state facts out to one backend-neutral document, and such a document
  * back in with every id, sequence, and timestamp preserved.
  *
- * Host pairing codes and device tokens are deliberately absent from both
+ * Host pairing requests and device tokens are deliberately absent from both
  * directions (ADR 0038). Import leaves the target host's credentials intact.
  *
  * **The export never refuses.** The relational schema makes every corrupt
