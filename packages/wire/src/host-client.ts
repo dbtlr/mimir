@@ -172,6 +172,9 @@ export class HostClient {
     if (answer.status === 429 && route === 'request') {
       throw rateLimited(answer);
     }
+    if (answer.status === 429 && route === 'health') {
+      throw this.#limited(answer);
+    }
     // Worth retrying: a 5xx, 408, a poll's 429, and an answer that is no host's (a captive page).
     // Any other 4xx is the host's or its proxy's definite answer, whatever its body.
     const clientError = answer.status >= 400 && answer.status < 500;
@@ -193,6 +196,18 @@ export class HostClient {
       );
     }
     throw this.#refused(route, answer);
+  }
+
+  /** A rate-limited health check: one-shot, so it refuses with the wait rather than retrying. */
+  #limited(answer: Answer): HostRequestError {
+    const wait =
+      answer.retryAfter === undefined ? 'a while' : `${String(answer.retryAfter)} seconds`;
+    return new HostRequestError(
+      'conflict',
+      `the host at ${this.origin} is limiting requests`,
+      `try again in ${wait}`,
+      { retryAfter: answer.retryAfter, status: 429, transient: false },
+    );
   }
 
   /** A redirect is never followed; only its target's normalized origin is shown. */

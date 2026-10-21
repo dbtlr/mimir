@@ -137,6 +137,17 @@ test('a rate-limited request carries Retry-After as a definite refusal', async (
   expect(error.hint).toContain('312');
 });
 
+test('a rate-limited health check refuses with Retry-After, not as a host too old', async () => {
+  const error = await refusal(
+    clientFor(
+      async () => new Response('slow down', { headers: { 'retry-after': '30' }, status: 429 }),
+    ).health(),
+  );
+  expect(error).toMatchObject({ code: 'conflict', retryAfter: 30, status: 429, transient: false });
+  expect(error.message).toBe(`the host at ${ORIGIN} is limiting requests`);
+  expect(error.hint).toBe('try again in 30 seconds');
+});
+
 test('a 429 without a usable Retry-After still refuses, with no retryAfter', async () => {
   const error = await refusal(
     clientFor(async () =>
