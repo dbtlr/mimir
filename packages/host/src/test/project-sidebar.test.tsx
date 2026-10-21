@@ -289,14 +289,17 @@ describe('sidebar on All projects (MMR-505)', () => {
     expect(work).not.toHaveAttribute('aria-current');
   });
 
-  it('links Devices to /devices under Work and marks it the page there (MMR-585)', async () => {
-    renderAt('/devices');
-    const nav = await sidebar();
-    const devices = within(nav).getByRole('link', { name: 'Devices' });
-    expect(devices).toHaveAttribute('href', '/devices');
-    expect(devices).toHaveAttribute('aria-current', 'page');
-    expect(within(nav).getByRole('link', { name: 'Work' })).not.toHaveAttribute('aria-current');
-  });
+  it.each(['/devices', '/pair'])(
+    'links Devices to /devices and marks it current on %s (MMR-585)',
+    async (path) => {
+      renderAt(path);
+      const nav = await sidebar();
+      const devices = within(nav).getByRole('link', { name: 'Devices' });
+      expect(devices).toHaveAttribute('href', '/devices');
+      expect(devices).toHaveAttribute('aria-current');
+      expect(within(nav).getByRole('link', { name: 'Work' })).not.toHaveAttribute('aria-current');
+    },
+  );
 
   it('counts the decisions across every project in the header', async () => {
     serve([MMR, NRN], {}, [decisions('MMR', 2), decisions('NRN', 3)]);

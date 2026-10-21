@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useUnpairDevice } from '../api/device-mutations';
@@ -58,6 +58,37 @@ function Dot({ className }: { className: string }) {
 function PairedRow({ device }: { device: PairedDevice }) {
   const [confirming, setConfirming] = useState(false);
   const unpair = useUnpairDevice();
+  const unpairButton = useRef<HTMLButtonElement>(null);
+  const cancelButton = useRef<HTMLButtonElement>(null);
+  const restoreFocus = useRef(false);
+  // The confirm opens on Cancel, the safe choice; leaving it returns to the button that opened it.
+  useEffect(() => {
+    if (confirming) {
+      cancelButton.current?.focus();
+    } else if (restoreFocus.current) {
+      restoreFocus.current = false;
+      unpairButton.current?.focus();
+    }
+  }, [confirming]);
+  const closeConfirm = () => {
+    restoreFocus.current = true;
+    setConfirming(false);
+  };
+  // Escape backs out of an open confirm, wherever focus has moved.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        restoreFocus.current = true;
+        setConfirming(false);
+      }
+    };
+    if (confirming) {
+      document.addEventListener('keydown', onKeyDown);
+    }
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [confirming]);
   return (
     <li className={ROW}>
       <Dot className={device.last_used_at === null ? 'bg-ink-ghost' : 'bg-status-done'} />
@@ -68,8 +99,14 @@ function PairedRow({ device }: { device: PairedDevice }) {
       </span>
       <div className="ml-auto flex items-center gap-2">
         {confirming ? (
-          <>
-            <span className="text-xs text-ink-dim">Its token stops working now.</span>
+          <div
+            role="group"
+            aria-label={`Unpair ${device.device}?`}
+            className="flex flex-wrap items-center gap-2"
+          >
+            <span className="text-xs text-ink-dim">
+              Its token stops working now, and any waiting request is discarded.
+            </span>
             <ActionButton
               size="sm"
               variant="outline"
@@ -77,26 +114,19 @@ function PairedRow({ device }: { device: PairedDevice }) {
               disabled={unpair.isPending}
               onClick={() => {
                 unpair.mutate(device.device, {
-                  onSettled: () => {
-                    setConfirming(false);
-                  },
+                  onSettled: closeConfirm,
                 });
               }}
             >
               Unpair {device.device}
             </ActionButton>
-            <ActionButton
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setConfirming(false);
-              }}
-            >
+            <ActionButton ref={cancelButton} size="sm" variant="outline" onClick={closeConfirm}>
               Cancel
             </ActionButton>
-          </>
+          </div>
         ) : (
           <ActionButton
+            ref={unpairButton}
             size="sm"
             className="text-ink-dim hover:text-ink-bright"
             onClick={() => {

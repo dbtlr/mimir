@@ -156,6 +156,7 @@ export function createTokenStore({
       if (code === null) {
         return null;
       }
+      // Two reads, not atomic: `rotates` is display-only, and `decide` recomputes it.
       const found = await db
         .selectFrom('pairing_requests')
         .select(['device', 'created_at', 'expires_at'])

@@ -8,7 +8,7 @@ export type { PairedDevice } from '../../server/devices';
 
 /*
  * The device pages' server functions (MMR-585): pairing and unpairing from the
- * console, beside `mimir-host approve` (ADR 0038). They act on the host's token
+ * console (ADR 0038). They act on the host's token
  * store, not the Engine; each body is a handler in server/devices.ts. Reads are
  * GETs and writes are POSTs. The query policy lives in device-queries.ts and
  * device-mutations.ts.

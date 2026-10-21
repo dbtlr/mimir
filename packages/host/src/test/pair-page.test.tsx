@@ -98,18 +98,22 @@ describe('pair page (MMR-585)', () => {
     expect(lookupPairing).toHaveBeenCalledTimes(1);
   });
 
-  it('approves the code and tells the operator to finish in the terminal', async () => {
+  it('approves the code, and the outcome outlives the lookup that no longer finds it', async () => {
     serveDevices({ codes: { [CODE]: waiting('drews-macbook') } });
     await renderRoute(consoleRoutes, `/pair?code=${CODE}`);
 
     await userEvent.click(await screen.findByRole('button', { name: 'Approve' }));
 
-    await expect(
-      screen.findByText(
-        'Approved drews-macbook. It finishes pairing on its next poll, so check the terminal.',
-      ),
-    ).resolves.toBeDefined();
+    const approved = await screen.findByText(
+      'Approved drews-macbook. It finishes pairing on its next poll, so check the terminal.',
+    );
     expect(approvePairing).toHaveBeenCalledWith({ data: { code: CODE } });
+    // The approval consumed the code, so the invalidated lookup now answers null.
+    await waitFor(() => {
+      expect(lookupPairing).toHaveBeenCalledTimes(2);
+    });
+    expect(screen.getByText(/^Approved drews-macbook/)).toBe(approved);
+    expect(screen.queryByText('No waiting request has this code.')).toBeNull();
     expect(screen.getByRole('link', { name: /devices/i })).toHaveAttribute('href', '/devices');
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
   });
@@ -123,19 +127,47 @@ describe('pair page (MMR-585)', () => {
     await expect(screen.findByText('Denied drews-macbook.')).resolves.toBeDefined();
     expect(denyPairing).toHaveBeenCalledWith({ data: { code: CODE } });
     expect(approvePairing).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(lookupPairing).toHaveBeenCalledTimes(2);
+    });
+    expect(screen.getByText('Denied drews-macbook.')).toBeDefined();
   });
 
-  it('toasts a refused approval and leaves the card in place', async () => {
-    serveDevices({ codes: { [CODE]: waiting('drews-macbook') } });
-    vi.mocked(approvePairing).mockRejectedValueOnce(new Error('No waiting request has this code.'));
+  it('toasts an approval refused because the code was spent, and says no request waits', async () => {
+    const world = serveDevices({ codes: { [CODE]: waiting('drews-macbook') } });
     await renderRoute(consoleRoutes, `/pair?code=${CODE}`);
+    const approve = await screen.findByRole('button', { name: 'Approve' });
+    // Another surface decided the request after the card loaded.
+    delete world.codes[CODE];
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Approve' }));
+    await userEvent.click(approve);
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('No waiting request has this code.');
     });
-    expect(screen.getByText('Approve drews-macbook?')).toBeDefined();
-    expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled();
+    await expect(screen.findByText('No waiting request has this code.')).resolves.toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
+  });
+
+  it('announces the result area politely, and moves focus to the outcome', async () => {
+    serveDevices({ codes: { [CODE]: waiting('drews-macbook') } });
+    await renderRoute(consoleRoutes, `/pair?code=${CODE}`);
+
+    const live = screen.getByRole('status');
+    expect(live).toHaveAttribute('aria-live', 'polite');
+    await userEvent.click(await screen.findByRole('button', { name: 'Approve' }));
+
+    const outcome = await screen.findByText(/^Approved drews-macbook/);
+    expect(live).toContainElement(outcome);
+    expect(outcome).toHaveFocus();
+  });
+
+  it('moves focus to a denial too', async () => {
+    serveDevices({ codes: { [CODE]: waiting('drews-macbook') } });
+    await renderRoute(consoleRoutes, `/pair?code=${CODE}`);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Deny' }));
+
+    await expect(screen.findByText('Denied drews-macbook.')).resolves.toHaveFocus();
   });
 });

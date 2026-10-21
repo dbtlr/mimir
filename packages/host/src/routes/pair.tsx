@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useApprovePairing, useDenyPairing } from '../api/device-mutations';
 import { pairingLookupQuery } from '../api/device-queries';
@@ -13,8 +13,7 @@ import { pairRoute } from '../router';
 
 /**
  * `/pair` — approve or deny a device's pairing request from the console (ADR
- * 0038, MMR-585), the second approval surface beside `mimir-host approve`. The
- * device's terminal shows a code and `mimir pair` prints this page's URL with
+ * 0038, MMR-585). The device's terminal shows a code and `mimir pair` prints this page's URL with
  * the code in it; the operator checks the code matches, then decides. One
  * message covers a wrong, used, or expired code, so the page tells an
  * outsider nothing about which codes exist.
@@ -31,8 +30,8 @@ function formatTyped(raw: string): string {
   return letters.length > 4 ? `${letters.slice(0, 4)}-${letters.slice(4)}` : letters;
 }
 
-/** A decision made on this page, tied to the code it was made on. */
-type Outcome = { code: string; verdict: 'approved' | 'denied'; device: string };
+/** A decision made on this page. */
+type Outcome = { verdict: 'approved' | 'denied'; device: string };
 
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -44,17 +43,16 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
 }
 
 function ConfirmCard({
-  code,
   request,
-  onDecided,
+  busy,
+  onApprove,
+  onDeny,
 }: {
-  code: string;
   request: { device: string; created_at: string; expires_at: string; rotates: boolean };
-  onDecided: (verdict: Outcome['verdict']) => void;
+  busy: boolean;
+  onApprove: () => void;
+  onDeny: () => void;
 }) {
-  const approve = useApprovePairing();
-  const deny = useDenyPairing();
-  const busy = approve.isPending || deny.isPending;
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-line bg-well-850 p-5">
       <div className="flex flex-col gap-1">
@@ -76,22 +74,14 @@ function ConfirmCard({
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2.5">
-        <ActionButton
-          variant="attention"
-          disabled={busy}
-          onClick={() => {
-            approve.mutate(code, { onSuccess: () => onDecided('approved') });
-          }}
-        >
+        <ActionButton variant="attention" disabled={busy} onClick={onApprove}>
           Approve
         </ActionButton>
         <ActionButton
           variant="outline"
           className="text-status-blocked-foreground inset-ring-status-blocked/35 hover:text-status-blocked-foreground"
           disabled={busy}
-          onClick={() => {
-            deny.mutate(code, { onSuccess: () => onDecided('denied') });
-          }}
+          onClick={onDeny}
         >
           Deny
         </ActionButton>
@@ -103,10 +93,15 @@ function ConfirmCard({
   );
 }
 
+/** What the operator decided. It takes focus on arrival, so the result is the next thing read. */
 function OutcomeCard({ outcome }: { outcome: Outcome }) {
+  const message = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    message.current?.focus();
+  }, []);
   return (
     <div className="flex flex-col items-start gap-2 rounded-xl border border-line bg-well-850 p-5">
-      <p className="text-sm font-medium text-ink-bright">
+      <p ref={message} tabIndex={-1} className="text-sm font-medium text-ink-bright outline-none">
         {outcome.verdict === 'approved'
           ? `Approved ${outcome.device}. It finishes pairing on its next poll, so check the terminal.`
           : `Denied ${outcome.device}.`}
@@ -122,12 +117,20 @@ export function PairPage() {
   const initial = pairRoute.useSearch().code;
   const navigate = pairRoute.useNavigate();
   const [typed, setTyped] = useState(formatTyped(initial ?? ''));
-  const [outcome, setOutcome] = useState<Outcome | undefined>();
+  const approve = useApprovePairing();
+  const deny = useDenyPairing();
   const code = typed.length === CODE_LENGTH + 1 ? typed : undefined;
   const lookup = useQuery({ ...pairingLookupQuery(code ?? ''), enabled: code !== undefined });
   const conn = connectivity(code === undefined ? [] : [lookup]);
   const request = lookup.isSuccess ? lookup.data : undefined;
-  const decided = outcome?.code === code ? outcome : undefined;
+  // The decision comes from the mutations, not the card: deciding consumes the code, so the
+  // lookup refetches to null and unmounts the card before any per-call callback could run.
+  let decided: Outcome | undefined;
+  if (approve.isSuccess && approve.variables === code) {
+    decided = { device: approve.data.device, verdict: 'approved' };
+  } else if (deny.isSuccess && deny.variables === code) {
+    decided = { device: deny.data.device, verdict: 'denied' };
+  }
 
   return (
     <>
@@ -158,32 +161,37 @@ export function PairPage() {
           </p>
         )}
 
-        {code !== undefined && decided !== undefined && <OutcomeCard outcome={decided} />}
+        <div role="status" aria-live="polite" className="flex flex-col gap-4">
+          {code !== undefined && decided !== undefined && <OutcomeCard outcome={decided} />}
 
-        {code !== undefined && decided === undefined && lookup.isPending && (
-          <Skeleton className="h-40" />
-        )}
-
-        {code !== undefined && decided === undefined && lookup.isError && (
-          <p className="text-xs text-status-blocked">Unreachable — is the Mimir host running?</p>
-        )}
-
-        {code !== undefined && decided === undefined && request === null && (
-          <p className="text-sm text-ink-dim">No waiting request has this code.</p>
-        )}
-
-        {code !== undefined &&
-          decided === undefined &&
-          request !== undefined &&
-          request !== null && (
-            <ConfirmCard
-              code={code}
-              request={request}
-              onDecided={(verdict) => {
-                setOutcome({ code, device: request.device, verdict });
-              }}
-            />
+          {code !== undefined && decided === undefined && lookup.isPending && (
+            <Skeleton className="h-40" />
           )}
+
+          {code !== undefined && decided === undefined && lookup.isError && (
+            <p className="text-xs text-status-blocked">Unreachable — is the Mimir host running?</p>
+          )}
+
+          {code !== undefined && decided === undefined && request === null && (
+            <p className="text-sm text-ink-dim">No waiting request has this code.</p>
+          )}
+
+          {code !== undefined &&
+            decided === undefined &&
+            request !== undefined &&
+            request !== null && (
+              <ConfirmCard
+                request={request}
+                busy={approve.isPending || deny.isPending}
+                onApprove={() => {
+                  approve.mutate(code);
+                }}
+                onDeny={() => {
+                  deny.mutate(code);
+                }}
+              />
+            )}
+        </div>
       </main>
     </>
   );

@@ -45,20 +45,22 @@ export function serveDevices(world: Partial<DevicesWorld> = {}): DevicesWorld {
   vi.mocked(pendingPairings).mockImplementation(async () => state.pending);
   vi.mocked(pairedDevices).mockImplementation(async () => state.paired);
   vi.mocked(lookupPairing).mockImplementation(async ({ data }) => state.codes[data.code] ?? null);
+  // A decision consumes its code, as in production: the next lookup finds nothing.
+  const consume = (code: string): FoundRequest => {
+    const found = state.codes[code];
+    if (found === undefined) {
+      throw noMatch();
+    }
+    delete state.codes[code];
+    return found;
+  };
   vi.mocked(approvePairing).mockImplementation(async ({ data }) => {
-    const found = state.codes[data.code];
-    if (found === undefined) {
-      throw noMatch();
-    }
-    return { device: found.device, rotates: found.rotates };
+    const { device, rotates } = consume(data.code);
+    return { device, rotates };
   });
-  vi.mocked(denyPairing).mockImplementation(async ({ data }) => {
-    const found = state.codes[data.code];
-    if (found === undefined) {
-      throw noMatch();
-    }
-    return { device: found.device };
-  });
+  vi.mocked(denyPairing).mockImplementation(async ({ data }) => ({
+    device: consume(data.code).device,
+  }));
   vi.mocked(unpairDevice).mockImplementation(async () => {});
   return state;
 }

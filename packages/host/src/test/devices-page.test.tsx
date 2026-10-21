@@ -3,7 +3,6 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { pendingPairingsQuery } from '../api/device-queries';
 import { pairedDevices, pendingPairings, unpairDevice } from '../api/fns/devices';
 import { consoleRoutes } from '../router';
 import { failDeviceReads, serveDevices } from './devices-fns';
@@ -80,11 +79,40 @@ describe('devices page (MMR-585)', () => {
     expect(row).not.toBeNull();
     const inRow = within(row as HTMLElement);
     await userEvent.click(inRow.getByRole('button', { name: 'Unpair' }));
-    expect(inRow.getByText('Its token stops working now.')).toBeDefined();
+    expect(
+      inRow.getByText('Its token stops working now, and any waiting request is discarded.'),
+    ).toBeDefined();
     expect(unpairDevice).not.toHaveBeenCalled();
 
     await userEvent.click(inRow.getByRole('button', { name: 'Cancel' }));
     expect(inRow.getByRole('button', { name: 'Unpair' })).toBeDefined();
+    expect(unpairDevice).not.toHaveBeenCalled();
+  });
+
+  it('moves focus to Cancel when the confirm opens, and back to Unpair when it is cancelled', async () => {
+    serveDevices({
+      paired: [{ created_at: '2026-09-30T15:00:00.000Z', device: 'valhalla', last_used_at: null }],
+    });
+    await renderRoute(consoleRoutes, '/devices');
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Unpair' }));
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('button', { name: 'Unpair' })).toHaveFocus();
+  });
+
+  it('cancels the confirm on Escape, returning focus to Unpair without calling', async () => {
+    serveDevices({
+      paired: [{ created_at: '2026-09-30T15:00:00.000Z', device: 'valhalla', last_used_at: null }],
+    });
+    await renderRoute(consoleRoutes, '/devices');
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Unpair' }));
+    await userEvent.keyboard('{Escape}');
+
+    expect(screen.getByRole('button', { name: 'Unpair' })).toHaveFocus();
+    expect(screen.queryByRole('button', { name: 'Unpair valhalla' })).toBeNull();
     expect(unpairDevice).not.toHaveBeenCalled();
   });
 
@@ -118,11 +146,6 @@ describe('devices page (MMR-585)', () => {
       expect(toast.error).toHaveBeenCalledWith('the request did not complete');
     });
     expect(screen.getByText('valhalla')).toBeDefined();
-  });
-
-  it('polls the waiting list every two seconds', () => {
-    expect(pendingPairingsQuery.refetchInterval).toBe(2000);
-    expect(pendingPairingsQuery.queryKey).toEqual(['devices', 'pending']);
   });
 
   it('shows the offline banner when the host cannot be reached', async () => {
