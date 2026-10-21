@@ -407,10 +407,13 @@ to update the image.
 ## Back up the store
 
 Export the store from the host with `mimir-host`, on either backend. `-T`
-keeps the transfer document's bytes off a terminal:
+keeps the transfer document's bytes off a terminal. The shell creates the
+output file before the export runs, so write to a partial file and give it a
+new name only when the export succeeds. An earlier backup is never truncated:
 
 ```sh
-docker compose -f deploy/compose.yaml exec -T mimir mimir-host store export - > board.json
+docker compose -f deploy/compose.yaml exec -T mimir mimir-host store export - > board.json.partial \
+  && mv board.json.partial "board-$(date +%Y%m%d-%H%M%S).json"
 ```
 
 The export is one backend-neutral document with ids, sequences, and
@@ -419,8 +422,8 @@ new host. To restore it, start a host on an empty store, preview the import,
 and then apply it:
 
 ```sh
-docker compose -f deploy/compose.yaml exec -T mimir mimir-host store import - < board.json
-docker compose -f deploy/compose.yaml exec -T mimir mimir-host store import - --apply < board.json
+docker compose -f deploy/compose.yaml exec -T mimir mimir-host store import - < board-20261020-120000.json
+docker compose -f deploy/compose.yaml exec -T mimir mimir-host store import - --apply < board-20261020-120000.json
 ```
 
 A SQLite store can also back up as a copy of its volume, which keeps the
