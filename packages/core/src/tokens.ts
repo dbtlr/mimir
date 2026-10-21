@@ -11,8 +11,12 @@ const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const REQUEST_TTL_MS = 10 * 60 * 1000;
 const USAGE_INTERVAL_MS = 5 * 60 * 1000;
 const DEVICE_NAME_MAX = 128;
-/** Other (\p{C}: control, format, surrogate, private use, unassigned) plus line and paragraph separators. */
-const NON_PRINTING = /[\p{C}\p{Zl}\p{Zp}]/u;
+/**
+ * Characters that render as nothing or reorder text: every \p{C} (control, format, bidi,
+ * surrogate, private use, unassigned), default-ignorables such as fillers and variation
+ * selectors, line and paragraph separators, and the braille blank.
+ */
+const NON_PRINTING = /[\p{C}\p{Default_Ignorable_Code_Point}\p{Zl}\p{Zp}\u2800]/u;
 /** Seconds a pairing client waits between polls. */
 export const PAIRING_POLL_INTERVAL = 2;
 
@@ -364,13 +368,19 @@ export function formatPairingCode(code: string): string {
 }
 
 /**
- * Trim a device name; refuse an empty, overlong, or non-printing name. Format,
- * bidi, private-use, unassigned, and line-separator characters render invisibly
- * or reorder text, so a name holding one could pass for another on an approval card.
+ * Normalize a device name to NFC, trimmed, with each run of spaces as one ASCII space;
+ * refuse an empty, overlong, or non-printing name. Two names that render alike must
+ * normalize alike, so a request cannot pass for a paired device on an approval card.
+ * Emoji that need a joiner or variation selector are refused with the rest.
  */
 export function normalizeDeviceName(name: string): string | null {
-  const trimmed = name.trim();
-  return trimmed.length > 0 && trimmed.length <= DEVICE_NAME_MAX && !NON_PRINTING.test(trimmed)
-    ? trimmed
+  const normalized = name
+    .normalize('NFC')
+    .trim()
+    .replace(/\p{Zs}+/gu, ' ');
+  return normalized.length > 0 &&
+    normalized.length <= DEVICE_NAME_MAX &&
+    !NON_PRINTING.test(normalized)
+    ? normalized
     : null;
 }

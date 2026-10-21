@@ -595,6 +595,9 @@ test('normalizes a device name by trimming it and refuses empty, non-printing, o
   expect(normalizeDeviceName('  Drews-MacBook-Pro.local ')).toBe('Drews-MacBook-Pro.local');
   expect(normalizeDeviceName('laptop (work)')).toBe('laptop (work)');
   expect(normalizeDeviceName('Café 笔记本')).toBe('Café 笔记本');
+  expect(normalizeDeviceName('cafe\u0301')).toBe('caf\u00E9');
+  expect(normalizeDeviceName('my\u00A0laptop')).toBe('my laptop');
+  expect(normalizeDeviceName('my  \u3000laptop')).toBe('my laptop');
   expect(normalizeDeviceName('x'.repeat(128))).toBe('x'.repeat(128));
   for (const input of [
     '',
@@ -609,6 +612,11 @@ test('normalizes a device name by trimming it and refuses empty, non-printing, o
     'line\u2028separator',
     'private\uE000',
     'lone\uD800',
+    'grapheme\u034Fjoiner',
+    'hangul\u3164filler',
+    'variation\uFE0Fselector',
+    'variation\u{E0100}supplement',
+    'braille\u2800blank',
     'x'.repeat(129),
   ]) {
     expect(normalizeDeviceName(input)).toBeNull();
