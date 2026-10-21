@@ -6,47 +6,73 @@ import { join } from 'node:path';
 import { z } from 'zod';
 
 const workflowPath = new URL('../../../.github/workflows/release.yml', import.meta.url);
-const stepSchema = z.object({
+const executionSchema = z.object({
   'continue-on-error': z.union([z.boolean(), z.string()]).optional(),
+  if: z.string().optional(),
+});
+const stepSchema = executionSchema.extend({
   env: z.record(z.string(), z.string()).optional(),
   id: z.string().optional(),
-  if: z.string().optional(),
   name: z.string().optional(),
   run: z.string().optional(),
   uses: z.string().optional(),
 });
+const jobSchema = executionSchema.extend({ steps: z.array(stepSchema) });
 const workflowSchema = z.object({
   jobs: z.object({
-    build: z.object({ steps: z.array(stepSchema) }),
+    build: jobSchema.extend({
+      strategy: z.object({
+        matrix: z.object({ include: z.array(z.object({ asset: z.string(), os: z.string() })) }),
+      }),
+    }),
     'host-image': z.object({
       needs: z.union([z.string(), z.array(z.string())]).optional(),
       steps: z.array(stepSchema),
     }),
   }),
+  on: z.object({ pull_request: z.object({ paths: z.array(z.string()) }) }),
 });
 
 test('every pull request retains the full Linux suite, including stacked branches', async () => {
   const path = new URL('../../../.github/workflows/ci.yml', import.meta.url);
   const workflow = z
     .object({
-      jobs: z.object({ gate: z.object({ steps: z.array(stepSchema) }) }),
+      jobs: z.object({ gate: jobSchema }),
       on: z.object({ pull_request: z.unknown() }),
     })
     .parse(Bun.YAML.parse(await Bun.file(path).text()));
   expect(workflow.on.pull_request).toBeNull();
+  expect(workflow.jobs.gate.if).toBeUndefined();
+  expect(workflow.jobs.gate['continue-on-error']).toBeUndefined();
   const step = workflow.jobs.gate.steps.find((candidate) => candidate.run === 'bun run test');
   expect(step).toBeDefined();
   expect(step?.if).toBeUndefined();
   expect(step?.['continue-on-error']).toBeUndefined();
 });
 
+test('pull requests validate every native release target, including Bun upgrades', async () => {
+  const workflow = workflowSchema.parse(Bun.YAML.parse(await Bun.file(workflowPath).text()));
+  const { build } = workflow.jobs;
+  expect(build.if).toBeUndefined();
+  expect(build['continue-on-error']).toBeUndefined();
+  expect(build.strategy.matrix.include).toHaveLength(3);
+  expect(build.strategy.matrix.include).toEqual(
+    expect.arrayContaining([
+      { asset: 'mimir-darwin-arm64', os: 'macos-latest' },
+      { asset: 'mimir-linux-x64', os: 'ubuntu-latest' },
+      { asset: 'mimir-linux-arm64', os: 'ubuntu-24.04-arm' },
+    ]),
+  );
+  expect(workflow.on.pull_request.paths).toContain('.tool-versions');
+});
+
 test.each([
-  ['pull_request', 'test:native', 0],
-  ['push', 'test', 0],
-  ['workflow_dispatch', 'test', 0],
-  ['pull_request', 'test:native', 17],
-  ['push', 'test', 17],
-])('%s selects %s and propagates exit %s', async (event, suite, code) => {
+  { code: 0, event: 'pull_request', suite: 'test:native' },
+  { code: 0, event: 'push', suite: 'test' },
+  { code: 0, event: 'workflow_dispatch', suite: 'test' },
+  { code: 17, event: 'pull_request', suite: 'test:native' },
+  { code: 17, event: 'push', suite: 'test' },
+])('$event selects $suite and propagates exit $code', async ({ code, event, suite }) => {
   const workflow = workflowSchema.parse(Bun.YAML.parse(await Bun.file(workflowPath).text()));
   const step = workflow.jobs.build.steps.find((candidate) => candidate.id === 'tests');
   expect(step?.if).toBeUndefined();
