@@ -51,7 +51,7 @@ vi.mock('@tanstack/react-start', async (importOriginal) => {
 // The host's server graph (its store and core) never loads in the browser test
 // environment; no stubbed server function reaches it.
 // oxlint-disable-next-line vitest/require-hook
-vi.mock('../api/fns/engine', () => ({ engine: vi.fn() }));
+vi.mock('../api/fns/engine', () => ({ deviceTokens: vi.fn(), engine: vi.fn() }));
 // oxlint-disable-next-line vitest/require-hook
 vi.mock('../api/health', () => ({
   fetchHealth: async () => ({

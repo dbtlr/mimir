@@ -1,5 +1,6 @@
 import type { Engine } from '@mimir/contract';
 
+import type { DeviceTokens } from '../../server/devices';
 import { hostRuntime } from '../../server/runtime';
 import type { WireDoctorFacet } from '../doctor-facet';
 
@@ -22,4 +23,13 @@ export async function engine(): Promise<Engine> {
  */
 export async function recordHealth(project: string | undefined): Promise<WireDoctorFacet> {
   return (await hostRuntime()).doctor(project);
+}
+
+/**
+ * The host's device-token store, narrowed to what the console's device pages
+ * use (MMR-585): list, check, decide, and revoke. Like {@link recordHealth}, a
+ * host concern beside the Engine, not an Engine method.
+ */
+export async function deviceTokens(): Promise<DeviceTokens> {
+  return (await hostRuntime()).tokens;
 }

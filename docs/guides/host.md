@@ -274,8 +274,9 @@ every new request returns `429` with `Retry-After` in seconds. The limit
 covers the whole host and resets when the host restarts. Malformed requests,
 `409` refusals, and store faults create nothing and do not count toward it.
 
-The operator approves or denies the request on the host by its user code. The
-code is read case-insensitively, with the hyphen optional. Denying an approved
+The operator approves or denies the request on the host by its user code,
+either in the console (see [Pair devices from the console](#pair-devices-from-the-console))
+or with the commands below. The code is read case-insensitively, with the hyphen optional. Denying an approved
 request that its client has not collected withdraws the approval, and the next
 poll answers `denied`. Unpairing a device discards its requests, so an approval
 it has not collected never mints a token. Decide requests with
@@ -311,6 +312,26 @@ with an active device token. The host guard runs first, then the version window,
 then the bearer check. Console server functions use the local Engine and require
 neither header. See [ADR 0038](../decisions/0038-device-pairing-and-the-version-window.md)
 for the credential lifecycle and compatibility window.
+
+### Pair devices from the console
+
+The console approves and unpairs devices without a shell on the host.
+
+1. Open `/pair` in the console. A `?code=` in the URL, as `mimir pair` prints it,
+   fills the code in.
+2. Check that the code matches the one the device's terminal shows. The page
+   then shows the device name, when the request was filed, and when it expires.
+   A code that is wrong, already used, or expired gets one message: "No waiting
+   request has this code."
+3. Select **Approve** or **Deny**. When the device is already paired, the page
+   warns that approving replaces its token. After approval, the device finishes
+   pairing on its next poll.
+
+`/devices` lists the requests that are waiting and the devices that are paired,
+with when each was last used. A request's code is stored hashed, so the list
+cannot show it. Decide on `/pair` with the code the device displays. Select
+**Unpair** on a paired device and confirm to revoke its token at once. The
+device must pair again to regain access.
 
 ## Administer the host with mimir-host
 

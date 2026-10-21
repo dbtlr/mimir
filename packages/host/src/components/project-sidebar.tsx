@@ -248,9 +248,9 @@ function ProjectBody({ projectKey, onNavigate }: { projectKey: string; onNavigat
 }
 
 /**
- * The All projects sidebar content: Work, which is `/`, then the Projects
- * section (MMR-562). The router marks Work the page on `/` (and not on
- * `/doctor`).
+ * The All projects sidebar content: Work, which is `/`, Devices, which is
+ * `/devices` (MMR-585), then the Projects section (MMR-562). The router marks
+ * Work the page on `/` (and not on `/doctor`).
  */
 function AllProjectsBody({ onNavigate }: { onNavigate?: () => void }) {
   return (
@@ -262,6 +262,14 @@ function AllProjectsBody({ onNavigate }: { onNavigate?: () => void }) {
         className={cn(ROW, 'py-1.5 text-meta max-lg:py-2.5', SECTION_CURRENT)}
       >
         Work
+      </Link>
+      <Link
+        to="/devices"
+        activeOptions={{ exact: true, includeSearch: false }}
+        onClick={onNavigate}
+        className={cn(ROW, 'py-1.5 text-meta max-lg:py-2.5', SECTION_CURRENT)}
+      >
+        Devices
       </Link>
       <SidebarProjects onNavigate={onNavigate} />
     </>
