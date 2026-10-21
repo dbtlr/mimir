@@ -382,6 +382,14 @@ The command never prints the device token.
   remove `[store]` from `config.toml`, and run `mimir pair` again. The command
   never removes `[store]` itself. [Move a CLI-only install to a host](move-to-a-host.md)
   walks through each step.
+- **`--leave-local-board`.** A default install keeps its board in `store.sqlite`
+  in the data directory, with no `[store]`. `mimir pair` refuses while that file
+  holds a project, archived projects included, and writes nothing. The steps are
+  the same as for `[store]`, ending with
+  `mimir pair <origin> --leave-local-board`. The flag does not lift the `[store]`
+  refusal, and `--yes` does not imply it. An absent or empty `store.sqlite`
+  needs no flag, and an install that already names a host re-pairs without
+  the check. The old store is not changed.
 
 The CLI checks `/health` and its version window before it files a request, and
 refuses with the remedy (update this CLI, or update the host first) when it is

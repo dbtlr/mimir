@@ -345,6 +345,7 @@ The command:
 
 1. Reduces the URL to its origin. It accepts `http` and `https`.
 2. Refuses when `config.toml` has `[store]`, and lists the migration steps.
+   _Extended to a default SQLite board by the 2026-10-21 addendum (MMR-592)._
 3. Checks `/health` and the version window before it files a request.
 4. Files the request and prints the user code with the `mimir-host approve`
    command to run on the host.
@@ -455,3 +456,26 @@ files `mimir pair` writes are unchanged.
 - **The command never opens the CLI's Engine.** It works with no config, with a
   valid `[host]`, and with a broken `[host]` or credentials file, because
   pairing is how those are repaired.
+
+## Addendum (2026-10-21, MMR-592): `mimir pair` also guards a default SQLite board
+
+This refines step 2 of the client behavior above. A default install has no
+`[store]` and keeps its board in `store.sqlite` in its data directory, so the
+`[store]` refusal alone let pairing leave that board behind.
+
+- **A local board that holds work refuses.** After the `[store]` check and
+  before any preflight or request, `mimir pair` refuses when `store.sqlite`
+  holds a project, archived projects included, naming the file with the export
+  and import steps. An absent or zero-length file, or a store with no project,
+  passes. The check opens the store as it is, so it migrates nothing and does
+  not create a missing file.
+- **A store the check cannot read counts as holding work.** A file at another
+  schema, or one that is not a SQLite store, may still hold a board. The
+  refusal names the read error with the same steps, rather than the schema
+  error's own remedy, which addresses a host.
+- **`--leave-local-board` acknowledges the board and pairs.** It lifts only this
+  check: `[store]` still refuses, and `--yes` does not imply it. The old store is
+  left as it was, as a backup.
+- **An install that already names a host skips the check.** When `[host] url`
+  names an origin, the board was left behind at the first pairing, so
+  re-pairing to repair credentials or to replace the host does not ask again.

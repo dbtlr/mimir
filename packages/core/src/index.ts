@@ -57,7 +57,11 @@ export { acceptedHosts, hostnameOf, isHostName, normalizeServeUrl } from './addr
 export type { ServeConfig } from './address';
 export { assertUsableStoreConfig, buildStore } from './store-backend';
 export type { BuiltStore, StoreOverride } from './store-backend';
-export { buildSqliteStore, openInstallationSqlite } from './store-sqlite-backend';
+export {
+  buildSqliteStore,
+  openInstallationSqlite,
+  sqliteStoreHoldsProjects,
+} from './store-sqlite-backend';
 export { assertPostgresAccess } from './postgres-access';
 export { postgresUrlMissing } from './store-postgres-backend';
 export { sandboxAuthorityFromEnvironment } from './sandbox-authority';

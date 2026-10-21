@@ -15,7 +15,7 @@ import { MimirError } from '@mimir/contract';
 import { formatInstant } from '@mimir/helpers';
 
 import { MimirUsageError } from '../failures';
-import type { Pairing, PairingFiled, PairingHost } from '../machine';
+import type { LocalBoard, Pairing, PairingFiled, PairingHost } from '../machine';
 import { text } from '../options';
 import type { Ports } from '../ports';
 import { proseViews } from '../render/machine';
@@ -133,6 +133,19 @@ function storeRefusal(configFile: string, origin: string): MimirError {
   );
 }
 
+/** The refusal for a default install whose SQLite store holds work, or may: pairing would leave it behind. */
+function localBoardRefusal(sqliteFile: string, board: LocalBoard, origin: string): MimirError {
+  const holds =
+    board.status === 'unreadable'
+      ? `${sqliteFile} could not be read (${board.reason}) and may hold this install's local board`
+      : `${sqliteFile} holds this install's local board`;
+  return new MimirError(
+    'invariant',
+    `${holds}, and pairing would leave it behind`,
+    `export the board (mimir store export board.json), import it on the host (mimir-host store import - --apply < board.json, inside the host container), then run mimir pair ${origin} --leave-local-board`,
+  );
+}
+
 /** The refusal for a host whose window this build is outside; every outcome but `inside` has one. */
 function windowRefusal(
   verdict: 'malformed' | 'below-minimum' | 'above-host',
@@ -175,6 +188,10 @@ export function pairCommand(ports: Ports) {
             command: 'pair http://mimir.example:64647 -y',
             note: 'replace another host without asking',
           },
+          {
+            command: 'pair http://mimir.example:64647 --leave-local-board',
+            note: 'pair after moving the local board to the host',
+          },
         ],
       }),
     ],
@@ -191,6 +208,11 @@ export function pairCommand(ports: Ports) {
     .option('yes', {
       description: 'Replace an existing pairing with another host without asking.',
       short: 'y',
+      type: 'boolean',
+    })
+    .option('leave-local-board', {
+      description:
+        "Pair even though this install's local SQLite board holds work, leaving it behind.",
       type: 'boolean',
     })
     .result<PairValue>({ views })
@@ -222,6 +244,13 @@ export function pairCommand(ports: Ports) {
 
       if (pairing.declaresStore()) {
         throw storeRefusal(pairing.configFile, origin);
+      }
+      // An install that already names a host left its local board behind when it first paired.
+      if (!options['leave-local-board'] && pairing.previous() === undefined) {
+        const board = await pairing.localBoard();
+        if (board.status !== 'empty') {
+          throw localBoardRefusal(pairing.sqliteFile, board, origin);
+        }
       }
 
       // The config edit is checked now: once a request exists, a refusal would cost the operator an approval.

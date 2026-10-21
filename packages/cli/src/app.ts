@@ -63,6 +63,8 @@ import {
   searchHitToWire,
   seedToWire,
   setToWire,
+  sqliteStoreHoldsProjects,
+  sqliteStorePath,
   treeToWire,
   triageToWire,
   upgradeSchema,
@@ -205,6 +207,8 @@ export type PairSource = {
   now?: () => number;
   /** Wait between polls; defaults to a timer that a cancelled run ends. */
   sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
+  /** The local SQLite store file pairing would leave behind; defaults to the installation's. */
+  sqliteFile?: string;
 };
 
 /**
@@ -553,6 +557,7 @@ function unavailableMachine(): Machine {
       file: refuse('pair'),
       health: refuse('pair'),
       hostname: refuse('pair'),
+      localBoard: refuse('pair'),
       now: refuse('pair'),
       origin: refuse('pair'),
       poll: refuse('pair'),
@@ -560,6 +565,7 @@ function unavailableMachine(): Machine {
       previous: refuse('pair'),
       save: refuse('pair'),
       sleep: refuse('pair'),
+      sqliteFile: '',
       window: refuse('pair'),
     },
     store: {
@@ -595,12 +601,23 @@ function saveFailure(error: unknown): MimirError {
 function pairingOver(source: PairSource): Machine['pair'] {
   const client = (origin: string) => new HostClient({ fetch: source.fetch, origin });
   const now = source.now ?? Date.now;
+  const sqliteFile = source.sqliteFile ?? sqliteStorePath();
   return {
     configFile: source.configFile,
     declaresStore: () => configDeclaresStore(source.configFile),
     file: (origin, device) => client(origin).requestPairing(device),
     health: (origin) => client(origin).health(),
     hostname: source.hostname ?? hostname,
+    localBoard: async () => {
+      try {
+        return { status: (await sqliteStoreHoldsProjects(sqliteFile)) ? 'work' : 'empty' };
+      } catch (error) {
+        return {
+          reason: error instanceof Error ? error.message : String(error),
+          status: 'unreadable',
+        };
+      }
+    },
     now,
     origin: urlOrigin,
     poll: async (origin, pollSecret, signal) => {
@@ -643,6 +660,7 @@ function pairingOver(source: PairSource): Machine['pair'] {
       }
     },
     sleep: source.sleep ?? abortableSleep,
+    sqliteFile,
     window: (host) => versionWindow(VERSION, host.version, host.minClient),
   };
 }

@@ -63,7 +63,7 @@ document's bytes off a terminal.
 ## 4. Remove `[store]` from the CLI's config
 
 Delete the `[store]` section, with every key under it, from the CLI's
-`config.toml`. A default SQLite install has no `[store]`, so skip this step.
+`config.toml`. A default SQLite install has no `[store]` to remove.
 
 `mimir pair` refuses while `[store]` is present. Its message names the config
 file, and the line after it lists the steps of this guide:
@@ -71,6 +71,17 @@ file, and the line after it lists the steps of this guide:
 ```text
 /home/ana/.config/mimir/config.toml declares [store]: this install owns a local board, and pairing would leave it behind
 ```
+
+A default SQLite install keeps its board in `store.sqlite` instead, and
+`mimir pair` refuses while that file holds a project, archived projects
+included. Its message names the file:
+
+```text
+/home/ana/.local/share/mimir/store.sqlite holds this install's local board, and pairing would leave it behind
+```
+
+Step 5 passes `--leave-local-board` to pair anyway. An absent or empty
+`store.sqlite` needs no flag.
 
 The old store is not changed. The CLI no longer reads it after pairing. Keep it
 as a backup until step 7 confirms the board on the host.
@@ -82,10 +93,11 @@ its `tailscale serve` name. When the CLI runs on the host's machine, the URL is
 `http://localhost:64647`.
 
 ```sh
-mimir pair https://box.tail1234.ts.net
+mimir pair https://box.tail1234.ts.net --leave-local-board
 ```
 
-The CLI shows a code and waits:
+Leave `--leave-local-board` off when `store.sqlite` is absent or holds no
+project. The CLI shows a code and waits:
 
 ```text
 pairing code K7QM-2P9D
@@ -152,7 +164,8 @@ old store once you no longer need it as a backup.
 
 Export and import once, because the host now holds the board. Each other
 machine that used the same board removes its `[store]` (step 4), pairs with
-the host (step 5), and checks the result with `mimir doctor` (step 6).
+the host (step 5, with `--leave-local-board` while its `store.sqlite` holds
+work), and checks the result with `mimir doctor` (step 6).
 
 ## Source
 

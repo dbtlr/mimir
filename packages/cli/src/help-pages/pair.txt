@@ -7,9 +7,10 @@ ARGUMENTS
   url  The host's http or https URL; only its origin is used. In a terminal, omit it to be asked.
 
 OPTIONS
-      --device <NAME>    The name this machine pairs as. Defaults to the hostname's first label.
-  -y, --yes              Replace an existing pairing with another host without asking.
-  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+      --device <NAME>      The name this machine pairs as. Defaults to the hostname's first label.
+  -y, --yes                Replace an existing pairing with another host without asking.
+      --leave-local-board  Pair even though this install's local SQLite board holds work, leaving it behind.
+  -f, --format <format>    Select the output format, records by default. One of: ids, json, jsonl, records, table.
 
 GLOBAL OPTIONS
   -h, --help      Show this help.
@@ -22,3 +23,5 @@ EXAMPLES
     pair under a name
   $ mimir pair http://mimir.example:64647 -y
     replace another host without asking
+  $ mimir pair http://mimir.example:64647 --leave-local-board
+    pair after moving the local board to the host
