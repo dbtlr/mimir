@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@loomcli/core": "0.10.0",
-    "@loomcli/plugins": "0.10.0",
+    "@loomcli/core": "0.14.0",
+    "@loomcli/plugins": "0.14.0",
     "zod": "4.6.6"
   },
   "devDependencies": {
