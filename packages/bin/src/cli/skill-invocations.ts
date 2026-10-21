@@ -218,6 +218,12 @@ const SELECTION_FLAGS = [
  * `skill install` would really write into $HOME — a side effect, not a parse.
  */
 const STATIC_ONLY_VERBS = new Set(['store', 'doctor', 'self-update', 'skill', 'mcp', 'version']);
+/**
+ * Verbs the shipped skill teaches that only the Loom CLI declares. This runner
+ * cannot parse them, and the Loom CLI's own tests cover their flags. The set
+ * goes when the Loom CLI replaces this one (MMR-555).
+ */
+const LOOM_ONLY_VERBS = new Set(['pair']);
 
 const isPlaceholder = (word: string): boolean =>
   (word.startsWith('<') && word.endsWith('>')) || word.startsWith('$') || word === '…';
@@ -352,6 +358,9 @@ export async function invocationProblems(inv: SkillInvocation): Promise<string[]
   }
   if (isFlag(verb)) {
     return ROOT_FLAGS.has(verb) ? [] : [`'${verb}' is not a top-level flag`];
+  }
+  if (LOOM_ONLY_VERBS.has(verb)) {
+    return [];
   }
   if (!(verb in COMMAND_HELP) || verb.includes(' ')) {
     return [`unknown command '${verb}'`];

@@ -6,6 +6,7 @@ binary should live. Each page is self-contained — read the one you need.
 | Guide                                       | Covers                                                               |
 | ------------------------------------------- | -------------------------------------------------------------------- |
 | [Mimir host](host.md)                       | Running the host container over SQLite or Postgres: network access, accepted hosts, health, errors, upgrades, and backups |
+| [Move to a host](move-to-a-host.md)         | Moving a CLI-only install's board into a host and pairing the CLI with it |
 | [Self-update](self-update.md)               | `mimir self-update`'s channels, verification, and failure behavior   |
 | [Install location](install-location.md)     | Where the binary belongs, and registering a legacy installation      |
 | [Postgres store](postgres-store.md)         | Sharing one board across machines: `[store]`, `store upgrade`, export/import, doctor |
