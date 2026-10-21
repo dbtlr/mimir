@@ -187,5 +187,8 @@ credentials, sends the bearer token and the CLI's version on every call, and
 opens no store. `src/app.ts` is also the only module that imports
 `@mimir/wire`; the same oxlint rule refuses that import elsewhere, so a
 command cannot tell a local Engine from a remote one. In remote mode the
-machine-local `store` and `doctor` commands refuse and point to `mimir-host`,
-because the host owns the store.
+machine-local `store` commands refuse, because the host owns the store: export
+and import point to `mimir-host`, and `store upgrade` points to updating the
+host, which migrates on boot. Remote `doctor` refuses and points to
+`mimir-host doctor` until the client-side checks ADR 0038 specifies land
+with `mimir pair` (MMR-579).

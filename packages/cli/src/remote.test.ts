@@ -201,6 +201,31 @@ test.each([502, 503, 504])(
   },
 );
 
+// A url that names another JSON service or an API gateway answers JSON that is
+// not the wire's envelope.
+test.each([
+  [404, '{"message":"Not Found"}'],
+  [500, '{"error_code":"boom"}'],
+  [500, '{"error":"boom"}'],
+  [200, '{"result":5}'],
+  [200, '{}'],
+  [200, 'null'],
+  [200, '[]'],
+  [418, '"teapot"'],
+])(
+  'a JSON answer with HTTP %i and body %s is refused, not an internal error',
+  async (status, body) => {
+    const service = () =>
+      Promise.resolve(
+        new Response(body, { headers: { 'content-type': 'application/json' }, status }),
+      );
+    const run = await runArgv(remoteApp(undefined, service), ['projects']);
+    expect(run.exitCode).toBe(1);
+    expect(run.stderr).toContain(`answered HTTP ${String(status)} without a Mimir response`);
+    expect(run.stderr).not.toContain('UNHANDLED');
+  },
+);
+
 // A url that names the wrong service, or a proxy's error or login page,
 // answers without JSON.
 test.each([200, 403, 404, 429, 500])(

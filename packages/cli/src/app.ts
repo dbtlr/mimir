@@ -250,6 +250,12 @@ export type HostSend = (request: Request) => Promise<Response>;
 
 type WireFetch = NonNullable<ConstructorParameters<typeof RemoteEngine>[0]['fetch']>;
 
+const isObject = (value: unknown): value is object => typeof value === 'object' && value !== null;
+
+/** A tRPC answer: an object holding a `result` or an `error` object. */
+const isEnvelope = (body: unknown): boolean =>
+  isObject(body) && (isObject(Reflect.get(body, 'result')) || isObject(Reflect.get(body, 'error')));
+
 /**
  * The wire's fetch: each request goes to the host as sent, and the transport
  * failures a CLI can act on become refusals with their remedy. A redirect is
@@ -292,11 +298,15 @@ function hostFetch(origin: string, send: HostSend): WireFetch {
       );
     }
     // Something other than a host (a proxy's error page, another service, the
-    // console's HTML shell) answers without JSON; the wire reads JSON alone.
+    // console's HTML shell) answers without the tRPC envelope the wire reads:
+    // one JSON object holding a `result` or an `error` object.
     let body: unknown;
     try {
       body = JSON.parse(await response.text());
     } catch {
+      body = undefined;
+    }
+    if (!isEnvelope(body)) {
       throw new MimirError(
         'invariant',
         `the host at ${origin} answered HTTP ${String(response.status)} without a Mimir response`,
@@ -472,7 +482,7 @@ export function corePorts(source: CliSource): Ports {
         : (async () => new LocalEngine(await fatalOnOpen(source.store)))();
     return engine;
   };
-  // Remote mode refuses doctor and store even where no machine source is given.
+  // Remote mode refuses store even where no machine source is given.
   let machine: Machine;
   if ('remote' in source) {
     const work = remoteMachineWork(source.remote);
