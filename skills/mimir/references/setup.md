@@ -21,6 +21,34 @@ with mimir v0.20 (`mimir store export <file>`), remove any `backend = "norn"`
 line, then import the document with `mimir store import <file>` (a preview; add
 the `--apply` flag to write it).
 
+## Remote installs (paired with a host)
+
+A `config.toml` with `[host] url` is a remote install: every command reads and
+writes the host's board with the device token in `credentials.toml`, and the
+install has no local store. `[store]` and `[host]` exclude each other. The
+`store` commands refuse on a remote install; backups run on the host with
+`mimir-host store export`.
+
+- **Check it with `mimir doctor`.** A connection, credential, or version error
+  from any command means run `mimir doctor` and follow the remedy each finding
+  names. A clean setup prints `doctor: no problems found`.
+- **Pairing needs the operator.** `mimir pair <url>` prints a code on stderr
+  and then waits, up to ten minutes, until someone approves it on the host
+  (`mimir-host approve <code>` inside the host container, or the console's
+  `/pair` page). Run it in the background or read its stderr as it streams,
+  give the user the code and the link it prints, and ask them to approve.
+  Never approve on their behalf.
+- **Pairing an install that has a board moves the board first.** `mimir pair`
+  refuses while `[store]` is present. Do not delete `[store]` or the local
+  store to get past the refusal: that strands the board. Move it in order:
+  `mimir store export board.json`; on the host's machine,
+  `docker compose -f deploy/compose.yaml exec -T mimir mimir-host store import - < board.json`
+  (a preview), then the same with `--apply`; remove `[store]`;
+  `mimir pair <url>`; `mimir doctor`. Confirm the
+  move with the user before the import, because it writes to the host. A
+  default SQLite install has no `[store]` and is not refused, so export its
+  board before pairing it too.
+
 ## Case 1 — the project exists, this working copy isn't bound
 
 A clone binds itself when its `origin` matches the remote a project records. If

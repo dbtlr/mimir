@@ -5,44 +5,30 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { MIN_CLIENT } from '@mimir/contract';
 import { RemoteEngine } from '@mimir/wire/client';
 import { z } from 'zod';
 
 import { POSTGRES_IMAGE } from '../../sandbox/src/workflow';
+import { docker, hostCli, ready } from './docker';
 import { pairFixtureDevice } from './pairing-client';
 
 const clientVersion = z
   .object({ version: z.string() })
   .parse(await Bun.file(new URL('../../bin/package.json', import.meta.url)).json()).version;
 
-const repository = fileURLToPath(new URL('../../..', import.meta.url));
-
-/** Capture Docker diagnostics without streaming the image build into test output. */
-async function docker(args: string[], timeout = 20_000): Promise<string> {
-  const child = Bun.spawn(['docker', ...args], {
-    cwd: repository,
-    stderr: 'pipe',
-    stdin: 'ignore',
-    stdout: 'pipe',
-  });
-  const timer = setTimeout(() => child.kill('SIGKILL'), timeout);
-  try {
-    const [stdout, stderr, exit] = await Promise.all([
-      new Response(child.stdout).text(),
-      new Response(child.stderr).text(),
-      child.exited,
+/**
+ * Pair a fixture device: the client files the request over HTTP, and the operator
+ * approves it with the image's own mimir-host, which must first list it as pending.
+ */
+const pair = (container: string, base: string, device: string) =>
+  pairFixtureDevice(base, device, async (code) => {
+    expect(JSON.parse(await hostCli(container, ['pending', '-f', 'json']))).toEqual([
+      { created_at: expect.any(String), device, expires_at: expect.any(String) },
     ]);
-    if (exit !== 0) {
-      throw new Error(`docker ${args[0]} failed (${exit}): ${stderr.slice(-4000)}`);
-    }
-    return (args[0] === 'logs' ? `${stdout}\n${stderr}` : stdout).trim();
-  } finally {
-    clearTimeout(timer);
-  }
-}
+    return hostCli(container, ['approve', code]);
+  });
 
 /** GET a JSON route of the running host. */
 async function getJson(base: string, path: string): Promise<unknown> {
@@ -50,31 +36,6 @@ async function getJson(base: string, path: string): Promise<unknown> {
   expect(response.status, `GET ${path}`).toBe(200);
   expect(response.headers.get('content-type')).toContain('application/json');
   return response.json();
-}
-
-async function ready(container: string, port = 64647): Promise<string> {
-  const address = await docker(['port', container, `${port}/tcp`]);
-  if (!/^127\.0\.0\.1:\d+$/.test(address)) {
-    throw new Error(`expected one ephemeral loopback port, got ${JSON.stringify(address)}`);
-  }
-  const base = `http://${address}`;
-  let health = 'no response';
-  for (let attempt = 0; attempt < 80; attempt++) {
-    try {
-      const response = await fetch(`${base}/health`, { signal: AbortSignal.timeout(500) });
-      const contentType = response.headers.get('content-type') ?? 'no content type';
-      health = `${response.status} ${contentType}`;
-      if (response.ok && contentType.includes('application/json')) {
-        return base;
-      }
-    } catch {
-      // Docker publishes the port before the host has opened its SQLite store.
-    }
-    await Bun.sleep(100);
-  }
-  throw new Error(
-    `container health did not become ready (${health}): ${await docker(['logs', container])}`,
-  );
 }
 
 /** Require Docker's own probe result, since an HTTP listener alone is insufficient. */
@@ -135,17 +96,6 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
   const password = randomUUID();
   const refusedContainers = [`${name}-unwritable`, `${name}-invalid`];
   try {
-    // The client files the request over HTTP, and the operator approves it with
-    // the image's own mimir-host, which must first list it as pending.
-    const hostCli = (container: string, args: string[]) =>
-      docker(['exec', container, 'mimir-host', ...args]);
-    const pair = (container: string, base: string, device: string) =>
-      pairFixtureDevice(base, device, async (code) => {
-        expect(JSON.parse(await hostCli(container, ['pending', '-f', 'json']))).toEqual([
-          { created_at: expect.any(String), device, expires_at: expect.any(String) },
-        ]);
-        return hostCli(container, ['approve', code]);
-      });
     await docker(['build', '--quiet', '--tag', image, '.'], 120_000);
     await docker(['volume', 'create', volume]);
     const run = async (container: string, user: string[] = []) => {

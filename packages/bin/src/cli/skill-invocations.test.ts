@@ -136,6 +136,12 @@ test('placeholders stand in for a verb, subcommand, or flag value without false 
   expect(problems).toEqual([[], [], [], [], [], []]);
 });
 
+test('a verb only the Loom CLI declares passes, and its near misses do not', async () => {
+  const md = ['`mimir pair <url>`', '`mimir pair`', '`mimir pairs <url>`'].join(' and ');
+  const problems = await Promise.all(extractInvocations('doc.md', md).map(invocationProblems));
+  expect(problems).toEqual([[], [], ["unknown command 'pairs'"]]);
+});
+
 // The guard: the skill teaches agents exact verbs and flags, and agents drive
 // the CLI from it. A rename that misses the skill would teach a dead command.
 test('every mimir invocation the shipped skill shows is one the CLI accepts', async () => {

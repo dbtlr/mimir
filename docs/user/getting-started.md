@@ -100,3 +100,21 @@ The console comes from the Mimir host container, not the `mimir` binary. Follow
 the [host guide](../guides/host.md) to run it, then open its URL. The console
 shows all projects and provides the operator's path for inspection, authoring,
 lifecycle changes, and grooming.
+
+## Work through a host
+
+A host can own the board instead of the CLI. The CLI then pairs with the host
+once and reads and writes through it, with no local store and no database
+credentials. Every machine and agent that pairs with the host shares the same
+board, and the console shows it.
+
+```sh
+mimir pair https://box.tail1234.ts.net
+mimir doctor
+```
+
+`mimir pair` prints a code to approve on the host, in the console's `/pair`
+page or with `mimir-host approve <code>`. `mimir doctor` then checks the
+connection. To bring an existing board along, follow
+[Move a CLI-only install to a host](../guides/move-to-a-host.md) before you
+pair.

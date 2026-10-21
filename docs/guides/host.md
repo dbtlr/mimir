@@ -380,7 +380,8 @@ The command never prints the device token.
   `mimir store export board.json`, import it on the host as described in
   [Back up the store](#back-up-the-store) with `mimir-host store import - --apply`,
   remove `[store]` from `config.toml`, and run `mimir pair` again. The command
-  never removes `[store]` itself.
+  never removes `[store]` itself. [Move a CLI-only install to a host](move-to-a-host.md)
+  walks through each step.
 
 The CLI checks `/health` and its version window before it files a request, and
 refuses with the remedy (update this CLI, or update the host first) when it is
