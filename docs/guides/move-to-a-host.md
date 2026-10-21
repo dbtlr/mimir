@@ -77,10 +77,12 @@ as a backup until step 7 confirms the board on the host.
 
 ## 5. Pair the CLI with the host
 
-Run `mimir pair` with the host's URL:
+Run `mimir pair` with the URL the CLI's machine reaches the host by, such as
+its `tailscale serve` name. When the CLI runs on the host's machine, the URL is
+`http://localhost:64647`.
 
 ```sh
-mimir pair http://localhost:64647
+mimir pair https://box.tail1234.ts.net
 ```
 
 The CLI shows a code and waits:
@@ -88,7 +90,7 @@ The CLI shows a code and waits:
 ```text
 pairing code K7QM-2P9D
 approve with mimir-host approve K7QM-2P9D on the host
-or open http://localhost:64647/pair?code=K7QM-2P9D
+or open https://box.tail1234.ts.net/pair?code=K7QM-2P9D
 the request expires at 2026-10-21 14:32 EDT
 ◐ Waiting for approval · 4.2s
 ```
@@ -104,7 +106,7 @@ CLI reports the pairing:
 
 ```text
 ✔ Approved · 6.1s
-✓ paired as laptop with http://localhost:64647 (host 0.26.0)
+✓ paired as laptop with https://box.tail1234.ts.net (host 0.26.0)
 ```
 
 It saves its device token in `credentials.toml` and the host's URL as
