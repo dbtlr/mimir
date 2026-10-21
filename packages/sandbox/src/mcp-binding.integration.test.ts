@@ -68,9 +68,7 @@ test.skipIf(!enabled)('the compiled candidate reports its build version', async 
 });
 
 test.skipIf(!enabled)('the compiled candidate supports the installation protocol', async () => {
-  expect(JSON.parse(await run([binary, 'installation-protocol'], root))).toEqual({
-    installationProtocol: 1,
-  });
+  expect(await run([binary, 'installation-protocol'], root)).toBe('{"installationProtocol":1}');
 });
 
 /** Call `tool` with no scope on a `mimir mcp` server spawned in `cwd`. */

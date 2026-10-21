@@ -25,6 +25,21 @@ const workflowSchema = z.object({
   }),
 });
 
+test('every pull request retains the full Linux suite, including stacked branches', async () => {
+  const path = new URL('../../../.github/workflows/ci.yml', import.meta.url);
+  const workflow = z
+    .object({
+      jobs: z.object({ gate: z.object({ steps: z.array(stepSchema) }) }),
+      on: z.object({ pull_request: z.unknown() }),
+    })
+    .parse(Bun.YAML.parse(await Bun.file(path).text()));
+  expect(workflow.on.pull_request).toBeNull();
+  const step = workflow.jobs.gate.steps.find((candidate) => candidate.run === 'bun run test');
+  expect(step).toBeDefined();
+  expect(step?.if).toBeUndefined();
+  expect(step?.['continue-on-error']).toBeUndefined();
+});
+
 test.each([
   ['pull_request', 'test:native', 0],
   ['push', 'test', 0],
