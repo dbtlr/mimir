@@ -6,13 +6,15 @@
  * config, and the Loom Application, and hands commands only the ports they
  * read through.
  */
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync } from 'node:fs';
+import { hostname } from 'node:os';
+import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 
 import { Application, FatalError } from '@loomcli/core';
 import { format } from '@loomcli/plugins/format';
 import { help } from '@loomcli/plugins/help';
+import { interaction } from '@loomcli/plugins/interaction';
 import { selfUpdate } from '@loomcli/plugins/self-update';
 import { skills } from '@loomcli/plugins/skills';
 import { MimirError } from '@mimir/contract';
@@ -22,10 +24,12 @@ import {
   artifactToWire,
   assertDateFilters,
   assertUsableStoreConfig,
+  assertWritable,
   BINDING_CONFIG_KEY,
   bindClone,
   bindingScope,
   buildStore,
+  configDeclaresStore,
   configPath,
   credentialsPath,
   DEFAULT_STORE_BACKEND,
@@ -44,10 +48,13 @@ import {
   parseDateFilterTokens,
   parseFilterToken,
   parseIdentity,
+  planHostUrl,
   postgresUrlMissing,
   promoteToWire,
+  readConfig,
   readCredentials,
   readRuntimeConfig,
+  recordedPairing,
   requireTimeZone,
   resolveBinding,
   scratchpadReceiptToWire,
@@ -61,6 +68,8 @@ import {
   urlOrigin,
   warnConfigPermissions,
   withConfigDoctor,
+  writeCredentials,
+  writeHostUrlPlan,
 } from '@mimir/core';
 import type {
   BuiltStore,
@@ -72,6 +81,9 @@ import type {
   Store,
 } from '@mimir/core';
 import { RemoteEngine } from '@mimir/wire/client';
+import { HostClient, HostRequestError } from '@mimir/wire/host-client';
+import type { HostFetch } from '@mimir/wire/host-client';
+import { versionWindow } from '@mimir/wire/version-window';
 
 import { annotateCommand } from './commands/annotate';
 import { artifactsCommand } from './commands/artifacts';
@@ -101,6 +113,7 @@ import {
 import { listCommand } from './commands/list';
 import { nextCommand } from './commands/next';
 import { overviewCommand } from './commands/overview';
+import { pairCommand } from './commands/pair';
 import { moveCommand, reorderCommand } from './commands/place';
 import { projectsCommand } from './commands/projects';
 import { scratchCommand } from './commands/scratch';
@@ -121,6 +134,7 @@ import type { Machine } from './machine';
 import { documentExists, readDocumentFile, writeDocumentFile } from './machine-files';
 import type { Ports } from './ports';
 import { MIMIR_SKILL } from './skill-files';
+import { abortableSleep } from './sleep';
 import { VERSION } from './version';
 
 /** A host that owns the store, reached over the wire (ADR 0038). */
@@ -169,6 +183,24 @@ export type MachineSource = {
   readStdin: () => Promise<string>;
   /** The directory the retired binding file is looked for in. */
   cwd: string;
+  /** The files and edges `pair` acts through; a context without it refuses `pair`. */
+  pair?: PairSource;
+};
+
+/** The edges `mimir pair` acts through, so tests drive it against an in-process host. */
+export type PairSource = {
+  /** The config file whose `[host] url` pairing writes. */
+  configFile: string;
+  /** The credentials file pairing writes. */
+  credentialsFile: string;
+  /** Sends the host requests; defaults to the global `fetch`. */
+  fetch?: HostFetch;
+  /** The machine's hostname; defaults to the operating system's. */
+  hostname?: () => string;
+  /** Epoch milliseconds; defaults to the clock. */
+  now?: () => number;
+  /** Wait between polls; defaults to a timer that a cancelled run ends. */
+  sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
 };
 
 /**
@@ -402,6 +434,21 @@ function unavailableMachine(): Machine {
       legacyFilePresent: () => false,
     },
     doctor: { diagnose: refuse('doctor') },
+    pair: {
+      configFile: '',
+      declaresStore: refuse('pair'),
+      file: refuse('pair'),
+      health: refuse('pair'),
+      hostname: refuse('pair'),
+      now: refuse('pair'),
+      origin: refuse('pair'),
+      poll: refuse('pair'),
+      preflight: refuse('pair'),
+      previous: refuse('pair'),
+      save: refuse('pair'),
+      sleep: refuse('pair'),
+      window: refuse('pair'),
+    },
     store: {
       documentExists: refuse('store'),
       export: refuse('store'),
@@ -411,6 +458,79 @@ function unavailableMachine(): Machine {
       writeDocument: refuse('store'),
     },
     version: VERSION,
+  };
+}
+
+/** A failure writing the pairing's files, as a refusal that names the cause and the fix. */
+function saveFailure(error: unknown): MimirError {
+  if (error instanceof MimirError) {
+    return error;
+  }
+  return new MimirError(
+    'invariant',
+    `could not save the pairing${error instanceof Error ? ` (${error.message})` : ''}`,
+    'check the permissions of the config directory, then run mimir pair again',
+  );
+}
+
+/**
+ * The pairing services over the host's pre-credential routes and the config
+ * and credentials files. A poll that cannot reach the host reads as a
+ * `unreachable` answer, which the wait outlasts; every other failure is
+ * thrown with its remedy.
+ */
+function pairingOver(source: PairSource): Machine['pair'] {
+  const client = (origin: string) => new HostClient({ fetch: source.fetch, origin });
+  const now = source.now ?? Date.now;
+  return {
+    configFile: source.configFile,
+    declaresStore: () => configDeclaresStore(source.configFile),
+    file: (origin, device) => client(origin).requestPairing(device),
+    health: (origin) => client(origin).health(),
+    hostname: source.hostname ?? hostname,
+    now,
+    origin: urlOrigin,
+    poll: async (origin, pollSecret, signal) => {
+      try {
+        return await client(origin).pollPairing(pollSecret, signal);
+      } catch (error) {
+        if (error instanceof HostRequestError && error.transient) {
+          return { status: 'unreachable' };
+        }
+        throw error;
+      }
+    },
+    // Before a request is filed, so no approval is spent on a write that cannot land.
+    preflight: (origin) => {
+      const { target } = planHostUrl(origin, source.configFile);
+      assertWritable(target);
+      assertWritable(source.credentialsFile);
+    },
+    previous: () => {
+      const origin = urlOrigin(readConfig(source.configFile).host?.url);
+      if (origin === undefined) {
+        return undefined;
+      }
+      const recorded = recordedPairing(source.credentialsFile);
+      return { device: recorded?.origin === origin ? recorded.device : undefined, origin };
+    },
+    save: ({ device, origin, token }) => {
+      try {
+        // The config is planned first: the file can change during the wait, and a
+        // refusal after the credentials were replaced would break the old pairing.
+        const plan = planHostUrl(origin, source.configFile);
+        mkdirSync(dirname(source.credentialsFile), { mode: 0o700, recursive: true });
+        writeCredentials(
+          { device, issuedAt: new Date(now()).toISOString(), origin, token },
+          source.credentialsFile,
+        );
+        writeHostUrlPlan(plan);
+      } catch (error) {
+        throw saveFailure(error);
+      }
+    },
+    sleep: source.sleep ?? abortableSleep,
+    window: (host) => versionWindow(VERSION, host.version, host.minClient),
   };
 }
 
@@ -472,6 +592,7 @@ function machineOver(
       },
       legacyFilePresent: () => existsSync(join(source.cwd, LEGACY_BINDING_FILE)),
     },
+    pair: source.pair === undefined ? unavailableMachine().pair : pairingOver(source.pair),
     version: VERSION,
   };
 }
@@ -588,6 +709,8 @@ export function createApp(source: CliSource) {
         help(),
         defaultFormats(),
         format({ short: 'f' }),
+        // --no-input: a scripted run answers every question from its flags.
+        interaction(),
         // The skill files stay embedded, so the installed skill matches this binary.
         skills({ skills: [MIMIR_SKILL] }),
         selfUpdate({ notices: false }),
@@ -626,6 +749,8 @@ export function createApp(source: CliSource) {
       // server exposes the Engine alone, and these act on the machine.
       .command(bindCommand(ports))
       .command(doctorCommand(ports))
+      // MMR-579: pairing acts on the machine's config, so it opts out of MCP too.
+      .command(pairCommand(ports))
       .command(storeCommand(ports))
       .command(versionCommand(ports))
       // MMR-550: the fourteen uniform lifecycle verbs.
@@ -681,6 +806,7 @@ export async function runMimir(): Promise<number> {
         }),
       openPostgres,
       openSqlite: () => openInstallationSqlite(),
+      pair: { configFile: configPath(), credentialsFile: credentialsPath() },
       readConfig: readRuntimeConfig,
       readStdin: () => Bun.stdin.text(),
     },

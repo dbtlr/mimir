@@ -41,6 +41,7 @@
       "dependencies": {
         "@loomcli/core": "0.14.0",
         "@loomcli/plugins": "0.14.0",
+        "@loomcli/prompts": "0.14.0",
         "@mimir/contract": "workspace:*",
         "@mimir/core": "workspace:*",
         "@mimir/helpers": "workspace:*",
@@ -152,11 +153,11 @@
         "@trpc/server": "11.19.0",
         "semver": "^7.8.5",
         "superjson": "2.2.6",
+        "zod": "4.6.6",
       },
       "devDependencies": {
         "@mimir/core": "workspace:*",
         "@types/semver": "^7.8.0",
-        "zod": "4.6.6",
       },
     },
   },
@@ -417,6 +418,8 @@
     "@loomcli/core": ["@loomcli/core@0.14.0", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "@types/node": "22.20.5" } }, "sha512-63KtjyuI9rNyDj8cpMUHMWbpkxUKvIdNygPH7ZITdTHdgXvaJNSjUwUo+zQa8j4ylA3f9YX3TdjWgLT2RZrBRg=="],
 
     "@loomcli/plugins": ["@loomcli/plugins@0.14.0", "", { "dependencies": { "smol-toml": "^1.9.0", "yaml": "^2.9.1", "zod": "^4.6.5" }, "peerDependencies": { "@loomcli/core": "0.14.0" } }, "sha512-HkxHpRq8T2O1QZyJEF9MI6/uR0Xzo9rWM7L12F1Wg574eGEhK+lNvNUU7E81YCFrUL5LSLDDhabdsGmHliVK5Q=="],
+
+    "@loomcli/prompts": ["@loomcli/prompts@0.14.0", "", { "peerDependencies": { "@loomcli/core": "0.14.0" } }, "sha512-FuYbyYnm4m/HJ9QCS/1qMN8xhpt33bg+85/wEu2LgBeZ+kZ1Z58YCrhhG8CI834PXMijtvXROMp11fHq+x0qFw=="],
 
     "@mimir/bin": ["@mimir/bin@workspace:packages/bin"],
 

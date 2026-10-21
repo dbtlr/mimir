@@ -18,8 +18,10 @@ import { describeFault, formatDiagnostic } from '@mimir/helpers';
 import { getTRPCErrorShape, initTRPC, transformTRPCResponse, TRPCError } from '@trpc/server';
 import type { TRPCMutationProcedure, TRPCQueryProcedure } from '@trpc/server';
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
-import { lt, parse } from 'semver';
+import { parse } from 'semver';
 import superjson from 'superjson';
+
+import { versionWindow } from './version-window';
 
 type VersionContext = { clientVersion: string | null; hostVersion: string };
 
@@ -77,26 +79,22 @@ function versionRefusal(ctx: VersionContext): MimirError | undefined {
       'update this CLI',
     );
   }
-  const client = parse(ctx.clientVersion);
-  if (!client) {
+  const verdict = versionWindow(ctx.clientVersion, ctx.hostVersion);
+  if (verdict === 'malformed') {
     return new MimirError(
       'validation',
       'invalid x-mimir-version header; client is outside the version window',
       'update this CLI',
     );
   }
-  if (lt(client, MIN_CLIENT)) {
+  if (verdict === 'below-minimum') {
     return new MimirError(
       'validation',
       `client ${ctx.clientVersion} is older than the minimum supported client ${MIN_CLIENT}`,
       'update this CLI',
     );
   }
-  const host = parse(ctx.hostVersion);
-  if (
-    host &&
-    (client.major > host.major || (client.major === host.major && client.minor > host.minor))
-  ) {
+  if (verdict === 'above-host') {
     return new MimirError(
       'validation',
       `client ${ctx.clientVersion} is newer than host ${ctx.hostVersion} by minor version`,

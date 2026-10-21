@@ -11,4 +11,5 @@ OPTIONS
       --check              Report what an update would do and replace nothing.
 
 GLOBAL OPTIONS
-  -h, --help  Show this help.
+  -h, --help      Show this help.
+      --no-input  Ask no questions, and take every answer from options.  (default: true)

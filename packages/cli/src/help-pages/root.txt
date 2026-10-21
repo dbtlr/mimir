@@ -35,6 +35,7 @@ COMMANDS
   untag              Remove tags from tasks, phases, initiatives, projects, or artifacts.
   bind               Bind this clone to a project: write git config mimir.project, the default --scope from then on. Bare, print the clone's bound project and fail when it is unbound.
   doctor             Run read-only store diagnostics and report the findings for a human to fix at the database. Non-gating: exits 0 after a successful read. Prints prose on a terminal and json when piped.
+  pair               Pair this machine with a host: request approval, wait for the operator to approve it on the host, then save the device credentials and [host] url. Asks questions only in a terminal.
   store <command>    Operate on the store itself: upgrade its schema, export it, or import a document.
   version            Print the version of this build.
   queue              Reserve a task for an autonomous run (todo → queued).
@@ -53,6 +54,7 @@ COMMANDS
   unarchive          Restore an archived project.
 
 GLOBAL OPTIONS
-  -h, --help  Show this help.
+  -h, --help      Show this help.
+      --no-input  Ask no questions, and take every answer from options.  (default: true)
 
 Run mimir <command> --help for command details.

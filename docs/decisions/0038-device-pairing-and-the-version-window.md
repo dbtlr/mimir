@@ -159,8 +159,9 @@ _The steps are superseded by the 2026-10-20 addendum (MMR-584). The `doctor` and
 
 Pairing again when `[host]` is set replaces both files, which rotates the
 token. The CLI has no `unpair`, because revocation happens on the host.
-`mimir pair` is machine-local, so it is not an MCP tool. It takes its input as
-arguments and does not prompt.
+`mimir pair` is machine-local, so it is not an MCP tool. It prompts only in a
+terminal, and every prompt has an argument or flag equivalent (`--yes`,
+`--no-input`) so scripted runs never block.
 
 In remote mode, `mimir doctor` checks the client side in this order and stops
 at the first blocking failure:
@@ -339,7 +340,8 @@ transfer document.
 ### `mimir pair` requests and waits
 
 `mimir pair <url> [--device <name>]` replaces `mimir pair <url> <code>`. The
-device name defaults to the machine's hostname. The command:
+device name defaults to the first label of the machine's hostname, lowercased.
+The command:
 
 1. Reduces the URL to its origin. It accepts `http` and `https`.
 2. Refuses when `config.toml` has `[store]`, and lists the migration steps.
@@ -352,7 +354,8 @@ device name defaults to the machine's hostname. The command:
    On `denied` or `expired`, it writes nothing and exits non-zero.
 
 The credentials file's origin-mismatch remedy becomes `mimir pair <url>`. The
-command still takes its input as arguments and does not prompt.
+command prompts only in a terminal, and every prompt has an argument or flag
+equivalent (`--yes`, `--no-input`) so scripted runs never block.
 
 The `mimir-host` table replaces `pair <device>` with three commands:
 
@@ -396,3 +399,59 @@ prefilled (MMR-579).
   the client's screen.
 - **A redeem-style limit on polls.** A 256-bit poll secret cannot be guessed,
   as a bearer token cannot.
+
+## Addendum (2026-10-21, MMR-579): `mimir pair` asks only in a terminal
+
+This refines the client behavior above. The host's routes, the flow, and the
+files `mimir pair` writes are unchanged.
+
+- **The URL is optional.** In a terminal, `mimir pair` asks for it when it is
+  missing. Elsewhere it refuses with the usage `mimir pair <url>`.
+- **Replacing a pairing with another host is confirmed.** When `[host] url`
+  names a different origin, a terminal asks "Replace the pairing with
+  `<origin>`?" before it files a request, and declining writes nothing. With
+  `--yes`, with `--no-input`, or outside a terminal, it proceeds and warns on
+  stderr that the device stays paired on the old host until
+  `mimir-host unpair <device>` runs there. The question and the warning name
+  the device the old host knows, read from the recorded credentials when they
+  are for that host, and the new device name otherwise. Pairing again with the
+  same origin asks nothing.
+- **`--no-input` and `--yes` answer every question.** `--no-input` is Loom's
+  interaction option and is global. A run is interactive when stdin and stderr
+  are terminals and `--no-input` is absent.
+- **The device name is verbatim from `--device`.** Without it, the name is the
+  hostname's first DNS label, lowercased. A machine with no such label must pass
+  `--device`.
+- **The command prints how to approve before it waits.** It shows the user
+  code, the `mimir-host approve` command, the console URL
+  `<origin>/pair?code=<CODE>` with the hyphen kept, and the expiry in local
+  time, all on stderr. Stdout carries only the final result line, or one
+  `{device, origin, host_version}` record under `-f json` and `-f jsonl`. The
+  token is never printed.
+- **The wait survives a flaky network and a Ctrl-C.** The poll interval the
+  host states is held between 1 and 60 seconds. While the host answers, only
+  its own `denied` and `expired` end the wait, so a skewed client clock cannot
+  strand an approval. A local deadline stops only the retrying of failed polls:
+  the host's `expires_at` less its `Date` header at filing (10 minutes when the
+  header is absent), counted from the local filing time, plus a small margin.
+  The expiry the command shows uses the same correction. A poll that cannot
+  reach the host is noted once on stderr. A definite error (any 4xx other than
+  408 and 429 is definite, whatever its body), `denied`, `expired`, or reaching
+  the deadline ends the run with a non-zero exit and writes nothing. Ctrl-C ends
+  the wait and aborts a poll in flight, with exit 130 and nothing written. An
+  approval a poll returns is saved even if Ctrl-C landed meanwhile, because
+  collecting it already revoked the device's earlier token. A host that keeps
+  answering `pending` is given up on a minute past the deadline, with the plain
+  expiry message. When polls fail and the next host answer is `expired`, or the
+  failures last to the deadline, with no `pending` answer between, the approval
+  may have been collected unseen, and the command says to run
+  `mimir-host unpair <device>` and pair again.
+- **The config edit is checked before a request is filed.** A `config.toml`
+  that is not valid TOML, or that defines `host` in a form that cannot be edited
+  in place (an inline table or a dotted key), refuses at once. The write after
+  approval runs the same checks again, because the file can change during the
+  wait. The preflight also refuses a config file, or credentials directory, this
+  user cannot write, naming the path.
+- **The command never opens the CLI's Engine.** It works with no config, with a
+  valid `[host]`, and with a broken `[host]` or credentials file, because
+  pairing is how those are repaired.

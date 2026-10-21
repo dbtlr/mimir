@@ -1,7 +1,8 @@
 /**
  * The CLI's global config: the `[store]` section that selects this install's
  * backend, or the `[host]` section that hands its store to a host (ADR 0038).
- * The file is operator-edited; nothing in mimir writes it.
+ * The file is operator-edited; only pairing writes it, and only `[host] url`
+ * (see config-write).
  */
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';

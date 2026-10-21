@@ -4,21 +4,10 @@
  * writes it; every remote run reads it. The token is a bearer secret, so the
  * file is private to its owner and bound to the origin it was issued by.
  */
-import { randomBytes } from 'node:crypto';
-import {
-  closeSync,
-  existsSync,
-  fchmodSync,
-  fsyncSync,
-  openSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 
+import { writeFileAtomic } from './atomic-write';
 import { urlOrigin } from './config';
 import { runtimePaths } from './env';
 import { invariant } from './errors';
@@ -49,9 +38,8 @@ const tomlString = (value: string): string =>
   JSON.stringify(value.toWellFormed()).replaceAll('\x7f', String.raw`\u007f`);
 
 /**
- * Write the credentials atomically: a private temporary file beside the
- * target, synced, then renamed over it. A reader sees the old file or the new
- * one, never a partial token, and the new file is 0600 whatever the umask.
+ * Write the credentials atomically (see writeFileAtomic): a reader never sees
+ * a partial token, and the file is 0600 whatever the umask.
  */
 export function writeCredentials(credentials: Credentials, file: string = credentialsPath()): void {
   const text = [
@@ -61,24 +49,25 @@ export function writeCredentials(credentials: Credentials, file: string = creden
     `issued_at = ${tomlString(credentials.issuedAt)}`,
     '',
   ].join('\n');
-  const temporary = join(
-    dirname(file),
-    `.credentials.toml.${String(process.pid)}.${randomBytes(6).toString('hex')}`,
-  );
-  // `wx` refuses an existing path, a planted symlink included.
-  const descriptor = openSync(temporary, 'wx', 0o600);
+  writeFileAtomic(file, text, 0o600);
+}
+
+/**
+ * Which device was paired with which host, from whatever credentials file is
+ * there. Unlike {@link readCredentials} it never refuses and never returns the
+ * token: a caller replacing a pairing only needs to name what the old host
+ * knows. Undefined when the file is absent, unreadable, or lacks either field.
+ */
+export function recordedPairing(
+  file: string = credentialsPath(),
+): { origin: string; device: string } | undefined {
   try {
-    try {
-      fchmodSync(descriptor, 0o600);
-      writeFileSync(descriptor, text);
-      fsyncSync(descriptor);
-    } finally {
-      closeSync(descriptor);
-    }
-    renameSync(temporary, file);
-  } catch (error) {
-    rmSync(temporary, { force: true });
-    throw error;
+    const parsed: object = Bun.TOML.parse(readFileSync(file, 'utf8'));
+    const origin = urlOrigin(credentialsField(parsed, 'origin'));
+    const device = credentialsField(parsed, 'device');
+    return origin === undefined || device === undefined ? undefined : { device, origin };
+  } catch {
+    return undefined;
   }
 }
 

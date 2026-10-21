@@ -8,7 +8,8 @@ OPTIONS
   -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
 
 GLOBAL OPTIONS
-  -h, --help  Show this help.
+  -h, --help      Show this help.
+      --no-input  Ask no questions, and take every answer from options.  (default: true)
 
 EXAMPLES
   $ mimir doctor

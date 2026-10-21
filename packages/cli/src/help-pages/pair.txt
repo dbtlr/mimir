@@ -1,0 +1,24 @@
+mimir pair · Pair this machine with a host: request approval, wait for the operator to approve it on the host, then save the device credentials and [host] url. Asks questions only in a terminal.
+
+USAGE
+  mimir pair [url] [options]
+
+ARGUMENTS
+  url  The host's http or https URL; only its origin is used. In a terminal, omit it to be asked.
+
+OPTIONS
+      --device <NAME>    The name this machine pairs as. Defaults to the hostname's first label.
+  -y, --yes              Replace an existing pairing with another host without asking.
+  -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
+
+GLOBAL OPTIONS
+  -h, --help      Show this help.
+      --no-input  Ask no questions, and take every answer from options.  (default: true)
+
+EXAMPLES
+  $ mimir pair http://mimir.example:64647
+    pair as this machine
+  $ mimir pair http://mimir.example:64647 --device laptop
+    pair under a name
+  $ mimir pair http://mimir.example:64647 -y
+    replace another host without asking

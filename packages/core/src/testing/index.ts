@@ -5,6 +5,7 @@
  */
 export * from './conformance';
 export * from './errors';
+export * from './pairing-host';
 export * from './store';
 export { createPgliteDialect } from '../store-postgres/pglite';
 export * from '../store-postgres/testing';

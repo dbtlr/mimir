@@ -6,7 +6,9 @@
   "type": "module",
   "exports": {
     "./server": "./src/server.ts",
-    "./client": "./src/client.ts"
+    "./client": "./src/client.ts",
+    "./host-client": "./src/host-client.ts",
+    "./version-window": "./src/version-window.ts"
   },
   "dependencies": {
     "@mimir/contract": "workspace:*",
@@ -14,11 +16,11 @@
     "@trpc/client": "11.19.0",
     "@trpc/server": "11.19.0",
     "semver": "^7.8.5",
-    "superjson": "2.2.6"
+    "superjson": "2.2.6",
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@mimir/core": "workspace:*",
-    "@types/semver": "^7.8.0",
-    "zod": "4.6.6"
+    "@types/semver": "^7.8.0"
   }
 }

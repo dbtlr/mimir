@@ -11,4 +11,5 @@ export * from './seed-lane';
 export type * from './wire';
 export * from './engine';
 export * from './errors';
+export * from './health';
 export * from './version';

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { configPath } from './config';
-import { credentialsPath, readCredentials, writeCredentials } from './credentials';
+import { credentialsPath, readCredentials, recordedPairing, writeCredentials } from './credentials';
 import type { Credentials } from './credentials';
 import { MimirError } from './errors';
 
@@ -136,4 +136,31 @@ test('credentials recorded for another origin are refused before any request', (
   expect(refusal.message).toContain(ORIGIN);
   expect(refusal.message).not.toContain(paired.token);
   expect(refusal.hint).toBe(`mimir pair ${ORIGIN}`);
+});
+
+// Pairing names the old host's device when it replaces a pairing, so the read is lenient:
+// it never throws, never needs the file private, and never returns the token.
+test('the recorded pairing is the origin and device, without the token', () => {
+  writeCredentials(paired, file);
+  expect(recordedPairing(file)).toEqual({ device: 'valhalla', origin: ORIGIN });
+});
+
+test('the recorded pairing reads a file readCredentials would refuse', () => {
+  writeCredentials(paired, file);
+  chmodSync(file, 0o644);
+  expect(recordedPairing(file)).toEqual({ device: 'valhalla', origin: ORIGIN });
+});
+
+test.each([
+  ['an absent file', undefined],
+  ['malformed TOML', 'this is [ not toml'],
+  ['no device', 'origin = "https://mimir.example.test"\n'],
+  ['no origin', 'device = "valhalla"\n'],
+  ['a non-origin url', 'origin = "nope"\ndevice = "valhalla"\n'],
+  ['wrong types', 'origin = 3\ndevice = 4\n'],
+])('the recorded pairing is undefined for %s', (_name, text) => {
+  if (text !== undefined) {
+    writeFileSync(file, text);
+  }
+  expect(recordedPairing(file)).toBeUndefined();
 });
