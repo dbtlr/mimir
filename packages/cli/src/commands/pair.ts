@@ -55,6 +55,8 @@ function clockTime(at: number, zone: string): string {
 const DEFAULT_LIFETIME_MS = 10 * 60 * 1000;
 /** How long past its expiry the local deadline lets a failing connection retry. */
 const DEADLINE_MARGIN_MS = 5000;
+/** How long past the deadline a host that keeps answering `pending` is waited on before giving up. */
+const PENDING_MARGIN_MS = 60_000;
 
 /**
  * How long the host says the request has left, by the host's own clock: its
@@ -340,6 +342,7 @@ async function waitForDecision(
   const { filed, origin, signal } = wait;
   const deadline = wait.lapsesAt + DEADLINE_MARGIN_MS;
   let failed = false;
+  let reported = false;
   for (;;) {
     await pairing.sleep(filed.interval * 1000, signal);
     const answer = await pairing.poll(origin, filed.pollSecret, signal);
@@ -347,6 +350,13 @@ async function waitForDecision(
       return answer;
     }
     signal.throwIfAborted();
+    if (answer.status === 'pending') {
+      // A host that answered proves nothing was collected before this poll.
+      failed = false;
+      if (!(pairing.now() < deadline + PENDING_MARGIN_MS)) {
+        return { afterFailure: false, status: 'expired' };
+      }
+    }
     if (answer.status === 'denied') {
       return { status: 'denied' };
     }
@@ -354,12 +364,14 @@ async function waitForDecision(
       return { afterFailure: failed, status: 'expired' };
     }
     if (answer.status === 'unreachable') {
-      if (!failed) {
+      if (!reported) {
         await wait.onUnreachable();
       }
+      reported = true;
       failed = true;
+      // Every poll since the first failure failed, so an approval may have been collected unseen.
       if (!(pairing.now() < deadline)) {
-        return { afterFailure: false, status: 'expired' };
+        return { afterFailure: true, status: 'expired' };
       }
     }
   }

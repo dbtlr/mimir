@@ -352,12 +352,17 @@ The command never prints the device token.
   anything. Ctrl-C also stops a poll in flight. A poll that returns the
   approval is always saved, even if Ctrl-C landed while it was in flight.
 - **A lost approval.** Collecting the token revokes the device's earlier one on
-  the host. When a poll fails and the next answer is `expired`, the approval may
-  have been collected before the connection failed. The CLI then says so and
-  asks you to run `mimir-host unpair <device>` on the host and pair again.
+  the host. When polls fail and the next host answer is `expired`, or the
+  failures last until the request would have lapsed, with no `pending` answer
+  between, the approval may have been collected before the connection failed.
+  The CLI then says so and asks you to run `mimir-host unpair <device>` on the
+  host and pair again. A host that keeps answering `pending` is given up on a
+  minute after the request would have lapsed.
 - **A config it cannot edit.** A `config.toml` that is not valid TOML, or that
   holds `host` as an inline table or dotted key, refuses before the request is
-  filed, so no approval is wasted.
+  filed, so no approval is wasted. It also refuses a `config.toml`, or a
+  config or credentials directory, that this user cannot write, naming the
+  path.
 - **What it writes.** After approval, `credentials.toml` (mode `0600`) and then
   `[host] url` in `config.toml`. The edit keeps comments and other settings.
 - **Pairing again.** The same origin replaces both files and rotates the token,

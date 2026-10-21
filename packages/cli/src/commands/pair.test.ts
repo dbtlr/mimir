@@ -7,7 +7,16 @@
  * whose keys the case types.
  */
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -401,7 +410,8 @@ test.each([
     };
     const run = await pair([ORIGIN, '--device', 'laptop']);
     expect(run.exitCode).toBe(1);
-    expect(run.stderr).toContain('expired before the host approved it');
+    // Every poll failed, so an approval may have been collected unseen.
+    expect(run.stderr).toContain('the approval may have been collected');
     // Ten minutes of 2 second polls and a margin, not an endless retry.
     expect(host.polls).toBeGreaterThan(290);
     expect(host.polls).toBeLessThan(320);
@@ -562,7 +572,50 @@ test('a host unreachable until the request lapses writes nothing', async () => {
   const run = await pair([ORIGIN, '--device', 'laptop']);
   expect(run.exitCode).toBe(1);
   expect(run.stderr).toContain('host unreachable, still waiting until');
+  expect(run.stderr).toContain('the approval may have been collected');
+  expect(run.stderr).toContain('unpair laptop on the host (mimir-host unpair laptop)');
+  expectUntouched();
+});
+
+test('a failed poll followed by a pending one is forgotten: a later expiry is plain', async () => {
+  host.intercept = (path, polls) => {
+    if (path !== '/auth/pairing/poll') {
+      return undefined;
+    }
+    if (polls === 1) {
+      return Response.json({ error: 'bad gateway' }, { status: 502 });
+    }
+    return polls < 4 ? undefined : Response.json({ status: 'expired' });
+  };
+  host.approveAt = Number.POSITIVE_INFINITY;
+  const run = await pair([ORIGIN, '--device', 'laptop']);
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr).toContain('host unreachable, still waiting until');
   expect(run.stderr).toContain('expired before the host approved it');
+  expect(run.stderr).not.toContain('may have been collected');
+  expectUntouched();
+});
+
+test('a second blip after a recovery is not noted again', async () => {
+  host.approveAt = 6;
+  host.intercept = (path, polls) =>
+    path === '/auth/pairing/poll' && (polls === 1 || polls === 4)
+      ? Response.json({ error: 'bad gateway' }, { status: 502 })
+      : undefined;
+  const run = await pair([ORIGIN, '--device', 'laptop']);
+  expect(run.exitCode).toBe(0);
+  expect(run.stderr.match(/host unreachable/g)).toHaveLength(1);
+});
+
+test('a host that answers pending forever is given up on a minute past the deadline', async () => {
+  host.approveAt = Number.POSITIVE_INFINITY;
+  const run = await pair([ORIGIN, '--device', 'laptop']);
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr).toContain('expired before the host approved it');
+  expect(run.stderr).not.toContain('may have been collected');
+  // Ten minutes, the retry margin, and a minute, at 2 seconds a poll.
+  expect(host.polls).toBeGreaterThan(330);
+  expect(host.polls).toBeLessThan(345);
   expectUntouched();
 });
 
@@ -763,14 +816,19 @@ test('credentials recorded for another origin fall back to the new device name',
 });
 
 // The host's words reach a terminal: whatever it names the device, no control sequence gets through.
-test.each([[[]], [['-f', 'json']]])(
-  'a device name with terminal controls from the host is not echoed raw (%j)',
-  async (flags) => {
+test.each([
+  ['piped', [], {}],
+  ['json', ['-f', 'json'], {}],
+  ['at a terminal', [], { tty: true }],
+  ['json at a terminal', ['-f', 'json'], { tty: true }],
+] as const)(
+  'a device name with terminal controls from the host is not echoed raw (%s)',
+  async (_name, flags, opts) => {
     host.intercept = (path) =>
       path === '/auth/pairing/poll'
         ? Response.json({ device: 'lap\u001B[2Jtop\u009B', status: 'approved', token: 'tok-1' })
         : undefined;
-    const run = await pair([ORIGIN, '--device', 'laptop', ...flags]);
+    const run = await pair([ORIGIN, '--device', 'laptop', ...flags], opts);
     expect(run.exitCode).toBe(0);
     expect(run.stdout).toContain('lap');
     expect(run.stdout).not.toContain('\u001B[2J');
@@ -796,6 +854,56 @@ test('a host message at filing with terminal controls is not echoed raw', async 
   expect(run.stderr).not.toContain('Internal error');
   expect(run.stderr).not.toContain('Something went wrong');
 });
+
+// Running as root, a 0444 file is still writable, so the case proves nothing there.
+const asRoot = process.getuid?.() === 0;
+
+test.skipIf(asRoot)(
+  'a read-only config file refuses before any request, naming the path',
+  async () => {
+    await seedConfig('# mine\n');
+    chmodSync(configFile, 0o444);
+    const run = await pair([ORIGIN, '--device', 'laptop']);
+    expect(run.exitCode).toBe(1);
+    expect(run.stderr).toContain(`${configFile} is not writable`);
+    expect(run.stderr).toContain('chmod');
+    expect(host.paths).toEqual([]);
+    expectUntouched('# mine\n');
+  },
+);
+
+test.skipIf(asRoot)('a read-only credentials directory refuses before any request', async () => {
+  await seedConfig('');
+  chmodSync(join(dir, 'config'), 0o555);
+  try {
+    const run = await pair([ORIGIN, '--device', 'laptop']);
+    expect(run.exitCode).toBe(1);
+    expect(run.stderr).toContain('is not writable');
+    expect(host.paths).toEqual([]);
+  } finally {
+    chmodSync(join(dir, 'config'), 0o755);
+  }
+  expect(existsSync(credentialsFile)).toBe(false);
+});
+
+test.skipIf(asRoot)(
+  'a directory to be created under a read-only ancestor refuses too',
+  async () => {
+    const locked = join(dir, 'locked');
+    mkdirSync(locked);
+    chmodSync(locked, 0o555);
+    try {
+      configFile = join(locked, 'deeper', 'config.toml');
+      credentialsFile = join(locked, 'deeper', 'credentials.toml');
+      const run = await pair([ORIGIN, '--device', 'laptop']);
+      expect(run.exitCode).toBe(1);
+      expect(run.stderr).toContain(`${locked} is not writable`);
+      expect(host.paths).toEqual([]);
+    } finally {
+      chmodSync(locked, 0o755);
+    }
+  },
+);
 
 test('the pair help lists the url, --device, --yes, and --no-input', async () => {
   const run = await pair(['--help']);

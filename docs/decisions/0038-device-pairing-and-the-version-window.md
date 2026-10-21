@@ -440,15 +440,18 @@ files `mimir pair` writes are unchanged.
   the deadline ends the run with a non-zero exit and writes nothing. Ctrl-C ends
   the wait and aborts a poll in flight, with exit 130 and nothing written. An
   approval a poll returns is saved even if Ctrl-C landed meanwhile, because
-  collecting it already revoked the device's earlier token. When a poll fails
-  and a later one answers `expired`, the approval may have been collected
-  unseen, and the command says to run `mimir-host unpair <device>` and pair
-  again.
+  collecting it already revoked the device's earlier token. A host that keeps
+  answering `pending` is given up on a minute past the deadline, with the plain
+  expiry message. When polls fail and the next host answer is `expired`, or the
+  failures last to the deadline, with no `pending` answer between, the approval
+  may have been collected unseen, and the command says to run
+  `mimir-host unpair <device>` and pair again.
 - **The config edit is checked before a request is filed.** A `config.toml`
   that is not valid TOML, or that defines `host` in a form that cannot be edited
   in place (an inline table or a dotted key), refuses at once. The write after
   approval runs the same checks again, because the file can change during the
-  wait.
+  wait. The preflight also refuses a config file, or credentials directory, this
+  user cannot write, naming the path.
 - **The command never opens the CLI's Engine.** It works with no config, with a
   valid `[host]`, and with a broken `[host]` or credentials file, because
   pairing is how those are repaired.

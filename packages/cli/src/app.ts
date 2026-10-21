@@ -24,6 +24,7 @@ import {
   artifactToWire,
   assertDateFilters,
   assertUsableStoreConfig,
+  assertWritable,
   BINDING_CONFIG_KEY,
   bindClone,
   bindingScope,
@@ -499,8 +500,11 @@ function pairingOver(source: PairSource): Machine['pair'] {
         throw error;
       }
     },
+    // Before a request is filed, so no approval is spent on a write that cannot land.
     preflight: (origin) => {
-      planHostUrl(origin, source.configFile);
+      const { target } = planHostUrl(origin, source.configFile);
+      assertWritable(target);
+      assertWritable(source.credentialsFile);
     },
     previous: () => {
       const origin = urlOrigin(readConfig(source.configFile).host?.url);
