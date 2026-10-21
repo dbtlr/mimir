@@ -1,5 +1,5 @@
 import type { GlobalConfig } from './config';
-import { configPath, DEFAULT_STORE_BACKEND, readRuntimeConfig } from './config';
+import { configPath, DEFAULT_STORE_BACKEND, hostOrigin, readRuntimeConfig } from './config';
 import type { DoctorBackend } from './doctor/contract';
 import { invariant } from './errors';
 /**
@@ -29,14 +29,26 @@ export type BuiltStore = {
 };
 
 /**
- * Refuse a `[store]` section that parsed to nothing usable. FATAL: the fence
- * selects which store gets WRITTEN, so a typo in a Postgres install must never
- * fall back to creating and writing a local store. The remedy names the key that actually went wrong —
- * a bad URL is not fixed by re-reading the list of backends.
+ * Refuse a config that names a host, or a `[store]` section that parsed to
+ * nothing usable. FATAL: the fence selects which store gets WRITTEN, so a typo
+ * in a Postgres install must never fall back to creating and writing a local
+ * store. The remedy names the key that actually went wrong — a bad URL is not
+ * fixed by re-reading the list of backends.
  *
- * Shared with `store upgrade`, which reads the same section for the same fence; `file` names the config the section came from.
+ * Shared with `store upgrade`, which reads the same section for the same
+ * fence; `file` names the config the section came from.
  */
 export function assertUsableStoreConfig(config: GlobalConfig, file: string = configPath()): void {
+  if (config.host !== undefined) {
+    // Each store has one owner (ADR 0038): an install that names a host keeps no
+    // local store, so a CLI that cannot reach the host opens none in its place.
+    // A broken `[host]` refuses first, with its own fix.
+    hostOrigin(config, file);
+    throw invariant(
+      `[host] is set in ${file}, and this mimir opens only a local store`,
+      'use a mimir release with remote mode, or remove [host] to use a local store',
+    );
+  }
   const problem = config.store.problem;
   if (problem === undefined) {
     return;
@@ -72,8 +84,9 @@ export type StoreOverride = {
 /**
  * Build the store for this process. An open failure (a newer schema, an
  * unreadable or foreign database file, an unreachable server) propagates so the
- * caller fails fast. A `[store]` section that parsed to nothing usable is FATAL
- * on the same terms — see {@link assertUsableStoreConfig}.
+ * caller fails fast. A config that names a host, or a `[store]` section that
+ * parsed to nothing usable, is FATAL on the same terms — see
+ * {@link assertUsableStoreConfig}.
  */
 export async function buildStore(
   config: GlobalConfig = readRuntimeConfig(),

@@ -43,6 +43,8 @@ export type { ArtifactStore } from './artifacts/store';
 export type { ScratchpadStore } from './scratchpads/store';
 export * from './env';
 export * from './config';
+export { credentialsPath, readCredentials, writeCredentials } from './credentials';
+export type { Credentials } from './credentials';
 export { acceptedHosts, hostnameOf, isHostName, normalizeServeUrl } from './address';
 export type { ServeConfig } from './address';
 export { assertUsableStoreConfig, buildStore } from './store-backend';

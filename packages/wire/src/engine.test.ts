@@ -87,6 +87,19 @@ test('missing records and illegal transitions preserve MimirError code, message,
   expect(refusedRemote.hint).toBe(refusedLocal.hint);
 });
 
+// A client's transport layer (the CLI's fetch, MMR-578) refuses with the remedy
+// it knows; the refusal reaches the caller as itself, not as a tRPC fault.
+test('a MimirError raised by a custom fetch reaches the caller unchanged', async () => {
+  const refusal = new MimirError('invariant', 'cannot reach the host', 'start the host');
+  const client = new RemoteEngine({
+    fetch: () => Promise.reject(refusal),
+    url: 'http://engine.test/trpc',
+    version: '0.26.0',
+  });
+  expect(await errorOf(client.projects({}))).toBe(refusal);
+  expect(await errorOf(client.annotate({ content: 'x', id: 'ENG-1' }))).toBe(refusal);
+});
+
 test('nested timestamps, facets, and resume handles survive serialization', async () => {
   await annotate(fixture.store, id, 'Evidence');
   await startTask(fixture.store, id, { session: 'engine-test' });

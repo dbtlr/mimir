@@ -1,12 +1,14 @@
 /**
  * The CLI's global config: the `[store]` section that selects this install's
- * backend. The file is operator-edited; nothing in mimir writes it.
+ * backend, or the `[host]` section that hands its store to a host (ADR 0038).
+ * The file is operator-edited; nothing in mimir writes it.
  */
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
 import { runtimePaths } from './env';
+import { invariant } from './errors';
 
 /** Installation-bound path. Explicit bases are for isolated configuration tools. */
 export function configPath(configHome?: string): string {
@@ -43,7 +45,21 @@ export type StoreConfig = {
   problem?: 'invalid-backend' | 'invalid-url' | 'malformed' | 'removed-backend';
 };
 
-export type GlobalConfig = { store: StoreConfig };
+/**
+ * The `[host]` section (ADR 0038): the host that owns this install's store, so
+ * the CLI reaches work state over the wire and opens no store of its own. An
+ * install holds exactly one of `[host]` and `[store]`; holding both is
+ * `with-store`. A section that is present but unusable keeps its `problem`, so
+ * the consumer refuses rather than opening a local store in the host's place.
+ */
+export type HostConfig = {
+  /** The host's http or https URL; the CLI uses only its origin. */
+  url?: string;
+  problem?: 'invalid-url' | 'malformed' | 'with-store';
+};
+
+/** `host` is absent unless the file has a `[host]` section. */
+export type GlobalConfig = { store: StoreConfig; host?: HostConfig };
 
 function isTable(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -83,6 +99,54 @@ function storeSection(raw: unknown): StoreConfig {
 }
 
 /**
+ * The origin of an http or https URL, or undefined for anything else. A host
+ * is addressed by its origin alone (ADR 0038): the config, the credentials
+ * file, and pairing all reduce a URL through this one rule.
+ */
+export function urlOrigin(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !URL.canParse(value)) {
+    return undefined;
+  }
+  const url = new URL(value);
+  return url.protocol === 'http:' || url.protocol === 'https:' ? url.origin : undefined;
+}
+
+function hostSection(raw: unknown, withStore: boolean): HostConfig {
+  if (withStore) {
+    return { problem: 'with-store' };
+  }
+  if (!isTable(raw)) {
+    return { problem: 'malformed' };
+  }
+  return typeof raw.url === 'string' && urlOrigin(raw.url) !== undefined
+    ? { url: raw.url }
+    : { problem: 'invalid-url' };
+}
+
+/**
+ * The origin of the host a remote install names (ADR 0038). Refuses a config
+ * that also holds `[store]`, and one without a usable `[host]`, each with the
+ * fix; `file` names the config the sections came from.
+ */
+export function hostOrigin(config: GlobalConfig, file: string = configPath()): string {
+  const host = config.host;
+  if (host?.problem === 'with-store') {
+    throw invariant(
+      `${file} holds both [host] and [store]`,
+      'keep one: remove [store] to use the host, or remove [host] to use the local store',
+    );
+  }
+  const origin = urlOrigin(host?.url);
+  if (origin === undefined) {
+    throw invariant(
+      `[host] is unusable (${host?.problem ?? 'missing'}) in ${file}`,
+      "set [host] url to the host's http or https URL",
+    );
+  }
+  return origin;
+}
+
+/**
  * Read the global config in one parse. Tolerant by design: a missing,
  * malformed, or wrong-typed file never throws — the loud-failure posture
  * belongs to the consumer (the store open), not the parse. When the section or
@@ -94,13 +158,16 @@ export function readConfig(file = configPath()): GlobalConfig {
   if (!existsSync(file)) {
     return { store: {} };
   }
-  let parsed: { store?: unknown };
+  let parsed: { host?: unknown; store?: unknown };
   try {
     parsed = Bun.TOML.parse(readFileSync(file, 'utf8'));
   } catch {
     return { store: { problem: 'malformed' } };
   }
-  return { store: storeSection(parsed.store) };
+  const store = storeSection(parsed.store);
+  return parsed.host === undefined
+    ? { store }
+    : { host: hostSection(parsed.host, parsed.store !== undefined), store };
 }
 
 /** Read only the installation or sandbox configuration selected by configPath. */

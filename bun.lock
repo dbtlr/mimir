@@ -44,6 +44,7 @@
         "@mimir/contract": "workspace:*",
         "@mimir/core": "workspace:*",
         "@mimir/helpers": "workspace:*",
+        "@mimir/wire": "workspace:*",
         "zod": "4.6.6",
       },
       "devDependencies": {

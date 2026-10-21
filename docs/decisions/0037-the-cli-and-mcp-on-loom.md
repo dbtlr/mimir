@@ -178,3 +178,17 @@ verb's grammar.
   governs CLI help or MCP tool descriptions.
 - The remaining ports (MMR-549 to MMR-554) extend the harness case lists and
   the difference list. The cutover (MMR-555) waits for Loom 0.15.
+
+## 2026-10-20 refinement: the composition root picks the Engine (MMR-578)
+
+The composition root builds a `RemoteEngine` instead of the `LocalEngine`
+when `config.toml` has a `[host]` section (ADR 0038). It reads the device
+credentials, sends the bearer token and the CLI's version on every call, and
+opens no store. `src/app.ts` is also the only module that imports
+`@mimir/wire`; the same oxlint rule refuses that import elsewhere, so a
+command cannot tell a local Engine from a remote one. In remote mode the
+machine-local `store` commands refuse, because the host owns the store: export
+and import point to `mimir-host`, and `store upgrade` points to updating the
+host, which migrates on boot. Remote `doctor` refuses and points to
+`mimir-host doctor` until the client-side checks ADR 0038 specifies land
+with `mimir pair` (MMR-579).

@@ -68,6 +68,13 @@ const cliNoCore = {
     'Layer boundary: only packages/cli/src/app.ts imports @mimir/core; commands reach work state through the Engine.',
 };
 
+/** The Loom CLI's commands reach a host through the Engine too: the composition root picks the wire. */
+const cliNoWire = {
+  group: ['@mimir/wire', '@mimir/wire/**', '**/wire/src', '**/wire/src/**'],
+  message:
+    'Layer boundary: only packages/cli/src/app.ts imports @mimir/wire; commands reach work state through the Engine.',
+};
+
 /** The Loom CLI replaces the old binary and never builds on it. */
 const cliNoBin = {
   group: ['@mimir/bin', '@mimir/bin/**', '**/bin/src', '**/bin/src/**'],
@@ -197,7 +204,7 @@ const layerOverrides: Override[] = [
   restrict(['packages/host/src/api/fns/engine.ts'], [noBinImports, serverFnBoundary(false)]),
   forbid(['packages/bin/src/cli/**'], ['mcp']),
   forbid(['packages/bin/src/mcp/**'], ['cli']),
-  restrict(['packages/cli/**'], [cliNoCore, cliNoBin, cliNoTesting]),
+  restrict(['packages/cli/**'], [cliNoCore, cliNoWire, cliNoBin, cliNoTesting]),
   restrict(['packages/cli/src/app.ts'], [cliNoBin, cliNoTesting, coreEntryOnly]),
   // Tests legitimately wire layers together (the store fixture from
   // `testing/store`, cross-layer assertions); the boundary constrains shipped

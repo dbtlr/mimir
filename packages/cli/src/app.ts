@@ -1,8 +1,10 @@
 /**
  * The composition root of the Loom CLI, and the only module that imports
- * `@mimir/core` (lint-enforced). It builds the LocalEngine over the configured
- * store, the project binding over the clone's git config, and the Loom
- * Application, and hands commands only the ports they read through.
+ * `@mimir/core` or `@mimir/wire` (lint-enforced). It builds the Engine — a
+ * LocalEngine over the configured store, or a RemoteEngine when `[host]` names
+ * the host that owns it (ADR 0038) — the project binding over the clone's git
+ * config, and the Loom Application, and hands commands only the ports they
+ * read through.
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -25,11 +27,13 @@ import {
   bindingScope,
   buildStore,
   configPath,
+  credentialsPath,
   DEFAULT_STORE_BACKEND,
   exportedDocument,
   dateFilterWindows,
   findingLine,
   gitPortAt,
+  hostOrigin,
   LocalEngine,
   MAX_SEARCH_LIMIT,
   nodeToWire,
@@ -42,6 +46,7 @@ import {
   parseIdentity,
   postgresUrlMissing,
   promoteToWire,
+  readCredentials,
   readRuntimeConfig,
   requireTimeZone,
   resolveBinding,
@@ -53,6 +58,7 @@ import {
   treeToWire,
   triageToWire,
   upgradeSchema,
+  urlOrigin,
   warnConfigPermissions,
   withConfigDoctor,
 } from '@mimir/core';
@@ -65,6 +71,7 @@ import type {
   SqliteHandle,
   Store,
 } from '@mimir/core';
+import { RemoteEngine } from '@mimir/wire/client';
 
 import { annotateCommand } from './commands/annotate';
 import { artifactsCommand } from './commands/artifacts';
@@ -116,10 +123,28 @@ import type { Ports } from './ports';
 import { MIMIR_SKILL } from './skill-files';
 import { VERSION } from './version';
 
-/** Where the CLI's work state and binding come from. */
-export type CliSource = {
-  /** The store, opened on first ask; the caller owns closing it. */
-  store: () => Promise<Store>;
+/** A host that owns the store, reached over the wire (ADR 0038). */
+export type RemoteSource = {
+  /** The Engine, built on first ask; a config or credentials refusal surfaces here. */
+  engine: () => Promise<Engine>;
+  /** The host's origin; refuses a broken `[host]` with its fix. */
+  origin: () => string;
+};
+
+/**
+ * Where the CLI's work state and binding come from. Work state is a local
+ * store or a remote host, never both: each store has one owner.
+ */
+export type CliSource = CliSourceEdges &
+  (
+    | {
+        /** The store, opened on first ask; the caller owns closing it. */
+        store: () => Promise<Store>;
+      }
+    | { remote: RemoteSource }
+  );
+
+type CliSourceEdges = {
   /** The clone the binding is read from and written to. */
   git: GitPort;
   /** Ask a yes/no question on the terminal; defaults to a prompt on this process's streams. */
@@ -180,6 +205,192 @@ const refuse = (what: string) => (): never => {
   throw new MimirUsageError(`${what} is unavailable in this context`);
 };
 
+/**
+ * `doctor` and `store` in remote mode, where the host owns the store and
+ * mimir-host administers it (ADR 0038). Each refuses before it reads or writes
+ * anything, and a broken `[host]` refuses first with its own fix.
+ */
+function remoteMachineWork(remote: RemoteSource): Pick<Machine, 'doctor' | 'store'> {
+  const refuseStore = (): never => {
+    throw new MimirError(
+      'invariant',
+      `mimir store acts on a local store, and this install's store lives on the host at ${remote.origin()}`,
+      'export or import the board inside the host container: mimir-host store --help',
+    );
+  };
+  return {
+    doctor: {
+      diagnose: () => {
+        throw new MimirError(
+          'invariant',
+          `mimir doctor checks a local store, and this install's store lives on the host at ${remote.origin()}`,
+          "check the store's health inside the host container: mimir-host doctor",
+        );
+      },
+    },
+    store: {
+      documentExists: refuseStore,
+      export: refuseStore,
+      import: refuseStore,
+      readDocument: refuseStore,
+      upgrade: () => {
+        throw new MimirError(
+          'invariant',
+          `this install's store lives on the host at ${remote.origin()}, which migrates it when it starts`,
+          'update the host to upgrade its store',
+        );
+      },
+      writeDocument: refuseStore,
+    },
+  };
+}
+
+/** Sends one request to the host; `fetch` outside tests. */
+export type HostSend = (request: Request) => Promise<Response>;
+
+type WireFetch = NonNullable<ConstructorParameters<typeof RemoteEngine>[0]['fetch']>;
+
+const isObject = (value: unknown): value is object => typeof value === 'object' && value !== null;
+
+/** A tRPC answer: an object holding a `result` or an `error` object. */
+const isEnvelope = (body: unknown): boolean =>
+  isObject(body) && (isObject(Reflect.get(body, 'result')) || isObject(Reflect.get(body, 'error')));
+
+/**
+ * The wire's fetch: each request goes to the host as sent, and the transport
+ * failures a CLI can act on become refusals with their remedy. A redirect is
+ * refused rather than followed, so the bearer token goes only to the origin it
+ * was issued by.
+ */
+function hostFetch(origin: string, send: HostSend): WireFetch {
+  const pair = `mimir pair ${origin}`;
+  return async (input, init) => {
+    let response: Response;
+    try {
+      response = await send(new Request(input, { ...init, redirect: 'manual' }));
+    } catch (error) {
+      throw new MimirError(
+        'invariant',
+        `cannot reach the host at ${origin}${error instanceof Error ? ` (${error.message})` : ''}`,
+        'check that the host is running and that this machine can reach it',
+      );
+    }
+    if (response.status === 401) {
+      throw new MimirError('invariant', `the host at ${origin} refused this device's token`, pair);
+    }
+    if (response.status >= 300 && response.status < 400) {
+      // Only the target's origin is shown: the parser normalizes it, so a
+      // hostile Location header cannot write raw text to the terminal.
+      const target = urlOrigin(response.headers.get('location'));
+      throw new MimirError(
+        'invariant',
+        `the host at ${origin} redirected${target === undefined ? '' : ` to ${target}`}`,
+        target === undefined
+          ? 'set [host] url to the address the host serves, then pair with it'
+          : `if the host now serves ${target}, pair with it: mimir pair ${target}`,
+      );
+    }
+    if (response.status === 502 || response.status === 503 || response.status === 504) {
+      throw new MimirError(
+        'invariant',
+        `the host at ${origin} is unavailable (HTTP ${String(response.status)})`,
+        'check that the host is running, then retry',
+      );
+    }
+    // Something other than a host (a proxy's error page, another service, the
+    // console's HTML shell) answers without the tRPC envelope the wire reads:
+    // one JSON object holding a `result` or an `error` object.
+    let body: unknown;
+    try {
+      body = JSON.parse(await response.text());
+    } catch {
+      body = undefined;
+    }
+    if (!isEnvelope(body)) {
+      throw new MimirError(
+        'invariant',
+        `the host at ${origin} answered HTTP ${String(response.status)} without a Mimir response`,
+        'check that [host] url names a mimir host',
+      );
+    }
+    return { json: () => Promise.resolve(body), ok: response.ok };
+  };
+}
+
+/**
+ * The Engine with every failure that is not already a refusal (a fault inside
+ * the host, an answer the wire cannot read) turned into one that names the
+ * host, so it never reaches the user as an unhandled exception.
+ */
+function hostEngine(engine: Engine, origin: string): Engine {
+  return new Proxy(engine, {
+    get(target, key, receiver) {
+      const value: unknown = Reflect.get(target, key, receiver);
+      if (typeof value !== 'function') {
+        return value;
+      }
+      return async (...args: unknown[]) => {
+        try {
+          return await Reflect.apply(value, target, args);
+        } catch (error) {
+          if (error instanceof MimirError) {
+            throw error;
+          }
+          throw new MimirError(
+            'invariant',
+            `the host at ${origin} could not complete the request${error instanceof Error ? ` (${error.message})` : ''}`,
+            "check the host's logs, or run mimir-host doctor inside the host container",
+          );
+        }
+      };
+    },
+  });
+}
+
+/**
+ * The host the config names, reached through RemoteEngine with this device's
+ * bearer token and this CLI's version. The config and credentials are checked
+ * on first ask, before any request is sent.
+ */
+export function remoteSource(options: {
+  config: GlobalConfig;
+  /** The config file the refusals name. */
+  configFile: string;
+  credentialsFile: string;
+  fetch?: HostSend;
+}): RemoteSource {
+  const origin = () => hostOrigin(options.config, options.configFile);
+  return {
+    engine: async () => {
+      const host = origin();
+      const { token } = readCredentials(host, options.credentialsFile);
+      return hostEngine(
+        new RemoteEngine({
+          fetch: hostFetch(host, options.fetch ?? ((request) => fetch(request))),
+          headers: { authorization: `Bearer ${token}` },
+          url: `${host}/trpc`,
+          version: VERSION,
+        }),
+        host,
+      );
+    },
+    origin,
+  };
+}
+
+/**
+ * Where a run's work state comes from: the host when the config has a
+ * `[host]` section, usable or not, so a broken one refuses through remote mode
+ * rather than opening a local store in the host's place; otherwise `store`.
+ */
+export function workStateSource(
+  config: GlobalConfig,
+  store: () => Promise<Store>,
+  files: { configFile: string; credentialsFile: string },
+): { store: () => Promise<Store> } | { remote: RemoteSource } {
+  return config.host === undefined ? { store } : { remote: remoteSource({ config, ...files }) };
+}
+
 /** The machine services for a context that supplies none: every use is a usage error. */
 function unavailableMachine(): Machine {
   return {
@@ -233,14 +444,15 @@ async function upgradeStore(source: MachineSource) {
   }
 }
 
-/** The machine services over one source, the clone, and the store, each opened on first ask. */
+/** The machine services over one source, the clone, and the doctor and store services. */
 function machineOver(
   source: MachineSource,
   git: GitPort,
   getEngine: () => Promise<Engine>,
-  getStore: () => Promise<Store>,
+  work: Pick<Machine, 'doctor' | 'store'>,
 ): Machine {
   return {
+    ...work,
     binding: {
       bind: async (key) => {
         const { recordedRemote } = await bindClone(await getEngine(), git, key);
@@ -260,6 +472,16 @@ function machineOver(
       },
       legacyFilePresent: () => existsSync(join(source.cwd, LEGACY_BINDING_FILE)),
     },
+    version: VERSION,
+  };
+}
+
+/** `doctor` and `store` over the local store, opened on first ask. */
+function localMachineWork(
+  source: MachineSource,
+  getStore: () => Promise<Store>,
+): Pick<Machine, 'doctor' | 'store'> {
+  return {
     doctor: {
       diagnose: async (scope) => {
         const { findings, scope: match } = await (await fatalOnOpen(source.doctor)).diagnose(scope);
@@ -280,7 +502,6 @@ function machineOver(
       upgrade: () => upgradeStore(source),
       writeDocument: writeDocumentFile,
     },
-    version: VERSION,
   };
 }
 
@@ -288,9 +509,31 @@ function machineOver(
 export function corePorts(source: CliSource): Ports {
   let engine: Promise<Engine> | undefined;
   const getEngine = (): Promise<Engine> => {
-    engine ??= (async () => new LocalEngine(await fatalOnOpen(source.store)))();
+    engine ??=
+      'remote' in source
+        ? source.remote.engine()
+        : (async () => new LocalEngine(await fatalOnOpen(source.store)))();
     return engine;
   };
+  // Remote mode refuses store even where no machine source is given.
+  let machine: Machine;
+  if ('remote' in source) {
+    const work = remoteMachineWork(source.remote);
+    machine =
+      source.machine === undefined
+        ? { ...unavailableMachine(), ...work }
+        : machineOver(source.machine, source.git, getEngine, work);
+  } else {
+    machine =
+      source.machine === undefined
+        ? unavailableMachine()
+        : machineOver(
+            source.machine,
+            source.git,
+            getEngine,
+            localMachineWork(source.machine, () => fatalOnOpen(source.store)),
+          );
+  }
   return {
     confirm: source.confirm ?? promptYesNo,
     engine: getEngine,
@@ -307,10 +550,7 @@ export function corePorts(source: CliSource): Ports {
       maxSearchLimit: MAX_SEARCH_LIMIT,
       timeZone: requireTimeZone,
     },
-    machine:
-      source.machine === undefined
-        ? unavailableMachine()
-        : machineOver(source.machine, source.git, getEngine, () => fatalOnOpen(source.store)),
+    machine,
     scope: (notify) => bindingScope(getEngine, source.git, notify)(),
     wire: {
       artifact: artifactToWire,
@@ -406,8 +646,12 @@ export function createApp(source: CliSource) {
   );
 }
 
-/** Run this process's argv against the configured store, then release the store. */
+/**
+ * Run this process's argv against the configured store, or the host `[host]`
+ * names, then release the store.
+ */
 export async function runMimir(): Promise<number> {
+  const config = readRuntimeConfig();
   let built: BuiltStore | undefined;
   const getBuilt = async (): Promise<BuiltStore> => {
     built ??= await buildStore();
@@ -440,7 +684,10 @@ export async function runMimir(): Promise<number> {
       readConfig: readRuntimeConfig,
       readStdin: () => Bun.stdin.text(),
     },
-    store: async () => (await getBuilt()).store,
+    ...workStateSource(config, async () => (await getBuilt()).store, {
+      configFile: configPath(),
+      credentialsFile: credentialsPath(),
+    }),
   });
   try {
     return await app.run();

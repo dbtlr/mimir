@@ -162,6 +162,32 @@ test('an unusable [store] section is fatal, never a fallback to another store', 
   }
 });
 
+// Each store has one owner (ADR 0038): an install that names a host keeps no
+// local store, so a CLI that cannot reach the host opens none in its place.
+test('a config with a usable [host] builds no local store', async () => {
+  const refusal: unknown = await buildStore({
+    host: { url: 'https://mimir.example.test' },
+    store: {},
+  }).catch((error: unknown) => error);
+  expect(refusal).toBeInstanceOf(MimirError);
+  expect((refusal as MimirError).message).toContain(`[host] is set in ${configPath()}`);
+  expect((refusal as MimirError).hint).toBe(
+    'use a mimir release with remote mode, or remove [host] to use a local store',
+  );
+});
+
+// A broken `[host]` is refused with its own fix, as remote mode would refuse it.
+test('a config with a broken [host] builds no local store and names the fix', async () => {
+  for (const [host, hint] of [
+    [{ problem: 'invalid-url' }, "set [host] url to the host's http or https URL"],
+    [{ problem: 'with-store' }, 'keep one: remove [store] to use the host'],
+  ] as const) {
+    const refusal: unknown = await buildStore({ host, store: {} }).catch((error: unknown) => error);
+    expect(refusal).toBeInstanceOf(MimirError);
+    expect((refusal as MimirError).hint).toStartWith(hint);
+  }
+});
+
 test('a removed norn backend names the removal and the export path to migrate', async () => {
   let message = '';
   try {
