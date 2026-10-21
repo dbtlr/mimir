@@ -56,6 +56,8 @@ test.each([
   ['update', ['update', '--help']],
   ['bind', ['bind', '--help']],
   ['doctor', ['doctor', '--help']],
+  // MMR-579: pairing with a host.
+  ['pair', ['pair', '--help']],
   ['store', ['store', '--help']],
   ['store-import', ['store', 'import', '--help']],
   ['version', ['version', '--help']],

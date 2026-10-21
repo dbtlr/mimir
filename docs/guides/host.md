@@ -313,6 +313,64 @@ then the bearer check. Console server functions use the local Engine and require
 neither header. See [ADR 0038](../decisions/0038-device-pairing-and-the-version-window.md)
 for the credential lifecycle and compatibility window.
 
+### Pair the CLI with a host
+
+`mimir pair` files the request, shows the code to approve, waits for the
+decision, and then saves the result. It needs no config, and it repairs a
+broken `[host]` or credentials file:
+
+```sh
+mimir pair http://mimir.example.ts.net:64647
+```
+
+```text
+pairing code K7QM-2P9D
+approve with mimir-host approve K7QM-2P9D on the host
+or open http://mimir.example.ts.net:64647/pair?code=K7QM-2P9D
+the request expires at 2026-10-21 14:32 EDT
+Waiting for approval
+[ok] paired as valhalla with http://mimir.example.ts.net:64647 (host 0.26.0)
+```
+
+The code, approval command, console link, and expiry go to stderr. The final
+line goes to stdout. With `-f json` or `-f jsonl`, stdout holds one record,
+`{"device":"valhalla","origin":"http://mimir.example.ts.net:64647","host_version":"0.26.0"}`.
+The command never prints the device token.
+
+- **The URL.** Only its origin is used. In a terminal, omit it to be asked.
+  Elsewhere, a missing URL is a usage error.
+- **`--device <name>`.** The name this machine pairs as, sent as given. Without
+  it, the name is the first label of the hostname, lowercased: `Valhalla.local`
+  pairs as `valhalla`.
+- **The wait.** The CLI polls at the interval the host states. A poll that
+  cannot reach the host is noted once on stderr, and the wait goes on until the
+  request expires. A denied or expired request, a definite error, and Ctrl-C
+  end the run without writing anything.
+- **A config it cannot edit.** A `config.toml` that is not valid TOML, or that
+  holds `host` as an inline table or dotted key, refuses before the request is
+  filed, so no approval is wasted.
+- **What it writes.** After approval, `credentials.toml` (mode `0600`) and then
+  `[host] url` in `config.toml`. The edit keeps comments and other settings.
+- **Pairing again.** The same origin replaces both files and rotates the token,
+  with no question. A different origin asks "Replace the pairing with
+  `<origin>`?" in a terminal, before it files a request. `--yes`, `--no-input`,
+  or a run outside a terminal skip the question and warn on stderr that the
+  device stays paired on the old host until `mimir-host unpair <device>` runs
+  there. Both name the device the old host knows, from the recorded
+  credentials.
+- **`--no-input`.** Asks no questions, so a script never blocks. `-y` or
+  `--yes` answers the replacement question.
+- **A local store.** A `config.toml` with `[store]` makes `mimir pair` refuse and
+  write nothing. Pairing would leave that board behind. Export it with
+  `mimir store export board.json`, import it on the host as described in
+  [Back up the store](#back-up-the-store) with `mimir-host store import - --apply`,
+  remove `[store]` from `config.toml`, and run `mimir pair` again. The command
+  never removes `[store]` itself.
+
+The CLI checks `/health` and its version window before it files a request, and
+refuses with the remedy (update this CLI, or update the host first) when it is
+outside.
+
 ### Pair devices from the console
 
 The console approves and unpairs devices without a shell on the host.

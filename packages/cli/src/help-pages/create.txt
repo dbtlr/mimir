@@ -10,6 +10,7 @@ COMMANDS
   task        Create a task under a phase or initiative.
 
 GLOBAL OPTIONS
-  -h, --help  Show this help.
+  -h, --help      Show this help.
+      --no-input  Ask no questions, and take every answer from options.  (default: true)
 
 Run mimir create <command> --help for command details.

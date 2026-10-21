@@ -7,6 +7,7 @@ import type { TestStore } from '@mimir/core/testing';
 
 import { RemoteEngine } from './client';
 import { createEngineHandler } from './server';
+import { versionWindow } from './version-window';
 
 let fixture: TestStore;
 let authorization: string;
@@ -209,3 +210,35 @@ test.each(['projects,projectsLegacy', 'projects%2CprojectsLegacy'])(
     expect(await response.json()).toMatchObject([refusal, refusal]);
   },
 );
+
+// The pure rule (ADR 0038): below the minimum by full SemVer, above the host by major.minor only.
+test.each([
+  ['0.26.0', '0.26.0', 'inside'],
+  ['0.26.0-next', '0.26.0-next.10', 'inside'],
+  ['0.26.0-next.2', '0.26.0', 'inside'],
+  ['0.26.0-next.11', '0.26.0-next.10', 'inside'],
+  ['0.26.99', '0.26.0', 'inside'],
+  ['v0.26.1+build.2', '0.26.0', 'inside'],
+  ['0.27.1', '0.28.0', 'inside'],
+  ['0.25.99', '0.26.0', 'below-minimum'],
+  ['0.26.0-alpha.9', '0.26.0', 'below-minimum'],
+  ['0.27.0-next.1', '0.26.0', 'above-host'],
+  ['0.27.0', '0.26.5', 'above-host'],
+  ['1.0.0', '0.26.0', 'above-host'],
+  ['1.0.0', '1.0.0-rc.1', 'inside'],
+  ['garbage', '0.26.0', 'malformed'],
+  ['0.26', '0.26.0', 'malformed'],
+  ['0.26.0', 'unknown', 'malformed'],
+] as const)('client %s against host %s is %s', (version, host, verdict) => {
+  expect(versionWindow(version, host, '0.26.0-next')).toBe(verdict);
+});
+
+test('the minimum client defaults to the contract constant', () => {
+  expect(versionWindow('0.0.1', '0.26.0')).toBe('below-minimum');
+  expect(versionWindow('0.26.0', '0.26.0')).toBe('inside');
+});
+
+// A host's /health minimum is its own text; one that is not SemVer must not throw.
+test('a minimum client that is not SemVer is malformed, not a thrown error', () => {
+  expect(versionWindow('0.26.0', '0.26.0', 'soon')).toBe('malformed');
+});

@@ -59,6 +59,67 @@ export type DocumentRead =
 /** Whether a document write created its file, or found the path taken. */
 export type DocumentWrite = 'written' | 'exists';
 
+/** What `/health` told a pairing about the host. */
+export type PairingHost = { version: string; minClient: string };
+
+/** Where this build sits against a host's version window. */
+export type WindowVerdict = 'inside' | 'malformed' | 'below-minimum' | 'above-host';
+
+/** A filed pairing request: the code for the operator, and what the wait needs. */
+export type PairingFiled = {
+  userCode: string;
+  /** Stays on this device; only `poll` reads it. */
+  pollSecret: string;
+  /** ISO-8601 instant the request lapses. */
+  expiresAt: string;
+  /** Seconds between polls. */
+  interval: number;
+};
+
+/**
+ * A poll's answer. `unreachable` is a failure a later poll may recover from;
+ * every definite failure is thrown as a refusal instead.
+ */
+export type PairingPoll =
+  | { status: 'pending' | 'denied' | 'expired' | 'unreachable' }
+  | { status: 'approved'; device: string; token: string };
+
+/**
+ * What `pair` needs from the machine: the host's pre-credential routes, the
+ * config and credentials files it writes, and the clock and hostname it
+ * reads. It never needs the Engine, because pairing is what repairs a broken
+ * `[host]` or credentials file.
+ */
+export type Pairing = {
+  /** The config file, which refusals name. */
+  configFile: string;
+  /** The origin of an http or https URL, or undefined for anything else. */
+  origin: (url: string) => string | undefined;
+  /** Whether the config declares `[store]`, a local board that pairing would orphan. */
+  declaresStore: () => boolean;
+  /**
+   * The pairing the config holds now: the origin its `[host]` names, if usable, and the
+   * device name that host knows this machine by, when the credentials record one for it.
+   */
+  previous: () => { origin: string; device: string | undefined } | undefined;
+  /** Refuse now, writing nothing, if `[host] url` could not be set to `origin` later. */
+  preflight: (origin: string) => void;
+  /** This machine's hostname, as the operating system reports it. */
+  hostname: () => string;
+  /** Epoch milliseconds. */
+  now: () => number;
+  /** Wait `ms`; throws the signal's reason when `signal` aborts first. */
+  sleep: (ms: number, signal: AbortSignal) => Promise<void>;
+  health: (origin: string) => Promise<PairingHost>;
+  /** This build against the host's window. */
+  window: (host: PairingHost) => WindowVerdict;
+  /** File the request; a refusal is thrown with its remedy. */
+  file: (origin: string, device: string) => Promise<PairingFiled>;
+  poll: (origin: string, pollSecret: string) => Promise<PairingPoll>;
+  /** Write the credentials, then `[host] url`. */
+  save: (pairing: { origin: string; device: string; token: string }) => void;
+};
+
 export type Machine = {
   /** The running build's version. */
   version: string;
@@ -75,6 +136,7 @@ export type Machine = {
     legacyFilePresent: () => boolean;
   };
   doctor: { diagnose: (scope: string | undefined) => Promise<Diagnosis> };
+  pair: Pairing;
   store: {
     /** Move the configured database's schema to this build's. */
     upgrade: () => Promise<UpgradeReport>;

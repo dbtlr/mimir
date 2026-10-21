@@ -9,6 +9,7 @@ COMMANDS
   import   Read a transfer document into the store. A preview unless --apply is given. Prints prose on a terminal and json when piped.
 
 GLOBAL OPTIONS
-  -h, --help  Show this help.
+  -h, --help      Show this help.
+      --no-input  Ask no questions, and take every answer from options.  (default: true)
 
 Run mimir store <command> --help for command details.

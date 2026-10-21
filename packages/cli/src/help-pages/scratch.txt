@@ -14,6 +14,7 @@ COMMANDS
   discard     Discard a scratchpad. A scratchpad with work in it needs --force.
 
 GLOBAL OPTIONS
-  -h, --help  Show this help.
+  -h, --help      Show this help.
+      --no-input  Ask no questions, and take every answer from options.  (default: true)
 
 Run mimir scratch <command> --help for command details.
