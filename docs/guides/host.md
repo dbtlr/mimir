@@ -275,12 +275,12 @@ covers the whole host and resets when the host restarts. Malformed requests,
 `409` refusals, and store faults create nothing and do not count toward it.
 
 The operator approves or denies the request on the host by its user code,
-either in the console (see [Pair devices from the console](#pair-devices-from-the-console))
-or with the commands below. The code is read case-insensitively, with the hyphen optional. Denying an approved
-request that its client has not collected withdraws the approval, and the next
-poll answers `denied`. Unpairing a device discards its requests, so an approval
-it has not collected never mints a token. Decide requests with
-[`mimir-host`](#administer-the-host-with-mimir-host):
+in the console (see [Pair devices from the console](#pair-devices-from-the-console))
+or with [`mimir-host`](#administer-the-host-with-mimir-host). The code is read
+case-insensitively, with the hyphen optional. Denying an approved request that
+its client has not collected withdraws the approval, and the next poll answers
+`denied`. Unpairing a device discards its requests, so an approval it has not
+collected never mints a token. From a shell:
 
 ```sh
 docker compose -f deploy/compose.yaml exec mimir mimir-host pending
