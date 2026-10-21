@@ -54,8 +54,10 @@ export type PairingFiled = {
   pollSecret: string;
   /** ISO-8601 instant the request lapses. */
   expiresAt: string;
-  /** Seconds to wait between polls. */
+  /** Seconds to wait between polls, held to {@link MIN_INTERVAL}..{@link MAX_INTERVAL}. */
   interval: number;
+  /** The host's clock at filing (epoch milliseconds, from its `Date` header), when it sent one. */
+  hostNow?: number;
 };
 
 /** A poll's answer. `approved` carries the device token once; the other states end or continue the wait. */
@@ -78,6 +80,9 @@ const answerSchema = z.discriminatedUnion('status', [
 const conflictSchema = z.object({ error: z.string(), hint: z.string().optional() });
 
 const DEFAULT_TIMEOUT_MS = 15_000;
+/** Bounds on the host's poll interval, in seconds: a huge value overflows a timer, a tiny one hammers the host. */
+const MIN_INTERVAL = 1;
+const MAX_INTERVAL = 60;
 
 /** Which route a request is for, since the same status means different things on each. */
 type Route = 'health' | 'request' | 'poll';
@@ -105,19 +110,24 @@ export class HostClient {
     const filed = this.#answer('request', answer, filedSchema);
     return {
       expiresAt: filed.expires_at,
-      interval: filed.interval,
+      ...(answer.hostNow === undefined ? {} : { hostNow: answer.hostNow }),
+      interval: Math.min(Math.max(filed.interval, MIN_INTERVAL), MAX_INTERVAL),
       pollSecret: filed.poll_secret,
       userCode: filed.user_code,
     };
   }
 
-  /** Ask whether the request the secret names has been decided. */
-  async pollPairing(pollSecret: string): Promise<PairingAnswer> {
-    const answer = await this.#send('/auth/pairing/poll', { poll_secret: pollSecret });
+  /**
+   * Ask whether the request the secret names has been decided. An abort of
+   * `signal` ends the request at once, as a transient failure the caller
+   * reads against its own signal.
+   */
+  async pollPairing(pollSecret: string, signal?: AbortSignal): Promise<PairingAnswer> {
+    const answer = await this.#send('/auth/pairing/poll', { poll_secret: pollSecret }, signal);
     return this.#answer('poll', answer, answerSchema);
   }
 
-  async #send(path: string, body: object | undefined): Promise<Answer> {
+  async #send(path: string, body: object | undefined, abort?: AbortSignal): Promise<Answer> {
     const url = `${this.origin}${path}`;
     let response: Response;
     try {
@@ -129,7 +139,10 @@ export class HostClient {
               headers: { 'content-type': 'application/json' },
               method: 'POST',
             }),
-        signal: AbortSignal.timeout(this.#timeoutMs),
+        signal:
+          abort === undefined
+            ? AbortSignal.timeout(this.#timeoutMs)
+            : AbortSignal.any([abort, AbortSignal.timeout(this.#timeoutMs)]),
       });
     } catch {
       // The cause is dropped: a transport error can quote the request it failed on.
@@ -141,15 +154,24 @@ export class HostClient {
       );
     }
     const json: unknown = await response.json().catch(() => undefined);
-    return { json, retryAfter: retryAfterOf(response), status: response.status };
+    return {
+      hostNow: hostNowOf(response),
+      json,
+      retryAfter: retryAfterOf(response),
+      status: response.status,
+    };
   }
 
   #answer<T>(route: Route, answer: Answer, schema: z.ZodType<T>): T {
     if (answer.status === 429 && route === 'request') {
       throw rateLimited(answer);
     }
-    const transient = answer.status >= 500 || answer.json === undefined;
-    if (transient || (route === 'poll' && (answer.status === 408 || answer.status === 429))) {
+    // Worth retrying: a 5xx, 408, a poll's 429, and an answer that is no host's (a captive page).
+    // Any other 4xx is the host's or its proxy's definite answer, whatever its body.
+    const clientError = answer.status >= 400 && answer.status < 500;
+    const transient =
+      answer.status >= 500 || answer.status === 408 || (answer.json === undefined && !clientError);
+    if (transient || (route === 'poll' && answer.status === 429)) {
       throw this.#transient(answer);
     }
     if (answer.status === 200) {
@@ -222,7 +244,12 @@ export class HostClient {
   }
 }
 
-type Answer = { json: unknown; retryAfter: number | undefined; status: number };
+type Answer = {
+  hostNow: number | undefined;
+  json: unknown;
+  retryAfter: number | undefined;
+  status: number;
+};
 
 function rateLimited(answer: Answer): HostRequestError {
   const wait = answer.retryAfter === undefined ? 'a while' : `${String(answer.retryAfter)} seconds`;
@@ -238,4 +265,11 @@ function rateLimited(answer: Answer): HostRequestError {
 function retryAfterOf(response: Response): number | undefined {
   const value = response.headers.get('retry-after');
   return value !== null && /^\d+$/.test(value) ? Number(value) : undefined;
+}
+
+/** The host's `Date` header as epoch milliseconds; junk reads as absent. */
+function hostNowOf(response: Response): number | undefined {
+  const value = response.headers.get('date');
+  const at = value === null ? Number.NaN : Date.parse(value);
+  return Number.isNaN(at) ? undefined : at;
 }

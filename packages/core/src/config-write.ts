@@ -25,6 +25,9 @@ const HOST_HEADER = /^[ \t]*\[[ \t]*host[ \t]*\][ \t]*(#.*)?\r?\n?$/;
 const TABLE_START = /^[ \t]*\[/;
 const URL_KEY = /^[ \t]*(url|"url"|'url')[ \t]*=/;
 const LINE_END = /\r?\n$/;
+/** After a quoted value: the spacing and `# comment` that trail it, then the line end. */
+const TRAILING_COMMENT = /=[ \t]*(?:"(?:[^"\\\n]|\\.)*"|'[^'\n]*')([ \t]*#[^\n]*?)(?=\r?\n?$)/;
+const BOM = '\uFEFF';
 
 function parseConfig(text: string): Table | undefined {
   try {
@@ -56,7 +59,10 @@ export function planHostUrl(origin: string, file: string = configPath()): HostUr
   }
   // Edit through a symlinked config rather than replacing the link.
   const target = existsSync(file) ? realpathSync(file) : file;
-  const current = existsSync(target) ? readFileSync(target, 'utf8') : '';
+  const raw = existsSync(target) ? readFileSync(target, 'utf8') : '';
+  // A byte order mark is not TOML; the edit works on the text after it and puts it back.
+  const bom = raw.startsWith(BOM) ? BOM : '';
+  const current = raw.slice(bom.length);
   const before = parseConfig(current);
   if (before === undefined) {
     throw invariant(`${target} is not valid TOML`, `fix its syntax, then run the command again`);
@@ -69,7 +75,7 @@ export function planHostUrl(origin: string, file: string = configPath()): HostUr
   if (!isDeepStrictEqual(parseConfig(candidate), expected)) {
     throw unchangeable(target, origin);
   }
-  return { target, text: candidate };
+  return { target, text: `${bom}${candidate}` };
 }
 
 /**
@@ -78,7 +84,15 @@ export function planHostUrl(origin: string, file: string = configPath()): HostUr
  * planned (and so refused) before anything is written; see {@link planHostUrl}.
  */
 export function setHostUrl(origin: string, file: string = configPath()): void {
-  const { target, text } = planHostUrl(origin, file);
+  writeHostUrlPlan(planHostUrl(origin, file));
+}
+
+/**
+ * Write a plan from {@link planHostUrl}. A caller with other files to write
+ * plans first, writes those, and writes the plan last, so a refusal never
+ * follows a write.
+ */
+export function writeHostUrlPlan({ target, text }: HostUrlPlan): void {
   mkdirSync(dirname(target), { mode: 0o700, recursive: true });
   const mode = existsSync(target) ? statSync(target).mode & 0o7777 : 0o600;
   writeFileAtomic(target, text, mode);
@@ -109,8 +123,10 @@ function withHostUrl(text: string, parsed: Table, origin: string, file: string):
     (line, index) => index > header && index < end && URL_KEY.test(line),
   );
   if (existing !== -1) {
-    const terminator = LINE_END.exec(lines[existing] ?? '')?.[0] ?? '';
-    lines[existing] = `${urlLine}${terminator}`;
+    const line = lines[existing] ?? '';
+    const terminator = LINE_END.exec(line)?.[0] ?? '';
+    const comment = TRAILING_COMMENT.exec(line)?.[1] ?? '';
+    lines[existing] = `${urlLine}${comment}${terminator}`;
   } else {
     const opener = lines[header] ?? '';
     lines[header] = LINE_END.test(opener) ? opener : `${opener}${eol}`;
@@ -136,5 +152,8 @@ function separator(text: string, eol: string): string {
  * file declares none.
  */
 export function configDeclaresStore(file: string = configPath()): boolean {
-  return existsSync(file) && parseConfig(readFileSync(file, 'utf8'))?.store !== undefined;
+  return (
+    existsSync(file) &&
+    parseConfig(readFileSync(file, 'utf8').replace(/^\uFEFF/, ''))?.store !== undefined
+  );
 }

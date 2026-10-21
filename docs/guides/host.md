@@ -329,23 +329,32 @@ approve with mimir-host approve K7QM-2P9D on the host
 or open http://mimir.example.ts.net:64647/pair?code=K7QM-2P9D
 the request expires at 2026-10-21 14:32 EDT
 Waiting for approval
-[ok] paired as valhalla with http://mimir.example.ts.net:64647 (host 0.26.0)
+[ok] paired as laptop with http://mimir.example.ts.net:64647 (host 0.26.0)
 ```
 
 The code, approval command, console link, and expiry go to stderr. The final
 line goes to stdout. With `-f json` or `-f jsonl`, stdout holds one record,
-`{"device":"valhalla","origin":"http://mimir.example.ts.net:64647","host_version":"0.26.0"}`.
+`{"device":"laptop","origin":"http://mimir.example.ts.net:64647","host_version":"0.26.0"}`.
 The command never prints the device token.
 
 - **The URL.** Only its origin is used. In a terminal, omit it to be asked.
   Elsewhere, a missing URL is a usage error.
 - **`--device <name>`.** The name this machine pairs as, sent as given. Without
-  it, the name is the first label of the hostname, lowercased: `Valhalla.local`
-  pairs as `valhalla`.
-- **The wait.** The CLI polls at the interval the host states. A poll that
-  cannot reach the host is noted once on stderr, and the wait goes on until the
-  request expires. A denied or expired request, a definite error, and Ctrl-C
-  end the run without writing anything.
+  it, the name is the first label of the hostname, lowercased: `Laptop.local`
+  pairs as `laptop`.
+- **The wait.** The CLI polls at the interval the host states, held between 1
+  and 60 seconds. While the host answers, only its own `denied` and `expired`
+  end the wait; the CLI's clock plays no part, so a clock that is off does not
+  end it early. The expiry the CLI shows is the host's stated time left,
+  counted from when the request was filed. A poll that cannot reach the host is
+  noted once on stderr, and the wait goes on until that time passes. A denied or
+  expired request, a definite error, and Ctrl-C end the run without writing
+  anything. Ctrl-C also stops a poll in flight. A poll that returns the
+  approval is always saved, even if Ctrl-C landed while it was in flight.
+- **A lost approval.** Collecting the token revokes the device's earlier one on
+  the host. When a poll fails and the next answer is `expired`, the approval may
+  have been collected before the connection failed. The CLI then says so and
+  asks you to run `mimir-host unpair <device>` on the host and pair again.
 - **A config it cannot edit.** A `config.toml` that is not valid TOML, or that
   holds `host` as an inline table or dotted key, refuses before the request is
   filed, so no approval is wasted.

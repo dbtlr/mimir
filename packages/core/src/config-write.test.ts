@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { readConfig } from './config';
-import { configDeclaresStore, planHostUrl, setHostUrl } from './config-write';
+import { configDeclaresStore, planHostUrl, setHostUrl, writeHostUrlPlan } from './config-write';
 import { MimirError } from './errors';
 
 /**
@@ -117,6 +117,31 @@ const edits: Case[] = [
     after: `[logging]\r\nlevel = "debug"\r\n\r\n[host]\r\nurl = "${ORIGIN}"\r\n`,
     before: '[logging]\r\nlevel = "debug"\r\n',
     name: 'CRLF files keep CRLF when appending',
+  },
+  {
+    after: `[host]\nurl = "${ORIGIN}" # keep me\nlabel = "home"\n`,
+    before: '[host]\nurl = "http://old.test" # keep me\nlabel = "home"\n',
+    name: 'a trailing comment on the url line is kept',
+  },
+  {
+    after: `[host]\r\nurl = "${ORIGIN}"\t# keep me\r\n`,
+    before: "[host]\r\nurl = 'http://old.test'\t# keep me\r\n",
+    name: 'a trailing comment after a literal string keeps its spacing and CRLF',
+  },
+  {
+    after: `[host]\nurl = "${ORIGIN}"\n`,
+    before: '[host]\nurl = "http://old.test#fragment"\n',
+    name: 'a # inside the old url is not mistaken for a comment',
+  },
+  {
+    after: `\uFEFF[host]\nurl = "${ORIGIN}"\n`,
+    before: '\uFEFF[host]\nurl = "http://old.test"\n',
+    name: 'a UTF-8 byte order mark before [host] is kept',
+  },
+  {
+    after: `\uFEFF[logging]\nlevel = "debug"\n\n[host]\nurl = "${ORIGIN}"\n`,
+    before: '\uFEFF[logging]\nlevel = "debug"\n',
+    name: 'a byte order mark stays first when a table is appended',
   },
   {
     after: `[host]\nurl = "${ORIGIN}"\n[host.extra]\nkey = 1\n`,
@@ -232,4 +257,14 @@ test('planning an absent file or a valid one writes nothing, and setHostUrl appl
   expect(readFileSync(file, 'utf8')).toBe(before);
   setHostUrl(ORIGIN, file);
   expect(readFileSync(file, 'utf8')).toBe(`# mine\n[host]\nurl = "${ORIGIN}"\n`);
+});
+
+test('writing a plan lands exactly the planned text, and keeps the file mode', () => {
+  writeFileSync(file, '[host]\nurl = "http://old.test"\n');
+  chmodSync(file, 0o640);
+  const plan = planHostUrl(ORIGIN, file);
+  expect(readFileSync(file, 'utf8')).toContain('old.test');
+  writeHostUrlPlan(plan);
+  expect(readFileSync(file, 'utf8')).toBe(plan.text);
+  expect(modeOf(file)).toBe(0o640);
 });

@@ -428,11 +428,22 @@ files `mimir pair` writes are unchanged.
   time, all on stderr. Stdout carries only the final result line, or one
   `{device, origin, host_version}` record under `-f json` and `-f jsonl`. The
   token is never printed.
-- **The wait survives a flaky network and a Ctrl-C.** A poll that cannot reach
-  the host is noted once on stderr and the wait goes on until `expires_at`. A
-  definite error, `denied`, `expired`, or reaching `expires_at` ends the run
-  with a non-zero exit and writes nothing. Ctrl-C ends the wait at once with
-  exit 130 and writes nothing.
+- **The wait survives a flaky network and a Ctrl-C.** The poll interval the
+  host states is held between 1 and 60 seconds. While the host answers, only
+  its own `denied` and `expired` end the wait, so a skewed client clock cannot
+  strand an approval. A local deadline stops only the retrying of failed polls:
+  the host's `expires_at` less its `Date` header at filing (10 minutes when the
+  header is absent), counted from the local filing time, plus a small margin.
+  The expiry the command shows uses the same correction. A poll that cannot
+  reach the host is noted once on stderr. A definite error (any 4xx other than
+  408 and 429 is definite, whatever its body), `denied`, `expired`, or reaching
+  the deadline ends the run with a non-zero exit and writes nothing. Ctrl-C ends
+  the wait and aborts a poll in flight, with exit 130 and nothing written. An
+  approval a poll returns is saved even if Ctrl-C landed meanwhile, because
+  collecting it already revoked the device's earlier token. When a poll fails
+  and a later one answers `expired`, the approval may have been collected
+  unseen, and the command says to run `mimir-host unpair <device>` and pair
+  again.
 - **The config edit is checked before a request is filed.** A `config.toml`
   that is not valid TOML, or that defines `host` in a form that cannot be edited
   in place (an inline table or a dotted key), refuses at once. The write after

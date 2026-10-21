@@ -60,7 +60,6 @@ import {
   scratchpadToWire,
   searchHitToWire,
   seedToWire,
-  setHostUrl,
   setToWire,
   treeToWire,
   triageToWire,
@@ -69,6 +68,7 @@ import {
   warnConfigPermissions,
   withConfigDoctor,
   writeCredentials,
+  writeHostUrlPlan,
 } from '@mimir/core';
 import type {
   BuiltStore,
@@ -489,9 +489,9 @@ function pairingOver(source: PairSource): Machine['pair'] {
     hostname: source.hostname ?? hostname,
     now,
     origin: urlOrigin,
-    poll: async (origin, pollSecret) => {
+    poll: async (origin, pollSecret, signal) => {
       try {
-        return await client(origin).pollPairing(pollSecret);
+        return await client(origin).pollPairing(pollSecret, signal);
       } catch (error) {
         if (error instanceof HostRequestError && error.transient) {
           return { status: 'unreachable' };
@@ -512,12 +512,15 @@ function pairingOver(source: PairSource): Machine['pair'] {
     },
     save: ({ device, origin, token }) => {
       try {
+        // The config is planned first: the file can change during the wait, and a
+        // refusal after the credentials were replaced would break the old pairing.
+        const plan = planHostUrl(origin, source.configFile);
         mkdirSync(dirname(source.credentialsFile), { mode: 0o700, recursive: true });
         writeCredentials(
           { device, issuedAt: new Date(now()).toISOString(), origin, token },
           source.credentialsFile,
         );
-        setHostUrl(origin, source.configFile);
+        writeHostUrlPlan(plan);
       } catch (error) {
         throw saveFailure(error);
       }

@@ -74,6 +74,8 @@ export type PairingFiled = {
   expiresAt: string;
   /** Seconds between polls. */
   interval: number;
+  /** The host's clock at filing, in epoch milliseconds, when it stated one. */
+  hostNow?: number;
 };
 
 /**
@@ -115,7 +117,8 @@ export type Pairing = {
   window: (host: PairingHost) => WindowVerdict;
   /** File the request; a refusal is thrown with its remedy. */
   file: (origin: string, device: string) => Promise<PairingFiled>;
-  poll: (origin: string, pollSecret: string) => Promise<PairingPoll>;
+  /** Ask once; an abort of `signal` ends the request, which then reads as `unreachable`. */
+  poll: (origin: string, pollSecret: string, signal: AbortSignal) => Promise<PairingPoll>;
   /** Write the credentials, then `[host] url`. */
   save: (pairing: { origin: string; device: string; token: string }) => void;
 };

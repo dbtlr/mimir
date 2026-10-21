@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { healthOf, readConfig, readCredentials, writeCredentials } from '@mimir/core';
 import { createTestStore, pairingHost } from '@mimir/core/testing';
 import type { TestStore } from '@mimir/core/testing';
+import { formatInstant } from '@mimir/helpers';
 
 import { createApp, remoteSource } from '../app';
 import type { PairSource } from '../app';
@@ -45,6 +46,12 @@ type HostState = {
   afterPoll: ((polls: number) => Promise<void>) | undefined;
   /** Runs inside each sleep, with the sleep count. */
   onSleep: ((sleeps: number) => void) | undefined;
+  /** Leave the `Date` header off the filing answer, as a host behind a bare proxy might. */
+  omitDate: boolean;
+  /** Hold every poll open until its request is aborted. */
+  hangPolls: boolean;
+  /** Whether a poll's request was aborted by the caller. */
+  pollAborted: boolean;
 };
 
 let fixture: TestStore;
@@ -65,9 +72,12 @@ beforeEach(async () => {
     afterPoll: undefined,
     approveAt: 1,
     filed: undefined,
+    hangPolls: false,
     intercept: undefined,
+    omitDate: false,
     onSleep: undefined,
     paths: [],
+    pollAborted: false,
     polls: 0,
     version: VERSION,
   };
@@ -88,12 +98,28 @@ async function hostFetch(input: string, init: RequestInit): Promise<Response> {
   host.paths.push(path);
   if (path === '/auth/pairing/poll') {
     host.polls += 1;
+    if (host.hangPolls) {
+      // A stalled connection: it ends only when the caller aborts the request.
+      for (;;) {
+        if (init.signal?.aborted) {
+          host.pollAborted = true;
+          throw new TypeError('aborted');
+        }
+        await Bun.sleep(5);
+      }
+    }
   }
   const response =
     (await host.intercept?.(path, host.polls)) ??
     (await pairingHost(fixture.tokens, host.version)(request));
   if (path === '/auth/pairing/requests' && response.ok) {
     host.filed = (await response.clone().json()) as NonNullable<HostState['filed']>;
+  }
+  if (path === '/auth/pairing/requests' && response.ok && !host.omitDate) {
+    // A real host stamps its own clock on every answer.
+    const headers = new Headers(response.headers);
+    headers.set('date', new Date().toUTCString());
+    return new Response(response.body, { headers, status: response.status });
   }
   if (path === '/auth/pairing/poll') {
     if (host.afterPoll === undefined) {
@@ -327,14 +353,61 @@ test('a request the host reports expired writes nothing', async () => {
   expectUntouched();
 });
 
-test('a request still pending at its expiry ends the wait and writes nothing', async () => {
-  host.approveAt = Number.POSITIVE_INFINITY;
+test('a host that keeps answering pending is waited on, whatever the local clock says', async () => {
+  // The local clock is an hour ahead: by it the request lapsed long ago. The host still has it pending.
+  clock += 3_600_000;
+  host.approveAt = 5;
   const run = await pair([ORIGIN, '--device', 'laptop']);
-  expect(run.exitCode).toBe(1);
-  expect(run.stderr).toContain('expired before the host approved it');
-  expect(host.polls).toBeGreaterThan(100);
-  expectUntouched();
+  expect(run.exitCode).toBe(0);
+  expect(host.polls).toBe(6);
+  expect(readConfig(configFile).host?.url).toBe(ORIGIN);
 });
+
+test('the expiry shown is corrected for the clock skew against the host', async () => {
+  const skew = 3_600_000;
+  const start = clock + skew;
+  clock = start;
+  const run = await pair([ORIGIN, '--device', 'laptop']);
+  expect(run.exitCode).toBe(0);
+  const zone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // Ten minutes from local filing, give or take the Date header's second.
+  const shown = [599_000, 600_000, 601_000].map((ms) => formatInstant(start + ms, zone));
+  expect(shown.some((text) => run.stderr.includes(`expires at ${text}`))).toBe(true);
+});
+
+test('without a Date header the request is taken to last ten minutes', async () => {
+  host.omitDate = true;
+  clock += 3_600_000;
+  const start = clock;
+  const run = await pair([ORIGIN, '--device', 'laptop']);
+  expect(run.exitCode).toBe(0);
+  const zone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const shown = [0, 1000].map((ms) => formatInstant(start + 600_000 + ms, zone));
+  expect(shown.some((text) => run.stderr.includes(`expires at ${text}`))).toBe(true);
+});
+
+test.each([
+  ['ahead', 3_600_000],
+  ['behind', -3_600_000],
+])(
+  'a host unreachable with the local clock %s still stops after the request lapses',
+  async (_name, skew) => {
+    clock += skew;
+    host.intercept = (path) => {
+      if (path === '/auth/pairing/poll') {
+        throw new TypeError('connection refused');
+      }
+      return undefined;
+    };
+    const run = await pair([ORIGIN, '--device', 'laptop']);
+    expect(run.exitCode).toBe(1);
+    expect(run.stderr).toContain('expired before the host approved it');
+    // Ten minutes of 2 second polls and a margin, not an endless retry.
+    expect(host.polls).toBeGreaterThan(290);
+    expect(host.polls).toBeLessThan(320);
+    expectUntouched();
+  },
+);
 
 test.each([
   [
@@ -503,6 +576,63 @@ test('a definite poll failure ends the wait at once', async () => {
   expectUntouched();
 });
 
+test('an expiry after a connection failure says the approval may have been collected', async () => {
+  host.intercept = (path, polls) => {
+    if (path !== '/auth/pairing/poll') {
+      return undefined;
+    }
+    return polls === 1
+      ? Response.json({ error: 'bad gateway' }, { status: 502 })
+      : Response.json({ status: 'expired' });
+  };
+  const run = await pair([ORIGIN, '--device', 'laptop']);
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr).toContain('the approval may have been collected before the connection failed');
+  expect(run.stderr).toContain('unpair laptop on the host (mimir-host unpair laptop)');
+  expect(run.stderr).toContain('run mimir pair again');
+  expectUntouched();
+});
+
+test('an expiry with no connection failure keeps the plain message', async () => {
+  host.intercept = (path) =>
+    path === '/auth/pairing/poll' ? Response.json({ status: 'expired' }) : undefined;
+  const run = await pair([ORIGIN, '--device', 'laptop']);
+  expect(run.stderr).toContain('expired before the host approved it');
+  expect(run.stderr).not.toContain('may have been collected');
+});
+
+test('an approval that arrives as Ctrl-C lands is still saved', async () => {
+  const controller = new AbortController();
+  host.approveAt = Number.POSITIVE_INFINITY;
+  // Approved before the first poll; the abort lands while that poll's answer is in flight.
+  host.onSleep = () => {
+    void fixture.tokens.approve(host.filed?.user_code ?? '');
+  };
+  host.afterPoll = async () => {
+    controller.abort();
+  };
+  const run = await pair([ORIGIN, '--device', 'laptop'], { signal: controller.signal });
+  expect([0, 130]).toContain(run.exitCode);
+  const credentials = readCredentials(ORIGIN, credentialsFile);
+  expect(await fixture.tokens.verify(credentials.token)).toBeTruthy();
+  expect(readConfig(configFile).host?.url).toBe(ORIGIN);
+  expectNoSecrets(run, credentials.token);
+});
+
+test('Ctrl-C stops a poll in flight at once', async () => {
+  const controller = new AbortController();
+  host.hangPolls = true;
+  setTimeout(() => {
+    controller.abort();
+  }, 30);
+  const started = performance.now();
+  const run = await pair([ORIGIN, '--device', 'laptop'], { signal: controller.signal });
+  expect(run.exitCode).toBe(130);
+  expect(host.pollAborted).toBe(true);
+  expect(performance.now() - started).toBeLessThan(3000);
+  expectUntouched();
+});
+
 test('Ctrl-C during the wait resolves 130 and writes nothing', async () => {
   const controller = new AbortController();
   host.approveAt = Number.POSITIVE_INFINITY;
@@ -564,17 +694,28 @@ test.each([
   expectUntouched(config);
 });
 
-test('a config that becomes uneditable during the wait still refuses at the write', async () => {
-  host.onSleep = (count) => {
-    if (count === 1) {
-      writeFileSync(configFile, 'host = { url = "http://old.test" }\n');
-    }
+test('a config that becomes uneditable during the wait refuses and leaves both files as they were', async () => {
+  const uneditable = 'host = { url = "http://old.test" }\n';
+  const recorded = {
+    device: 'laptop',
+    issuedAt: '2026-10-01T00:00:00.000Z',
+    origin: OTHER,
+    token: 'old-token',
   };
   await seedConfig('');
+  writeCredentials(recorded, credentialsFile);
+  const credentialsBefore = readFileSync(credentialsFile, 'utf8');
+  host.onSleep = (count) => {
+    if (count === 1) {
+      writeFileSync(configFile, uneditable);
+    }
+  };
   const run = await pair([ORIGIN, '--device', 'laptop']);
   expect(run.exitCode).toBe(1);
   expect(run.stderr).toContain('cannot be edited in place');
   expect(run.stderr).not.toContain('UNHANDLED');
+  expect(readFileSync(configFile, 'utf8')).toBe(uneditable);
+  expect(readFileSync(credentialsFile, 'utf8')).toBe(credentialsBefore);
 });
 
 test('the replacement names the device the old host recorded', async () => {
@@ -619,6 +760,41 @@ test('credentials recorded for another origin fall back to the new device name',
   expect(run.exitCode).toBe(0);
   expect(run.stderr).toContain(`unpair laptop on ${OTHER} (mimir-host unpair laptop)`);
   expect(run.stderr).not.toContain('stale');
+});
+
+// The host's words reach a terminal: whatever it names the device, no control sequence gets through.
+test.each([[[]], [['-f', 'json']]])(
+  'a device name with terminal controls from the host is not echoed raw (%j)',
+  async (flags) => {
+    host.intercept = (path) =>
+      path === '/auth/pairing/poll'
+        ? Response.json({ device: 'lap\u001B[2Jtop\u009B', status: 'approved', token: 'tok-1' })
+        : undefined;
+    const run = await pair([ORIGIN, '--device', 'laptop', ...flags]);
+    expect(run.exitCode).toBe(0);
+    expect(run.stdout).toContain('lap');
+    expect(run.stdout).not.toContain('\u001B[2J');
+    expect(run.stdout).not.toContain('\u009B');
+    expect(run.stderr).not.toContain('\u001B[2J');
+  },
+);
+
+test('a host message at filing with terminal controls is not echoed raw', async () => {
+  host.intercept = (path) =>
+    path === '/auth/pairing/requests'
+      ? Response.json(
+          { error: 'busy\u001B[2J\uE000now\uE003', hint: 'wait\u001B[2J\uE001more' },
+          { status: 409 },
+        )
+      : undefined;
+  const run = await pair([ORIGIN, '--device', 'laptop']);
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr).toContain('busy');
+  // The host's style marks arrive as literal characters; applied, they would vanish from the text.
+  expect(run.stderr).toContain('busy\uE000now\uE003');
+  expect(run.stderr).not.toContain('\u001B[2J');
+  expect(run.stderr).not.toContain('Internal error');
+  expect(run.stderr).not.toContain('Something went wrong');
 });
 
 test('the pair help lists the url, --device, --yes, and --no-input', async () => {

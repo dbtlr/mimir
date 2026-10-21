@@ -160,8 +160,29 @@ const transientFailures: [string, () => Promise<Response>][] = [
   ['a 500', async () => Response.json({ error: 'the request did not complete' }, { status: 500 })],
   ['a 502 proxy page', async () => new Response('<html>Bad Gateway</html>', { status: 502 })],
   ['a non-JSON 200', async () => new Response('<html>captive portal</html>', { status: 200 })],
-  ['a non-JSON 404', async () => new Response('404 page not found', { status: 404 })],
+  ['a non-JSON 408', async () => new Response('timeout', { status: 408 })],
+  ['a JSON 408', async () => Response.json({ error: 'timeout' }, { status: 408 })],
 ];
+
+// Only the network, a timeout, a 5xx, 408, and 429 are worth retrying; any other 4xx is the host's answer.
+const definiteFailures: [string, () => Promise<Response>][] = [
+  ['a proxy HTML 401', async () => new Response('<html>log in</html>', { status: 401 })],
+  ['a proxy HTML 403', async () => new Response('<html>forbidden</html>', { status: 403 })],
+  ['a non-JSON 404', async () => new Response('404 page not found', { status: 404 })],
+  ['a JSON 404', async () => Response.json({ error: 'nope' }, { status: 404 })],
+];
+
+test.each(definiteFailures)('%s is definite on a poll', async (_name, answer) => {
+  expect((await refusal(clientFor(answer).pollPairing('secret'))).transient).toBe(false);
+});
+
+test.each(definiteFailures)('%s is definite on a pairing request', async (_name, answer) => {
+  expect((await refusal(clientFor(answer).requestPairing('laptop'))).transient).toBe(false);
+});
+
+test.each(definiteFailures)('%s is definite on health', async (_name, answer) => {
+  expect((await refusal(clientFor(answer).health())).transient).toBe(false);
+});
 
 test.each(transientFailures)('%s is transient on a poll', async (_name, answer) => {
   const error = await refusal(clientFor(answer).pollPairing('secret'));
@@ -261,4 +282,57 @@ test('the origin is reduced to scheme and authority when building URLs', async (
   });
   await client.health();
   expect(seen).toEqual(['https://mimir.example.ts.net:8443/health']);
+});
+
+const filedBody = (interval: number) => ({
+  expires_at: '2026-10-21T12:10:00.000Z',
+  interval,
+  poll_secret: 'poll-secret-0123456789',
+  user_code: 'ABCD-EFGH',
+});
+
+test.each([
+  [0.01, 1],
+  [0.5, 1],
+  [2, 2],
+  [60, 60],
+  [61, 60],
+  [1e12, 60],
+])('a host interval of %p seconds is used as %p', async (stated, used) => {
+  const filed = await clientFor(async () => Response.json(filedBody(stated))).requestPairing(
+    'laptop',
+  );
+  expect(filed.interval).toBe(used);
+});
+
+test("the host's Date header is the host's clock at filing; absent or junk reads as absent", async () => {
+  const at = new Date('2026-10-21T12:00:00.000Z');
+  const dated = await clientFor(async () =>
+    Response.json(filedBody(2), { headers: { date: at.toUTCString() } }),
+  ).requestPairing('laptop');
+  expect(dated.hostNow).toBe(at.getTime());
+  for (const headers of [{}, { date: 'yesterday-ish' }]) {
+    const filed = await clientFor(async () =>
+      Response.json(filedBody(2), { headers }),
+    ).requestPairing('laptop');
+    expect(filed.hostNow).toBeUndefined();
+  }
+});
+
+test('an abort stops a poll in flight at once, as a transient failure', async () => {
+  const controller = new AbortController();
+  const client = new HostClient({
+    fetch: async (_input, init) => {
+      // Hangs until the request's signal aborts, as a stalled connection would.
+      for (let waited = 0; waited < 5000; waited += 5) {
+        init.signal?.throwIfAborted();
+        await Bun.sleep(5);
+      }
+      return Response.json({});
+    },
+    origin: ORIGIN,
+  });
+  const polling = refusal(client.pollPairing('secret', controller.signal));
+  controller.abort();
+  expect((await polling).transient).toBe(true);
 });

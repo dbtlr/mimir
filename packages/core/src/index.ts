@@ -43,7 +43,7 @@ export type { ArtifactStore } from './artifacts/store';
 export type { ScratchpadStore } from './scratchpads/store';
 export * from './env';
 export * from './config';
-export { configDeclaresStore, planHostUrl, setHostUrl } from './config-write';
+export { configDeclaresStore, planHostUrl, setHostUrl, writeHostUrlPlan } from './config-write';
 export { credentialsPath, readCredentials, recordedPairing, writeCredentials } from './credentials';
 export type { Credentials } from './credentials';
 export { acceptedHosts, hostnameOf, isHostName, normalizeServeUrl } from './address';

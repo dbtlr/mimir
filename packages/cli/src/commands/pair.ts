@@ -46,9 +46,47 @@ export function deviceFromHostname(hostname: string): string {
   return (hostname.trim().split('.')[0] ?? '').toLowerCase();
 }
 
-/** `HH:MM` of an instant in `zone`. */
-function clockTime(iso: string, zone: string): string {
-  return formatInstant(iso, zone).split(' ')[1] ?? '';
+/** `HH:MM` of an instant (epoch milliseconds) in `zone`. */
+function clockTime(at: number, zone: string): string {
+  return formatInstant(at, zone).split(' ')[1] ?? '';
+}
+
+/** What the host's own words about a request's life are taken to mean when it states none. */
+const DEFAULT_LIFETIME_MS = 10 * 60 * 1000;
+/** How long past its expiry the local deadline lets a failing connection retry. */
+const DEADLINE_MARGIN_MS = 5000;
+
+/**
+ * How long the host says the request has left, by the host's own clock: its
+ * `expires_at` less its `Date` at filing. Without a usable pair of those, or
+ * with an answer that makes no sense, the request is taken to last the
+ * default ten minutes. The local clock plays no part, so skew cannot shorten
+ * or lengthen the wait.
+ */
+function remainingMs(filed: PairingFiled): number {
+  const expires = Date.parse(filed.expiresAt);
+  if (filed.hostNow === undefined || Number.isNaN(expires)) {
+    return DEFAULT_LIFETIME_MS;
+  }
+  const left = expires - filed.hostNow;
+  return left > 0 && left <= 24 * 60 * 60 * 1000 ? left : DEFAULT_LIFETIME_MS;
+}
+
+/** File the request. The host's own words in a refusal are shown as text, never as marks. */
+async function fileRequest(
+  pairing: Pairing,
+  origin: string,
+  device: string,
+  escape: (text: string) => string,
+): Promise<PairingFiled> {
+  try {
+    return await pairing.file(origin, device);
+  } catch (error) {
+    if (error instanceof MimirError) {
+      throw new MimirError(error.code, escape(error.message), error.hint);
+    }
+    throw error;
+  }
 }
 
 /** A Standard Schema value that accepts a host URL and answers its origin. */
@@ -68,6 +106,21 @@ function hostUrl(origin: Pairing['origin']): StandardSchemaV1<string, string> {
 }
 
 const AGAIN = 'run mimir pair again';
+
+const expired = (device: string): MimirError =>
+  new MimirError(
+    'invariant',
+    `the pairing request for ${device} expired before the host approved it`,
+    AGAIN,
+  );
+
+/** The request lapsed after a poll failed: the host may have minted the token for an answer that never arrived. */
+const maybeCollected = (device: string): MimirError =>
+  new MimirError(
+    'invariant',
+    `the pairing request for ${device} expired after a connection failure: the approval may have been collected before the connection failed`,
+    `unpair ${device} on the host (mimir-host unpair ${device}) and run mimir pair again`,
+  );
 
 /** The refusal for a config that owns a local board: pairing would leave it behind. */
 function storeRefusal(configFile: string, origin: string): MimirError {
@@ -203,28 +256,32 @@ export function pairCommand(ports: Ports) {
         await warn(`replacing the pairing with ${previous.origin}; ${unpair}`);
       }
 
-      const filed = await pairing.file(origin, device);
-      await announce(note, origin, filed, presentation.zone);
+      const filed = await fileRequest(pairing, origin, device, style.escape);
+      // The host's clock may differ from this one, so its stated expiry is read as a time
+      // left, from its own `Date`, and counted from the moment the request was filed here.
+      const lapsesAt = pairing.now() + remainingMs(filed);
+      await announce(note, origin, filed, lapsesAt, presentation.zone);
 
       const waiting = progress(context, { label: 'Waiting for approval' });
       const approved = await waitForDecision(pairing, {
         filed,
+        lapsesAt,
         onUnreachable: () =>
-          warn(
-            `host unreachable, still waiting until ${clockTime(filed.expiresAt, presentation.zone)}`,
-          ),
+          warn(`host unreachable, still waiting until ${clockTime(lapsesAt, presentation.zone)}`),
         origin,
         signal,
       });
-      if (approved.status !== 'approved') {
-        await waiting.fail(approved.status === 'denied' ? 'Denied' : 'Expired');
+      if (approved.status === 'denied') {
+        await waiting.fail('Denied');
         throw new MimirError(
           'invariant',
-          approved.status === 'denied'
-            ? `the host at ${origin} denied the pairing request for ${device}`
-            : `the pairing request for ${device} expired before the host approved it`,
+          `the host at ${origin} denied the pairing request for ${device}`,
           AGAIN,
         );
+      }
+      if (approved.status === 'expired') {
+        await waiting.fail('Expired');
+        throw approved.afterFailure ? maybeCollected(device) : expired(device);
       }
       await waiting.end('Approved');
       pairing.save({ device: approved.device, origin, token: approved.token });
@@ -242,22 +299,32 @@ async function announce(
   note: (line: string) => Promise<void>,
   origin: string,
   filed: PairingFiled,
+  lapsesAt: number,
   zone: string,
 ): Promise<void> {
   await note(`pairing code ${filed.userCode}`);
   await note(`approve with mimir-host approve ${filed.userCode} on the host`);
   await note(`or open ${origin}/pair?code=${filed.userCode}`);
-  await note(`the request expires at ${formatInstant(filed.expiresAt, zone)}`);
+  await note(`the request expires at ${formatInstant(lapsesAt, zone)}`);
 }
 
 type Decision =
-  | { status: 'denied' | 'expired' }
+  | { status: 'denied' }
+  | {
+      status: 'expired';
+      /** A poll failed before the host said expired, so an approval may have been collected unseen. */
+      afterFailure: boolean;
+    }
   | { status: 'approved'; device: string; token: string };
 
 /**
- * Poll at the host's interval until it decides or the request lapses. A poll
- * that cannot reach the host is not a decision: the wait goes on, and the first
- * such failure is reported once. A definite failure is thrown by the poll.
+ * Poll at the host's interval until it decides. While the host answers, only
+ * its own `expired` and `denied` end the wait. A poll that cannot reach the
+ * host is not a decision: the wait goes on, the first such failure is reported
+ * once, and a local deadline (the host's stated time left, counted from here)
+ * stops the retrying. A definite failure is thrown by the poll. An approval is
+ * never discarded: collecting the token revoked the device's earlier one on the
+ * host, so it is returned even if the run was cancelled while the poll was in flight.
  */
 async function waitForDecision(
   pairing: Pairing,
@@ -265,30 +332,35 @@ async function waitForDecision(
     filed: PairingFiled;
     origin: string;
     signal: AbortSignal;
+    /** Local epoch milliseconds the request lapses at, by the host's stated time left. */
+    lapsesAt: number;
     onUnreachable: () => Promise<void>;
   },
 ): Promise<Decision> {
   const { filed, origin, signal } = wait;
-  const stated = Date.parse(filed.expiresAt);
-  // The host states a 10 minute request; an unreadable expiry still bounds the wait.
-  const lapses = Number.isNaN(stated) ? pairing.now() + 10 * 60 * 1000 : stated;
-  let reported = false;
+  const deadline = wait.lapsesAt + DEADLINE_MARGIN_MS;
+  let failed = false;
   for (;;) {
     await pairing.sleep(filed.interval * 1000, signal);
-    const answer = await pairing.poll(origin, filed.pollSecret);
-    signal.throwIfAborted();
+    const answer = await pairing.poll(origin, filed.pollSecret, signal);
     if (answer.status === 'approved') {
       return answer;
     }
-    if (answer.status === 'denied' || answer.status === 'expired') {
-      return { status: answer.status };
+    signal.throwIfAborted();
+    if (answer.status === 'denied') {
+      return { status: 'denied' };
     }
-    if (answer.status === 'unreachable' && !reported) {
-      reported = true;
-      await wait.onUnreachable();
+    if (answer.status === 'expired') {
+      return { afterFailure: failed, status: 'expired' };
     }
-    if (!(pairing.now() < lapses)) {
-      return { status: 'expired' };
+    if (answer.status === 'unreachable') {
+      if (!failed) {
+        await wait.onUnreachable();
+      }
+      failed = true;
+      if (!(pairing.now() < deadline)) {
+        return { afterFailure: false, status: 'expired' };
+      }
     }
   }
 }
