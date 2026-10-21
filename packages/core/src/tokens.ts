@@ -249,10 +249,12 @@ export function createTokenStore({
     },
     /**
      * Unpair a device: revoke its token and discard its requests, so no
-     * approval can still mint. Answers how many of each it removed.
+     * approval can still mint. The name matches as a request would normalize
+     * it. Answers how many of each it removed.
      */
-    revoke: (device: string): Promise<{ requests: number; tokens: number }> =>
-      dialect.write(db, async (tx) => {
+    revoke: (input: string): Promise<{ requests: number; tokens: number }> => {
+      const device = normalizeDeviceName(input) ?? input;
+      return dialect.write(db, async (tx) => {
         const requests = await tx
           .deleteFrom('pairing_requests')
           .where('device', '=', device)
@@ -267,7 +269,8 @@ export function createTokenStore({
           requests: Number(requests.numDeletedRows),
           tokens: Number(tokens.numUpdatedRows),
         };
-      }),
+      });
+    },
     verify: async (token: string): Promise<string | null> => {
       const tokenHash = hash(token);
       const row = await db

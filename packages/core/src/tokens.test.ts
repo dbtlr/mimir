@@ -342,6 +342,14 @@ describe.each([
     ]);
   });
 
+  test('revoke matches a typed name the way requests normalize it', async () => {
+    const { tokens } = await fixture();
+    await pairTestDevice(tokens, 'my laptop');
+    await tokens.request('caf\u00E9');
+    expect(await tokens.revoke('  my \u00A0laptop ')).toEqual({ requests: 0, tokens: 1 });
+    expect(await tokens.revoke('cafe\u0301')).toEqual({ requests: 1, tokens: 0 });
+  });
+
   test('updates last_used only after more than five minutes, starting with first use', async () => {
     const { tokens, advance } = await fixture();
     const token = await pairTestDevice(tokens, 'laptop');
