@@ -279,7 +279,7 @@ export class HostClient {
       return new HostRequestError(
         'validation',
         'the host refused the device name',
-        'use a name of 1 to 128 characters with no control characters',
+        'use a name of 1 to 128 characters with no control or invisible characters',
         failure,
       );
     }

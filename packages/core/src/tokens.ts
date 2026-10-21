@@ -11,6 +11,8 @@ const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const REQUEST_TTL_MS = 10 * 60 * 1000;
 const USAGE_INTERVAL_MS = 5 * 60 * 1000;
 const DEVICE_NAME_MAX = 128;
+/** Other (\p{C}: control, format, surrogate, private use, unassigned) plus line and paragraph separators. */
+const NON_PRINTING = /[\p{C}\p{Zl}\p{Zp}]/u;
 /** Seconds a pairing client waits between polls. */
 export const PAIRING_POLL_INTERVAL = 2;
 
@@ -199,7 +201,7 @@ export function createTokenStore({
       if (device === null) {
         return Promise.reject(
           validation(
-            'the device name must be 1 to 128 characters without control characters',
+            'the device name must be 1 to 128 characters without control or invisible characters',
             'name the device with printable text',
           ),
         );
@@ -361,10 +363,14 @@ export function formatPairingCode(code: string): string {
   return `${code.slice(0, 4)}-${code.slice(4)}`;
 }
 
-/** Trim a device name; refuse an empty, overlong, or control-character name. */
+/**
+ * Trim a device name; refuse an empty, overlong, or non-printing name. Format,
+ * bidi, private-use, unassigned, and line-separator characters render invisibly
+ * or reorder text, so a name holding one could pass for another on an approval card.
+ */
 export function normalizeDeviceName(name: string): string | null {
   const trimmed = name.trim();
-  return trimmed.length > 0 && trimmed.length <= DEVICE_NAME_MAX && !/\p{Cc}/u.test(trimmed)
+  return trimmed.length > 0 && trimmed.length <= DEVICE_NAME_MAX && !NON_PRINTING.test(trimmed)
     ? trimmed
     : null;
 }

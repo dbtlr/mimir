@@ -281,7 +281,14 @@ describe.each([
     const { requests, tokens } = await fixture();
     await tokens.request('  laptop  ');
     expect((await requests()).map((row) => row.device)).toEqual(['laptop']);
-    for (const device of ['', '   ', 'tab\there', 'x'.repeat(129)]) {
+    for (const device of [
+      '',
+      '   ',
+      'tab\there',
+      'laptop\u200B',
+      'pal\u202Epot',
+      'x'.repeat(129),
+    ]) {
       expect(await refusalOf(tokens.request(device))).toContain('device name');
     }
   });
@@ -584,11 +591,26 @@ test('formats a normalized code for display with a middle hyphen', () => {
   expect(normalizePairingCode(formatPairingCode('0111ABCD'))).toBe('0111ABCD');
 });
 
-test('normalizes a device name by trimming it and refuses empty, control, or overlong names', () => {
+test('normalizes a device name by trimming it and refuses empty, non-printing, or overlong names', () => {
   expect(normalizeDeviceName('  Drews-MacBook-Pro.local ')).toBe('Drews-MacBook-Pro.local');
   expect(normalizeDeviceName('laptop (work)')).toBe('laptop (work)');
+  expect(normalizeDeviceName('Café 笔记本')).toBe('Café 笔记本');
   expect(normalizeDeviceName('x'.repeat(128))).toBe('x'.repeat(128));
-  for (const input of ['', '  ', 'line\nbreak', 'nul\u0000', 'del\u007F', 'x'.repeat(129)]) {
+  for (const input of [
+    '',
+    '  ',
+    'line\nbreak',
+    'nul\u0000',
+    'del\u007F',
+    'zero\u200Bwidth',
+    'byte\uFEFForder',
+    'pal\u202Epot',
+    'isolate\u2066',
+    'line\u2028separator',
+    'private\uE000',
+    'lone\uD800',
+    'x'.repeat(129),
+  ]) {
     expect(normalizeDeviceName(input)).toBeNull();
   }
 });
