@@ -16,7 +16,7 @@
     "dev:ui": "bun run --cwd packages/host dev",
     "check": "vp check",
     "test": "bun test packages/bin packages/cli packages/core packages/helpers packages/sandbox packages/wire packages/host/src/server packages/host/src/admin",
-    "test:native": "bun test packages/core/src/store-sqlite/sqlite.test.ts packages/core/src/installation packages/core/src/sandbox-authority.test.ts packages/core/src/config.test.ts packages/core/src/doctor/config-permissions.test.ts packages/core/src/env.test.ts packages/core/src/git-port.test.ts packages/helpers/src/time.test.ts packages/bin/src/self-update/release.test.ts packages/sandbox/src/host.test.ts",
+    "test:native": "bun test packages/core/src/store-sqlite/sqlite.test.ts packages/core/src/installation packages/core/src/sandbox-authority.test.ts packages/core/src/config.test.ts packages/core/src/credentials.test.ts packages/core/src/doctor/config-permissions.test.ts packages/core/src/env.test.ts packages/core/src/git-port.test.ts packages/helpers/src/time.test.ts packages/bin/src/self-update/release.test.ts packages/sandbox/src/host.test.ts",
     "test:pwa": "bun run --cwd packages/host test:pwa",
     "test:ui": "bun run --cwd packages/host test",
     "verify": "bun run check && bun run test && bun run test:ui",
