@@ -3,7 +3,7 @@ import { sql } from 'kysely';
 
 import type { Store } from '../store';
 import type { StoreDialect, ValueCodecs } from '../store-sql/dialect';
-import type { UpgradeReport } from '../store-sql/migrator';
+import type { SchemaRemedy, UpgradeReport } from '../store-sql/migrator';
 import {
   assertSchemaCurrent as assertSqlSchemaCurrent,
   readSchemaVersion as readSqlSchemaVersion,
@@ -137,8 +137,8 @@ export function readSchemaVersion(ex: Executor): Promise<number | null> {
 }
 
 /** Refuse a Postgres store whose schema this binary does not exactly match. */
-export function assertSchemaCurrent(db: Kysely<DB>): Promise<void> {
-  return assertSqlSchemaCurrent(db, postgresDialect);
+export function assertSchemaCurrent(db: Kysely<DB>, remedy?: SchemaRemedy): Promise<void> {
+  return assertSqlSchemaCurrent(db, postgresDialect, remedy);
 }
 
 /** Apply every pending migration — `mimir store upgrade`, the one explicit act. */

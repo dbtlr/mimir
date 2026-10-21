@@ -24,9 +24,9 @@ import {
   bindClone,
   bindingScope,
   buildStore,
-  canonicalJson,
   configPath,
   DEFAULT_STORE_BACKEND,
+  exportedDocument,
   dateFilterWindows,
   findingLine,
   gitPortAt,
@@ -269,23 +269,7 @@ function machineOver(
     store: {
       // The data verbs run on whichever backend this install is configured for.
       documentExists,
-      export: async () => {
-        const document = await (await getStore()).export();
-        return {
-          counts: {
-            artifacts: document.artifacts.length,
-            nodes: document.nodes.length,
-            projects: document.projects.length,
-            scratchpads: document.scratchpads.length,
-            seeds: document.seeds.length,
-          },
-          exportedAt: document.exported_at,
-          schemaVersion: document.schema_version,
-          // Sorted keys, so two backends' documents of the same facts are equal
-          // as files and a diff shows the facts that changed.
-          text: `${canonicalJson(document)}\n`,
-        };
-      },
+      export: async () => exportedDocument(await getStore()),
       import: async (document, flags) =>
         (await getStore()).import(document, {
           dryRun: !flags.apply,

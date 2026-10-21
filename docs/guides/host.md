@@ -1,5 +1,5 @@
 ---
-description: Run the Mimir host container on Docker Desktop or a server, reach it safely, check its health, upgrade it, and back up its store.
+description: Run the Mimir host container on Docker Desktop or a server, reach it safely, check its health, administer it, upgrade it, and back up its store.
 ---
 
 # Run the Mimir host
@@ -278,10 +278,13 @@ The operator approves or denies the request on the host by its user code. The
 code is read case-insensitively, with the hyphen optional. Denying an approved
 request that its client has not collected withdraws the approval, and the next
 poll answers `denied`. Unpairing a device discards its requests, so an approval
-it has not collected never mints a token. The `mimir-host
-approve` and `mimir-host deny` commands that do this are planned in
-[ADR 0038](../decisions/0038-device-pairing-and-the-version-window.md) and are
-not yet in the image.
+it has not collected never mints a token. Decide requests with
+[`mimir-host`](#administer-the-host-with-mimir-host):
+
+```sh
+docker compose -f deploy/compose.yaml exec mimir mimir-host pending
+docker compose -f deploy/compose.yaml exec mimir mimir-host approve K7QM-2P9D
+```
 
 `POST /auth/pairing/poll` accepts JSON `{"poll_secret":"poll-secret"}`. Poll
 every `interval` seconds. Each answer is a `200` with a `status`:
@@ -308,6 +311,35 @@ with an active device token. The host guard runs first, then the version window,
 then the bearer check. Console server functions use the local Engine and require
 neither header. See [ADR 0038](../decisions/0038-device-pairing-and-the-version-window.md)
 for the credential lifecycle and compatibility window.
+
+## Administer the host with mimir-host
+
+The image carries `mimir-host`, the operator CLI. Run it inside the
+container:
+
+```sh
+docker compose -f deploy/compose.yaml exec mimir mimir-host <command>
+```
+
+It reads the host's configuration and opens the host's store. It never
+creates or migrates the store, because the host migrates it on boot. A missing
+store, or a schema other than the image's, is refused and left unchanged.
+
+| Command | Effect |
+| --- | --- |
+| `pending` | Lists the live pairing requests: device, age, and expiry. |
+| `approve <code>` | Approves the request whose device shows `<code>`. Notes when the device's current token will be replaced. |
+| `deny <code>` | Denies the request, or withdraws an approval the device has not collected. |
+| `unpair <device>` | Revokes the device's token, keeps its row, and discards its requests. |
+| `tokens [--all]` | Lists user, device, created, last used, and revoked. `--all` adds revoked tokens. |
+| `doctor [-s KEY]` | Reports the record-health findings that the console shows. Exits 0 after a scan. |
+| `store export <file\|->` | Writes the transfer document. Refuses to overwrite a file. |
+| `store import <file\|-> [--apply] [--resume]` | Reads a transfer document. A preview unless `--apply`. |
+
+Codes are stored hashed, so `pending` cannot show them: read the code from the
+device. Listings print a table on a terminal and JSON when piped, and `-f`
+picks a format. `docker compose exec` gives the command a terminal, so pass
+`-T` or `-f json` when you pipe its output. `mimir-host` has no `store upgrade`.
 
 ## Read an error from the Engine endpoint
 
@@ -374,19 +406,29 @@ to update the image.
 
 ## Back up the store
 
-On Postgres, export from a CLI that opens the same database:
+Export the store from the host with `mimir-host`, on either backend. `-T`
+keeps the transfer document's bytes off a terminal. The shell creates the
+output file before the export runs, so write to a partial file and give it a
+new name only when the export succeeds. An earlier backup is never truncated:
 
 ```sh
-mimir store export board.json
+docker compose -f deploy/compose.yaml exec -T mimir mimir-host store export - > board.json.partial \
+  && mv board.json.partial "board-$(date +%Y%m%d-%H%M%S).json"
 ```
 
 The export is one backend-neutral document with ids, sequences, and
-timestamps intact. To restore it into an empty database, follow
-[Back up](postgres-store.md#back-up). Then start the host on that database.
+timestamps intact. It carries no device tokens, so devices pair again with a
+new host. To restore it, start a host on an empty store, preview the import,
+and then apply it:
 
-The image has no `mimir` CLI, so a SQLite store backs up as a copy of its
-volume. Stop the host so the database is closed, copy the volume, and start
-the host again:
+```sh
+docker compose -f deploy/compose.yaml exec -T mimir mimir-host store import - < board-20261020-120000.json
+docker compose -f deploy/compose.yaml exec -T mimir mimir-host store import - --apply < board-20261020-120000.json
+```
+
+A SQLite store can also back up as a copy of its volume, which keeps the
+device tokens. Stop the host so the database is closed, copy the volume, and
+start the host again:
 
 ```sh
 docker compose -f deploy/compose.yaml stop mimir
@@ -413,5 +455,6 @@ docker compose -f deploy/compose.yaml start mimir
 `packages/host/src/server/guard.ts` (the Host allowlist and the cross-origin write
 check), `packages/host/src/server/pairing.ts` (the pairing routes and their limit),
 `packages/core/src/tokens.ts` (pairing requests and device tokens),
+`packages/host/src/admin/` (`mimir-host`),
 `packages/wire/src/server.ts` (the `/trpc` error mapping),
 `packages/host/src/start-routes/health.ts` (`/health`).

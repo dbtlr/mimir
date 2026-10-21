@@ -11,7 +11,7 @@ import { helpCommand } from '@loomcli/plugins/help/extension';
 import { defaultFormat } from '../default-format';
 import { MimirUsageError } from '../failures';
 import { STREAM } from '../machine';
-import type { ExportedStore, ImportReport, UpgradeReport } from '../machine';
+import type { ExportedStore, ImportReport, StoreTransfer, UpgradeReport } from '../machine';
 import type { Ports } from '../ports';
 import { proseViews } from '../render/machine';
 import { countLine, okLine, presentationOf } from '../render/presentation';
@@ -108,8 +108,9 @@ function exportJson(value: Readonly<ExportValue>): string {
  * already exists rather than overwritten: the one thing a backup command must
  * never do is destroy the backup taken before it. On `-` the document is the
  * output, with no summary in any format, or the pipe would carry two documents.
+ * `mimir-host` mounts it over the host's store.
  */
-function exportCommand(ports: Ports) {
+export function exportCommand(transfer: StoreTransfer) {
   return new Command('export', {
     description:
       'Write the whole store as a transfer document. Refuses to overwrite an existing file. Prints prose on a terminal and json when piped.',
@@ -128,17 +129,17 @@ function exportCommand(ports: Ports) {
     .views({}, { default: 'records' })
     .action(async ({ args, host, out }) => {
       const file = args.file;
-      if (file !== STREAM && ports.machine.store.documentExists(file)) {
+      if (file !== STREAM && transfer.documentExists(file)) {
         throw alreadyExists(file);
       }
-      const exported = await ports.machine.store.export();
+      const exported = await transfer.export();
       if (file === STREAM) {
         await out.results({ kind: 'stream', text: exported.text });
         return;
       }
       // The write is exclusive, not the check above alone: a file created
       // between the check and the write must still be refused.
-      if (ports.machine.store.writeDocument(file, exported.text) === 'exists') {
+      if (transfer.writeDocument(file, exported.text) === 'exists') {
         throw alreadyExists(file);
       }
       await out.results({
@@ -168,9 +169,13 @@ function looksLikeDocument(parsed: unknown): boolean {
   );
 }
 
-/** Read and shape-check the document at `file` (`-` is stdin). */
-async function readDocument(ports: Ports, file: string): Promise<unknown> {
-  const read = await ports.machine.store.readDocument(file);
+/** Read and shape-check the document at `file` (`-` is stdin); `program` names the exporter. */
+async function readDocument(
+  transfer: StoreTransfer,
+  file: string,
+  program: string,
+): Promise<unknown> {
+  const read = await transfer.readDocument(file);
   const source = file === STREAM ? 'stdin' : file;
   if (read.kind === 'refused') {
     throw read.reason === 'missing'
@@ -190,7 +195,7 @@ async function readDocument(ports: Ports, file: string): Promise<unknown> {
   if (!looksLikeDocument(parsed)) {
     throw new MimirUsageError(
       `store import: ${source} isn't a store export document (no numeric schema_version)`,
-      "write one with 'mimir store export <file>'",
+      `write one with '${program} store export <file>'`,
     );
   }
   return parsed;
@@ -210,8 +215,12 @@ const importViews = proseViews(
   ({ report }) => compactJson(report),
 );
 
-/** Import is a preview by default, since it writes another store's identities into this one. */
-function importCommand(ports: Ports) {
+/**
+ * Import is a preview by default, since it writes another store's identities
+ * into this one. `program` is the command a refusal tells the operator to
+ * export with; `mimir-host` mounts it over the host's store.
+ */
+export function importCommand(transfer: StoreTransfer, program = 'mimir') {
   return new Command('import', {
     description:
       'Read a transfer document into the store. A preview unless --apply is given. Prints prose on a terminal and json when piped.',
@@ -235,8 +244,8 @@ function importCommand(ports: Ports) {
     .result<Reported<ImportReport>>({ views: importViews })
     .views({}, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
-      const document = await readDocument(ports, args.file);
-      const report = await ports.machine.store.import(document, {
+      const document = await readDocument(transfer, args.file, program);
+      const report = await transfer.import(document, {
         apply: options.apply,
         resume: options.resume,
       });
@@ -250,6 +259,6 @@ export function storeCommand(ports: Ports) {
       'Operate on the store itself: upgrade its schema, export it, or import a document.',
   })
     .command(upgradeCommand(ports))
-    .command(exportCommand(ports))
-    .command(importCommand(ports));
+    .command(exportCommand(ports.machine.store))
+    .command(importCommand(ports.machine.store));
 }

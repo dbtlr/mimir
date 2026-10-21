@@ -15,7 +15,7 @@
     "build:ui": "bun run --cwd packages/host build",
     "dev:ui": "bun run --cwd packages/host dev",
     "check": "vp check",
-    "test": "bun test packages/bin packages/cli packages/core packages/helpers packages/sandbox packages/wire packages/host/src/server",
+    "test": "bun test packages/bin packages/cli packages/core packages/helpers packages/sandbox packages/wire packages/host/src/server packages/host/src/admin",
     "test:pwa": "bun run --cwd packages/host test:pwa",
     "test:ui": "bun run --cwd packages/host test",
     "verify": "bun run check && bun run test && bun run test:ui",

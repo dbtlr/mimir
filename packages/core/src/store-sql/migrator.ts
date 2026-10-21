@@ -47,22 +47,44 @@ export async function readSchemaVersion(
   return row?.version ?? null;
 }
 
-/** Refuse to use a store whose schema this binary does not exactly match. */
-export async function assertSchemaCurrent(db: Kysely<DB>, dialect: StoreDialect): Promise<void> {
+/**
+ * The remedies for a caller that opens a store the container host owns and
+ * never moves its schema itself (ADR 0035, ADR 0038): the host creates and
+ * migrates its store when it starts.
+ */
+export const OWNER_SCHEMA_REMEDY: SchemaRemedy = {
+  behind: 'restart the host with this build; it migrates the store when it starts',
+  missing: 'start the host once; it creates the store when it starts',
+  newer: 'update the image; a newer schema is never downgraded',
+};
+
+/** What a schema refusal tells the operator to do; `newer` defaults to upgrading the binary. */
+export type SchemaRemedy = StoreDialect['schemaRemedy'] & { newer?: string };
+
+/**
+ * Refuse to use a store whose schema this binary does not exactly match.
+ * `remedy` replaces the dialect's own when the caller is not the one that
+ * would move the schema.
+ */
+export async function assertSchemaCurrent(
+  db: Kysely<DB>,
+  dialect: StoreDialect,
+  remedy: SchemaRemedy = dialect.schemaRemedy,
+): Promise<void> {
   const version = await readSchemaVersion(db, dialect);
   if (version === null) {
-    throw invariant(`the ${dialect.label} store has no schema`, dialect.schemaRemedy.missing);
+    throw invariant(`the ${dialect.label} store has no schema`, remedy.missing);
   }
   if (version > SCHEMA_VERSION) {
     throw invariant(
       `the ${dialect.label} store schema is version ${String(version)}; this binary reads version ${String(SCHEMA_VERSION)}`,
-      'upgrade the binary; a newer schema is never downgraded',
+      remedy.newer ?? 'upgrade the binary; a newer schema is never downgraded',
     );
   }
   if (version < SCHEMA_VERSION) {
     throw invariant(
       `the ${dialect.label} store schema is version ${String(version)}; this binary needs version ${String(SCHEMA_VERSION)}`,
-      dialect.schemaRemedy.behind,
+      remedy.behind,
     );
   }
 }

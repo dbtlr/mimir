@@ -10,18 +10,25 @@ import { dirname } from 'node:path';
 
 import { createSqlDoctorBackend } from './doctor/sql/backend';
 import { sqliteStorePath } from './env';
-import type { BuiltStore } from './store-backend';
+import type { BuiltStore, StoreOverride } from './store-backend';
 import type { SqliteHandle } from './store-sqlite/index';
-import { createSqliteStore, openSqlite, sqliteDialect } from './store-sqlite/index';
+import {
+  createSqliteStore,
+  openExistingSqlite,
+  openSqlite,
+  sqliteDialect,
+} from './store-sqlite/index';
 import { createTokenStore } from './tokens';
 
 /** Build the SQLite store for this process over the installation's database
- * file, migrating it forward on open. */
+ * file, migrating it forward on open, or with `existing` opening it as it is. */
 export async function buildSqliteStore(
   path: string = sqliteStorePath(),
-  onMigration?: (name: string) => void,
+  { existing = false, onMigration }: Pick<StoreOverride, 'existing' | 'onMigration'> = {},
 ): Promise<BuiltStore> {
-  return builtOver(await openInstallationSqlite(path, onMigration));
+  return builtOver(
+    existing ? await openExistingSqlite(path) : await openInstallationSqlite(path, onMigration),
+  );
 }
 
 /** The store, its doctor facet, and its release over one open handle. */

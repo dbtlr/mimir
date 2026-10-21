@@ -4,5 +4,5 @@
  * its SQLite dialect and connection.
  */
 export type { SqliteHandle } from './client';
-export { openSqlite, SQLITE_FILE } from './client';
+export { openExistingSqlite, openSqlite, SQLITE_FILE } from './client';
 export { createSqliteStore, readSchemaVersion, sqliteDialect, upgradeSchema } from './dialect';

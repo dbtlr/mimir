@@ -1,8 +1,10 @@
 import { Database } from 'bun:sqlite';
+import { existsSync } from 'node:fs';
 
 import { Kysely, sql } from 'kysely';
 
 import { invariant } from '../errors';
+import { assertSchemaCurrent, OWNER_SCHEMA_REMEDY, SCHEMA_VERSION } from '../store-sql/migrator';
 import type { UpgradeReport } from '../store-sql/migrator';
 import type { DB } from '../store-sql/schema';
 import { readSchemaVersion, sqliteDialect, upgradeSchema } from './dialect';
@@ -76,6 +78,37 @@ export async function openSqlite(
     const upgrade = await upgradeSchema(db, options.onMigration);
     database.run(`pragma busy_timeout = ${String(OPEN_STORE_BUSY_TIMEOUT_MS)}`);
     return { close: () => db.destroy(), db, upgrade };
+  } catch (error) {
+    await db.destroy();
+    throw error;
+  }
+}
+
+/**
+ * Open the SQLite store at `path` as its owner left it, for a process beside
+ * the owner such as the host's `mimir-host`. It refuses a missing file and any
+ * schema but this build's, and writes nothing: no file, no journal-mode
+ * switch, and no migration. The owner already put the file in WAL mode.
+ */
+export async function openExistingSqlite(
+  path: string,
+  options: BunSqliteOptions = {},
+): Promise<SqliteHandle> {
+  if (!existsSync(path)) {
+    throw invariant(`no store at ${path}`, OWNER_SCHEMA_REMEDY.missing);
+  }
+  const database = new Database(path, { create: false, readwrite: true, strict: true });
+  database.run('pragma foreign_keys = on');
+  database.run(`pragma busy_timeout = ${String(OPEN_BUSY_TIMEOUT_MS)}`);
+  const db = new Kysely<DB>({ dialect: createBunSqliteDialect(database, options) });
+  try {
+    await assertSchemaCurrent(db, sqliteDialect, OWNER_SCHEMA_REMEDY);
+    database.run(`pragma busy_timeout = ${String(OPEN_STORE_BUSY_TIMEOUT_MS)}`);
+    return {
+      close: () => db.destroy(),
+      db,
+      upgrade: { applied: [], from: SCHEMA_VERSION, to: SCHEMA_VERSION },
+    };
   } catch (error) {
     await db.destroy();
     throw error;

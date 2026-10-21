@@ -21,6 +21,7 @@ import {
   postgresDialect,
   upgradeSchema,
 } from './store-postgres/index';
+import { OWNER_SCHEMA_REMEDY } from './store-sql/migrator';
 import { createTokenStore } from './tokens';
 
 /**
@@ -39,7 +40,7 @@ export function postgresUrlMissing(): Error {
  * refusing a schema this caller does not read. */
 export async function buildPostgresStore(
   config: GlobalConfig,
-  options: Pick<StoreOverride, 'upgrade' | 'onMigration'> = {},
+  options: Pick<StoreOverride, 'existing' | 'upgrade' | 'onMigration'> = {},
 ): Promise<BuiltStore> {
   const url = config.store.url;
   if (url === undefined) {
@@ -47,10 +48,14 @@ export async function buildPostgresStore(
   }
   const handle = openPostgres(url);
   try {
-    if (options.upgrade === true) {
+    // An existing-only open never moves the schema, even when asked to upgrade.
+    if (options.upgrade === true && options.existing !== true) {
       await upgradeSchema(handle.db, options.onMigration);
     }
-    await assertSchemaCurrent(handle.db);
+    await assertSchemaCurrent(
+      handle.db,
+      options.existing === true ? OWNER_SCHEMA_REMEDY : undefined,
+    );
   } catch (error) {
     // The gate refused: release the pool before the refusal propagates, or the
     // open connections keep the process alive past the error.

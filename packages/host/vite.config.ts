@@ -139,6 +139,7 @@ export default defineConfig({
       '**/e2e/**',
       '**/scripts/**',
       '**/src/server/**',
+      '**/src/admin/**',
       '**/.output/**',
     ],
   },

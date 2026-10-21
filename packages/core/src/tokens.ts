@@ -218,16 +218,26 @@ export function createTokenStore({
         };
       });
     },
-    /** Unpair a device: revoke its token and discard its requests, so no approval can still mint. */
-    revoke: (device: string) =>
+    /**
+     * Unpair a device: revoke its token and discard its requests, so no
+     * approval can still mint. Answers how many of each it removed.
+     */
+    revoke: (device: string): Promise<{ requests: number; tokens: number }> =>
       dialect.write(db, async (tx) => {
-        await tx.deleteFrom('pairing_requests').where('device', '=', device).execute();
-        await tx
+        const requests = await tx
+          .deleteFrom('pairing_requests')
+          .where('device', '=', device)
+          .executeTakeFirst();
+        const tokens = await tx
           .updateTable('device_tokens')
           .set({ revoked_at: clockInstant() })
           .where('device', '=', device)
           .where('revoked_at', 'is', null)
-          .execute();
+          .executeTakeFirst();
+        return {
+          requests: Number(requests.numDeletedRows),
+          tokens: Number(tokens.numUpdatedRows),
+        };
       }),
     verify: async (token: string): Promise<string | null> => {
       const tokenHash = hash(token);

@@ -59,6 +59,13 @@ export type StoreOverride = {
   sqliteFile?: string;
   /** Designated store owners may upgrade before serving; CLI defaults remain gated. */
   upgrade?: boolean;
+  /**
+   * Open the store as its owner left it: refuse a missing SQLite file or any
+   * schema but this build's, and write nothing. It wins over `upgrade`. A
+   * Postgres store is otherwise never moved without `upgrade`, so there it
+   * only changes the remedy.
+   */
+  existing?: boolean;
   onMigration?: (name: string) => void;
 };
 
@@ -76,5 +83,8 @@ export async function buildStore(
   const backend = config.store.backend ?? DEFAULT_STORE_BACKEND;
   return backend === 'postgres'
     ? await buildPostgresStore(config, override)
-    : await buildSqliteStore(override.sqliteFile, override.onMigration);
+    : await buildSqliteStore(override.sqliteFile, {
+        existing: override.existing,
+        onMigration: override.onMigration,
+      });
 }

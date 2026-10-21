@@ -135,34 +135,17 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
   const password = randomUUID();
   const refusedContainers = [`${name}-unwritable`, `${name}-invalid`];
   try {
-    const pairingScript = join(secretDirectory, 'pairing.mjs');
-    const pairingBuild = await Bun.build({
-      entrypoints: [fileURLToPath(new URL('pairing-fixture.ts', import.meta.url))],
-      naming: 'pairing.mjs',
-      outdir: secretDirectory,
-      plugins: [
-        {
-          name: 'fixture-host-authority',
-          setup(build) {
-            // This helper runs only inside the test-owned host container, like its operator CLI.
-            build.onLoad({ filter: /\/core\/src\/host-authority\.ts$/ }, () => ({
-              contents: 'export const MIMIR_HOST_AUTHORITY = true;',
-              loader: 'ts',
-            }));
-          },
-        },
-      ],
-      target: 'bun',
-    });
-    if (!pairingBuild.success) {
-      throw new AggregateError(pairingBuild.logs, 'could not bundle the container pairing fixture');
-    }
-    const pairingMount = `type=bind,src=${pairingScript},dst=/run/integration/pairing.mjs,readonly`;
-    // The client files the request over HTTP; the container-local script stands in for the operator.
+    // The client files the request over HTTP, and the operator approves it with
+    // the image's own mimir-host, which must first list it as pending.
+    const hostCli = (container: string, args: string[]) =>
+      docker(['exec', container, 'mimir-host', ...args]);
     const pair = (container: string, base: string, device: string) =>
-      pairFixtureDevice(base, device, (code) =>
-        docker(['exec', container, 'bun', '/run/integration/pairing.mjs', code]),
-      );
+      pairFixtureDevice(base, device, async (code) => {
+        expect(JSON.parse(await hostCli(container, ['pending', '-f', 'json']))).toEqual([
+          { created_at: expect.any(String), device, expires_at: expect.any(String) },
+        ]);
+        return hostCli(container, ['approve', code]);
+      });
     await docker(['build', '--quiet', '--tag', image, '.'], 120_000);
     await docker(['volume', 'create', volume]);
     const run = async (container: string, user: string[] = []) => {
@@ -176,8 +159,6 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
         '127.0.0.1::64647',
         '--volume',
         `${volume}:/data`,
-        '--mount',
-        pairingMount,
         '--env',
         'MIMIR_HOSTS=allowed.example',
         '--env',
@@ -264,6 +245,13 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
       expect(response.status, host).toBe(200);
     }
     const token = await pair(name, base, 'container fixture');
+    expect(JSON.parse(await hostCli(name, ['tokens', '-f', 'json']))).toEqual([
+      expect.objectContaining({ device: 'container fixture', revoked_at: null, user: 'owner' }),
+    ]);
+    expect(JSON.parse(await hostCli(name, ['doctor', '-f', 'json']))).toMatchObject({
+      finding_total: 0,
+      groups: [],
+    });
     const unauthorized = await fetch(`${base}/trpc/projects`, {
       headers: { 'x-mimir-version': clientVersion },
     });
@@ -478,8 +466,6 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
         'MIMIR_DATABASE_URL_FILE=/run/secrets/database-url',
         '--mount',
         `type=bind,src=${secret},dst=/run/secrets/database-url,readonly`,
-        '--mount',
-        pairingMount,
         image,
       ]);
     };
@@ -497,6 +483,9 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
       error: { code: 'forbidden_origin' },
     });
     let postgresToken = await pair(postgresHost, base, 'postgres fixture');
+    expect(JSON.parse(await hostCli(postgresHost, ['tokens', '-f', 'json']))).toEqual([
+      expect.objectContaining({ device: 'postgres fixture', revoked_at: null }),
+    ]);
     expect(
       await new RemoteEngine({
         headers: { authorization: `Bearer ${postgresToken}` },

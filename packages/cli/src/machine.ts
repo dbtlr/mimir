@@ -92,3 +92,6 @@ export type Machine = {
     writeDocument: (file: string, text: string) => DocumentWrite;
   };
 };
+
+/** What `store export` and `store import` act through: the store's transfer, without its upgrade. */
+export type StoreTransfer = Omit<Machine['store'], 'upgrade'>;

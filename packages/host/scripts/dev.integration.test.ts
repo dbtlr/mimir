@@ -12,7 +12,7 @@ import { chromium } from '@playwright/test';
 import type { Browser } from '@playwright/test';
 import { z } from 'zod';
 
-import { approveFixtureRequest } from './pairing-fixture';
+import { runHostCli } from './host-cli';
 
 const clientVersion = MIN_CLIENT;
 
@@ -130,9 +130,9 @@ test('the development host serves and renders the kit with an isolated store', a
       const pollOnce = async () =>
         (await post('poll', { poll_secret: request.poll_secret })).json();
       expect(await pollOnce()).toEqual({ status: 'pending' });
-      expect(await approveFixtureRequest(request.user_code, { MIMIR_DATA_DIR: directory })).toEqual(
-        { device: 'development fixture', rotates: false },
-      );
+      expect(
+        JSON.parse(await runHostCli(['approve', request.user_code], { MIMIR_DATA_DIR: directory })),
+      ).toEqual({ device: 'development fixture', rotates: false });
       const paired = z
         .object({ device: z.string(), status: z.literal('approved'), token: z.string() })
         .parse(await pollOnce());
