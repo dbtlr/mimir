@@ -9,8 +9,8 @@
   },
   "type": "module",
   "dependencies": {
-    "@loomcli/core": "0.13.0",
-    "@loomcli/plugins": "0.13.0",
+    "@loomcli/core": "0.14.0",
+    "@loomcli/plugins": "0.14.0",
     "@mimir/contract": "workspace:*",
     "@mimir/core": "workspace:*",
     "@mimir/helpers": "workspace:*",
