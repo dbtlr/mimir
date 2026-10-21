@@ -7,14 +7,16 @@ import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
+import pkg from '../../bin/package.json';
 import { command, isolatedEnvironment } from './process';
 
 /**
  * `mimir mcp` resolves its Project Binding from the directory it is spawned in
- * (MMR-558). The shipping binary is copied into a temp dir, so it keeps its
+ * (MMR-558). The candidate binary is copied into a temp dir, so it keeps its
  * store beside itself and never touches a live one; a clone whose config sets
- * `mimir.project` binds the server, and a bare directory does not. MMR-555's
- * cutover repoints this test at the Loom binary rather than deleting it.
+ * `mimir.project` binds the server, and a bare directory does not. Release
+ * validation supplies MIMIR_TEST_BINARY; the sandbox lane defaults to dist/mimir.
+ * MMR-555's cutover repoints this test at the Loom binary rather than deleting it.
  */
 const repository = fileURLToPath(new URL('../../../', import.meta.url));
 const enabled = process.env.MIMIR_SANDBOX_LIFECYCLE_TEST === '1';
@@ -24,9 +26,9 @@ let binary: string;
 let bound: string;
 let unbound: string;
 
-/** One setup command, bounded and fully drained by the shared sandbox helper. */
-async function run(args: string[], cwd: string): Promise<void> {
-  await command(args, { cwd, timeout: 60_000 });
+/** A CLI subprocess, bounded and fully drained by the shared sandbox helper. */
+function run(args: string[], cwd: string): Promise<string> {
+  return command(args, { cwd, timeout: 60_000 });
 }
 
 beforeAll(async () => {
@@ -40,7 +42,7 @@ beforeAll(async () => {
   await mkdir(join(root, 'bin'));
   await mkdir(bound);
   await mkdir(unbound);
-  await copyFile(join(repository, 'dist', 'mimir'), binary);
+  await copyFile(process.env.MIMIR_TEST_BINARY ?? join(repository, 'dist', 'mimir'), binary);
   await chmod(binary, 0o755);
   await run(['git', 'init', '-q'], bound);
   await run(['git', 'config', 'mimir.project', 'DEMO'], bound);
@@ -57,6 +59,16 @@ afterAll(async () => {
   if (enabled) {
     await rm(root, { force: true, recursive: true });
   }
+});
+
+test.skipIf(!enabled)('the compiled candidate reports its build version', async () => {
+  expect(await run([binary, '--version'], root)).toBe(
+    process.env.MIMIR_BUILD_VERSION ?? pkg.version,
+  );
+});
+
+test.skipIf(!enabled)('the compiled candidate supports the installation protocol', async () => {
+  expect(await run([binary, 'installation-protocol'], root)).toBe('{"installationProtocol":1}');
 });
 
 /** Call `tool` with no scope on a `mimir mcp` server spawned in `cwd`. */
