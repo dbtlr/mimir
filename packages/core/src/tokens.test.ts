@@ -350,6 +350,17 @@ describe.each([
     expect(await tokens.revoke('cafe\u0301')).toEqual({ requests: 1, tokens: 0 });
   });
 
+  test('revoke still matches a name stored before normalization exactly as stored', async () => {
+    const { db, requests, tokens } = await fixture();
+    await pairTestDevice(tokens, 'laptop');
+    await tokens.request('laptop');
+    await db.updateTable('device_tokens').set({ device: 'my  laptop' }).execute();
+    await db.updateTable('pairing_requests').set({ device: 'my  laptop' }).execute();
+    expect(await tokens.revoke('my  laptop')).toEqual({ requests: 1, tokens: 1 });
+    expect(await tokens.list()).toEqual([]);
+    expect(await requests()).toEqual([]);
+  });
+
   test('updates last_used only after more than five minutes, starting with first use', async () => {
     const { tokens, advance } = await fixture();
     const token = await pairTestDevice(tokens, 'laptop');

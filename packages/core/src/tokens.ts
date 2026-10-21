@@ -249,20 +249,21 @@ export function createTokenStore({
     },
     /**
      * Unpair a device: revoke its token and discard its requests, so no
-     * approval can still mint. The name matches as a request would normalize
-     * it. Answers how many of each it removed.
+     * approval can still mint. The name matches as typed or as a request would
+     * normalize it, so a name stored before normalization stays revocable.
+     * Answers how many of each it removed.
      */
     revoke: (input: string): Promise<{ requests: number; tokens: number }> => {
-      const device = normalizeDeviceName(input) ?? input;
+      const devices = [...new Set([input, normalizeDeviceName(input) ?? input])];
       return dialect.write(db, async (tx) => {
         const requests = await tx
           .deleteFrom('pairing_requests')
-          .where('device', '=', device)
+          .where('device', 'in', devices)
           .executeTakeFirst();
         const tokens = await tx
           .updateTable('device_tokens')
           .set({ revoked_at: clockInstant() })
-          .where('device', '=', device)
+          .where('device', 'in', devices)
           .where('revoked_at', 'is', null)
           .executeTakeFirst();
         return {
