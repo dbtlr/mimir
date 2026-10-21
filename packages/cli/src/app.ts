@@ -215,7 +215,7 @@ function remoteMachineWork(remote: RemoteSource): Pick<Machine, 'doctor' | 'stor
     throw new MimirError(
       'invariant',
       `mimir store acts on a local store, and this install's store lives on the host at ${remote.origin()}`,
-      'export or import the board on the host with mimir-host: docker exec mimir-host mimir-host store --help',
+      'export or import the board inside the host container: mimir-host store --help',
     );
   };
   return {
@@ -224,7 +224,7 @@ function remoteMachineWork(remote: RemoteSource): Pick<Machine, 'doctor' | 'stor
         throw new MimirError(
           'invariant',
           `mimir doctor checks a local store, and this install's store lives on the host at ${remote.origin()}`,
-          "check the store's health on the host: docker exec mimir-host mimir-host doctor",
+          "check the store's health inside the host container: mimir-host doctor",
         );
       },
     },
@@ -339,7 +339,7 @@ function hostEngine(engine: Engine, origin: string): Engine {
           throw new MimirError(
             'invariant',
             `the host at ${origin} could not complete the request${error instanceof Error ? ` (${error.message})` : ''}`,
-            "check the host's logs, or run it on the host: docker exec mimir-host mimir-host doctor",
+            "check the host's logs, or run mimir-host doctor inside the host container",
           );
         }
       };

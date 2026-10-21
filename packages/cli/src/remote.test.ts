@@ -329,7 +329,7 @@ test.each([['store export -'], ['store import board.json --apply'], ['doctor']])
     const run = await runArgv(remoteApp(), line.split(' '));
     expect(run.exitCode).toBe(1);
     expect(run.stderr).toContain(`lives on the host at ${ORIGIN}`);
-    expect(run.stderr).toContain('docker exec mimir-host mimir-host');
+    expect(run.stderr).toContain('inside the host container: mimir-host');
     expect(requests).toEqual([]);
   },
 );
