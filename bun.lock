@@ -29,7 +29,7 @@
         "zod": "4.6.6",
       },
       "devDependencies": {
-        "@electric-sql/pglite": "0.5.8",
+        "@electric-sql/pglite": "0.5.10",
       },
     },
     "packages/cli": {
@@ -71,7 +71,7 @@
         "zod": "4.6.6",
       },
       "devDependencies": {
-        "@electric-sql/pglite": "0.5.8",
+        "@electric-sql/pglite": "0.5.10",
         "@types/pg": "8.23.1",
       },
     },
@@ -383,7 +383,7 @@
 
     "@dbtlr/tooling": ["@dbtlr/tooling@0.6.0", "", { "peerDependencies": { "@testing-library/jest-dom": ">=6", "vite": ">=8.0.0", "vite-plus": ">=0.2.6" }, "optionalPeers": ["@testing-library/jest-dom", "vite", "vite-plus"] }, "sha512-GwzNfl/e/LBEqw844qel3N0XjF6NgxinfwH6aADXeJ5icmy5ZApdnI9UkIi77SwR4fV6bbHKV/o9puwn2+WQmA=="],
 
-    "@electric-sql/pglite": ["@electric-sql/pglite@0.5.8", "", {}, "sha512-n9tsbUOhwx2epK1V0ZG9Ar4SHWUju04dhmzZXiSBXwBoleOvIfals33NAaWgagQVAL4Rbvx/Ptsu3P+pA09f6Q=="],
+    "@electric-sql/pglite": ["@electric-sql/pglite@0.5.10", "", {}, "sha512-tXc/25U3ulOkiRQuTFdwIv+JhBqtMdAF7Gvo6CfZZWtSB4+hgC4Wr2vwK5ngvvN5PJfAAEGIsfyCVy1JhCOBYw=="],
 
     "@exodus/bytes": ["@exodus/bytes@1.16.0", "", { "peerDependencies": { "@noble/hashes": "^1.8.0 || ^2.0.0" }, "optionalPeers": ["@noble/hashes"] }, "sha512-IcpW84uEn3N7ETtNZMlxKhfl6Pec8rUNGOTBtWbK1FKhJxIFAptZyVrvVRVBimAJxJCgc3PxepxkdWWG4DVzfA=="],
 
