@@ -373,8 +373,9 @@ export function formatPairingCode(code: string): string {
 
 /**
  * Normalize a device name to NFC, trimmed, with each run of spaces as one ASCII space;
- * refuse an empty, overlong, or non-printing name. Two names that render alike must
- * normalize alike, so a request cannot pass for a paired device on an approval card.
+ * refuse an empty, overlong, or non-printing name. Names that differ only in hidden
+ * characters, composition, or spacing cannot pass for a paired device on an approval
+ * card; look-alike letters from other scripts stay distinct.
  * Emoji that need a joiner or variation selector are refused with the rest.
  */
 export function normalizeDeviceName(name: string): string | null {
