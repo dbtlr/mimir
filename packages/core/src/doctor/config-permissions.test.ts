@@ -39,8 +39,11 @@ test('warns, never errors, when [store] url sits in a world-readable file', () =
   const [item] = findings;
   expect(item?.severity).toBe('warn');
   expect(item?.check).toBe('config-permissions');
-  expect(item?.message).toContain(`chmod 600 ${file}`);
-  expect(item?.message).not.toContain('secret');
+  expect(item?.message).toBe(
+    'the config file carries [store] url but is readable by group or others (mode 0644)',
+  );
+  expect(item?.remedy).toBe(`run 'chmod 600 ${file}'`);
+  expect(JSON.stringify(item)).not.toContain('secret');
   expect(item?.evidence.mode).toBe('0644');
 });
 
@@ -70,7 +73,10 @@ test('warns when the group can write the file, even with no [store] url', () => 
   const [item] = findings;
   expect(item?.severity).toBe('warn');
   expect(item?.code).toBe('config-writable');
-  expect(item?.message).toContain(`chmod 600 ${file}`);
+  expect(item?.message).toBe(
+    'the config file is writable by group or others, who could redirect the store (mode 0620)',
+  );
+  expect(item?.remedy).toBe(`run 'chmod 600 ${file}'`);
   expect(item?.evidence.mode).toBe('0620');
 });
 
@@ -153,6 +159,9 @@ test('withConfigDoctor puts the config warnings in the console facet under the s
     field: 'mode',
     id: 'config',
     locator: file,
+    note:
+      'the config file carries [store] url but is readable by group or others (mode 0666)' +
+      ` — run 'chmod 600 ${file}'`,
     severity: 'warn',
     value: null,
   });
@@ -204,13 +213,18 @@ test('withConfigDoctor leaves a project-scoped facet and diagnosis alone', async
 test('withConfigDoctor reports the same config warnings to the CLI and the console', async () => {
   writeWithMode(WITH_URL, 0o666);
   const doctor = withConfigDoctor(BACKEND, file);
-  const cli = (await doctor.diagnose(undefined)).findings.map((f) => f.message);
+  const cli = (await doctor.diagnose(undefined)).findings;
   const console = (await doctor.facet(undefined)).groups
     .flatMap((g) => g.records)
     .filter((r) => r.id === 'config')
     .map((r) => r.note);
   expect(cli).toHaveLength(2);
-  expect(console).toEqual(cli);
+  expect(cli.every((finding) => finding.remedy !== undefined)).toBe(true);
+  expect(console).toEqual(cli.map((finding) => `${finding.message} — ${finding.remedy}`));
+  expect(console[1]).toBe(
+    'the config file is writable by group or others, who could redirect the store (mode 0666)' +
+      ` — run 'chmod 600 ${file}'`,
+  );
 });
 
 test('withConfigDoctor keeps the backend facet untouched for an owner-only config', async () => {
@@ -265,7 +279,10 @@ test('warns when a directory above the config is world-writable without the stic
   expect(item?.code).toBe('config-dir-writable');
   expect(item?.locator).toBe('/home/me/.config/mimir');
   expect(item?.evidence.mode).toBe('0777');
-  expect(item?.message).toContain('chmod go-w /home/me/.config/mimir');
+  expect(item?.message).toBe(
+    'the directory /home/me/.config/mimir is writable by group or others, who could replace the config (mode 0777)',
+  );
+  expect(item?.remedy).toBe("run 'chmod go-w /home/me/.config/mimir'");
 });
 
 test('warns on a group-writable ancestor, not only the immediate directory', () => {
@@ -291,9 +308,10 @@ test('warns when another user owns the config file', () => {
   expect(item?.code).toBe('config-foreign-owner');
   expect(item?.locator).toBe(FILE.path);
   expect(item?.evidence.owner).toBe(OTHER);
-  expect(item?.message).toContain(FILE.path);
+  expect(item?.message).toBe(`${FILE.path} is owned by uid 502, who could replace the config`);
+  expect(item?.remedy).toBe('keep the config on a path owned only by you or root');
   // Never a chown hint: the owner may be a real user whose path this is.
-  expect(item?.message).not.toContain('chown');
+  expect(JSON.stringify(item)).not.toContain('chown');
 });
 
 test('warns when another user owns a directory above the config', () => {

@@ -6,7 +6,7 @@
  * config, and the Loom Application, and hands commands only the ports they
  * read through.
  */
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { hostname } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
@@ -32,6 +32,7 @@ import {
   configDeclaresStore,
   configPath,
   credentialsPath,
+  CredentialsOriginError,
   DEFAULT_STORE_BACKEND,
   exportedDocument,
   dateFilterWindows,
@@ -74,6 +75,7 @@ import {
 import type {
   BuiltStore,
   DoctorBackend,
+  DoctorFinding,
   GitPort,
   GlobalConfig,
   PostgresHandle,
@@ -130,7 +132,7 @@ import { versionCommand } from './commands/version';
 import { defaultFormats } from './default-format';
 import { failures, MimirUsageError } from './failures';
 import { STREAM } from './machine';
-import type { Machine } from './machine';
+import type { Diagnosis, Machine } from './machine';
 import { documentExists, readDocumentFile, writeDocumentFile } from './machine-files';
 import type { Ports } from './ports';
 import { MIMIR_SKILL } from './skill-files';
@@ -143,6 +145,8 @@ export type RemoteSource = {
   engine: () => Promise<Engine>;
   /** The host's origin; refuses a broken `[host]` with its fix. */
   origin: () => string;
+  /** Client diagnostics read config and credentials before building the Engine. */
+  diagnose: () => Promise<Diagnosis>;
 };
 
 /**
@@ -239,8 +243,8 @@ const refuse = (what: string) => (): never => {
 
 /**
  * `doctor` and `store` in remote mode, where the host owns the store and
- * mimir-host administers it (ADR 0038). Each refuses before it reads or writes
- * anything, and a broken `[host]` refuses first with its own fix.
+ * mimir-host administers it (ADR 0038). Doctor checks the client, while store
+ * refuses before it reads or writes anything.
  */
 function remoteMachineWork(remote: RemoteSource): Pick<Machine, 'doctor' | 'store'> {
   const refuseStore = (): never => {
@@ -251,15 +255,7 @@ function remoteMachineWork(remote: RemoteSource): Pick<Machine, 'doctor' | 'stor
     );
   };
   return {
-    doctor: {
-      diagnose: () => {
-        throw new MimirError(
-          'invariant',
-          `mimir doctor checks a local store, and this install's store lives on the host at ${remote.origin()}`,
-          "check the store's health inside the host container: mimir-host doctor",
-        );
-      },
-    },
+    doctor: { diagnose: remote.diagnose, scope: 'install' },
     store: {
       documentExists: refuseStore,
       export: refuseStore,
@@ -332,9 +328,19 @@ function hostFetch(origin: string, send: HostSend): WireFetch {
     // Something other than a host (a proxy's error page, another service, the
     // console's HTML shell) answers without the tRPC envelope the wire reads:
     // one JSON object holding a `result` or an `error` object.
+    let text: string;
+    try {
+      text = await response.text();
+    } catch {
+      throw new MimirError(
+        'invariant',
+        `the host at ${origin} did not finish its response`,
+        'check the host and proxy are responding, then retry; check the host logs if it persists',
+      );
+    }
     let body: unknown;
     try {
-      body = JSON.parse(await response.text());
+      body = JSON.parse(text);
     } catch {
       body = undefined;
     }
@@ -392,20 +398,127 @@ export function remoteSource(options: {
   fetch?: HostSend;
 }): RemoteSource {
   const origin = () => hostOrigin(options.config, options.configFile);
+  const send = options.fetch ?? ((request: Request) => fetch(request));
+  const engineFor = (
+    { origin: host, token }: { origin: string; token: string },
+    sendRequest = send,
+  ) =>
+    hostEngine(
+      new RemoteEngine({
+        fetch: hostFetch(host, sendRequest),
+        headers: { authorization: `Bearer ${token}` },
+        url: `${host}/trpc`,
+        version: VERSION,
+      }),
+      host,
+    );
+  const engine = async () => engineFor(readCredentials(origin(), options.credentialsFile));
   return {
-    engine: async () => {
-      const host = origin();
-      const { token } = readCredentials(host, options.credentialsFile);
-      return hostEngine(
-        new RemoteEngine({
-          fetch: hostFetch(host, options.fetch ?? ((request) => fetch(request))),
-          headers: { authorization: `Bearer ${token}` },
-          url: `${host}/trpc`,
-          version: VERSION,
-        }),
-        host,
-      );
+    diagnose: async () => {
+      const findings: DoctorFinding[] = [];
+      const passed: string[] = [];
+      let check = 'remote-config';
+      let locator = options.configFile;
+      try {
+        const host = origin();
+        passed.push('host configuration');
+        check = 'remote-credentials';
+        locator = options.credentialsFile;
+        if (!existsSync(options.credentialsFile)) {
+          throw new MimirError(
+            'invariant',
+            `no device credentials at ${locator}`,
+            `mimir pair ${host}`,
+          );
+        }
+        let stat;
+        try {
+          stat = statSync(options.credentialsFile);
+        } catch {
+          throw new MimirError(
+            'invariant',
+            `cannot read device credentials at ${locator}`,
+            `mimir pair ${host}`,
+          );
+        }
+        if (!stat.isFile()) {
+          throw new MimirError(
+            'invariant',
+            `${locator} is not a credentials file`,
+            `mimir pair ${host}`,
+          );
+        }
+        if ((stat.mode & 0o7777) !== 0o600) {
+          throw new MimirError(
+            'invariant',
+            `${locator} must have mode 0600`,
+            `chmod 600 ${locator}`,
+          );
+        }
+        const credentials = readCredentials(host, options.credentialsFile);
+        passed.push('credentials file (0600)');
+        check = 'remote-origin';
+        passed.push('credentials origin');
+        check = 'remote-health';
+        locator = `${host}/health`;
+        const health = await new HostClient({
+          fetch: (input, init) => send(new Request(input, init)),
+          origin: host,
+        }).health();
+        passed.push('host health');
+        check = 'remote-version';
+        const verdict = versionWindow(VERSION, health.version, health.minClient);
+        if (verdict !== 'inside') {
+          const remedy = {
+            'above-host': 'update the host first, then retry',
+            'below-minimum': 'update this CLI, then retry',
+            malformed: 'check the CLI and host versions, and update them to compatible releases',
+          }[verdict];
+          const message =
+            verdict === 'malformed'
+              ? `CLI ${VERSION} cannot be compared with the host version window`
+              : `CLI ${VERSION} is outside the host version window (host ${health.version}, minimum ${health.minClient})`;
+          throw new MimirError('invariant', message, remedy);
+        }
+        passed.push('version window');
+        check = 'remote-token';
+        locator = `${host}/trpc/projects`;
+        // A diagnostic must finish even when health answers but the wire stalls.
+        await engineFor(credentials, (request) =>
+          send(new Request(request, { signal: AbortSignal.timeout(15_000) })),
+        ).projects({});
+        passed.push('device token');
+      } catch (error) {
+        if (error instanceof CredentialsOriginError) {
+          passed.push('credentials file (0600)');
+          check = 'remote-origin';
+        }
+        if (!(error instanceof MimirError)) {
+          throw error;
+        }
+        findings.push({
+          check,
+          code: check,
+          evidence: {},
+          locator,
+          message: error.message,
+          node: 'client',
+          remedy: error.hint ?? 'check the host configuration',
+          scopeKey: 'client',
+          severity: 'error',
+          stem: 'client',
+          where: `client · ${check.slice('remote-'.length)}`,
+        });
+      }
+      return {
+        findings,
+        guidance: 'record health: run mimir-host doctor inside the host container',
+        lines: findings.map(findingLine),
+        passed,
+        scope: null,
+      };
     },
+    engine,
     origin,
   };
 }
@@ -433,7 +546,7 @@ function unavailableMachine(): Machine {
       configured: refuse('doctor'),
       legacyFilePresent: () => false,
     },
-    doctor: { diagnose: refuse('doctor') },
+    doctor: { diagnose: refuse('doctor'), scope: 'project' },
     pair: {
       configFile: '',
       declaresStore: refuse('pair'),
@@ -608,6 +721,7 @@ function localMachineWork(
         const { findings, scope: match } = await (await fatalOnOpen(source.doctor)).diagnose(scope);
         return { findings, lines: findings.map(findingLine), scope: match };
       },
+      scope: 'project',
     },
     store: {
       // The data verbs run on whichever backend this install is configured for.

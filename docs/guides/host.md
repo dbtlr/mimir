@@ -223,7 +223,8 @@ curl --fail --silent --show-error --get http://127.0.0.1:64647/trpc/projects \
 A healthy host answers `200` with a body that starts `{"result":{"data":{"json":[`,
 followed by the project list. A store the host cannot read answers `500`, which
 `--fail` turns into a non-zero exit. The console's Record health page shows the
-findings that `mimir doctor` reports.
+record findings that `mimir-host doctor` reports inside the host container.
+The Loom CLI's remote `mimir doctor` checks client setup and connectivity instead.
 
 The retired `/api` answers every method with `410` and a JSON body whose error
 code is `gone` and whose hint names `/trpc`, so a stale probe such as
@@ -460,7 +461,7 @@ the host. The message says what failed and the remedy line says what to do.
 refused because the state already moved. Adjust the request instead of
 repairing the store. A `400` is an ordinary refusal of a malformed request.
 `internal` carries `mimirError: null`: the response says only `the request did
-not complete` and hints `run 'mimir doctor'`, and the host log carries the detail.
+not complete` and hints `run 'mimir-host doctor' inside the host container`, and the host log carries the detail.
 
 ## Upgrade the host and the CLIs that share its Postgres
 

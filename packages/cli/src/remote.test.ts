@@ -5,10 +5,11 @@
  * a test store, with its version window and bearer check.
  */
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { chmodSync, mkdtempSync, rmSync } from 'node:fs';
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { MIN_CLIENT } from '@mimir/contract';
 import {
   createInitiative,
   createProject,
@@ -64,6 +65,11 @@ afterEach(async () => {
 function hostFetch(request: Request): Promise<Response> {
   // Only the request line and headers are read back, so the handler may consume the body.
   requests.push(request);
+  if (new URL(request.url).pathname === '/health') {
+    return Promise.resolve(
+      Response.json({ minClient: MIN_CLIENT, schema: 1, status: 'ok', version: hostVersion }),
+    );
+  }
   return createEngineHandler(new LocalEngine(fixture.store), {
     verifyToken: fixture.tokens.verify,
     version: hostVersion,
@@ -323,7 +329,7 @@ test('credentials recorded for another host are refused before any request', asy
   expect(requests).toEqual([]);
 });
 
-test.each([['store export -'], ['store import board.json --apply'], ['doctor']])(
+test.each([['store export -'], ['store import board.json --apply']])(
   '%s refuses in remote mode and points to mimir-host',
   async (line) => {
     const run = await runArgv(remoteApp(), line.split(' '));
@@ -343,7 +349,7 @@ test('store upgrade in remote mode points to updating the host', async () => {
   expect(run.stderr).not.toContain('mimir-host');
 });
 
-test.each([['store export -'], ['store upgrade'], ['doctor']])(
+test.each([['store export -'], ['store upgrade']])(
   '%s under a broken [host] refuses with the config fix',
   async (line) => {
     const run = await runArgv(
@@ -374,4 +380,281 @@ test('a run that needs no work state reads no credentials', async () => {
   rmSync(credentialsFile);
   const run = await runArgv(remoteApp(), ['version']);
   expect(run.exitCode).toBe(0);
+});
+
+// Client diagnosis must report broken setup before any Engine is built.
+test('remote doctor reports conflicting config as a finding and exits zero', async () => {
+  const run = await runArgv(remoteApp({ host: { problem: 'with-store' }, store: {} }), [
+    'doctor',
+    '-f',
+    'json',
+  ]);
+  expect(run.exitCode).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject([
+    {
+      check: 'remote-config',
+      remedy: 'keep one: remove [store] to use the host, or remove [host] to use the local store',
+      severity: 'error',
+    },
+  ]);
+  expect(requests).toEqual([]);
+  expect(run.stderr).toBe('');
+});
+
+test('remote doctor reports missing credentials before reaching the host', async () => {
+  rmSync(credentialsFile);
+  const run = await runArgv(remoteApp(), ['doctor', '-f', 'json']);
+  expect(run.exitCode).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject([
+    {
+      check: 'remote-credentials',
+      remedy: `mimir pair ${ORIGIN}`,
+      severity: 'error',
+    },
+  ]);
+  expect(requests).toEqual([]);
+});
+
+test.each([0o644, 0o400, 0o700])(
+  'remote doctor requires credentials at exactly 0600, not %i',
+  async (mode) => {
+    chmodSync(credentialsFile, mode);
+    const run = await runArgv(remoteApp(), ['doctor', '-f', 'json']);
+    expect(run.exitCode).toBe(0);
+    expect(JSON.parse(run.stdout)).toMatchObject([
+      {
+        check: 'remote-credentials',
+        remedy: `chmod 600 ${credentialsFile}`,
+      },
+    ]);
+    expect(requests).toEqual([]);
+  },
+);
+
+test('remote doctor checks the recorded origin before reaching the host', async () => {
+  const run = await runArgv(
+    remoteApp({ host: { url: 'https://elsewhere.example.test' }, store: {} }),
+    ['doctor', '-f', 'json'],
+  );
+  expect(run.exitCode).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject([
+    {
+      check: 'remote-origin',
+      remedy: 'mimir pair https://elsewhere.example.test',
+    },
+  ]);
+  expect(run.stdout).not.toContain(token);
+  expect(requests).toEqual([]);
+});
+
+test('remote doctor reports an unreachable health endpoint without a token request', async () => {
+  const run = await runArgv(remoteApp(undefined, down), ['doctor', '-f', 'json']);
+  expect(run.exitCode).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject([
+    {
+      check: 'remote-health',
+      remedy: 'check the host URL and that the host is running, then try again',
+    },
+  ]);
+  expect(run.stdout).not.toContain(token);
+});
+
+test('remote doctor stops at the version window before sending credentials', async () => {
+  hostVersion = '0.1.0';
+  const run = await runArgv(remoteApp(), ['doctor', '-f', 'json']);
+  expect(run.exitCode).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject([
+    {
+      check: 'remote-version',
+      remedy: 'update the host first, then retry',
+    },
+  ]);
+  expect(requests.map((request) => new URL(request.url).pathname)).toEqual(['/health']);
+  expect(requests[0]?.headers.get('authorization')).toBe(null);
+  expect(requests[0]?.headers.get('x-mimir-version')).toBe(null);
+});
+
+test('remote doctor reports a revoked token after a healthy compatible host', async () => {
+  await fixture.tokens.revoke('valhalla');
+  const run = await runArgv(remoteApp(), ['doctor', '-f', 'jsonl']);
+  expect(run.exitCode).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject({
+    check: 'remote-token',
+    remedy: `mimir pair ${ORIGIN}`,
+  });
+  expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
+    '/health',
+    '/trpc/projects',
+  ]);
+  expect(run.stderr).toBe('');
+  expect(run.stdout).not.toContain(token);
+});
+
+test('remote doctor reports every passed check and points record health to the host', async () => {
+  const run = await runArgv(remoteApp(), ['doctor', '-s', 'MISSING'], {
+    env: { NO_COLOR: '1' },
+    tty: true,
+  });
+  expect(run.exitCode).toBe(0);
+  expect(run.stderr).toContain('[ok] host configuration');
+  expect(run.stderr).toContain('[ok] credentials file (0600)');
+  expect(run.stderr).toContain('[ok] credentials origin');
+  expect(run.stderr).toContain('[ok] host health');
+  expect(run.stderr).toContain('[ok] version window');
+  expect(run.stderr).toContain('[ok] device token');
+  expect(run.stderr.trim()).toEndWith(
+    'record health: run mimir-host doctor inside the host container',
+  );
+  expect(run.stderr).not.toContain('matched 0 records');
+  expect(run.stdout).toContain('doctor: no problems found');
+  expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
+    '/health',
+    '/trpc/projects',
+  ]);
+  expect(requests[1]?.headers.get('authorization')).toBe(`Bearer ${token}`);
+  expect(requests[1]?.headers.get('x-mimir-version')).toBe(VERSION);
+});
+
+test.each([
+  ['[host] without a URL', { problem: 'invalid-url' }],
+  ['a malformed [host]', { problem: 'malformed' }],
+] as const)('remote doctor diagnoses %s without a request', async (_label, host) => {
+  const run = await runArgv(remoteApp({ host, store: {} }), ['doctor', '-f', 'json']);
+  expect(run.exitCode).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject([
+    {
+      check: 'remote-config',
+      remedy: "set [host] url to the host's http or https URL",
+    },
+  ]);
+  expect(requests).toEqual([]);
+});
+
+test('remote doctor keeps successful machine output as an empty findings array', async () => {
+  const run = await runArgv(remoteApp(), ['doctor', '-f', 'json']);
+  expect(run).toMatchObject({ exitCode: 0, stderr: '' });
+  expect(JSON.parse(run.stdout)).toEqual([]);
+  expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
+    '/health',
+    '/trpc/projects',
+  ]);
+});
+
+test('remote doctor prints only passed checks before the first failure and its fix', async () => {
+  chmodSync(credentialsFile, 0o644);
+  const run = await runArgv(remoteApp(), ['doctor'], { env: { NO_COLOR: '1' }, tty: true });
+  expect(run.exitCode).toBe(0);
+  expect(run.stderr).toContain('[ok] host configuration\n');
+  expect(run.stderr).toContain('[err] client:');
+  expect(run.stderr).toContain(`\n  fix: chmod 600 ${credentialsFile}`);
+  expect(run.stderr).not.toContain('[ok] credentials');
+  expect(run.stderr.trim()).toEndWith(
+    'record health: run mimir-host doctor inside the host container',
+  );
+  expect(run.stdout).toBe('');
+  expect(requests).toEqual([]);
+});
+
+test.each([
+  { minClient: '99.0.0', remedy: 'update this CLI, then retry', version: VERSION },
+  {
+    minClient: MIN_CLIENT,
+    remedy: 'check the CLI and host versions, and update them to compatible releases',
+    version: 'invalid-host-version\u001b[2J',
+  },
+])(
+  'remote doctor explains an incompatible window ($minClient, $version)',
+  async ({ minClient, version, remedy }) => {
+    const service: HostSend = (request) => {
+      requests.push(request);
+      return Promise.resolve(Response.json({ minClient, schema: 1, status: 'ok', version }));
+    };
+    const run = await runArgv(remoteApp(undefined, service), ['doctor', '-f', 'json']);
+    expect(run.exitCode).toBe(0);
+    expect(JSON.parse(run.stdout)).toMatchObject([{ check: 'remote-version', remedy }]);
+    expect(run.stdout).not.toContain('invalid-host-version');
+    expect(requests.map((request) => new URL(request.url).pathname)).toEqual(['/health']);
+  },
+);
+
+test('remote doctor needs no local machine or clone-binding service', async () => {
+  const app = createApp({
+    git: {
+      originUrl: opensStore,
+      readConfig: opensStore,
+      writeConfig: opensStore,
+    },
+    remote: remoteSource({
+      config: { host: { url: ORIGIN }, store: {} },
+      configFile: join(dir, 'config.toml'),
+      credentialsFile,
+      fetch: hostFetch,
+    }),
+  });
+  const run = await runArgv(app, ['doctor', '-f', 'json']);
+  expect(run).toMatchObject({ exitCode: 0, stderr: '' });
+  expect(JSON.parse(run.stdout)).toEqual([]);
+  expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
+    '/health',
+    '/trpc/projects',
+  ]);
+});
+
+test.each([
+  'garbage = [',
+  `origin = "${ORIGIN}"\ndevice = "valhalla"\nissued_at = "2026-10-20T12:00:00Z"\n`,
+])(
+  'remote doctor classifies unreadable credential records as credentials failures',
+  async (text) => {
+    writeFileSync(credentialsFile, text);
+    const run = await runArgv(remoteApp(), ['doctor', '-f', 'json']);
+    expect(run.exitCode).toBe(0);
+    expect(JSON.parse(run.stdout)).toMatchObject([
+      { check: 'remote-credentials', remedy: `mimir pair ${ORIGIN}` },
+    ]);
+    expect(requests).toEqual([]);
+  },
+);
+
+/** Health answers, but the token response's stream fails after its headers. */
+const unfinishedTokenResponse: HostSend = (request) => {
+  if (new URL(request.url).pathname === '/health') {
+    return hostFetch(request);
+  }
+  requests.push(request);
+  return Promise.resolve(
+    new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.error(new DOMException('response timed out', 'TimeoutError'));
+        },
+      }),
+    ),
+  );
+};
+
+test('remote doctor gives a retry remedy when the token response body does not finish', async () => {
+  const run = await runArgv(remoteApp(undefined, unfinishedTokenResponse), [
+    'doctor',
+    '-f',
+    'json',
+  ]);
+  expect(run.exitCode).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject([
+    {
+      check: 'remote-token',
+      remedy:
+        'check the host and proxy are responding, then retry; check the host logs if it persists',
+    },
+  ]);
+  expect(run.stdout).not.toContain('without a Mimir response');
+});
+
+test('clean remote JSONL preserves the existing empty-report newline', async () => {
+  const run = await runArgv(remoteApp(), ['doctor', '-f', 'jsonl']);
+  expect(run).toEqual({ exitCode: 0, stderr: '', stdout: '\n' });
+  expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
+    '/health',
+    '/trpc/projects',
+  ]);
 });

@@ -51,13 +51,14 @@ function modeString(mode: number): string {
   return (mode & 0o7777).toString(8).padStart(4, '0');
 }
 
-/** One config-permission warning about `path`; `message` names the risk and the fix. */
+/** One config-permission warning about `path`, separating the risk from its fix. */
 function configFinding(
   path: string,
   code: ConfigCode,
   field: 'mode' | 'owner',
   evidence: Record<string, unknown>,
   message: string,
+  remedy: string,
 ): DoctorFinding {
   return {
     check: 'config-permissions',
@@ -66,6 +67,7 @@ function configFinding(
     locator: path,
     message,
     node: 'config',
+    remedy,
     scopeKey: STORE_SCOPE,
     severity: 'warn',
     stem: 'config',
@@ -85,7 +87,8 @@ function fileModeFinding(
     code,
     'mode',
     { mode: shown },
-    `${risk} (mode ${shown}) — run 'chmod 600 ${file}'`,
+    `${risk} (mode ${shown})`,
+    `run 'chmod 600 ${file}'`,
   );
 }
 
@@ -113,7 +116,8 @@ export function checkConfigReplaceable(
           'config-dir-writable',
           'mode',
           { mode: shown },
-          `the directory ${path} is writable by group or others, who could replace the config (mode ${shown}) — run 'chmod go-w ${path}'`,
+          `the directory ${path} is writable by group or others, who could replace the config (mode ${shown})`,
+          `run 'chmod go-w ${path}'`,
         ),
       );
     }
@@ -124,7 +128,8 @@ export function checkConfigReplaceable(
           'config-foreign-owner',
           'owner',
           { owner },
-          `${path} is owned by uid ${owner}, who could replace the config — keep the config on a path owned only by you or root`,
+          `${path} is owned by uid ${owner}, who could replace the config`,
+          'keep the config on a path owned only by you or root',
         ),
       );
     }
@@ -141,7 +146,7 @@ export type ConfigTrust = { home?: string; uid?: number };
  * write warning does not wait for one. Then warn on any owner or directory
  * that lets another user replace the file ({@link checkConfigReplaceable}).
  * Silent for an absent file and an owner-only file on a private path. The
- * messages name the path and the fix and never echo the url.
+ * findings name the path and the fix and never echo the url.
  */
 export function checkConfigPermissions(file: string, trust: ConfigTrust = {}): DoctorFinding[] {
   const mode = configFileMode(file);

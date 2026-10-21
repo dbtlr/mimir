@@ -196,7 +196,10 @@ test('unexpected wire faults log their details without sending library text or s
     expect(failure).toHaveProperty('name', 'TRPCClientError');
     expect(failure).not.toBeInstanceOf(MimirError);
     expect(failure).toHaveProperty('message', 'the request did not complete');
-    expect(failure).toHaveProperty('data.hint', "run 'mimir doctor'");
+    expect(failure).toHaveProperty(
+      'data.hint',
+      "run 'mimir-host doctor' inside the host container",
+    );
     expect(failure).toHaveProperty('data.code', 'INTERNAL_SERVER_ERROR');
     expect(failure).toHaveProperty('data.mimirError', null);
     expect(failure).not.toHaveProperty('data.stack');

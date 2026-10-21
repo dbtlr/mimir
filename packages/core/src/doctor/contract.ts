@@ -26,6 +26,8 @@ export type DoctorFinding = {
   where: string;
   /** A one-line human description of the problem. */
   message: string;
+  /** A human action that addresses the problem, when the check knows one. */
+  remedy?: string;
   /** Canonical ownership derived from the stem, never from stored metadata. */
   scopeKey: string;
   /** Canonical entity identity (kept alongside `node` for JSON compatibility). */
@@ -46,12 +48,13 @@ export function isUnscoped(scope: string | undefined): scope is '' | undefined {
   return scope === undefined || scope === '';
 }
 
-/** One finding as the human line the CLI prints to stderr, e.g. `[warn] node: message (where)`. */
+/** One finding as the CLI's human report, with an indented fix when available. */
 export function findingLine(f: DoctorFinding): string {
   // Tier-1 short spelling (`[err]`/`[warn]`, never `[error]`), so `error` never
   // reads as a `warn`. The wire `severity` field keeps its `error`/`warn` vocabulary.
   const tag = f.severity === 'error' ? 'err' : f.severity;
-  return `[${tag}] ${f.node}: ${f.message} (${f.where})`;
+  const line = `[${tag}] ${f.node}: ${f.message} (${f.where})`;
+  return f.remedy === undefined ? line : `${line}\n  fix: ${f.remedy}`;
 }
 
 /** One diagnostic pass: what was found, and what the scope actually matched. */

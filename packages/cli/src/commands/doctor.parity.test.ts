@@ -1,9 +1,14 @@
+import { expect, test } from 'bun:test';
+
 import type { DoctorFinding } from '@mimir/core';
 
 import { MACHINE_REDIRECTS } from '../parity/differences';
 import { argvLine } from '../testing/argv-case';
 import type { ArgvExtras } from '../testing/argv-case';
+import { parityBoard } from '../testing/fixture';
+import { oldRun } from '../testing/parity';
 import type { ParityCase } from '../testing/parity';
+import { runArgv } from '../testing/run';
 import { twinCases } from '../testing/twin';
 
 /** The real checks find nothing on the fixture board, so a case can add findings of its own. */
@@ -15,6 +20,7 @@ const FINDINGS: DoctorFinding[] = [
     locator: 'node/MMR-1',
     message: 'MMR-1 names parent MMR-404, which no node row holds',
     node: 'MMR-1',
+    remedy: 'set parent_id to an existing node',
     scopeKey: 'MMR',
     severity: 'error',
     stem: 'MMR-1',
@@ -100,4 +106,35 @@ const CASES: DoctorCase[] = [
 // Doctor reads, but a case adds findings to the board it runs on, so each runs on a fresh twin.
 twinCases(/^doctor /, CASES, undefined, (board, c) => {
   board.findings.push(...(c.found ? FINDINGS : []));
+});
+
+test('both CLIs print a doctor remedy on the terminal and preserve it in JSON and JSONL', async () => {
+  const board = await parityBoard();
+  board.findings.push(...FINDINGS);
+  try {
+    for (const format of ['records', 'json', 'jsonl']) {
+      const words = ['doctor', '-s', 'MMR', '-f', format];
+      const old = await oldRun(board.store, words, undefined, true, board.oldDefaults());
+      const next = await runArgv(board.app(undefined, words), words, { tty: true });
+      for (const run of [old, next]) {
+        expect(run.exitCode).toBe(0);
+        if (format === 'records') {
+          expect(run.stdout).toBe('');
+          expect(run.stderr).toContain('\n  fix: set parent_id to an existing node\n');
+        } else {
+          expect(run.stderr).toBe('');
+          const findings: unknown =
+            format === 'json'
+              ? JSON.parse(run.stdout)
+              : run.stdout
+                  .trimEnd()
+                  .split('\n')
+                  .map((line) => JSON.parse(line));
+          expect(findings).toEqual(FINDINGS);
+        }
+      }
+    }
+  } finally {
+    await board.close();
+  }
 });

@@ -13,10 +13,14 @@ export type BindingCheck =
   | { state: 'unbound'; reason: 'no-origin' | 'no-match' }
   | { state: 'unbound'; reason: 'ambiguous'; candidates: string[] };
 
-/** One diagnostic pass: the wire findings, each finding's human line, and what the scope matched. */
+/** One diagnostic pass: findings, human report lines, and what the local scope matched. */
 export type Diagnosis = {
   findings: readonly Record<string, unknown>[];
-  /** One human line per finding, in the same order. */
+  /** Client checks that passed, rendered only in human formats. */
+  passed?: readonly string[];
+  /** Onward guidance after the diagnostic lines, rendered only in human formats. */
+  guidance?: string;
+  /** Human text per finding, including an optional indented fix, in the same order. */
   lines: readonly string[];
   /** The scope's match count; null when the run is unscoped. */
   scope: { key: string; matched_records: number } | null;
@@ -138,7 +142,11 @@ export type Machine = {
     /** Whether the retired checked-in binding file is still in the working directory. */
     legacyFilePresent: () => boolean;
   };
-  doctor: { diagnose: (scope: string | undefined) => Promise<Diagnosis> };
+  doctor: {
+    /** Only local store diagnostics resolve a clone's project binding. */
+    scope: 'install' | 'project';
+    diagnose: (scope: string | undefined) => Promise<Diagnosis>;
+  };
   pair: Pairing;
   store: {
     /** Move the configured database's schema to this build's. */

@@ -10,7 +10,15 @@ import { join } from 'node:path';
 import { writeFileAtomic } from './atomic-write';
 import { urlOrigin } from './config';
 import { runtimePaths } from './env';
-import { invariant } from './errors';
+import { invariant, MimirError } from './errors';
+
+/** A readable credential record whose origin differs from the configured host. */
+export class CredentialsOriginError extends MimirError {
+  constructor(message: string, remedy: string) {
+    super('invariant', message, remedy);
+    this.name = 'CredentialsOriginError';
+  }
+}
 
 /** What one pairing grants: a token the host at `origin` issued to `device`. */
 export type Credentials = {
@@ -117,7 +125,10 @@ export function readCredentials(origin: string, file: string = credentialsPath()
   }
   // Compared as origins, so a hand-edited `https://Host/` still matches.
   if (urlOrigin(recorded) !== origin) {
-    throw invariant(`${file} holds credentials for ${recorded}, not ${origin}`, pair);
+    throw new CredentialsOriginError(
+      `${file} holds credentials for ${recorded}, not ${origin}`,
+      pair,
+    );
   }
   return { device, issuedAt, origin, token };
 }
