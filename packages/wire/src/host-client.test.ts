@@ -184,6 +184,48 @@ test.each(definiteFailures)('%s is definite on health', async (_name, answer) =>
   expect((await refusal(clientFor(answer).health())).transient).toBe(false);
 });
 
+// A redirect would carry the device name or poll secret to wherever it points, so none is followed.
+const redirect = (status: number, location: string) => async () =>
+  new Response(null, { headers: { location }, status });
+
+test('the client asks fetch not to follow redirects', async () => {
+  const seen: RequestInit[] = [];
+  const client = new HostClient({
+    fetch: async (_input, init) => {
+      seen.push(init);
+      return Response.json(healthOf('0.26.0'));
+    },
+    origin: ORIGIN,
+  });
+  await client.health();
+  await client.requestPairing('laptop').catch(() => undefined);
+  await client.pollPairing('secret').catch(() => undefined);
+  expect(seen.map((init) => init.redirect)).toEqual(['manual', 'manual', 'manual']);
+});
+
+test.each([301, 302, 307, 308])(
+  'a %i is a definite refusal naming the target origin',
+  async (status) => {
+    const answer = redirect(status, 'https://elsewhere.test/auth/pairing/poll?x=1');
+    for (const call of [
+      (client: HostClient) => client.health(),
+      (client: HostClient) => client.requestPairing('laptop'),
+      (client: HostClient) => client.pollPairing('secret'),
+    ]) {
+      const error = await refusal(call(clientFor(answer)));
+      expect(error).toMatchObject({ code: 'invariant', status, transient: false });
+      expect(error.message).toBe(`the host at ${ORIGIN} redirected to https://elsewhere.test`);
+      expect(error.hint).toContain('mimir pair https://elsewhere.test');
+    }
+  },
+);
+
+test('a redirect whose target is not an http origin names no target', async () => {
+  const error = await refusal(clientFor(redirect(307, 'data:text/plain,\u001B[2Jx')).health());
+  expect(error.message).toBe(`the host at ${ORIGIN} redirected`);
+  expect(`${error.message} ${String(error.hint)}`).not.toContain('\u001B');
+});
+
 test.each(transientFailures)('%s is transient on a poll', async (_name, answer) => {
   const error = await refusal(clientFor(answer).pollPairing('secret'));
   expect(error).toMatchObject({ code: 'invariant', transient: true });

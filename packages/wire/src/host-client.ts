@@ -139,6 +139,8 @@ export class HostClient {
               headers: { 'content-type': 'application/json' },
               method: 'POST',
             }),
+        // A followed redirect would resend the device name or poll secret wherever it points.
+        redirect: 'manual',
         signal:
           abort === undefined
             ? AbortSignal.timeout(this.#timeoutMs)
@@ -157,12 +159,16 @@ export class HostClient {
     return {
       hostNow: hostNowOf(response),
       json,
+      redirectTo: redirectTargetOf(response),
       retryAfter: retryAfterOf(response),
       status: response.status,
     };
   }
 
   #answer<T>(route: Route, answer: Answer, schema: z.ZodType<T>): T {
+    if (answer.status >= 300 && answer.status < 400) {
+      throw this.#redirected(answer);
+    }
     if (answer.status === 429 && route === 'request') {
       throw rateLimited(answer);
     }
@@ -187,6 +193,19 @@ export class HostClient {
       );
     }
     throw this.#refused(route, answer);
+  }
+
+  /** A redirect is never followed; only its target's normalized origin is shown. */
+  #redirected(answer: Answer): HostRequestError {
+    const target = answer.redirectTo;
+    return new HostRequestError(
+      'invariant',
+      `the host at ${this.origin} redirected${target === undefined ? '' : ` to ${target}`}`,
+      target === undefined
+        ? 'pair with the address the host serves'
+        : `if the host now serves ${target}, pair with it: mimir pair ${target}`,
+      { status: answer.status, transient: false },
+    );
   }
 
   #transient(answer: Answer): HostRequestError {
@@ -247,6 +266,7 @@ export class HostClient {
 type Answer = {
   hostNow: number | undefined;
   json: unknown;
+  redirectTo: string | undefined;
   retryAfter: number | undefined;
   status: number;
 };
@@ -265,6 +285,20 @@ function rateLimited(answer: Answer): HostRequestError {
 function retryAfterOf(response: Response): number | undefined {
   const value = response.headers.get('retry-after');
   return value !== null && /^\d+$/.test(value) ? Number(value) : undefined;
+}
+
+/** A redirect's `Location` reduced to an http(s) origin, so a hostile header writes no raw text. */
+function redirectTargetOf(response: Response): string | undefined {
+  const location = response.headers.get('location');
+  if (location === null) {
+    return undefined;
+  }
+  try {
+    const target = new URL(location, response.url || undefined);
+    return target.protocol === 'http:' || target.protocol === 'https:' ? target.origin : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** The host's `Date` header as epoch milliseconds; junk reads as absent. */

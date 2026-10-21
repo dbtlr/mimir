@@ -837,7 +837,7 @@ test.each([
   },
 );
 
-test('a host message at filing with terminal controls is not echoed raw', async () => {
+test('a host message and hint at filing with terminal controls are not echoed raw', async () => {
   host.intercept = (path) =>
     path === '/auth/pairing/requests'
       ? Response.json(
@@ -850,6 +850,7 @@ test('a host message at filing with terminal controls is not echoed raw', async 
   expect(run.stderr).toContain('busy');
   // The host's style marks arrive as literal characters; applied, they would vanish from the text.
   expect(run.stderr).toContain('busy\uE000now\uE003');
+  expect(run.stderr).toContain('wait\uE001more');
   expect(run.stderr).not.toContain('\u001B[2J');
   expect(run.stderr).not.toContain('Internal error');
   expect(run.stderr).not.toContain('Something went wrong');
