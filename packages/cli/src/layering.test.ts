@@ -29,6 +29,10 @@ const PROBES = {
     source: "export { parityBoard } from '../testing/fixture';\n",
   },
   typed: { path: probe('typed'), source: "export const count: number = 'one';\n" },
+  wire: {
+    path: probe('wire'),
+    source: "export { RemoteEngine } from '@mimir/wire/client';\n",
+  },
 };
 const APP = fileURLToPath(new URL('app.ts', import.meta.url));
 
@@ -99,6 +103,10 @@ test('a command module that imports @mimir/core is refused', () => {
 
 test('a command module that imports the old binary is refused', () => {
   expect(of(PROBES.bin.path)).toContain('@mimir/cli may not import @mimir/bin');
+});
+
+test('a command module that imports the wire is refused', () => {
+  expect(of(PROBES.wire.path)).toContain('only packages/cli/src/app.ts imports @mimir/wire');
 });
 
 test('a command module that imports the test-support helpers is refused', () => {

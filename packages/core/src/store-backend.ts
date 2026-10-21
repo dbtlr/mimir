@@ -28,15 +28,33 @@ export type BuiltStore = {
   tokens: TokenStore;
 };
 
+/** `[host]` beside `[store]`: the install names two owners for its store. */
+const bothSections = (file: string) =>
+  invariant(
+    `${file} holds both [host] and [store]`,
+    'keep one: remove [store] to use the host, or remove [host] to use the local store',
+  );
+
 /**
- * Refuse a `[store]` section that parsed to nothing usable. FATAL: the fence
- * selects which store gets WRITTEN, so a typo in a Postgres install must never
+ * Refuse a config that names a host, or a `[store]` section that parsed to
+ * nothing usable. FATAL: the fence selects which store gets WRITTEN, so a typo in a Postgres install must never
  * fall back to creating and writing a local store. The remedy names the key that actually went wrong —
  * a bad URL is not fixed by re-reading the list of backends.
  *
  * Shared with `store upgrade`, which reads the same section for the same fence; `file` names the config the section came from.
  */
 export function assertUsableStoreConfig(config: GlobalConfig, file: string = configPath()): void {
+  if (config.host !== undefined) {
+    // Each store has one owner (ADR 0038): an install that names a host keeps no
+    // local store, so no CLI opens one in the host's place.
+    if (config.host.problem === 'with-store') {
+      throw bothSections(file);
+    }
+    throw invariant(
+      `[host] is set in ${file}, so this install keeps no local store`,
+      'the store lives on the host; administer it there with mimir-host, or remove [host] to use a local store',
+    );
+  }
   const problem = config.store.problem;
   if (problem === undefined) {
     return;
@@ -52,6 +70,24 @@ const STORE_REMEDIES: Record<NonNullable<GlobalConfig['store']['problem']>, stri
   'removed-backend':
     'the norn backend was removed (ADR 0032); export the vault with mimir v0.20 (`mimir store export <file>`), then remove the backend line and run `mimir store import <file> --apply`',
 };
+
+/**
+ * The origin of the host a remote install names (ADR 0038). Refuses a config
+ * without a usable `[host]`, and one that also holds `[store]`.
+ */
+export function hostOrigin(config: GlobalConfig, file: string = configPath()): string {
+  const host = config.host;
+  if (host?.problem === 'with-store') {
+    throw bothSections(file);
+  }
+  if (host?.url === undefined) {
+    throw invariant(
+      `[host] is unusable (${host?.problem ?? 'missing'}) in ${file}`,
+      "set [host] url to the host's http or https URL",
+    );
+  }
+  return new URL(host.url).origin;
+}
 
 /** What a single run may override about the store it opens. */
 export type StoreOverride = {

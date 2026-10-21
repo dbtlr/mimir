@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { configPath } from './config';
 import { MimirError } from './errors';
 import { sandboxPostgresUrlFromEnvironment } from './sandbox-authority';
-import { buildStore } from './store-backend';
+import { buildStore, hostOrigin } from './store-backend';
 import { openPostgres, upgradeSchema } from './store-postgres/index';
 import { createThrowawaySchema } from './store-postgres/testing';
 import { buildSqliteStore } from './store-sqlite-backend';
@@ -159,6 +159,57 @@ test('an unusable [store] section is fatal, never a fallback to another store', 
       expect((error as MimirError).hint).toContain(remedy);
     }
     expect(threw).toBe(true);
+  }
+});
+
+// Each store has one owner (ADR 0038): an install that names a host keeps no
+// local store, so no CLI, old or new, opens one in the host's place.
+test('a config with [host] builds no local store', async () => {
+  for (const host of [{ url: 'https://mimir.example.test' }, { problem: 'invalid-url' as const }]) {
+    const refusal: unknown = await buildStore({ host, store: {} }).catch((error: unknown) => error);
+    expect(refusal).toBeInstanceOf(MimirError);
+    expect((refusal as MimirError).message).toContain('[host]');
+    expect((refusal as MimirError).message).toContain(configPath());
+    expect((refusal as MimirError).hint).toContain('mimir-host');
+  }
+});
+
+test('[host] beside [store] is one refusal that names both ways out', async () => {
+  const config = { host: { problem: 'with-store' as const }, store: {} };
+  for (const attempt of [() => buildStore(config), async () => hostOrigin(config, '/cfg.toml')]) {
+    const refusal: unknown = await attempt().catch((error: unknown) => error);
+    expect(refusal).toBeInstanceOf(MimirError);
+    expect((refusal as MimirError).message).toContain('both [host] and [store]');
+    expect((refusal as MimirError).hint).toBe(
+      'keep one: remove [store] to use the host, or remove [host] to use the local store',
+    );
+  }
+});
+
+test('hostOrigin reduces [host] url to its origin', () => {
+  expect(hostOrigin({ host: { url: 'https://Mimir.Example.test/trpc/' }, store: {} })).toBe(
+    'https://mimir.example.test',
+  );
+  expect(hostOrigin({ host: { url: 'http://127.0.0.1:64647' }, store: {} })).toBe(
+    'http://127.0.0.1:64647',
+  );
+});
+
+test('hostOrigin refuses an unusable or absent [host] with the key to set', () => {
+  for (const host of [
+    { problem: 'malformed' as const },
+    { problem: 'invalid-url' as const },
+    undefined,
+  ]) {
+    let refusal: unknown;
+    try {
+      hostOrigin({ ...(host === undefined ? {} : { host }), store: {} }, '/cfg.toml');
+    } catch (error) {
+      refusal = error;
+    }
+    expect(refusal).toBeInstanceOf(MimirError);
+    expect((refusal as MimirError).message).toContain('/cfg.toml');
+    expect((refusal as MimirError).hint).toBe("set [host] url to the host's http or https URL");
   }
 });
 

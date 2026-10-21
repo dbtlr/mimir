@@ -281,12 +281,19 @@ function consoleBindings(client: TRPCClient<EngineRouter>): ConsoleEngine {
   };
 }
 
-/** Reconstruct domain refusals; network and protocol failures keep their transport identity. */
+/**
+ * Reconstruct domain refusals; network and protocol failures keep their
+ * transport identity. A MimirError the caller's own fetch raised is already a
+ * refusal with its remedy, so it surfaces as itself.
+ */
 async function domainResult<T>(result: Promise<T>): Promise<T> {
   try {
     return await result;
   } catch (error) {
     if (error instanceof TRPCClientError) {
+      if (error.cause instanceof MimirError) {
+        throw error.cause;
+      }
       const parsed = mimirErrorSchema.safeParse(error.data?.mimirError);
       if (parsed.success) {
         throw new MimirError(parsed.data.code, parsed.data.message, parsed.data.hint);

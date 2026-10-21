@@ -154,6 +154,36 @@ test('an unknown key inside [store] stays an unknown-key no-op', () => {
   expect(readConfig(file).store).toEqual({});
 });
 
+// Remote mode (ADR 0038): `[host] url` names the host that owns this install's
+// store. A config without the section carries no `host` at all.
+test('readConfig carries a [host] url', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[host]\nurl = "https://mimir.example.test"\n');
+  expect(readConfig(file)).toEqual({ host: { url: 'https://mimir.example.test' }, store: {} });
+  writeFileSync(file, '[store]\nbackend = "sqlite"\n');
+  expect(readConfig(file)).not.toHaveProperty('host');
+});
+
+// A `[host]` that parsed to nothing usable is still a `[host]`: the consumer
+// refuses it rather than opening a local store in its place.
+test('readConfig flags an unusable [host] rather than dropping it', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, 'host = "https://mimir.example.test"\n');
+  expect(readConfig(file).host).toEqual({ problem: 'malformed' });
+  for (const url of ['7', '""', '"not a url"', '"ftp://mimir.example.test"']) {
+    writeFileSync(file, `[host]\nurl = ${url}\n`);
+    expect(readConfig(file).host).toEqual({ problem: 'invalid-url' });
+  }
+  writeFileSync(file, '[host]\n');
+  expect(readConfig(file).host).toEqual({ problem: 'invalid-url' });
+});
+
+test('readConfig flags [host] beside [store], even an empty [store]', () => {
+  const file = join(dir, 'config.toml');
+  writeFileSync(file, '[store]\n[host]\nurl = "http://mimir.example.test:64647"\n');
+  expect(readConfig(file).host).toEqual({ problem: 'with-store' });
+});
+
 test('configPathStats walks the file and each directory up to and including home', () => {
   const nest = join(dir, 'config', 'mimir');
   mkdirSync(nest, { recursive: true });
