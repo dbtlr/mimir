@@ -129,6 +129,10 @@ export class HostClient {
 
   async #send(path: string, body: object | undefined, abort?: AbortSignal): Promise<Answer> {
     const url = `${this.origin}${path}`;
+    const signal =
+      abort === undefined
+        ? AbortSignal.timeout(this.#timeoutMs)
+        : AbortSignal.any([abort, AbortSignal.timeout(this.#timeoutMs)]);
     let response: Response;
     try {
       response = await this.#fetch(url, {
@@ -141,10 +145,7 @@ export class HostClient {
             }),
         // A followed redirect would resend the device name or poll secret wherever it points.
         redirect: 'manual',
-        signal:
-          abort === undefined
-            ? AbortSignal.timeout(this.#timeoutMs)
-            : AbortSignal.any([abort, AbortSignal.timeout(this.#timeoutMs)]),
+        signal,
       });
     } catch {
       // The cause is dropped: a transport error can quote the request it failed on.
@@ -155,7 +156,31 @@ export class HostClient {
         { transient: true },
       );
     }
-    const json: unknown = await response.json().catch(() => undefined);
+    const text = await response.text().catch(() => {
+      if (response.status !== 200) {
+        return undefined;
+      }
+      if (signal.aborted) {
+        throw new HostRequestError(
+          'invariant',
+          `the request to ${this.origin} ${abort?.aborted ? 'was aborted' : 'timed out'}`,
+          'try again, or check the host or proxy response and the host logs',
+          { status: response.status, transient: true },
+        );
+      }
+      throw new HostRequestError(
+        'invariant',
+        `the response from ${this.origin} was incomplete`,
+        'try again, or check the host or proxy response and the host logs',
+        { status: response.status, transient: true },
+      );
+    });
+    let json: unknown;
+    try {
+      json = text === undefined ? undefined : JSON.parse(text);
+    } catch {
+      json = undefined;
+    }
     return {
       hostNow: hostNowOf(response),
       json,
@@ -242,6 +267,14 @@ export class HostClient {
 
   #refused(route: Route, answer: Answer): HostRequestError {
     const failure = { status: answer.status, transient: false };
+    if (route === 'health') {
+      return new HostRequestError(
+        'invariant',
+        `the host at ${this.origin} answered ${String(answer.status)} for health`,
+        'check [host] url points at a mimir host and any proxy allows /health, then try again',
+        failure,
+      );
+    }
     if (answer.status === 400 && route === 'request') {
       return new HostRequestError(
         'validation',

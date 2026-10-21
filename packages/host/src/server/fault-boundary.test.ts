@@ -29,7 +29,9 @@ test('an internal fault becomes the house refusal, its cause logged once', () =>
   const { lines, refusal } = boundary(parsed.error);
   expect(refusal).toBeInstanceOf(HostFaultError);
   expect(refusal.message).toBe('the request did not complete');
-  expect((refusal as HostFaultError).hint).toBe("run 'mimir doctor'");
+  expect((refusal as HostFaultError).hint).toBe(
+    "run 'mimir-host doctor' inside the host container",
+  );
   expect(refusal.message).not.toContain('createdAt');
   expect(lines).toHaveLength(1);
   expect(lines[0]).toStartWith('✗ host: request did not complete — ');

@@ -31,7 +31,7 @@ const t = initTRPC.context<VersionContext>().create({
     const internal = error.code === 'INTERNAL_SERVER_ERROR' && !(cause instanceof MimirError);
     const data = {
       ...shape.data,
-      hint: internal ? "run 'mimir doctor'" : undefined,
+      hint: internal ? "run 'mimir-host doctor' inside the host container" : undefined,
       mimirError:
         cause instanceof MimirError
           ? { code: cause.code, hint: cause.hint, message: cause.message }

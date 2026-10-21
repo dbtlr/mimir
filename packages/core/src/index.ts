@@ -45,7 +45,13 @@ export * from './env';
 export * from './config';
 export { assertWritable } from './writable';
 export { configDeclaresStore, planHostUrl, setHostUrl, writeHostUrlPlan } from './config-write';
-export { credentialsPath, readCredentials, recordedPairing, writeCredentials } from './credentials';
+export {
+  CredentialsOriginError,
+  credentialsPath,
+  readCredentials,
+  recordedPairing,
+  writeCredentials,
+} from './credentials';
 export type { Credentials } from './credentials';
 export { acceptedHosts, hostnameOf, isHostName, normalizeServeUrl } from './address';
 export type { ServeConfig } from './address';

@@ -1,10 +1,10 @@
-mimir doctor · Run read-only store diagnostics and report the findings for a human to fix at the database. Non-gating: exits 0 after a successful read. Prints prose on a terminal and json when piped.
+mimir doctor · Run read-only diagnostics: local store health, or remote config, credentials, host reachability, version, and token checks. Remote record health is checked with mimir-host doctor. Non-gating: findings exit 0. Prints prose on a terminal and json when piped.
 
 USAGE
   mimir doctor [options]
 
 OPTIONS
-  -s, --scope <KEY|all>  Limit to a project. Defaults to the clone binding; all checks every project.
+  -s, --scope <KEY|all>  Limit local store checks to a project. Defaults to the clone binding; all checks every project. Remote client checks are install-wide.
   -f, --format <format>  Select the output format, records by default. One of: ids, json, jsonl, records, table.
 
 GLOBAL OPTIONS

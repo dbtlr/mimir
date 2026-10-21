@@ -181,6 +181,8 @@ verb's grammar.
 
 ## 2026-10-20 refinement: the composition root picks the Engine (MMR-578)
 
+> The remote `doctor` refusal below is superseded by the 2026-10-21 refinement.
+
 The composition root builds a `RemoteEngine` instead of the `LocalEngine`
 when `config.toml` has a `[host]` section (ADR 0038). It reads the device
 credentials, sends the bearer token and the CLI's version on every call, and
@@ -192,3 +194,18 @@ and import point to `mimir-host`, and `store upgrade` points to updating the
 host, which migrates on boot. Remote `doctor` refuses and points to
 `mimir-host doctor` until the client-side checks ADR 0038 specifies land
 with `mimir pair` (MMR-579).
+
+## 2026-10-21 refinement: remote doctor diagnoses the client (MMR-588)
+
+The Loom CLI's remote `doctor` replaces the interim refusal with ADR 0038's
+ordered client checks. It reads configuration and credentials directly, then
+checks health and the shared version window before building a `RemoteEngine`
+for one token-acceptance `projects` call. These checks are install-wide and
+skip clone binding. Findings carry remedies and preserve ADR 0017's exit-0
+contract. Passed checks and host guidance appear in human output; JSON and
+JSONL retain their findings-only shapes. Record health remains the host's
+responsibility, through `mimir-host doctor` and the console.
+
+## Changelog
+
+- 2026-10-21: Added the remote-doctor refinement. MMR-588 implements the client checks separately from MMR-579's pairing command.

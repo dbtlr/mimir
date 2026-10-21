@@ -34,7 +34,7 @@ export function isEngineRefusal(error: unknown): error is MimirError {
  * cause stays in the host's log; nothing of it crosses the wire.
  */
 export class HostFaultError extends Error {
-  readonly hint = "run 'mimir doctor'";
+  readonly hint = "run 'mimir-host doctor' inside the host container";
 
   constructor() {
     super('the request did not complete');

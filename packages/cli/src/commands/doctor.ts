@@ -1,6 +1,6 @@
 /**
- * `doctor`: ask the store backend for its read-only diagnosis and report it.
- * The backend owns every check (ADR 0030 Decision 6); this command renders,
+ * `doctor`: report read-only local store or remote client diagnostics.
+ * The composition root supplies the checks; this command renders,
  * warns on an empty scope, and keeps the non-gating contract (ADR 0017): a
  * finished run exits 0 whatever it found, and only a diagnosis that cannot be
  * read fails. In a terminal the findings print on stderr and a clean run one
@@ -31,7 +31,7 @@ const views = proseViews(
 export function doctorCommand(ports: Ports) {
   return new Command('doctor', {
     description:
-      'Run read-only store diagnostics and report the findings for a human to fix at the database. Non-gating: exits 0 after a successful read. Prints prose on a terminal and json when piped.',
+      'Run read-only diagnostics: local store health, or remote config, credentials, host reachability, version, and token checks. Remote record health is checked with mimir-host doctor. Non-gating: findings exit 0. Prints prose on a terminal and json when piped.',
     extensions: [
       defaultFormat({ piped: 'json', terminal: 'records' }),
       helpCommand({
@@ -46,7 +46,8 @@ export function doctorCommand(ports: Ports) {
     ],
   })
     .option('scope', {
-      description: 'Limit to a project. Defaults to the clone binding; all checks every project.',
+      description:
+        'Limit local store checks to a project. Defaults to the clone binding; all checks every project. Remote client checks are install-wide.',
       extensions: [helpInput({ placeholder: 'KEY|all' })],
       short: 's',
       type: 'string',
@@ -57,7 +58,7 @@ export function doctorCommand(ports: Ports) {
       // Git config only: resolving from the origin would open the store outside
       // the backend's error handling, which doctor relies on to report a down store.
       const scope =
-        options.scope === 'all'
+        ports.machine.doctor.scope === 'install' || options.scope === 'all'
           ? undefined
           : (options.scope ?? (await ports.machine.binding.configured()));
       const diagnosis = await ports.machine.doctor.diagnose(scope);
@@ -73,8 +74,14 @@ export function doctorCommand(ports: Ports) {
       const view =
         Reflect.get(options, 'format') ?? (host.terminal.stdout.isTTY ? 'records' : 'json');
       if (view !== 'json' && view !== 'jsonl') {
+        for (const check of diagnosis.passed ?? []) {
+          await out.print(okLine(presentation, check));
+        }
         for (const line of diagnosis.lines) {
           await out.print(line);
+        }
+        if (diagnosis.guidance !== undefined) {
+          await out.print(diagnosis.guidance);
         }
       }
       await out.results({ diagnosis, presentation });

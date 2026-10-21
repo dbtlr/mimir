@@ -50,6 +50,29 @@ test('health refuses an answer that is not a mimir host, as a definite failure',
   expect(error).toMatchObject({ code: 'invariant', transient: false });
 });
 
+test('malformed health JSON remains an unreadable host answer', async () => {
+  const error = await refusal(clientFor(async () => new Response('{"private":')).health());
+  expect(error).toMatchObject({ code: 'invariant', status: 200, transient: true });
+  expect(error.message).toBe(`the answer from ${ORIGIN} was not a mimir host answer`);
+  expect(error.hint).toBe(
+    'check the URL points at the mimir host and not at a proxy or login page',
+  );
+});
+
+test.each([400, 401, 404])(
+  'a %i health refusal names the health route and its remedy',
+  async (status) => {
+    const error = await refusal(
+      clientFor(async () => Response.json({ error: 'private response' }, { status })).health(),
+    );
+    expect(error).toMatchObject({ code: 'invariant', status, transient: false });
+    expect(error.message).toBe(`the host at ${ORIGIN} answered ${status} for health`);
+    expect(error.hint).toBe(
+      'check [host] url points at a mimir host and any proxy allows /health, then try again',
+    );
+  },
+);
+
 test('a pairing request returns the code, secret, expiry, and interval', async () => {
   const filed = await live().requestPairing('  laptop  ');
   expect(filed.userCode).toMatch(/^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/);
@@ -267,6 +290,162 @@ test('a request that exceeds its timeout is a transient failure', async () => {
   });
   expect(await refusal(client.pollPairing('secret'))).toMatchObject({ transient: true });
 });
+
+test.each(['timeout', 'abort'])(
+  'an interrupted response body reports a transient request %s',
+  async (mode) => {
+    const server = Bun.serve({
+      fetch: () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode('{"private":"response secret"'));
+            },
+          }),
+          { headers: { 'content-type': 'application/json' } },
+        ),
+      hostname: '127.0.0.1',
+      port: 0,
+    });
+    try {
+      const abort = new AbortController();
+      const client = new HostClient({
+        ...(mode === 'abort'
+          ? {
+              fetch: async (input: string, init: RequestInit) => {
+                const response = await fetch(input, init);
+                abort.abort(new Error('private cancellation reason'));
+                return response;
+              },
+            }
+          : {}),
+        origin: server.url.origin,
+        timeoutMs: mode === 'abort' ? 1_000 : 50,
+      });
+      const error = await refusal(
+        mode === 'abort'
+          ? client.pollPairing('private poll secret', abort.signal)
+          : client.health(),
+      );
+      expect(error).toMatchObject({ code: 'invariant', status: 200, transient: true });
+      expect(error.message).toBe(
+        `the request to ${server.url.origin} ${mode === 'abort' ? 'was aborted' : 'timed out'}`,
+      );
+      expect(error.hint).toBe('try again, or check the host or proxy response and the host logs');
+      expect(`${error.message} ${String(error.hint)}`).not.toMatch(/private|response secret/);
+    } finally {
+      await server.stop(true);
+    }
+  },
+);
+
+test('a server-cut response body reports an incomplete response before the client timeout', async () => {
+  const server = Bun.serve({
+    fetch: () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('{"private":"response secret"'));
+          },
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      ),
+    hostname: '127.0.0.1',
+    idleTimeout: 1,
+    port: 0,
+  });
+  try {
+    const client = new HostClient({ origin: server.url.origin, timeoutMs: 10_000 });
+    const error = await refusal(client.health());
+    expect(error).toMatchObject({ code: 'invariant', status: 200, transient: true });
+    expect(error.message).toBe(`the response from ${server.url.origin} was incomplete`);
+    expect(error.hint).toBe('try again, or check the host or proxy response and the host logs');
+    expect(`${error.message} ${String(error.hint)}`).not.toMatch(/private|response secret/);
+  } finally {
+    await server.stop(true);
+  }
+}, 15_000);
+
+test('a server-cut 401 body remains a definite health refusal', async () => {
+  const server = Bun.serve({
+    fetch: () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('{"private":"response secret"'));
+          },
+        }),
+        { headers: { 'content-type': 'application/json' }, status: 401 },
+      ),
+    hostname: '127.0.0.1',
+    idleTimeout: 1,
+    port: 0,
+  });
+  try {
+    const client = new HostClient({ origin: server.url.origin, timeoutMs: 10_000 });
+    const error = await refusal(client.health());
+    expect(error).toMatchObject({ code: 'invariant', status: 401, transient: false });
+    expect(error.message).toBe(`the host at ${server.url.origin} answered 401 for health`);
+    expect(error.hint).toBe(
+      'check [host] url points at a mimir host and any proxy allows /health, then try again',
+    );
+  } finally {
+    await server.stop(true);
+  }
+}, 15_000);
+
+test.each([
+  [307, 'health', false],
+  [400, 'request', false],
+  [401, 'poll', false],
+  [403, 'poll', false],
+  [404, 'poll', false],
+  [409, 'request', false],
+  [429, 'request', false],
+  [429, 'health', false],
+  [429, 'poll', true],
+  [503, 'health', true],
+] satisfies [number, 'health' | 'request' | 'poll', boolean][])(
+  'an unreadable %i body preserves the %s status refusal',
+  async (status, route, transient) => {
+    const headers = { location: 'https://elsewhere.test', 'retry-after': '30' };
+    const run = (client: HostClient) => {
+      if (route === 'health') {
+        return client.health();
+      }
+      if (route === 'request') {
+        return client.requestPairing('laptop');
+      }
+      return client.pollPairing('private poll secret');
+    };
+    const complete = await refusal(
+      run(clientFor(async () => Response.json({}, { headers, status }))),
+    );
+    const interrupted = await refusal(
+      run(
+        clientFor(
+          async () =>
+            new Response(
+              new ReadableStream({
+                start(controller) {
+                  controller.error(new Error('private body failure'));
+                },
+              }),
+              { headers, status },
+            ),
+        ),
+      ),
+    );
+    expect(interrupted).toMatchObject({
+      code: complete.code,
+      hint: complete.hint,
+      message: complete.message,
+      retryAfter: complete.retryAfter,
+      status,
+      transient,
+    });
+  },
+);
 
 test.each([400, 403, 404, 405])('a %i poll answer is definite', async (status) => {
   const error = await refusal(

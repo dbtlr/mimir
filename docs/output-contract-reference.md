@@ -313,14 +313,34 @@ stderr as severity-tagged lines, `[err]` or `[warn]`, in the short spelling the
 - `code` — stable issue code;
 - `scopeKey` and `stem` — canonical identity derived from the node's `KEY-seq`;
 - `locator` — the issue location, `<table>/<key>`;
-- `evidence` — rule-specific structured facts.
+- `evidence` — rule-specific structured facts;
+- `remedy` — optional action to resolve the finding, printed beneath the human message as an indented `fix: <remedy>` line.
 
-Doctor has no repair pass and no `--fix` flag; each finding is fixed by hand at
-the database. A scoped run naming a project key the store does not hold warns
+Doctor has no repair pass and no `--fix` flag. Follow each finding's remedy.
+Local record findings are fixed by hand at the database.
+A scoped run naming a project key the store does not hold warns
 `doctor scope 'KEY' matched 0 records` on stderr, so a stale scope never reads
 as a clean scan.
 
-The host serves the same findings to the console's Record-health panel through
+With `[host]` configured, the Loom CLI diagnoses client setup directly:
+host configuration without `[store]`, credentials present at exactly
+`0600`, matching credential origin, reachable `/health`, compatible version
+window, and token acceptance through one `projects` call. Checks stop at the
+first error. Broken configuration, credentials, and remote responses become
+findings with remedies and exit `0`. Client checks are install-wide, even with
+`-s KEY`; they never open a local store or scan host records.
+
+Human output includes each passed check before the first failure, any finding
+and its remedy, then guidance to run `mimir-host doctor` inside the host
+container for record health. JSON and JSONL retain the findings-only contract:
+an array or one finding per line, without passed checks or guidance. A clean
+remote run emits `[]` as JSON. Clean JSONL retains the existing single newline,
+with no findings. Remote findings use
+`remote-config`, `remote-credentials`, `remote-origin`, `remote-health`,
+`remote-version`, or `remote-token` as their `check` and `code`. Their `node`,
+`stem`, and `scopeKey` are `client`; the `locator` names the file or endpoint.
+
+The host serves record findings to the console's Record-health panel through
 its `doctor` server function (optionally scoped to one project key), grouped by
 project:
 

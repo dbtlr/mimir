@@ -28,7 +28,7 @@ export type DoctorRecord = {
   value: string | null;
   /** The structured facts behind the finding — the CLI finding's `evidence`. */
   evidence: Readonly<Record<string, unknown>>;
-  /** A one-line plain-language explanation of the finding. */
+  /** A one-line plain-language explanation and its remedy, when available. */
   note: string;
 };
 
@@ -79,7 +79,7 @@ function toRecord(item: DoctorFinding, causes: Readonly<Record<string, string>>)
     field: fieldOf(item.where),
     id: item.stem,
     locator: item.locator,
-    note: item.message,
+    note: item.remedy === undefined ? item.message : `${item.message} — ${item.remedy}`,
     severity: item.severity,
     value: typeof value === 'string' ? value : null,
   };
