@@ -318,6 +318,36 @@ function hostFetch(origin: string, send: HostSend): WireFetch {
 }
 
 /**
+ * The Engine with every failure that is not already a refusal (a fault inside
+ * the host, an answer the wire cannot read) turned into one that names the
+ * host, so it never reaches the user as an unhandled exception.
+ */
+function hostEngine(engine: Engine, origin: string): Engine {
+  return new Proxy(engine, {
+    get(target, key, receiver) {
+      const value: unknown = Reflect.get(target, key, receiver);
+      if (typeof value !== 'function') {
+        return value;
+      }
+      return async (...args: unknown[]) => {
+        try {
+          return await Reflect.apply(value, target, args);
+        } catch (error) {
+          if (error instanceof MimirError) {
+            throw error;
+          }
+          throw new MimirError(
+            'invariant',
+            `the host at ${origin} could not complete the request${error instanceof Error ? ` (${error.message})` : ''}`,
+            "check the host's logs, or run it on the host: docker exec mimir-host mimir-host doctor",
+          );
+        }
+      };
+    },
+  });
+}
+
+/**
  * The host the config names, reached through RemoteEngine with this device's
  * bearer token and this CLI's version. The config and credentials are checked
  * on first ask, before any request is sent.
@@ -334,12 +364,15 @@ export function remoteSource(options: {
     engine: async () => {
       const host = origin();
       const { token } = readCredentials(host, options.credentialsFile);
-      return new RemoteEngine({
-        fetch: hostFetch(host, options.fetch ?? ((request) => fetch(request))),
-        headers: { authorization: `Bearer ${token}` },
-        url: `${host}/trpc`,
-        version: VERSION,
-      });
+      return hostEngine(
+        new RemoteEngine({
+          fetch: hostFetch(host, options.fetch ?? ((request) => fetch(request))),
+          headers: { authorization: `Bearer ${token}` },
+          url: `${host}/trpc`,
+          version: VERSION,
+        }),
+        host,
+      );
     },
     origin,
   };

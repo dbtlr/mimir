@@ -75,6 +75,14 @@ const opensStore = (): never => {
   throw new Error('remote mode opened a local store');
 };
 
+/** A host whose credential store fails: every request is an internal fault. */
+function faultyHost(request: Request): Promise<Response> {
+  return createEngineHandler(new LocalEngine(fixture.store), {
+    verifyToken: () => Promise.reject(new Error('the token store is down')),
+    version: hostVersion,
+  })(request);
+}
+
 /** The CLI in remote mode over `config`, bound to MMR, with every local-store edge refusing. */
 function remoteApp(
   config: GlobalConfig = { host: { url: `${ORIGIN}/` }, store: {} },
@@ -198,6 +206,27 @@ test.each([502, 503, 504])(
     const run = await runArgv(remoteApp(undefined, proxy), ['projects']);
     expect(run.exitCode).toBe(1);
     expect(run.stderr).toContain(`the host at ${ORIGIN} is unavailable (HTTP ${String(status)})`);
+  },
+);
+
+// The host answers its own fault with an error envelope that carries no
+// domain refusal.
+test('a fault inside the host is refused with its message, not an internal error', async () => {
+  const run = await runArgv(remoteApp(undefined, faultyHost), ['projects']);
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr).toContain(`the host at ${ORIGIN} could not complete the request`);
+  expect(run.stderr).toContain('mimir-host doctor');
+  expect(run.stderr).not.toContain('UNHANDLED');
+});
+
+test.each(['{"result":{}}', '{"error":{}}', '{"result":{"data":null}}', '{"error":{"json":{}}}'])(
+  'an envelope-shaped answer the wire cannot read (%s) is refused',
+  async (body) => {
+    const malformed = () => Promise.resolve(new Response(body, { status: 200 }));
+    const run = await runArgv(remoteApp(undefined, malformed), ['projects']);
+    expect(run.exitCode).toBe(1);
+    expect(run.stderr).toContain(`the host at ${ORIGIN}`);
+    expect(run.stderr).not.toContain('UNHANDLED');
   },
 );
 
