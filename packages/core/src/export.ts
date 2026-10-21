@@ -5,7 +5,7 @@ import type { NextFacet } from './body-sections/store';
 import { parseId } from './ids';
 import type { Dependency, Node, Project } from './model';
 import type { SeedRecord } from './seeds/store';
-import type { NewAnnotationRecord, NewTagRecord, NewTransitionRecord } from './store';
+import type { NewAnnotationRecord, NewTagRecord, NewTransitionRecord, Store } from './store';
 
 /**
  * The backend-neutral transfer document (ADR 0030 Decision 4) — every STORED
@@ -233,6 +233,40 @@ export function canonicalStringOrder(a: string, b: string): number {
 /** A set's values in {@link canonicalStringOrder} — a sorted copy, never in place. */
 export function canonicalSetOrder(values: readonly string[]): string[] {
   return [...values].toSorted(canonicalStringOrder);
+}
+
+/** A store's transfer document as a backup file's bytes, with the counts a transfer command reports. */
+export type ExportedDocument = {
+  /** {@link canonicalJson} with a trailing newline. */
+  text: string;
+  counts: {
+    artifacts: number;
+    nodes: number;
+    projects: number;
+    scratchpads: number;
+    seeds: number;
+  };
+  exportedAt: string;
+  schemaVersion: number;
+};
+
+/** Export `store` as the file every transfer command writes. */
+export async function exportedDocument(store: Pick<Store, 'export'>): Promise<ExportedDocument> {
+  const document = await store.export();
+  return {
+    counts: {
+      artifacts: document.artifacts.length,
+      nodes: document.nodes.length,
+      projects: document.projects.length,
+      scratchpads: document.scratchpads.length,
+      seeds: document.seeds.length,
+    },
+    exportedAt: document.exported_at,
+    schemaVersion: document.schema_version,
+    // Sorted keys, so two backends' documents of the same facts are equal
+    // as files and a diff shows the facts that changed.
+    text: `${canonicalJson(document)}\n`,
+  };
 }
 
 /**

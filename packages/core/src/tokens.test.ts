@@ -205,7 +205,7 @@ describe.each([
     const request = await tokens.request('laptop');
     await tokens.approve(request.user_code);
     await tokens.request('other');
-    await tokens.revoke('laptop');
+    expect(await tokens.revoke('laptop')).toEqual({ requests: 1, tokens: 1 });
     expect(await tokens.verify(prior)).toBeNull();
     expect(await tokens.poll(request.poll_secret)).toEqual({ status: 'expired' });
     expect(await tokens.list()).toEqual([]);
@@ -283,8 +283,8 @@ describe.each([
       },
     ]);
     expect(await tokens.list({ all: true })).toHaveLength(2);
-    await tokens.revoke('laptop');
-    await tokens.revoke('missing');
+    expect(await tokens.revoke('laptop')).toEqual({ requests: 0, tokens: 1 });
+    expect(await tokens.revoke('missing')).toEqual({ requests: 0, tokens: 0 });
     expect(await tokens.verify(second)).toBeNull();
     expect(await tokens.list()).toEqual([]);
     expect((await tokens.list({ all: true })).map((row) => row.revoked_at)).toEqual([

@@ -1,7 +1,14 @@
 import { expect, test } from 'bun:test';
 
-import { canonicalJson, canonicalSetOrder, canonicalTransitionOrder } from './export';
+import { createProject } from './create';
+import {
+  canonicalJson,
+  canonicalSetOrder,
+  canonicalTransitionOrder,
+  exportedDocument,
+} from './export';
 import type { NewTransitionRecord } from './store';
+import { createTestStore } from './testing/store';
 
 /**
  * The transfer document's three ordering rules (MMR-380): the one order the
@@ -111,4 +118,27 @@ test('canonicalJson makes two objects equal as values equal as bytes', () => {
   const literal = { key: 'MMR', seq: 1, title: 'Transfer spec' };
   expect(JSON.stringify(grown)).not.toBe(JSON.stringify(literal));
   expect(canonicalJson(grown)).toBe(canonicalJson(literal));
+});
+
+// The one shaping both transfer commands report from: `mimir store export` and
+// `mimir-host store export` write the same bytes and count the same facts.
+test('an exported document is the canonical file text with its counts', async () => {
+  const fixture = await createTestStore();
+  try {
+    await createProject(fixture.store, { description: null, key: 'MMR', name: 'Mimir' });
+    const exported = await exportedDocument(fixture.store);
+    const document = JSON.parse(exported.text) as { exported_at: string; schema_version: number };
+    expect(exported.text).toBe(`${canonicalJson(document)}\n`);
+    expect(exported.counts).toEqual({
+      artifacts: 0,
+      nodes: 0,
+      projects: 1,
+      scratchpads: 0,
+      seeds: 0,
+    });
+    expect(exported.exportedAt).toBe(document.exported_at);
+    expect(exported.schemaVersion).toBe(document.schema_version);
+  } finally {
+    await fixture.close();
+  }
 });

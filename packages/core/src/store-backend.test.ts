@@ -111,6 +111,31 @@ test('the sqlite arm creates its database on first build and reads it back', asy
   }
 });
 
+// A helper beside the store's owner opens the owner's store or nothing: the
+// existing-only arm never creates the data directory or the file.
+test('an existing-only sqlite build refuses a missing store and creates nothing', async () => {
+  const path = join(dir, 'data', 'store.sqlite');
+  let refusal = '';
+  try {
+    await buildStore({ store: { backend: 'sqlite' } }, { existing: true, sqliteFile: path });
+  } catch (error) {
+    refusal = (error as Error).message;
+  }
+  expect(refusal).toContain(`no store at ${path}`);
+  expect(existsSync(join(dir, 'data'))).toBe(false);
+
+  await (await buildSqliteStore(path)).close();
+  const built = await buildStore(
+    { store: { backend: 'sqlite' } },
+    { existing: true, sqliteFile: path },
+  );
+  try {
+    expect(await built.tokens.list()).toEqual([]);
+  } finally {
+    await built.close();
+  }
+});
+
 test('an unusable [store] section is fatal, never a fallback to another store', async () => {
   // The fence selects which store gets WRITTEN: a typo in a Postgres install
   // must not create and write a local store instead.

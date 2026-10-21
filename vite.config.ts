@@ -265,6 +265,7 @@ export default defineConfig({
           'packages/core/**',
           'packages/sandbox/**',
           'packages/host/src/server/**',
+          'packages/host/src/admin/**',
         ],
         // Synchronous filesystem access is deliberate in this local-first CLI.
         rules: { 'node/no-sync': 'off' },

@@ -137,8 +137,11 @@ export function readSchemaVersion(ex: Executor): Promise<number | null> {
 }
 
 /** Refuse a Postgres store whose schema this binary does not exactly match. */
-export function assertSchemaCurrent(db: Kysely<DB>): Promise<void> {
-  return assertSqlSchemaCurrent(db, postgresDialect);
+export function assertSchemaCurrent(
+  db: Kysely<DB>,
+  remedy?: StoreDialect['schemaRemedy'],
+): Promise<void> {
+  return assertSqlSchemaCurrent(db, postgresDialect, remedy);
 }
 
 /** Apply every pending migration — `mimir store upgrade`, the one explicit act. */

@@ -1,6 +1,6 @@
 import { Database } from 'bun:sqlite';
 import { afterEach, beforeEach, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -10,7 +10,7 @@ import { createInitiative, createPhase, createProject, createTask } from '../cre
 import { SCHEMA_VERSION } from '../store-sql/migrator';
 import { pairTestDevice } from '../testing/store';
 import { createTokenStore } from '../tokens';
-import { openSqlite, SQLITE_FILE } from './client';
+import { openExistingSqlite, openSqlite, SQLITE_FILE } from './client';
 import { createSqliteStore, readSchemaVersion, sqliteDialect } from './dialect';
 import { statements as initStatements } from './migrations/0001-init';
 import { statements as groomingStatements } from './migrations/0002-grooming';
@@ -853,5 +853,78 @@ test('0010_pairing_requests upgrades a version-9 store: pending codes go and dev
     ).toContain('CHECK');
   } finally {
     await handle.close();
+  }
+});
+
+/**
+ * A store owner's helper process (the host's `mimir-host`) opens the owner's
+ * store as it finds it: it neither creates the file nor moves its schema, so
+ * every refusal leaves the bytes on disk exactly as they were.
+ */
+test('an existing-only open refuses a missing file and creates nothing', async () => {
+  const message = await refusal(openExistingSqlite(path));
+  expect(message).toContain(`no store at ${path}`);
+  expect(existsSync(path)).toBe(false);
+});
+
+test('an existing-only open refuses an older or newer schema without writing', async () => {
+  for (const [label, adjust] of [
+    [
+      'older',
+      (handle: Awaited<ReturnType<typeof openSqlite>>) =>
+        handle.db.deleteFrom('schema_version').where('version', '=', SCHEMA_VERSION).execute(),
+    ],
+    [
+      'newer',
+      (handle: Awaited<ReturnType<typeof openSqlite>>) =>
+        handle.db
+          .insertInto('schema_version')
+          .values({ applied_at: '2099-01-01T00:00:00.000Z', version: SCHEMA_VERSION + 1 })
+          .execute(),
+    ],
+  ] as const) {
+    rmSync(join(dir, 'data'), { force: true, recursive: true });
+    mkdirSync(join(dir, 'data'));
+    const handle = await openSqlite(path);
+    await adjust(handle);
+    await handle.close();
+    const before = readFileSync(path);
+
+    const message = await refusal(openExistingSqlite(path));
+    expect(message, label).toContain('the SQLite store schema is version');
+    expect(readFileSync(path).equals(before), label).toBe(true);
+  }
+});
+
+test('an existing-only open names the store owner as the remedy for an older schema', async () => {
+  const handle = await openSqlite(path);
+  await handle.db.deleteFrom('schema_version').where('version', '=', SCHEMA_VERSION).execute();
+  await handle.close();
+
+  let hint: string | undefined;
+  try {
+    await openExistingSqlite(path);
+  } catch (error) {
+    hint = (error as { hint?: string }).hint;
+  }
+  expect(hint).toContain('migrates the store when it starts');
+});
+
+test('an existing-only open reads a current store and applies nothing', async () => {
+  const first = await openSqlite(path);
+  await createProject(createSqliteStore(first.db), {
+    description: null,
+    key: 'MMR',
+    name: 'Mimir',
+  });
+  await first.close();
+
+  const second = await openExistingSqlite(path);
+  try {
+    expect(second.upgrade).toEqual({ applied: [], from: SCHEMA_VERSION, to: SCHEMA_VERSION });
+    const projects = await createSqliteStore(second.db).loadProjects();
+    expect(projects.map((project) => project.key)).toEqual(['MMR']);
+  } finally {
+    await second.close();
   }
 });
