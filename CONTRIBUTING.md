@@ -28,6 +28,27 @@ The Postgres and sandbox lanes need Docker; CI runs both alongside `verify`.
 See the [sandbox guide](docs/guides/development-sandboxes.md)
 for fixtures, snapshots, and candidate migration tests.
 
+Pull requests run the complete ordinary suite once in Linux CI. The Release
+matrix runs `bun run test:native` on macOS ARM64, Linux x64, and Linux ARM64.
+This subset covers native SQLite files and process races, installation receipts,
+filesystem permissions, Git subprocesses, process cleanup, and time-zone formatting.
+Tag and manually dispatched release runs keep the complete suite on each platform.
+Platform-specific failures outside the native subset can therefore surface at release time.
+
+After compilation, every Release matrix job tests its candidate binary before upload.
+The CLI creates isolated SQLite boards, reports its build version and installation
+protocol, and serves MCP calls over real subprocess stdio. The same fixture runs
+in `test:sandbox` with `dist/mimir`. To test another compiled candidate:
+
+```bash
+MIMIR_TEST_BINARY=dist/mimir-linux-x64 MIMIR_SANDBOX_LIFECYCLE_TEST=1 \
+  bun test packages/sandbox/src/mcp-binding.integration.test.ts
+```
+
+`MIMIR_TEST_BINARY` selects the file to copy into a disposable directory. A missing
+candidate fails the enabled fixture. Set `MIMIR_BUILD_VERSION` to the expected
+version for a stamped binary. Without it, the fixture expects the package version.
+
 For host and PWA changes, run the local integration gates:
 
 ```bash

@@ -61,9 +61,16 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # Test on the target platform before shipping its binary.
-      - name: Test
-        run: bun run test
+      # CI runs the full PR suite on Linux. Repeat only native boundaries here;
+      # release events retain the complete suite on every target platform.
+      - name: Test source
+        id: tests
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            bun run test:native
+          else
+            bun run test
+          fi
 
       # On a tag build, bake the tag (minus the leading v) as MIMIR_BUILD_VERSION,
       # which the binary compile below reads, so `--version` reports the release
@@ -83,6 +90,13 @@ jobs:
           fi
           bun build packages/bin/src/main.ts --compile "${define[@]}" \
             --outfile "dist/${{ matrix.asset }}"
+
+      - name: Test compiled CLI and MCP
+        id: native-smoke
+        env:
+          MIMIR_SANDBOX_LIFECYCLE_TEST: '1'
+          MIMIR_TEST_BINARY: ${{ github.workspace }}/dist/${{ matrix.asset }}
+        run: bun test packages/sandbox/src/mcp-binding.integration.test.ts
 
       - name: Upload binary
         uses: actions/upload-artifact@v7

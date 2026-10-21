@@ -6,14 +6,86 @@ import { join } from 'node:path';
 import { z } from 'zod';
 
 const workflowPath = new URL('../../../.github/workflows/release.yml', import.meta.url);
-const stepSchema = z.object({ id: z.string().optional(), run: z.string().optional() });
+const stepSchema = z.object({
+  'continue-on-error': z.union([z.boolean(), z.string()]).optional(),
+  env: z.record(z.string(), z.string()).optional(),
+  id: z.string().optional(),
+  if: z.string().optional(),
+  name: z.string().optional(),
+  run: z.string().optional(),
+  uses: z.string().optional(),
+});
 const workflowSchema = z.object({
   jobs: z.object({
+    build: z.object({ steps: z.array(stepSchema) }),
     'host-image': z.object({
       needs: z.union([z.string(), z.array(z.string())]).optional(),
       steps: z.array(stepSchema),
     }),
   }),
+});
+
+test.each([
+  ['pull_request', 'test:native', 0],
+  ['push', 'test', 0],
+  ['workflow_dispatch', 'test', 0],
+  ['pull_request', 'test:native', 17],
+  ['push', 'test', 17],
+])('%s selects %s and propagates exit %s', async (event, suite, code) => {
+  const workflow = workflowSchema.parse(Bun.YAML.parse(await Bun.file(workflowPath).text()));
+  const step = workflow.jobs.build.steps.find((candidate) => candidate.id === 'tests');
+  expect(step?.if).toBeUndefined();
+  expect(step?.['continue-on-error']).toBeUndefined();
+  const script = step?.run;
+  if (script === undefined) {
+    throw new Error('missing source test selection script');
+  }
+  const directory = await mkdtemp(join(tmpdir(), 'mimir-release-tests-'));
+  try {
+    await writeFile(
+      join(directory, 'bun'),
+      '#!/bin/sh\nprintf "%s\\n" "$*"\nexit "$MIMIR_TEST_EXIT"\n',
+      { mode: 0o755 },
+    );
+    const child = Bun.spawn(['bash', '-euo', 'pipefail', '-c', script], {
+      cwd: directory,
+      env: {
+        ...process.env,
+        GITHUB_EVENT_NAME: event,
+        MIMIR_TEST_EXIT: String(code),
+        PATH: `${directory}:${process.env.PATH ?? ''}`,
+      },
+      stderr: 'pipe',
+      stdout: 'pipe',
+    });
+    const [exit, stdout, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+    ]);
+    expect(exit, stderr).toBe(code);
+    expect(stdout).toBe(`run ${suite}\n`);
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
+test('the compiled release artifact passes CLI and MCP checks before upload', async () => {
+  const workflow = workflowSchema.parse(Bun.YAML.parse(await Bun.file(workflowPath).text()));
+  const { steps } = workflow.jobs.build;
+  const compile = steps.findIndex((step) => step.name === 'Compile');
+  const smoke = steps.findIndex((step) => step.id === 'native-smoke');
+  const upload = steps.findIndex((step) => step.uses === 'actions/upload-artifact@v7');
+  expect(compile).toBeGreaterThanOrEqual(0);
+  expect(smoke).toBeGreaterThan(compile);
+  expect(upload).toBeGreaterThan(smoke);
+  expect(steps[smoke]?.if).toBeUndefined();
+  expect(steps[smoke]?.['continue-on-error']).toBeUndefined();
+  expect(steps[smoke]?.env).toMatchObject({
+    MIMIR_SANDBOX_LIFECYCLE_TEST: '1',
+    MIMIR_TEST_BINARY: `\${{ github.workspace }}/dist/\${{ matrix.asset }}`,
+  });
+  expect(steps[smoke]?.run).toBe('bun test packages/sandbox/src/mcp-binding.integration.test.ts');
 });
 
 test('binary test or build failure prevents image publication', async () => {
