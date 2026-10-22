@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
 
 import { warmable } from '../lib/chunk-warmup';
@@ -6,24 +6,35 @@ import { warmable } from '../lib/chunk-warmup';
 /**
  * A sheet the shell mounts everywhere but opens rarely, kept out of the
  * console's entry chunk with its module and the form library behind it
- * (MMR-583). The idle warm-up loads it early, and it mounts when it first
- * opens. It then stays mounted, so later opens are instant and every close
- * animates as an eagerly loaded sheet would.
+ * (MMR-583). It loads when the shell mounts and then mounts closed, so its
+ * first open animates like an eagerly loaded sheet's. A failed load leaves
+ * the shell standing and retries on the next open.
  */
 export function lazySheet<P extends { open: boolean }>(
   load: () => Promise<ComponentType<P>>,
 ): ComponentType<P> {
   const loadOnce = warmable(load);
-  const Sheet = lazy(async () => ({ default: await loadOnce() }));
   return function LazySheet(props: P) {
-    const [opened, setOpened] = useState(props.open);
-    if (props.open && !opened) {
-      setOpened(true);
-    }
-    return opened ? (
-      <Suspense fallback={null}>
-        <Sheet {...props} />
-      </Suspense>
-    ) : null;
+    const [Sheet, setSheet] = useState<ComponentType<P>>();
+    useEffect(() => {
+      if (Sheet !== undefined) {
+        return undefined;
+      }
+      let live = true;
+      void (async () => {
+        try {
+          const loaded = await loadOnce();
+          if (live) {
+            setSheet(() => loaded);
+          }
+        } catch {
+          // Nothing to show yet; the next open tries again.
+        }
+      })();
+      return () => {
+        live = false;
+      };
+    }, [Sheet, props.open]);
+    return Sheet === undefined ? null : <Sheet {...props} />;
   };
 }
