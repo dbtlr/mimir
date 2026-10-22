@@ -6,6 +6,7 @@ import { Command, FatalError } from '@loomcli/core';
 import type { StringOption } from '@loomcli/core';
 import { helpCommand, helpInput } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
+import { confirm } from '@loomcli/prompts';
 import { MimirError, PROJECT_KEY_PATTERN } from '@mimir/contract';
 
 import { DASH_TITLE_HINT, MimirUsageError } from '../failures';
@@ -105,7 +106,8 @@ function projectCommand(ports: Ports) {
     .option('ascii', asciiOption)
     .result<Notice>({ views: noticeViews })
     .views({}, { default: 'records' })
-    .action(async ({ args, host, interactive, options, out }) => {
+    .action(async (context) => {
+      const { args, host, interactive, options, out } = context;
       const name = args.name ?? options.name;
       if (name === undefined) {
         throw new MimirUsageError(
@@ -122,9 +124,10 @@ function projectCommand(ports: Ports) {
             're-run with -y/--yes to confirm',
           );
         }
-        const proceed = await ports.confirm(
-          `create project ${options.key} ("${name}") — the key is immutable. proceed?`,
-        );
+        const proceed = await confirm(context, {
+          default: false,
+          message: `create project ${options.key} ("${name}") — the key is immutable. proceed?`,
+        });
         if (!proceed) {
           throw new FatalError('aborted');
         }

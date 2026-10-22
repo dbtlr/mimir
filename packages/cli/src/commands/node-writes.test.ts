@@ -207,44 +207,54 @@ test('attach names a missing file as a Loom content fault, exit 2', async () => 
   expect(run.stderr).toContain('Option "--file": Expected a readable file that exists.');
 });
 
-/** An interactive host whose confirmation answers `answer`, and the questions it was asked. */
-function asking(answer: boolean) {
-  const asked: string[] = [];
-  const app = createApp({
-    confirm: (question) => {
-      asked.push(question);
-      return Promise.resolve(answer);
-    },
-    git: boundClone(undefined),
-    store: () => Promise.resolve(board.store),
-  });
-  return { app, asked };
-}
+const projectKeys = async () =>
+  (await board.engine.projects({ status: 'all' })).map((project) => project.id);
 
 test('create project proceeds when the terminal confirms', async () => {
-  const { app, asked } = asking(true);
-  const run = await runArgv(app, ['create', 'project', 'Epsilon', '--key', 'EPS', '-f', 'json'], {
-    interactive: true,
-    tty: true,
-  });
-  expect(run.exitCode).toBe(0);
-  expect(asked).toEqual(['create project EPS ("Epsilon") — the key is immutable. proceed?']);
-  expect((await board.engine.projects({ status: 'all' })).map((project) => project.id)).toContain(
-    'EPS',
+  const run = await runArgv(
+    board.app(),
+    ['create', 'project', 'Epsilon', '--key', 'EPS', '-f', 'json'],
+    {
+      interactive: true,
+      keys: 'y\r',
+      tty: true,
+    },
   );
+  expect(run.exitCode).toBe(0);
+  expect(run.stderr).toContain('create project EPS ("Epsilon") — the key is immutable. proceed?');
+  expect(await projectKeys()).toContain('EPS');
 });
 
 test('create project aborts, exit 1, and writes nothing when the terminal declines', async () => {
-  const { app } = asking(false);
-  const run = await runArgv(app, ['create', 'project', 'Delta', '--key', 'DEL'], {
+  const run = await runArgv(board.app(), ['create', 'project', 'Delta', '--key', 'DEL'], {
     interactive: true,
+    keys: 'n\r',
     tty: true,
   });
   expect(run.exitCode).toBe(1);
   expect(run.stderr).toContain('aborted');
-  expect(
-    (await board.engine.projects({ status: 'all' })).map((project) => project.id),
-  ).not.toContain('DEL');
+  expect(await projectKeys()).not.toContain('DEL');
+});
+
+test('create project cancelled at the prompt exits 130 and writes nothing', async () => {
+  const run = await runArgv(board.app(), ['create', 'project', 'Iota', '--key', 'IOT'], {
+    interactive: true,
+    keys: '\u0003',
+    tty: true,
+  });
+  expect(run.exitCode).toBe(130);
+  expect(await projectKeys()).not.toContain('IOT');
+});
+
+test('create project with --yes at a terminal creates without asking', async () => {
+  // A terminal with no keys typed: any question would fail the run.
+  const run = await runArgv(board.app(), ['create', 'project', 'Zeta', '--key', 'ZET', '--yes'], {
+    interactive: true,
+    tty: true,
+  });
+  expect(run.exitCode).toBe(0);
+  expect(run.stderr).not.toContain('proceed?');
+  expect(await projectKeys()).toContain('ZET');
 });
 
 test('create project asks for -y where there is no terminal to ask on', async () => {
@@ -252,6 +262,20 @@ test('create project asks for -y where there is no terminal to ask on', async ()
   expect(run.exitCode).toBe(2);
   expect(run.stderr).toContain('create project GAM: the key is immutable — confirmation required');
   expect(run.stderr).toContain('re-run with -y/--yes to confirm');
+});
+
+test('create project with --no-input at a terminal asks for -y instead of prompting', async () => {
+  const run = await runArgv(
+    board.app(),
+    ['create', 'project', 'Theta', '--key', 'THE', '--no-input'],
+    {
+      interactive: true,
+      tty: true,
+    },
+  );
+  expect(run.exitCode).toBe(2);
+  expect(run.stderr).toContain('re-run with -y/--yes to confirm');
+  expect(await projectKeys()).not.toContain('THE');
 });
 
 test('update retitles an artifact and echoes it', async () => {
