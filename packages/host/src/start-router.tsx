@@ -1,7 +1,9 @@
 import { ClientOnly } from '@tanstack/react-router';
+import { useEffect } from 'react';
 
 import { ConsoleProvider } from './console-root';
 import { Document } from './document';
+import { warmChunksWhenIdle } from './lib/chunk-warmup';
 import { createConsoleRouter, consoleRoutes } from './router';
 import { Shell } from './routes/shell';
 import { routeTree as startRouteTree } from './routeTree.gen';
@@ -9,6 +11,7 @@ import { routeTree as startRouteTree } from './routeTree.gen';
 const serverRoutes = Object.values(startRouteTree.children ?? {});
 
 function ClientConsole() {
+  useEffect(warmChunksWhenIdle, []);
   return (
     <ClientOnly>
       <Shell />

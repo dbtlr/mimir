@@ -13,9 +13,11 @@ import type { RecentRecord } from '../lib/recent-records';
 import { recordLink } from '../lib/record-url';
 import { useDebouncedValue } from '../lib/use-debounced-value';
 import { IS_APPLE, useCommandHotkey } from '../lib/use-hotkey';
-import { AuthoringSheet } from './authoring-sheet';
+import { lazySheet } from './lazy-sheet';
 import { useSeedCapture } from './seed-capture';
 import { StatusDot } from './status-dot';
+
+const AuthoringSheet = lazySheet(async () => (await import('./authoring-sheet')).AuthoringSheet);
 
 /** How long typing must pause before the palette asks the server. */
 const SEARCH_DEBOUNCE_MS = 120;

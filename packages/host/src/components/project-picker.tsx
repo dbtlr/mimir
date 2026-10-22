@@ -17,7 +17,7 @@ import {
   overlayPins,
   projectSwitchTarget,
 } from '../lib/project-switcher';
-import { NewProjectSheet } from './new-project-sheet';
+import { lazySheet } from './lazy-sheet';
 import {
   DecisionCount,
   ProjectOption,
@@ -28,6 +28,10 @@ import {
 } from './project-options';
 import { StatusDot } from './status-dot';
 import { PopoverContent, PopoverRoot, PopoverTrigger } from './ui/popover';
+
+const NewProjectSheet = lazySheet(
+  async () => (await import('./new-project-sheet')).NewProjectSheet,
+);
 
 /**
  * The project switcher: the sidebar's header (MMR-496, MMR-497). Its button
