@@ -10,6 +10,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join, relative, resolve } from 'node:path';
 
+import { SandboxError, SandboxUsageError } from './failures';
 import { capture, command, hashFile, InterruptedError, privateJson } from './process';
 import {
   assertSandboxResolution,
@@ -120,7 +121,7 @@ function agentCommand(harness: Harness, prompt: string, model: string | undefine
 }
 
 /** A run that could reach a mimir other than its sandbox's: the whole evaluation stops. */
-export class SafetyError extends Error {
+export class SafetyError extends SandboxError {
   override name = 'SafetyError';
 }
 
@@ -380,13 +381,13 @@ export class SkillEval {
   async run(options: EvalOptions): Promise<string> {
     const unknown = options.scenarios.filter((name) => !SCENARIOS.some((s) => s.name === name));
     if (unknown.length > 0) {
-      throw new Error(
+      throw new SandboxUsageError(
         `Unknown scenario: ${unknown.join(', ')}. Known: ${SCENARIOS.map((s) => s.name).join(', ')}`,
       );
     }
     const skill = resolve(this.repository, options.skill);
     if (!existsSync(join(skill, 'SKILL.md'))) {
-      throw new Error(`${skill} holds no SKILL.md`);
+      throw new SandboxUsageError(`--skill ${skill} holds no SKILL.md`);
     }
     const binary =
       options.binary === undefined ? await this.build() : resolve(this.repository, options.binary);

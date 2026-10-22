@@ -19,6 +19,7 @@ import { z } from 'zod';
 import { installBinary, readInstallationAt } from '../../core/src/installation/index';
 import { readDatabaseAuthority } from '../../core/src/sandbox-authority';
 import type { DatabaseSandboxAuthority } from '../../core/src/sandbox-authority';
+import { SandboxError, SandboxUsageError } from './failures';
 import { hostPort, launchHost } from './host';
 import { InterruptedError, command, hashFile, isolatedEnvironment, privateJson } from './process';
 import { latestSnapshot, snapshotSchema } from './snapshot';
@@ -28,6 +29,23 @@ export const POSTGRES_IMAGE =
 const label = 'dev.mimir.sandbox';
 type Authority = DatabaseSandboxAuthority;
 
+const daemonChanged = (id: string): string =>
+  `Docker daemon changed since sandbox ${id} was created; switch back to that daemon. Sandbox resources and records were retained.`;
+const containerNotOwned = (id: string): string =>
+  `Container for sandbox ${id} is not labelled as its own; refusing to touch it.`;
+
+/** `operation`'s result, or a `SandboxError` carrying `message` when its path is absent. */
+async function required<T>(operation: Promise<T>, message: string): Promise<T> {
+  try {
+    return await operation;
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      throw new SandboxError(message, { cause: error });
+    }
+    throw error;
+  }
+}
+
 /** Owns disposable resources beneath one checkout. No caller supplies a database URL. */
 export class Sandbox {
   readonly repository: string;
@@ -36,31 +54,47 @@ export class Sandbox {
   }
   private directory(id: string): string {
     if (!z.uuid().safeParse(id).success) {
-      throw new Error('Invalid sandbox ID');
+      throw new SandboxUsageError(
+        `Invalid sandbox ID "${id}"; use the UUID that create or restore printed.`,
+      );
     }
     return join(this.repository, '.dev', 'sandboxes', id);
+  }
+  /** The directory of a sandbox that has a run record. */
+  private async existing(id: string): Promise<string> {
+    const root = this.directory(id);
+    if (!(await Bun.file(join(root, 'run.json')).exists())) {
+      throw new SandboxError(`Sandbox ${id} does not exist.`);
+    }
+    return root;
   }
   private async load(id: string): Promise<Authority> {
     const root = this.directory(id);
     try {
       await readFile(join(root, 'authority.json'), 'utf8');
     } catch {
-      throw new Error(`Sandbox ${id} does not exist or has no authority file`);
+      throw new SandboxError(`Sandbox ${id} does not exist or has no authority file.`);
     }
     const authority = readDatabaseAuthority(join(root, 'authority.json'));
     if (authority.image !== POSTGRES_IMAGE) {
-      throw new Error('Sandbox image does not match pinned image');
+      throw new SandboxError(
+        `Sandbox ${id} uses another Postgres image than the pinned one; create a new sandbox.`,
+      );
     }
     if (
       authority.id !== id ||
       authority.root !== (await realpath(root)) ||
       authority.root !== root
     ) {
-      throw new Error('Sandbox ownership mismatch');
+      throw new SandboxError(
+        `Sandbox ${id} authority does not match its directory; refusing to use it.`,
+      );
     }
     for (const kind of ['config', 'data', 'cache'] as const) {
       if (authority.paths[kind] !== join(root, kind, 'mimir')) {
-        throw new Error('Sandbox path mismatch');
+        throw new SandboxError(
+          `Sandbox ${id} ${kind} path is outside its directory; refusing to use it.`,
+        );
       }
     }
     const run = z
@@ -70,7 +104,7 @@ export class Sandbox {
       run.dockerId !==
       (await command(['docker', 'info', '--format', '{{.ID}}'], { cwd: this.repository }))
     ) {
-      throw new Error('Docker daemon changed; sandbox resources and records were retained.');
+      throw new SandboxError(daemonChanged(id));
     }
     const actual = await command(
       [
@@ -83,7 +117,7 @@ export class Sandbox {
       { cwd: this.repository },
     );
     if (actual !== id) {
-      throw new Error('Container ownership mismatch');
+      throw new SandboxError(containerNotOwned(id));
     }
     return authority;
   }
@@ -113,7 +147,7 @@ export class Sandbox {
     status: string,
     details: unknown = null,
   ): Promise<void> {
-    const root = this.directory(id);
+    const root = await this.existing(id);
     const previous = z
       .object({
         createdAt: z.string(),
@@ -125,7 +159,9 @@ export class Sandbox {
       .passthrough()
       .parse(JSON.parse(await readFile(join(root, 'run.json'), 'utf8')));
     if ((await realpath(root)) !== root) {
-      throw new Error('Sandbox ownership mismatch');
+      throw new SandboxError(
+        `Sandbox ${id} directory resolves through a symlink; refusing to record to it.`,
+      );
     }
     const event = { at: new Date().toISOString(), details, operation, status };
     const name = `${Date.now()}-${randomUUID()}.json`;
@@ -143,7 +179,7 @@ export class Sandbox {
       cwd: this.repository,
     });
     if (!dockerId) {
-      throw new Error('Docker daemon has no stable identity.');
+      throw new SandboxError('Docker reported no daemon ID; check that Docker is running.');
     }
     const id = randomUUID();
     const root = this.directory(id);
@@ -196,7 +232,9 @@ export class Sandbox {
       });
       const port = /^127\.0\.0\.1:(\d+)$/.exec(binding)?.[1];
       if (!port) {
-        throw new Error(`Unexpected sandbox port mapping; cleanup with sandbox destroy ${id}`);
+        throw new SandboxError(
+          `Unexpected sandbox port mapping; clean up with bun run sandbox destroy ${id}`,
+        );
       }
       const authority: Authority = {
         containerId,
@@ -242,7 +280,7 @@ export class Sandbox {
           }
         }
         if (!ready) {
-          throw new Error('Postgres did not become ready');
+          throw new SandboxError('Postgres did not become ready.');
         }
         await this.record(id, 'provision', 'ready');
         return authority;
@@ -277,7 +315,7 @@ export class Sandbox {
     const binary = join(authority.root, 'bin', 'mimir');
     await mkdir(dirname(binary), { mode: 0o700, recursive: true });
     if ((await realpath(dirname(binary))) !== dirname(binary)) {
-      throw new Error('Sandbox binary directory must not be a symlink.');
+      throw new SandboxError('Sandbox binary directory must not be a symlink.');
     }
     const stat = await lstat(binary).catch((error: unknown) => {
       if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
@@ -289,10 +327,10 @@ export class Sandbox {
       if (allowMissing) {
         return binary;
       }
-      throw new Error('Sandbox has no installed candidate. Run sandbox upgrade first.');
+      throw new SandboxError('Sandbox has no installed candidate. Run sandbox upgrade first.');
     }
     if (!stat.isFile() || stat.isSymbolicLink()) {
-      throw new Error('Sandbox executable must be a regular file, not a symlink.');
+      throw new SandboxError('Sandbox executable must be a regular file, not a symlink.');
     }
     const receipt = readInstallationAt(binary);
     if (
@@ -303,7 +341,9 @@ export class Sandbox {
         (kind) => receipt.paths[kind] !== authority.paths[kind],
       )
     ) {
-      throw new Error('Candidate is not registered to this sandbox.');
+      throw new SandboxError(
+        'Candidate is not registered to this sandbox. Run sandbox upgrade to reinstall it.',
+      );
     }
     return binary;
   }
@@ -370,7 +410,9 @@ export class Sandbox {
         }),
       );
       if (!Array.isArray(doctor) || doctor.length !== 0) {
-        throw new Error('Installed candidate doctor reported findings');
+        throw new SandboxError(
+          `Installed candidate doctor reported findings; see them with bun run sandbox run ${id} -- doctor`,
+        );
       }
       const exported = join(authority.root, `verify-${randomUUID()}.json`);
       await command([binary, 'store', 'export', exported], {
@@ -394,7 +436,7 @@ export class Sandbox {
   async run(id: string, args: readonly string[]): Promise<string> {
     const owner = { id, root: this.directory(id) };
     if (args.length === 0) {
-      throw new Error('Supply Mimir arguments after --.');
+      throw new SandboxUsageError('Supply Mimir arguments after --.');
     }
     const verb = args[0];
     if (
@@ -402,7 +444,7 @@ export class Sandbox {
       verb.startsWith('-') ||
       new Set(['installation-install', 'installation-protocol', 'self-update', 'skill']).has(verb)
     ) {
-      throw new Error(
+      throw new SandboxUsageError(
         'Sandbox run accepts finite work and store commands; installation machinery is disabled. Put the command before options.',
       );
     }
@@ -457,11 +499,23 @@ export class Sandbox {
   async restore(selection: string): Promise<string> {
     const config = z
       .object({ snapshots: z.object({ directory: z.string().min(1) }) })
-      .parse(JSON.parse(await readFile(join(this.repository, '.dev', 'sandbox.json'), 'utf8')));
+      .parse(
+        JSON.parse(
+          await required(
+            readFile(join(this.repository, '.dev', 'sandbox.json'), 'utf8'),
+            'No snapshot directory is configured; create .dev/sandbox.json as docs/guides/development-sandboxes.md describes.',
+          ),
+        ),
+      );
     const directory = resolve(this.repository, config.snapshots.directory);
     if (selection === 'latest') {
       const snapshots = await Promise.all(
-        (await readdir(directory, { withFileTypes: true }))
+        (
+          await required(
+            readdir(directory, { withFileTypes: true }),
+            `Snapshot directory ${directory} doesn't exist.`,
+          )
+        )
           .filter((entry) => entry.isDirectory() && /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(entry.name))
           .map(async (entry) =>
             snapshotSchema.parse(
@@ -473,30 +527,37 @@ export class Sandbox {
       selection = selected.id;
     }
     if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(selection)) {
-      throw new Error('Invalid snapshot ID');
+      throw new SandboxUsageError(`Invalid snapshot ID "${selection}".`);
     }
     const snapshot = snapshotSchema.parse(
-      JSON.parse(await readFile(join(directory, selection, 'snapshot.json'), 'utf8')),
+      JSON.parse(
+        await required(
+          readFile(join(directory, selection, 'snapshot.json'), 'utf8'),
+          `Snapshot ${selection} doesn't exist in ${directory}.`,
+        ),
+      ),
     );
     if (snapshot.id !== selection) {
-      throw new Error('Snapshot ID mismatch');
+      throw new SandboxError(
+        `Snapshot ${selection} manifest names another snapshot, ${snapshot.id}.`,
+      );
     }
     if (
       !/^18(?:\.|$)/.test(snapshot.postgresVersion) ||
       !/^18(?:\.|$)/.test(snapshot.pgDumpVersion)
     ) {
-      throw new Error('Snapshot requires PostgreSQL and pg_dump major version 18');
+      throw new SandboxError('Snapshot requires PostgreSQL and pg_dump major version 18.');
     }
     const archive = join(directory, selection, 'database.dump');
     if ((await hashFile(archive)) !== snapshot.sha256) {
-      throw new Error('Snapshot checksum mismatch');
+      throw new SandboxError(`Snapshot ${selection} archive does not match its checksum.`);
     }
     const header = await open(archive, 'r');
     try {
       const bytes = Buffer.alloc(5);
       await header.read(bytes, 0, 5, 0);
       if (bytes.toString() !== 'PGDMP') {
-        throw new Error('Snapshot is not a PostgreSQL custom archive');
+        throw new SandboxError(`Snapshot ${selection} is not a PostgreSQL custom archive.`);
       }
     } finally {
       await header.close();
@@ -508,7 +569,7 @@ export class Sandbox {
       await copyFile(archive, staged);
       await chmod(staged, 0o600);
       if ((await hashFile(staged)) !== snapshot.sha256) {
-        throw new Error('Snapshot changed while staging');
+        throw new SandboxError(`Snapshot ${selection} changed while staging.`);
       }
       await command(
         [
@@ -550,7 +611,7 @@ export class Sandbox {
         { cwd: this.repository },
       );
       if (!/^[1-9][0-9]*$/.test(schema)) {
-        throw new Error('Snapshot does not contain a versioned Mimir schema.');
+        throw new SandboxError('Snapshot does not contain a versioned Mimir schema.');
       }
       await this.record(authority.id, 'restore', 'restored', {
         schemaVersion: Number(schema),
@@ -621,10 +682,7 @@ export class Sandbox {
     }
   }
   async destroy(id: string): Promise<void> {
-    const root = this.directory(id);
-    if (!(await Bun.file(join(root, 'run.json')).exists())) {
-      throw new Error(`Sandbox ${id} does not exist`);
-    }
+    const root = await this.existing(id);
     const run = z
       .object({
         dockerId: z.string().min(1),
@@ -635,13 +693,15 @@ export class Sandbox {
       .passthrough()
       .parse(JSON.parse(await readFile(join(root, 'run.json'), 'utf8')));
     if (run.id !== id || (await realpath(root)) !== root) {
-      throw new Error('Sandbox directory ownership mismatch');
+      throw new SandboxError(
+        `Sandbox ${id} records do not match its directory; refusing to remove it.`,
+      );
     }
     const daemon = await command(['docker', 'info', '--format', '{{.ID}}'], {
       cwd: this.repository,
     });
     if (daemon !== run.dockerId) {
-      throw new Error('Docker daemon changed; sandbox resources and records were retained.');
+      throw new SandboxError(daemonChanged(id));
     }
     const containerRecord = join(root, 'container.json');
     const record = (await Bun.file(containerRecord).exists())
@@ -666,14 +726,16 @@ export class Sandbox {
     );
     if (present) {
       if (record && present !== record.containerId) {
-        throw new Error('Container identity mismatch');
+        throw new SandboxError(
+          `Sandbox ${id} container does not match its record; refusing to remove it.`,
+        );
       }
       const actual = await command(
         ['docker', 'inspect', '--format', `{{index .Config.Labels "${label}"}}`, target],
         { cwd: this.repository },
       );
       if (actual !== id) {
-        throw new Error('Container ownership mismatch');
+        throw new SandboxError(containerNotOwned(id));
       }
       await command(['docker', 'rm', '--force', '--volumes', target], { cwd: this.repository });
     }

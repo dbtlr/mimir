@@ -22,6 +22,7 @@ import { dirname, join } from 'node:path';
 
 import { installBinary } from '../../core/src/installation/index';
 import { readSandboxAuthority } from '../../core/src/sandbox-authority';
+import { SandboxError } from './failures';
 import { command, isolatedEnvironment } from './process';
 
 export type Harness = 'claude' | 'codex';
@@ -153,11 +154,11 @@ export async function assertSandboxResolution(sandbox: EvalSandbox, harness: Har
   const pathShell = harness === 'codex' ? ['/bin/zsh', '-lc'] : ['/bin/zsh', '-fc'];
   const resolved = (await run(pathShell, 'whence -p mimir')).split('\n').at(-1) ?? '';
   if (resolved === '' || realpathSync(resolved) !== sandbox.binary) {
-    throw new Error(`mimir resolves to ${resolved || 'nothing'}, not the sandbox binary`);
+    throw new SandboxError(`mimir resolves to ${resolved || 'nothing'}, not the sandbox binary`);
   }
   const kind = (await run(['/bin/zsh', '-ic'], 'whence -w mimir')).split('\n').at(-1) ?? '';
   if (kind !== 'mimir: command') {
-    throw new Error(`the interactive shell defines ${kind}; refusing to run`);
+    throw new SandboxError(`the interactive shell defines ${kind}; refusing to run`);
   }
 }
 
