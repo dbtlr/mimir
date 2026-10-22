@@ -3,6 +3,9 @@ import { describe, expect, vi } from 'vitest';
 
 import { lazySheet } from '../components/lazy-sheet';
 
+const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn() } }));
+vi.mock('sonner', () => ({ toast }));
+
 const noop = () => undefined;
 
 function Sheet({ open }: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -63,6 +66,7 @@ describe('lazySheet (MMR-583)', () => {
     await vi.waitFor(() => {
       expect(onOpenChange).toHaveBeenCalledWith(false);
     });
+    expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/refresh/i));
     rerender(<LazySheet open={false} onOpenChange={onOpenChange} />);
     rerender(<LazySheet open onOpenChange={onOpenChange} />);
     await expect(screen.findByText('sheet open')).resolves.toBeInTheDocument();

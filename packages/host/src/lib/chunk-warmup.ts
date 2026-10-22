@@ -42,10 +42,13 @@ export function warmChunks(): void {
   }
 }
 
-/** Warms the chunks once the browser is idle, after the first paint. */
+/**
+ * Warms the chunks once the browser is idle, after the first paint, and
+ * within two seconds even when it never idles.
+ */
 export function warmChunksWhenIdle(): void {
   if ('requestIdleCallback' in globalThis) {
-    globalThis.requestIdleCallback(warmChunks);
+    globalThis.requestIdleCallback(warmChunks, { timeout: 2000 });
   } else {
     // Safari has no idle callback; a short delay still clears the first paint.
     globalThis.setTimeout(warmChunks, 1000);

@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useState } from 'react';
 import type { ComponentType } from 'react';
+import { toast } from 'sonner';
 
 import { warmable } from '../lib/chunk-warmup';
 
@@ -8,8 +9,9 @@ import { warmable } from '../lib/chunk-warmup';
  * console's entry chunk with its module and the form library behind it
  * (MMR-583). It loads when the shell mounts and then mounts closed, so its
  * first open animates like an eagerly loaded sheet's. A failed load leaves
- * the shell standing: an open sheet reports itself closed, so the next open
- * is a real one and retries the load.
+ * the shell standing: an open sheet says so, reports itself closed, and the
+ * next open retries the load. It never reloads the tab on its own, since a
+ * click would then discard unsaved input elsewhere on the page.
  */
 export function lazySheet<P extends { open: boolean; onOpenChange: (open: boolean) => void }>(
   load: () => Promise<ComponentType<P>>,
@@ -20,6 +22,7 @@ export function lazySheet<P extends { open: boolean; onOpenChange: (open: boolea
     const closeAfterFailedLoad = useEffectEvent(() => {
       if (props.open) {
         props.onOpenChange(false);
+        toast.error("Couldn't open this — refresh the tab and try again.");
       }
     });
     useEffect(() => {
