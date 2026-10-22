@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import type { ComponentType } from 'react';
 
 import { warmable } from '../lib/chunk-warmup';
@@ -8,14 +8,20 @@ import { warmable } from '../lib/chunk-warmup';
  * console's entry chunk with its module and the form library behind it
  * (MMR-583). It loads when the shell mounts and then mounts closed, so its
  * first open animates like an eagerly loaded sheet's. A failed load leaves
- * the shell standing and retries on the next open.
+ * the shell standing: an open sheet reports itself closed, so the next open
+ * is a real one and retries the load.
  */
-export function lazySheet<P extends { open: boolean }>(
+export function lazySheet<P extends { open: boolean; onOpenChange: (open: boolean) => void }>(
   load: () => Promise<ComponentType<P>>,
 ): ComponentType<P> {
   const loadOnce = warmable(load);
   return function LazySheet(props: P) {
     const [Sheet, setSheet] = useState<ComponentType<P>>();
+    const closeAfterFailedLoad = useEffectEvent(() => {
+      if (props.open) {
+        props.onOpenChange(false);
+      }
+    });
     useEffect(() => {
       if (Sheet !== undefined) {
         return undefined;
@@ -28,7 +34,9 @@ export function lazySheet<P extends { open: boolean }>(
             setSheet(() => loaded);
           }
         } catch {
-          // Nothing to show yet; the next open tries again.
+          if (live) {
+            closeAfterFailedLoad();
+          }
         }
       })();
       return () => {
