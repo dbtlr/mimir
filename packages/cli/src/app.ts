@@ -9,7 +9,6 @@
 import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { hostname } from 'node:os';
 import { dirname, join } from 'node:path';
-import { createInterface } from 'node:readline/promises';
 
 import { Application, FatalError } from '@loomcli/core';
 import { format } from '@loomcli/plugins/format';
@@ -167,8 +166,6 @@ export type CliSource = CliSourceEdges &
 type CliSourceEdges = {
   /** The clone the binding is read from and written to. */
   git: GitPort;
-  /** Ask a yes/no question on the terminal; defaults to a prompt on this process's streams. */
-  confirm?: (question: string) => Promise<boolean>;
   /** The words of the run, which a failure's hint reads; defaults to this process's. */
   argv?: () => readonly string[];
   /** The machine-local services (MMR-553); a command that needs them refuses when absent. */
@@ -224,19 +221,6 @@ async function fatalOnOpen<T>(open: () => Promise<T>): Promise<T> {
       throw new FatalError(error.message, { cause: error });
     }
     throw error;
-  }
-}
-
-/** A `[y/N]` prompt on stderr, answered on stdin. */
-async function promptYesNo(question: string): Promise<boolean> {
-  const lines = createInterface({
-    input: process.stdin,
-    output: process.stderr,
-  });
-  try {
-    return /^y(es)?$/i.test((await lines.question(`${question} [y/N] `)).trim());
-  } finally {
-    lines.close();
   }
 }
 
@@ -788,7 +772,6 @@ export function corePorts(source: CliSource): Ports {
           );
   }
   return {
-    confirm: source.confirm ?? promptYesNo,
     engine: getEngine,
     grammar: {
       assertDates: assertDateFilters,
