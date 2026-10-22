@@ -7,6 +7,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
+import { SandboxError } from './failures';
+
 export async function hashFile(path: string): Promise<string> {
   const hash = createHash('sha256');
   for await (const chunk of Bun.file(path).stream()) {
@@ -34,7 +36,7 @@ export function isolatedEnvironment(): NodeJS.ProcessEnv {
   return environment;
 }
 
-export class InterruptedError extends Error {
+export class InterruptedError extends SandboxError {
   override name = 'InterruptedError';
 }
 
@@ -110,7 +112,7 @@ export async function capture(args: string[], options: SpawnOptions): Promise<Ca
       );
     }
     if (timedOut) {
-      throw new Error(`Sandbox subprocess timed out: ${args[0]}`);
+      throw new SandboxError(`Sandbox subprocess timed out: ${args[0]}`);
     }
     return { exit, stderr, stdout };
   } finally {
@@ -124,7 +126,7 @@ export async function capture(args: string[], options: SpawnOptions): Promise<Ca
 export async function command(args: string[], options: SpawnOptions): Promise<string> {
   const { exit, stderr, stdout } = await capture(args, options);
   if (exit !== 0) {
-    throw new Error(
+    throw new SandboxError(
       `${args[0]} failed (${exit}): ${stderr.replace(/postgres(?:ql)?:\/\/[^\s"']+/g, '[database URL redacted]').slice(-4000)}`,
     );
   }

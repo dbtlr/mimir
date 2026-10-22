@@ -2,6 +2,7 @@ import { join } from 'node:path';
 
 import type { DatabaseSandboxAuthority } from '../../core/src/sandbox-authority';
 import { DEV_PORT, parsePort } from '../../helpers/src/ports';
+import { SandboxError, SandboxUsageError } from './failures';
 import { InterruptedError, isolatedEnvironment } from './process';
 
 export function hostEnvironment(
@@ -22,7 +23,7 @@ export function hostPort(port?: string): string {
   }
   const parsed = parsePort(port);
   if (parsed === null) {
-    throw new Error('--port must be an integer from 1 to 65535');
+    throw new SandboxUsageError('--port must be an integer from 1 to 65535');
   }
   return String(parsed);
 }
@@ -85,10 +86,12 @@ export async function launchHost(
       throw new InterruptedError('Sandbox host interrupted; the sandbox remains available.');
     }
     if (timedOut) {
-      throw new Error('Sandbox host session timed out; the sandbox remains available.');
+      throw new SandboxError('Sandbox host session timed out; the sandbox remains available.');
     }
     if (exit !== 0) {
-      throw new Error(`Sandbox host failed (${String(exit)}).`);
+      throw new SandboxError(
+        `Sandbox host failed (${String(exit)}); the sandbox remains available.`,
+      );
     }
   } finally {
     clearTimeout(timer);

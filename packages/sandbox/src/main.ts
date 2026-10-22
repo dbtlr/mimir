@@ -4,15 +4,17 @@ import { Application, Command } from '@loomcli/core';
 import { help } from '@loomcli/plugins/help';
 import { z } from 'zod';
 
+import { SandboxUsageError } from './failures';
 import { hostPort } from './host';
 import { HARNESSES, SkillEval } from './skill-eval';
 import { snapshotSchema } from './snapshot';
 import { Sandbox } from './workflow';
 
 if (Bun.version !== '1.4.3') {
-  throw new Error(
-    'Sandbox tooling requires Bun 1.4.3. Run mise install and use the workspace runtime.',
+  process.stderr.write(
+    'Sandbox tooling requires Bun 1.4.3. Run mise install and use the workspace runtime.\n',
   );
+  process.exit(1);
 }
 
 /** A comma-separated option as its non-empty entries. */
@@ -26,7 +28,7 @@ const list = (value: string | undefined): string[] =>
 function count(value: string | undefined, fallback: number, name: string): number {
   const parsed = value === undefined ? fallback : Number(value);
   if (!Number.isInteger(parsed) || parsed < 1) {
-    throw new Error(`--${name} must be a positive integer`);
+    throw new SandboxUsageError(`--${name} must be a positive integer`);
   }
   return parsed;
 }
@@ -163,7 +165,7 @@ const application = new Application('sandbox', {
         const chosen =
           harnesses.length === 0 ? HARNESSES : HARNESSES.filter((h) => harnesses.includes(h));
         if (chosen.length !== Math.max(harnesses.length, chosen.length) || chosen.length === 0) {
-          throw new Error(`--harness must name ${HARNESSES.join(' and/or ')}`);
+          throw new SandboxUsageError(`--harness must name ${HARNESSES.join(' and/or ')}`);
         }
         await out.print(
           await evals.run({

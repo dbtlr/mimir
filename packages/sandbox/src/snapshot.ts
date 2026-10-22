@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { SandboxError } from './failures';
+
 export const snapshotSchema = z.object({
   capturedAt: z.iso.datetime(),
   id: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/),
@@ -32,7 +34,7 @@ export function latestSnapshot(
     return a.id < b.id ? -1 : 1;
   })[0];
   if (!selected) {
-    throw new Error('No snapshots available');
+    throw new SandboxError('No snapshots available in the configured snapshot directory.');
   }
   return selected;
 }
