@@ -1,6 +1,13 @@
 import type { SeedKind } from '@mimir/contract';
-import { createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router';
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  lazyRouteComponent,
+  redirect,
+} from '@tanstack/react-router';
 
+import { warmable } from './lib/chunk-warmup';
 import {
   artifactIdOf,
   artifactLink,
@@ -12,20 +19,8 @@ import {
   seedPath,
 } from './lib/record-url';
 import { isSeedKind } from './lib/seed-lanes';
-import { ArtifactPage } from './routes/artifact';
-import { ArtifactsPage } from './routes/artifacts';
 import { BrowserRedirect } from './routes/browser-redirect';
-import { DevicesPage } from './routes/devices';
-import { DoctorPage } from './routes/doctor';
-import { NodePage } from './routes/node';
-import { NotFoundPage } from './routes/not-found';
-import { PairPage } from './routes/pair';
-import { ProjectPage } from './routes/project';
-import { ReviewPage } from './routes/review';
-import { SeedPage } from './routes/seed';
-import { SeedsPage } from './routes/seeds';
 import { Shell } from './routes/shell';
-import { TasksPage } from './routes/tasks';
 
 /**
  * Navigation (ADR 0013 §3 and its v0.23 refinement): URLs name scopes, views,
@@ -45,7 +40,10 @@ export type ReviewSearch = {
 
 /** `/` — the review page; `?mode=focus` walks its decisions one at a time (MMR-480). */
 export const reviewRoute = createRoute({
-  component: ReviewPage,
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/review')),
+    'ReviewPage',
+  ),
   getParentRoute: () => rootRoute,
   path: '/',
   validateSearch: (search: Record<string, unknown>): ReviewSearch => ({
@@ -78,7 +76,10 @@ export const projectRoute = createRoute({
   beforeLoad: ({ params }) => {
     canonicalKey(params.key, '/p/$key');
   },
-  component: ProjectPage,
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/project')),
+    'ProjectPage',
+  ),
   getParentRoute: () => rootRoute,
   path: '/p/$key',
 });
@@ -96,7 +97,10 @@ export const nodeRoute = createRoute({
   beforeLoad: ({ params }) => {
     canonicalKey(params.key, '/p/$key/$seq');
   },
-  component: NodePage,
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/node')),
+    'NodePage',
+  ),
   getParentRoute: () => rootRoute,
   path: '/p/$key/$seq',
   validateSearch: (search: Record<string, unknown>): NodeSearch => ({
@@ -127,7 +131,10 @@ export const seedRoute = createRoute({
       throw redirect({ ...seedLink(id), replace: true, search: true });
     }
   },
-  component: SeedPage,
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/seed')),
+    'SeedPage',
+  ),
   getParentRoute: () => rootRoute,
   path: '/p/$key/s{$seq}',
 });
@@ -144,7 +151,10 @@ export const artifactRoute = createRoute({
       throw redirect({ ...artifactLink(id), replace: true, search: true });
     }
   },
-  component: ArtifactPage,
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/artifact')),
+    'ArtifactPage',
+  ),
   getParentRoute: () => rootRoute,
   path: '/p/$key/a{$seq}',
 });
@@ -161,7 +171,10 @@ export const notFoundRoute = createRoute({
       throw redirect({ ...target, replace: true });
     }
   },
-  component: NotFoundPage,
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/not-found')),
+    'NotFoundPage',
+  ),
   getParentRoute: () => rootRoute,
   path: '$',
 });
@@ -208,7 +221,10 @@ export const artifactsRoute = createRoute({
   beforeLoad: ({ params }) => {
     canonicalKey(params.key, '/p/$key/artifacts');
   },
-  component: ArtifactsPage,
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/artifacts')),
+    'ArtifactsPage',
+  ),
   getParentRoute: () => rootRoute,
   path: '/p/$key/artifacts',
   validateSearch: validateArtifactsSearch,
@@ -228,7 +244,10 @@ export const tasksRoute = createRoute({
   beforeLoad: ({ params }) => {
     canonicalKey(params.key, '/p/$key/tasks');
   },
-  component: TasksPage,
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/tasks')),
+    'TasksPage',
+  ),
   getParentRoute: () => rootRoute,
   path: '/p/$key/tasks',
   validateSearch: validateTasksSearch,
@@ -241,7 +260,10 @@ export type DoctorSearch = {
 };
 
 export const doctorRoute = createRoute({
-  component: DoctorPage,
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/doctor')),
+    'DoctorPage',
+  ),
   getParentRoute: () => rootRoute,
   path: '/doctor',
   validateSearch: (search: Record<string, unknown>): DoctorSearch =>
@@ -255,7 +277,10 @@ export type PairSearch = {
 
 /** `/pair` — approve or deny a device's pairing request by its code (MMR-585). */
 export const pairRoute = createRoute({
-  component: PairPage,
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/pair')),
+    'PairPage',
+  ),
   getParentRoute: () => rootRoute,
   path: '/pair',
   validateSearch: (search: Record<string, unknown>): PairSearch => ({
@@ -265,7 +290,10 @@ export const pairRoute = createRoute({
 
 /** `/devices` — the requests waiting on the operator and the paired devices (MMR-585). */
 export const devicesRoute = createRoute({
-  component: DevicesPage,
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/devices')),
+    'DevicesPage',
+  ),
   getParentRoute: () => rootRoute,
   path: '/devices',
 });
@@ -286,7 +314,10 @@ export const seedsRoute = createRoute({
   beforeLoad: ({ params }) => {
     canonicalKey(params.key, '/p/$key/seeds');
   },
-  component: SeedsPage,
+  component: lazyRouteComponent(
+    warmable(async () => import('./routes/seeds')),
+    'SeedsPage',
+  ),
   getParentRoute: () => rootRoute,
   path: '/p/$key/seeds',
   validateSearch: validateSeedsSearch,
