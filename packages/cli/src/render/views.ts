@@ -14,9 +14,17 @@ export function withNewline(text: string): string {
   return text.endsWith('\n') ? text : `${text}\n`;
 }
 
-/** A view over text: styled text keeps raw SGR codes, which Loom's rendering policy governs. */
-export function textView<Data>(text: (data: Readonly<Data>) => string): View<Data> {
-  return { render: (data, context: ViewContext) => context.style.escape(withNewline(text(data))) };
+/**
+ * A view over text: styled text keeps raw SGR codes, which Loom's rendering
+ * policy governs. `text` reads the view context for its destination's facts,
+ * such as how many terminal cells a string takes.
+ */
+export function textView<Data>(
+  text: (data: Readonly<Data>, context: ViewContext) => string,
+): View<Data> {
+  return {
+    render: (data, context: ViewContext) => context.style.escape(withNewline(text(data, context))),
+  };
 }
 
 /**
@@ -101,9 +109,9 @@ function jsonViews<Data>(spec: JsonViewSpec<Data>): Record<'json' | 'jsonl', Vie
  * view leaves it out, and the formatter refuses the format.
  */
 export type RecordViewSpec<Data> = JsonViewSpec<Data> & {
-  records: (data: Readonly<Data>) => string;
+  records: (data: Readonly<Data>, context: ViewContext) => string;
   /** `false` declares no `table` view, so the formatter refuses the format. */
-  table?: ((data: Readonly<Data>) => string) | false;
+  table?: ((data: Readonly<Data>, context: ViewContext) => string) | false;
 };
 
 /** The views every command with a record form declares. */

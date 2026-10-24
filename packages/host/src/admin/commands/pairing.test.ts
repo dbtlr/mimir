@@ -25,6 +25,26 @@ test('pending lists live requests by device with their age and expiry', async ()
   ]);
 });
 
+test('pending aligns wide-character device names by terminal cell', async () => {
+  await fixture.host.tokens.request('研究室のマシン');
+  await fixture.host.tokens.request('laptop');
+
+  const lines = (await fixture.run(['pending'], { tty: true })).stdout.split('\n').slice(0, 3);
+  const cells = lines.map((line) =>
+    Bun.stringWidth(line.slice(0, line.search(/REQUESTED|<1m ago/))),
+  );
+  expect(new Set(cells).size).toBe(1);
+});
+
+test('pending on a terminal too narrow for its columns prints one block per request', async () => {
+  await fixture.host.tokens.request('valhalla-build-runner-02');
+
+  const run = await fixture.run(['pending'], { columns: 24, tty: true });
+  expect(run.stdout).toMatch(/^DEVICE\s+valhalla-build-runner-02$/m);
+  expect(run.stdout).toMatch(/^EXPIRES\s+in \d+m$/m);
+  expect(run.stdout).toContain('mimir-host approve <code>');
+});
+
 test('pending says so when no request waits', async () => {
   const run = await fixture.run(['pending'], { tty: true });
   expect(run.exitCode).toBe(0);

@@ -6,7 +6,9 @@
  * hashed, so the operator reads them from the client, never from the host.
  */
 import { Command } from '@loomcli/core';
+import type { View } from '@loomcli/core';
 import { helpCommand } from '@loomcli/plugins/help/extension';
+import { table } from '@loomcli/plugins/table';
 import { defaultFormat } from '@mimir/cli/src/default-format';
 import { MimirUsageError } from '@mimir/cli/src/failures';
 import { proseViews } from '@mimir/cli/src/render/machine';
@@ -24,7 +26,7 @@ import { formatPairingCode, normalizePairingCode } from '@mimir/core';
 import type { PendingPairing } from '@mimir/core';
 
 import type { AdminPorts } from '../ports';
-import { columns, span } from '../render';
+import { span } from '../render';
 
 // ---------------------------------------------------------------------------
 // pending
@@ -32,29 +34,48 @@ import { columns, span } from '../render';
 
 type PendingValue = { requests: PendingPairing[]; now: Date; presentation: Presentation };
 
-function pendingText({ now, presentation, requests }: Readonly<PendingValue>): string {
-  if (requests.length === 0) {
-    return 'No pending pairing requests';
-  }
-  const table = columns(
-    ['DEVICE', 'REQUESTED', 'EXPIRES'],
-    requests.map((request) => [
-      request.device,
-      `${span(now.getTime() - Date.parse(request.created_at))} ago`,
-      `in ${span(Date.parse(request.expires_at) - now.getTime())}`,
-    ]),
-  );
-  return presentation.isTTY
-    ? `${table}\n\n${dimmed("approve one with 'mimir-host approve <code>', using the code its device shows", presentation.plain)}`
-    : table;
-}
+type PendingRow = { device: string; requested: string; expires: string };
+
+const requestsTable = table<PendingRow>({
+  columns: [
+    { header: 'DEVICE', key: 'device' },
+    { header: 'REQUESTED', key: 'requested' },
+    { header: 'EXPIRES', key: 'expires' },
+  ],
+});
+
+const APPROVE_HINT =
+  "approve one with 'mimir-host approve <code>', using the code its device shows";
+
+/** The requests as a Loom table, with the approve hint on a terminal, or the line that says none wait. */
+const pendingTable: View<PendingValue> = {
+  render: ({ now, presentation, requests }, context) => {
+    if (requests.length === 0) {
+      return context.style.escape('No pending pairing requests\n');
+    }
+    const rows = requests.map((request) => ({
+      device: request.device,
+      expires: `in ${span(Date.parse(request.expires_at) - now.getTime())}`,
+      requested: `${span(now.getTime() - Date.parse(request.created_at))} ago`,
+    }));
+    const listed = requestsTable.render(rows, context);
+    return presentation.isTTY
+      ? `${listed}\n${context.style.escape(dimmed(APPROVE_HINT, presentation.plain))}\n`
+      : listed;
+  },
+};
 
 export function pendingCommand(ports: AdminPorts) {
-  const views = recordViews<PendingValue>({
-    json: ({ requests }) => requests,
-    jsonl: ({ requests }) => requests,
-    records: pendingText,
-  });
+  const views = {
+    ...recordViews<PendingValue>({
+      json: ({ requests }) => requests,
+      jsonl: ({ requests }) => requests,
+      records: () => '',
+      table: false,
+    }),
+    records: pendingTable,
+    table: pendingTable,
+  };
   return new Command('pending', {
     description:
       'List the live pairing requests awaiting a decision: device, age, and expiry. Prints a table on a terminal and json when piped.',

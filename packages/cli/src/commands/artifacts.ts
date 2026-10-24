@@ -4,6 +4,7 @@
  * `created_at:DATE`.
  */
 import { Command } from '@loomcli/core';
+import type { ViewContext } from '@loomcli/core';
 import { helpCommand, helpInput } from '@loomcli/plugins/help/extension';
 import { mcpCommand } from '@loomcli/plugins/mcp/extension';
 import { intentEncoders } from '@mimir/contract';
@@ -14,7 +15,7 @@ import { parseDateFeed, parseLimit, parseOffset, parseZone } from '../parse';
 import type { Ports } from '../ports';
 import { printNote } from '../query';
 import { renderArtifactFeed } from '../render/feeds';
-import { presentationOf } from '../render/presentation';
+import { layoutOf, presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
 import { recordViews } from '../render/views';
 import { boardProject } from '../scope';
@@ -31,8 +32,8 @@ export type ArtifactsValue = {
   wire: Record<string, unknown>;
 };
 
-const styled = (value: Readonly<ArtifactsValue>): string =>
-  renderArtifactFeed(value.result, value.presentation);
+const styled = (value: Readonly<ArtifactsValue>, context: ViewContext): string =>
+  renderArtifactFeed(value.result, layoutOf(value.presentation, context));
 
 const views = recordViews<ArtifactsValue>({
   ids: (value) => value.result.items.map((a) => a.id).join('\n'),

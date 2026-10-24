@@ -7,7 +7,7 @@
 import type { AnnotationView, NodeView, SetResult, StatusWord } from '@mimir/contract';
 import { formatInstant } from '@mimir/helpers';
 
-import { arrow, bold, color, countLine, dimmed, pad } from './presentation';
+import { arrow, bold, color, countLine, dimmed } from './presentation';
 import type { Presentation } from './presentation';
 
 type StatusStyle = { icon: string; ascii: string; color: number };
@@ -27,7 +27,7 @@ const STATUS_STYLE: Record<StatusWord, StatusStyle> = {
 
 export function statusCell(status: StatusWord, width: number, plain: boolean): string {
   const style = STATUS_STYLE[status];
-  return color(`${plain ? style.ascii : style.icon} ${pad(status, width)}`, style.color, plain);
+  return color(`${plain ? style.ascii : style.icon} ${status.padEnd(width)}`, style.color, plain);
 }
 
 /** The grooming word a row shows (ADR 0033): only a `todo` task reads it. */
@@ -38,6 +38,8 @@ const groomingCell = (n: NodeView): string =>
  * One line per task: id, status cell, priority, grooming, parent, title, aligned
  * over `items`, with the `--col lede` preview as a dim second line. The grooming
  * column appears only when some row has a state to show. `items` is non-empty.
+ * Every padded column is ASCII by construction (ids, since project keys are
+ * `[A-Z]`, and fixed vocabulary), so it pads by length; the title comes last.
  */
 export function taskRows(items: readonly NodeView[], p: Presentation): string[] {
   const idW = Math.max(...items.map((n) => n.id.length));
@@ -45,8 +47,8 @@ export function taskRows(items: readonly NodeView[], p: Presentation): string[] 
   const parentW = Math.max(...items.map((n) => (n.parent ?? '').length));
   const groomW = Math.max(...items.map((n) => groomingCell(n).length));
   return items.map((n) => {
-    const grooming = groomW === 0 ? '' : `${pad(groomingCell(n), groomW)}   `;
-    const head = `${pad(n.id, idW)}   ${statusCell(n.status, stW, p.plain)}   ${pad(n.priority ?? '', 2)}   ${grooming}${pad(n.parent ?? '', parentW)}   ${n.title}`;
+    const grooming = groomW === 0 ? '' : `${groomingCell(n).padEnd(groomW)}   `;
+    const head = `${n.id.padEnd(idW)}   ${statusCell(n.status, stW, p.plain)}   ${(n.priority ?? '').padEnd(2)}   ${grooming}${(n.parent ?? '').padEnd(parentW)}   ${n.title}`;
     return n.lede == null || n.lede === ''
       ? head
       : `${head}\n${dimmed(`      ${n.lede}`, p.plain)}`;
@@ -71,14 +73,17 @@ export function renderTable(
   return lines.join('\n');
 }
 
-/** One aligned `label  value` row; a multi-line value indents under the value column. */
+/**
+ * One aligned `label  value` row; a multi-line value indents under the value
+ * column. Labels are fixed ASCII vocabulary, so they pad by length.
+ */
 export function recordRow(label: string, value: string, labelW: number): string {
   const [first, ...rest] = value.split('\n');
   if (rest.length === 0) {
-    return `  ${pad(label, labelW)}  ${first}`;
+    return `  ${label.padEnd(labelW)}  ${first}`;
   }
   const indent = ' '.repeat(labelW + 4);
-  return [`  ${pad(label, labelW)}  ${first}`, ...rest.map((line) => indent + line)].join('\n');
+  return [`  ${label.padEnd(labelW)}  ${first}`, ...rest.map((line) => indent + line)].join('\n');
 }
 
 /** The `--col annotations` expansion: each entry's timestamp leads its content, one entry per line. */
