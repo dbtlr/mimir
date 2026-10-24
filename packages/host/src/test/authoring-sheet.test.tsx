@@ -96,14 +96,24 @@ async function renderSheet(props: Partial<AuthoringSheetProps> = {}) {
   return { onOpenChange, router };
 }
 
-/** The sheet is interactable once the tree resolved into the HOME row. */
-async function sheetReady() {
-  await screen.findByText('build');
+/**
+ * The dialog focuses the title on the next animation frame after it opens, so
+ * a test that clicks or types first can lose focus to the title mid-gesture.
+ */
+async function titleFocused() {
+  await waitFor(() => expect(screen.getByLabelText('Title')).toHaveFocus());
 }
 
-/** Promote submit is enabled once the tree resolved a legal (effective) home. */
+/** The sheet is interactable once the tree resolved into the HOME row and the title took focus. */
+async function sheetReady() {
+  await screen.findByText('build');
+  await titleFocused();
+}
+
+/** Promote submit is enabled once the tree resolved a legal (effective) home and the title took focus. */
 async function promoteReady() {
   await waitFor(() => expect(screen.getByRole('button', { name: 'Promote ↵' })).toBeEnabled());
+  await titleFocused();
 }
 
 describe('authoringSheet', () => {
@@ -116,7 +126,7 @@ describe('authoringSheet', () => {
     expect(screen.getByRole('radio', { name: 'Phase' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Initiative' })).toBeInTheDocument();
     expect(screen.getByText('esc')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByLabelText('Title')).toHaveFocus());
+    expect(screen.getByLabelText('Title')).toHaveFocus();
     expect(screen.getByText('Home')).toBeInTheDocument();
     expect(screen.getByLabelText('Description')).toBeInTheDocument();
     expect(screen.getByText('markdown ok')).toBeInTheDocument();
@@ -340,10 +350,6 @@ describe('authoringSheet', () => {
     expect(taskSegment).toHaveAttribute('tabindex', '0');
     expect(screen.getByRole('radio', { name: 'Phase' })).toHaveAttribute('tabindex', '-1');
 
-    // The dialog focuses the title on a requestAnimationFrame after open, so wait
-    // for it before moving focus — otherwise it can steal focus back and the arrow
-    // key reaches the title input instead of the radio.
-    await waitFor(() => expect(screen.getByLabelText('Title')).toHaveFocus());
     taskSegment.focus();
     await user.keyboard('{ArrowRight}');
     const phase = screen.getByRole('radio', { name: 'Phase' });
