@@ -99,15 +99,29 @@ function renderAt(initial: string, client = newClient()) {
 /** The header button of the project the page shows. */
 const header = (key = 'NRN') => screen.findByRole('button', { name: new RegExp(`^${key}`) });
 
+/**
+ * The switcher's search box, once the popup has focused it. Base UI moves
+ * initial focus on the next animation frame, so the box can render first; a
+ * keystroke sent before that frame reaches the header button instead.
+ */
+async function switcherSearch() {
+  const search = await screen.findByRole('combobox', { name: 'Find a project' });
+  await waitFor(() => {
+    expect(search).toHaveFocus();
+  });
+  return search;
+}
+
 /** Open the switcher of a picker rendered on its own (no sidebar around it). */
 async function openSwitcherFromButton() {
   await userEvent.click(screen.getByRole('button', { name: /NRN/ }));
-  return screen.findByRole('combobox', { name: 'Find a project' });
+  return switcherSearch();
 }
 
+/** Open the switcher from the header of the project the page shows. */
 async function openSwitcher(key?: string) {
   await userEvent.click(await header(key));
-  return screen.findByRole('combobox', { name: 'Find a project' });
+  return switcherSearch();
 }
 
 const projectOf = (option: HTMLElement) => option.getAttribute('data-project');
@@ -657,8 +671,7 @@ describe('switcher in the phone drawer', () => {
     stubViewport('phone');
     renderAt('/p/NRN/tasks');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
-    await userEvent.click(await header());
-    await screen.findByRole('combobox', { name: 'Find a project' });
+    await openSwitcher();
     await userEvent.keyboard('{Escape}');
     await waitFor(() => {
       expect(screen.queryByRole('listbox', { name: 'Projects' })).toBeNull();
@@ -670,9 +683,7 @@ describe('switcher in the phone drawer', () => {
     stubViewport('phone');
     const testRouter = renderAt('/p/NRN/tasks');
     await userEvent.click(await screen.findByRole('button', { name: 'Open project menu' }));
-    await userEvent.click(await header());
-    const search = await screen.findByRole('combobox', { name: 'Find a project' });
-    expect(search).toHaveFocus();
+    await openSwitcher();
     await userEvent.keyboard('mmr{Enter}');
     await waitFor(() => {
       expect(testRouter.state.location.pathname).toBe('/p/MMR/tasks');
