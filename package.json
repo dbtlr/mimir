@@ -27,24 +27,25 @@
     "test:host": "bun test packages/host/scripts/build.integration.test.ts packages/host/scripts/dev.integration.test.ts packages/host/scripts/container.integration.test.ts packages/host/scripts/migration.integration.test.ts"
   },
   "dependencies": {
-    "vite": "^8.3.4"
+    "vite": "^8.3.5"
   },
   "devDependencies": {
     "@dbtlr/tooling": "0.6.0",
-    "@types/bun": "^1.4.2",
-    "oxlint": "1.87.0",
-    "vite-plus": "^1.1.0"
+    "@types/bun": "^1.4.4",
+    "@types/node": "26.6.5",
+    "oxlint": "1.89.0",
+    "vite-plus": "^1.4.0"
   },
   "overrides": {
-    "@hono/node-server": "2.1.0",
-    "body-parser": "2.3.0",
-    "brace-expansion": "2.1.4",
-    "esbuild": "0.28.1",
-    "fast-uri": "3.1.5",
-    "hono": "4.13.0",
-    "ip-address": "10.4.0"
+    "@hono/node-server": "2.1.5",
+    "body-parser": "2.4.0",
+    "brace-expansion": "2.1.7",
+    "esbuild": "0.28.2",
+    "fast-uri": "3.1.9",
+    "hono": "4.13.13",
+    "ip-address": "10.7.4"
   },
   "engines": {
-    "bun": "1.4.3"
+    "bun": "1.4.4"
   }
 }

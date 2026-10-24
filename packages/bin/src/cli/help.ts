@@ -916,7 +916,7 @@ export const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     summary:
       'file a seed — an ask against another board, or an own-board idea with no statable fix. Own-board statable fix, or work deferred to keep the current task in scope (even with its fix still open) → create task. Capture is one blob: first line is the title, rest is the body',
-    usage: 'mimir seed "<title>[\\n<body>]" -k <kind> [-p KEY] [--desc <text>]',
+    usage: String.raw`mimir seed "<title>[\n<body>]" -k <kind> [-p KEY] [--desc <text>]`,
   },
   seeds: {
     examples: [

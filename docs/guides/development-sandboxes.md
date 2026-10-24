@@ -10,7 +10,7 @@ See [ADR 0031](../decisions/0031-installation-authority-and-disposable-developme
 
 ## Prerequisites
 
-Use Bun 1.4.3 from `.tool-versions` and a running Docker-compatible engine.
+Use Bun 1.4.4 from `.tool-versions` and a running Docker-compatible engine.
 Run `bun install --frozen-lockfile`. The sandbox CLI uses the pinned published Loom
 packages. It invokes Postgres tools inside the pinned Postgres container; host
 `psql`, `pg_dump`, and `pg_restore` installations are unnecessary.

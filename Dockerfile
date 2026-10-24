@@ -1,5 +1,5 @@
 # The build output is platform-independent JavaScript, so build natively rather than under QEMU emulation.
-FROM --platform=$BUILDPLATFORM oven/bun:1.4.3 AS build
+FROM --platform=$BUILDPLATFORM oven/bun:1.4.4 AS build
 WORKDIR /app
 COPY . .
 RUN bun install --frozen-lockfile
@@ -11,7 +11,7 @@ RUN bun build packages/host/scripts/start.ts --target bun --external ../.output/
 # The operator CLI shares the host's authority build, so it opens the same store.
 RUN bun build packages/host/src/admin/main.ts --target bun --outfile /app/scripts/mimir-host.mjs
 
-FROM oven/bun:1.4.3 AS runtime
+FROM oven/bun:1.4.4 AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
     MIMIR_DATA_DIR=/data \

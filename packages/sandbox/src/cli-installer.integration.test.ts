@@ -75,8 +75,8 @@ beforeAll(async () => {
   builds.set('1.1.0', second);
   for (const [version, bytes] of builds) {
     releases.publish(version, {
-      [asset]: bytes,
       SHA256SUMS: `${sha256(bytes)}  ${asset}\n`,
+      [asset]: bytes,
     });
   }
   // The next lane: a prerelease the feed lists, which --check resolves without downloading.
