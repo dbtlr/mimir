@@ -16,7 +16,7 @@ import type { Ports } from '../ports';
 import { renderSeedLanes, renderSeedQueue } from '../render/feeds';
 import { presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
-import { compactJson, prettyJson, recordViews } from '../render/views';
+import { recordViews } from '../render/views';
 import { boardProject } from '../scope';
 
 const DATE_FIELD = 'created_at';
@@ -39,8 +39,8 @@ const styled = (value: Readonly<SeedsValue>): string =>
 
 const views = recordViews<SeedsValue>({
   ids: (value) => value.seeds.map((s) => s.id).join('\n'),
-  json: (value) => prettyJson(value.wire),
-  jsonl: (value) => value.rows.map(compactJson).join('\n'),
+  json: (value) => value.wire,
+  jsonl: (value) => value.rows,
   records: styled,
 });
 

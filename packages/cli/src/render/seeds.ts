@@ -10,7 +10,7 @@ import { seedRows } from './feeds';
 import { arrow, bold, countLine, dimmed, okLine } from './presentation';
 import type { Presentation } from './presentation';
 import { renderSeedRecords } from './records';
-import { compactJson, prettyJson, recordViews } from './views';
+import { recordViews } from './views';
 
 /** A seed write's echo: the seed, its wire object, and the signpost the styled views lead with. */
 export type SeedEcho = {
@@ -39,7 +39,7 @@ export const seedRecordsOf = (echo: Readonly<SeedEcho>): string =>
 /** `json` and `jsonl` of one seed print the same indented document, as the old CLI did. */
 export const seedEchoViews = recordViews<SeedEcho>({
   ids: (echo) => echo.idsTarget ?? echo.seed.id,
-  json: (echo) => prettyJson(echo.wire),
+  json: (echo) => echo.wire,
   records: seedRecordsOf,
 });
 
@@ -130,8 +130,8 @@ const triageRecords = (value: Readonly<TriageValue>): string =>
 export const triageViews = recordViews<TriageValue>({
   // The actionable ids: the tasks with a settled upstream (check c).
   ids: (value) => value.report.upstreamResolutions.map((r) => r.task).join('\n'),
-  json: (value) => prettyJson(value.wire),
+  json: (value) => value.wire,
   // The report is one heterogeneous object, so `jsonl` is `json` on a single line.
-  jsonl: (value) => compactJson(value.wire),
+  jsonl: 'compact',
   records: triageRecords,
 });

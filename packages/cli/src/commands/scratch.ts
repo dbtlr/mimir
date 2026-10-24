@@ -18,7 +18,7 @@ import { presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
 import { renderScratchpad, renderScratchRows, scratchEchoViews } from '../render/scratch';
 import type { ScratchEcho } from '../render/scratch';
-import { compactJson, recordViews } from '../render/views';
+import { recordViews } from '../render/views';
 import { boardProject, boundProject, targetProject } from '../scope';
 
 /** The pads of one project, as the wire rows `json`, `jsonl`, and `ids` print. */
@@ -26,9 +26,10 @@ export type ScratchListValue = { rows: Record<string, unknown>[] };
 
 // The old CLI printed the scratchpad reads' `json` on one line, unlike every other read.
 const listViews = recordViews<ScratchListValue>({
+  compact: true,
   ids: (value) => value.rows.map((r) => r.id).join('\n'),
-  json: (value) => compactJson({ scratchpads: value.rows, total: value.rows.length }),
-  jsonl: (value) => value.rows.map(compactJson).join('\n'),
+  json: (value) => ({ scratchpads: value.rows, total: value.rows.length }),
+  jsonl: (value) => value.rows,
   records: (value) => renderScratchRows(value.rows),
 });
 
@@ -69,8 +70,9 @@ const getText = (value: Readonly<ScratchGetValue>): string =>
   renderScratchpad(value.wire, value.presentation);
 
 const getViews = recordViews<ScratchGetValue>({
+  compact: true,
   ids: (value) => String(value.wire.id),
-  json: (value) => compactJson(value.wire),
+  json: (value) => value.wire,
   records: getText,
 });
 

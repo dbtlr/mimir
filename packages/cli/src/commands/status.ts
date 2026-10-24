@@ -14,7 +14,7 @@ import type { Ports } from '../ports';
 import { presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
 import { renderStatus } from '../render/report';
-import { compactJson, prettyJson, recordViews } from '../render/views';
+import { recordViews } from '../render/views';
 
 /** The status read and how the styled views render it. */
 export type StatusValue = { presentation: Presentation; status: StatusView };
@@ -31,8 +31,8 @@ const wireOf = (value: Readonly<StatusValue>) => ({
 
 // `jsonl` is declared so Loom's formatter does not derive one from the whole value.
 const views = recordViews<StatusValue>({
-  json: (value) => prettyJson(wireOf(value)),
-  jsonl: (value) => compactJson(wireOf(value)),
+  json: wireOf,
+  jsonl: 'compact',
   records: text,
 });
 

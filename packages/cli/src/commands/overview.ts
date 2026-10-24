@@ -16,7 +16,7 @@ import type { Ports } from '../ports';
 import { presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
 import { renderOverview } from '../render/report';
-import { compactJson, prettyJson, recordViews } from '../render/views';
+import { recordViews } from '../render/views';
 import { boardProject } from '../scope';
 
 /** The composite, its wire object, and how `records` renders it. */
@@ -28,8 +28,8 @@ export type OverviewValue = {
 
 // `jsonl` is declared so Loom's formatter does not derive one from the whole value.
 const views = recordViews<OverviewValue>({
-  json: (value) => prettyJson(value.wire),
-  jsonl: (value) => compactJson(value.wire),
+  json: (value) => value.wire,
+  jsonl: 'compact',
   records: (value) => renderOverview(value.report, value.presentation),
   table: false,
 });

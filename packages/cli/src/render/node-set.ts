@@ -8,7 +8,7 @@ import type { NodeView, SetResult } from '@mimir/contract';
 import type { Ports } from '../ports';
 import { renderRecords, renderTable } from './node';
 import type { Presentation } from './presentation';
-import { compactJson, prettyJson, recordViews } from './views';
+import { recordViews } from './views';
 
 /** The set, its wire objects, and how the styled views render it. */
 export type NodeSetValue = {
@@ -50,8 +50,8 @@ function recordsOf(value: Readonly<NodeSetValue>): string {
 
 export const nodeSetViews = recordViews<NodeSetValue>({
   ids: (value) => value.result.items.map((n) => n.id).join('\n'),
-  json: (value) => prettyJson(value.wire),
-  jsonl: (value) => value.rows.map(compactJson).join('\n'),
+  json: (value) => value.wire,
+  jsonl: (value) => value.rows,
   records: recordsOf,
   table: (value) => renderTable(value.result, value.presentation, value.unit, value.emptyMessage),
 });

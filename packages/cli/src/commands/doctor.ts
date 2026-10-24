@@ -15,7 +15,6 @@ import type { Ports } from '../ports';
 import { proseViews } from '../render/machine';
 import { okLine, presentationOf, warnGlyph } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
-import { compactJson, prettyJson } from '../render/views';
 
 /** The diagnosis and how this invocation styles it. */
 export type DoctorValue = { diagnosis: Diagnosis; presentation: Presentation };
@@ -23,9 +22,11 @@ export type DoctorValue = { diagnosis: Diagnosis; presentation: Presentation };
 const views = proseViews(
   ({ diagnosis, presentation }: Readonly<DoctorValue>) =>
     diagnosis.findings.length === 0 ? okLine(presentation, 'doctor: no problems found') : '',
-  ({ diagnosis }) => prettyJson(diagnosis.findings),
-  // One finding per line, the NDJSON contract every Mimir surface honors.
-  ({ diagnosis }) => diagnosis.findings.map((finding) => compactJson(finding)).join('\n'),
+  {
+    json: ({ diagnosis }) => diagnosis.findings,
+    // One finding per line, the NDJSON contract every Mimir surface honors.
+    jsonl: ({ diagnosis }) => diagnosis.findings,
+  },
 );
 
 export function doctorCommand(ports: Ports) {

@@ -14,12 +14,12 @@ import { idOf, recordsOf, tableOf } from '../render/get';
 import type { GetValue } from '../render/get';
 import { presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
-import { prettyJson, recordViews } from '../render/views';
+import { recordViews } from '../render/views';
 
 /** `jsonl` of one record prints the same indented document as `json`, as the old CLI did. */
 const views = recordViews<GetValue>({
   ids: idOf,
-  json: (value) => prettyJson(value.wire),
+  json: (value) => value.wire,
   records: recordsOf,
   table: tableOf,
 });

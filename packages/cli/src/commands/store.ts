@@ -6,6 +6,7 @@
  * `upgrade` must run before a schema gate would let a store exist.
  */
 import { Command } from '@loomcli/core';
+import type { View } from '@loomcli/core';
 import { helpCommand } from '@loomcli/plugins/help/extension';
 
 import { defaultFormat } from '../default-format';
@@ -16,7 +17,7 @@ import type { Ports } from '../ports';
 import { proseViews } from '../render/machine';
 import { countLine, okLine, presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
-import { compactJson } from '../render/views';
+import { textView } from '../render/views';
 
 /** The value every `store` verb reports: its prose is built from the invocation's styling. */
 type Reported<Report> = { presentation: Presentation; report: Report };
@@ -36,7 +37,7 @@ function describeUpgrade(report: UpgradeReport): string {
 const upgradeViews = proseViews(
   ({ presentation, report }: Readonly<Reported<UpgradeReport>>) =>
     okLine(presentation, describeUpgrade(report)),
-  ({ report }) => compactJson(report),
+  { compact: true, json: ({ report }) => report },
 );
 
 function upgradeCommand(ports: Ports) {
@@ -71,14 +72,16 @@ function alreadyExists(file: string): MimirUsageError {
 }
 
 /** The document on stdout, or the summary of the file it was written to. */
-type ExportValue =
-  | { kind: 'stream'; text: string }
-  | { kind: 'file'; presentation: Presentation; path: string; exported: ExportedStore };
+type ExportValue = ExportStream | ExportFile;
+type ExportStream = { kind: 'stream'; text: string };
+type ExportFile = {
+  kind: 'file';
+  presentation: Presentation;
+  path: string;
+  exported: ExportedStore;
+};
 
-function exportProse(value: Readonly<ExportValue>): string {
-  if (value.kind === 'stream') {
-    return value.text.trimEnd();
-  }
+function exportProse(value: Readonly<ExportFile>): string {
   const { counts } = value.exported;
   const parts = [
     countLine(counts.projects, 'project'),
@@ -90,18 +93,33 @@ function exportProse(value: Readonly<ExportValue>): string {
   return okLine(value.presentation, `store: exported ${parts.join(', ')} to ${value.path}`);
 }
 
-function exportJson(value: Readonly<ExportValue>): string {
-  if (value.kind === 'stream') {
-    return value.text.trimEnd();
-  }
+function exportSummary(value: Readonly<ExportFile>): unknown {
   const { counts, exportedAt, schemaVersion } = value.exported;
-  return compactJson({
-    ...counts,
-    exported_at: exportedAt,
-    path: value.path,
-    schema_version: schemaVersion,
-  });
+  return { ...counts, exported_at: exportedAt, path: value.path, schema_version: schemaVersion };
 }
+
+const fileViews = proseViews<ExportFile>(exportProse, { compact: true, json: exportSummary });
+
+// The document on stdout prints under every format as the file holds it, never re-encoded.
+const documentView = textView<ExportStream>((value) => value.text.trimEnd());
+
+/** One format's view: the document itself, or that format's summary of the file. */
+function exportView(format: keyof typeof fileViews): View<ExportValue> {
+  const file = fileViews[format];
+  return {
+    ...(file.mediaType === undefined ? {} : { mediaType: file.mediaType }),
+    render: (value, context) =>
+      value.kind === 'stream' ? documentView.render(value, context) : file.render(value, context),
+  };
+}
+
+const exportViews = {
+  ids: exportView('ids'),
+  json: exportView('json'),
+  jsonl: exportView('jsonl'),
+  records: exportView('records'),
+  table: exportView('table'),
+};
 
 /**
  * Write the whole store as a transfer document. The file is refused when it
@@ -111,7 +129,6 @@ function exportJson(value: Readonly<ExportValue>): string {
  * `mimir-host` mounts it over the host's store.
  */
 export function exportCommand(transfer: StoreTransfer) {
-  const views = proseViews<ExportValue>(exportProse, exportJson);
   return new Command('export', {
     description:
       'Write the whole store as a transfer document. Refuses to overwrite an existing file. Prints prose on a terminal and json when piped.',
@@ -126,8 +143,8 @@ export function exportCommand(transfer: StoreTransfer) {
     ],
   })
     .argument('file', { description: 'The file to write, or - for stdout.', required: true })
-    .result<ExportValue>({ views })
-    .views({ records: views.records }, { default: 'records' })
+    .result<ExportValue>({ views: exportViews })
+    .views({ records: exportViews.records }, { default: 'records' })
     .action(async ({ args, host, out }) => {
       const file = args.file;
       if (file !== STREAM && transfer.documentExists(file)) {
@@ -213,7 +230,7 @@ function describeImport(report: ImportReport): string {
 const importViews = proseViews(
   ({ presentation, report }: Readonly<Reported<ImportReport>>) =>
     okLine(presentation, describeImport(report)),
-  ({ report }) => compactJson(report),
+  { compact: true, json: ({ report }) => report },
 );
 
 /**

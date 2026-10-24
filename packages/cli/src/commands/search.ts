@@ -17,7 +17,7 @@ import { printNote } from '../query';
 import { renderSearchSet } from '../render/feeds';
 import { presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
-import { compactJson, prettyJson, recordViews } from '../render/views';
+import { recordViews } from '../render/views';
 import { boardProject } from '../scope';
 
 /** The hits, their wire objects, and how the styled views render them. */
@@ -34,8 +34,8 @@ const styled = (value: Readonly<SearchValue>): string =>
 
 const views = recordViews<SearchValue>({
   ids: (value) => value.result.items.map((h) => h.id).join('\n'),
-  json: (value) => prettyJson(value.wire),
-  jsonl: (value) => value.rows.map(compactJson).join('\n'),
+  json: (value) => value.wire,
+  jsonl: (value) => value.rows,
   records: styled,
 });
 

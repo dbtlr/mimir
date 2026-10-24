@@ -21,7 +21,7 @@ import { presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
 import { seedEcho, seedRecordsOf } from '../render/seeds';
 import type { SeedEcho } from '../render/seeds';
-import { prettyJson, recordViews } from '../render/views';
+import { recordViews } from '../render/views';
 import { nodeEcho, nodeEchoRecords, nodeEchoTable } from '../render/writes';
 import type { NodeEcho } from '../render/writes';
 
@@ -224,7 +224,7 @@ function textOf(
 /** The views of a written artifact, seed, or node; an artifact prints no note, as `get` does not. */
 const updateViews = recordViews<UpdateEcho>({
   ids: (echo) => textOf(echo, { artifact: idOf, node: (e) => e.node.id, seed: (e) => e.seed.id }),
-  json: (echo) => prettyJson(echo.wire),
+  json: (echo) => echo.wire,
   records: (echo) =>
     textOf(echo, { artifact: recordsOf, node: nodeEchoRecords, seed: seedRecordsOf }),
   table: (echo) => textOf(echo, { artifact: tableOf, node: nodeEchoTable, seed: seedRecordsOf }),
