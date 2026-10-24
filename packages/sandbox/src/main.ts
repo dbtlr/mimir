@@ -10,9 +10,9 @@ import { HARNESSES, SkillEval } from './skill-eval';
 import { snapshotSchema } from './snapshot';
 import { Sandbox } from './workflow';
 
-if (Bun.version !== '1.4.3') {
+if (Bun.version !== '1.4.4') {
   process.stderr.write(
-    'Sandbox tooling requires Bun 1.4.3. Run mise install and use the workspace runtime.\n',
+    'Sandbox tooling requires Bun 1.4.4. Run mise install and use the workspace runtime.\n',
   );
   process.exit(1);
 }

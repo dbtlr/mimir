@@ -11,7 +11,7 @@ and feature work.
 
 ## Getting started
 
-Install [Bun](https://bun.sh) `1.4.3` (pinned in `.tool-versions`; `mise install`
+Install [Bun](https://bun.sh) `1.4.4` (pinned in `.tool-versions`; `mise install`
 picks it up), then:
 
 ```bash
@@ -106,7 +106,7 @@ The service worker precaches that shell and excludes `/auth`, `/trpc`,
 `/_serverFn`, and `/health` from navigation fallback. The compiled `mimir`
 binary does not embed them: the console ships only in the host image.
 
-The root `Dockerfile` builds a separate host runtime from `oven/bun:1.4.3`.
+The root `Dockerfile` builds a separate host runtime from `oven/bun:1.4.4`.
 It runs as the `bun` user and reads validated environment configuration at boot,
 without reading the CLI's `config.toml`. SQLite defaults to `/data` in the image;
 `MIMIR_DATABASE_URL` or `MIMIR_DATABASE_URL_FILE` selects Postgres. Setting both

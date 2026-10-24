@@ -113,7 +113,7 @@ the current product.
 
 ## Develop
 
-Mimir uses Bun `1.4.3`:
+Mimir uses Bun `1.4.4`:
 
 ```sh
 bun install
