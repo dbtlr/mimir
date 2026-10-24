@@ -17,7 +17,7 @@ import type { Ports } from '../ports';
 import { proseViews } from '../render/machine';
 import { countLine, okLine, presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
-import { textView } from '../render/views';
+import { documentView } from '../render/views';
 
 /** The value every `store` verb reports: its prose is built from the invocation's styling. */
 type Reported<Report> = { presentation: Presentation; report: Report };
@@ -100,8 +100,8 @@ function exportSummary(value: Readonly<ExportFile>): unknown {
 
 const fileViews = proseViews<ExportFile>(exportProse, { compact: true, json: exportSummary });
 
-// The document on stdout prints under every format as the file holds it, never re-encoded.
-const documentView = textView<ExportStream>((value) => value.text.trimEnd());
+// The document on stdout is the output under every format, never re-encoded.
+const streamView = documentView<ExportStream>((value) => value.text.trimEnd());
 
 /** One format's view: the document itself, or that format's summary of the file. */
 function exportView(format: keyof typeof fileViews): View<ExportValue> {
@@ -109,7 +109,7 @@ function exportView(format: keyof typeof fileViews): View<ExportValue> {
   return {
     ...(file.mediaType === undefined ? {} : { mediaType: file.mediaType }),
     render: (value, context) =>
-      value.kind === 'stream' ? documentView.render(value, context) : file.render(value, context),
+      value.kind === 'stream' ? streamView.render(value, context) : file.render(value, context),
   };
 }
 

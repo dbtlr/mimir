@@ -3,7 +3,8 @@
  * markup, because the text is data, and keeps the old CLI's newline rule: one
  * newline, unless the text already ends with one. The JSON views are Loom's
  * own `json` and `jsonl` over a data projection, so encoding and control
- * escaping are Loom's.
+ * escaping are Loom's; only text that is already a JSON document escapes its
+ * own controls.
  */
 import type { View, ViewContext } from '@loomcli/core';
 import { json, jsonl } from '@loomcli/plugins/format';
@@ -16,6 +17,26 @@ export function withNewline(text: string): string {
 /** A view over text: styled text keeps raw SGR codes, which Loom's rendering policy governs. */
 export function textView<Data>(text: (data: Readonly<Data>) => string): View<Data> {
   return { render: (data, context: ViewContext) => context.style.escape(withNewline(text(data))) };
+}
+
+/**
+ * A view over text that is already a JSON document, such as the transfer
+ * document, under any format. Loom's style resolution drops DEL and the C1
+ * controls, and the characters a CSI or control-string start introduces, so
+ * they print as `\uXXXX` escapes, as Loom's own JSON views write them. In JSON
+ * they occur only inside strings, where the escape is the same character.
+ */
+export function documentView<Data>(text: (data: Readonly<Data>) => string): View<Data> {
+  const view = textView(text);
+  return {
+    render: (data, context) =>
+      view
+        .render(data, context)
+        .replaceAll(
+          /[\u007F-\u009F]/gu,
+          (control) => `\\u${control.charCodeAt(0).toString(16).padStart(4, '0')}`,
+        ),
+  };
 }
 
 type JsonMediaType = 'application/json' | 'application/jsonl';
