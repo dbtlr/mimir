@@ -16,7 +16,7 @@ import { printNote } from '../query';
 import { renderArtifactFeed } from '../render/feeds';
 import { presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
-import { compactJson, prettyJson, recordViews } from '../render/views';
+import { recordViews } from '../render/views';
 import { boardProject } from '../scope';
 
 /** The artifact feed's one date field. */
@@ -36,8 +36,8 @@ const styled = (value: Readonly<ArtifactsValue>): string =>
 
 const views = recordViews<ArtifactsValue>({
   ids: (value) => value.result.items.map((a) => a.id).join('\n'),
-  json: (value) => prettyJson(value.wire),
-  jsonl: (value) => value.rows.map(compactJson).join('\n'),
+  json: (value) => value.wire,
+  jsonl: (value) => value.rows,
   records: styled,
 });
 

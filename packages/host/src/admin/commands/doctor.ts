@@ -9,7 +9,6 @@ import { defaultFormat } from '@mimir/cli/src/default-format';
 import { proseViews } from '@mimir/cli/src/render/machine';
 import { countLine, okLine, presentationOf, warnGlyph } from '@mimir/cli/src/render/presentation';
 import type { Presentation } from '@mimir/cli/src/render/presentation';
-import { compactJson, prettyJson } from '@mimir/cli/src/render/views';
 import type { DoctorFacet } from '@mimir/core';
 
 import type { AdminPorts } from '../ports';
@@ -32,11 +31,10 @@ function doctorText({ facet, presentation }: Readonly<DoctorValue>): string {
 }
 
 export function doctorCommand(ports: AdminPorts) {
-  const views = proseViews<DoctorValue>(
-    doctorText,
-    ({ facet }) => prettyJson(facet),
-    ({ facet }) => compactJson(facet),
-  );
+  const views = proseViews<DoctorValue>(doctorText, {
+    json: ({ facet }) => facet,
+    jsonl: 'compact',
+  });
   return new Command('doctor', {
     description:
       "Report the host store's record health, the findings the console's Record-health panel shows. Non-gating: exits 0 after a successful scan. Prints prose on a terminal and json when piped.",

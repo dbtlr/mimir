@@ -7,7 +7,7 @@
 import { formatInstant, relativeTime } from '@mimir/helpers';
 
 import type { Presentation } from './presentation';
-import { compactJson, recordViews } from './views';
+import { recordViews } from './views';
 
 /**
  * The wire keys whose value is a display instant. `updated_at` is deliberately
@@ -79,7 +79,8 @@ const receiptLines = (echo: Readonly<ScratchEcho>): string =>
  * styled formats, and the receipt object on `json` and `jsonl`.
  */
 export const scratchEchoViews = recordViews<ScratchEcho>({
+  compact: true,
   ids: (echo) => String(echo.wire.id ?? echo.wire.artifact),
-  json: (echo) => compactJson(echo.wire),
+  json: (echo) => echo.wire,
   records: receiptLines,
 });

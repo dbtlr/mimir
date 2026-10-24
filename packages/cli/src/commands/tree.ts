@@ -13,7 +13,7 @@ import type { Ports } from '../ports';
 import { presentationOf } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
 import { renderTree } from '../render/report';
-import { compactJson, prettyJson, recordViews } from '../render/views';
+import { recordViews } from '../render/views';
 
 /** The subtree, its wire object, and how the styled views render it. */
 export type TreeValue = {
@@ -26,8 +26,8 @@ const text = (value: Readonly<TreeValue>): string => renderTree(value.tree, valu
 
 const views = recordViews<TreeValue>({
   ids: (value) => value.tree.id,
-  json: (value) => prettyJson(value.wire),
-  jsonl: (value) => compactJson(value.wire),
+  json: (value) => value.wire,
+  jsonl: 'compact',
   records: text,
 });
 

@@ -6,6 +6,7 @@
 import type { View } from '@loomcli/core';
 
 import { recordViews } from './views';
+import type { JsonViewSpec } from './views';
 
 /** `view`, but printing nothing at all for empty text, as the old CLI wrote no line. */
 function silentWhenEmpty<Value>(
@@ -17,15 +18,14 @@ function silentWhenEmpty<Value>(
 
 /**
  * The five views of a result that prints `text` as prose under `ids`,
- * `records`, and `table`, and `json` as one document. `jsonl` repeats `json`
- * unless it is given its own text. Empty prose prints nothing at all.
+ * `records`, and `table`, and `structured` under `json` and `jsonl`. Empty
+ * prose prints nothing at all.
  */
 export function proseViews<Value>(
   text: (value: Readonly<Value>) => string,
-  json: (value: Readonly<Value>) => string,
-  jsonl: (value: Readonly<Value>) => string = json,
+  structured: JsonViewSpec<Value>,
 ): Record<'ids' | 'json' | 'jsonl' | 'records' | 'table', View<Value>> {
-  const views = recordViews({ ids: text, json, jsonl, records: text, table: text });
+  const views = recordViews({ ...structured, ids: text, records: text, table: text });
   return {
     ...views,
     ids: silentWhenEmpty(views.ids, text),

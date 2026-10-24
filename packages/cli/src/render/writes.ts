@@ -11,7 +11,7 @@ import type { Ports } from '../ports';
 import { renderRecords, renderTable } from './node';
 import { okLine } from './presentation';
 import type { Presentation } from './presentation';
-import { compactJson, prettyJson, recordViews } from './views';
+import { recordViews } from './views';
 
 /** A written record, its note, and how the views render it. */
 export type NodeEcho = {
@@ -43,7 +43,7 @@ export const nodeEchoTable = (echo: Readonly<NodeEcho>): string =>
 /** The views of a written record; the default is `records`. */
 export const nodeEchoViews = recordViews<NodeEcho>({
   ids: (echo) => echo.node.id,
-  json: (echo) => prettyJson(echo.wire),
+  json: (echo) => echo.wire,
   records: nodeEchoRecords,
   table: nodeEchoTable,
 });
@@ -79,7 +79,8 @@ export type Notice = {
 
 /** The views of a notice; the default is `records`. */
 export const noticeViews = recordViews<Notice>({
+  compact: true,
   ids: (notice) => notice.ids,
-  json: (notice) => compactJson(notice.json),
+  json: (notice) => notice.json,
   records: (notice) => notice.line,
 });

@@ -13,7 +13,7 @@ import type { BindingCheck } from '../machine';
 import type { Ports } from '../ports';
 import { okLine, presentationOf, warnGlyph } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
-import { compactJson, recordViews } from '../render/views';
+import { recordViews } from '../render/views';
 
 /** The retired checked-in binding file (ADR 0011); `bind` only notes that it is ignored. */
 export const LEGACY_BINDING_FILE = '.mimir.toml';
@@ -49,14 +49,13 @@ const proseOf = (value: Readonly<BindValue>): string => {
     : `${bound}\n${okLine(value.presentation, `recorded the origin ${value.recordedRemote} on ${value.key}`)}`;
 };
 
-const wireOf = (value: Readonly<BindValue>): string =>
-  compactJson(
-    value.kind === 'check'
-      ? { bound: { project: value.key, source: value.source } }
-      : { bound: { project: value.key, recordedRemote: value.recordedRemote } },
-  );
+const wireOf = (value: Readonly<BindValue>) =>
+  value.kind === 'check'
+    ? { bound: { project: value.key, source: value.source } }
+    : { bound: { project: value.key, recordedRemote: value.recordedRemote } };
 
 const views = recordViews({
+  compact: true,
   ids: (value: Readonly<BindValue>) => value.key,
   json: wireOf,
   records: proseOf,

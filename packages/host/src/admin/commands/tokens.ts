@@ -4,7 +4,7 @@ import { helpCommand } from '@loomcli/plugins/help/extension';
 import { defaultFormat } from '@mimir/cli/src/default-format';
 import { presentationOf } from '@mimir/cli/src/render/presentation';
 import type { Presentation } from '@mimir/cli/src/render/presentation';
-import { compactJson, prettyJson, recordViews } from '@mimir/cli/src/render/views';
+import { recordViews } from '@mimir/cli/src/render/views';
 import type { DeviceToken } from '@mimir/core';
 
 import type { AdminPorts } from '../ports';
@@ -31,8 +31,8 @@ function tokensText({ all, presentation, tokens }: Readonly<TokensValue>): strin
 
 export function tokensCommand(ports: AdminPorts) {
   const views = recordViews<TokensValue>({
-    json: ({ tokens }) => prettyJson(tokens),
-    jsonl: ({ tokens }) => tokens.map((token) => compactJson(token)).join('\n'),
+    json: ({ tokens }) => tokens,
+    jsonl: ({ tokens }) => tokens,
     records: tokensText,
   });
   return new Command('tokens', {

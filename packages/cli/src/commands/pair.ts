@@ -21,7 +21,6 @@ import type { Ports } from '../ports';
 import { proseViews } from '../render/machine';
 import { okLine, presentationOf, warnGlyph } from '../render/presentation';
 import type { Presentation } from '../render/presentation';
-import { compactJson, prettyJson } from '../render/views';
 
 /** What a finished pairing reports. */
 export type PairValue = {
@@ -34,8 +33,10 @@ export type PairValue = {
 const views = proseViews(
   ({ device, hostVersion, origin, presentation }: Readonly<PairValue>) =>
     okLine(presentation, `paired as ${device} with ${origin} (host ${hostVersion})`),
-  ({ device, hostVersion, origin }) => prettyJson({ device, host_version: hostVersion, origin }),
-  ({ device, hostVersion, origin }) => compactJson({ device, host_version: hostVersion, origin }),
+  {
+    json: ({ device, hostVersion, origin }) => ({ device, host_version: hostVersion, origin }),
+    jsonl: 'compact',
+  },
 );
 
 /**

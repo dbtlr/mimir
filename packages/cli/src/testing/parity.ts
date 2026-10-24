@@ -27,7 +27,6 @@ import { parseJson } from '@mimir/helpers';
 import type { createApp } from '../app';
 import { HELP_POINTER, LOOM_RESETS, PARITY_DIFFERENCES } from '../parity/differences';
 import type { ParityDifference } from '../parity/differences';
-import { compactJson } from '../render/views';
 import { parityBoard } from './fixture';
 import type { ParityBoard } from './fixture';
 import { runArgv } from './run';
@@ -409,7 +408,7 @@ function newViewProblems(old: ParityRun, next: ParityRun, json: ParityRun | unde
   if (json === undefined || json.exitCode !== 0) {
     return ['a new-view entry needs the same case to exit 0 under -f json'];
   }
-  const compact = compactJson(parseJson(json.stdout));
+  const compact = JSON.stringify(parseJson(json.stdout));
   const lines = next.stdout.split('\n').filter((line) => line !== '');
   return lines.length > 0 && lines.every((line) => line === compact)
     ? []

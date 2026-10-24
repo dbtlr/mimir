@@ -18,7 +18,7 @@ import {
   presentationOf,
 } from '@mimir/cli/src/render/presentation';
 import type { Presentation } from '@mimir/cli/src/render/presentation';
-import { compactJson, prettyJson, recordViews } from '@mimir/cli/src/render/views';
+import { recordViews } from '@mimir/cli/src/render/views';
 import { MimirError } from '@mimir/contract';
 import { formatPairingCode, normalizePairingCode } from '@mimir/core';
 import type { PendingPairing } from '@mimir/core';
@@ -51,8 +51,8 @@ function pendingText({ now, presentation, requests }: Readonly<PendingValue>): s
 
 export function pendingCommand(ports: AdminPorts) {
   const views = recordViews<PendingValue>({
-    json: ({ requests }) => prettyJson(requests),
-    jsonl: ({ requests }) => requests.map((request) => compactJson(request)).join('\n'),
+    json: ({ requests }) => requests,
+    jsonl: ({ requests }) => requests,
     records: pendingText,
   });
   return new Command('pending', {
@@ -105,7 +105,7 @@ const decisionViews = proseViews(
       ? `${line}\n${noteLabel(presentation.plain)} ${decision.device}'s current token stops working when it collects the new one`
       : line;
   },
-  ({ decision }) => compactJson(decision),
+  { compact: true, json: ({ decision }) => decision },
 );
 
 const codeArgument = {
@@ -172,7 +172,7 @@ const unpairViews = proseViews(
     ];
     return okLine(presentation, `unpaired ${unpaired.device} (${parts.join(', ')})`);
   },
-  ({ unpaired }) => compactJson(unpaired),
+  { compact: true, json: ({ unpaired }) => unpaired },
 );
 
 export function unpairCommand(ports: AdminPorts) {

@@ -10,7 +10,7 @@ import { okLine, warnGlyph } from './presentation';
 import type { Presentation } from './presentation';
 import { seedEchoViews } from './seeds';
 import type { SeedEcho } from './seeds';
-import { compactJson, recordViews } from './views';
+import { recordViews } from './views';
 import { nodeEchoViews } from './writes';
 import type { NodeEcho } from './writes';
 
@@ -38,13 +38,11 @@ function projectStyled(echo: Readonly<ProjectEcho>): string {
   return `${head}\n${glyph} released ${String(echo.released.length)} dependent(s): ${echo.released.join(', ')}`;
 }
 
-/** A project echoes just its key and archive stamp, on one line. */
-const projectJson = (echo: Readonly<ProjectEcho>): string =>
-  compactJson({ project: { archived_at: echo.archivedAt, key: echo.key } });
-
 const projectViews = recordViews<ProjectEcho>({
+  // A project echoes just its key and archive stamp, on one line.
+  compact: true,
   ids: (echo) => echo.key,
-  json: projectJson,
+  json: (echo) => ({ project: { archived_at: echo.archivedAt, key: echo.key } }),
   records: projectStyled,
 });
 
