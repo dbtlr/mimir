@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 /**
  * Entry point + composition root. Unlike the transport layers, `main` may wire
  * the store and transports together. It builds the store, then dispatches:
