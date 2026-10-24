@@ -118,6 +118,7 @@ async function openSwitcherFromButton() {
   return switcherSearch();
 }
 
+/** Open the switcher from the header of the project the page shows. */
 async function openSwitcher(key?: string) {
   await userEvent.click(await header(key));
   return switcherSearch();
