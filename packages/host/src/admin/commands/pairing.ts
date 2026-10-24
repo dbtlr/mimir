@@ -20,7 +20,7 @@ import {
   presentationOf,
 } from '@mimir/cli/src/render/presentation';
 import type { Presentation } from '@mimir/cli/src/render/presentation';
-import { recordViews } from '@mimir/cli/src/render/views';
+import { jsonViews } from '@mimir/cli/src/render/views';
 import { MimirError } from '@mimir/contract';
 import { formatPairingCode, normalizePairingCode } from '@mimir/core';
 import type { PendingPairing } from '@mimir/core';
@@ -67,11 +67,9 @@ const pendingTable: View<PendingValue> = {
 
 export function pendingCommand(ports: AdminPorts) {
   const views = {
-    ...recordViews<PendingValue>({
+    ...jsonViews<PendingValue>({
       json: ({ requests }) => requests,
       jsonl: ({ requests }) => requests,
-      records: () => '',
-      table: false,
     }),
     records: pendingTable,
     table: pendingTable,

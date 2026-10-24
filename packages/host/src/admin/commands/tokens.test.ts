@@ -47,7 +47,7 @@ test('tokens lists active tokens by device, with user, last use, and pairing dat
   expect(JSON.parse(piped.stdout)).toHaveLength(2);
 });
 
-test('tokens --all adds a REVOKED column, dated only for revoked tokens', async () => {
+test('tokens --all adds a REVOKED column: a date when revoked, - when active', async () => {
   await pairTestDevice(fixture.host.tokens, 'laptop');
   await pairTestDevice(fixture.host.tokens, 'phone');
   await fixture.host.tokens.revoke('phone');
@@ -55,10 +55,15 @@ test('tokens --all adds a REVOKED column, dated only for revoked tokens', async 
   const run = await fixture.run(['tokens', '--all'], { tty: true });
   const lines = run.stdout.trimEnd().split('\n');
   expect(lines[0]).toMatch(/^DEVICE\s+USER\s+LAST USED\s+PAIRED\s+REVOKED$/);
-  expect(lines).toContainEqual(expect.stringMatching(/^laptop\s+owner\s+never\s+\d{4}-\d\d-\d\d$/));
   expect(lines).toContainEqual(
     expect.stringMatching(/^phone\s+owner\s+never\s+\d{4}-\d\d-\d\d\s+\d{4}-\d\d-\d\d$/),
   );
+  expect(lines).toContainEqual(
+    expect.stringMatching(/^laptop\s+owner\s+never\s+\d{4}-\d\d-\d\d\s+-$/),
+  );
+
+  const piped = await fixture.run(['tokens', '--all', '-f', 'table']);
+  expect(piped.stdout.split('\n').filter((line) => line !== line.trimEnd())).toEqual([]);
 });
 
 test('tokens says so when no device is paired', async () => {
@@ -66,6 +71,11 @@ test('tokens says so when no device is paired', async () => {
   await fixture.host.tokens.revoke('laptop');
 
   expect((await fixture.run(['tokens'], { tty: true })).stdout).toBe('No paired devices\n');
+  expect((await fixture.run(['tokens', '--all'], { tty: true })).stdout).not.toContain('No ');
+});
+
+test('tokens --all says so when the host has issued none', async () => {
+  expect((await fixture.run(['tokens', '--all'], { tty: true })).stdout).toBe('No device tokens\n');
 });
 
 test('tokens aligns wide-character device names by terminal cell', async () => {

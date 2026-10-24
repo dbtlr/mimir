@@ -6,7 +6,7 @@ import { table } from '@loomcli/plugins/table';
 import { defaultFormat } from '@mimir/cli/src/default-format';
 import { presentationOf } from '@mimir/cli/src/render/presentation';
 import type { Presentation } from '@mimir/cli/src/render/presentation';
-import { recordViews } from '@mimir/cli/src/render/views';
+import { jsonViews } from '@mimir/cli/src/render/views';
 import type { DeviceToken } from '@mimir/core';
 import { formatDay } from '@mimir/helpers';
 
@@ -29,7 +29,7 @@ const ACTIVE_COLUMNS = [
   { header: 'PAIRED', key: 'paired' },
 ] as const;
 
-/** `--all` adds the revoked date; without it every row would read the same blank. */
+/** `--all` adds the revoked date; without it every row would read the same `-`. */
 const activeTable = table<TokenRow>({ columns: ACTIVE_COLUMNS });
 const allTable = table<TokenRow>({
   columns: [...ACTIVE_COLUMNS, { header: 'REVOKED', key: 'revoked' }],
@@ -43,7 +43,7 @@ function tokenRow(token: DeviceToken, now: Date, zone: string): TokenRow {
         ? 'never'
         : `${span(now.getTime() - Date.parse(token.last_used_at))} ago`,
     paired: formatDay(token.created_at, zone),
-    revoked: token.revoked_at === null ? '' : formatDay(token.revoked_at, zone),
+    revoked: token.revoked_at === null ? '-' : formatDay(token.revoked_at, zone),
     user: token.user,
   };
 }
@@ -61,12 +61,7 @@ const tokensTable: View<TokensValue> = {
 
 export function tokensCommand(ports: AdminPorts) {
   const views = {
-    ...recordViews<TokensValue>({
-      json: ({ tokens }) => tokens,
-      jsonl: ({ tokens }) => tokens,
-      records: () => '',
-      table: false,
-    }),
+    ...jsonViews<TokensValue>({ json: ({ tokens }) => tokens, jsonl: ({ tokens }) => tokens }),
     records: tokensTable,
     table: tokensTable,
   };

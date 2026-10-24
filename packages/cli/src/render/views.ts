@@ -87,8 +87,11 @@ export type JsonViewSpec<Data> = {
   jsonl?: 'compact' | ((data: Readonly<Data>) => readonly unknown[]);
 };
 
-/** The `json` and `jsonl` views a spec declares. */
-function jsonViews<Data>(spec: JsonViewSpec<Data>): Record<'json' | 'jsonl', View<Data>> {
+/**
+ * The `json` and `jsonl` views a spec declares. A command whose styled views
+ * are Loom pack views composes them with these.
+ */
+export function jsonViews<Data>(spec: JsonViewSpec<Data>): Record<'json' | 'jsonl', View<Data>> {
   const document =
     spec.compact === true
       ? compactView(spec.json, 'application/json')
