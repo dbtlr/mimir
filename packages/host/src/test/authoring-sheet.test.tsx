@@ -98,7 +98,8 @@ async function renderSheet(props: Partial<AuthoringSheetProps> = {}) {
 
 /**
  * The dialog focuses the title on the next animation frame after it opens, so
- * a test that clicks or types first can lose focus to the title mid-gesture.
+ * a test that clicks another field and types first can see its keystrokes land
+ * in the title instead.
  */
 async function titleFocused() {
   await waitFor(() => expect(screen.getByLabelText('Title')).toHaveFocus());
