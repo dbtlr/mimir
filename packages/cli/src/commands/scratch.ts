@@ -47,7 +47,7 @@ function scratchListCommand(ports: Ports) {
   })
     .option('scope', scopeOption)
     .result<ScratchListValue>({ views: listViews })
-    .views({}, { default: 'table' })
+    .views({ table: listViews.table }, { default: 'table' })
     .action(async ({ options, out }) => {
       const notify = (line: string): void => {
         void out.print(line);
@@ -85,7 +85,7 @@ function scratchGetCommand(ports: Ports) {
     .argument('id', { description: 'The scratchpad UUID.', required: true })
     .option('ascii', asciiOption)
     .result<ScratchGetValue>({ views: getViews })
-    .views({}, { default: 'records' })
+    .views({ records: getViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
       const engine = await ports.engine();
       const pad = intentEncoders.scratchpad.parse(await engine.scratchGet({ id: args.id }));
@@ -164,7 +164,7 @@ function scratchWriteCommands(ports: Ports) {
     })
     .option('ascii', asciiOption)
     .result<ScratchEcho>({ views: scratchEchoViews })
-    .views({}, { default: 'records' })
+    .views({ records: scratchEchoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out, passthrough }) => {
       const notify = (line: string): void => {
         void out.print(line);
@@ -204,7 +204,7 @@ function scratchWriteCommands(ports: Ports) {
     .option('clear-links', { description: 'Drop all linked work.', type: 'boolean' })
     .option('ascii', asciiOption)
     .result<ScratchEcho>({ views: scratchEchoViews })
-    .views({}, { default: 'records' })
+    .views({ records: scratchEchoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
       if (options['clear-links'] && options.link.length > 0) {
         throw new MimirUsageError('scratch update cannot combine --clear-links and --link');
@@ -242,7 +242,7 @@ function scratchWriteCommands(ports: Ports) {
     })
     .option('ascii', asciiOption)
     .result<ScratchEcho>({ views: scratchEchoViews })
-    .views({}, { default: 'records' })
+    .views({ records: scratchEchoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out, passthrough }) => {
       const inline = reasonWords(args.text, passthrough) || undefined;
       // Piped stdin only stands in for a checkpoint when no text was typed; a path is explicit.
@@ -288,7 +288,7 @@ function scratchWriteCommands(ports: Ports) {
     .option('reason', text('For supersede, why, in place of the words after the number.'))
     .option('ascii', asciiOption)
     .result<ScratchEcho>({ views: scratchEchoViews })
-    .views({}, { default: 'records' })
+    .views({ records: scratchEchoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out, passthrough }) => {
       const { action, id } = args;
       if (action !== 'add' && action !== 'complete' && action !== 'supersede') {
@@ -331,7 +331,7 @@ function scratchWriteCommands(ports: Ports) {
     .option('tag', { ...tagOption, description: 'Tag the artifact. Repeat for more.' })
     .option('ascii', asciiOption)
     .result<ScratchEcho>({ views: scratchEchoViews })
-    .views({}, { default: 'records' })
+    .views({ records: scratchEchoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
       const expectedUpdatedAt = guard(options['expected-updated-at']);
       const summary = required(options.summary, 'scratch freeze requires --summary');
@@ -368,7 +368,7 @@ function scratchWriteCommands(ports: Ports) {
     .option('reason', text('Why it is discarded.'))
     .option('ascii', asciiOption)
     .result<ScratchEcho>({ views: scratchEchoViews })
-    .views({}, { default: 'records' })
+    .views({ records: scratchEchoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
       const expectedUpdatedAt = guard(options['expected-updated-at']);
       const engine = await ports.engine();

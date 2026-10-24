@@ -32,6 +32,11 @@ function doctorText({ facet, presentation }: Readonly<DoctorValue>): string {
 }
 
 export function doctorCommand(ports: AdminPorts) {
+  const views = proseViews<DoctorValue>(
+    doctorText,
+    ({ facet }) => prettyJson(facet),
+    ({ facet }) => compactJson(facet),
+  );
   return new Command('doctor', {
     description:
       "Report the host store's record health, the findings the console's Record-health panel shows. Non-gating: exits 0 after a successful scan. Prints prose on a terminal and json when piped.",
@@ -51,14 +56,8 @@ export function doctorCommand(ports: AdminPorts) {
       short: 's',
       type: 'string',
     })
-    .result<DoctorValue>({
-      views: proseViews(
-        doctorText,
-        ({ facet }) => prettyJson(facet),
-        ({ facet }) => compactJson(facet),
-      ),
-    })
-    .views({}, { default: 'records' })
+    .result<DoctorValue>({ views })
+    .views({ records: views.records }, { default: 'records' })
     .action(async ({ host, options, out }) => {
       const facet = await ports.doctor(options.scope);
       const presentation = presentationOf(host, false);

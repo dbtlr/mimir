@@ -37,7 +37,7 @@ export function projectsCommand(ports: Ports) {
     })
     .option('ascii', asciiOption)
     .result<NodeSetValue>({ views: nodeSetViews })
-    .views({}, { default: 'table' })
+    .views({ table: nodeSetViews.table }, { default: 'table' })
     .action(async ({ host, options, out }) => {
       const shelf = parseProjectStatus(options.status);
       const engine = await ports.engine();

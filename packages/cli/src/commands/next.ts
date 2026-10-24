@@ -51,7 +51,7 @@ export function nextCommand(ports: Ports) {
     .option('col', colOption)
     .option('ascii', asciiOption)
     .result<NodeSetValue>({ views: nodeSetViews })
-    .views({}, { default: 'table' })
+    .views({ table: nodeSetViews.table }, { default: 'table' })
     .action(({ host, options, out }) =>
       readNodeSet(
         ports,

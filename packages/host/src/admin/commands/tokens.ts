@@ -30,6 +30,11 @@ function tokensText({ all, presentation, tokens }: Readonly<TokensValue>): strin
 }
 
 export function tokensCommand(ports: AdminPorts) {
+  const views = recordViews<TokensValue>({
+    json: ({ tokens }) => prettyJson(tokens),
+    jsonl: ({ tokens }) => tokens.map((token) => compactJson(token)).join('\n'),
+    records: tokensText,
+  });
   return new Command('tokens', {
     description:
       'List the device tokens: user, device, created, last used, and revoked. Active tokens only unless --all. Prints a table on a terminal and json when piped.',
@@ -44,14 +49,8 @@ export function tokensCommand(ports: AdminPorts) {
     ],
   })
     .option('all', { description: 'Include revoked tokens.', type: 'boolean' })
-    .result<TokensValue>({
-      views: recordViews({
-        json: ({ tokens }) => prettyJson(tokens),
-        jsonl: ({ tokens }) => tokens.map((token) => compactJson(token)).join('\n'),
-        records: tokensText,
-      }),
-    })
-    .views({}, { default: 'table' })
+    .result<TokensValue>({ views })
+    .views({ table: views.table }, { default: 'table' })
     .action(async ({ host, options, out }) => {
       const tokens = await (await ports.tokens()).list({ all: options.all });
       await out.results({ all: options.all, presentation: presentationOf(host, false), tokens });

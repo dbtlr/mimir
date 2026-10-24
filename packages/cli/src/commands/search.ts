@@ -68,7 +68,7 @@ export function searchCommand(ports: Ports) {
     })
     .option('ascii', asciiOption)
     .result<SearchValue>({ views })
-    .views({}, { default: 'table' })
+    .views({ table: views.table }, { default: 'table' })
     .action(async ({ args, host, options, out, passthrough }) => {
       // Every value is read before the store opens, so a wrong invocation never opens it.
       const query = reasonWords(args.query, passthrough).trim();

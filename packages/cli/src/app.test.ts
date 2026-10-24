@@ -1,8 +1,21 @@
 import { expect, test } from 'bun:test';
 
+import { assertAssembles } from '@loomcli/testing';
+
 import { createApp } from './app';
 import { boundClone } from './testing/fixture';
 import { runArgv } from './testing/run';
+
+test('the CLI assembles without opening its store', () => {
+  assertAssembles(
+    createApp({
+      git: boundClone('MMR'),
+      store: () => {
+        throw new Error('assembly must not open the store');
+      },
+    }),
+  );
+});
 
 test('a store that fails to open reports its message, not a generic internal error', async () => {
   const app = createApp({

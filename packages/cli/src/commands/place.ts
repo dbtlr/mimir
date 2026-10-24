@@ -39,7 +39,7 @@ export function moveCommand(ports: Ports) {
     })
     .option('ascii', asciiOption)
     .result<NodeEcho>({ views: nodeEchoViews })
-    .views({}, { default: 'records' })
+    .views({ records: nodeEchoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
       const id = nodeToken(ports.grammar, args.id);
       const to = nodeToken(ports.grammar, requireIdToken(options.to, 'move', 'to'));
@@ -95,7 +95,7 @@ export function reorderCommand(ports: Ports) {
     .exclusive('top', 'bottom', 'before', 'after')
     .oneRequired('top', 'bottom', 'before', 'after')
     .result<NodeEcho>({ views: nodeEchoViews })
-    .views({}, { default: 'records' })
+    .views({ records: nodeEchoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
       const id = nodeToken(ports.grammar, args.id, 'task');
       const place = placeOf(ports, options);

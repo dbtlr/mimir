@@ -51,7 +51,7 @@ function upgradeCommand(ports: Ports) {
     ],
   })
     .result<Reported<UpgradeReport>>({ views: upgradeViews })
-    .views({}, { default: 'records' })
+    .views({ records: upgradeViews.records }, { default: 'records' })
     .action(async ({ host, out }) => {
       const report = await ports.machine.store.upgrade();
       await out.results({ presentation: presentationOf(host, false), report });
@@ -111,6 +111,7 @@ function exportJson(value: Readonly<ExportValue>): string {
  * `mimir-host` mounts it over the host's store.
  */
 export function exportCommand(transfer: StoreTransfer) {
+  const views = proseViews<ExportValue>(exportProse, exportJson);
   return new Command('export', {
     description:
       'Write the whole store as a transfer document. Refuses to overwrite an existing file. Prints prose on a terminal and json when piped.',
@@ -125,8 +126,8 @@ export function exportCommand(transfer: StoreTransfer) {
     ],
   })
     .argument('file', { description: 'The file to write, or - for stdout.', required: true })
-    .result<ExportValue>({ views: proseViews(exportProse, exportJson) })
-    .views({}, { default: 'records' })
+    .result<ExportValue>({ views })
+    .views({ records: views.records }, { default: 'records' })
     .action(async ({ args, host, out }) => {
       const file = args.file;
       if (file !== STREAM && transfer.documentExists(file)) {
@@ -242,7 +243,7 @@ export function importCommand(transfer: StoreTransfer, program = 'mimir') {
       type: 'boolean',
     })
     .result<Reported<ImportReport>>({ views: importViews })
-    .views({}, { default: 'records' })
+    .views({ records: importViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
       const document = await readDocument(transfer, args.file, program);
       const report = await transfer.import(document, {

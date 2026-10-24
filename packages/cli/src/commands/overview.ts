@@ -53,7 +53,7 @@ export function overviewCommand(ports: Ports) {
     .option('scope', scopeOption)
     .option('ascii', asciiOption)
     .result<OverviewValue>({ views })
-    .views({}, { default: 'json' })
+    .views({ json: views.json }, { default: 'json' })
     .action(async ({ host, options, out }) => {
       const notify = (line: string): void => {
         void out.print(line);

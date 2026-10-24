@@ -249,6 +249,19 @@ const layerOverrides: Override[] = [
 ];
 
 export default defineConfig({
+  lint: {
+    jsPlugins: ['@loomcli/eslint-plugin'],
+    overrides: [
+      {
+        files: ['packages/cli/**', 'packages/host/src/admin/**', 'packages/sandbox/**'],
+        rules: {
+          '@loomcli/discarded-declaration': 'error',
+          '@loomcli/name-shape': 'error',
+          '@loomcli/undescribed': 'error',
+        },
+      },
+    ],
+  },
   plugins: [
     toolingPlugin({
       fmt: {

@@ -94,7 +94,7 @@ export function artifactsCommand(ports: Ports) {
     })
     .option('ascii', asciiOption)
     .result<ArtifactsValue>({ views })
-    .views({}, { default: 'table' })
+    .views({ table: views.table }, { default: 'table' })
     .action(async ({ host, options, out }) => {
       // Every value is read before the store opens, so a wrong invocation never opens it.
       const zone = parseZone(ports.grammar, options.tz, host.timeZone);

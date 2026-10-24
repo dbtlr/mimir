@@ -347,7 +347,7 @@ function plainTask(verb: UniformVerb, ports: Ports) {
     .argument('id', { description: subjectOf(fact(verb)), required: true })
     .option('ascii', asciiOption)
     .result<LifecycleEcho>({ views: echoViews })
-    .views({}, { default: 'records' })
+    .views({ records: echoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out, passthrough }) => {
       refuseStray(passthrough);
       const presentation = presentationOf(host, options.ascii);
@@ -364,7 +364,7 @@ function reasonedTask(verb: UniformVerb, ports: Ports) {
     .argument('reason', reasonArgumentFor(verb))
     .option('ascii', asciiOption)
     .result<LifecycleEcho>({ views: echoViews })
-    .views({}, { default: 'records' })
+    .views({ records: echoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out, passthrough }) => {
       await out.results(
         await run(args.id, reasonWords(args.reason, passthrough), options.ascii, host),
@@ -384,7 +384,7 @@ function projectVerb(verb: UniformVerb, ports: Ports) {
     return base
       .option('ascii', asciiOption)
       .result<LifecycleEcho>({ views: echoViews })
-      .views({}, { default: 'records' })
+      .views({ records: echoViews.records }, { default: 'records' })
       .action(async ({ args, host, options, out, passthrough }) => {
         refuseStray(passthrough);
         await out.results(await run(args.key, '', options.ascii, host));
@@ -394,7 +394,7 @@ function projectVerb(verb: UniformVerb, ports: Ports) {
     .argument('reason', reasonArgumentFor(verb))
     .option('ascii', asciiOption)
     .result<LifecycleEcho>({ views: echoViews })
-    .views({}, { default: 'records' })
+    .views({ records: echoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out, passthrough }) => {
       await out.results(
         await run(args.key, reasonWords(args.reason, passthrough), options.ascii, host),
@@ -467,7 +467,7 @@ function handleVerb(verb: 'queue' | 'start', ports: Ports) {
   return command
     .option('ascii', asciiOption)
     .result<LifecycleEcho>({ views: echoViews })
-    .views({}, { default: 'records' })
+    .views({ records: echoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out, passthrough }) => {
       refuseStray(passthrough);
       if (args.id.trim() === '') {
@@ -530,7 +530,7 @@ function blockCommand(ports: Ports) {
     .option(choice.name, text(`${capitalized(choice.summary)}.`, choice.values.join('|')))
     .option('ascii', asciiOption)
     .result<LifecycleEcho>({ views: echoViews })
-    .views({}, { default: 'records' })
+    .views({ records: echoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out, passthrough }) => {
       const presentation = presentationOf(host, options.ascii);
       await out.results(

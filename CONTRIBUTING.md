@@ -28,6 +28,12 @@ The Postgres and sandbox lanes need Docker; CI runs both alongside `verify`.
 See the [sandbox guide](docs/guides/development-sandboxes.md)
 for fixtures, snapshots, and candidate migration tests.
 
+The CLI, host admin CLI, and sandbox use Loom 0.15. Keep every `@loomcli`
+dependency pinned to the same exact version. `vp check` loads Loom's lint
+rules, and `bun test` checks that each application assembles with
+`assertAssembles`. A `views()` default must name a view supplied in that
+same call; re-supply the default view to preserve the existing format order.
+
 Pull requests run the complete ordinary suite once in Linux CI. The Release
 matrix runs `bun run test:native` on macOS ARM64, Linux x64, and Linux ARM64.
 This subset covers native SQLite files and process races, installation receipts,

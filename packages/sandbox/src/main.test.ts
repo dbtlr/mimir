@@ -2,6 +2,10 @@ import { expect, test } from 'bun:test';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
+import { assertAssembles } from '@loomcli/testing';
+
+import { application } from './main';
+
 const main = fileURLToPath(new URL('main.ts', import.meta.url));
 
 async function sandbox(...args: string[]): Promise<{ exit: number; stderr: string }> {
@@ -28,4 +32,8 @@ test('a malformed option value is a usage failure', async () => {
   expect(exit).toBe(2);
   expect(stderr).toContain('--repeat must be a positive integer');
   expect(stderr).not.toContain('UNHANDLED EXCEPTION');
+});
+
+test('the sandbox CLI assembles', () => {
+  assertAssembles(application);
 });

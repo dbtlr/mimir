@@ -44,7 +44,7 @@ export function annotateCommand(ports: Ports) {
     .stdin({ description: 'The note, when no text is given.' })
     .option('ascii', asciiOption)
     .result<NodeEcho>({ views: nodeEchoViews })
-    .views({}, { default: 'records' })
+    .views({ records: nodeEchoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out, passthrough, stdin }) => {
       // Words after `--` are text too, so a note may lead with a dash.
       const typed = [...args.text, ...passthrough].join(' ');

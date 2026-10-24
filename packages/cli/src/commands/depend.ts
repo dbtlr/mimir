@@ -57,7 +57,7 @@ function dependenceCommand(ports: Ports, direction: Direction) {
     })
     .option('ascii', asciiOption)
     .result<NodeEcho>({ views: nodeEchoViews })
-    .views({}, { default: 'records' })
+    .views({ records: nodeEchoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
       const id = nodeToken(ports.grammar, args.id);
       const on = options.on

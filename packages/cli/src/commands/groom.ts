@@ -55,7 +55,7 @@ export function groomCommand(ports: Ports) {
     })
     .option('ascii', asciiOption)
     .result<Notice>({ views: noticeViews })
-    .views({}, { default: 'records' })
+    .views({ records: noticeViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out, passthrough }) => {
       // Ids run up to the first state word, each possibly comma-separated; the
       // rest is the note. Loom's declared `state` is only the second word.
