@@ -53,7 +53,7 @@ export function doctorCommand(ports: Ports) {
       type: 'string',
     })
     .result<DoctorValue>({ views })
-    .views({}, { default: 'records' })
+    .views({ records: views.records }, { default: 'records' })
     .action(async ({ host, options, out }) => {
       // Git config only: resolving from the origin would open the store outside
       // the backend's error handling, which doctor relies on to report a down store.

@@ -9,9 +9,9 @@
   },
   "type": "module",
   "dependencies": {
-    "@loomcli/core": "0.14.0",
-    "@loomcli/plugins": "0.14.0",
-    "@loomcli/prompts": "0.14.0",
+    "@loomcli/core": "0.15.0",
+    "@loomcli/plugins": "0.15.0",
+    "@loomcli/prompts": "0.15.0",
     "@mimir/contract": "workspace:*",
     "@mimir/core": "workspace:*",
     "@mimir/helpers": "workspace:*",
@@ -19,6 +19,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@loomcli/testing": "0.15.0",
     "@mimir/bin": "workspace:*"
   }
 }

@@ -73,7 +73,7 @@ export function seedCommand(ports: Ports) {
     .option('scope', boundOption)
     .option('ascii', asciiOption)
     .result<SeedEcho>({ views: seedEchoViews })
-    .views({}, { default: 'records' })
+    .views({ records: seedEchoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
       if (args.title.trim() === '') {
         throw new MimirUsageError('seed requires a title');
@@ -144,7 +144,7 @@ export function promoteCommand(ports: Ports) {
     .option('tag', { ...tagOption, description: 'Tag the spawned task. Repeat for more.' })
     .option('ascii', asciiOption)
     .result<SeedEcho>({ views: seedEchoViews })
-    .views({}, { default: 'records' })
+    .views({ records: seedEchoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
       const id = requireSeedId(ports, 'promote', args.id);
       const priority = parsePriority(options.priority);
@@ -208,7 +208,7 @@ function settleCommand(ports: Ports, verb: 'reject' | 'resolve') {
     })
     .option('ascii', asciiOption)
     .result<SeedEcho>({ views: seedEchoViews })
-    .views({}, { default: 'records' })
+    .views({ records: seedEchoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out, passthrough }) => {
       const id = requireSeedId(ports, verb, args.id);
       const reason = reasonWords(args.reason, passthrough);

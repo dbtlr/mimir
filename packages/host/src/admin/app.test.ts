@@ -2,10 +2,23 @@ import { Database } from 'bun:sqlite';
 import { afterEach, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'node:fs';
 
+import { assertAssembles } from '@loomcli/testing';
 import { createProject } from '@mimir/core';
 
+import { createAdminApp } from './app';
 import { adminFixture } from './testing';
 import type { AdminFixture } from './testing';
+
+test('the host admin CLI assembles without opening its store', () => {
+  assertAssembles(
+    createAdminApp({
+      open: () => {
+        throw new Error('assembly must not open the store');
+      },
+      readStdin: () => Promise.resolve(''),
+    }),
+  );
+});
 
 const fixtures: AdminFixture[] = [];
 afterEach(async () => {

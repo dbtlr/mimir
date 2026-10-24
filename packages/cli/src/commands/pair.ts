@@ -216,7 +216,7 @@ export function pairCommand(ports: Ports) {
       type: 'boolean',
     })
     .result<PairValue>({ views })
-    .views({}, { default: 'records' })
+    .views({ records: views.records }, { default: 'records' })
     .action(async (context) => {
       const { args, host, interactive, options, out, signal, style } = context;
       const pairing = ports.machine.pair;

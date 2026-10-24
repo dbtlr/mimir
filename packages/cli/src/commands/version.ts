@@ -22,7 +22,7 @@ export function versionCommand(ports: Ports) {
     .result<{ version: string }>({
       views: { ids: text, json: text, jsonl: text, records: text, table: text },
     })
-    .views({}, { default: 'records' })
+    .views({ records: text }, { default: 'records' })
     .action(async ({ out }) => {
       await out.results({ version: ports.machine.version });
     });

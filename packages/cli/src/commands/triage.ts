@@ -45,7 +45,7 @@ export function triageCommand(ports: Ports) {
     })
     .option('ascii', asciiOption)
     .result<TriageValue>({ views: triageViews })
-    .views({}, { default: 'records' })
+    .views({ records: triageViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
       const notify = (line: string): void => {
         void out.print(line);

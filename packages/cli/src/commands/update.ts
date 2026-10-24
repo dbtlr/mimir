@@ -377,7 +377,7 @@ export function updateCommand(ports: Ports) {
     })
     .option('ascii', asciiOption)
     .result<UpdateEcho>({ views: updateViews })
-    .views({}, { default: 'records' })
+    .views({ records: updateViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
       const presentation = presentationOf(host, options.ascii);
       const kind = ports.grammar.idKind(args.id);

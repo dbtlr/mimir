@@ -56,7 +56,7 @@ export function attachCommand(ports: Ports) {
     .option('tag', tagOption)
     .option('ascii', asciiOption)
     .result<Notice>({ views: noticeViews })
-    .views({}, { default: 'records' })
+    .views({ records: noticeViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
       const content = await contentText(options.file, host.terminal.stdin.isTTY);
       if (content.trim() === '') {

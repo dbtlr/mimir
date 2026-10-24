@@ -50,6 +50,11 @@ function pendingText({ now, presentation, requests }: Readonly<PendingValue>): s
 }
 
 export function pendingCommand(ports: AdminPorts) {
+  const views = recordViews<PendingValue>({
+    json: ({ requests }) => prettyJson(requests),
+    jsonl: ({ requests }) => requests.map((request) => compactJson(request)).join('\n'),
+    records: pendingText,
+  });
   return new Command('pending', {
     description:
       'List the live pairing requests awaiting a decision: device, age, and expiry. Prints a table on a terminal and json when piped.',
@@ -58,14 +63,8 @@ export function pendingCommand(ports: AdminPorts) {
       helpCommand({ examples: [{ command: 'pending', note: 'who is asking to pair' }] }),
     ],
   })
-    .result<PendingValue>({
-      views: recordViews({
-        json: ({ requests }) => prettyJson(requests),
-        jsonl: ({ requests }) => requests.map((request) => compactJson(request)).join('\n'),
-        records: pendingText,
-      }),
-    })
-    .views({}, { default: 'table' })
+    .result<PendingValue>({ views })
+    .views({ table: views.table }, { default: 'table' })
     .action(async ({ host, out }) => {
       const requests = await (await ports.tokens()).listPending();
       await out.results({ now: ports.now(), presentation: presentationOf(host, false), requests });
@@ -125,7 +124,7 @@ export function approveCommand(ports: AdminPorts) {
   })
     .argument('code', codeArgument)
     .result<DecisionValue>({ views: decisionViews })
-    .views({}, { default: 'records' })
+    .views({ records: decisionViews.records }, { default: 'records' })
     .action(async ({ args, host, out }) => {
       const code = codeOf(args.code);
       const decision = await (await ports.tokens()).approve(code);
@@ -147,7 +146,7 @@ export function denyCommand(ports: AdminPorts) {
   })
     .argument('code', codeArgument)
     .result<DecisionValue>({ views: decisionViews })
-    .views({}, { default: 'records' })
+    .views({ records: decisionViews.records }, { default: 'records' })
     .action(async ({ args, host, out }) => {
       const code = codeOf(args.code);
       const decision = await (await ports.tokens()).deny(code);
@@ -187,7 +186,7 @@ export function unpairCommand(ports: AdminPorts) {
   })
     .argument('device', { description: 'The device name it paired with.', required: true })
     .result<UnpairValue>({ views: unpairViews })
-    .views({}, { default: 'records' })
+    .views({ records: unpairViews.records }, { default: 'records' })
     .action(async ({ args, host, out }) => {
       const removed = await (await ports.tokens()).revoke(args.device);
       if (removed.tokens === 0 && removed.requests === 0) {

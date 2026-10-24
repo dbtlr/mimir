@@ -105,7 +105,7 @@ export function seedsCommand(ports: Ports) {
     .option('grouped', { description: 'Render the lane view with counts.', type: 'boolean' })
     .option('ascii', asciiOption)
     .result<SeedsValue>({ views })
-    .views({}, { default: 'table' })
+    .views({ table: views.table }, { default: 'table' })
     .action(async ({ host, options, out }) => {
       // Every value is read before the store opens, so a wrong invocation never opens it.
       const zone = parseZone(ports.grammar, options.tz, host.timeZone);

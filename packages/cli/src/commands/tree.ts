@@ -47,7 +47,7 @@ export function treeCommand(ports: Ports) {
     .argument('id', { description: 'KEY-seq or KEY.', required: true })
     .option('ascii', asciiOption)
     .result<TreeValue>({ views })
-    .views({}, { default: 'records' })
+    .views({ records: views.records }, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
       const engine = await ports.engine();
       const tree = intentEncoders.tree.parse(await engine.tree({ id: args.id }));

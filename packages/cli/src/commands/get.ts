@@ -87,7 +87,7 @@ export function getCommand(ports: Ports) {
     .option('col', colOption)
     .option('ascii', asciiOption)
     .result<GetValue>({ views })
-    .views({}, { default: 'records' })
+    .views({ records: views.records }, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
       const presentation = presentationOf(host, options.ascii);
       await out.results(await readRecord(ports, args.id, options.col, presentation));

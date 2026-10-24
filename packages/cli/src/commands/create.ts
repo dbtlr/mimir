@@ -105,7 +105,7 @@ function projectCommand(ports: Ports) {
     })
     .option('ascii', asciiOption)
     .result<Notice>({ views: noticeViews })
-    .views({}, { default: 'records' })
+    .views({ records: noticeViews.records }, { default: 'records' })
     .action(async (context) => {
       const { args, host, interactive, options, out } = context;
       const name = args.name ?? options.name;
@@ -177,7 +177,7 @@ function initiativeCommand(ports: Ports) {
     .option('not-open-ended', notOpenEndedOption)
     .option('ascii', asciiOption)
     .result<NodeEcho>({ views: nodeEchoViews })
-    .views({}, { default: 'records' })
+    .views({ records: nodeEchoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out, passthrough }) => {
       const title = requireTitle(args.title, passthrough, 'initiative');
       const parent = requireParentKind(
@@ -232,7 +232,7 @@ function phaseCommand(ports: Ports) {
     .option('not-open-ended', notOpenEndedOption)
     .option('ascii', asciiOption)
     .result<NodeEcho>({ views: nodeEchoViews })
-    .views({}, { default: 'records' })
+    .views({ records: nodeEchoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out, passthrough }) => {
       const title = requireTitle(args.title, passthrough, 'phase');
       const parent = requireParentKind(
@@ -323,7 +323,7 @@ function taskCommand(ports: Ports) {
     })
     .option('ascii', asciiOption)
     .result<NodeEcho>({ views: nodeEchoViews })
-    .views({}, { default: 'records' })
+    .views({ records: nodeEchoViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out, passthrough }) => {
       const title = requireTitle(args.title, passthrough, 'task');
       const parent = requireParentKind(

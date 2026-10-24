@@ -36,7 +36,7 @@ function count(value: string | undefined, fallback: number, name: string): numbe
 const repository = fileURLToPath(new URL('../../../', import.meta.url)).replace(/\/$/, '');
 const sandbox = new Sandbox(repository);
 const evals = new SkillEval(repository);
-const application = new Application('sandbox', {
+export const application = new Application('sandbox', {
   description: 'Reproducible disposable Mimir installations.',
   plugins: [help()],
 })
@@ -189,4 +189,6 @@ const application = new Application('sandbox', {
     }),
   );
 
-await application.run();
+if (import.meta.main) {
+  await application.run();
+}

@@ -49,7 +49,7 @@ export function statusCommand(ports: Ports) {
     .argument('id', { description: 'KEY-seq or KEY.', required: true })
     .option('ascii', asciiOption)
     .result<StatusValue>({ views })
-    .views({}, { default: 'json' })
+    .views({ json: views.json }, { default: 'json' })
     .action(async ({ args, host, options, out }) => {
       const engine = await ports.engine();
       const status = intentEncoders.status.parse(await engine.status({ id: args.id }));

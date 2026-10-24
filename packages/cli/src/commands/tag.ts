@@ -58,7 +58,7 @@ function taggingCommand(ports: Ports, tagging: Tagging) {
     .argument('tags', { description: 'The tags.', variadic: true })
     .option('ascii', asciiOption)
     .result<Notice>({ views: noticeViews })
-    .views({}, { default: 'records' })
+    .views({ records: noticeViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out, passthrough }) => {
       const ids = splitCsv(args.ids);
       if (ids.length === 0) {

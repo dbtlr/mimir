@@ -89,7 +89,7 @@ export function bindCommand(ports: Ports) {
       required: false,
     })
     .result<BindValue>({ views })
-    .views({}, { default: 'records' })
+    .views({ records: views.records }, { default: 'records' })
     .action(async ({ args, host, out }) => {
       const { binding } = ports.machine;
       if (args.key === undefined) {
