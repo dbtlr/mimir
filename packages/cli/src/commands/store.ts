@@ -100,7 +100,8 @@ function exportSummary(value: Readonly<ExportFile>): unknown {
 
 const fileViews = proseViews<ExportFile>(exportProse, { compact: true, json: exportSummary });
 
-// The document on stdout is the output under every format, never re-encoded.
+// The document on stdout is the output under every format: the file's bytes, with
+// its terminal controls escaped to the same JSON characters.
 const streamView = documentView<ExportStream>((value) => value.text.trimEnd());
 
 /** One format's view: the document itself, or that format's summary of the file. */
