@@ -22,8 +22,14 @@ export type AdminFixture = {
   file: string;
   /** The host's own handle on its store, as the serving process holds it. */
   host: BuiltStore;
-  /** Run `mimir-host` with `argv`; `stdin` feeds `store import -`, `tty` makes stdout a terminal. */
-  run: (argv: string[], opts?: { stdin?: string; tty?: boolean; now?: Date }) => Promise<ArgvRun>;
+  /**
+   * Run `mimir-host` with `argv`; `stdin` feeds `store import -`, `tty` makes stdout a terminal,
+   * and `columns` narrows that terminal's width.
+   */
+  run: (
+    argv: string[],
+    opts?: { stdin?: string; tty?: boolean; columns?: number; now?: Date },
+  ) => Promise<ArgvRun>;
   close: () => Promise<void>;
 };
 
@@ -62,7 +68,11 @@ export async function adminFixture({ create = true } = {}): Promise<AdminFixture
       });
       try {
         return await runArgv(app, argv, {
-          env: { NO_COLOR: '1', TERM: 'dumb' },
+          env: {
+            NO_COLOR: '1',
+            TERM: 'dumb',
+            ...(opts.columns === undefined ? {} : { COLUMNS: String(opts.columns) }),
+          },
           stdin: opts.stdin,
           tty: opts.tty,
         });

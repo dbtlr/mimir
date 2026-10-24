@@ -1,3 +1,5 @@
+import type { ViewContext } from '@loomcli/core';
+
 /**
  * The presentation context the styled views read, and the small glyph and color
  * primitives they compose. A view returns text with raw SGR codes for color;
@@ -76,9 +78,21 @@ export function noteLabel(plain: boolean): string {
   return plain ? 'note:' : '\u001B[36mnote:\u001B[0m';
 }
 
-/** Right-pad `text` with spaces to `width` characters. */
-export function pad(text: string, width: number): string {
-  return text.length >= width ? text : text + ' '.repeat(width - text.length);
+/** How many terminal cells `text` takes: wide characters take two. */
+export type Measure = (text: string) => number;
+
+/** A presentation as one view renders it: the invocation's facts and Loom's cell measure. */
+export type Layout = Presentation & { width: Measure };
+
+/** `p` at a view's destination, measuring text as Loom's `context.width` does. */
+export function layoutOf(p: Presentation, context: Pick<ViewContext, 'width'>): Layout {
+  return { ...p, width: context.width };
+}
+
+/** Right-pad `text` with spaces to `cells` terminal cells, as `width` measures them. */
+export function pad(text: string, cells: number, width: Measure): string {
+  const taken = width(text);
+  return taken >= cells ? text : text + ' '.repeat(cells - taken);
 }
 
 /** `${n} task` / `${n} tasks`: the count line that leads every set view. */
