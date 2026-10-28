@@ -14,7 +14,7 @@ minor releases may include breaking changes.
 This file holds released sections only — there is no `[Unreleased]` section.
 Pending entries accrue as per-PR fragments in [`.changes/`](.changes/README.md)
 and are compiled into a new release section at each cut
-([ADR 0022](docs/decisions/0022-changelog-fragments-compiled-at-cut.md));
+([ADR 0022](../../docs/decisions/0022-changelog-fragments-compiled-at-cut.md));
 `bun run changelog:compile` previews the pending section.
 
 ## v0.25.0 - 2026-10-14
@@ -81,7 +81,7 @@ and are compiled into a new release section at each cut
 ### Removed
 
 - **The console's tree view is gone** (MMR-472). The work page's Structure outline replaces it. The board at `/p/KEY/board` stays as an optional view linked from the work page's rail, and it no longer has a Board | Tree toggle; an old `?view=tree` link opens the board.
-- **The `attention` facet** (MMR-478). Project Lanes are retired ([ADR 0019](docs/decisions/0019-meridian-console-design-system.md)), so `GET /api/projects` no longer sends `attention`, and `mimir get --col attention` is refused as an unknown column.
+- **The `attention` facet** (MMR-478). Project Lanes are retired ([ADR 0019](../../docs/decisions/0019-meridian-console-design-system.md)), so `GET /api/projects` no longer sends `attention`, and `mimir get --col attention` is refused as an unknown column.
 - **`leaf_counts` on the active project list** (MMR-478). Only the archived shelf reads it, so `GET /api/projects` sends it on `?status=archived` rows alone.
 
 ### Fixed
@@ -100,7 +100,7 @@ and are compiled into a new release section at each cut
 - **A jump palette finds any record from any page** (MMR-455). ⌘K (Ctrl-K off a Mac), or the top-bar search button, opens a search across every project. Typing an ID opens that record and lists the records linked to it; other text finds records by title, then by whole words in their descriptions, grouped so the reason each record appears is visible. The arrow keys move, Enter opens, and ⌘Enter opens in a new tab. With nothing typed, it lists recently opened records and two actions: New task and File a seed. On a phone it opens full screen.
 - **Seeds open as their own pages** (MMR-451). A seed lives at `/p/KEY/s<seq>`, and a bare seed ID such as `/MMR-s41` redirects there. The page reads as a request, then asks for a decision: which board asks which, the description, what came of it (the tasks promoted from the seed and the tasks on any board that name it as upstream, each linked to its page with its state), and a decision block with the verbs the seed's lane offers. The rail holds Edit (title, kind, and description, while the seed is open), Copy link, and details; on a phone it folds into chips. The jump palette opens seeds at their pages, and the seeds browser links each seed and its spawned tasks to their pages.
 - **Artifacts open as their own pages** (MMR-452). An artifact lives at `/p/KEY/a<seq>`, and a bare artifact ID such as `/MMR-a219` redirects there. The page reads under the work the artifact is attached to: the path runs through that task, a card for the task sits above the frozen body, and the rail lists the task's other artifacts. An artifact attached to several records lists each in the card, and its path stops at the nearest container that holds them all. The rail holds Copy link, Download .md, and details; on a phone it folds into chips. Task pages, the jump palette, and the artifacts browser open artifacts at their pages.
-- **Task list rows can carry a one-line preview** (MMR-454). `mimir list --col lede` and `col=lede` on `GET /api/nodes` add each task's stored summary, or, when it has none, the first 240 characters of its description as plain text. Seeds already derive their preview this way ([ADR 0021](docs/decisions/0021-seed-lede-derived-and-capture-grammar.md)).
+- **Task list rows can carry a one-line preview** (MMR-454). `mimir list --col lede` and `col=lede` on `GET /api/nodes` add each task's stored summary, or, when it has none, the first 240 characters of its description as plain text. Seeds already derive their preview this way ([ADR 0021](../../docs/decisions/0021-seed-lede-derived-and-capture-grammar.md)).
 - **Artifact lists name the records each artifact is attached to** (MMR-454). Every artifact list item now carries `links`, the sorted IDs of its records.
 
 ### Changed
@@ -323,7 +323,7 @@ and are compiled into a new release section at each cut
   `--status active|archived|all` picks the shelf (default `active`); any other
   argument or selection flag is refused rather than ignored. MCP gains
   a matching `projects` tool. See the amendment in
-  [ADR 0024](docs/decisions/0024-cli-command-taxonomy.md).
+  [ADR 0024](../../docs/decisions/0024-cli-command-taxonomy.md).
 
 ### Changed
 
@@ -369,7 +369,7 @@ and are compiled into a new release section at each cut
   (MMR-406). `list --status archived` (and the MCP `list` tool's
   `status: archived`) is now an invalid status; the CLI error points at the new
   verb. `GET /api/projects?status=archived` is unchanged. See the refinement in
-  [ADR 0015](docs/decisions/0015-project-archive-frozen-and-hidden.md).
+  [ADR 0015](../../docs/decisions/0015-project-archive-frozen-and-hidden.md).
 
 ### Fixed
 
@@ -409,9 +409,9 @@ and are compiled into a new release section at each cut
 
 ### Added
 
-- **Store backend fence and seam export/import** (MMR-378). The `[store] backend` config key returns as a per-install fence (`norn` by default, or `postgres` for a shared database). The `Store` seam gains `export` and `import`: export produces a backend-neutral document of stored facts with its schema version, and import writes it verbatim with ids, sequences, and timestamps preserved, so a vault can be moved or backed up on the seam. Export is fail-closed: it refuses, naming the documents and pointing at `mimir doctor`, when the store holds a record the document cannot carry, so a backup is never quietly narrower than the store it came from. The Norn backend implements both, proven by a new Store-level conformance suite ([ADR 0030](docs/decisions/0030-postgres-store-backend-shared-store-bridge.md)).
-- **Postgres store backend** (MMR-379). `[store] backend = "postgres"` with a `[store] url` now runs the whole binary against a shared Postgres database, so agents on several machines write one board. Every `transact` is one serializable transaction retried whole on serialization failure, and sequence numbers are allocated by a locked increment on the project row, so concurrent writers never lose an update or hand out one id twice. The Norn-managed vault stays the default local backend; the two are held behaviorally identical by a Store-level conformance suite that runs against both ([ADR 0030](docs/decisions/0030-postgres-store-backend-shared-store-bridge.md)).
-- **`mimir store upgrade`** (MMR-379). The Postgres backend carries an explicit schema version. A binary refuses to run against a newer schema and refuses to auto-upgrade an older one; `store upgrade` applies pending migrations on purpose, on one machine, under a lock. `store` is the new backend-neutral machinery noun ([ADR 0024 refinement](docs/decisions/0024-cli-command-taxonomy.md)).
+- **Store backend fence and seam export/import** (MMR-378). The `[store] backend` config key returns as a per-install fence (`norn` by default, or `postgres` for a shared database). The `Store` seam gains `export` and `import`: export produces a backend-neutral document of stored facts with its schema version, and import writes it verbatim with ids, sequences, and timestamps preserved, so a vault can be moved or backed up on the seam. Export is fail-closed: it refuses, naming the documents and pointing at `mimir doctor`, when the store holds a record the document cannot carry, so a backup is never quietly narrower than the store it came from. The Norn backend implements both, proven by a new Store-level conformance suite ([ADR 0030](../../docs/decisions/0030-postgres-store-backend-shared-store-bridge.md)).
+- **Postgres store backend** (MMR-379). `[store] backend = "postgres"` with a `[store] url` now runs the whole binary against a shared Postgres database, so agents on several machines write one board. Every `transact` is one serializable transaction retried whole on serialization failure, and sequence numbers are allocated by a locked increment on the project row, so concurrent writers never lose an update or hand out one id twice. The Norn-managed vault stays the default local backend; the two are held behaviorally identical by a Store-level conformance suite that runs against both ([ADR 0030](../../docs/decisions/0030-postgres-store-backend-shared-store-bridge.md)).
+- **`mimir store upgrade`** (MMR-379). The Postgres backend carries an explicit schema version. A binary refuses to run against a newer schema and refuses to auto-upgrade an older one; `store upgrade` applies pending migrations on purpose, on one machine, under a lock. `store` is the new backend-neutral machinery noun ([ADR 0024 refinement](../../docs/decisions/0024-cli-command-taxonomy.md)).
 - **Postgres doctor facet** (MMR-379). `mimir doctor` and `/api/doctor` on a Postgres install report dangling parents and dependency edges, sequence counters behind stored rows, and orphan artifact links and scratchpad anchors. There is no automatic repair pass. An unreachable store fails the command. Schema mismatches stop normal commands before diagnostics run: use `mimir store upgrade` for an older schema, or update the binary for a newer schema.
 - **`mimir store export` and `mimir store import`** (MMR-380). The store's
   transfer document gets its operator face. `store export <file>` writes every
@@ -424,13 +424,13 @@ and are compiled into a new release section at each cut
   `--resume` to finish a partial import by skipping records already present and
   identical. Both run on either backend, so the pair is the backup on a
   Postgres install and the way a vault moves onto one
-  ([ADR 0030](docs/decisions/0030-postgres-store-backend-shared-store-bridge.md)).
+  ([ADR 0030](../../docs/decisions/0030-postgres-store-backend-shared-store-bridge.md)).
 - **Disposable Postgres development** (MMR-383). A Loom-based repository CLI provisions fixtures, restores PostgreSQL native snapshots, rehearses candidate migrations, and cleans up owned containers. Run records capture reproduction inputs and outcomes.
 
 ### Changed
 
 - **Doctor is backend-provided** (MMR-378). The composition root exposes a backend-neutral doctor facet instead of Norn-typed plan members; the vault-shaped diagnostics and repairs move under the Norn backend as its implementation. `mimir doctor`, repair, and `/api/doctor` behave as before on a Norn install.
-- **One-time installer transition for existing installations** (MMR-384). If `mimir.installation.json` is absent beside the binary, run the current `install.sh` with the existing installation directory and XDG roots. An older `self-update` can replace the binary without creating its receipt, leaving the existing board inaccessible through that binary. After installation, verify the receipt and expected board with `mimir overview`, then restart any running service. This preserves the existing configuration and board; it does not require setup or data import. Follow the [legacy upgrade procedure](docs/guides/install-location.md#upgrade-an-installation-without-a-receipt). Later self-updates preserve the registration.
+- **One-time installer transition for existing installations** (MMR-384). If `mimir.installation.json` is absent beside the binary, run the current `install.sh` with the existing installation directory and XDG roots. An older `self-update` can replace the binary without creating its receipt, leaving the existing board inaccessible through that binary. After installation, verify the receipt and expected board with `mimir overview`, then restart any running service. This preserves the existing configuration and board; it does not require setup or data import. Follow the [legacy upgrade procedure](../../docs/guides/install-location.md#upgrade-an-installation-without-a-receipt). Later self-updates preserve the registration.
 - **Bun 1.4.0** (MMR-383). The workspace runtime pin supports the published Loom CLI packages.
 
 ### Fixed
@@ -480,7 +480,7 @@ and are compiled into a new release section at each cut
 ### Changed
 
 - **Date queries now speak one caller-zoned grammar on every surface**
-  (MMR-349, [ADR 0029](docs/decisions/0029-caller-zoned-date-semantics.md)).
+  (MMR-349, [ADR 0029](../../docs/decisions/0029-caller-zoned-date-semantics.md)).
   Five operators over `FIELD:VALUE` tokens — `--on`, `--before`, `--after`,
   `--at-or-before`, `--at-or-after` — are the whole date vocabulary, and they
   reach every date-bearing resource: the three node timestamps on `list`/`next`, an artifact's
@@ -507,7 +507,7 @@ and are compiled into a new release section at each cut
   asked for. Both are now validation errors, as are zone-less timestamps and
   (on MCP and HTTP) a bare date sent with no timezone.
 - **Human-facing timestamps now read in the reader's own timezone** (MMR-350,
-  [ADR 0029](docs/decisions/0029-caller-zoned-date-semantics.md)). Absolute
+  [ADR 0029](../../docs/decisions/0029-caller-zoned-date-semantics.md)). Absolute
   date-times render local wall clock and carry a visible zone label —
   `completed  2026-08-05 09:14 EDT`, or a GMT offset where the zone has no
   abbreviation — instead of the raw UTC instant they used to print. A bare
@@ -531,7 +531,7 @@ and are compiled into a new release section at each cut
   no longer reports a Tokyo-day answer in the invoking machine's zone.
 - **The canonical timestamp is now an invariant of stored data, not just of
   writes** (MMR-351,
-  [ADR 0029](docs/decisions/0029-caller-zoned-date-semantics.md)). Every
+  [ADR 0029](../../docs/decisions/0029-caller-zoned-date-semantics.md)). Every
   timestamp frontmatter field, on every document kind, is ISO-8601 UTC with
   millisecond precision and an explicit `Z`, as are the `### <ISO timestamp>`
   headings of `## History` and `## Annotations` records — because the query
@@ -598,12 +598,12 @@ and are compiled into a new release section at each cut
   API were already structured and stay byte-for-byte unchanged.
 - **`list`/`next` reject create/update-owned flags instead of silently ignoring them** (MMR-360). `mimir list --parent KEY` used to exit 0 with the FULL unfiltered board — the flag is create/promote's own selector, parsed through the one shared options table but never read by `list`/`next`. The verb-owned flag guard (MMR-321/MMR-322) now covers `--parent` plus every other write-owned flag whose spelling doubles as a query field (`--title`, `--summary`, `--target`, `--ref`, `--upstream`, `--host`, `--harness`, `--session`, `--branch`): a mismatched verb exits 2 with no stdout and a hint pointing at the uniform `--eq FIELD:KEY` selector, refused before any query runs or the store opens. The guard also covers `--project` (attach/seed/seeds' board selector) and `--requester` (seeds' own filter) — neither has a `QUERY_FIELDS` counterpart, but each is a real filter on a sibling verb, and `mimir list --project KEY` used to exit 0 with the FULL cross-project board instead of the per-project one the invocation looks like; both redirect to the real selectors (`-s, --scope KEY`, `seeds`) instead of a nonexistent `--eq`.
 - **The embedded agent skill now teaches the Scratchpad** (MMR-375). The skill
-  shipped in the binary ([ADR 0024](docs/decisions/0024-cli-command-taxonomy.md)'s
+  shipped in the binary ([ADR 0024](../../docs/decisions/0024-cli-command-taxonomy.md)'s
   no-skew guarantee) had no coverage of the cycle's headline feature: a new
   `references/scratchpad.md` teaches the episode lifecycle — create,
   checkpoint, Agenda, the `--expected-updated-at` token discipline, resume via
-  `overview`, and the freeze/discard endings ([ADR 0027](docs/decisions/0027-scratchpads-are-temporary-episode-state.md),
-  [ADR 0028](docs/decisions/0028-scratchpads-use-a-work-noun-group.md)) — and
+  `overview`, and the freeze/discard endings ([ADR 0027](../../docs/decisions/0027-scratchpads-are-temporary-episode-state.md),
+  [ADR 0028](../../docs/decisions/0028-scratchpads-use-a-work-noun-group.md)) — and
   the `overview` facet lists in `SKILL.md` and `references/querying.md` now
   include **active scratchpads**, matching what the command actually prints.
   `finishing.md` reconciles the retrospective paths: a session that ran on a
@@ -653,7 +653,7 @@ and are compiled into a new release section at each cut
   not a repair signal.
 - **Tasks carry four optional in-flight execution fields — `host`, `harness`,
   `session`, `branch`** (MMR-320). They are the _resume handles_ of
-  [ADR 0026](docs/decisions/0026-work-state-composition.md) Decision 3: what
+  [ADR 0026](../../docs/decisions/0026-work-state-composition.md) Decision 3: what
   is happening, what did happen, how do I continue. `start` records them at the
   claim (CLI `--host/--harness/--session/--branch`, the same args on MCP and
   the HTTP action route), and they surface on every task projection — `get`,
@@ -664,7 +664,7 @@ and are compiled into a new release section at each cut
   `field_types` only, never required frontmatter, so an unclaimed task is a
   legitimate record and no doctor check reads them.
 - **Projects, initiatives, and phases carry an owned `## Next` direction
-  narrative** (MMR-321, [ADR 0026](docs/decisions/0026-work-state-composition.md)
+  narrative** (MMR-321, [ADR 0026](../../docs/decisions/0026-work-state-composition.md)
   Decision 2). What to work on next stays derived (ready ∩ rank); this is the
   non-derivable residue — the editorial statement of where a container is
   headed, as free markdown in its document body. `update` accepts it on all
@@ -708,14 +708,14 @@ and are compiled into a new release section at each cut
   The CLI flag is `--direction` rather than `--next`, because `--next` is
   already `self-update`'s boolean prerelease-channel selector and one options
   table cannot carry a flag under two types. `--direction` is [ADR
-  0026](docs/decisions/0026-work-state-composition.md)'s own word for what the
+  0026](../../docs/decisions/0026-work-state-composition.md)'s own word for what the
   section holds; the field is spelled `next` everywhere else. Since a boolean
   flag swallows no value, `mimir update <id> --next "text"` would otherwise have
   exited 0 having written nothing — `--next` on any verb but `self-update` is
   now a usage error pointing at `--direction`.
 - **`mimir overview` composes recent sessions, needs-attention listings, and
   owned direction prose** (MMR-322,
-  [ADR 0026](docs/decisions/0026-work-state-composition.md)). The orientation
+  [ADR 0026](../../docs/decisions/0026-work-state-composition.md)). The orientation
   surface stops being a queue summary and becomes the whole boot picture, on the
   CLI, the MCP `overview` tool, and — new — `GET /api/projects/:key/overview`,
   all through one shared wire mapper.
@@ -890,7 +890,7 @@ and are compiled into a new release section at each cut
   exactly once, in a field-spec table (`core/field-spec.ts`) whose entries name
   a **kind** (`string`, `seed-ref`, `bool`, `enum:priority`, …) that owns the
   parser/emitter pair and the query semantics (per [ADR
-  0025](docs/decisions/0025-descriptor-driven-registration.md)). Both codec
+  0025](../../docs/decisions/0025-descriptor-driven-registration.md)). Both codec
   directions now derive from that one entry: the frontmatter decode
   (`store-norn/store.ts`) and emit (`vault-frontmatter.ts`) each became a
   generic loop over the spec, so a field wired for emit but not decode — the
@@ -911,7 +911,7 @@ and are compiled into a new release section at each cut
 - **The field transport surfaces derive from the spec** (MMR-315). The three
   data-plane field surfaces stop hand-listing field keys and project from the
   one field spec ([ADR
-  0025](docs/decisions/0025-descriptor-driven-registration.md) phase 2): the
+  0025](../../docs/decisions/0025-descriptor-driven-registration.md) phase 2): the
   CLI's `UPDATE_FIELD_FLAGS` becomes a view template (a default `--<kebab-key>`
   flag plus the few spellings that diverge — `--ref`, `--desc`, and
   `open_ended`'s on/off pair); the MCP `update`/`create` tool schemas compose a
@@ -939,7 +939,7 @@ and are compiled into a new release section at each cut
   uniform verbs (six lifecycle — start/submit/return/done/abandon/reopen, four
   hold — park/unpark/block/unblock, and archive/unarchive) stop restating the
   same few facts once per transport and derive from one registry ([ADR
-  0025](docs/decisions/0025-descriptor-driven-registration.md) phase 3): one
+  0025](../../docs/decisions/0025-descriptor-driven-registration.md) phase 3): one
   entry owns the subject id-kind, reason policy, state transition, and canonical
   summary. The CLI's twelve switch arms and twelve echo handlers collapse to one
   generic arm; the MCP tool registrations and the HTTP action routes loop-
@@ -1013,7 +1013,7 @@ and are compiled into a new release section at each cut
   `unsupported plan schema_version N; this norn build supports vM` — norn's
   plain-text response to a plan schema mismatch — used to surface as a raw
   validation passthrough with no next move, violating the
-  [output-voice hint ladder](docs/output-voice.md#the-hint-ladder). The norn
+  [output-voice hint ladder](../../docs/output-voice.md#the-hint-ladder). The norn
   client seam now detects that shape and attaches a hint naming the fix in
   whichever direction applies: `N` newer than `M` points at `norn self-update`;
   `N` older than `M` points at `mimir self-update`; an unparseable variant
@@ -1080,7 +1080,7 @@ and are compiled into a new release section at each cut
 ### Added
 
 - **`mimir overview` — the session-boot orientation surface** (MMR-278). A flat,
-  id-free, scope-honoring read verb ([ADR 0024](docs/decisions/0024-cli-command-taxonomy.md))
+  id-free, scope-honoring read verb ([ADR 0024](../../docs/decisions/0024-cli-command-taxonomy.md))
   that composes one project's state into five attention-ordered sections: a header
   (id, status word, rollup distribution), in-flight tasks (`in_progress` +
   `under_review`, uncapped), the ready-queue head (`next`, top 5), dependency-gated
@@ -1105,7 +1105,7 @@ and are compiled into a new release section at each cut
 - **`--help` groups commands by taxonomy plane** (MMR-286). Top-level help now
   presents the work plane (flat verbs that read or mutate work state) and the
   machinery plane (installation/host/store commands) as the two sections
-  [ADR 0024](docs/decisions/0024-cli-command-taxonomy.md) defines, and `skill`,
+  [ADR 0024](../../docs/decisions/0024-cli-command-taxonomy.md) defines, and `skill`,
   `service`, and `self-update` gain their own command help on `-h`/`--help`
   instead of falling back to the top-level dump. Help text only — no command
   names or behavior change.
@@ -1116,7 +1116,7 @@ and are compiled into a new release section at each cut
   doctor severity tags use the tier-1 short spelling (`[err]`, never
   `[error]`); the self-update terminal line carries `[ok]`/`[err]`; help
   summaries drop their trailing periods; and
-  [docs/output-voice.md](docs/output-voice.md) now records that the
+  [docs/output-voice.md](../../docs/output-voice.md) now records that the
   `note:`-only imperative rule scopes to error output — report bodies may
   carry row-bound `fact — next move` pointers. Wording only; the ADR 0009
   wire contract (envelope shape, field names, exit codes) is untouched.
@@ -1125,7 +1125,7 @@ and are compiled into a new release section at each cut
   teach has carried its own `-h`/`--help` since the COMMAND_HELP registry
   landed — replaced with the actual contract (per-command help is a flag
   reminder; the references remain the authority to drive from). The skill now carries
-  [ADR 0024](docs/decisions/0024-cli-command-taxonomy.md)'s grammar where it
+  [ADR 0024](../../docs/decisions/0024-cli-command-taxonomy.md)'s grammar where it
   teaches the surface: the two-plane rule, flat lifecycle verbs with typed-id
   disambiguation, the `create <type>` creation grammar with `seed`/`attach`
   as the sanctioned exceptions, and the pre-1.0 hard-break rename policy.
@@ -1175,7 +1175,7 @@ and are compiled into a new release section at each cut
   any output — human or JSON envelope. Every arg-parse failure on a known
   command is re-synthesized (`unknown flag '--x'`, `'--to' expects a value`,
   `'--ascii' doesn't take a value`) and carries exactly one hint per the
-  [output voice guide](docs/output-voice.md)'s ladder: a near-match
+  [output voice guide](../../docs/output-voice.md)'s ladder: a near-match
   suggestion (`did you mean '--status'?`) when one exists, else the narrowest
   help pointer. Exit codes and envelope shape unchanged.
 - **MCP/HTTP envelopes speak token-as-subject on misses** (MMR-290). The
@@ -1184,7 +1184,7 @@ and are compiled into a new release section at each cut
   catch-all route 404 (`no route /api/x` → `/api/x doesn't exist`) — join
   the token-as-subject family. The remaining transport-specific strings
   (HTTP body validation, MCP tool guards) audited conformant with the
-  [output voice guide](docs/output-voice.md). Envelope shape and status
+  [output voice guide](../../docs/output-voice.md). Envelope shape and status
   codes unchanged.
 - **`update … --upstream` on a project or artifact now errors instead of
   silently no-opping** (MMR-284). The flag joins the refuse-lists on both the
@@ -1195,7 +1195,7 @@ and are compiled into a new release section at each cut
   it. (HTTP already rejected unlisted fields structurally.)
 - **`mimir mcp -h` no longer starts the MCP server** (MMR-294). `serve`,
   `mcp`, and `version` are machinery loners
-  ([ADR 0024](docs/decisions/0024-cli-command-taxonomy.md)) intercepted
+  ([ADR 0024](../../docs/decisions/0024-cli-command-taxonomy.md)) intercepted
   ahead of CLI dispatch, so `-h`/`--help` on any of them used to be ignored:
   `mcp` hung awaiting stdio input, `serve` bound a port and converged the
   vault, and `version` printed the bare version instead of its help. All
@@ -1218,7 +1218,7 @@ and are compiled into a new release section at each cut
   sees the same value and cannot re-leak (an omitted `arguments` key otherwise
   reached the SDK as `undefined` and leaked for all-optional tools). Envelope
   shapes, status codes, and the advertised `tools/list` inputSchemas are
-  unchanged; conforms to the [output voice guide](docs/output-voice.md).
+  unchanged; conforms to the [output voice guide](../../docs/output-voice.md).
 
 ## v0.15.0 - 2026-07-15
 
@@ -1245,7 +1245,7 @@ and are compiled into a new release section at each cut
   Norn allocates `{{seq}}` as max+1. The check names the
   missing numbers (bounded for a pathological vault), stays non-gating, and is not
   repairable by `--fix`; recovery is `git revert` over the vault's snapshot history
-  (see [docs/decisions/0017-runtime-data-tolerance.md](docs/decisions/0017-runtime-data-tolerance.md)).
+  (see [docs/decisions/0017-runtime-data-tolerance.md](../../docs/decisions/0017-runtime-data-tolerance.md)).
 - **`mimir doctor` detects cross-directory duplicate artifact stems** (MMR-282). A new
   diagnostic reports when one artifact id (`KEY-aN`) resolves to more than one document.
   Detection only — which document survives is a human call, so `--fix` skips it.
@@ -1260,7 +1260,7 @@ and are compiled into a new release section at each cut
   `max(seq)+1` with a create-exclusive retry loop; both now ride a single
   `create_document` plan op whose path carries the `{{seq}}` token Norn resolves
   at apply time, matching node creation. Plan-CAS is now the sole write mechanism
-  for every create (see [docs/decisions/0016-norn-vault-system-of-record.md](docs/decisions/0016-norn-vault-system-of-record.md)).
+  for every create (see [docs/decisions/0016-norn-vault-system-of-record.md](../../docs/decisions/0016-norn-vault-system-of-record.md)).
 
 ### Removed
 
@@ -1320,7 +1320,7 @@ and are compiled into a new release section at each cut
   `bun run changelog:compile` previews the pending section). `changelog-guard`
   now checks fragment presence and shape instead of diffing `[Unreleased]`
   bullets, retiring its false PASS/FAIL edge cases. Recorded in
-  [ADR 0022](docs/decisions/0022-changelog-fragments-compiled-at-cut.md).
+  [ADR 0022](../../docs/decisions/0022-changelog-fragments-compiled-at-cut.md).
 - **Canonical stems now carry identity end to end** (MMR-198). Existing CLI,
   MCP, HTTP, and UI ids stay unchanged while Mimir removes per-load synthetic
   integer mappings and the post-create whole-vault reload. Relocated documents
@@ -1342,7 +1342,7 @@ and are compiled into a new release section at each cut
   nowhere to hold a note), so a node/project note was already silently dropped
   and an artifact note was rejected; note-intent now routes to `annotate` (one-off
   rationale) or a tagged artifact (shared grouping metadata). Recorded in
-  [ADR 0005](docs/decisions/0005-grouping-axis-is-tags.md).
+  [ADR 0005](../../docs/decisions/0005-grouping-axis-is-tags.md).
 
 ### Fixed
 
@@ -1371,7 +1371,7 @@ and are compiled into a new release section at each cut
   stored (derive, don't store): no schema field, no frontmatter projection, no
   doctor check. The full body stays the detail read; settled seeds get their
   lede on demand from it. Recorded in [ADR
-  0021](docs/decisions/0021-seed-lede-derived-and-capture-grammar.md).
+  0021](../../docs/decisions/0021-seed-lede-derived-and-capture-grammar.md).
 - **Record-health doctor surface + `/api/doctor` facet** (MMR-185). A new
   read-only `/api/doctor` REST facet over the shared validator — the same
   dropped-record diagnostics `mimir doctor` reports (ADR 0017: one validator,
@@ -1414,7 +1414,7 @@ and are compiled into a new release section at each cut
   characters now **errors** with copy that teaches the split — the forcing
   function that keeps prose out of the title; `update --title` on a seed inherits
   the cap. Recorded in [ADR
-  0021](docs/decisions/0021-seed-lede-derived-and-capture-grammar.md).
+  0021](../../docs/decisions/0021-seed-lede-derived-and-capture-grammar.md).
 - **A legacy `[store] backend` config key is now ignored, not honored**
   (MMR-234). With the SQLite fence retired there is only one backend, so an
   existing config's `[store] backend` (or its pre-MMR-235 `artifacts` alias) is
