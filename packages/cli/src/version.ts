@@ -7,7 +7,7 @@
  * bakes none and reports `developmentVersion` of the package's version.
  * `typeof` on the (possibly undeclared) identifier is the one safe read.
  */
-import pkg from '../package.json';
+import pkg from '../package.json' with { type: 'json' };
 
 declare const __LOOM_RELEASE__: { readonly release?: { readonly version: string } } | undefined;
 
