@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { VERSION } from '@mimir/cli/src/version';
 import { RemoteEngine } from '@mimir/wire/client';
 import { z } from 'zod';
 
@@ -12,9 +13,9 @@ import { docker, hostCli, ready } from './docker';
 import { createInstallation } from './loom-cli';
 import type { Completed } from './loom-cli';
 
-const clientVersion = z
-  .object({ version: z.string() })
-  .parse(await Bun.file(new URL('../../cli/package.json', import.meta.url)).json()).version;
+// The images build without MIMIR_BUILD_VERSION, so the host reports the CLI's
+// development version, and a source client sends the same.
+const clientVersion = VERSION;
 
 /** The ids a `-f ids` create printed, one per line. */
 function ids(run: Completed): string[] {

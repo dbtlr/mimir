@@ -53,9 +53,10 @@ MIMIR_TEST_BINARY=dist/mimir-linux-x64 MIMIR_SANDBOX_LIFECYCLE_TEST=1 \
 ```
 
 `MIMIR_TEST_BINARY` selects the file to copy into a disposable directory. A missing
-candidate fails the enabled fixture. The fixture expects the binary to report the
-version in `packages/cli/package.json`, which the release workflow stamps from the
-tag before it builds.
+candidate fails the enabled fixture. The fixture expects a `MIMIR_TEST_BINARY`
+candidate to report the version in `packages/cli/package.json`, which the release
+workflow stamps before it builds, and the default `dist/mimir` to report the CLI's
+development version.
 
 For host and PWA changes, run the local integration gates:
 
@@ -205,8 +206,9 @@ compatibility review.
   file name sets the kind: `breaking.<slug>.md` for a change a user must adapt
   to (it ends with a `### Migration` section), `feature.<slug>.md` for a
   feature, and `<slug>.md` for a fix; the task id is the conventional slug.
-  The kinds decide the next version, so an Engine contract change ships as a
-  breaking fragment. `packages/cli/CHANGELOG.md` itself is written only at the
+  The kinds decide the next version, so a cycle that changes the Engine
+  contract, additively included, carries a breaking fragment; the guard
+  refuses an Engine schema snapshot or `MIN_CLIENT` change without one. `packages/cli/CHANGELOG.md` itself is written only at the
   release cut, so parallel PRs never conflict on it. Run
   `bun run --cwd packages/cli loom changelog check` to validate fragments. The
   `changelog-guard` check enforces this: a PR touching build-affecting paths

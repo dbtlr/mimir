@@ -39,8 +39,11 @@ in Loom's grammar (the guide is `packages/cli/.changes/README.md`; ADR 0039). Th
 file name is the kind, with the task id as the slug:
 
 - `breaking.mmr-267.md` — a change a user or script must adapt to: a removed or
-  renamed command, flag, or output field, or an Engine contract change. It ends
-  with the `### Migration` section and its five labels.
+  renamed command, flag, or output field, or any Engine contract change,
+  additive included (its migration: update the host before its clients). It
+  ends with the `### Migration` section and its five labels. `changelog-guard`
+  refuses an Engine schema snapshot or `MIN_CLIENT` change while no breaking
+  fragment is pending.
 - `feature.mmr-267.md` — something new, or a compatible change.
 - `mmr-267.md` — a fix.
 

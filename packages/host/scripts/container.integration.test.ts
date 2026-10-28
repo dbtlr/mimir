@@ -6,6 +6,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { VERSION } from '@mimir/cli/src/version';
 import { MIN_CLIENT } from '@mimir/contract';
 import { RemoteEngine } from '@mimir/wire/client';
 import { z } from 'zod';
@@ -14,9 +15,9 @@ import { POSTGRES_IMAGE } from '../../sandbox/src/workflow';
 import { docker, hostCli, ready } from './docker';
 import { pairFixtureDevice } from './pairing-client';
 
-const clientVersion = z
-  .object({ version: z.string() })
-  .parse(await Bun.file(new URL('../../cli/package.json', import.meta.url)).json()).version;
+// The images build without MIMIR_BUILD_VERSION, so the host reports the CLI's
+// development version, and a source client sends the same.
+const clientVersion = VERSION;
 
 /**
  * Pair a fixture device: the client files the request over HTTP, and the operator

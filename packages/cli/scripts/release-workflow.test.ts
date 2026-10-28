@@ -398,6 +398,7 @@ async function tag(options: {
   check: string;
   checkExit?: number;
   dryRun: string;
+  released?: string;
   tags: readonly string[];
 }) {
   const path = new URL('../../../.github/workflows/prerelease.yml', import.meta.url);
@@ -420,6 +421,11 @@ async function tag(options: {
     await writeFile(log, '');
     await git(directory, 'init', '--quiet', '--bare', origin);
     await git(directory, 'clone', '--quiet', origin, checkout);
+    await mkdir(join(checkout, 'packages/cli'), { recursive: true });
+    await writeFile(
+      join(checkout, 'packages/cli/package.json'),
+      `{\n  "name": "@mimir/cli",\n  "version": "${options.released ?? '0.25.0'}"\n}\n`,
+    );
     await git(
       checkout,
       '-c',
@@ -487,13 +493,20 @@ test.each([
     next: '0.26.0',
     tags: ['v0.25.0', 'v0.25.0-next.40', 'v0.26.0-next.3', 'v0.26.0-next.10', 'v0.26.0-next.x'],
   },
-  { expected: 'v0.25.1-next.1', next: '0.25.1', tags: ['v0.25.0', 'v0.26.0-next.73'] },
+  { expected: 'v0.25.1-next.1', next: '0.25.1', tags: ['v0.25.0', 'v0.25.0-next.40'] },
+  {
+    expected: 'v0.26.1-next.1',
+    next: '0.26.1',
+    released: '0.26.0',
+    tags: ['v0.26.0', 'v0.26.0-next.73', 'v0.25.1-next.2'],
+  },
 ])(
   'the tagger tags $expected from the dry run’s next version $next and dispatches its build',
-  async ({ expected, next, tags }) => {
+  async ({ expected, next, released, tags }) => {
     const result = await tag({
       check: 'Checked 2 fragments.',
       dryRun: `## v${next} - 2026-10-28\n\n### Features\n\n- Add a thing.\n\nNext version: ${next}`,
+      released,
       tags,
     });
     expect(result.exit, result.stderr).toBe(0);
@@ -521,4 +534,129 @@ test.each([
   expect(result.exit).not.toBe(0);
   expect(result.pushed).toEqual([]);
   expect(result.commands).not.toContain('gh ');
+});
+
+test('the tagger refuses a next version below a prerelease published since the last release', async () => {
+  const result = await tag({
+    check: 'Checked 1 fragment.',
+    dryRun: 'Next version: 0.25.1',
+    released: '0.25.0',
+    tags: ['v0.25.0', 'v0.26.0-next.3'],
+  });
+  expect(result.exit).not.toBe(0);
+  expect(result.stdout).toContain('below prerelease v0.26.0-next.3');
+  expect(result.pushed).toEqual([]);
+  expect(result.commands).not.toContain('gh ');
+});
+
+/** Commit everything staged in `cwd` as a throwaway author. */
+function commit(cwd: string, message: string) {
+  return git(cwd, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '--quiet', '-m', message);
+}
+
+/** Write each file under `root`, creating directories; a null content deletes it. */
+async function writeFiles(root: string, files: Record<string, string | null>) {
+  for (const [file, content] of Object.entries(files)) {
+    if (content === null) {
+      await rm(join(root, file));
+    } else {
+      await mkdir(dirname(join(root, file)), { recursive: true });
+      await writeFile(join(root, file), content);
+    }
+  }
+}
+
+/**
+ * Run the changelog guard's gate script on a PR branch that writes `head`
+ * files (null deletes) over a `main` holding `base` files, with or without the
+ * skip-changelog label.
+ */
+async function guard(options: {
+  base: Record<string, string>;
+  head: Record<string, string | null>;
+  label?: boolean;
+}) {
+  const path = new URL('../../../.github/workflows/changelog-guard.yml', import.meta.url);
+  const workflow = z
+    .object({ jobs: z.object({ 'changelog-guard': jobSchema }) })
+    .parse(Bun.YAML.parse(await Bun.file(path).text()));
+  const script = workflow.jobs['changelog-guard'].steps.find((step) => step.id === 'gate')?.run;
+  if (script === undefined) {
+    throw new Error('missing changelog guard gate script');
+  }
+  const directory = await mkdtemp(join(tmpdir(), 'mimir-changelog-guard-'));
+  try {
+    const origin = join(directory, 'origin.git');
+    const checkout = join(directory, 'checkout');
+    await git(directory, 'init', '--quiet', '--bare', '--initial-branch=main', origin);
+    await git(directory, 'clone', '--quiet', origin, checkout);
+    await git(checkout, 'checkout', '--quiet', '-b', 'main');
+    await writeFiles(checkout, options.base);
+    await git(checkout, 'add', '--all');
+    await commit(checkout, 'base');
+    await git(checkout, 'push', '--quiet', 'origin', 'main');
+    await git(checkout, 'checkout', '--quiet', '-b', 'change');
+    await writeFiles(checkout, options.head);
+    await git(checkout, 'add', '--all');
+    await commit(checkout, 'change');
+    const child = Bun.spawn(['bash', '-euo', 'pipefail', '-c', script], {
+      cwd: checkout,
+      env: {
+        ...process.env,
+        BASE_REF: 'main',
+        GITHUB_OUTPUT: join(directory, 'output'),
+        HAS_SKIP_LABEL: String(options.label ?? false),
+      },
+      stderr: 'pipe',
+      stdout: 'pipe',
+    });
+    const [exit, stdout] = await Promise.all([child.exited, new Response(child.stdout).text()]);
+    return { exit, stdout };
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+}
+
+const SNAPSHOT = 'packages/contract/engine-schemas.json';
+
+test.each([
+  ['a feature fragment', { 'packages/cli/.changes/feature.mmr-1.md': '- Add.\n' }, false],
+  ['the skip-changelog label', {}, true],
+])(
+  'an Engine contract change with only %s fails while no breaking fragment is pending',
+  async (_, fragments, label) => {
+    const result = await guard({
+      base: { [SNAPSHOT]: '{}\n' },
+      head: { [SNAPSHOT]: '{"added":true}\n', ...fragments },
+      label,
+    });
+    expect(result.exit).toBe(1);
+    expect(result.stdout).toContain('no breaking fragment is pending');
+  },
+);
+
+test('an Engine contract change passes once the cycle carries a breaking fragment', async () => {
+  const result = await guard({
+    base: { [SNAPSHOT]: '{}\n', 'packages/cli/.changes/breaking.mmr-1.md': '- Remove.\n' },
+    head: {
+      'packages/cli/.changes/feature.mmr-2.md': '- Add.\n',
+      'packages/contract/src/version.ts': "export const MIN_CLIENT = '0.27.0-next';\n",
+    },
+  });
+  expect(result.exit).toBe(0);
+});
+
+test('a build-affecting change without a fragment fails unless labeled', async () => {
+  const base = { 'packages/cli/src/a.ts': '1\n' };
+  const head = { 'packages/cli/src/a.ts': '2\n' };
+  expect((await guard({ base, head })).exit).toBe(1);
+  expect((await guard({ base, head, label: true })).exit).toBe(0);
+});
+
+test('the release cut, which only deletes fragments, passes', async () => {
+  const result = await guard({
+    base: { 'packages/cli/.changes/feature.mmr-1.md': '- Add.\n' },
+    head: { 'packages/cli/.changes/feature.mmr-1.md': null },
+  });
+  expect(result.exit).toBe(0);
 });

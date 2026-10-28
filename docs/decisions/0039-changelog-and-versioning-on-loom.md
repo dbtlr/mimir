@@ -21,8 +21,12 @@ changes is whose grammar they use and what decides the version.
 - **The fragment's kind decides the version.** `breaking.<slug>.md`,
   `feature.<slug>.md`, and `<slug>.md` (a fix). On `0.x`, a breaking fragment
   bumps the minor and anything else the patch. ADR 0038 allows an Engine
-  contract change only in a minor release, so one ships as a breaking
-  fragment, with the `### Migration` section Loom requires.
+  contract change, additive included, only in a minor release, so a cycle that
+  changes the contract carries at least one breaking fragment, with the
+  `### Migration` section Loom requires; for an additive change the migration
+  is to update the host before its clients. `changelog-guard` refuses a PR
+  that changes the Engine schema snapshot or `MIN_CLIENT` while no breaking
+  fragment is pending.
 - **`packages/cli/package.json` holds the last release between cuts.** `write`
   sets it at the cut; nothing else stores a version. Only the CLI package
   carries the release version; `core` and `wire` do not track it.
@@ -30,8 +34,11 @@ changes is whose grammar they use and what decides the version.
   merge to `main`, the tagger reads the next version from
   `loom changelog write --dry-run` and tags `v<next>-next.N`, where `N` is one
   above the highest existing tag for that version. With no pending fragment
-  there is nothing to release, and it tags nothing. The release workflow
-  stamps the tag's version into `package.json` before `loom build --release`.
+  there is nothing to release, and it tags nothing. The next version only
+  rises between cuts: the tagger refuses a version below a prerelease already
+  published since the last release, which reverting the cycle's only breaking
+  fragment would cause. The release workflow stamps the tag's version into
+  `package.json` before `loom build --release`.
 - **An untagged build reports the next minor's development version.** A
   source run, a local build, a PR build, and the host bundle without a stamped
   version report `<major>.<minor + 1>.0-next` from `packages/cli/src/version.ts`
@@ -44,6 +51,10 @@ changes is whose grammar they use and what decides the version.
   `publish-release.ts` remain. The cut is one commit (`loom changelog write`,
   then `bun install` for `bun.lock`) and a tag after it merges; there is no
   cycle-open commit and no version guard.
+
+This decision holds on `0.x`. At `1.0` a breaking fragment bumps the major,
+so the minor-release rule for Engine changes and the development version's
+`<minor + 1>` both need an addendum here and in ADR 0038.
 
 ## Why
 
@@ -68,16 +79,23 @@ changes is whose grammar they use and what decides the version.
 - **Lower `MIN_CLIENT` to the last release so untagged builds pass the
   window.** It works until the next raise of `MIN_CLIENT`, when every source
   build falls below it again for the rest of the cycle.
-- **Stamp untagged builds from `loom changelog write --dry-run`.** It reports
-  the exact next version, but every source run would need Loom and the full
-  git history, and a patch-only cycle gains nothing a development build needs.
+- **Derive untagged builds' version from the pending fragments.** Listing
+  `.changes/` for a `breaking.` name would report the cycle's exact next
+  version and keep a source CLI inside a patch cycle's prerelease host's
+  window. But the version module runs in three places that share no file
+  access at that point: a source run, a compiled development binary (which
+  carries no `.changes/`), and Vite's Node config loader. Baking a listing at
+  build time would need a second build-time mechanism beside Loom's release
+  facts. The next minor needs neither.
 
 ## Consequences
 
 - An untagged build's version can name a higher minor than the cycle
-  releases (a patch-only cycle still reports the next minor). That matters
-  only for a development CLI against a released host, which development
-  directories already keep apart.
+  releases: in a patch-only cycle a source CLI reports `0.27.0-next` while
+  prereleases are `0.26.1-next.N`, so a released or prerelease host of that
+  cycle refuses the source CLI as newer than the host. Test a source CLI
+  against a source host (`bun run dev`), or against a prerelease of a cycle
+  that carries a breaking fragment.
 - Ordering inside a release section follows the commit that added each
   fragment, so `write` needs full git history; the tagger checks out with
   full history.

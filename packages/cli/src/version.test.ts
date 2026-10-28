@@ -12,8 +12,14 @@ test.each([
   expect(developmentVersion(released)).toBe(expected);
 });
 
-test('a package version that is not a release cannot name a development build', () => {
-  expect(() => developmentVersion('0.26.0-next')).toThrow('0.26.0-next');
+test.each(['0.26.0-next', '0.26.0-next.42'])(
+  'a prerelease the release workflow stamped (%s) is reported unchanged',
+  (stamped) => {
+    expect(developmentVersion(stamped)).toBe(stamped);
+  },
+);
+
+test('a package version that is not a version cannot name a development build', () => {
   expect(() => developmentVersion('soon')).toThrow('soon');
 });
 

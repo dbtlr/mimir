@@ -16,14 +16,18 @@ declare const __LOOM_RELEASE__: { readonly release?: { readonly version: string 
  * last release (`loom changelog write` sets it), so a source build names the
  * next minor's `-next` prerelease instead. That is the floor a cycle sets
  * when it raises `MIN_CLIENT` (ADR 0038), so a source CLI stays inside a
- * source host's window all cycle.
+ * source host's window all cycle. A prerelease the release workflow stamped
+ * into package.json is already the build's version and passes unchanged.
  */
-export function developmentVersion(released: string): string {
-  const match = /^(\d+)\.(\d+)\.\d+$/.exec(released);
-  if (!match) {
-    throw new Error(`package version ${released} is not a release version (MAJOR.MINOR.PATCH)`);
+export function developmentVersion(packageVersion: string): string {
+  if (/^\d+\.\d+\.\d+-[0-9A-Za-z.-]+$/.test(packageVersion)) {
+    return packageVersion;
   }
-  return `${match[1]}.${Number(match[2]) + 1}.0-next`;
+  const release = /^(\d+)\.(\d+)\.\d+$/.exec(packageVersion);
+  if (!release) {
+    throw new Error(`package version ${packageVersion} is not a SemVer version`);
+  }
+  return `${release[1]}.${Number(release[2]) + 1}.0-next`;
 }
 
 export const VERSION: string =
