@@ -260,6 +260,13 @@ export default defineConfig({
           '@loomcli/undescribed': 'error',
         },
       },
+      {
+        // The sandbox is the repo's own process supervisor (it spawns and signals the
+        // programs it tests), and test support builds the real folders a mock gets handed.
+        excludeFiles: ['packages/cli/src/testing/**', 'packages/host/src/admin/testing.ts'],
+        files: ['packages/cli/**', 'packages/host/src/admin/**'],
+        rules: { '@loomcli/host-bypass': 'error' },
+      },
     ],
   },
   plugins: [

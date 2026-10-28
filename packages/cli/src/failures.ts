@@ -164,9 +164,10 @@ function hintOf(argv: () => readonly string[]): FailureHook {
 
 /**
  * Translates every `MimirError` a command lets through, and prints each failure's hint under it.
- * `argv` is the words of the run, which the leading-dash title hint reads.
+ * `argv` is the words of the run, which the leading-dash title hint reads; a failure hook
+ * cannot read the run's host, so the entry supplies them and none means no dash hint.
  */
-export function failures(argv: () => readonly string[] = () => process.argv.slice(2)): Plugin {
+export function failures(argv: () => readonly string[] = () => []): Plugin {
   return plugin('@mimir/cli/failures', {
     onFailure: hintOf(argv),
     translators: [translate(MimirError, domainError)],
