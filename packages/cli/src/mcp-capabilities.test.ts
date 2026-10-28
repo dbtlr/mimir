@@ -100,7 +100,8 @@ function unrecordedInputs(tool: string): string[] {
   }
   const targets = coverage.loom.map((name) => loomSchemas.get(name)?.properties ?? {});
   return Object.entries(old.properties).flatMap(([key, schema]) => {
-    const same = targets.some((props) => kindOf(props[key]) === kindOf(schema));
+    // Both kinds read undefined for an absent key and an untyped schema, so presence counts too.
+    const same = targets.some((props) => key in props && kindOf(props[key]) === kindOf(schema));
     return same || key in (coverage.inputs ?? {}) ? [] : [key];
   });
 }
@@ -122,7 +123,10 @@ test('every recorded input names a real old input and, when renamed, a real Loom
         wrong.push(`${tool}: ${key} is not an input of the old tool`);
       } else if (now !== null && !targets.some((props) => now in props)) {
         wrong.push(`${tool}: ${key} -> ${now} is not an input of ${coverage.loom.join(', ')}`);
-      } else if (now === key && targets.some((props) => kindOf(props[key]) === kindOf(old[key]))) {
+      } else if (
+        now === key &&
+        targets.some((props) => key in props && kindOf(props[key]) === kindOf(old[key]))
+      ) {
         wrong.push(`${tool}: ${key} is recorded as retyped but is not`);
       }
     }
