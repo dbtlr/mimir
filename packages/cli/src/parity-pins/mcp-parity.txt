@@ -1483,15 +1483,7 @@
 ### the board ends holding the records the cases changed, including every record the answers name
 --- state
 ~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":1,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.009Z\"}"
-- artifacts[MMR-a2].failed: "MMR-a2 doesn't exist"
-+ artifacts[MMR-a2].content: "# Notes\n\nInline body."
-+ artifacts[MMR-a2].createdAt: "2026-10-01T12:00:00.000Z"
-+ artifacts[MMR-a2].id: "MMR-a2"
-+ artifacts[MMR-a2].links: ["MMR-3"]
-+ artifacts[MMR-a2].project: "MMR"
-+ artifacts[MMR-a2].summary: "inline"
-+ artifacts[MMR-a2].tags: []
-+ artifacts[MMR-a2].title: "Inline"
++ artifacts[MMR-a2]: {"content":"# Notes\n\nInline body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"inline","tags":[],"title":"Inline"}
 + board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"inline","tags":[],"title":"Inline"}
 ~ board.MMR.artifacts.returned: 1 -> 2
 ~ board.MMR.artifacts.total: 1 -> 2
@@ -1510,112 +1502,26 @@
 ~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-5, MMR-6, MMR-7, MMR-8, MMR-9]
 ~ board.MMR.nodes.returned: 7 -> 9
 ~ board.MMR.nodes.total: 7 -> 9
-+ nodes[MMR-3].annotations[@2]: {"content":"From the parity run.","createdAt":"2026-10-01T12:00:00.000Z"}
-+ nodes[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"inline","tags":[],"title":"Inline"}
-~ nodes[MMR-3].description: "Open the store once.\n\nKeep it open." -> "Reworded."
-+ nodes[MMR-3].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}
-~ nodes[MMR-8].completedAt: null -> "2026-10-01T12:00:00.000Z"
-+ nodes[MMR-8].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
-+ nodes[MMR-8].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"done"}
-~ nodes[MMR-8].lifecycle: "todo" -> "done"
-~ nodes[MMR-8].status: "ready" -> "done"
++ nodes[MMR-1].children[MMR-11]: {"id":"MMR-11","status":"new","title":"New phase"}
++ nodes[MMR-1].distribution.new: 1
 ~ nodes[MMR-2].children[MMR-8].status: "ready" -> "done"
 + nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"New task"}
 + nodes[MMR-2].children[MMR-12]: {"id":"MMR-12","status":"ready","title":"From a seed"}
 ~ nodes[MMR-2].distribution.ready: 2 -> 3
 ~ nodes[MMR-2].distribution.done: 2 -> 3
++ nodes[MMR-3].annotations[@2]: {"content":"From the parity run.","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"inline","tags":[],"title":"Inline"}
+~ nodes[MMR-3].description: "Open the store once.\n\nKeep it open." -> "Reworded."
++ nodes[MMR-3].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}
 + nodes[MMR-4].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}
-- nodes[MMR-10].failed: "MMR-10 doesn't exist"
-+ nodes[MMR-10].annotations: []
-+ nodes[MMR-10].artifacts: []
-+ nodes[MMR-10].blockOwner: null
-+ nodes[MMR-10].branch: null
-+ nodes[MMR-10].children: []
-+ nodes[MMR-10].completedAt: null
-+ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
-+ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
-+ nodes[MMR-10].description: "Made over MCP."
-+ nodes[MMR-10].externalRef: null
-+ nodes[MMR-10].grooming: "not_groomed"
-+ nodes[MMR-10].harness: null
-+ nodes[MMR-10].history: []
-+ nodes[MMR-10].hold: "none"
-+ nodes[MMR-10].holdReason: null
-+ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
-+ nodes[MMR-10].host: null
-+ nodes[MMR-10].id: "MMR-10"
-+ nodes[MMR-10].lifecycle: "todo"
-+ nodes[MMR-10].parent: "MMR-2"
-+ nodes[MMR-10].priority: null
-+ nodes[MMR-10].session: null
-+ nodes[MMR-10].size: null
-+ nodes[MMR-10].status: "ready"
-+ nodes[MMR-10].summary: null
-+ nodes[MMR-10].tags: []
-+ nodes[MMR-10].title: "New task"
-+ nodes[MMR-10].type: "task"
-+ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
-+ nodes[MMR-10].upstream: null
-+ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
-+ nodes[MMR-10].workerHarness: null
-+ nodes[MMR-10].workerSession: null
-- nodes[MMR-11].failed: "MMR-11 doesn't exist"
-+ nodes[MMR-11].annotations: []
-+ nodes[MMR-11].artifacts: []
-+ nodes[MMR-11].children: []
-+ nodes[MMR-11].createdAt: "2026-10-01T12:00:00.000Z"
-+ nodes[MMR-11].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
-+ nodes[MMR-11].description: null
-+ nodes[MMR-11].distribution: {}
-+ nodes[MMR-11].history: []
-+ nodes[MMR-11].home: {"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"}
-+ nodes[MMR-11].id: "MMR-11"
-+ nodes[MMR-11].open_ended: null
-+ nodes[MMR-11].parent: "MMR-1"
-+ nodes[MMR-11].status: "new"
-+ nodes[MMR-11].summary: null
-+ nodes[MMR-11].tags: []
-+ nodes[MMR-11].target: null
-+ nodes[MMR-11].title: "New phase"
-+ nodes[MMR-11].type: "phase"
-+ nodes[MMR-11].updatedAt: "2026-10-01T12:00:00.000Z"
-+ nodes[MMR-11].verdicts: {"blocking":false,"orphaned":false,"stale":false}
-+ nodes[MMR-1].children[MMR-11]: {"id":"MMR-11","status":"new","title":"New phase"}
-+ nodes[MMR-1].distribution.new: 1
-- nodes[MMR-12].failed: "MMR-12 doesn't exist"
-+ nodes[MMR-12].annotations: []
-+ nodes[MMR-12].artifacts: []
-+ nodes[MMR-12].blockOwner: null
-+ nodes[MMR-12].branch: null
-+ nodes[MMR-12].children: []
-+ nodes[MMR-12].completedAt: null
-+ nodes[MMR-12].createdAt: "2026-10-01T12:00:00.000Z"
-+ nodes[MMR-12].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
-+ nodes[MMR-12].description: null
-+ nodes[MMR-12].externalRef: null
-+ nodes[MMR-12].grooming: "not_groomed"
-+ nodes[MMR-12].harness: null
-+ nodes[MMR-12].history: []
-+ nodes[MMR-12].hold: "none"
-+ nodes[MMR-12].holdReason: null
-+ nodes[MMR-12].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
-+ nodes[MMR-12].host: null
-+ nodes[MMR-12].id: "MMR-12"
-+ nodes[MMR-12].lifecycle: "todo"
-+ nodes[MMR-12].parent: "MMR-2"
-+ nodes[MMR-12].priority: null
-+ nodes[MMR-12].session: null
-+ nodes[MMR-12].size: null
-+ nodes[MMR-12].status: "ready"
-+ nodes[MMR-12].summary: null
-+ nodes[MMR-12].tags: []
-+ nodes[MMR-12].title: "From a seed"
-+ nodes[MMR-12].type: "task"
-+ nodes[MMR-12].updatedAt: "2026-10-01T12:00:00.000Z"
-+ nodes[MMR-12].upstream: null
-+ nodes[MMR-12].verdicts: {"blocking":false,"orphaned":false,"stale":false}
-+ nodes[MMR-12].workerHarness: null
-+ nodes[MMR-12].workerSession: null
+~ nodes[MMR-8].completedAt: null -> "2026-10-01T12:00:00.000Z"
++ nodes[MMR-8].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-8].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"done"}
+~ nodes[MMR-8].lifecycle: "todo" -> "done"
+~ nodes[MMR-8].status: "ready" -> "done"
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Made over MCP.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"New task","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
++ nodes[MMR-11]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-11","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"New phase","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ nodes[MMR-12]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-12","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"From a seed","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 ~ projects[MMR].artifactCount: 1 -> 2
 + projects[MMR].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"inline","tags":[],"title":"Inline"}
 ~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.009Z"

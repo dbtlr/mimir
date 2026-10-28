@@ -20,13 +20,16 @@ exit 0
 ~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
+~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ nodes[MMR-1].distribution.awaiting: 1
+- nodes[MMR-2].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+- nodes[MMR-2].distribution.in_progress: 1
+~ nodes[MMR-2].status: "in_progress" -> "awaiting"
 + nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
-~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
-+ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
-+ nodes[MMR-1].distribution.awaiting: 1
 
 ### move argv: MMR-5 --to MMR-1 -f json
 exit 0
@@ -64,13 +67,16 @@ exit 0
 ~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
+~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ nodes[MMR-1].distribution.awaiting: 1
+- nodes[MMR-2].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+- nodes[MMR-2].distribution.in_progress: 1
+~ nodes[MMR-2].status: "in_progress" -> "awaiting"
 + nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
-~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
-+ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
-+ nodes[MMR-1].distribution.awaiting: 1
 
 ### move argv: MMR-5 --to MMR-1 -f jsonl
 exit 0
@@ -108,13 +114,16 @@ exit 0
 ~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
+~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ nodes[MMR-1].distribution.awaiting: 1
+- nodes[MMR-2].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+- nodes[MMR-2].distribution.in_progress: 1
+~ nodes[MMR-2].status: "in_progress" -> "awaiting"
 + nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
-~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
-+ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
-+ nodes[MMR-1].distribution.awaiting: 1
 
 ### move argv: MMR-5 --to MMR-1 -f ids
 exit 0
@@ -125,13 +134,16 @@ exit 0
 ~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
+~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ nodes[MMR-1].distribution.awaiting: 1
+- nodes[MMR-2].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+- nodes[MMR-2].distribution.in_progress: 1
+~ nodes[MMR-2].status: "in_progress" -> "awaiting"
 + nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
-~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
-+ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
-+ nodes[MMR-1].distribution.awaiting: 1
 
 ### move argv: MMR-5 --to MMR-1 -f table
 exit 0
@@ -145,13 +157,16 @@ exit 0
 ~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
+~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ nodes[MMR-1].distribution.awaiting: 1
+- nodes[MMR-2].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+- nodes[MMR-2].distribution.in_progress: 1
+~ nodes[MMR-2].status: "in_progress" -> "awaiting"
 + nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
-~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
-+ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
-+ nodes[MMR-1].distribution.awaiting: 1
 
 ### move argv: MMR-5 --to MMR-1 --ascii
 exit 0
@@ -175,13 +190,16 @@ exit 0
 ~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
+~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ nodes[MMR-1].distribution.awaiting: 1
+- nodes[MMR-2].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+- nodes[MMR-2].distribution.in_progress: 1
+~ nodes[MMR-2].status: "in_progress" -> "awaiting"
 + nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
-~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
-+ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
-+ nodes[MMR-1].distribution.awaiting: 1
 
 ### move argv: MMR-5 --to MMR-1 (terminal)
 exit 0
@@ -205,13 +223,16 @@ exit 0
 ~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
+~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ nodes[MMR-1].distribution.awaiting: 1
+- nodes[MMR-2].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+- nodes[MMR-2].distribution.in_progress: 1
+~ nodes[MMR-2].status: "in_progress" -> "awaiting"
 + nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
-~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
-+ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
-+ nodes[MMR-1].distribution.awaiting: 1
 
 ### move argv: MMR-5 --to MMR-2
 exit 0

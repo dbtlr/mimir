@@ -200,9 +200,6 @@ afterAll(async () => {
   await open.close();
 });
 
-/** The answers the server gave, whose ids the final state reads back from the board. */
-const answers: string[] = [];
-
 /** A Scratchpad receipt carries the next concurrency token; later cases on that pad use it. */
 function advanceToken(structured: unknown): void {
   const receipt = structured as { id?: unknown; updated_at?: unknown };
@@ -216,13 +213,11 @@ test.each(CASES)('$name answers its pinned structured content', async (c) => {
   expect(answer.isError, answer.text).toBe(false);
   expect(answer.structured).toBeDefined();
   advanceToken(answer.structured);
-  answers.push(answer.text);
   pins.check(keys.get(c)!, quoted(`${named(answer.structured)}\n`));
 });
 
 test(FINAL_STATE, async () => {
-  const texts = ['MMR-3', 'MMR-8', ...answers];
-  pins.check(finalKey, `--- state\n${await stateChanges(open.board, tokens, texts)}`);
+  pins.check(finalKey, `--- state\n${await stateChanges(open.board, tokens)}`);
 });
 
 test('a refusal is a failed call whose structured content is the failure form', async () => {

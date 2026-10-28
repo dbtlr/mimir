@@ -12,6 +12,7 @@ import { createTestStore } from '@mimir/core/testing';
 
 import { createApp } from '../app';
 import type { MachineSource } from '../app';
+import { freezeClock } from './clock';
 
 export type ParityBoard = {
   store: Store;
@@ -185,4 +186,43 @@ export async function parityBoard(replaced: BoardEdges = {}): Promise<ParityBoar
     stdin,
     store,
   };
+}
+
+/** A board at the frozen instant, what readying it returned, and a `close` that releases it and thaws the clock. */
+export type FrozenBoard<T> = { board: ParityBoard; value: T; close: () => Promise<void> };
+
+/**
+ * Freeze the clock, open a board with `open`, and ready it with `ready`. A
+ * fault in either closes what opened and thaws the clock before it rethrows,
+ * so no setup fault leaves the process clock frozen for later test files.
+ */
+export async function frozenBoard<T>(
+  ready: (board: ParityBoard) => Promise<T>,
+  open: () => Promise<ParityBoard> = parityBoard,
+): Promise<FrozenBoard<T>> {
+  freezeClock(true);
+  let board: ParityBoard | undefined;
+  try {
+    board = await open();
+    const value = await ready(board);
+    const opened = board;
+    return {
+      board: opened,
+      close: async () => {
+        try {
+          await opened.close();
+        } finally {
+          freezeClock(false);
+        }
+      },
+      value,
+    };
+  } catch (error) {
+    try {
+      await board?.close();
+    } finally {
+      freezeClock(false);
+    }
+    throw error;
+  }
 }

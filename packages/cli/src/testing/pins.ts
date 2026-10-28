@@ -151,6 +151,16 @@ function walk(path: string, before: unknown, after: unknown, out: string[]): voi
     return;
   }
   if (isRecord(before) && isRecord(after)) {
+    // Two records with no field in common, such as a record and the failure that replaced it
+    // when it stopped reading, are one change, not one line per field.
+    if (
+      !Object.keys(before).some((key) => key in after) &&
+      Object.keys(before).length > 0 &&
+      Object.keys(after).length > 0
+    ) {
+      out.push(`~ ${path}: ${shown(before)} -> ${shown(after)}`);
+      return;
+    }
     for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
       const here = path === '' ? key : `${path}.${key}`;
       if (!(key in after)) {
@@ -191,7 +201,8 @@ function walk(path: string, before: unknown, after: unknown, out: string[]): voi
  * What changed between two board states (JSON, as `boardSnapshot` writes them),
  * one line per change keyed by the record it touched and the field path: `~`
  * for a changed value with old and new, `+` for a created record or field
- * whole, `-` for a removed one. Empty when the states are equal.
+ * whole, `-` for a removed one. A record replaced by one sharing none of its
+ * fields is one `~` line. Empty when the states are equal.
  */
 export function changedRecords(before: string, after: string): string {
   const out: string[] = [];

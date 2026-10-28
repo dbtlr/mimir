@@ -24,8 +24,8 @@ async function priorityChange(id: string): Promise<string> {
   try {
     await after.board.engine.update({ id, priority: 'p0' });
     return changedRecords(
-      await boardSnapshot(before.board, before.tokens, [id]),
-      await boardSnapshot(after.board, after.tokens, [id]),
+      await boardSnapshot(before.board, before.tokens),
+      await boardSnapshot(after.board, after.tokens),
     );
   } finally {
     await before.close();
@@ -53,6 +53,16 @@ test('a created record is pinned whole and a removed one is marked', () => {
   expect(changedRecords(before, after)).toBe(
     '- seeds.MMR[MMR-s1]: {"id":"MMR-s1","title":"a"}\n+ seeds.MMR[MMR-s2]: {"id":"MMR-s2","title":"b"}\n',
   );
+});
+
+test('a record replaced by one sharing no field, such as the failure that hides it, is one change', () => {
+  const before = JSON.stringify({ nodes: [['MMR-3', { id: 'MMR-3', title: 'a' }]] });
+  const after = JSON.stringify({ nodes: [['MMR-3', { failed: 'MMR-3 does not exist' }]] });
+  expect(changedRecords(before, after)).toBe(
+    '~ nodes[MMR-3]: {"id":"MMR-3","title":"a"} -> {"failed":"MMR-3 does not exist"}\n',
+  );
+  // A record gaining its first field still reads by field.
+  expect(changedRecords('{"d":{}}', '{"d":{"ready":1}}')).toBe('+ d.ready: 1\n');
 });
 
 test('equal states pin no change', () => {

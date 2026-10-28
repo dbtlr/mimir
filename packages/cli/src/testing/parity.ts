@@ -17,9 +17,8 @@ import { mockProcess } from '@loomcli/testing';
 import { parseJson } from '@mimir/helpers';
 
 import type { createApp } from '../app';
-import { freezeClock } from './clock';
-import { parityBoard } from './fixture';
-import type { ParityBoard } from './fixture';
+import { frozenBoard } from './fixture';
+import type { FrozenBoard, ParityBoard } from './fixture';
 import { pinsOf, renderRun } from './pins';
 import { runArgv } from './run';
 
@@ -188,20 +187,18 @@ export function parityCases(
   cases: readonly ParityCase[],
   setup?: (board: ParityBoard) => Promise<CaseRewrite | undefined>,
 ): void {
-  let board: ParityBoard;
-  let rewrite: CaseRewrite | undefined;
+  // Frozen, the board's stamps and every age the views print are the same on every run. A
+  // setup fault leaves nothing assigned and the clock thawed, so the cleanup has nothing to close.
+  let opened: FrozenBoard<CaseRewrite | undefined> | undefined;
   beforeAll(async () => {
-    // Frozen, the board's stamps and every age the views print are the same on every run.
-    freezeClock(true);
-    board = await parityBoard();
-    rewrite = await setup?.(board);
+    opened = await frozenBoard(async (board) => setup?.(board));
   });
   afterAll(async () => {
-    await board.close();
-    freezeClock(false);
+    await opened?.close();
   });
 
   registerParity(testUrl, cases, async (c) => {
+    const { board, value: rewrite } = opened!;
     const run = rewrite === undefined ? c : rewrite(c);
     return pinText(await runNew((argv) => board.app(c.bound, argv), run), board.dir);
   });

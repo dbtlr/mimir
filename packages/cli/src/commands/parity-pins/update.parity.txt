@@ -20,8 +20,10 @@ exit 0
 ~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3 --title "Wire the store once" -f json
 exit 0
@@ -58,8 +60,10 @@ exit 0
 ~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3 --title "Wire the store once" -f jsonl
 exit 0
@@ -96,8 +100,10 @@ exit 0
 ~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3 --title "Wire the store once" -f ids
 exit 0
@@ -107,7 +113,10 @@ exit 0
 ~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3 --title ""
 exit 1
@@ -132,8 +141,10 @@ exit 0
 ~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3 --title "Wire the store once" --ascii
 exit 0
@@ -157,8 +168,10 @@ exit 0
 ~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3 --title "Wire the store once" (terminal)
 exit 0
@@ -182,8 +195,10 @@ exit 0
 ~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
-~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
 ~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3
 exit 0
@@ -747,11 +762,13 @@ exit 0
 ~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Both"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Both"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Both"
+~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Both"
 ~ nodes[MMR-3].description: "Open the store once.\n\nKeep it open." -> "and"
 ~ nodes[MMR-3].priority: "p1" -> "p2"
 ~ nodes[MMR-3].summary: "one store per run" -> "more"
 ~ nodes[MMR-3].title: "Wire the store" -> "Both"
-~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Both"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Both"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Both"
 
 ### update argv: MMR-2 --target 2027-03
 exit 0
@@ -1192,6 +1209,7 @@ exit 0
 ~ artifacts[MMR-a1].title: "Store notes" -> "x"
 ~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
 ~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
 ~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
 
 ### update argv: MMR-a1 --title x -f table
@@ -1204,6 +1222,7 @@ exit 0
 ~ artifacts[MMR-a1].title: "Store notes" -> "x"
 ~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
 ~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
 ~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
 
 ### update argv: MMR-a1 --title x --ascii

@@ -7,10 +7,9 @@
  * the difference from a board built the same way and never written to; a write
  * the CLI refuses must change nothing. Test-only.
  */
-import { expect } from 'bun:test';
+import { expect, test } from 'bun:test';
 
-import { freezeClock } from './clock';
-import { parityBoard } from './fixture';
+import { frozenBoard, parityBoard } from './fixture';
 import type { ParityBoard } from './fixture';
 import { pinText, registerParity, runNew } from './parity';
 import type { ParityCase } from './parity';
@@ -43,8 +42,9 @@ function setupOf(c: SetupCase, shared?: Setup): Setup | undefined {
 }
 
 /**
- * What a case needs on each board beyond records, such as findings for doctor
- * to report. Runs on both boards after they are populated, before the case.
+ * What a case needs on its board beyond records, such as findings for doctor
+ * to report. Runs on the case's board after it is populated, before the case,
+ * and adds nothing the state comparison reads.
  */
 export type Arrange<Case extends ParityCase> = (board: ParityBoard, c: Case) => void;
 
@@ -120,24 +120,8 @@ async function prepare(board: ParityBoard, setup?: Setup): Promise<Tokens> {
  * `setup`'s. Call `close` to release it and the clock.
  */
 export async function openBoard(setup?: Setup): Promise<OpenBoard> {
-  freezeClock(true);
-  const board = await parityBoard();
-  try {
-    const tokens = await prepare(board, setup);
-    return {
-      board,
-      close: async () => {
-        await board.close();
-        freezeClock(false);
-      },
-      tokens,
-    };
-  } catch (error) {
-    // A setup fault must not leave the clock frozen for every later test.
-    await board.close();
-    freezeClock(false);
-    throw error;
-  }
+  const { board, close, value: tokens } = await frozenBoard((opened) => prepare(opened, setup));
+  return { board, close, tokens };
 }
 
 const fill = (text: string, tokens: Tokens): string =>
@@ -165,71 +149,126 @@ export function bindCase(c: ParityCase, tokens: Tokens): ParityCase {
   };
 }
 
-/** `text` with each of one board's token values swapped for the same token's value on another. */
-function retarget(text: string, from: Tokens, to: Tokens): string {
-  return Object.entries(from).reduce(
-    (swapped, [name, value]) => swapped.replaceAll(value, to[name] ?? value),
-    text,
-  );
-}
-
 /**
- * The records a write changed on `board`, as lines: its state against a board
- * built the same way and never written to, both read for the same names.
+ * The records a write changed on `board`, as lines: its whole state against a
+ * board built the same way and never written to.
  */
 export async function stateChanges(
   board: ParityBoard,
   tokens: Tokens,
-  texts: readonly string[],
   setup?: Setup,
 ): Promise<string> {
   const untouched = await parityBoard();
   try {
     const fresh = await prepare(untouched, setup);
-    const before = await boardSnapshot(
-      untouched,
-      fresh,
-      texts.map((text) => retarget(text, tokens, fresh)),
+    return changedRecords(
+      await boardSnapshot(untouched, fresh),
+      await boardSnapshot(board, tokens),
     );
-    return changedRecords(before, await boardSnapshot(board, tokens, texts));
   } finally {
     await untouched.close();
   }
 }
 
+/** What one write case did: its exit code, the records it changed, and its pin. */
+type WriteRun = { exitCode: number; state: string; pin: string };
+
 /**
- * Run one write case on a fresh board and return its pin: what the CLI
- * printed, then the records it changed. A refused write must change nothing.
+ * Run one write case on a fresh board: what the CLI printed, then the records
+ * it changed. A refused write must change nothing.
  */
-export async function writePin<Case extends SetupCase>(
+async function runWrite<Case extends SetupCase>(
   c: Case,
   shared?: Setup,
   arrange?: Arrange<Case>,
-): Promise<string> {
+): Promise<WriteRun> {
   const setup = setupOf(c, shared);
   const open = await openBoard(setup);
   try {
     const bound = bindCase(c, open.tokens);
     arrange?.(open.board, c);
     const run = await runNew((argv) => open.board.app(c.bound, argv, c.origin), bound);
-    const changes = await stateChanges(
-      open.board,
-      open.tokens,
-      [JSON.stringify(bound), run.stdout],
-      setup,
-    );
+    const changes = await stateChanges(open.board, open.tokens, setup);
     // A refusal writes nothing, whatever it printed.
     expect(run.exitCode !== 0 ? changes : '', 'the refused write changed the board').toBe('');
-    return pinText(run, open.board.dir, `--- state\n${changes === '' ? 'unchanged\n' : changes}`);
+    const state = `--- state\n${changes === '' ? 'unchanged\n' : changes}`;
+    return { exitCode: run.exitCode, pin: pinText(run, open.board.dir, state), state };
   } finally {
     await open.close();
   }
 }
 
+/** Options that only choose how a result is shown. */
+const PRESENTATION_OPTIONS: ReadonlySet<string> = new Set(['ascii', 'format']);
+
+/** `argv` without its presentation words: every `-f` or `--format` and its value, and `--ascii`, before any `--`. */
+function withoutPresentation(argv: readonly string[]): string[] {
+  const stop = argv.indexOf('--');
+  const head = stop === -1 ? argv : argv.slice(0, stop);
+  const kept: string[] = [];
+  for (let i = 0; i < head.length; i++) {
+    const word = head[i]!;
+    if (word === '-f' || word === '--format') {
+      i++;
+    } else if (word !== '--ascii' && !word.startsWith('--format=')) {
+      kept.push(word);
+    }
+  }
+  return stop === -1 ? kept : [...kept, ...argv.slice(stop)];
+}
+
+/**
+ * The write a case runs, with how its result is shown set aside: the format,
+ * `--ascii`, and the terminal. Two cases with the same key run the same write
+ * on the same board, so they must change the same records. `setupId` names
+ * the case's own setup, which a key cannot spell.
+ */
+export function writeKey(c: SetupCase, setupId: number): string {
+  const { argv, name: _name, options, setup: _setup, tty: _tty, ...rest } = c;
+  return JSON.stringify({
+    ...rest,
+    setupId,
+    ...(argv === undefined ? {} : { argv: withoutPresentation(argv) }),
+    ...(options === undefined
+      ? {}
+      : {
+          options: Object.fromEntries(
+            Object.entries(options).filter(([key]) => !PRESENTATION_OPTIONS.has(key)),
+          ),
+        }),
+  });
+}
+
+/**
+ * The cases among `runs` whose state differs from the first successful run of
+ * the same write, as `name: differs from first` lines. A format, `--ascii`, or
+ * a terminal changes how a result is shown and never what a write stores.
+ */
+export function formatVariance(
+  runs: readonly { key: string; name: string; exitCode: number; state: string }[],
+): string[] {
+  const first = new Map<string, { name: string; state: string }>();
+  const out: string[] = [];
+  for (const run of runs) {
+    if (run.exitCode !== 0) {
+      continue;
+    }
+    const seen = first.get(run.key);
+    if (seen === undefined) {
+      first.set(run.key, run);
+    } else if (seen.state !== run.state) {
+      out.push(`${run.name}: changed other records than ${seen.name}`);
+    }
+  }
+  return out;
+}
+
 /**
  * Register one write command's parity tests: every case runs on its own fresh
- * board through `writePin` and must match its pin. `setup` adds records the
- * cases need, and `arrange` readies the board for one case.
+ * board through `runWrite` and must match its pin. `setup` adds records the
+ * cases need, and `arrange` readies the board for one case. Every successful
+ * variant of one write, differing only in how its result is shown, must pin
+ * the same records.
  */
 export function writeCases<Case extends SetupCase>(
   testUrl: string,
@@ -237,5 +276,20 @@ export function writeCases<Case extends SetupCase>(
   setup?: Setup,
   arrange?: Arrange<Case>,
 ): void {
-  registerParity(testUrl, cases, (c) => writePin(c, setup, arrange));
+  const setups = new Map<Setup | undefined, number>();
+  const keyOf = (c: Case): string => {
+    if (!setups.has(c.setup)) {
+      setups.set(c.setup, setups.size);
+    }
+    return writeKey(c, setups.get(c.setup)!);
+  };
+  const runs = new Map<Case, { key: string; name: string; exitCode: number; state: string }>();
+  registerParity(testUrl, cases, async (c) => {
+    const run = await runWrite(c, setup, arrange);
+    runs.set(c, { exitCode: run.exitCode, key: keyOf(c), name: c.name, state: run.state });
+    return run.pin;
+  });
+  test('every format of one write changes the same records', () => {
+    expect(formatVariance(cases.flatMap((c) => runs.get(c) ?? []))).toEqual([]);
+  });
 }

@@ -136,6 +136,7 @@ exit 0
 + artifacts[MMR-a1].tags[@1]: "extra"
 + board.MMR.artifacts.items[MMR-a1].tags[@1]: "extra"
 + board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].tags[@1]: "extra"
++ nodes[MMR-3].artifacts[MMR-a1].tags[@1]: "extra"
 + projects[MMR].artifacts[MMR-a1].tags[@1]: "extra"
 
 ### tag argv: MMR-2 phase-tag
@@ -372,6 +373,7 @@ exit 0
 - artifacts[MMR-a1].tags[@0]: "design"
 - board.MMR.artifacts.items[MMR-a1].tags[@0]: "design"
 - board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].tags[@0]: "design"
+- nodes[MMR-3].artifacts[MMR-a1].tags[@0]: "design"
 - projects[MMR].artifacts[MMR-a1].tags[@0]: "design"
 
 ### untag argv: MMR-99 alpha

@@ -3,14 +3,7 @@ exit 0
 --- stdout
 | [ok] attached artifact MMR-a2
 --- state
-- artifacts[MMR-a2].failed: "MMR-a2 doesn't exist"
-+ artifacts[MMR-a2].content: "# Design\n\nThe body."
-+ artifacts[MMR-a2].createdAt: "2026-10-01T12:00:00.000Z"
-+ artifacts[MMR-a2].id: "MMR-a2"
-+ artifacts[MMR-a2].links: ["MMR-5"]
-+ artifacts[MMR-a2].project: "MMR"
-+ artifacts[MMR-a2].tags: []
-+ artifacts[MMR-a2].title: "design.md"
++ artifacts[MMR-a2]: {"content":"# Design\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 + board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 ~ board.MMR.artifacts.returned: 1 -> 2
 ~ board.MMR.artifacts.total: 1 -> 2
@@ -24,14 +17,7 @@ exit 0
 --- stdout
 | {"artifact":{"id":"MMR-a2"}}
 --- state
-- artifacts[MMR-a2].failed: "MMR-a2 doesn't exist"
-+ artifacts[MMR-a2].content: "# Design\n\nThe body."
-+ artifacts[MMR-a2].createdAt: "2026-10-01T12:00:00.000Z"
-+ artifacts[MMR-a2].id: "MMR-a2"
-+ artifacts[MMR-a2].links: ["MMR-5"]
-+ artifacts[MMR-a2].project: "MMR"
-+ artifacts[MMR-a2].tags: []
-+ artifacts[MMR-a2].title: "design.md"
++ artifacts[MMR-a2]: {"content":"# Design\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 + board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 ~ board.MMR.artifacts.returned: 1 -> 2
 ~ board.MMR.artifacts.total: 1 -> 2
@@ -45,14 +31,7 @@ exit 0
 --- stdout
 | {"artifact":{"id":"MMR-a2"}}
 --- state
-- artifacts[MMR-a2].failed: "MMR-a2 doesn't exist"
-+ artifacts[MMR-a2].content: "# Design\n\nThe body."
-+ artifacts[MMR-a2].createdAt: "2026-10-01T12:00:00.000Z"
-+ artifacts[MMR-a2].id: "MMR-a2"
-+ artifacts[MMR-a2].links: ["MMR-5"]
-+ artifacts[MMR-a2].project: "MMR"
-+ artifacts[MMR-a2].tags: []
-+ artifacts[MMR-a2].title: "design.md"
++ artifacts[MMR-a2]: {"content":"# Design\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 + board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 ~ board.MMR.artifacts.returned: 1 -> 2
 ~ board.MMR.artifacts.total: 1 -> 2
@@ -66,14 +45,7 @@ exit 0
 --- stdout
 | MMR-a2
 --- state
-- artifacts[MMR-a2].failed: "MMR-a2 doesn't exist"
-+ artifacts[MMR-a2].content: "# Design\n\nThe body."
-+ artifacts[MMR-a2].createdAt: "2026-10-01T12:00:00.000Z"
-+ artifacts[MMR-a2].id: "MMR-a2"
-+ artifacts[MMR-a2].links: ["MMR-5"]
-+ artifacts[MMR-a2].project: "MMR"
-+ artifacts[MMR-a2].tags: []
-+ artifacts[MMR-a2].title: "design.md"
++ artifacts[MMR-a2]: {"content":"# Design\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 + board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 ~ board.MMR.artifacts.returned: 1 -> 2
 ~ board.MMR.artifacts.total: 1 -> 2
@@ -87,14 +59,7 @@ exit 0
 --- stdout
 | [ok] attached artifact MMR-a2
 --- state
-- artifacts[MMR-a2].failed: "MMR-a2 doesn't exist"
-+ artifacts[MMR-a2].content: "# Design\n\nThe body."
-+ artifacts[MMR-a2].createdAt: "2026-10-01T12:00:00.000Z"
-+ artifacts[MMR-a2].id: "MMR-a2"
-+ artifacts[MMR-a2].links: ["MMR-5"]
-+ artifacts[MMR-a2].project: "MMR"
-+ artifacts[MMR-a2].tags: []
-+ artifacts[MMR-a2].title: "design.md"
++ artifacts[MMR-a2]: {"content":"# Design\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 + board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 ~ board.MMR.artifacts.returned: 1 -> 2
 ~ board.MMR.artifacts.total: 1 -> 2
@@ -108,14 +73,7 @@ exit 0
 --- stdout
 | [ok] attached artifact MMR-a2
 --- state
-- artifacts[MMR-a2].failed: "MMR-a2 doesn't exist"
-+ artifacts[MMR-a2].content: "# Design\n\nThe body."
-+ artifacts[MMR-a2].createdAt: "2026-10-01T12:00:00.000Z"
-+ artifacts[MMR-a2].id: "MMR-a2"
-+ artifacts[MMR-a2].links: ["MMR-5"]
-+ artifacts[MMR-a2].project: "MMR"
-+ artifacts[MMR-a2].tags: []
-+ artifacts[MMR-a2].title: "design.md"
++ artifacts[MMR-a2]: {"content":"# Design\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 + board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 ~ board.MMR.artifacts.returned: 1 -> 2
 ~ board.MMR.artifacts.total: 1 -> 2
@@ -129,14 +87,7 @@ exit 0
 --- stdout
 | ␛[32m✓␛[39m attached artifact MMR-a2
 --- state
-- artifacts[MMR-a2].failed: "MMR-a2 doesn't exist"
-+ artifacts[MMR-a2].content: "# Design\n\nThe body."
-+ artifacts[MMR-a2].createdAt: "2026-10-01T12:00:00.000Z"
-+ artifacts[MMR-a2].id: "MMR-a2"
-+ artifacts[MMR-a2].links: ["MMR-5"]
-+ artifacts[MMR-a2].project: "MMR"
-+ artifacts[MMR-a2].tags: []
-+ artifacts[MMR-a2].title: "design.md"
++ artifacts[MMR-a2]: {"content":"# Design\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 + board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 ~ board.MMR.artifacts.returned: 1 -> 2
 ~ board.MMR.artifacts.total: 1 -> 2
@@ -150,14 +101,7 @@ exit 0
 --- stdout
 | [ok] attached artifact MMR-a2
 --- state
-- artifacts[MMR-a2].failed: "MMR-a2 doesn't exist"
-+ artifacts[MMR-a2].content: "# Design\n\nThe body."
-+ artifacts[MMR-a2].createdAt: "2026-10-01T12:00:00.000Z"
-+ artifacts[MMR-a2].id: "MMR-a2"
-+ artifacts[MMR-a2].links: ["MMR-5"]
-+ artifacts[MMR-a2].project: "MMR"
-+ artifacts[MMR-a2].tags: []
-+ artifacts[MMR-a2].title: "Design notes"
++ artifacts[MMR-a2]: {"content":"# Design\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"Design notes"}
 + board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"Design notes"}
 ~ board.MMR.artifacts.returned: 1 -> 2
 ~ board.MMR.artifacts.total: 1 -> 2
@@ -171,15 +115,7 @@ exit 0
 --- stdout
 | [ok] attached artifact MMR-a2
 --- state
-- artifacts[MMR-a2].failed: "MMR-a2 doesn't exist"
-+ artifacts[MMR-a2].content: "# Design\n\nThe body."
-+ artifacts[MMR-a2].createdAt: "2026-10-01T12:00:00.000Z"
-+ artifacts[MMR-a2].id: "MMR-a2"
-+ artifacts[MMR-a2].links: ["MMR-5"]
-+ artifacts[MMR-a2].project: "MMR"
-+ artifacts[MMR-a2].summary: "the design"
-+ artifacts[MMR-a2].tags: []
-+ artifacts[MMR-a2].title: "design.md"
++ artifacts[MMR-a2]: {"content":"# Design\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","summary":"the design","tags":[],"title":"design.md"}
 + board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","summary":"the design","tags":[],"title":"design.md"}
 ~ board.MMR.artifacts.returned: 1 -> 2
 ~ board.MMR.artifacts.total: 1 -> 2
@@ -193,14 +129,7 @@ exit 0
 --- stdout
 | [ok] attached artifact MMR-a2
 --- state
-- artifacts[MMR-a2].failed: "MMR-a2 doesn't exist"
-+ artifacts[MMR-a2].content: "# Design\n\nThe body."
-+ artifacts[MMR-a2].createdAt: "2026-10-01T12:00:00.000Z"
-+ artifacts[MMR-a2].id: "MMR-a2"
-+ artifacts[MMR-a2].links: ["MMR-5"]
-+ artifacts[MMR-a2].project: "MMR"
-+ artifacts[MMR-a2].tags: ["design","review"]
-+ artifacts[MMR-a2].title: "design.md"
++ artifacts[MMR-a2]: {"content":"# Design\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":["design","review"],"title":"design.md"}
 + board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":["design","review"],"title":"design.md"}
 ~ board.MMR.artifacts.returned: 1 -> 2
 ~ board.MMR.artifacts.total: 1 -> 2
@@ -214,14 +143,7 @@ exit 0
 --- stdout
 | [ok] attached artifact MMR-a2
 --- state
-- artifacts[MMR-a2].failed: "MMR-a2 doesn't exist"
-+ artifacts[MMR-a2].content: "# Design\n\nThe body."
-+ artifacts[MMR-a2].createdAt: "2026-10-01T12:00:00.000Z"
-+ artifacts[MMR-a2].id: "MMR-a2"
-+ artifacts[MMR-a2].links: ["MMR-5"]
-+ artifacts[MMR-a2].project: "MMR"
-+ artifacts[MMR-a2].tags: ["design"]
-+ artifacts[MMR-a2].title: "design.md"
++ artifacts[MMR-a2]: {"content":"# Design\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":["design"],"title":"design.md"}
 + board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":["design"],"title":"design.md"}
 ~ board.MMR.artifacts.returned: 1 -> 2
 ~ board.MMR.artifacts.total: 1 -> 2
@@ -235,23 +157,16 @@ exit 0
 --- stdout
 | [ok] attached artifact MMR-a2
 --- state
-- artifacts[MMR-a2].failed: "MMR-a2 doesn't exist"
-+ artifacts[MMR-a2].content: "# Design\n\nThe body."
-+ artifacts[MMR-a2].createdAt: "2026-10-01T12:00:00.000Z"
-+ artifacts[MMR-a2].id: "MMR-a2"
-+ artifacts[MMR-a2].links: ["MMR-3","MMR-4","MMR-5"]
-+ artifacts[MMR-a2].project: "MMR"
-+ artifacts[MMR-a2].tags: []
-+ artifacts[MMR-a2].title: "design.md"
++ artifacts[MMR-a2]: {"content":"# Design\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3","MMR-4","MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 + board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3","MMR-4","MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 ~ board.MMR.artifacts.returned: 1 -> 2
 ~ board.MMR.artifacts.total: 1 -> 2
 + board.MMR.nodes.items[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","tags":[],"title":"design.md"}
 + board.MMR.nodes.items[MMR-4].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","tags":[],"title":"design.md"}
 + board.MMR.nodes.items[MMR-5].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","tags":[],"title":"design.md"}
-+ nodes[MMR-5].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","tags":[],"title":"design.md"}
 + nodes[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","tags":[],"title":"design.md"}
 + nodes[MMR-4].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","tags":[],"title":"design.md"}
++ nodes[MMR-5].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","tags":[],"title":"design.md"}
 ~ projects[MMR].artifactCount: 1 -> 2
 + projects[MMR].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","tags":[],"title":"design.md"}
 
@@ -260,14 +175,7 @@ exit 0
 --- stdout
 | [ok] attached artifact MMR-a2
 --- state
-- artifacts[MMR-a2].failed: "MMR-a2 doesn't exist"
-+ artifacts[MMR-a2].content: "# Design\n\nThe body."
-+ artifacts[MMR-a2].createdAt: "2026-10-01T12:00:00.000Z"
-+ artifacts[MMR-a2].id: "MMR-a2"
-+ artifacts[MMR-a2].links: ["MMR-3","MMR-4"]
-+ artifacts[MMR-a2].project: "MMR"
-+ artifacts[MMR-a2].tags: []
-+ artifacts[MMR-a2].title: "design.md"
++ artifacts[MMR-a2]: {"content":"# Design\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3","MMR-4"],"project":"MMR","tags":[],"title":"design.md"}
 + board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3","MMR-4"],"project":"MMR","tags":[],"title":"design.md"}
 ~ board.MMR.artifacts.returned: 1 -> 2
 ~ board.MMR.artifacts.total: 1 -> 2
@@ -283,14 +191,7 @@ exit 0
 --- stdout
 | [ok] attached artifact MMR-a2
 --- state
-- artifacts[MMR-a2].failed: "MMR-a2 doesn't exist"
-+ artifacts[MMR-a2].content: "# Design\n\nThe body."
-+ artifacts[MMR-a2].createdAt: "2026-10-01T12:00:00.000Z"
-+ artifacts[MMR-a2].id: "MMR-a2"
-+ artifacts[MMR-a2].links: ["MMR-5"]
-+ artifacts[MMR-a2].project: "MMR"
-+ artifacts[MMR-a2].tags: []
-+ artifacts[MMR-a2].title: "design.md"
++ artifacts[MMR-a2]: {"content":"# Design\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 + board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 ~ board.MMR.artifacts.returned: 1 -> 2
 ~ board.MMR.artifacts.total: 1 -> 2
@@ -304,14 +205,7 @@ exit 0
 --- stdout
 | [ok] attached artifact MMR-a2
 --- state
-- artifacts[MMR-a2].failed: "MMR-a2 doesn't exist"
-+ artifacts[MMR-a2].content: "# Design\n\nThe body."
-+ artifacts[MMR-a2].createdAt: "2026-10-01T12:00:00.000Z"
-+ artifacts[MMR-a2].id: "MMR-a2"
-+ artifacts[MMR-a2].links: []
-+ artifacts[MMR-a2].project: "MMR"
-+ artifacts[MMR-a2].tags: []
-+ artifacts[MMR-a2].title: "design.md"
++ artifacts[MMR-a2]: {"content":"# Design\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":[],"project":"MMR","tags":[],"title":"design.md"}
 + board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":[],"project":"MMR","tags":[],"title":"design.md"}
 ~ board.MMR.artifacts.returned: 1 -> 2
 ~ board.MMR.artifacts.total: 1 -> 2
@@ -323,14 +217,7 @@ exit 0
 --- stdout
 | {"artifact":{"id":"MMR-a2"}}
 --- state
-- artifacts[MMR-a2].failed: "MMR-a2 doesn't exist"
-+ artifacts[MMR-a2].content: "# Design\n\nThe body."
-+ artifacts[MMR-a2].createdAt: "2026-10-01T12:00:00.000Z"
-+ artifacts[MMR-a2].id: "MMR-a2"
-+ artifacts[MMR-a2].links: []
-+ artifacts[MMR-a2].project: "MMR"
-+ artifacts[MMR-a2].tags: []
-+ artifacts[MMR-a2].title: "design.md"
++ artifacts[MMR-a2]: {"content":"# Design\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":[],"project":"MMR","tags":[],"title":"design.md"}
 + board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":[],"project":"MMR","tags":[],"title":"design.md"}
 ~ board.MMR.artifacts.returned: 1 -> 2
 ~ board.MMR.artifacts.total: 1 -> 2
@@ -342,14 +229,7 @@ exit 0
 --- stdout
 | [ok] attached artifact MMR-a2
 --- state
-- artifacts[MMR-a2].failed: "MMR-a2 doesn't exist"
-+ artifacts[MMR-a2].content: "# Design\n\nThe body."
-+ artifacts[MMR-a2].createdAt: "2026-10-01T12:00:00.000Z"
-+ artifacts[MMR-a2].id: "MMR-a2"
-+ artifacts[MMR-a2].links: ["MMR-5"]
-+ artifacts[MMR-a2].project: "MMR"
-+ artifacts[MMR-a2].tags: []
-+ artifacts[MMR-a2].title: "design.md"
++ artifacts[MMR-a2]: {"content":"# Design\n\nThe body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 + board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-5"],"project":"MMR","tags":[],"title":"design.md"}
 ~ board.MMR.artifacts.returned: 1 -> 2
 ~ board.MMR.artifacts.total: 1 -> 2

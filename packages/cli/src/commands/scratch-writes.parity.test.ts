@@ -256,7 +256,11 @@ const CASES: ParityCase[] = [
   scratch('agenda', '(no action)', {}, GUARD),
   scratch('agenda', '(no id)', { action: 'add' }, GUARD),
 
-  // freeze
+  // freeze. A freeze or discard removes the pad, so the project's last activity, the newest
+  // stamp across its records, falls back to the rest of the board: from the pad's guard,
+  // 12:00:00.005Z, to the frozen instant. The clock never moves, so each of the pad's five
+  // writes after its creation stamped it 1 ms past the last (`stampAfter`); every board,
+  // pristine or not, sees the same clock, and the pin is the store's real recompute.
   scratch('freeze', '--summary', { id: '{pad}' }, { ...GUARD, summary: 'The index notes' }),
   scratch(
     'freeze',
@@ -300,7 +304,7 @@ const CASES: ParityCase[] = [
   scratch('freeze', '(unknown pad)', { id: MISSING }, { ...GUARD, summary: 'x' }),
   scratch('freeze', '(discarded pad)', { id: '{gone}' }, { ...GUARD, summary: 'x' }),
 
-  // discard
+  // discard. The project's last activity steps back as it does for a freeze, above.
   scratch('discard', 'a blank pad', { id: '{blank}' }, GUARD),
   scratch('discard', 'a blank pad -f ids', { id: '{blank}' }, { ...GUARD, format: 'ids' }),
   scratch('discard', 'a blank pad -f json', { id: '{blank}' }, { ...GUARD, format: 'json' }),
