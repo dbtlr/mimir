@@ -3,386 +3,91 @@ exit 0
 --- stdout
 | [ok] created project GAM
 --- state
-    "projects": [
-      {
-+       "artifactCount": 0,
-+       "artifacts": [],
-+       "children": [],
-+       "createdAt": "2026-10-01T12:00:00.000Z",
-+       "description": null,
-+       "distribution": {},
-+       "id": "GAM",
-+       "lastActivityAt": "2026-10-01T12:00:00.000Z",
-+       "leafCounts": {},
-+       "parent": null,
-+       "pinned": false,
-+       "remote": null,
-+       "status": "new",
-+       "tags": [],
-+       "title": "Gamma",
-+       "type": "project",
-+       "updatedAt": "2026-10-01T12:00:00.000Z"
-+     },
-+     {
-        "artifactCount": 1,
-        "artifacts": [
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM --yes
 exit 0
 --- stdout
 | [ok] created project GAM
 --- state
-    "projects": [
-      {
-+       "artifactCount": 0,
-+       "artifacts": [],
-+       "children": [],
-+       "createdAt": "2026-10-01T12:00:00.000Z",
-+       "description": null,
-+       "distribution": {},
-+       "id": "GAM",
-+       "lastActivityAt": "2026-10-01T12:00:00.000Z",
-+       "leafCounts": {},
-+       "parent": null,
-+       "pinned": false,
-+       "remote": null,
-+       "status": "new",
-+       "tags": [],
-+       "title": "Gamma",
-+       "type": "project",
-+       "updatedAt": "2026-10-01T12:00:00.000Z"
-+     },
-+     {
-        "artifactCount": 1,
-        "artifacts": [
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM -y -f json
 exit 0
 --- stdout
 | {"project":{"key":"GAM","name":"Gamma"}}
 --- state
-    "projects": [
-      {
-+       "artifactCount": 0,
-+       "artifacts": [],
-+       "children": [],
-+       "createdAt": "2026-10-01T12:00:00.000Z",
-+       "description": null,
-+       "distribution": {},
-+       "id": "GAM",
-+       "lastActivityAt": "2026-10-01T12:00:00.000Z",
-+       "leafCounts": {},
-+       "parent": null,
-+       "pinned": false,
-+       "remote": null,
-+       "status": "new",
-+       "tags": [],
-+       "title": "Gamma",
-+       "type": "project",
-+       "updatedAt": "2026-10-01T12:00:00.000Z"
-+     },
-+     {
-        "artifactCount": 1,
-        "artifacts": [
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM -y -f jsonl
 exit 0
 --- stdout
 | {"project":{"key":"GAM","name":"Gamma"}}
 --- state
-    "projects": [
-      {
-+       "artifactCount": 0,
-+       "artifacts": [],
-+       "children": [],
-+       "createdAt": "2026-10-01T12:00:00.000Z",
-+       "description": null,
-+       "distribution": {},
-+       "id": "GAM",
-+       "lastActivityAt": "2026-10-01T12:00:00.000Z",
-+       "leafCounts": {},
-+       "parent": null,
-+       "pinned": false,
-+       "remote": null,
-+       "status": "new",
-+       "tags": [],
-+       "title": "Gamma",
-+       "type": "project",
-+       "updatedAt": "2026-10-01T12:00:00.000Z"
-+     },
-+     {
-        "artifactCount": 1,
-        "artifacts": [
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM -y -f ids
 exit 0
 --- stdout
 | GAM
 --- state
-    "projects": [
-      {
-+       "artifactCount": 0,
-+       "artifacts": [],
-+       "children": [],
-+       "createdAt": "2026-10-01T12:00:00.000Z",
-+       "description": null,
-+       "distribution": {},
-+       "id": "GAM",
-+       "lastActivityAt": "2026-10-01T12:00:00.000Z",
-+       "leafCounts": {},
-+       "parent": null,
-+       "pinned": false,
-+       "remote": null,
-+       "status": "new",
-+       "tags": [],
-+       "title": "Gamma",
-+       "type": "project",
-+       "updatedAt": "2026-10-01T12:00:00.000Z"
-+     },
-+     {
-        "artifactCount": 1,
-        "artifacts": [
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project --name Gamma --key GAM -y
 exit 0
 --- stdout
 | [ok] created project GAM
 --- state
-    "projects": [
-      {
-+       "artifactCount": 0,
-+       "artifacts": [],
-+       "children": [],
-+       "createdAt": "2026-10-01T12:00:00.000Z",
-+       "description": null,
-+       "distribution": {},
-+       "id": "GAM",
-+       "lastActivityAt": "2026-10-01T12:00:00.000Z",
-+       "leafCounts": {},
-+       "parent": null,
-+       "pinned": false,
-+       "remote": null,
-+       "status": "new",
-+       "tags": [],
-+       "title": "Gamma",
-+       "type": "project",
-+       "updatedAt": "2026-10-01T12:00:00.000Z"
-+     },
-+     {
-        "artifactCount": 1,
-        "artifacts": [
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project --name Gamma --key GAM -y -f json
 exit 0
 --- stdout
 | {"project":{"key":"GAM","name":"Gamma"}}
 --- state
-    "projects": [
-      {
-+       "artifactCount": 0,
-+       "artifacts": [],
-+       "children": [],
-+       "createdAt": "2026-10-01T12:00:00.000Z",
-+       "description": null,
-+       "distribution": {},
-+       "id": "GAM",
-+       "lastActivityAt": "2026-10-01T12:00:00.000Z",
-+       "leafCounts": {},
-+       "parent": null,
-+       "pinned": false,
-+       "remote": null,
-+       "status": "new",
-+       "tags": [],
-+       "title": "Gamma",
-+       "type": "project",
-+       "updatedAt": "2026-10-01T12:00:00.000Z"
-+     },
-+     {
-        "artifactCount": 1,
-        "artifacts": [
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM -y -f table
 exit 0
 --- stdout
 | [ok] created project GAM
 --- state
-    "projects": [
-      {
-+       "artifactCount": 0,
-+       "artifacts": [],
-+       "children": [],
-+       "createdAt": "2026-10-01T12:00:00.000Z",
-+       "description": null,
-+       "distribution": {},
-+       "id": "GAM",
-+       "lastActivityAt": "2026-10-01T12:00:00.000Z",
-+       "leafCounts": {},
-+       "parent": null,
-+       "pinned": false,
-+       "remote": null,
-+       "status": "new",
-+       "tags": [],
-+       "title": "Gamma",
-+       "type": "project",
-+       "updatedAt": "2026-10-01T12:00:00.000Z"
-+     },
-+     {
-        "artifactCount": 1,
-        "artifacts": [
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM -y --ascii
 exit 0
 --- stdout
 | [ok] created project GAM
 --- state
-    "projects": [
-      {
-+       "artifactCount": 0,
-+       "artifacts": [],
-+       "children": [],
-+       "createdAt": "2026-10-01T12:00:00.000Z",
-+       "description": null,
-+       "distribution": {},
-+       "id": "GAM",
-+       "lastActivityAt": "2026-10-01T12:00:00.000Z",
-+       "leafCounts": {},
-+       "parent": null,
-+       "pinned": false,
-+       "remote": null,
-+       "status": "new",
-+       "tags": [],
-+       "title": "Gamma",
-+       "type": "project",
-+       "updatedAt": "2026-10-01T12:00:00.000Z"
-+     },
-+     {
-        "artifactCount": 1,
-        "artifacts": [
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM -y (terminal)
 exit 0
 --- stdout
 | ␛[32m✓␛[39m created project GAM
 --- state
-    "projects": [
-      {
-+       "artifactCount": 0,
-+       "artifacts": [],
-+       "children": [],
-+       "createdAt": "2026-10-01T12:00:00.000Z",
-+       "description": null,
-+       "distribution": {},
-+       "id": "GAM",
-+       "lastActivityAt": "2026-10-01T12:00:00.000Z",
-+       "leafCounts": {},
-+       "parent": null,
-+       "pinned": false,
-+       "remote": null,
-+       "status": "new",
-+       "tags": [],
-+       "title": "Gamma",
-+       "type": "project",
-+       "updatedAt": "2026-10-01T12:00:00.000Z"
-+     },
-+     {
-        "artifactCount": 1,
-        "artifacts": [
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM -y --desc "The third board."
 exit 0
 --- stdout
 | [ok] created project GAM
 --- state
-    "projects": [
-      {
-+       "artifactCount": 0,
-+       "artifacts": [],
-+       "children": [],
-+       "createdAt": "2026-10-01T12:00:00.000Z",
-+       "description": "The third board.",
-+       "distribution": {},
-+       "id": "GAM",
-+       "lastActivityAt": "2026-10-01T12:00:00.000Z",
-+       "leafCounts": {},
-+       "parent": null,
-+       "pinned": false,
-+       "remote": null,
-+       "status": "new",
-+       "tags": [],
-+       "title": "Gamma",
-+       "type": "project",
-+       "updatedAt": "2026-10-01T12:00:00.000Z"
-+     },
-+     {
-        "artifactCount": 1,
-        "artifacts": [
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":"The third board.","distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM -y --remote git@github.com:dbtlr/gamma.git
 exit 0
 --- stdout
 | [ok] created project GAM
 --- state
-    "projects": [
-      {
-+       "artifactCount": 0,
-+       "artifacts": [],
-+       "children": [],
-+       "createdAt": "2026-10-01T12:00:00.000Z",
-+       "description": null,
-+       "distribution": {},
-+       "id": "GAM",
-+       "lastActivityAt": "2026-10-01T12:00:00.000Z",
-+       "leafCounts": {},
-+       "parent": null,
-+       "pinned": false,
-+       "remote": "github.com/dbtlr/gamma",
-+       "status": "new",
-+       "tags": [],
-+       "title": "Gamma",
-+       "type": "project",
-+       "updatedAt": "2026-10-01T12:00:00.000Z"
-+     },
-+     {
-        "artifactCount": 1,
-        "artifacts": [
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":"github.com/dbtlr/gamma","status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM -y -t one -t two
 exit 0
 --- stdout
 | [ok] created project GAM
 --- state
-    "projects": [
-      {
-+       "artifactCount": 0,
-+       "artifacts": [],
-+       "children": [],
-+       "createdAt": "2026-10-01T12:00:00.000Z",
-+       "description": null,
-+       "distribution": {},
-+       "id": "GAM",
-+       "lastActivityAt": "2026-10-01T12:00:00.000Z",
-+       "leafCounts": {},
-+       "parent": null,
-+       "pinned": false,
-+       "remote": null,
-+       "status": "new",
-+       "tags": [
-+         {
-+           "createdAt": "2026-10-01T12:00:00.000Z",
-+           "tag": "one"
-+         },
-+         {
-+           "createdAt": "2026-10-01T12:00:00.000Z",
-+           "tag": "two"
-+         }
-+       ],
-+       "title": "Gamma",
-+       "type": "project",
-+       "updatedAt": "2026-10-01T12:00:00.000Z"
-+     },
-+     {
-        "artifactCount": 1,
-        "artifacts": [
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"one"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"two"}],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma --key GAM
 exit 2
@@ -517,29 +222,7 @@ exit 0
 --- stdout
 | [ok] created project GAM
 --- state
-    "projects": [
-      {
-+       "artifactCount": 0,
-+       "artifacts": [],
-+       "children": [],
-+       "createdAt": "2026-10-01T12:00:00.000Z",
-+       "description": null,
-+       "distribution": {},
-+       "id": "GAM",
-+       "lastActivityAt": "2026-10-01T12:00:00.000Z",
-+       "leafCounts": {},
-+       "parent": null,
-+       "pinned": false,
-+       "remote": "github.com/dbtlr/mimir",
-+       "status": "new",
-+       "tags": [],
-+       "title": "Gamma",
-+       "type": "project",
-+       "updatedAt": "2026-10-01T12:00:00.000Z"
-+     },
-+     {
-        "artifactCount": 1,
-        "artifacts": [
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":"github.com/dbtlr/mimir","status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### create argv: project Gamma -y
 exit 2
@@ -622,61 +305,28 @@ exit 0
 |   status  o new (rollup over 0 direct children)
 |   title   Growth
 --- state
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": null,
-+           "parentOpenEnded": null,
-+           "parentTitle": null,
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": null,
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Growth",
-+         "type": "initiative",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-            "status": "in_progress",
-            "title": "Platform"
-+         },
-+         {
-+           "id": "MMR-10",
-+           "status": "new",
-+           "title": "Growth"
-          }
-        ],
-...
-        "description": "The work-state store.",
-        "distribution": {
-+         "in_progress": 1,
-+         "new": 1
--         "in_progress": 1
-        },
-        "id": "MMR",
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: null
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Growth"
++ nodes[MMR-10].type: "initiative"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
 
 ### create argv: initiative Growth --parent MMR -f json
 exit 0
@@ -696,61 +346,28 @@ exit 0
 |   "distribution": {}
 | }
 --- state
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": null,
-+           "parentOpenEnded": null,
-+           "parentTitle": null,
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": null,
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Growth",
-+         "type": "initiative",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-            "status": "in_progress",
-            "title": "Platform"
-+         },
-+         {
-+           "id": "MMR-10",
-+           "status": "new",
-+           "title": "Growth"
-          }
-        ],
-...
-        "description": "The work-state store.",
-        "distribution": {
-+         "in_progress": 1,
-+         "new": 1
--         "in_progress": 1
-        },
-        "id": "MMR",
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: null
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Growth"
++ nodes[MMR-10].type: "initiative"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
 
 ### create argv: initiative Growth --parent MMR -f jsonl
 exit 0
@@ -770,122 +387,56 @@ exit 0
 |   "distribution": {}
 | }
 --- state
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": null,
-+           "parentOpenEnded": null,
-+           "parentTitle": null,
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": null,
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Growth",
-+         "type": "initiative",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-            "status": "in_progress",
-            "title": "Platform"
-+         },
-+         {
-+           "id": "MMR-10",
-+           "status": "new",
-+           "title": "Growth"
-          }
-        ],
-...
-        "description": "The work-state store.",
-        "distribution": {
-+         "in_progress": 1,
-+         "new": 1
--         "in_progress": 1
-        },
-        "id": "MMR",
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: null
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Growth"
++ nodes[MMR-10].type: "initiative"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
 
 ### create argv: initiative Growth --parent MMR -f ids
 exit 0
 --- stdout
 | MMR-10
 --- state
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": null,
-+           "parentOpenEnded": null,
-+           "parentTitle": null,
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": null,
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Growth",
-+         "type": "initiative",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-            "status": "in_progress",
-            "title": "Platform"
-+         },
-+         {
-+           "id": "MMR-10",
-+           "status": "new",
-+           "title": "Growth"
-          }
-        ],
-...
-        "description": "The work-state store.",
-        "distribution": {
-+         "in_progress": 1,
-+         "new": 1
--         "in_progress": 1
-        },
-        "id": "MMR",
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: null
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Growth"
++ nodes[MMR-10].type: "initiative"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
 
 ### create argv: initiative Growth --parent MMR -f table
 exit 0
@@ -895,61 +446,28 @@ exit 0
 |
 | MMR-10   o new           Growth
 --- state
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": null,
-+           "parentOpenEnded": null,
-+           "parentTitle": null,
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": null,
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Growth",
-+         "type": "initiative",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-            "status": "in_progress",
-            "title": "Platform"
-+         },
-+         {
-+           "id": "MMR-10",
-+           "status": "new",
-+           "title": "Growth"
-          }
-        ],
-...
-        "description": "The work-state store.",
-        "distribution": {
-+         "in_progress": 1,
-+         "new": 1
--         "in_progress": 1
-        },
-        "id": "MMR",
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: null
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Growth"
++ nodes[MMR-10].type: "initiative"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
 
 ### create argv: initiative Growth --parent MMR --ascii
 exit 0
@@ -960,61 +478,28 @@ exit 0
 |   status  o new (rollup over 0 direct children)
 |   title   Growth
 --- state
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": null,
-+           "parentOpenEnded": null,
-+           "parentTitle": null,
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": null,
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Growth",
-+         "type": "initiative",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-            "status": "in_progress",
-            "title": "Platform"
-+         },
-+         {
-+           "id": "MMR-10",
-+           "status": "new",
-+           "title": "Growth"
-          }
-        ],
-...
-        "description": "The work-state store.",
-        "distribution": {
-+         "in_progress": 1,
-+         "new": 1
--         "in_progress": 1
-        },
-        "id": "MMR",
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: null
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Growth"
++ nodes[MMR-10].type: "initiative"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
 
 ### create argv: initiative Growth --parent MMR (terminal)
 exit 0
@@ -1028,61 +513,28 @@ exit 0
 |   hint  mimir tree MMR-10   — full subtree
 |         mimir list --status ready -s MMR   — leaf-actionable tasks
 --- state
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": null,
-+           "parentOpenEnded": null,
-+           "parentTitle": null,
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": null,
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Growth",
-+         "type": "initiative",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-            "status": "in_progress",
-            "title": "Platform"
-+         },
-+         {
-+           "id": "MMR-10",
-+           "status": "new",
-+           "title": "Growth"
-          }
-        ],
-...
-        "description": "The work-state store.",
-        "distribution": {
-+         "in_progress": 1,
-+         "new": 1
--         "in_progress": 1
-        },
-        "id": "MMR",
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: null
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Growth"
++ nodes[MMR-10].type: "initiative"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
 
 ### create argv: initiative Growth --parent MMR --desc "Grow the board." --summary growth
 exit 0
@@ -1095,61 +547,28 @@ exit 0
 |   description  Grow the board.
 |   summary      growth
 --- state
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": "Grow the board.",
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": null,
-+           "parentOpenEnded": null,
-+           "parentTitle": null,
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": null,
-+         "status": "new",
-+         "summary": "growth",
-+         "tags": [],
-+         "title": "Growth",
-+         "type": "initiative",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-            "status": "in_progress",
-            "title": "Platform"
-+         },
-+         {
-+           "id": "MMR-10",
-+           "status": "new",
-+           "title": "Growth"
-          }
-        ],
-...
-        "description": "The work-state store.",
-        "distribution": {
-+         "in_progress": 1,
-+         "new": 1
--         "in_progress": 1
-        },
-        "id": "MMR",
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: "Grow the board."
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: null
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: "growth"
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Growth"
++ nodes[MMR-10].type: "initiative"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
 
 ### create argv: initiative Growth --parent MMR -t one --tag two
 exit 0
@@ -1160,70 +579,28 @@ exit 0
 |   status  o new (rollup over 0 direct children)
 |   title   Growth
 --- state
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": null,
-+           "parentOpenEnded": null,
-+           "parentTitle": null,
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": null,
-+         "status": "new",
-+         "summary": null,
-+         "tags": [
-+           {
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "tag": "one"
-+           },
-+           {
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "tag": "two"
-+           }
-+         ],
-+         "title": "Growth",
-+         "type": "initiative",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-            "status": "in_progress",
-            "title": "Platform"
-+         },
-+         {
-+           "id": "MMR-10",
-+           "status": "new",
-+           "title": "Growth"
-          }
-        ],
-...
-        "description": "The work-state store.",
-        "distribution": {
-+         "in_progress": 1,
-+         "new": 1
--         "in_progress": 1
-        },
-        "id": "MMR",
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: null
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: [{"createdAt":"2026-10-01T12:00:00.000Z","tag":"one"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"two"}]
++ nodes[MMR-10].title: "Growth"
++ nodes[MMR-10].type: "initiative"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
 
 ### create argv: initiative Growth --parent MMR --open-ended
 exit 0
@@ -1235,53 +612,27 @@ exit 0
 |   title       Growth
 |   open-ended  yes
 --- state
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": null,
-+           "parentOpenEnded": null,
-+           "parentTitle": null,
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": true,
-+         "parent": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Growth",
-+         "type": "initiative",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-            "status": "in_progress",
-            "title": "Platform"
-+         },
-+         {
-+           "id": "MMR-10",
-+           "status": "ready",
-+           "title": "Growth"
-          }
-        ],
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: true
++ nodes[MMR-10].parent: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Growth"
++ nodes[MMR-10].type: "initiative"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Growth"}
 
 ### create argv: initiative Growth --parent MMR --not-open-ended
 exit 0
@@ -1292,61 +643,28 @@ exit 0
 |   status  o new (rollup over 0 direct children)
 |   title   Growth
 --- state
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": null,
-+           "parentOpenEnded": null,
-+           "parentTitle": null,
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": false,
-+         "parent": null,
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Growth",
-+         "type": "initiative",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-            "status": "in_progress",
-            "title": "Platform"
-+         },
-+         {
-+           "id": "MMR-10",
-+           "status": "new",
-+           "title": "Growth"
-          }
-        ],
-...
-        "description": "The work-state store.",
-        "distribution": {
-+         "in_progress": 1,
-+         "new": 1
--         "in_progress": 1
-        },
-        "id": "MMR",
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: false
++ nodes[MMR-10].parent: null
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Growth"
++ nodes[MMR-10].type: "initiative"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
 
 ### create argv: initiative --parent MMR -- "-Dash first"
 exit 0
@@ -1357,61 +675,28 @@ exit 0
 |   status  o new (rollup over 0 direct children)
 |   title   -Dash first
 --- state
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": null,
-+           "parentOpenEnded": null,
-+           "parentTitle": null,
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": null,
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "title": "-Dash first",
-+         "type": "initiative",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-            "status": "in_progress",
-            "title": "Platform"
-+         },
-+         {
-+           "id": "MMR-10",
-+           "status": "new",
-+           "title": "-Dash first"
-          }
-        ],
-...
-        "description": "The work-state store.",
-        "distribution": {
-+         "in_progress": 1,
-+         "new": 1
--         "in_progress": 1
-        },
-        "id": "MMR",
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: null
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "-Dash first"
++ nodes[MMR-10].type: "initiative"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"-Dash first"}
++ projects[MMR].distribution.new: 1
 
 ### create argv: initiative --parent MMR
 exit 2
@@ -1615,62 +900,29 @@ exit 0
 |   title   Beta
 |   parent  MMR-1
 --- state
-              "status": "in_progress",
-              "title": "Skeleton"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "new",
-+             "title": "Beta"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "in_progress": 1,
-+           "new": 1
--           "in_progress": 1
-          },
-          "history": [],
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": "MMR-1",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Platform",
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": "MMR-1",
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "target": null,
-+         "title": "Beta",
-+         "type": "phase",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: "MMR-1"
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].target: null
++ nodes[MMR-10].title: "Beta"
++ nodes[MMR-10].type: "phase"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
 
 ### create argv: phase Beta --parent MMR-1 -f json
 exit 0
@@ -1691,62 +943,29 @@ exit 0
 |   "distribution": {}
 | }
 --- state
-              "status": "in_progress",
-              "title": "Skeleton"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "new",
-+             "title": "Beta"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "in_progress": 1,
-+           "new": 1
--           "in_progress": 1
-          },
-          "history": [],
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": "MMR-1",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Platform",
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": "MMR-1",
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "target": null,
-+         "title": "Beta",
-+         "type": "phase",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: "MMR-1"
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].target: null
++ nodes[MMR-10].title: "Beta"
++ nodes[MMR-10].type: "phase"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
 
 ### create argv: phase Beta --parent MMR-1 -f jsonl
 exit 0
@@ -1767,124 +986,58 @@ exit 0
 |   "distribution": {}
 | }
 --- state
-              "status": "in_progress",
-              "title": "Skeleton"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "new",
-+             "title": "Beta"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "in_progress": 1,
-+           "new": 1
--           "in_progress": 1
-          },
-          "history": [],
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": "MMR-1",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Platform",
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": "MMR-1",
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "target": null,
-+         "title": "Beta",
-+         "type": "phase",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: "MMR-1"
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].target: null
++ nodes[MMR-10].title: "Beta"
++ nodes[MMR-10].type: "phase"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
 
 ### create argv: phase Beta --parent MMR-1 -f ids
 exit 0
 --- stdout
 | MMR-10
 --- state
-              "status": "in_progress",
-              "title": "Skeleton"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "new",
-+             "title": "Beta"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "in_progress": 1,
-+           "new": 1
--           "in_progress": 1
-          },
-          "history": [],
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": "MMR-1",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Platform",
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": "MMR-1",
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "target": null,
-+         "title": "Beta",
-+         "type": "phase",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: "MMR-1"
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].target: null
++ nodes[MMR-10].title: "Beta"
++ nodes[MMR-10].type: "phase"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
 
 ### create argv: phase Beta --parent MMR-1 --ascii
 exit 0
@@ -1896,62 +1049,29 @@ exit 0
 |   title   Beta
 |   parent  MMR-1
 --- state
-              "status": "in_progress",
-              "title": "Skeleton"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "new",
-+             "title": "Beta"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "in_progress": 1,
-+           "new": 1
--           "in_progress": 1
-          },
-          "history": [],
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": "MMR-1",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Platform",
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": "MMR-1",
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "target": null,
-+         "title": "Beta",
-+         "type": "phase",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: "MMR-1"
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].target: null
++ nodes[MMR-10].title: "Beta"
++ nodes[MMR-10].type: "phase"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
 
 ### create argv: phase Beta --parent MMR-1 -f table
 exit 0
@@ -1961,62 +1081,29 @@ exit 0
 |
 | MMR-10   o new        MMR-1   Beta
 --- state
-              "status": "in_progress",
-              "title": "Skeleton"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "new",
-+             "title": "Beta"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "in_progress": 1,
-+           "new": 1
--           "in_progress": 1
-          },
-          "history": [],
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": "MMR-1",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Platform",
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": "MMR-1",
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "target": null,
-+         "title": "Beta",
-+         "type": "phase",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: "MMR-1"
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].target: null
++ nodes[MMR-10].title: "Beta"
++ nodes[MMR-10].type: "phase"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
 
 ### create argv: phase Beta --parent MMR-1 (terminal)
 exit 0
@@ -2031,62 +1118,29 @@ exit 0
 |   hint  mimir tree MMR-10   — full subtree
 |         mimir list --status ready -s MMR   — leaf-actionable tasks
 --- state
-              "status": "in_progress",
-              "title": "Skeleton"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "new",
-+             "title": "Beta"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "in_progress": 1,
-+           "new": 1
--           "in_progress": 1
-          },
-          "history": [],
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": "MMR-1",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Platform",
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": "MMR-1",
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "target": null,
-+         "title": "Beta",
-+         "type": "phase",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: "MMR-1"
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].target: null
++ nodes[MMR-10].title: "Beta"
++ nodes[MMR-10].type: "phase"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
 
 ### create argv: phase Beta --parent MMR-1 --target 2027-01 --desc Second.
 exit 0
@@ -2100,62 +1154,29 @@ exit 0
 |   description  Second.
 |   target       2027-01
 --- state
-              "status": "in_progress",
-              "title": "Skeleton"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "new",
-+             "title": "Beta"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "in_progress": 1,
-+           "new": 1
--           "in_progress": 1
-          },
-          "history": [],
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": "Second.",
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": "MMR-1",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Platform",
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": "MMR-1",
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "target": "2027-01",
-+         "title": "Beta",
-+         "type": "phase",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: "Second."
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: "MMR-1"
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].target: "2027-01"
++ nodes[MMR-10].title: "Beta"
++ nodes[MMR-10].type: "phase"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
 
 ### create argv: phase Beta --parent MMR-1 --summary beta -t one
 exit 0
@@ -2168,67 +1189,29 @@ exit 0
 |   parent   MMR-1
 |   summary  beta
 --- state
-              "status": "in_progress",
-              "title": "Skeleton"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "new",
-+             "title": "Beta"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "in_progress": 1,
-+           "new": 1
--           "in_progress": 1
-          },
-          "history": [],
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": "MMR-1",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Platform",
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": "MMR-1",
-+         "status": "new",
-+         "summary": "beta",
-+         "tags": [
-+           {
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "tag": "one"
-+           }
-+         ],
-+         "target": null,
-+         "title": "Beta",
-+         "type": "phase",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: "MMR-1"
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: "beta"
++ nodes[MMR-10].tags: [{"createdAt":"2026-10-01T12:00:00.000Z","tag":"one"}]
++ nodes[MMR-10].target: null
++ nodes[MMR-10].title: "Beta"
++ nodes[MMR-10].type: "phase"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
 
 ### create argv: phase Beta --parent MMR-1 --open-ended
 exit 0
@@ -2241,54 +1224,28 @@ exit 0
 |   parent      MMR-1
 |   open-ended  yes
 --- state
-              "status": "in_progress",
-              "title": "Skeleton"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Beta"
-            }
-          ],
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": "MMR-1",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Platform",
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": true,
-+         "parent": "MMR-1",
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "target": null,
-+         "title": "Beta",
-+         "type": "phase",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Beta"}
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: true
++ nodes[MMR-10].parent: "MMR-1"
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].target: null
++ nodes[MMR-10].title: "Beta"
++ nodes[MMR-10].type: "phase"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
 
 ### create argv: phase --parent MMR-1 -- "-Dash first"
 exit 0
@@ -2300,62 +1257,29 @@ exit 0
 |   title   -Dash first
 |   parent  MMR-1
 --- state
-              "status": "in_progress",
-              "title": "Skeleton"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "new",
-+             "title": "-Dash first"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "in_progress": 1,
-+           "new": 1
--           "in_progress": 1
-          },
-          "history": [],
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": "MMR-1",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Platform",
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": "MMR-1",
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "target": null,
-+         "title": "-Dash first",
-+         "type": "phase",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"-Dash first"}
++ nodes[MMR-1].distribution.new: 1
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: "MMR-1"
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].target: null
++ nodes[MMR-10].title: "-Dash first"
++ nodes[MMR-10].type: "phase"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
 
 ### create argv: phase --parent MMR-1
 exit 2
@@ -2482,62 +1406,29 @@ exit 0
 |   parent  MMR-1
 |   target  someday
 --- state
-              "status": "in_progress",
-              "title": "Skeleton"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "new",
-+             "title": "Beta"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "in_progress": 1,
-+           "new": 1
--           "in_progress": 1
-          },
-          "history": [],
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "children": [],
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "distribution": {},
-+         "history": [],
-+         "home": {
-+           "parentId": "MMR-1",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Platform",
-+           "projectKey": "MMR"
-+         },
-+         "id": "MMR-10",
-+         "open_ended": null,
-+         "parent": "MMR-1",
-+         "status": "new",
-+         "summary": null,
-+         "tags": [],
-+         "target": "someday",
-+         "title": "Beta",
-+         "type": "phase",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         }
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].children: []
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].distribution: {}
++ nodes[MMR-10].history: []
++ nodes[MMR-10].home: {"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"}
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].open_ended: null
++ nodes[MMR-10].parent: "MMR-1"
++ nodes[MMR-10].status: "new"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].target: "someday"
++ nodes[MMR-10].title: "Beta"
++ nodes[MMR-10].type: "phase"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
 
 ### create argv: phase Beta --parent MMR-1 --open-ended --not-open-ended
 exit 2
@@ -2588,145 +1479,46 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": null,
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": null,
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "Ship docs",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Ship docs"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Ship docs",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Ship docs"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
 
 ### create argv: task "Ship docs" --parent MMR-2 -f json
 exit 0
@@ -2760,145 +1552,46 @@ exit 0
 |   "children": []
 | }
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": null,
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": null,
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "Ship docs",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Ship docs"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Ship docs",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Ship docs"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
 
 ### create argv: task "Ship docs" --parent MMR-2 -f jsonl
 exit 0
@@ -2932,290 +1625,92 @@ exit 0
 |   "children": []
 | }
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": null,
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": null,
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "Ship docs",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Ship docs"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Ship docs",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Ship docs"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
 
 ### create argv: task "Ship docs" --parent MMR-2 -f ids
 exit 0
 --- stdout
 | MMR-10
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": null,
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": null,
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "Ship docs",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Ship docs"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Ship docs",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Ship docs"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
 
 ### create argv: task "Ship docs" --parent MMR-2 -f table
 exit 0
@@ -3225,145 +1720,46 @@ exit 0
 |
 | MMR-10   * ready        not_groomed   MMR-2   Ship docs
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": null,
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": null,
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "Ship docs",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Ship docs"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Ship docs",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Ship docs"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
 
 ### create argv: task "Ship docs" --parent MMR-2 --ascii
 exit 0
@@ -3378,145 +1774,46 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": null,
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": null,
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "Ship docs",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Ship docs"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Ship docs",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Ship docs"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
 
 ### create argv: task "Ship docs" --parent MMR-2 (terminal)
 exit 0
@@ -3531,145 +1828,46 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": null,
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": null,
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "Ship docs",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Ship docs"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Ship docs",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Ship docs"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
 
 ### create argv: task "Ship docs" --parent MMR-1
 exit 0
@@ -3684,146 +1882,46 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": null,
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-1",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Platform",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": null,
-+             "lifecycle": "todo",
-+             "parent": "MMR-1",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "Ship docs",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "in_progress",
-              "title": "Skeleton"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Ship docs"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "in_progress": 1,
-+           "ready": 1
--           "in_progress": 1
-          },
-          "history": [],
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-1",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Platform",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-1",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Ship docs",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-1","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
++ nodes[MMR-1].distribution.ready: 1
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-1"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Ship docs"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
 
 ### create argv: task "Ship docs" --parent XX-2
 exit 0
@@ -3838,142 +1936,46 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-              "workerHarness": null,
-              "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": null,
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "XX-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Far",
-+               "projectKey": "XX"
-+             },
-+             "host": null,
-+             "id": "XX-5",
-+             "lede": null,
-+             "lifecycle": "todo",
-+             "parent": "XX-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "Ship docs",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-            }
-          ],
-+         "returned": 3,
--         "returned": 2,
-          "startsAt": 0,
-+         "total": 3
--         "total": 2
-        },
-        {
-...
-              "status": "ready",
-              "title": "Waiting on their fix"
-+           },
-+           {
-+             "id": "XX-5",
-+             "status": "ready",
-+             "title": "Ship docs"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3
--           "ready": 2
-          },
-          "history": [],
-...
-        "XX-5",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "XX-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Far",
-+           "projectKey": "XX"
-+         },
-+         "host": null,
-+         "id": "XX-5",
-+         "lifecycle": "todo",
-+         "parent": "XX-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Ship docs",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "XX-5 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.000Z",
-        "leafCounts": {
-+         "ready": 3
--         "ready": 2
-        },
-        "parent": null,
++ board.XX.nodes.items[XX-5]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-5","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.XX.nodes.returned: 2 -> 3
+~ board.XX.nodes.total: 2 -> 3
++ nodes[XX-2].children[XX-5]: {"id":"XX-5","status":"ready","title":"Ship docs"}
+~ nodes[XX-2].distribution.ready: 2 -> 3
+- nodes[XX-5].failed: "XX-5 doesn't exist"
++ nodes[XX-5].annotations: []
++ nodes[XX-5].artifacts: []
++ nodes[XX-5].blockOwner: null
++ nodes[XX-5].branch: null
++ nodes[XX-5].children: []
++ nodes[XX-5].completedAt: null
++ nodes[XX-5].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[XX-5].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[XX-5].description: null
++ nodes[XX-5].externalRef: null
++ nodes[XX-5].grooming: "not_groomed"
++ nodes[XX-5].harness: null
++ nodes[XX-5].history: []
++ nodes[XX-5].hold: "none"
++ nodes[XX-5].holdReason: null
++ nodes[XX-5].home: {"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"}
++ nodes[XX-5].host: null
++ nodes[XX-5].id: "XX-5"
++ nodes[XX-5].lifecycle: "todo"
++ nodes[XX-5].parent: "XX-2"
++ nodes[XX-5].priority: null
++ nodes[XX-5].session: null
++ nodes[XX-5].size: null
++ nodes[XX-5].status: "ready"
++ nodes[XX-5].summary: null
++ nodes[XX-5].tags: []
++ nodes[XX-5].title: "Ship docs"
++ nodes[XX-5].type: "task"
++ nodes[XX-5].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[XX-5].upstream: null
++ nodes[XX-5].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[XX-5].workerHarness: null
++ nodes[XX-5].workerSession: null
+~ projects[XX].leafCounts.ready: 2 -> 3
 
 ### create argv: task "Ship docs" --parent MMR-2 --desc "Write them." --summary docs --ref GH-12 -t docs -t ship
 exit 0
@@ -3991,163 +1993,46 @@ exit 0
 |   hold          none
 |   external ref  GH-12
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": "Write them.",
-+             "externalRef": "GH-12",
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": "docs",
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": "docs",
-+             "tags": [
-+               {
-+                 "createdAt": "2026-10-01T12:00:00.000Z",
-+                 "tag": "docs"
-+               },
-+               {
-+                 "createdAt": "2026-10-01T12:00:00.000Z",
-+                 "tag": "ship"
-+               }
-+             ],
-+             "title": "Ship docs",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Ship docs"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": "Write them.",
-+         "externalRef": "GH-12",
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": "docs",
-+         "tags": [
-+           {
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "tag": "docs"
-+           },
-+           {
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "tag": "ship"
-+           }
-+         ],
-+         "title": "Ship docs",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Write them.","externalRef":"GH-12","grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"docs","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":"docs","tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"docs"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"ship"}],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: "Write them."
++ nodes[MMR-10].externalRef: "GH-12"
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: "docs"
++ nodes[MMR-10].tags: [{"createdAt":"2026-10-01T12:00:00.000Z","tag":"docs"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"ship"}]
++ nodes[MMR-10].title: "Ship docs"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
 
 ### create argv: task "Ship docs" --parent MMR-2 --priority p1 --size m
 exit 0
@@ -4164,145 +2049,46 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": null,
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": null,
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": "p1",
-+             "session": null,
-+             "size": "medium",
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "Ship docs",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Ship docs"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": "p1",
-+         "session": null,
-+         "size": "medium",
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Ship docs",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":"p1","session":null,"size":"medium","status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: "p1"
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: "medium"
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Ship docs"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
 
 ### create argv: task "Ship docs" --parent MMR-2 -p p0 --size large
 exit 0
@@ -4319,145 +2105,46 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": null,
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": null,
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": "p0",
-+             "session": null,
-+             "size": "large",
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "Ship docs",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Ship docs"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": "p0",
-+         "session": null,
-+         "size": "large",
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Ship docs",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":"p0","session":null,"size":"large","status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: "p0"
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: "large"
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Ship docs"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
 
 ### create argv: task "Ship docs" --parent MMR-2 --groomed
 exit 0
@@ -4472,145 +2159,46 @@ exit 0
 |   grooming   groomed
 |   hold       none
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": null,
-+             "externalRef": null,
-+             "grooming": "groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": null,
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "Ship docs",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Ship docs"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "externalRef": null,
-+         "grooming": "groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Ship docs",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Ship docs"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
 
 ### create argv: task "Ship docs" --parent MMR-2 --upstream XX-s1
 exit 0
@@ -4626,145 +2214,46 @@ exit 0
 |   hold       none
 |   upstream   XX-s1
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": null,
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": null,
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "Ship docs",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": "XX-s1",
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Ship docs"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Ship docs",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": "XX-s1",
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Ship docs"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: "XX-s1"
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
 
 ### create argv: task "Ship docs" --parent MMR-2 --upstream none
 exit 0
@@ -4779,145 +2268,46 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": null,
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": null,
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "Ship docs",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Ship docs"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Ship docs",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Ship docs"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
 
 ### create argv: task "Ship docs" --parent MMR-2 --host asgard --harness claude --session s-1 --branch docs
 exit 0
@@ -4936,145 +2326,46 @@ exit 0
 |   session    s-1
 |   branch     docs
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": "docs",
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": null,
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": "claude",
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": "asgard",
-+             "id": "MMR-10",
-+             "lede": null,
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": "s-1",
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "Ship docs",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Ship docs"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": "docs",
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": "claude",
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": "asgard",
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": "s-1",
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Ship docs",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":"docs","children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":"claude","history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":"asgard","id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":"s-1","size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: "docs"
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: "claude"
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: "asgard"
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: "s-1"
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Ship docs"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
 
 ### create argv: task --parent MMR-2 -- "-Dash first"
 exit 0
@@ -5089,145 +2380,46 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": null,
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": null,
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "-Dash first",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "-Dash first"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "-Dash first",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"-Dash first","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"-Dash first"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "-Dash first"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
 
 ### create argv: task --parent MMR-2
 exit 2

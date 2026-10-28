@@ -5,10 +5,13 @@ import { afterAll, expect, test } from 'bun:test';
  * text a reviewer can read in a diff. A case compares its fresh output to its
  * pin; a deliberate change re-records the pins:
  *
- *   MIMIR_UPDATE_PINS=1 bun test packages/cli/src/commands/get.parity.test.ts
+ *   bun packages/cli/scripts/update-pins.ts packages/cli/src/commands/get.parity.test.ts
  *
- * Re-recording needs the whole file to run and pass, and rewrites the file in
- * case order. The pins hold what the retired old CLI was proven to print,
+ * The script (also `bun run pins:update`, no arguments for every parity file)
+ * runs the tests with `MIMIR_UPDATE_PINS=1`, which stages each file's pins as
+ * `<file>.staged`, and replaces the pin files only if the whole run passed:
+ * every test and cleanup hook. A failed run writes nothing. Re-recording needs
+ * the whole file to run, and rewrites it in case order. The pins hold what the retired old CLI was proven to print,
  * modulo the reviewed differences recorded in ADR 0037. Test-only.
  *
  * A pin file is a run of entries, each `### <case name>`, a body, and a blank
@@ -24,6 +27,9 @@ const UPDATING = process.env.MIMIR_UPDATE_PINS === '1';
 
 const HEADER = '### ';
 
+/** The suffix of a recording that awaits promotion (see `scripts/update-pins.ts`). */
+export const STAGED = '.staged';
+
 /** What one case printed, ready to pin. */
 export type PinnedRun = {
   exitCode: number;
@@ -31,14 +37,23 @@ export type PinnedRun = {
   failure?: { code: string; message: string; hints: readonly string[] };
 };
 
-/** A control character spelled so a reader can see it: ESC as `␛`, the rest as `⟦hex⟧`. */
+/**
+ * Text with its control characters made visible, reversibly: ESC reads `␛`,
+ * every other control character reads `⟦hex⟧`, and the two characters this
+ * spelling uses, `␛` and `⟦`, read `⟦hex⟧` themselves. So no two texts render
+ * alike, and real ANSI bytes never match the printable `␛`.
+ */
 function visible(text: string): string {
-  return (
-    text
-      .replaceAll('\u001B', '␛')
-      // eslint-disable-next-line no-control-regex
-      .replaceAll(/[\u0000-\u0008\u000B-\u001F\u007F]/g, (c) => `⟦${c.charCodeAt(0).toString(16)}⟧`)
-  );
+  return Array.from(text, (char) => {
+    const code = char.codePointAt(0) ?? 0;
+    if (code === 27) {
+      return '␛';
+    }
+    const control = code <= 31 && code !== 9 && code !== 10;
+    return control || code === 127 || char === '␛' || char === '⟦'
+      ? `⟦${code.toString(16)}⟧`
+      : char;
+  }).join('');
 }
 
 /** Text as quoted lines, with a marker when it lacks its final newline. */
@@ -68,72 +83,88 @@ export function renderRun(
   return scrub(`exit ${String(run.exitCode)}\n--- stdout\n${quoted(run.stdout)}${failure}${extra}`);
 }
 
-/**
- * The lines that differ between two texts, each change with `context` lines around it, hunks
- * separated by `...`. Empty when the texts are equal.
- */
-export function changedLines(before: string, after: string, context = 2): string {
-  const a = before.split('\n');
-  const b = after.split('\n');
-  let head = 0;
-  while (head < a.length && head < b.length && a[head] === b[head]) {
-    head++;
-  }
-  let tail = 0;
-  while (tail < a.length - head && tail < b.length - head && a.at(-1 - tail) === b.at(-1 - tail)) {
-    tail++;
-  }
-  const from = a.slice(head, a.length - tail);
-  const to = b.slice(head, b.length - tail);
-  if (from.length === 0 && to.length === 0) {
-    return '';
-  }
-  // Longest common subsequence of the differing middle, so unrelated edits stay separate.
-  const lcs = Array.from({ length: from.length + 1 }, () => new Uint32Array(to.length + 1));
-  for (let i = from.length - 1; i >= 0; i--) {
-    for (let j = to.length - 1; j >= 0; j--) {
-      lcs[i]![j] =
-        from[i] === to[j] ? lcs[i + 1]![j + 1]! + 1 : Math.max(lcs[i + 1]![j]!, lcs[i]![j + 1]!);
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** How an array element is named in a path: its `id` or `key`, a `[name, value]` pair's name, else its place. */
+function labelOf(element: unknown, at: number): { label: string; value: unknown } {
+  if (isRecord(element)) {
+    for (const field of ['id', 'key']) {
+      const name = element[field];
+      if (typeof name === 'string') {
+        return { label: name, value: element };
+      }
     }
   }
-  const rows: { mark: ' ' | '-' | '+'; line: string }[] = a
-    .slice(0, head)
-    .map((line) => ({ line, mark: ' ' }));
-  let i = 0;
-  let j = 0;
-  while (i < from.length || j < to.length) {
-    if (i < from.length && j < to.length && from[i] === to[j]) {
-      rows.push({ line: from[i]!, mark: ' ' });
-      i++;
-      j++;
-    } else if (j < to.length && (i === from.length || lcs[i]![j + 1]! >= lcs[i + 1]![j]!)) {
-      rows.push({ line: to[j]!, mark: '+' });
-      j++;
-    } else {
-      rows.push({ line: from[i]!, mark: '-' });
-      i++;
-    }
+  if (Array.isArray(element) && element.length === 2 && typeof element[0] === 'string') {
+    return { label: element[0], value: element[1] };
   }
-  rows.push(
-    ...a.slice(a.length - tail).map((line): (typeof rows)[number] => ({ line, mark: ' ' })),
-  );
-  const keep = rows.map((row, at) =>
-    rows.slice(Math.max(0, at - context), at + context + 1).some((near) => near.mark !== ' '),
-  );
-  const out: string[] = [];
-  let gap = false;
-  rows.forEach((row, at) => {
-    if (!keep[at]) {
-      gap = out.length > 0;
-      return;
+  return { label: `#${String(at)}`, value: element };
+}
+
+/** An array's elements by label, a repeated label numbered `label~2`, in order. */
+function labelled(items: readonly unknown[]): Map<string, unknown> {
+  const out = new Map<string, unknown>();
+  items.forEach((item, at) => {
+    const { label, value } = labelOf(item, at);
+    let key = label;
+    for (let n = 2; out.has(key); n++) {
+      key = `${label}~${String(n)}`;
     }
-    if (gap) {
-      out.push('...');
-      gap = false;
-    }
-    out.push(`${row.mark} ${visible(row.line)}`.trimEnd());
+    out.set(key, value);
   });
-  return `${out.join('\n')}\n`;
+  return out;
+}
+
+/** `value` on one line, its control characters visible. */
+const shown = (value: unknown): string => visible(JSON.stringify(value) ?? 'undefined');
+
+/** Walk two parsed states in step, writing one line per change under `path`. */
+function walk(path: string, before: unknown, after: unknown, out: string[]): void {
+  if (JSON.stringify(before) === JSON.stringify(after)) {
+    return;
+  }
+  if (isRecord(before) && isRecord(after)) {
+    for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+      const here = path === '' ? key : `${path}.${key}`;
+      if (!(key in after)) {
+        out.push(`- ${here}: ${shown(before[key])}`);
+      } else if (!(key in before)) {
+        out.push(`+ ${here}: ${shown(after[key])}`);
+      } else {
+        walk(here, before[key], after[key], out);
+      }
+    }
+    return;
+  }
+  if (Array.isArray(before) && Array.isArray(after)) {
+    const was = labelled(before);
+    const now = labelled(after);
+    for (const label of new Set([...was.keys(), ...now.keys()])) {
+      const here = `${path}[${label}]`;
+      if (!now.has(label)) {
+        out.push(`- ${here}: ${shown(was.get(label))}`);
+      } else if (!was.has(label)) {
+        out.push(`+ ${here}: ${shown(now.get(label))}`);
+      } else {
+        walk(here, was.get(label), now.get(label), out);
+      }
+    }
+    return;
+  }
+  out.push(`~ ${path}: ${shown(before)} -> ${shown(after)}`);
+}
+
+/**
+ * What changed between two board states (JSON, as `boardSnapshot` writes them),
+ * one line per change keyed by the record it touched and the field path: `~`
+ * for a changed value with old and new, `+` for a created record or field
+ * whole, `-` for a removed one. Empty when the states are equal.
+ */
+export function changedRecords(before: string, after: string): string {
+  const out: string[] = [];
+  walk('', JSON.parse(before), JSON.parse(after), out);
+  return out.length === 0 ? '' : `${out.join('\n')}\n`;
 }
 
 /** The pins of one test file. */
@@ -142,7 +173,6 @@ export class Pins {
   readonly #stored = new Map<string, string>();
   readonly #recorded = new Map<string, string>();
   readonly names = new Set<string>();
-  failed = false;
 
   /** The key a case's pin goes under: its name, numbered `#2`, `#3`... when an earlier case took it. */
   claim(name: string): string {
@@ -183,28 +213,31 @@ export class Pins {
       this.#recorded.set(name, text);
       return;
     }
-    expect(this.#stored.has(name), `no pin for "${name}"; re-record with MIMIR_UPDATE_PINS=1`).toBe(
+    expect(this.#stored.has(name), `no pin for "${name}"; re-record with bun run pins:update`).toBe(
       true,
     );
     expect(text).toBe(this.#stored.get(name)!);
   }
 
-  /** Write the recorded pins, in case order, when this run covered the whole file. */
+  /**
+   * Stage the recorded pins, in case order, when this run covered the whole
+   * file. A test run cannot know its own outcome from inside, so the pins go to
+   * `<file>.staged`; `scripts/update-pins.ts` promotes them only when the whole
+   * run, every test and cleanup hook, passed.
+   */
   save(): void {
     if (!UPDATING) {
       return;
     }
     const missing = [...this.names].filter((name) => !this.#recorded.has(name));
-    if (this.failed || missing.length > 0) {
-      throw new Error(
-        `pins not written: ${this.failed ? 'a case failed' : `no run for ${missing.join(', ')}`}`,
-      );
+    if (missing.length > 0) {
+      throw new Error(`pins not staged: no run for ${missing.join(', ')}`);
     }
     mkdirSync(dirname(this.path), { recursive: true });
     const body = [...this.names]
       .map((name) => `${HEADER}${name}\n${this.#recorded.get(name)!}\n`)
       .join('');
-    writeFileSync(this.path, body);
+    writeFileSync(`${this.path}${STAGED}`, body);
   }
 }
 

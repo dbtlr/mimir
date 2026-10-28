@@ -14,7 +14,7 @@ import { parityBoard } from './fixture';
 import type { ParityBoard } from './fixture';
 import { pinText, registerParity, runNew } from './parity';
 import type { ParityCase } from './parity';
-import { changedLines } from './pins';
+import { changedRecords } from './pins';
 import { boardSnapshot } from './snapshot';
 
 /** What `{token}` placeholders in a case stand for on one board. */
@@ -191,7 +191,7 @@ export async function stateChanges(
       fresh,
       texts.map((text) => retarget(text, tokens, fresh)),
     );
-    return changedLines(before, await boardSnapshot(board, tokens, texts));
+    return changedRecords(before, await boardSnapshot(board, tokens, texts));
   } finally {
     await untouched.close();
   }

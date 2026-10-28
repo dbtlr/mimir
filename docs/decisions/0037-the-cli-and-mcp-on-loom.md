@@ -130,10 +130,14 @@ command's parity test, so the list does not go stale.
 > snapshot equals what the old CLI printed, modulo the reviewed differences
 > above. The snapshots live beside each test file in `parity-pins/` as plain
 > text (the exit code, stdout, a failure's code, message, and hints, and for a
-> write the records it changed), and `MIMIR_UPDATE_PINS=1` re-records a file
-> after a deliberate change. The difference list is retired with the oracle:
-> the rules above describe how the snapshots were first proven, and a change to
-> a snapshot is now a reviewed diff. The MCP structured-content cases are
+> write the records it changed, keyed by record and field path), and
+> `bun run pins:update` re-records files after a deliberate change, writing
+> nothing unless the whole run passes. The difference list is retired with the
+> oracle: the rules above describe how the snapshots were first proven, and a
+> change to a snapshot is now a reviewed diff. The `new-view` rule lives on as a
+> test that `jsonl` equals the compact form of `json` for status and overview;
+> the `board-read` rule compared against the old CLI's wider read, so it has no
+> live counterpart and is retired. The MCP structured-content cases are
 > pinned the same way, and the old server's tool list and input schemas are
 > frozen in `src/parity/retired-mcp-tools.ts` so the capability map is still
 > diffed against the retired contract.

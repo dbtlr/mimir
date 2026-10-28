@@ -261,8 +261,13 @@ export default defineConfig({
       },
       {
         // The sandbox is the repo's own process supervisor (it spawns and signals the
-        // programs it tests), and test support builds the real folders a mock gets handed.
-        excludeFiles: ['packages/cli/src/testing/**', 'packages/host/src/admin/testing.ts'],
+        // programs it tests), test support builds the real folders a mock gets handed,
+        // and a script under scripts/ is a developer tool, not a Loom application.
+        excludeFiles: [
+          'packages/cli/scripts/**',
+          'packages/cli/src/testing/**',
+          'packages/host/src/admin/testing.ts',
+        ],
         files: ['packages/cli/**', 'packages/host/src/admin/**'],
         rules: { '@loomcli/host-bypass': 'error' },
       },

@@ -16,93 +16,14 @@ exit 0
 |   worker harness  claude
 |   worker session  task-worker-session
 --- state
-                    "status": "awaiting",
-                    "title": "Render views"
-+                 },
-+                 {
-+                   "id": "MMR-5",
-+                   "status": "in_progress",
-+                   "title": "Ship it"
-                  }
-                ],
-...
-              "createdAt": "2026-10-01T12:00:00.000Z",
-              "deps": {
-+               "awaitingOn": [
-+                 {
-+                   "id": "MMR-3",
-+                   "status": "ready",
-+                   "title": "Wire the store"
-+                 }
-+               ],
--               "awaitingOn": [],
-                "blocking": [],
-+               "dependsOn": [
-+                 {
-+                   "id": "MMR-3",
-+                   "status": "ready",
-+                   "title": "Wire the store"
-+                 }
-+               ]
--               "dependsOn": []
-              },
-              "description": null,
-...
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": null,
-+                 "kind": "dependency",
-+                 "reason": null,
-+                 "to": "MMR-3"
-                }
-              ],
-...
-          "createdAt": "2026-10-01T12:00:00.000Z",
-          "deps": {
-+           "awaitingOn": [
-+             {
-+               "id": "MMR-3",
-+               "status": "ready",
-+               "title": "Wire the store"
-+             }
-+           ],
--           "awaitingOn": [],
-            "blocking": [],
-+           "dependsOn": [
-+             {
-+               "id": "MMR-3",
-+               "status": "ready",
-+               "title": "Wire the store"
-+             }
-+           ]
--           "dependsOn": []
-          },
-          "description": null,
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": null,
-+             "kind": "dependency",
-+             "reason": null,
-+             "to": "MMR-3"
-            }
-          ],
-...
-                "status": "awaiting",
-                "title": "Render views"
-+             },
-+             {
-+               "id": "MMR-5",
-+               "status": "in_progress",
-+               "title": "Ship it"
-              }
-            ],
++ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ board.MMR.nodes.items[MMR-5].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-5].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}
++ nodes[MMR-5].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-5].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}
++ nodes[MMR-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
 
 ### depend argv: MMR-5 --on MMR-3,MMR-4
 exit 0
@@ -122,167 +43,24 @@ exit 0
 |   worker harness  claude
 |   worker session  task-worker-session
 --- state
-                    "status": "awaiting",
-                    "title": "Render views"
-+                 },
-+                 {
-+                   "id": "MMR-5",
-+                   "status": "in_progress",
-+                   "title": "Ship it"
-                  }
-                ],
-...
-                  }
-                ],
-+               "blocking": [
-+                 {
-+                   "id": "MMR-5",
-+                   "status": "in_progress",
-+                   "title": "Ship it"
-+                 }
-+               ],
--               "blocking": [],
-                "dependsOn": [
-                  {
-...
-              "upstream": null,
-              "verdicts": {
-+               "blocking": true,
--               "blocking": false,
-                "orphaned": false,
-                "stale": false
-...
-              "createdAt": "2026-10-01T12:00:00.000Z",
-              "deps": {
-+               "awaitingOn": [
-+                 {
-+                   "id": "MMR-3",
-+                   "status": "ready",
-+                   "title": "Wire the store"
-+                 },
-+                 {
-+                   "id": "MMR-4",
-+                   "status": "awaiting",
-+                   "title": "Render views"
-+                 }
-+               ],
--               "awaitingOn": [],
-                "blocking": [],
-+               "dependsOn": [
-+                 {
-+                   "id": "MMR-3",
-+                   "status": "ready",
-+                   "title": "Wire the store"
-+                 },
-+                 {
-+                   "id": "MMR-4",
-+                   "status": "awaiting",
-+                   "title": "Render views"
-+                 }
-+               ]
--               "dependsOn": []
-              },
-              "description": null,
-...
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": null,
-+                 "kind": "dependency",
-+                 "reason": null,
-+                 "to": "MMR-3"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": null,
-+                 "kind": "dependency",
-+                 "reason": null,
-+                 "to": "MMR-4"
-                }
-              ],
-...
-          "createdAt": "2026-10-01T12:00:00.000Z",
-          "deps": {
-+           "awaitingOn": [
-+             {
-+               "id": "MMR-3",
-+               "status": "ready",
-+               "title": "Wire the store"
-+             },
-+             {
-+               "id": "MMR-4",
-+               "status": "awaiting",
-+               "title": "Render views"
-+             }
-+           ],
--           "awaitingOn": [],
-            "blocking": [],
-+           "dependsOn": [
-+             {
-+               "id": "MMR-3",
-+               "status": "ready",
-+               "title": "Wire the store"
-+             },
-+             {
-+               "id": "MMR-4",
-+               "status": "awaiting",
-+               "title": "Render views"
-+             }
-+           ]
--           "dependsOn": []
-          },
-          "description": null,
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": null,
-+             "kind": "dependency",
-+             "reason": null,
-+             "to": "MMR-3"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": null,
-+             "kind": "dependency",
-+             "reason": null,
-+             "to": "MMR-4"
-            }
-          ],
-...
-                "status": "awaiting",
-                "title": "Render views"
-+             },
-+             {
-+               "id": "MMR-5",
-+               "status": "in_progress",
-+               "title": "Ship it"
-              }
-            ],
-...
-              }
-            ],
-+           "blocking": [
-+             {
-+               "id": "MMR-5",
-+               "status": "in_progress",
-+               "title": "Ship it"
-+             }
-+           ],
--           "blocking": [],
-            "dependsOn": [
-              {
-...
-          "upstream": null,
-          "verdicts": {
-+           "blocking": true,
--           "blocking": false,
-            "orphaned": false,
-            "stale": false
++ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ board.MMR.nodes.items[MMR-4].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+~ board.MMR.nodes.items[MMR-4].verdicts.blocking: false -> true
++ board.MMR.nodes.items[MMR-5].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-5].deps.awaitingOn[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
++ board.MMR.nodes.items[MMR-5].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-5].deps.dependsOn[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}
++ board.MMR.nodes.items[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-4"}
++ nodes[MMR-5].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-5].deps.awaitingOn[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
++ nodes[MMR-5].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-5].deps.dependsOn[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}
++ nodes[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-4"}
++ nodes[MMR-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ nodes[MMR-4].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+~ nodes[MMR-4].verdicts.blocking: false -> true
 
 ### depend argv: MMR-5 --on "MMR-3, MMR-4"
 exit 0
@@ -302,167 +80,24 @@ exit 0
 |   worker harness  claude
 |   worker session  task-worker-session
 --- state
-                    "status": "awaiting",
-                    "title": "Render views"
-+                 },
-+                 {
-+                   "id": "MMR-5",
-+                   "status": "in_progress",
-+                   "title": "Ship it"
-                  }
-                ],
-...
-                  }
-                ],
-+               "blocking": [
-+                 {
-+                   "id": "MMR-5",
-+                   "status": "in_progress",
-+                   "title": "Ship it"
-+                 }
-+               ],
--               "blocking": [],
-                "dependsOn": [
-                  {
-...
-              "upstream": null,
-              "verdicts": {
-+               "blocking": true,
--               "blocking": false,
-                "orphaned": false,
-                "stale": false
-...
-              "createdAt": "2026-10-01T12:00:00.000Z",
-              "deps": {
-+               "awaitingOn": [
-+                 {
-+                   "id": "MMR-3",
-+                   "status": "ready",
-+                   "title": "Wire the store"
-+                 },
-+                 {
-+                   "id": "MMR-4",
-+                   "status": "awaiting",
-+                   "title": "Render views"
-+                 }
-+               ],
--               "awaitingOn": [],
-                "blocking": [],
-+               "dependsOn": [
-+                 {
-+                   "id": "MMR-3",
-+                   "status": "ready",
-+                   "title": "Wire the store"
-+                 },
-+                 {
-+                   "id": "MMR-4",
-+                   "status": "awaiting",
-+                   "title": "Render views"
-+                 }
-+               ]
--               "dependsOn": []
-              },
-              "description": null,
-...
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": null,
-+                 "kind": "dependency",
-+                 "reason": null,
-+                 "to": "MMR-3"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": null,
-+                 "kind": "dependency",
-+                 "reason": null,
-+                 "to": "MMR-4"
-                }
-              ],
-...
-          "createdAt": "2026-10-01T12:00:00.000Z",
-          "deps": {
-+           "awaitingOn": [
-+             {
-+               "id": "MMR-3",
-+               "status": "ready",
-+               "title": "Wire the store"
-+             },
-+             {
-+               "id": "MMR-4",
-+               "status": "awaiting",
-+               "title": "Render views"
-+             }
-+           ],
--           "awaitingOn": [],
-            "blocking": [],
-+           "dependsOn": [
-+             {
-+               "id": "MMR-3",
-+               "status": "ready",
-+               "title": "Wire the store"
-+             },
-+             {
-+               "id": "MMR-4",
-+               "status": "awaiting",
-+               "title": "Render views"
-+             }
-+           ]
--           "dependsOn": []
-          },
-          "description": null,
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": null,
-+             "kind": "dependency",
-+             "reason": null,
-+             "to": "MMR-3"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": null,
-+             "kind": "dependency",
-+             "reason": null,
-+             "to": "MMR-4"
-            }
-          ],
-...
-                "status": "awaiting",
-                "title": "Render views"
-+             },
-+             {
-+               "id": "MMR-5",
-+               "status": "in_progress",
-+               "title": "Ship it"
-              }
-            ],
-...
-              }
-            ],
-+           "blocking": [
-+             {
-+               "id": "MMR-5",
-+               "status": "in_progress",
-+               "title": "Ship it"
-+             }
-+           ],
--           "blocking": [],
-            "dependsOn": [
-              {
-...
-          "upstream": null,
-          "verdicts": {
-+           "blocking": true,
--           "blocking": false,
-            "orphaned": false,
-            "stale": false
++ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ board.MMR.nodes.items[MMR-4].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+~ board.MMR.nodes.items[MMR-4].verdicts.blocking: false -> true
++ board.MMR.nodes.items[MMR-5].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-5].deps.awaitingOn[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
++ board.MMR.nodes.items[MMR-5].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-5].deps.dependsOn[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}
++ board.MMR.nodes.items[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-4"}
++ nodes[MMR-5].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-5].deps.awaitingOn[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
++ nodes[MMR-5].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-5].deps.dependsOn[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}
++ nodes[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-4"}
++ nodes[MMR-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ nodes[MMR-4].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+~ nodes[MMR-4].verdicts.blocking: false -> true
 
 ### depend argv: MMR-5 --on MMR-3 -f json
 exit 0
@@ -496,93 +131,14 @@ exit 0
 |   "children": []
 | }
 --- state
-                    "status": "awaiting",
-                    "title": "Render views"
-+                 },
-+                 {
-+                   "id": "MMR-5",
-+                   "status": "in_progress",
-+                   "title": "Ship it"
-                  }
-                ],
-...
-              "createdAt": "2026-10-01T12:00:00.000Z",
-              "deps": {
-+               "awaitingOn": [
-+                 {
-+                   "id": "MMR-3",
-+                   "status": "ready",
-+                   "title": "Wire the store"
-+                 }
-+               ],
--               "awaitingOn": [],
-                "blocking": [],
-+               "dependsOn": [
-+                 {
-+                   "id": "MMR-3",
-+                   "status": "ready",
-+                   "title": "Wire the store"
-+                 }
-+               ]
--               "dependsOn": []
-              },
-              "description": null,
-...
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": null,
-+                 "kind": "dependency",
-+                 "reason": null,
-+                 "to": "MMR-3"
-                }
-              ],
-...
-          "createdAt": "2026-10-01T12:00:00.000Z",
-          "deps": {
-+           "awaitingOn": [
-+             {
-+               "id": "MMR-3",
-+               "status": "ready",
-+               "title": "Wire the store"
-+             }
-+           ],
--           "awaitingOn": [],
-            "blocking": [],
-+           "dependsOn": [
-+             {
-+               "id": "MMR-3",
-+               "status": "ready",
-+               "title": "Wire the store"
-+             }
-+           ]
--           "dependsOn": []
-          },
-          "description": null,
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": null,
-+             "kind": "dependency",
-+             "reason": null,
-+             "to": "MMR-3"
-            }
-          ],
-...
-                "status": "awaiting",
-                "title": "Render views"
-+             },
-+             {
-+               "id": "MMR-5",
-+               "status": "in_progress",
-+               "title": "Ship it"
-              }
-            ],
++ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ board.MMR.nodes.items[MMR-5].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-5].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}
++ nodes[MMR-5].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-5].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}
++ nodes[MMR-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
 
 ### depend argv: MMR-5 --on MMR-3 -f jsonl
 exit 0
@@ -616,186 +172,28 @@ exit 0
 |   "children": []
 | }
 --- state
-                    "status": "awaiting",
-                    "title": "Render views"
-+                 },
-+                 {
-+                   "id": "MMR-5",
-+                   "status": "in_progress",
-+                   "title": "Ship it"
-                  }
-                ],
-...
-              "createdAt": "2026-10-01T12:00:00.000Z",
-              "deps": {
-+               "awaitingOn": [
-+                 {
-+                   "id": "MMR-3",
-+                   "status": "ready",
-+                   "title": "Wire the store"
-+                 }
-+               ],
--               "awaitingOn": [],
-                "blocking": [],
-+               "dependsOn": [
-+                 {
-+                   "id": "MMR-3",
-+                   "status": "ready",
-+                   "title": "Wire the store"
-+                 }
-+               ]
--               "dependsOn": []
-              },
-              "description": null,
-...
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": null,
-+                 "kind": "dependency",
-+                 "reason": null,
-+                 "to": "MMR-3"
-                }
-              ],
-...
-          "createdAt": "2026-10-01T12:00:00.000Z",
-          "deps": {
-+           "awaitingOn": [
-+             {
-+               "id": "MMR-3",
-+               "status": "ready",
-+               "title": "Wire the store"
-+             }
-+           ],
--           "awaitingOn": [],
-            "blocking": [],
-+           "dependsOn": [
-+             {
-+               "id": "MMR-3",
-+               "status": "ready",
-+               "title": "Wire the store"
-+             }
-+           ]
--           "dependsOn": []
-          },
-          "description": null,
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": null,
-+             "kind": "dependency",
-+             "reason": null,
-+             "to": "MMR-3"
-            }
-          ],
-...
-                "status": "awaiting",
-                "title": "Render views"
-+             },
-+             {
-+               "id": "MMR-5",
-+               "status": "in_progress",
-+               "title": "Ship it"
-              }
-            ],
++ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ board.MMR.nodes.items[MMR-5].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-5].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}
++ nodes[MMR-5].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-5].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}
++ nodes[MMR-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
 
 ### depend argv: MMR-5 --on MMR-3 -f ids
 exit 0
 --- stdout
 | MMR-5
 --- state
-                    "status": "awaiting",
-                    "title": "Render views"
-+                 },
-+                 {
-+                   "id": "MMR-5",
-+                   "status": "in_progress",
-+                   "title": "Ship it"
-                  }
-                ],
-...
-              "createdAt": "2026-10-01T12:00:00.000Z",
-              "deps": {
-+               "awaitingOn": [
-+                 {
-+                   "id": "MMR-3",
-+                   "status": "ready",
-+                   "title": "Wire the store"
-+                 }
-+               ],
--               "awaitingOn": [],
-                "blocking": [],
-+               "dependsOn": [
-+                 {
-+                   "id": "MMR-3",
-+                   "status": "ready",
-+                   "title": "Wire the store"
-+                 }
-+               ]
--               "dependsOn": []
-              },
-              "description": null,
-...
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": null,
-+                 "kind": "dependency",
-+                 "reason": null,
-+                 "to": "MMR-3"
-                }
-              ],
-...
-          "createdAt": "2026-10-01T12:00:00.000Z",
-          "deps": {
-+           "awaitingOn": [
-+             {
-+               "id": "MMR-3",
-+               "status": "ready",
-+               "title": "Wire the store"
-+             }
-+           ],
--           "awaitingOn": [],
-            "blocking": [],
-+           "dependsOn": [
-+             {
-+               "id": "MMR-3",
-+               "status": "ready",
-+               "title": "Wire the store"
-+             }
-+           ]
--           "dependsOn": []
-          },
-          "description": null,
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": null,
-+             "kind": "dependency",
-+             "reason": null,
-+             "to": "MMR-3"
-            }
-          ],
-...
-                "status": "awaiting",
-                "title": "Render views"
-+             },
-+             {
-+               "id": "MMR-5",
-+               "status": "in_progress",
-+               "title": "Ship it"
-              }
-            ],
++ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ board.MMR.nodes.items[MMR-5].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-5].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}
++ nodes[MMR-5].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-5].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}
++ nodes[MMR-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
 
 ### depend argv: MMR-5 --on MMR-3 -f table
 exit 0
@@ -805,93 +203,14 @@ exit 0
 |
 | MMR-5   > in_progress   p0   MMR-2   Ship it
 --- state
-                    "status": "awaiting",
-                    "title": "Render views"
-+                 },
-+                 {
-+                   "id": "MMR-5",
-+                   "status": "in_progress",
-+                   "title": "Ship it"
-                  }
-                ],
-...
-              "createdAt": "2026-10-01T12:00:00.000Z",
-              "deps": {
-+               "awaitingOn": [
-+                 {
-+                   "id": "MMR-3",
-+                   "status": "ready",
-+                   "title": "Wire the store"
-+                 }
-+               ],
--               "awaitingOn": [],
-                "blocking": [],
-+               "dependsOn": [
-+                 {
-+                   "id": "MMR-3",
-+                   "status": "ready",
-+                   "title": "Wire the store"
-+                 }
-+               ]
--               "dependsOn": []
-              },
-              "description": null,
-...
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": null,
-+                 "kind": "dependency",
-+                 "reason": null,
-+                 "to": "MMR-3"
-                }
-              ],
-...
-          "createdAt": "2026-10-01T12:00:00.000Z",
-          "deps": {
-+           "awaitingOn": [
-+             {
-+               "id": "MMR-3",
-+               "status": "ready",
-+               "title": "Wire the store"
-+             }
-+           ],
--           "awaitingOn": [],
-            "blocking": [],
-+           "dependsOn": [
-+             {
-+               "id": "MMR-3",
-+               "status": "ready",
-+               "title": "Wire the store"
-+             }
-+           ]
--           "dependsOn": []
-          },
-          "description": null,
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": null,
-+             "kind": "dependency",
-+             "reason": null,
-+             "to": "MMR-3"
-            }
-          ],
-...
-                "status": "awaiting",
-                "title": "Render views"
-+             },
-+             {
-+               "id": "MMR-5",
-+               "status": "in_progress",
-+               "title": "Ship it"
-              }
-            ],
++ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ board.MMR.nodes.items[MMR-5].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-5].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}
++ nodes[MMR-5].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-5].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}
++ nodes[MMR-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
 
 ### depend argv: MMR-5 --on MMR-3 --ascii
 exit 0
@@ -911,93 +230,14 @@ exit 0
 |   worker harness  claude
 |   worker session  task-worker-session
 --- state
-                    "status": "awaiting",
-                    "title": "Render views"
-+                 },
-+                 {
-+                   "id": "MMR-5",
-+                   "status": "in_progress",
-+                   "title": "Ship it"
-                  }
-                ],
-...
-              "createdAt": "2026-10-01T12:00:00.000Z",
-              "deps": {
-+               "awaitingOn": [
-+                 {
-+                   "id": "MMR-3",
-+                   "status": "ready",
-+                   "title": "Wire the store"
-+                 }
-+               ],
--               "awaitingOn": [],
-                "blocking": [],
-+               "dependsOn": [
-+                 {
-+                   "id": "MMR-3",
-+                   "status": "ready",
-+                   "title": "Wire the store"
-+                 }
-+               ]
--               "dependsOn": []
-              },
-              "description": null,
-...
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": null,
-+                 "kind": "dependency",
-+                 "reason": null,
-+                 "to": "MMR-3"
-                }
-              ],
-...
-          "createdAt": "2026-10-01T12:00:00.000Z",
-          "deps": {
-+           "awaitingOn": [
-+             {
-+               "id": "MMR-3",
-+               "status": "ready",
-+               "title": "Wire the store"
-+             }
-+           ],
--           "awaitingOn": [],
-            "blocking": [],
-+           "dependsOn": [
-+             {
-+               "id": "MMR-3",
-+               "status": "ready",
-+               "title": "Wire the store"
-+             }
-+           ]
--           "dependsOn": []
-          },
-          "description": null,
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": null,
-+             "kind": "dependency",
-+             "reason": null,
-+             "to": "MMR-3"
-            }
-          ],
-...
-                "status": "awaiting",
-                "title": "Render views"
-+             },
-+             {
-+               "id": "MMR-5",
-+               "status": "in_progress",
-+               "title": "Ship it"
-              }
-            ],
++ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ board.MMR.nodes.items[MMR-5].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-5].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}
++ nodes[MMR-5].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-5].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}
++ nodes[MMR-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
 
 ### depend argv: MMR-5 --on MMR-3 (terminal)
 exit 0
@@ -1017,93 +257,14 @@ exit 0
 |   worker harness  claude
 |   worker session  task-worker-session
 --- state
-                    "status": "awaiting",
-                    "title": "Render views"
-+                 },
-+                 {
-+                   "id": "MMR-5",
-+                   "status": "in_progress",
-+                   "title": "Ship it"
-                  }
-                ],
-...
-              "createdAt": "2026-10-01T12:00:00.000Z",
-              "deps": {
-+               "awaitingOn": [
-+                 {
-+                   "id": "MMR-3",
-+                   "status": "ready",
-+                   "title": "Wire the store"
-+                 }
-+               ],
--               "awaitingOn": [],
-                "blocking": [],
-+               "dependsOn": [
-+                 {
-+                   "id": "MMR-3",
-+                   "status": "ready",
-+                   "title": "Wire the store"
-+                 }
-+               ]
--               "dependsOn": []
-              },
-              "description": null,
-...
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": null,
-+                 "kind": "dependency",
-+                 "reason": null,
-+                 "to": "MMR-3"
-                }
-              ],
-...
-          "createdAt": "2026-10-01T12:00:00.000Z",
-          "deps": {
-+           "awaitingOn": [
-+             {
-+               "id": "MMR-3",
-+               "status": "ready",
-+               "title": "Wire the store"
-+             }
-+           ],
--           "awaitingOn": [],
-            "blocking": [],
-+           "dependsOn": [
-+             {
-+               "id": "MMR-3",
-+               "status": "ready",
-+               "title": "Wire the store"
-+             }
-+           ]
--           "dependsOn": []
-          },
-          "description": null,
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": null,
-+             "kind": "dependency",
-+             "reason": null,
-+             "to": "MMR-3"
-            }
-          ],
-...
-                "status": "awaiting",
-                "title": "Render views"
-+             },
-+             {
-+               "id": "MMR-5",
-+               "status": "in_progress",
-+               "title": "Ship it"
-              }
-            ],
++ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ board.MMR.nodes.items[MMR-5].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-5].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}
++ nodes[MMR-5].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-5].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"MMR-3"}
++ nodes[MMR-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
 
 ### depend argv: MMR-4 --on MMR-3
 exit 0
@@ -1138,113 +299,16 @@ exit 0
 |   worker harness  claude
 |   worker session  task-worker-session
 --- state
-              "createdAt": "2026-10-01T12:00:00.000Z",
-              "deps": {
-+               "awaitingOn": [
-+                 {
-+                   "id": "XX-3",
-+                   "status": "ready",
-+                   "title": "Not ours"
-+                 }
-+               ],
--               "awaitingOn": [],
-                "blocking": [],
-+               "dependsOn": [
-+                 {
-+                   "id": "XX-3",
-+                   "status": "ready",
-+                   "title": "Not ours"
-+                 }
-+               ]
--               "dependsOn": []
-              },
-              "description": null,
-...
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": null,
-+                 "kind": "dependency",
-+                 "reason": null,
-+                 "to": "XX-3"
-                }
-              ],
-...
-              "deps": {
-                "awaitingOn": [],
-+               "blocking": [
-+                 {
-+                   "id": "MMR-5",
-+                   "status": "in_progress",
-+                   "title": "Ship it"
-+                 }
-+               ],
--               "blocking": [],
-                "dependsOn": []
-              },
-...
-              "upstream": null,
-              "verdicts": {
-+               "blocking": true,
--               "blocking": false,
-                "orphaned": false,
-                "stale": false
-...
-          "createdAt": "2026-10-01T12:00:00.000Z",
-          "deps": {
-+           "awaitingOn": [
-+             {
-+               "id": "XX-3",
-+               "status": "ready",
-+               "title": "Not ours"
-+             }
-+           ],
--           "awaitingOn": [],
-            "blocking": [],
-+           "dependsOn": [
-+             {
-+               "id": "XX-3",
-+               "status": "ready",
-+               "title": "Not ours"
-+             }
-+           ]
--           "dependsOn": []
-          },
-          "description": null,
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": null,
-+             "kind": "dependency",
-+             "reason": null,
-+             "to": "XX-3"
-            }
-          ],
-...
-          "deps": {
-            "awaitingOn": [],
-+           "blocking": [
-+             {
-+               "id": "MMR-5",
-+               "status": "in_progress",
-+               "title": "Ship it"
-+             }
-+           ],
--           "blocking": [],
-            "dependsOn": []
-          },
-...
-          "upstream": null,
-          "verdicts": {
-+           "blocking": true,
--           "blocking": false,
-            "orphaned": false,
-            "stale": false
++ board.MMR.nodes.items[MMR-5].deps.awaitingOn[XX-3]: {"id":"XX-3","status":"ready","title":"Not ours"}
++ board.MMR.nodes.items[MMR-5].deps.dependsOn[XX-3]: {"id":"XX-3","status":"ready","title":"Not ours"}
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"XX-3"}
++ board.XX.nodes.items[XX-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+~ board.XX.nodes.items[XX-3].verdicts.blocking: false -> true
++ nodes[MMR-5].deps.awaitingOn[XX-3]: {"id":"XX-3","status":"ready","title":"Not ours"}
++ nodes[MMR-5].deps.dependsOn[XX-3]: {"id":"XX-3","status":"ready","title":"Not ours"}
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":null,"kind":"dependency","reason":null,"to":"XX-3"}
++ nodes[XX-3].deps.blocking[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+~ nodes[XX-3].verdicts.blocking: false -> true
 
 ### undepend argv: MMR-4 --on MMR-3
 exit 0
@@ -1259,150 +323,23 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-              "deps": {
-                "awaitingOn": [],
-+               "blocking": [],
--               "blocking": [
--                 {
--                   "id": "MMR-4",
--                   "status": "awaiting",
--                   "title": "Render views"
--                 }
--               ],
-                "dependsOn": []
-              },
-...
-              "upstream": null,
-              "verdicts": {
-+               "blocking": false,
--               "blocking": true,
-                "orphaned": false,
-                "stale": false
-...
-              "createdAt": "2026-10-01T12:00:00.000Z",
-              "deps": {
-+               "awaitingOn": [],
--               "awaitingOn": [
--                 {
--                   "id": "MMR-3",
--                   "status": "ready",
--                   "title": "Wire the store"
--                 }
--               ],
-                "blocking": [],
-+               "dependsOn": []
--               "dependsOn": [
--                 {
--                   "id": "MMR-3",
--                   "status": "ready",
--                   "title": "Wire the store"
--                 }
--               ]
-              },
-              "description": null,
-...
-                  "reason": null,
-                  "to": "MMR-3"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": "MMR-3",
-+                 "kind": "dependency",
-+                 "reason": null,
-+                 "to": null
-                }
-              ],
-...
-              "session": null,
-              "size": null,
-+             "status": "ready",
--             "status": "awaiting",
-              "summary": null,
-              "tags": [
-...
-          "createdAt": "2026-10-01T12:00:00.000Z",
-          "deps": {
-+           "awaitingOn": [],
--           "awaitingOn": [
--             {
--               "id": "MMR-3",
--               "status": "ready",
--               "title": "Wire the store"
--             }
--           ],
-            "blocking": [],
-+           "dependsOn": []
--           "dependsOn": [
--             {
--               "id": "MMR-3",
--               "status": "ready",
--               "title": "Wire the store"
--             }
--           ]
-          },
-          "description": null,
-...
-              "reason": null,
-              "to": "MMR-3"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": "MMR-3",
-+             "kind": "dependency",
-+             "reason": null,
-+             "to": null
-            }
-          ],
-...
-          "session": null,
-          "size": null,
-+         "status": "ready",
--         "status": "awaiting",
-          "summary": null,
-          "tags": [
-...
-          "deps": {
-            "awaitingOn": [],
-+           "blocking": [],
--           "blocking": [
--             {
--               "id": "MMR-4",
--               "status": "awaiting",
--               "title": "Render views"
--             }
--           ],
-            "dependsOn": []
-          },
-...
-          "upstream": null,
-          "verdicts": {
-+           "blocking": false,
--           "blocking": true,
-            "orphaned": false,
-            "stale": false
-...
-            {
-              "id": "MMR-4",
-+             "status": "ready",
--             "status": "awaiting",
-              "title": "Render views"
-            },
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
--           "awaiting": 1,
-            "in_progress": 1,
-            "blocked": 1,
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
--         "awaiting": 1,
-          "in_progress": 1,
-          "blocked": 1,
+- board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
+~ board.MMR.nodes.items[MMR-3].verdicts.blocking: true -> false
+- board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
+- board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-4].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-3","kind":"dependency","reason":null,"to":null}
+~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "ready"
+- nodes[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
+- nodes[MMR-4].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-4].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-3","kind":"dependency","reason":null,"to":null}
+~ nodes[MMR-4].status: "awaiting" -> "ready"
+- nodes[MMR-3].deps.blocking[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
+~ nodes[MMR-3].verdicts.blocking: true -> false
+~ nodes[MMR-2].children[MMR-4].status: "awaiting" -> "ready"
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-2].distribution.awaiting: 1
+~ projects[MMR].leafCounts.ready: 2 -> 3
+- projects[MMR].leafCounts.awaiting: 1
 
 ### undepend argv: MMR-4 --on MMR-3 -f json
 exit 0
@@ -1436,285 +373,43 @@ exit 0
 |   "children": []
 | }
 --- state
-              "deps": {
-                "awaitingOn": [],
-+               "blocking": [],
--               "blocking": [
--                 {
--                   "id": "MMR-4",
--                   "status": "awaiting",
--                   "title": "Render views"
--                 }
--               ],
-                "dependsOn": []
-              },
-...
-              "upstream": null,
-              "verdicts": {
-+               "blocking": false,
--               "blocking": true,
-                "orphaned": false,
-                "stale": false
-...
-              "createdAt": "2026-10-01T12:00:00.000Z",
-              "deps": {
-+               "awaitingOn": [],
--               "awaitingOn": [
--                 {
--                   "id": "MMR-3",
--                   "status": "ready",
--                   "title": "Wire the store"
--                 }
--               ],
-                "blocking": [],
-+               "dependsOn": []
--               "dependsOn": [
--                 {
--                   "id": "MMR-3",
--                   "status": "ready",
--                   "title": "Wire the store"
--                 }
--               ]
-              },
-              "description": null,
-...
-                  "reason": null,
-                  "to": "MMR-3"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": "MMR-3",
-+                 "kind": "dependency",
-+                 "reason": null,
-+                 "to": null
-                }
-              ],
-...
-              "session": null,
-              "size": null,
-+             "status": "ready",
--             "status": "awaiting",
-              "summary": null,
-              "tags": [
-...
-          "createdAt": "2026-10-01T12:00:00.000Z",
-          "deps": {
-+           "awaitingOn": [],
--           "awaitingOn": [
--             {
--               "id": "MMR-3",
--               "status": "ready",
--               "title": "Wire the store"
--             }
--           ],
-            "blocking": [],
-+           "dependsOn": []
--           "dependsOn": [
--             {
--               "id": "MMR-3",
--               "status": "ready",
--               "title": "Wire the store"
--             }
--           ]
-          },
-          "description": null,
-...
-              "reason": null,
-              "to": "MMR-3"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": "MMR-3",
-+             "kind": "dependency",
-+             "reason": null,
-+             "to": null
-            }
-          ],
-...
-          "session": null,
-          "size": null,
-+         "status": "ready",
--         "status": "awaiting",
-          "summary": null,
-          "tags": [
-...
-          "deps": {
-            "awaitingOn": [],
-+           "blocking": [],
--           "blocking": [
--             {
--               "id": "MMR-4",
--               "status": "awaiting",
--               "title": "Render views"
--             }
--           ],
-            "dependsOn": []
-          },
-...
-          "upstream": null,
-          "verdicts": {
-+           "blocking": false,
--           "blocking": true,
-            "orphaned": false,
-            "stale": false
-...
-            {
-              "id": "MMR-4",
-+             "status": "ready",
--             "status": "awaiting",
-              "title": "Render views"
-            },
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
--           "awaiting": 1,
-            "in_progress": 1,
-            "blocked": 1,
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
--         "awaiting": 1,
-          "in_progress": 1,
-          "blocked": 1,
+- board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
+~ board.MMR.nodes.items[MMR-3].verdicts.blocking: true -> false
+- board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
+- board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-4].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-3","kind":"dependency","reason":null,"to":null}
+~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "ready"
+- nodes[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
+- nodes[MMR-4].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-4].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-3","kind":"dependency","reason":null,"to":null}
+~ nodes[MMR-4].status: "awaiting" -> "ready"
+- nodes[MMR-3].deps.blocking[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
+~ nodes[MMR-3].verdicts.blocking: true -> false
+~ nodes[MMR-2].children[MMR-4].status: "awaiting" -> "ready"
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-2].distribution.awaiting: 1
+~ projects[MMR].leafCounts.ready: 2 -> 3
+- projects[MMR].leafCounts.awaiting: 1
 
 ### undepend argv: MMR-4 --on MMR-3 -f ids
 exit 0
 --- stdout
 | MMR-4
 --- state
-              "deps": {
-                "awaitingOn": [],
-+               "blocking": [],
--               "blocking": [
--                 {
--                   "id": "MMR-4",
--                   "status": "awaiting",
--                   "title": "Render views"
--                 }
--               ],
-                "dependsOn": []
-              },
-...
-              "upstream": null,
-              "verdicts": {
-+               "blocking": false,
--               "blocking": true,
-                "orphaned": false,
-                "stale": false
-...
-              "createdAt": "2026-10-01T12:00:00.000Z",
-              "deps": {
-+               "awaitingOn": [],
--               "awaitingOn": [
--                 {
--                   "id": "MMR-3",
--                   "status": "ready",
--                   "title": "Wire the store"
--                 }
--               ],
-                "blocking": [],
-+               "dependsOn": []
--               "dependsOn": [
--                 {
--                   "id": "MMR-3",
--                   "status": "ready",
--                   "title": "Wire the store"
--                 }
--               ]
-              },
-              "description": null,
-...
-                  "reason": null,
-                  "to": "MMR-3"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": "MMR-3",
-+                 "kind": "dependency",
-+                 "reason": null,
-+                 "to": null
-                }
-              ],
-...
-              "session": null,
-              "size": null,
-+             "status": "ready",
--             "status": "awaiting",
-              "summary": null,
-              "tags": [
-...
-          "createdAt": "2026-10-01T12:00:00.000Z",
-          "deps": {
-+           "awaitingOn": [],
--           "awaitingOn": [
--             {
--               "id": "MMR-3",
--               "status": "ready",
--               "title": "Wire the store"
--             }
--           ],
-            "blocking": [],
-+           "dependsOn": []
--           "dependsOn": [
--             {
--               "id": "MMR-3",
--               "status": "ready",
--               "title": "Wire the store"
--             }
--           ]
-          },
-          "description": null,
-...
-              "reason": null,
-              "to": "MMR-3"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": "MMR-3",
-+             "kind": "dependency",
-+             "reason": null,
-+             "to": null
-            }
-          ],
-...
-          "session": null,
-          "size": null,
-+         "status": "ready",
--         "status": "awaiting",
-          "summary": null,
-          "tags": [
-...
-          "deps": {
-            "awaitingOn": [],
-+           "blocking": [],
--           "blocking": [
--             {
--               "id": "MMR-4",
--               "status": "awaiting",
--               "title": "Render views"
--             }
--           ],
-            "dependsOn": []
-          },
-...
-          "upstream": null,
-          "verdicts": {
-+           "blocking": false,
--           "blocking": true,
-            "orphaned": false,
-            "stale": false
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
--         "awaiting": 1,
-          "in_progress": 1,
-          "blocked": 1,
+- board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
+~ board.MMR.nodes.items[MMR-3].verdicts.blocking: true -> false
+- board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
+- board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-4].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-3","kind":"dependency","reason":null,"to":null}
+~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "ready"
+- nodes[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
+- nodes[MMR-4].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-4].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-3","kind":"dependency","reason":null,"to":null}
+~ nodes[MMR-4].status: "awaiting" -> "ready"
+- nodes[MMR-3].deps.blocking[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
+~ nodes[MMR-3].verdicts.blocking: true -> false
+~ projects[MMR].leafCounts.ready: 2 -> 3
+- projects[MMR].leafCounts.awaiting: 1
 
 ### undepend argv: MMR-4 --on MMR-3 (terminal)
 exit 0
@@ -1729,150 +424,23 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-              "deps": {
-                "awaitingOn": [],
-+               "blocking": [],
--               "blocking": [
--                 {
--                   "id": "MMR-4",
--                   "status": "awaiting",
--                   "title": "Render views"
--                 }
--               ],
-                "dependsOn": []
-              },
-...
-              "upstream": null,
-              "verdicts": {
-+               "blocking": false,
--               "blocking": true,
-                "orphaned": false,
-                "stale": false
-...
-              "createdAt": "2026-10-01T12:00:00.000Z",
-              "deps": {
-+               "awaitingOn": [],
--               "awaitingOn": [
--                 {
--                   "id": "MMR-3",
--                   "status": "ready",
--                   "title": "Wire the store"
--                 }
--               ],
-                "blocking": [],
-+               "dependsOn": []
--               "dependsOn": [
--                 {
--                   "id": "MMR-3",
--                   "status": "ready",
--                   "title": "Wire the store"
--                 }
--               ]
-              },
-              "description": null,
-...
-                  "reason": null,
-                  "to": "MMR-3"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": "MMR-3",
-+                 "kind": "dependency",
-+                 "reason": null,
-+                 "to": null
-                }
-              ],
-...
-              "session": null,
-              "size": null,
-+             "status": "ready",
--             "status": "awaiting",
-              "summary": null,
-              "tags": [
-...
-          "createdAt": "2026-10-01T12:00:00.000Z",
-          "deps": {
-+           "awaitingOn": [],
--           "awaitingOn": [
--             {
--               "id": "MMR-3",
--               "status": "ready",
--               "title": "Wire the store"
--             }
--           ],
-            "blocking": [],
-+           "dependsOn": []
--           "dependsOn": [
--             {
--               "id": "MMR-3",
--               "status": "ready",
--               "title": "Wire the store"
--             }
--           ]
-          },
-          "description": null,
-...
-              "reason": null,
-              "to": "MMR-3"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": "MMR-3",
-+             "kind": "dependency",
-+             "reason": null,
-+             "to": null
-            }
-          ],
-...
-          "session": null,
-          "size": null,
-+         "status": "ready",
--         "status": "awaiting",
-          "summary": null,
-          "tags": [
-...
-          "deps": {
-            "awaitingOn": [],
-+           "blocking": [],
--           "blocking": [
--             {
--               "id": "MMR-4",
--               "status": "awaiting",
--               "title": "Render views"
--             }
--           ],
-            "dependsOn": []
-          },
-...
-          "upstream": null,
-          "verdicts": {
-+           "blocking": false,
--           "blocking": true,
-            "orphaned": false,
-            "stale": false
-...
-            {
-              "id": "MMR-4",
-+             "status": "ready",
--             "status": "awaiting",
-              "title": "Render views"
-            },
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
--           "awaiting": 1,
-            "in_progress": 1,
-            "blocked": 1,
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
--         "awaiting": 1,
-          "in_progress": 1,
-          "blocked": 1,
+- board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
+~ board.MMR.nodes.items[MMR-3].verdicts.blocking: true -> false
+- board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
+- board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ board.MMR.nodes.items[MMR-4].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-3","kind":"dependency","reason":null,"to":null}
+~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "ready"
+- nodes[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
+- nodes[MMR-4].deps.dependsOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
++ nodes[MMR-4].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-3","kind":"dependency","reason":null,"to":null}
+~ nodes[MMR-4].status: "awaiting" -> "ready"
+- nodes[MMR-3].deps.blocking[MMR-4]: {"id":"MMR-4","status":"awaiting","title":"Render views"}
+~ nodes[MMR-3].verdicts.blocking: true -> false
+~ nodes[MMR-2].children[MMR-4].status: "awaiting" -> "ready"
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-2].distribution.awaiting: 1
+~ projects[MMR].leafCounts.ready: 2 -> 3
+- projects[MMR].leafCounts.awaiting: 1
 
 ### undepend argv: MMR-5 --on MMR-3
 exit 0

@@ -43,3 +43,6 @@ packages/host/.tanstack/
 
 # Per-worktree scratch (temp builds, fixtures, experiment output)
 .scratch/
+
+# Parity pin recordings awaiting promotion (packages/cli/scripts/update-pins.ts)
+*.staged

@@ -169,36 +169,21 @@ exit 0
 | [ok] bound to XX (git config mimir.project)
 | [ok] recorded the origin github.com/acme/widgets on XX
 --- state
-        "parent": null,
-        "pinned": false,
-+       "remote": "github.com/acme/widgets",
--       "remote": null,
-        "status": "ready",
-        "tags": [],
+~ projects[XX].remote: null -> "github.com/acme/widgets"
 
 ### bind XX (origin) -f json
 exit 0
 --- stdout
 | {"bound":{"project":"XX","recordedRemote":"github.com/acme/widgets"}}
 --- state
-        "parent": null,
-        "pinned": false,
-+       "remote": "github.com/acme/widgets",
--       "remote": null,
-        "status": "ready",
-        "tags": [],
+~ projects[XX].remote: null -> "github.com/acme/widgets"
 
 ### bind XX (origin) -f ids
 exit 0
 --- stdout
 | XX
 --- state
-        "parent": null,
-        "pinned": false,
-+       "remote": "github.com/acme/widgets",
--       "remote": null,
-        "status": "ready",
-        "tags": [],
+~ projects[XX].remote: null -> "github.com/acme/widgets"
 
 ### bind MMR (origin)
 exit 0
@@ -350,12 +335,7 @@ exit 0
 | ␛[32m✓␛[39m bound to XX (git config mimir.project)
 | ␛[32m✓␛[39m recorded the origin github.com/acme/widgets on XX
 --- state
-        "parent": null,
-        "pinned": false,
-+       "remote": "github.com/acme/widgets",
--       "remote": null,
-        "status": "ready",
-        "tags": [],
+~ projects[XX].remote: null -> "github.com/acme/widgets"
 
 ### bind argv: (no arguments) (terminal) (bound)
 exit 0

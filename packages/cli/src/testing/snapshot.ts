@@ -66,11 +66,16 @@ export async function boardSnapshot(
       ]),
     ),
     // Every node, artifact, and project the board holds, so a write that touches a record its output never names (a moved sibling, a re-ranked one) still compares.
-    board: await Promise.all(
-      ['MMR', 'XX'].map(async (project) => [
-        await read(() => engine.list({ facets, project, status: 'all' })),
-        await read(() => engine.artifacts({ project })),
-      ]),
+    board: Object.fromEntries(
+      await Promise.all(
+        ['MMR', 'XX'].map(async (project) => [
+          project,
+          {
+            artifacts: await read(() => engine.artifacts({ project })),
+            nodes: await read(() => engine.list({ facets, project, status: 'all' })),
+          },
+        ]),
+      ),
     ),
     nodes: await Promise.all(
       matches(text.replaceAll(ARTIFACT_ID, ''), NODE_ID).map(async (id) => [
@@ -82,8 +87,13 @@ export async function boardSnapshot(
     scratchpads: await Promise.all(
       pads.map(async ([name, id]) => [name, await read(() => engine.scratchGet({ id }))]),
     ),
-    seeds: await Promise.all(
-      ['MMR', 'XX'].map((project) => read(() => engine.seeds({ project, status: 'all' }))),
+    seeds: Object.fromEntries(
+      await Promise.all(
+        ['MMR', 'XX'].map(async (project) => [
+          project,
+          await read(() => engine.seeds({ project, status: 'all' })),
+        ]),
+      ),
     ),
   };
   return JSON.stringify(snapshot, null, 2).replaceAll(UUID, '<uuid>');

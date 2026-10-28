@@ -17,23 +17,8 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-                  "content": "Settled; one; store.",
-                  "createdAt": "2026-10-01T12:00:00.000Z"
-+               },
-+               {
-+                 "content": "Settled on one store",
-+                 "createdAt": "2026-10-01T12:00:00.000Z"
-                }
-              ],
-...
-            {
-              "content": "Settled; one; store.",
-+             "createdAt": "2026-10-01T12:00:00.000Z"
-+           },
-+           {
-+             "content": "Settled on one store",
-              "createdAt": "2026-10-01T12:00:00.000Z"
-            }
++ board.MMR.nodes.items[MMR-3].annotations[#2]: {"content":"Settled on one store","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[MMR-3].annotations[#2]: {"content":"Settled on one store","createdAt":"2026-10-01T12:00:00.000Z"}
 
 ### annotate argv: MMR-3 "a note" -f json
 exit 0
@@ -67,23 +52,8 @@ exit 0
 |   "children": []
 | }
 --- state
-                  "content": "Settled; one; store.",
-                  "createdAt": "2026-10-01T12:00:00.000Z"
-+               },
-+               {
-+                 "content": "a note",
-+                 "createdAt": "2026-10-01T12:00:00.000Z"
-                }
-              ],
-...
-            {
-              "content": "Settled; one; store.",
-+             "createdAt": "2026-10-01T12:00:00.000Z"
-+           },
-+           {
-+             "content": "a note",
-              "createdAt": "2026-10-01T12:00:00.000Z"
-            }
++ board.MMR.nodes.items[MMR-3].annotations[#2]: {"content":"a note","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[MMR-3].annotations[#2]: {"content":"a note","createdAt":"2026-10-01T12:00:00.000Z"}
 
 ### annotate argv: MMR-3 "a note" -f jsonl
 exit 0
@@ -117,46 +87,16 @@ exit 0
 |   "children": []
 | }
 --- state
-                  "content": "Settled; one; store.",
-                  "createdAt": "2026-10-01T12:00:00.000Z"
-+               },
-+               {
-+                 "content": "a note",
-+                 "createdAt": "2026-10-01T12:00:00.000Z"
-                }
-              ],
-...
-            {
-              "content": "Settled; one; store.",
-+             "createdAt": "2026-10-01T12:00:00.000Z"
-+           },
-+           {
-+             "content": "a note",
-              "createdAt": "2026-10-01T12:00:00.000Z"
-            }
++ board.MMR.nodes.items[MMR-3].annotations[#2]: {"content":"a note","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[MMR-3].annotations[#2]: {"content":"a note","createdAt":"2026-10-01T12:00:00.000Z"}
 
 ### annotate argv: MMR-3 "a note" -f ids
 exit 0
 --- stdout
 | MMR-3
 --- state
-                  "content": "Settled; one; store.",
-                  "createdAt": "2026-10-01T12:00:00.000Z"
-+               },
-+               {
-+                 "content": "a note",
-+                 "createdAt": "2026-10-01T12:00:00.000Z"
-                }
-              ],
-...
-            {
-              "content": "Settled; one; store.",
-+             "createdAt": "2026-10-01T12:00:00.000Z"
-+           },
-+           {
-+             "content": "a note",
-              "createdAt": "2026-10-01T12:00:00.000Z"
-            }
++ board.MMR.nodes.items[MMR-3].annotations[#2]: {"content":"a note","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[MMR-3].annotations[#2]: {"content":"a note","createdAt":"2026-10-01T12:00:00.000Z"}
 
 ### annotate argv: MMR-3 "a note" -f table
 exit 0
@@ -166,23 +106,8 @@ exit 0
 |
 | MMR-3   * ready   p1   groomed   MMR-2   Wire the store
 --- state
-                  "content": "Settled; one; store.",
-                  "createdAt": "2026-10-01T12:00:00.000Z"
-+               },
-+               {
-+                 "content": "a note",
-+                 "createdAt": "2026-10-01T12:00:00.000Z"
-                }
-              ],
-...
-            {
-              "content": "Settled; one; store.",
-+             "createdAt": "2026-10-01T12:00:00.000Z"
-+           },
-+           {
-+             "content": "a note",
-              "createdAt": "2026-10-01T12:00:00.000Z"
-            }
++ board.MMR.nodes.items[MMR-3].annotations[#2]: {"content":"a note","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[MMR-3].annotations[#2]: {"content":"a note","createdAt":"2026-10-01T12:00:00.000Z"}
 
 ### annotate argv: MMR-3 "a note" --ascii
 exit 0
@@ -203,23 +128,8 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-                  "content": "Settled; one; store.",
-                  "createdAt": "2026-10-01T12:00:00.000Z"
-+               },
-+               {
-+                 "content": "a note",
-+                 "createdAt": "2026-10-01T12:00:00.000Z"
-                }
-              ],
-...
-            {
-              "content": "Settled; one; store.",
-+             "createdAt": "2026-10-01T12:00:00.000Z"
-+           },
-+           {
-+             "content": "a note",
-              "createdAt": "2026-10-01T12:00:00.000Z"
-            }
++ board.MMR.nodes.items[MMR-3].annotations[#2]: {"content":"a note","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[MMR-3].annotations[#2]: {"content":"a note","createdAt":"2026-10-01T12:00:00.000Z"}
 
 ### annotate argv: MMR-3 "a note" (terminal)
 exit 0
@@ -240,23 +150,8 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-                  "content": "Settled; one; store.",
-                  "createdAt": "2026-10-01T12:00:00.000Z"
-+               },
-+               {
-+                 "content": "a note",
-+                 "createdAt": "2026-10-01T12:00:00.000Z"
-                }
-              ],
-...
-            {
-              "content": "Settled; one; store.",
-+             "createdAt": "2026-10-01T12:00:00.000Z"
-+           },
-+           {
-+             "content": "a note",
-              "createdAt": "2026-10-01T12:00:00.000Z"
-            }
++ board.MMR.nodes.items[MMR-3].annotations[#2]: {"content":"a note","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[MMR-3].annotations[#2]: {"content":"a note","createdAt":"2026-10-01T12:00:00.000Z"}
 
 ### annotate argv: MMR-2 "a note on a container" (terminal)
 exit 0
@@ -274,17 +169,7 @@ exit 0
 |   hint  mimir tree MMR-2   — full subtree
 |         mimir list --status ready -s MMR   — leaf-actionable tasks
 --- state
-        "MMR-2",
-        {
-+         "annotations": [
-+           {
-+             "content": "a note on a container",
-+             "createdAt": "2026-10-01T12:00:00.000Z"
-+           }
-+         ],
--         "annotations": [],
-          "artifacts": [],
-          "children": [
++ nodes[MMR-2].annotations[#0]: {"content":"a note on a container","createdAt":"2026-10-01T12:00:00.000Z"}
 
 ### annotate argv: MMR-3 -- "-a note led by a dash"
 exit 0
@@ -305,23 +190,8 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-                  "content": "Settled; one; store.",
-                  "createdAt": "2026-10-01T12:00:00.000Z"
-+               },
-+               {
-+                 "content": "-a note led by a dash",
-+                 "createdAt": "2026-10-01T12:00:00.000Z"
-                }
-              ],
-...
-            {
-              "content": "Settled; one; store.",
-+             "createdAt": "2026-10-01T12:00:00.000Z"
-+           },
-+           {
-+             "content": "-a note led by a dash",
-              "createdAt": "2026-10-01T12:00:00.000Z"
-            }
++ board.MMR.nodes.items[MMR-3].annotations[#2]: {"content":"-a note led by a dash","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[MMR-3].annotations[#2]: {"content":"-a note led by a dash","createdAt":"2026-10-01T12:00:00.000Z"}
 
 ### annotate argv: MMR-3 " "
 exit 1

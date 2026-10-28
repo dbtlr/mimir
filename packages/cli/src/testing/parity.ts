@@ -172,12 +172,7 @@ export function registerParity<Case extends ParityCase>(
   const pins = pinsOf(testUrl);
   const keys = new Map(cases.map((c) => [c, pins.claim(c.name)]));
   test.each([...cases])('parity: $name', async (c) => {
-    try {
-      pins.check(keys.get(c)!, await pinOf(c));
-    } catch (error) {
-      pins.failed = true;
-      throw error;
-    }
+    pins.check(keys.get(c)!, await pinOf(c));
   });
 }
 

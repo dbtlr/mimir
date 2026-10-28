@@ -17,40 +17,11 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-                }
-              ],
-+             "title": "Wire the store once",
--             "title": "Wire the store",
-              "type": "task",
-              "updatedAt": "2026-10-01T12:00:00.000Z",
-...
-                    "id": "MMR-3",
-                    "status": "ready",
-+                   "title": "Wire the store once"
--                   "title": "Wire the store"
-                  }
-                ],
-...
-                    "id": "MMR-3",
-                    "status": "ready",
-+                   "title": "Wire the store once"
--                   "title": "Wire the store"
-                  }
-                ]
-...
-            }
-          ],
-+         "title": "Wire the store once",
--         "title": "Wire the store",
-          "type": "task",
-          "updatedAt": "2026-10-01T12:00:00.000Z",
-...
-              "id": "MMR-3",
-              "status": "ready",
-+             "title": "Wire the store once"
--             "title": "Wire the store"
-            },
-            {
+~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3 --title "Wire the store once" -f json
 exit 0
@@ -84,40 +55,11 @@ exit 0
 |   "children": []
 | }
 --- state
-                }
-              ],
-+             "title": "Wire the store once",
--             "title": "Wire the store",
-              "type": "task",
-              "updatedAt": "2026-10-01T12:00:00.000Z",
-...
-                    "id": "MMR-3",
-                    "status": "ready",
-+                   "title": "Wire the store once"
--                   "title": "Wire the store"
-                  }
-                ],
-...
-                    "id": "MMR-3",
-                    "status": "ready",
-+                   "title": "Wire the store once"
--                   "title": "Wire the store"
-                  }
-                ]
-...
-            }
-          ],
-+         "title": "Wire the store once",
--         "title": "Wire the store",
-          "type": "task",
-          "updatedAt": "2026-10-01T12:00:00.000Z",
-...
-              "id": "MMR-3",
-              "status": "ready",
-+             "title": "Wire the store once"
--             "title": "Wire the store"
-            },
-            {
+~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3 --title "Wire the store once" -f jsonl
 exit 0
@@ -151,73 +93,21 @@ exit 0
 |   "children": []
 | }
 --- state
-                }
-              ],
-+             "title": "Wire the store once",
--             "title": "Wire the store",
-              "type": "task",
-              "updatedAt": "2026-10-01T12:00:00.000Z",
-...
-                    "id": "MMR-3",
-                    "status": "ready",
-+                   "title": "Wire the store once"
--                   "title": "Wire the store"
-                  }
-                ],
-...
-                    "id": "MMR-3",
-                    "status": "ready",
-+                   "title": "Wire the store once"
--                   "title": "Wire the store"
-                  }
-                ]
-...
-            }
-          ],
-+         "title": "Wire the store once",
--         "title": "Wire the store",
-          "type": "task",
-          "updatedAt": "2026-10-01T12:00:00.000Z",
-...
-              "id": "MMR-3",
-              "status": "ready",
-+             "title": "Wire the store once"
--             "title": "Wire the store"
-            },
-            {
+~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3 --title "Wire the store once" -f ids
 exit 0
 --- stdout
 | MMR-3
 --- state
-                }
-              ],
-+             "title": "Wire the store once",
--             "title": "Wire the store",
-              "type": "task",
-              "updatedAt": "2026-10-01T12:00:00.000Z",
-...
-                    "id": "MMR-3",
-                    "status": "ready",
-+                   "title": "Wire the store once"
--                   "title": "Wire the store"
-                  }
-                ],
-...
-                    "id": "MMR-3",
-                    "status": "ready",
-+                   "title": "Wire the store once"
--                   "title": "Wire the store"
-                  }
-                ]
-...
-            }
-          ],
-+         "title": "Wire the store once",
--         "title": "Wire the store",
-          "type": "task",
-          "updatedAt": "2026-10-01T12:00:00.000Z",
+~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3 --title ""
 exit 1
@@ -239,40 +129,11 @@ exit 0
 |
 | MMR-3   * ready   p1   groomed   MMR-2   Wire the store once
 --- state
-                }
-              ],
-+             "title": "Wire the store once",
--             "title": "Wire the store",
-              "type": "task",
-              "updatedAt": "2026-10-01T12:00:00.000Z",
-...
-                    "id": "MMR-3",
-                    "status": "ready",
-+                   "title": "Wire the store once"
--                   "title": "Wire the store"
-                  }
-                ],
-...
-                    "id": "MMR-3",
-                    "status": "ready",
-+                   "title": "Wire the store once"
--                   "title": "Wire the store"
-                  }
-                ]
-...
-            }
-          ],
-+         "title": "Wire the store once",
--         "title": "Wire the store",
-          "type": "task",
-          "updatedAt": "2026-10-01T12:00:00.000Z",
-...
-              "id": "MMR-3",
-              "status": "ready",
-+             "title": "Wire the store once"
--             "title": "Wire the store"
-            },
-            {
+~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3 --title "Wire the store once" --ascii
 exit 0
@@ -293,40 +154,11 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-                }
-              ],
-+             "title": "Wire the store once",
--             "title": "Wire the store",
-              "type": "task",
-              "updatedAt": "2026-10-01T12:00:00.000Z",
-...
-                    "id": "MMR-3",
-                    "status": "ready",
-+                   "title": "Wire the store once"
--                   "title": "Wire the store"
-                  }
-                ],
-...
-                    "id": "MMR-3",
-                    "status": "ready",
-+                   "title": "Wire the store once"
--                   "title": "Wire the store"
-                  }
-                ]
-...
-            }
-          ],
-+         "title": "Wire the store once",
--         "title": "Wire the store",
-          "type": "task",
-          "updatedAt": "2026-10-01T12:00:00.000Z",
-...
-              "id": "MMR-3",
-              "status": "ready",
-+             "title": "Wire the store once"
--             "title": "Wire the store"
-            },
-            {
+~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3 --title "Wire the store once" (terminal)
 exit 0
@@ -347,40 +179,11 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-                }
-              ],
-+             "title": "Wire the store once",
--             "title": "Wire the store",
-              "type": "task",
-              "updatedAt": "2026-10-01T12:00:00.000Z",
-...
-                    "id": "MMR-3",
-                    "status": "ready",
-+                   "title": "Wire the store once"
--                   "title": "Wire the store"
-                  }
-                ],
-...
-                    "id": "MMR-3",
-                    "status": "ready",
-+                   "title": "Wire the store once"
--                   "title": "Wire the store"
-                  }
-                ]
-...
-            }
-          ],
-+         "title": "Wire the store once",
--         "title": "Wire the store",
-          "type": "task",
-          "updatedAt": "2026-10-01T12:00:00.000Z",
-...
-              "id": "MMR-3",
-              "status": "ready",
-+             "title": "Wire the store once"
--             "title": "Wire the store"
-            },
-            {
+~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
 
 ### update argv: MMR-3
 exit 0
@@ -420,19 +223,8 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-                "dependsOn": []
-              },
-+             "description": "A new description.",
--             "description": "Open the store once.\n\nKeep it open.",
-              "externalRef": null,
-              "grooming": "groomed",
-...
-            "dependsOn": []
-          },
-+         "description": "A new description.",
--         "description": "Open the store once.\n\nKeep it open.",
-          "externalRef": null,
-          "grooming": "groomed",
+~ board.MMR.nodes.items[MMR-3].description: "Open the store once.\n\nKeep it open." -> "A new description."
+~ nodes[MMR-3].description: "Open the store once.\n\nKeep it open." -> "A new description."
 
 ### update argv: MMR-3 --summary "one store"
 exit 0
@@ -453,26 +245,9 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-              "host": null,
-              "id": "MMR-3",
-+             "lede": "one store",
--             "lede": "one store per run",
-              "lifecycle": "todo",
-              "parent": "MMR-2",
-...
-              "size": "small",
-              "status": "ready",
-+             "summary": "one store",
--             "summary": "one store per run",
-              "tags": [
-                {
-...
-          "size": "small",
-          "status": "ready",
-+         "summary": "one store",
--         "summary": "one store per run",
-          "tags": [
-            {
+~ board.MMR.nodes.items[MMR-3].lede: "one store per run" -> "one store"
+~ board.MMR.nodes.items[MMR-3].summary: "one store per run" -> "one store"
+~ nodes[MMR-3].summary: "one store per run" -> "one store"
 
 ### update argv: MMR-3 --summary ""
 exit 0
@@ -492,26 +267,9 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-              "host": null,
-              "id": "MMR-3",
-+             "lede": "Open the store once. Keep it open.",
--             "lede": "one store per run",
-              "lifecycle": "todo",
-              "parent": "MMR-2",
-...
-              "size": "small",
-              "status": "ready",
-+             "summary": null,
--             "summary": "one store per run",
-              "tags": [
-                {
-...
-          "size": "small",
-          "status": "ready",
-+         "summary": null,
--         "summary": "one store per run",
-          "tags": [
-            {
+~ board.MMR.nodes.items[MMR-3].lede: "one store per run" -> "Open the store once. Keep it open."
+~ board.MMR.nodes.items[MMR-3].summary: "one store per run" -> null
+~ nodes[MMR-3].summary: "one store per run" -> null
 
 ### update argv: MMR-3 -p p0
 exit 0
@@ -532,19 +290,8 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-              "lifecycle": "todo",
-              "parent": "MMR-2",
-+             "priority": "p0",
--             "priority": "p1",
-              "session": null,
-              "size": "small",
-...
-          "lifecycle": "todo",
-          "parent": "MMR-2",
-+         "priority": "p0",
--         "priority": "p1",
-          "session": null,
-          "size": "small",
+~ board.MMR.nodes.items[MMR-3].priority: "p1" -> "p0"
+~ nodes[MMR-3].priority: "p1" -> "p0"
 
 ### update argv: MMR-3 --priority p3 --size l
 exit 0
@@ -565,25 +312,10 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-              "lifecycle": "todo",
-              "parent": "MMR-2",
-+             "priority": "p3",
--             "priority": "p1",
-              "session": null,
-+             "size": "large",
--             "size": "small",
-              "status": "ready",
-              "summary": "one store per run",
-...
-          "lifecycle": "todo",
-          "parent": "MMR-2",
-+         "priority": "p3",
--         "priority": "p1",
-          "session": null,
-+         "size": "large",
--         "size": "small",
-          "status": "ready",
-          "summary": "one store per run",
+~ board.MMR.nodes.items[MMR-3].priority: "p1" -> "p3"
+~ board.MMR.nodes.items[MMR-3].size: "small" -> "large"
+~ nodes[MMR-3].priority: "p1" -> "p3"
+~ nodes[MMR-3].size: "small" -> "large"
 
 ### update argv: MMR-3 --size medium
 exit 0
@@ -604,19 +336,8 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-              "priority": "p1",
-              "session": null,
-+             "size": "medium",
--             "size": "small",
-              "status": "ready",
-              "summary": "one store per run",
-...
-          "priority": "p1",
-          "session": null,
-+         "size": "medium",
--         "size": "small",
-          "status": "ready",
-          "summary": "one store per run",
+~ board.MMR.nodes.items[MMR-3].size: "small" -> "medium"
+~ nodes[MMR-3].size: "small" -> "medium"
 
 ### update argv: MMR-3 --ref GH-3
 exit 0
@@ -638,19 +359,8 @@ exit 0
 |   hold          none
 |   external ref  GH-3
 --- state
-              },
-              "description": "Open the store once.\n\nKeep it open.",
-+             "externalRef": "GH-3",
--             "externalRef": null,
-              "grooming": "groomed",
-              "harness": null,
-...
-          },
-          "description": "Open the store once.\n\nKeep it open.",
-+         "externalRef": "GH-3",
--         "externalRef": null,
-          "grooming": "groomed",
-          "harness": null,
+~ board.MMR.nodes.items[MMR-3].externalRef: null -> "GH-3"
+~ nodes[MMR-3].externalRef: null -> "GH-3"
 
 ### update argv: MMR-3 --upstream XX-s1
 exit 0
@@ -672,19 +382,8 @@ exit 0
 |   hold         none
 |   upstream     XX-s1
 --- state
-              "type": "task",
-              "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": "XX-s1",
--             "upstream": null,
-              "verdicts": {
-                "blocking": true,
-...
-          "type": "task",
-          "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": "XX-s1",
--         "upstream": null,
-          "verdicts": {
-            "blocking": true,
+~ board.MMR.nodes.items[MMR-3].upstream: null -> "XX-s1"
+~ nodes[MMR-3].upstream: null -> "XX-s1"
 
 ### update argv: MMR-3 --upstream none
 exit 0
@@ -728,61 +427,12 @@ exit 0
 |   host         asgard
 |   harness      claude
 --- state
-              "externalRef": null,
-              "grooming": "groomed",
-+             "harness": "claude",
-+             "history": [
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": "{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}",
-+                 "handles": {
-+                   "harness": "claude",
-+                   "host": "asgard"
-+                 },
-+                 "kind": "assignment",
-+                 "reason": null,
-+                 "to": "{\"harness\":\"claude\",\"session\":null,\"worker_harness\":null,\"worker_session\":null}"
-+               }
-+             ],
--             "harness": null,
--             "history": [],
-              "hold": "none",
-              "holdReason": null,
-...
-                "projectKey": "MMR"
-              },
-+             "host": "asgard",
--             "host": null,
-              "id": "MMR-3",
-              "lede": "one store per run",
-...
-          "externalRef": null,
-          "grooming": "groomed",
-+         "harness": "claude",
-+         "history": [
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": "{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}",
-+             "handles": {
-+               "harness": "claude",
-+               "host": "asgard"
-+             },
-+             "kind": "assignment",
-+             "reason": null,
-+             "to": "{\"harness\":\"claude\",\"session\":null,\"worker_harness\":null,\"worker_session\":null}"
-+           }
-+         ],
--         "harness": null,
--         "history": [],
-          "hold": "none",
-          "holdReason": null,
-...
-            "projectKey": "MMR"
-          },
-+         "host": "asgard",
--         "host": null,
-          "id": "MMR-3",
-          "lifecycle": "todo",
+~ board.MMR.nodes.items[MMR-3].harness: null -> "claude"
++ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"harness":"claude","host":"asgard"},"kind":"assignment","reason":null,"to":"{\"harness\":\"claude\",\"session\":null,\"worker_harness\":null,\"worker_session\":null}"}
+~ board.MMR.nodes.items[MMR-3].host: null -> "asgard"
+~ nodes[MMR-3].harness: null -> "claude"
++ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"harness":"claude","host":"asgard"},"kind":"assignment","reason":null,"to":"{\"harness\":\"claude\",\"session\":null,\"worker_harness\":null,\"worker_session\":null}"}
+~ nodes[MMR-3].host: null -> "asgard"
 
 ### update argv: MMR-3 --session s-9 --branch store
 exit 0
@@ -805,71 +455,12 @@ exit 0
 |   session      s-9
 |   branch       store
 --- state
-              ],
-              "blockOwner": null,
-+             "branch": "store",
--             "branch": null,
-              "children": [],
-              "completedAt": null,
-...
-              "grooming": "groomed",
-              "harness": null,
-+             "history": [
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": "{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}",
-+                 "handles": {
-+                   "branch": "store",
-+                   "session": "s-9"
-+                 },
-+                 "kind": "assignment",
-+                 "reason": null,
-+                 "to": "{\"harness\":null,\"session\":\"s-9\",\"worker_harness\":null,\"worker_session\":null}"
-+               }
-+             ],
--             "history": [],
-              "hold": "none",
-              "holdReason": null,
-...
-              "parent": "MMR-2",
-              "priority": "p1",
-+             "session": "s-9",
--             "session": null,
-              "size": "small",
-              "status": "ready",
-...
-          ],
-          "blockOwner": null,
-+         "branch": "store",
--         "branch": null,
-          "children": [],
-          "completedAt": null,
-...
-          "grooming": "groomed",
-          "harness": null,
-+         "history": [
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": "{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}",
-+             "handles": {
-+               "branch": "store",
-+               "session": "s-9"
-+             },
-+             "kind": "assignment",
-+             "reason": null,
-+             "to": "{\"harness\":null,\"session\":\"s-9\",\"worker_harness\":null,\"worker_session\":null}"
-+           }
-+         ],
--         "history": [],
-          "hold": "none",
-          "holdReason": null,
-...
-          "parent": "MMR-2",
-          "priority": "p1",
-+         "session": "s-9",
--         "session": null,
-          "size": "small",
-          "status": "ready",
+~ board.MMR.nodes.items[MMR-3].branch: null -> "store"
++ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"branch":"store","session":"s-9"},"kind":"assignment","reason":null,"to":"{\"harness\":null,\"session\":\"s-9\",\"worker_harness\":null,\"worker_session\":null}"}
+~ board.MMR.nodes.items[MMR-3].session: null -> "s-9"
+~ nodes[MMR-3].branch: null -> "store"
++ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"branch":"store","session":"s-9"},"kind":"assignment","reason":null,"to":"{\"harness\":null,\"session\":\"s-9\",\"worker_harness\":null,\"worker_session\":null}"}
+~ nodes[MMR-3].session: null -> "s-9"
 
 ### update argv: MMR-5 --worker-harness codex --worker-session replacement
 exit 0
@@ -889,59 +480,12 @@ exit 0
 |   worker harness  codex
 |   worker session  replacement
 --- state
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+                 "handles": {
-+                   "harness": "codex",
-+                   "session": "main-session",
-+                   "worker_harness": "codex",
-+                   "worker_session": "replacement"
-+                 },
-+                 "kind": "assignment",
-+                 "reason": null,
-+                 "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"codex\",\"worker_session\":\"replacement\"}"
-                }
-              ],
-...
-                "stale": false
-              },
-+             "workerHarness": "codex",
-+             "workerSession": "replacement"
--             "workerHarness": "claude",
--             "workerSession": "task-worker-session"
-            },
-            {
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+             "handles": {
-+               "harness": "codex",
-+               "session": "main-session",
-+               "worker_harness": "codex",
-+               "worker_session": "replacement"
-+             },
-+             "kind": "assignment",
-+             "reason": null,
-+             "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"codex\",\"worker_session\":\"replacement\"}"
-            }
-          ],
-...
-            "stale": false
-          },
-+         "workerHarness": "codex",
-+         "workerSession": "replacement"
--         "workerHarness": "claude",
--         "workerSession": "task-worker-session"
-        }
-      ],
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_harness":"codex","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"codex\",\"worker_session\":\"replacement\"}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> "codex"
+~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_harness":"codex","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"codex\",\"worker_session\":\"replacement\"}"}
+~ nodes[MMR-5].workerHarness: "claude" -> "codex"
+~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
 
 ### update argv: MMR-5 --worker-session replacement -f json
 exit 0
@@ -975,57 +519,12 @@ exit 0
 |   "children": []
 | }
 --- state
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+                 "handles": {
-+                   "harness": "codex",
-+                   "session": "main-session",
-+                   "worker_session": "replacement"
-+                 },
-+                 "kind": "assignment",
-+                 "reason": null,
-+                 "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"
-                }
-              ],
-...
-                "stale": false
-              },
-+             "workerHarness": null,
-+             "workerSession": "replacement"
--             "workerHarness": "claude",
--             "workerSession": "task-worker-session"
-            },
-            {
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+             "handles": {
-+               "harness": "codex",
-+               "session": "main-session",
-+               "worker_session": "replacement"
-+             },
-+             "kind": "assignment",
-+             "reason": null,
-+             "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"
-            }
-          ],
-...
-            "stale": false
-          },
-+         "workerHarness": null,
-+         "workerSession": "replacement"
--         "workerHarness": "claude",
--         "workerSession": "task-worker-session"
-        }
-      ],
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
+~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ nodes[MMR-5].workerHarness: "claude" -> null
+~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
 
 ### update argv: MMR-5 --worker-session replacement -f jsonl
 exit 0
@@ -1059,57 +558,12 @@ exit 0
 |   "children": []
 | }
 --- state
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+                 "handles": {
-+                   "harness": "codex",
-+                   "session": "main-session",
-+                   "worker_session": "replacement"
-+                 },
-+                 "kind": "assignment",
-+                 "reason": null,
-+                 "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"
-                }
-              ],
-...
-                "stale": false
-              },
-+             "workerHarness": null,
-+             "workerSession": "replacement"
--             "workerHarness": "claude",
--             "workerSession": "task-worker-session"
-            },
-            {
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+             "handles": {
-+               "harness": "codex",
-+               "session": "main-session",
-+               "worker_session": "replacement"
-+             },
-+             "kind": "assignment",
-+             "reason": null,
-+             "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"
-            }
-          ],
-...
-            "stale": false
-          },
-+         "workerHarness": null,
-+         "workerSession": "replacement"
--         "workerHarness": "claude",
--         "workerSession": "task-worker-session"
-        }
-      ],
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
+~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ nodes[MMR-5].workerHarness: "claude" -> null
+~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
 
 ### update argv: MMR-5 --worker-session replacement -f table
 exit 0
@@ -1119,114 +573,24 @@ exit 0
 |
 | MMR-5   > in_progress   p0   MMR-2   Ship it
 --- state
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+                 "handles": {
-+                   "harness": "codex",
-+                   "session": "main-session",
-+                   "worker_session": "replacement"
-+                 },
-+                 "kind": "assignment",
-+                 "reason": null,
-+                 "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"
-                }
-              ],
-...
-                "stale": false
-              },
-+             "workerHarness": null,
-+             "workerSession": "replacement"
--             "workerHarness": "claude",
--             "workerSession": "task-worker-session"
-            },
-            {
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+             "handles": {
-+               "harness": "codex",
-+               "session": "main-session",
-+               "worker_session": "replacement"
-+             },
-+             "kind": "assignment",
-+             "reason": null,
-+             "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"
-            }
-          ],
-...
-            "stale": false
-          },
-+         "workerHarness": null,
-+         "workerSession": "replacement"
--         "workerHarness": "claude",
--         "workerSession": "task-worker-session"
-        }
-      ],
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
+~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ nodes[MMR-5].workerHarness: "claude" -> null
+~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
 
 ### update argv: MMR-5 --worker-session replacement -f ids
 exit 0
 --- stdout
 | MMR-5
 --- state
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+                 "handles": {
-+                   "harness": "codex",
-+                   "session": "main-session",
-+                   "worker_session": "replacement"
-+                 },
-+                 "kind": "assignment",
-+                 "reason": null,
-+                 "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"
-                }
-              ],
-...
-                "stale": false
-              },
-+             "workerHarness": null,
-+             "workerSession": "replacement"
--             "workerHarness": "claude",
--             "workerSession": "task-worker-session"
-            },
-            {
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+             "handles": {
-+               "harness": "codex",
-+               "session": "main-session",
-+               "worker_session": "replacement"
-+             },
-+             "kind": "assignment",
-+             "reason": null,
-+             "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"
-            }
-          ],
-...
-            "stale": false
-          },
-+         "workerHarness": null,
-+         "workerSession": "replacement"
--         "workerHarness": "claude",
--         "workerSession": "task-worker-session"
-        }
-      ]
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
+~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ nodes[MMR-5].workerHarness: "claude" -> null
+~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
 
 ### update argv: MMR-5 --worker-session replacement (terminal)
 exit 0
@@ -1245,57 +609,12 @@ exit 0
 |   session         main-session
 |   worker session  replacement
 --- state
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+                 "handles": {
-+                   "harness": "codex",
-+                   "session": "main-session",
-+                   "worker_session": "replacement"
-+                 },
-+                 "kind": "assignment",
-+                 "reason": null,
-+                 "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"
-                }
-              ],
-...
-                "stale": false
-              },
-+             "workerHarness": null,
-+             "workerSession": "replacement"
--             "workerHarness": "claude",
--             "workerSession": "task-worker-session"
-            },
-            {
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+             "handles": {
-+               "harness": "codex",
-+               "session": "main-session",
-+               "worker_session": "replacement"
-+             },
-+             "kind": "assignment",
-+             "reason": null,
-+             "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"
-            }
-          ],
-...
-            "stale": false
-          },
-+         "workerHarness": null,
-+         "workerSession": "replacement"
--         "workerHarness": "claude",
--         "workerSession": "task-worker-session"
-        }
-      ],
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
+~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ nodes[MMR-5].workerHarness: "claude" -> null
+~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
 
 ### update argv: MMR-5 --worker-harness ""
 exit 0
@@ -1314,53 +633,10 @@ exit 0
 |   session         main-session
 |   worker session  task-worker-session
 --- state
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+                 "handles": {
-+                   "harness": "codex",
-+                   "session": "main-session",
-+                   "worker_session": "task-worker-session"
-+                 },
-+                 "kind": "assignment",
-+                 "reason": null,
-+                 "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"task-worker-session\"}"
-                }
-              ],
-...
-                "stale": false
-              },
-+             "workerHarness": null,
--             "workerHarness": "claude",
-              "workerSession": "task-worker-session"
-            },
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+             "handles": {
-+               "harness": "codex",
-+               "session": "main-session",
-+               "worker_session": "task-worker-session"
-+             },
-+             "kind": "assignment",
-+             "reason": null,
-+             "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"task-worker-session\"}"
-            }
-          ],
-...
-            "stale": false
-          },
-+         "workerHarness": null,
--         "workerHarness": "claude",
-          "workerSession": "task-worker-session"
-        }
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"task-worker-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"task-worker-session\"}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"task-worker-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"task-worker-session\"}"}
+~ nodes[MMR-5].workerHarness: "claude" -> null
 
 ### update argv: MMR-5 --worker-session ""
 exit 0
@@ -1378,55 +654,12 @@ exit 0
 |   harness    codex
 |   session    main-session
 --- state
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+                 "handles": {
-+                   "harness": "codex",
-+                   "session": "main-session"
-+                 },
-+                 "kind": "assignment",
-+                 "reason": null,
-+                 "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"
-                }
-              ],
-...
-                "stale": false
-              },
-+             "workerHarness": null,
-+             "workerSession": null
--             "workerHarness": "claude",
--             "workerSession": "task-worker-session"
-            },
-            {
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+             "handles": {
-+               "harness": "codex",
-+               "session": "main-session"
-+             },
-+             "kind": "assignment",
-+             "reason": null,
-+             "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"
-            }
-          ],
-...
-            "stale": false
-          },
-+         "workerHarness": null,
-+         "workerSession": null
--         "workerHarness": "claude",
--         "workerSession": "task-worker-session"
-        }
-      ],
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
+~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
+~ nodes[MMR-5].workerHarness: "claude" -> null
+~ nodes[MMR-5].workerSession: "task-worker-session" -> null
 
 ### update argv: MMR-5 --worker-harness "" --worker-session "" -f json
 exit 0
@@ -1460,55 +693,12 @@ exit 0
 |   "children": []
 | }
 --- state
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+                 "handles": {
-+                   "harness": "codex",
-+                   "session": "main-session"
-+                 },
-+                 "kind": "assignment",
-+                 "reason": null,
-+                 "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"
-                }
-              ],
-...
-                "stale": false
-              },
-+             "workerHarness": null,
-+             "workerSession": null
--             "workerHarness": "claude",
--             "workerSession": "task-worker-session"
-            },
-            {
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+             "handles": {
-+               "harness": "codex",
-+               "session": "main-session"
-+             },
-+             "kind": "assignment",
-+             "reason": null,
-+             "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"
-            }
-          ],
-...
-            "stale": false
-          },
-+         "workerHarness": null,
-+         "workerSession": null
--         "workerHarness": "claude",
--         "workerSession": "task-worker-session"
-        }
-      ],
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
+~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
+~ nodes[MMR-5].workerHarness: "claude" -> null
+~ nodes[MMR-5].workerSession: "task-worker-session" -> null
 
 ### update argv: MMR-5 --worker-harness codex --worker-session main-session
 exit 0
@@ -1526,55 +716,12 @@ exit 0
 |   harness    codex
 |   session    main-session
 --- state
-                  "reason": null,
-                  "to": "in_progress"
-+               },
-+               {
-+                 "at": "2026-10-01T12:00:00.000Z",
-+                 "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+                 "handles": {
-+                   "harness": "codex",
-+                   "session": "main-session"
-+                 },
-+                 "kind": "assignment",
-+                 "reason": null,
-+                 "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"
-                }
-              ],
-...
-                "stale": false
-              },
-+             "workerHarness": null,
-+             "workerSession": null
--             "workerHarness": "claude",
--             "workerSession": "task-worker-session"
-            },
-            {
-...
-              "reason": null,
-              "to": "in_progress"
-+           },
-+           {
-+             "at": "2026-10-01T12:00:00.000Z",
-+             "from": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}",
-+             "handles": {
-+               "harness": "codex",
-+               "session": "main-session"
-+             },
-+             "kind": "assignment",
-+             "reason": null,
-+             "to": "{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"
-            }
-          ],
-...
-            "stale": false
-          },
-+         "workerHarness": null,
-+         "workerSession": null
--         "workerHarness": "claude",
--         "workerSession": "task-worker-session"
-        }
-      ],
++ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
+~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
++ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
+~ nodes[MMR-5].workerHarness: "claude" -> null
+~ nodes[MMR-5].workerSession: "task-worker-session" -> null
 
 ### update argv: MMR-3 --title Both --desc and --summary more -p p2
 exit 0
@@ -1593,82 +740,18 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-                "dependsOn": []
-              },
-+             "description": "and",
--             "description": "Open the store once.\n\nKeep it open.",
-              "externalRef": null,
-              "grooming": "groomed",
-...
-              "host": null,
-              "id": "MMR-3",
-+             "lede": "more",
--             "lede": "one store per run",
-              "lifecycle": "todo",
-              "parent": "MMR-2",
-+             "priority": "p2",
--             "priority": "p1",
-              "session": null,
-              "size": "small",
-              "status": "ready",
-+             "summary": "more",
--             "summary": "one store per run",
-              "tags": [
-                {
-...
-                }
-              ],
-+             "title": "Both",
--             "title": "Wire the store",
-              "type": "task",
-              "updatedAt": "2026-10-01T12:00:00.000Z",
-...
-                    "id": "MMR-3",
-                    "status": "ready",
-+                   "title": "Both"
--                   "title": "Wire the store"
-                  }
-                ],
-...
-                    "id": "MMR-3",
-                    "status": "ready",
-+                   "title": "Both"
--                   "title": "Wire the store"
-                  }
-                ]
-...
-            "dependsOn": []
-          },
-+         "description": "and",
--         "description": "Open the store once.\n\nKeep it open.",
-          "externalRef": null,
-          "grooming": "groomed",
-...
-          "lifecycle": "todo",
-          "parent": "MMR-2",
-+         "priority": "p2",
--         "priority": "p1",
-          "session": null,
-          "size": "small",
-          "status": "ready",
-+         "summary": "more",
--         "summary": "one store per run",
-          "tags": [
-            {
-...
-            }
-          ],
-+         "title": "Both",
--         "title": "Wire the store",
-          "type": "task",
-          "updatedAt": "2026-10-01T12:00:00.000Z",
-...
-              "id": "MMR-3",
-              "status": "ready",
-+             "title": "Both"
--             "title": "Wire the store"
-            },
-            {
+~ board.MMR.nodes.items[MMR-3].description: "Open the store once.\n\nKeep it open." -> "and"
+~ board.MMR.nodes.items[MMR-3].lede: "one store per run" -> "more"
+~ board.MMR.nodes.items[MMR-3].priority: "p1" -> "p2"
+~ board.MMR.nodes.items[MMR-3].summary: "one store per run" -> "more"
+~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Both"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Both"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Both"
+~ nodes[MMR-3].description: "Open the store once.\n\nKeep it open." -> "and"
+~ nodes[MMR-3].priority: "p1" -> "p2"
+~ nodes[MMR-3].summary: "one store per run" -> "more"
+~ nodes[MMR-3].title: "Wire the store" -> "Both"
+~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Both"
 
 ### update argv: MMR-2 --target 2027-03
 exit 0
@@ -1683,12 +766,7 @@ exit 0
 |   children      MMR-3 · Wire the store (ready), MMR-4 · Render views (awaiting), MMR-5 · Ship it (in_progress), MMR-6 · Wait on review (blocked), MMR-7 · Spike (done), MMR-8 · Tidy docs (ready), MMR-9 · Export (done)
 |   distribution  ready:2, awaiting:1, in_progress:1, blocked:1, done:2
 --- state
-          "summary": null,
-          "tags": [],
-+         "target": "2027-03",
--         "target": "2026-11",
-          "title": "Skeleton",
-          "type": "phase",
+~ nodes[MMR-2].target: "2026-11" -> "2027-03"
 
 ### update argv: MMR-2 --direction "Next: wire it."
 exit 0
@@ -1704,11 +782,7 @@ exit 0
 |   children      MMR-3 · Wire the store (ready), MMR-4 · Render views (awaiting), MMR-5 · Ship it (in_progress), MMR-6 · Wait on review (blocked), MMR-7 · Spike (done), MMR-8 · Tidy docs (ready), MMR-9 · Export (done)
 |   distribution  ready:2, awaiting:1, in_progress:1, blocked:1, done:2
 --- state
-          },
-          "id": "MMR-2",
-+         "next": "Next: wire it.",
-          "open_ended": null,
-          "parent": "MMR-1",
++ nodes[MMR-2].next: "Next: wire it."
 
 ### update argv: MMR-2 --open-ended
 exit 0
@@ -1724,110 +798,21 @@ exit 0
 |   children      MMR-3 · Wire the store (ready), MMR-4 · Render views (awaiting), MMR-5 · Ship it (in_progress), MMR-6 · Wait on review (blocked), MMR-7 · Spike (done), MMR-8 · Tidy docs (ready), MMR-9 · Export (done)
 |   distribution  ready:2, awaiting:1, in_progress:1, blocked:1, done:2
 --- state
-              "home": {
-                "parentId": "MMR-2",
-+               "parentOpenEnded": true,
--               "parentOpenEnded": null,
-                "parentTitle": "Skeleton",
-                "projectKey": "MMR"
-...
-              "home": {
-                "parentId": "MMR-2",
-+               "parentOpenEnded": true,
--               "parentOpenEnded": null,
-                "parentTitle": "Skeleton",
-                "projectKey": "MMR"
-...
-              "home": {
-                "parentId": "MMR-2",
-+               "parentOpenEnded": true,
--               "parentOpenEnded": null,
-                "parentTitle": "Skeleton",
-                "projectKey": "MMR"
-...
-              "home": {
-                "parentId": "MMR-2",
-+               "parentOpenEnded": true,
--               "parentOpenEnded": null,
-                "parentTitle": "Skeleton",
-                "projectKey": "MMR"
-...
-              "home": {
-                "parentId": "MMR-2",
-+               "parentOpenEnded": true,
--               "parentOpenEnded": null,
-                "parentTitle": "Skeleton",
-                "projectKey": "MMR"
-...
-              "home": {
-                "parentId": "MMR-2",
-+               "parentOpenEnded": true,
--               "parentOpenEnded": null,
-                "parentTitle": "Skeleton",
-                "projectKey": "MMR"
-...
-              "home": {
-                "parentId": "MMR-2",
-+               "parentOpenEnded": true,
--               "parentOpenEnded": null,
-                "parentTitle": "Skeleton",
-                "projectKey": "MMR"
-...
-          },
-          "id": "MMR-2",
-+         "open_ended": true,
--         "open_ended": null,
-          "parent": "MMR-1",
-          "status": "in_progress",
-...
-          "home": {
-            "parentId": "MMR-2",
-+           "parentOpenEnded": true,
--           "parentOpenEnded": null,
-            "parentTitle": "Skeleton",
-            "projectKey": "MMR"
-...
-          "home": {
-            "parentId": "MMR-2",
-+           "parentOpenEnded": true,
--           "parentOpenEnded": null,
-            "parentTitle": "Skeleton",
-            "projectKey": "MMR"
-...
-          "home": {
-            "parentId": "MMR-2",
-+           "parentOpenEnded": true,
--           "parentOpenEnded": null,
-            "parentTitle": "Skeleton",
-            "projectKey": "MMR"
-...
-          "home": {
-            "parentId": "MMR-2",
-+           "parentOpenEnded": true,
--           "parentOpenEnded": null,
-            "parentTitle": "Skeleton",
-            "projectKey": "MMR"
-...
-          "home": {
-            "parentId": "MMR-2",
-+           "parentOpenEnded": true,
--           "parentOpenEnded": null,
-            "parentTitle": "Skeleton",
-            "projectKey": "MMR"
-...
-          "home": {
-            "parentId": "MMR-2",
-+           "parentOpenEnded": true,
--           "parentOpenEnded": null,
-            "parentTitle": "Skeleton",
-            "projectKey": "MMR"
-...
-          "home": {
-            "parentId": "MMR-2",
-+           "parentOpenEnded": true,
--           "parentOpenEnded": null,
-            "parentTitle": "Skeleton",
-            "projectKey": "MMR"
+~ board.MMR.nodes.items[MMR-3].home.parentOpenEnded: null -> true
+~ board.MMR.nodes.items[MMR-4].home.parentOpenEnded: null -> true
+~ board.MMR.nodes.items[MMR-5].home.parentOpenEnded: null -> true
+~ board.MMR.nodes.items[MMR-8].home.parentOpenEnded: null -> true
+~ board.MMR.nodes.items[MMR-6].home.parentOpenEnded: null -> true
+~ board.MMR.nodes.items[MMR-7].home.parentOpenEnded: null -> true
+~ board.MMR.nodes.items[MMR-9].home.parentOpenEnded: null -> true
+~ nodes[MMR-2].open_ended: null -> true
+~ nodes[MMR-3].home.parentOpenEnded: null -> true
+~ nodes[MMR-4].home.parentOpenEnded: null -> true
+~ nodes[MMR-5].home.parentOpenEnded: null -> true
+~ nodes[MMR-6].home.parentOpenEnded: null -> true
+~ nodes[MMR-7].home.parentOpenEnded: null -> true
+~ nodes[MMR-8].home.parentOpenEnded: null -> true
+~ nodes[MMR-9].home.parentOpenEnded: null -> true
 
 ### update argv: MMR-2 --not-open-ended
 exit 0
@@ -1842,110 +827,21 @@ exit 0
 |   children      MMR-3 · Wire the store (ready), MMR-4 · Render views (awaiting), MMR-5 · Ship it (in_progress), MMR-6 · Wait on review (blocked), MMR-7 · Spike (done), MMR-8 · Tidy docs (ready), MMR-9 · Export (done)
 |   distribution  ready:2, awaiting:1, in_progress:1, blocked:1, done:2
 --- state
-              "home": {
-                "parentId": "MMR-2",
-+               "parentOpenEnded": false,
--               "parentOpenEnded": null,
-                "parentTitle": "Skeleton",
-                "projectKey": "MMR"
-...
-              "home": {
-                "parentId": "MMR-2",
-+               "parentOpenEnded": false,
--               "parentOpenEnded": null,
-                "parentTitle": "Skeleton",
-                "projectKey": "MMR"
-...
-              "home": {
-                "parentId": "MMR-2",
-+               "parentOpenEnded": false,
--               "parentOpenEnded": null,
-                "parentTitle": "Skeleton",
-                "projectKey": "MMR"
-...
-              "home": {
-                "parentId": "MMR-2",
-+               "parentOpenEnded": false,
--               "parentOpenEnded": null,
-                "parentTitle": "Skeleton",
-                "projectKey": "MMR"
-...
-              "home": {
-                "parentId": "MMR-2",
-+               "parentOpenEnded": false,
--               "parentOpenEnded": null,
-                "parentTitle": "Skeleton",
-                "projectKey": "MMR"
-...
-              "home": {
-                "parentId": "MMR-2",
-+               "parentOpenEnded": false,
--               "parentOpenEnded": null,
-                "parentTitle": "Skeleton",
-                "projectKey": "MMR"
-...
-              "home": {
-                "parentId": "MMR-2",
-+               "parentOpenEnded": false,
--               "parentOpenEnded": null,
-                "parentTitle": "Skeleton",
-                "projectKey": "MMR"
-...
-          },
-          "id": "MMR-2",
-+         "open_ended": false,
--         "open_ended": null,
-          "parent": "MMR-1",
-          "status": "in_progress",
-...
-          "home": {
-            "parentId": "MMR-2",
-+           "parentOpenEnded": false,
--           "parentOpenEnded": null,
-            "parentTitle": "Skeleton",
-            "projectKey": "MMR"
-...
-          "home": {
-            "parentId": "MMR-2",
-+           "parentOpenEnded": false,
--           "parentOpenEnded": null,
-            "parentTitle": "Skeleton",
-            "projectKey": "MMR"
-...
-          "home": {
-            "parentId": "MMR-2",
-+           "parentOpenEnded": false,
--           "parentOpenEnded": null,
-            "parentTitle": "Skeleton",
-            "projectKey": "MMR"
-...
-          "home": {
-            "parentId": "MMR-2",
-+           "parentOpenEnded": false,
--           "parentOpenEnded": null,
-            "parentTitle": "Skeleton",
-            "projectKey": "MMR"
-...
-          "home": {
-            "parentId": "MMR-2",
-+           "parentOpenEnded": false,
--           "parentOpenEnded": null,
-            "parentTitle": "Skeleton",
-            "projectKey": "MMR"
-...
-          "home": {
-            "parentId": "MMR-2",
-+           "parentOpenEnded": false,
--           "parentOpenEnded": null,
-            "parentTitle": "Skeleton",
-            "projectKey": "MMR"
-...
-          "home": {
-            "parentId": "MMR-2",
-+           "parentOpenEnded": false,
--           "parentOpenEnded": null,
-            "parentTitle": "Skeleton",
-            "projectKey": "MMR"
+~ board.MMR.nodes.items[MMR-3].home.parentOpenEnded: null -> false
+~ board.MMR.nodes.items[MMR-4].home.parentOpenEnded: null -> false
+~ board.MMR.nodes.items[MMR-5].home.parentOpenEnded: null -> false
+~ board.MMR.nodes.items[MMR-8].home.parentOpenEnded: null -> false
+~ board.MMR.nodes.items[MMR-6].home.parentOpenEnded: null -> false
+~ board.MMR.nodes.items[MMR-7].home.parentOpenEnded: null -> false
+~ board.MMR.nodes.items[MMR-9].home.parentOpenEnded: null -> false
+~ nodes[MMR-2].open_ended: null -> false
+~ nodes[MMR-3].home.parentOpenEnded: null -> false
+~ nodes[MMR-4].home.parentOpenEnded: null -> false
+~ nodes[MMR-5].home.parentOpenEnded: null -> false
+~ nodes[MMR-6].home.parentOpenEnded: null -> false
+~ nodes[MMR-7].home.parentOpenEnded: null -> false
+~ nodes[MMR-8].home.parentOpenEnded: null -> false
+~ nodes[MMR-9].home.parentOpenEnded: null -> false
 
 ### update argv: MMR-1 --title "Platform work" --direction "Next: the store."
 exit 0
@@ -1959,32 +855,10 @@ exit 0
 |   children      MMR-2 · Skeleton (in_progress)
 |   distribution  in_progress:1
 --- state
-          },
-          "id": "MMR-1",
-+         "next": "Next: the store.",
-          "open_ended": null,
-          "parent": null,
-...
-          "summary": null,
-          "tags": [],
-+         "title": "Platform work",
--         "title": "Platform",
-          "type": "initiative",
-          "updatedAt": "2026-10-01T12:00:00.000Z",
-...
-            "parentId": "MMR-1",
-            "parentOpenEnded": null,
-+           "parentTitle": "Platform work",
--           "parentTitle": "Platform",
-            "projectKey": "MMR"
-          },
-...
-            "id": "MMR-1",
-            "status": "in_progress",
-+           "title": "Platform work"
--           "title": "Platform"
-          }
-        ],
+~ nodes[MMR-1].title: "Platform" -> "Platform work"
++ nodes[MMR-1].next: "Next: the store."
+~ nodes[MMR-2].home.parentTitle: "Platform" -> "Platform work"
+~ projects[MMR].children[MMR-1].title: "Platform" -> "Platform work"
 
 ### update argv: MMR-2 (terminal)
 exit 0
@@ -2017,12 +891,7 @@ exit 0
 |   children       MMR-1 · Platform (in_progress)
 |   distribution   in_progress:1
 --- state
-        "status": "in_progress",
-        "tags": [],
-+       "title": "Mimir",
--       "title": "mimir",
-        "type": "project",
-        "updatedAt": "2026-10-01T12:00:00.000Z"
+~ projects[MMR].title: "mimir" -> "Mimir"
 
 ### update argv: MMR --name Mimir -f json
 exit 0
@@ -2051,12 +920,7 @@ exit 0
 |   }
 | }
 --- state
-        "status": "in_progress",
-        "tags": [],
-+       "title": "Mimir",
--       "title": "mimir",
-        "type": "project",
-        "updatedAt": "2026-10-01T12:00:00.000Z"
+~ projects[MMR].title: "mimir" -> "Mimir"
 
 ### update argv: MMR --name Mimir -f jsonl
 exit 0
@@ -2085,24 +949,14 @@ exit 0
 |   }
 | }
 --- state
-        "status": "in_progress",
-        "tags": [],
-+       "title": "Mimir",
--       "title": "mimir",
-        "type": "project",
-        "updatedAt": "2026-10-01T12:00:00.000Z"
+~ projects[MMR].title: "mimir" -> "Mimir"
 
 ### update argv: MMR --name Mimir -f ids
 exit 0
 --- stdout
 | MMR
 --- state
-        "status": "in_progress",
-        "tags": [],
-+       "title": "Mimir",
--       "title": "mimir",
-        "type": "project",
-        "updatedAt": "2026-10-01T12:00:00.000Z"
+~ projects[MMR].title: "mimir" -> "Mimir"
 
 ### update argv: MMR --name Mimir --ascii
 exit 0
@@ -2117,12 +971,7 @@ exit 0
 |   children       MMR-1 · Platform (in_progress)
 |   distribution   in_progress:1
 --- state
-        "status": "in_progress",
-        "tags": [],
-+       "title": "Mimir",
--       "title": "mimir",
-        "type": "project",
-        "updatedAt": "2026-10-01T12:00:00.000Z"
+~ projects[MMR].title: "mimir" -> "Mimir"
 
 ### update argv: MMR --name Mimir -f table
 exit 0
@@ -2131,12 +980,7 @@ exit 0
 |
 | MMR   > in_progress           Mimir
 --- state
-        "status": "in_progress",
-        "tags": [],
-+       "title": "Mimir",
--       "title": "mimir",
-        "type": "project",
-        "updatedAt": "2026-10-01T12:00:00.000Z"
+~ projects[MMR].title: "mimir" -> "Mimir"
 
 ### update argv: MMR --name Mimir (terminal)
 exit 0
@@ -2154,12 +998,7 @@ exit 0
 |   hint  mimir tree MMR   — full subtree
 |         mimir list --status ready -s MMR   — leaf-actionable tasks
 --- state
-        "status": "in_progress",
-        "tags": [],
-+       "title": "Mimir",
--       "title": "mimir",
-        "type": "project",
-        "updatedAt": "2026-10-01T12:00:00.000Z"
+~ projects[MMR].title: "mimir" -> "Mimir"
 
 ### update argv: MMR --desc "A new project description."
 exit 0
@@ -2174,12 +1013,7 @@ exit 0
 |   children       MMR-1 · Platform (in_progress)
 |   distribution   in_progress:1
 --- state
-        ],
-        "createdAt": "2026-10-01T12:00:00.000Z",
-+       "description": "A new project description.",
--       "description": "The work-state store.",
-        "distribution": {
-          "in_progress": 1
+~ projects[MMR].description: "The work-state store." -> "A new project description."
 
 ### update argv: MMR --direction "Next: ship it."
 exit 0
@@ -2195,11 +1029,7 @@ exit 0
 |   children       MMR-1 · Platform (in_progress)
 |   distribution   in_progress:1
 --- state
-          "done": 2
-        },
-+       "next": "Next: ship it.",
-        "parent": null,
-        "pinned": false,
++ projects[MMR].next: "Next: ship it."
 
 ### update argv: MMR --pinned
 exit 0
@@ -2215,12 +1045,7 @@ exit 0
 |   children       MMR-1 · Platform (in_progress)
 |   distribution   in_progress:1
 --- state
-        },
-        "parent": null,
-+       "pinned": true,
--       "pinned": false,
-        "remote": "github.com/dbtlr/mimir",
-        "status": "in_progress",
+~ projects[MMR].pinned: false -> true
 
 ### update argv: MMR --not-pinned
 exit 0
@@ -2250,12 +1075,7 @@ exit 0
 |   children       MMR-1 · Platform (in_progress)
 |   distribution   in_progress:1
 --- state
-        "parent": null,
-        "pinned": false,
-+       "remote": "github.com/dbtlr/other",
--       "remote": "github.com/dbtlr/mimir",
-        "status": "in_progress",
-        "tags": [],
+~ projects[MMR].remote: "github.com/dbtlr/mimir" -> "github.com/dbtlr/other"
 
 ### update argv: MMR --remote ""
 exit 0
@@ -2269,12 +1089,7 @@ exit 0
 |   children       MMR-1 · Platform (in_progress)
 |   distribution   in_progress:1
 --- state
-        "parent": null,
-        "pinned": false,
-+       "remote": null,
--       "remote": "github.com/dbtlr/mimir",
-        "status": "in_progress",
-        "tags": [],
+~ projects[MMR].remote: "github.com/dbtlr/mimir" -> null
 
 ### update argv: XX --pinned --name Other
 exit 0
@@ -2288,17 +1103,8 @@ exit 0
 |   children       XX-1 · Elsewhere (ready)
 |   distribution   ready:1
 --- state
-        },
-        "parent": null,
-+       "pinned": true,
--       "pinned": false,
-        "remote": null,
-        "status": "ready",
-        "tags": [],
-+       "title": "Other",
--       "title": "other",
-        "type": "project",
-        "updatedAt": "2026-10-01T12:00:00.000Z"
+~ projects[XX].pinned: false -> true
+~ projects[XX].title: "other" -> "Other"
 
 ### update argv: MMR
 exit 0
@@ -2326,40 +1132,11 @@ exit 0
 |   tags     design
 |   created  2026-10-01 12:00 UTC
 --- state
-            "design"
-          ],
-+         "title": "x"
--         "title": "Store notes"
-        }
-      ]
-...
-                    "design"
-                  ],
-+                 "title": "x"
--                 "title": "Store notes"
-                }
-              ],
-...
-                "design"
-              ],
-+             "title": "x"
--             "title": "Store notes"
-            }
-          ],
-...
-                "design"
-              ],
-+             "title": "x"
--             "title": "Store notes"
-            }
-          ],
-...
-              "design"
-            ],
-+           "title": "x"
--           "title": "Store notes"
-          }
-        ],
+~ artifacts[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
 
 ### update argv: MMR-a1 --title x -f json
 exit 0
@@ -2378,40 +1155,11 @@ exit 0
 |   "summary": "design notes"
 | }
 --- state
-            "design"
-          ],
-+         "title": "x"
--         "title": "Store notes"
-        }
-      ]
-...
-                    "design"
-                  ],
-+                 "title": "x"
--                 "title": "Store notes"
-                }
-              ],
-...
-                "design"
-              ],
-+             "title": "x"
--             "title": "Store notes"
-            }
-          ],
-...
-                "design"
-              ],
-+             "title": "x"
--             "title": "Store notes"
-            }
-          ],
-...
-              "design"
-            ],
-+           "title": "x"
--           "title": "Store notes"
-          }
-        ],
+~ artifacts[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
 
 ### update argv: MMR-a1 --title x -f jsonl
 exit 0
@@ -2430,73 +1178,21 @@ exit 0
 |   "summary": "design notes"
 | }
 --- state
-            "design"
-          ],
-+         "title": "x"
--         "title": "Store notes"
-        }
-      ]
-...
-                    "design"
-                  ],
-+                 "title": "x"
--                 "title": "Store notes"
-                }
-              ],
-...
-                "design"
-              ],
-+             "title": "x"
--             "title": "Store notes"
-            }
-          ],
-...
-                "design"
-              ],
-+             "title": "x"
--             "title": "Store notes"
-            }
-          ],
-...
-              "design"
-            ],
-+           "title": "x"
--           "title": "Store notes"
-          }
-        ],
+~ artifacts[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
 
 ### update argv: MMR-a1 --title x -f ids
 exit 0
 --- stdout
 | MMR-a1
 --- state
-            "design"
-          ],
-+         "title": "x"
--         "title": "Store notes"
-        }
-      ]
-...
-                    "design"
-                  ],
-+                 "title": "x"
--                 "title": "Store notes"
-                }
-              ],
-...
-                "design"
-              ],
-+             "title": "x"
--             "title": "Store notes"
-            }
-          ],
-...
-              "design"
-            ],
-+           "title": "x"
--           "title": "Store notes"
-          }
-        ],
+~ artifacts[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
 
 ### update argv: MMR-a1 --title x -f table
 exit 0
@@ -2505,33 +1201,10 @@ exit 0
 |
 | MMR-a1   x   design   2026-10-01
 --- state
-            "design"
-          ],
-+         "title": "x"
--         "title": "Store notes"
-        }
-      ]
-...
-                    "design"
-                  ],
-+                 "title": "x"
--                 "title": "Store notes"
-                }
-              ],
-...
-                "design"
-              ],
-+             "title": "x"
--             "title": "Store notes"
-            }
-          ],
-...
-              "design"
-            ],
-+           "title": "x"
--           "title": "Store notes"
-          }
-        ],
+~ artifacts[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
 
 ### update argv: MMR-a1 --title x --ascii
 exit 0
@@ -2544,40 +1217,11 @@ exit 0
 |   tags     design
 |   created  2026-10-01 12:00 UTC
 --- state
-            "design"
-          ],
-+         "title": "x"
--         "title": "Store notes"
-        }
-      ]
-...
-                    "design"
-                  ],
-+                 "title": "x"
--                 "title": "Store notes"
-                }
-              ],
-...
-                "design"
-              ],
-+             "title": "x"
--             "title": "Store notes"
-            }
-          ],
-...
-                "design"
-              ],
-+             "title": "x"
--             "title": "Store notes"
-            }
-          ],
-...
-              "design"
-            ],
-+           "title": "x"
--           "title": "Store notes"
-          }
-        ],
+~ artifacts[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
 
 ### update argv: MMR-a1 --title x (terminal)
 exit 0
@@ -2590,40 +1234,11 @@ exit 0
 |   tags     design
 |   created  2026-10-01 12:00 UTC
 --- state
-            "design"
-          ],
-+         "title": "x"
--         "title": "Store notes"
-        }
-      ]
-...
-                    "design"
-                  ],
-+                 "title": "x"
--                 "title": "Store notes"
-                }
-              ],
-...
-                "design"
-              ],
-+             "title": "x"
--             "title": "Store notes"
-            }
-          ],
-...
-                "design"
-              ],
-+             "title": "x"
--             "title": "Store notes"
-            }
-          ],
-...
-              "design"
-            ],
-+           "title": "x"
--           "title": "Store notes"
-          }
-        ],
+~ artifacts[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
 
 ### update argv: MMR-a1 --summary x
 exit 0
@@ -2636,40 +1251,11 @@ exit 0
 |   tags     design
 |   created  2026-10-01 12:00 UTC
 --- state
-          ],
-          "project": "MMR",
-+         "summary": "x",
--         "summary": "design notes",
-          "tags": [
-            "design"
-...
-                  "createdAt": "2026-10-01T12:00:00.000Z",
-                  "id": "MMR-a1",
-+                 "summary": "x",
--                 "summary": "design notes",
-                  "tags": [
-                    "design"
-...
-              ],
-              "project": "MMR",
-+             "summary": "x",
--             "summary": "design notes",
-              "tags": [
-                "design"
-...
-              "createdAt": "2026-10-01T12:00:00.000Z",
-              "id": "MMR-a1",
-+             "summary": "x",
--             "summary": "design notes",
-              "tags": [
-                "design"
-...
-            "createdAt": "2026-10-01T12:00:00.000Z",
-            "id": "MMR-a1",
-+           "summary": "x",
--           "summary": "design notes",
-            "tags": [
-              "design"
+~ artifacts[MMR-a1].summary: "design notes" -> "x"
+~ board.MMR.artifacts.items[MMR-a1].summary: "design notes" -> "x"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].summary: "design notes" -> "x"
+~ nodes[MMR-3].artifacts[MMR-a1].summary: "design notes" -> "x"
+~ projects[MMR].artifacts[MMR-a1].summary: "design notes" -> "x"
 
 ### update argv: MMR-a1 --summary ""
 exit 0
@@ -2681,35 +1267,11 @@ exit 0
 |   tags     design
 |   created  2026-10-01 12:00 UTC
 --- state
-          ],
-          "project": "MMR",
--         "summary": "design notes",
-          "tags": [
-            "design"
-...
-                  "createdAt": "2026-10-01T12:00:00.000Z",
-                  "id": "MMR-a1",
--                 "summary": "design notes",
-                  "tags": [
-                    "design"
-...
-              ],
-              "project": "MMR",
--             "summary": "design notes",
-              "tags": [
-                "design"
-...
-              "createdAt": "2026-10-01T12:00:00.000Z",
-              "id": "MMR-a1",
--             "summary": "design notes",
-              "tags": [
-                "design"
-...
-            "createdAt": "2026-10-01T12:00:00.000Z",
-            "id": "MMR-a1",
--           "summary": "design notes",
-            "tags": [
-              "design"
+- artifacts[MMR-a1].summary: "design notes"
+- board.MMR.artifacts.items[MMR-a1].summary: "design notes"
+- board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].summary: "design notes"
+- nodes[MMR-3].artifacts[MMR-a1].summary: "design notes"
+- projects[MMR].artifacts[MMR-a1].summary: "design notes"
 
 ### update argv: MMR-a1 --title both --summary and
 exit 0
@@ -2722,65 +1284,16 @@ exit 0
 |   tags     design
 |   created  2026-10-01 12:00 UTC
 --- state
-          ],
-          "project": "MMR",
-+         "summary": "and",
--         "summary": "design notes",
-          "tags": [
-            "design"
-          ],
-+         "title": "both"
--         "title": "Store notes"
-        }
-      ]
-...
-                  "createdAt": "2026-10-01T12:00:00.000Z",
-                  "id": "MMR-a1",
-+                 "summary": "and",
--                 "summary": "design notes",
-                  "tags": [
-                    "design"
-                  ],
-+                 "title": "both"
--                 "title": "Store notes"
-                }
-              ],
-...
-              ],
-              "project": "MMR",
-+             "summary": "and",
--             "summary": "design notes",
-              "tags": [
-                "design"
-              ],
-+             "title": "both"
--             "title": "Store notes"
-            }
-          ],
-...
-              "createdAt": "2026-10-01T12:00:00.000Z",
-              "id": "MMR-a1",
-+             "summary": "and",
--             "summary": "design notes",
-              "tags": [
-                "design"
-              ],
-+             "title": "both"
--             "title": "Store notes"
-            }
-          ],
-...
-            "createdAt": "2026-10-01T12:00:00.000Z",
-            "id": "MMR-a1",
-+           "summary": "and",
--           "summary": "design notes",
-            "tags": [
-              "design"
-            ],
-+           "title": "both"
--           "title": "Store notes"
-          }
-        ],
+~ artifacts[MMR-a1].summary: "design notes" -> "and"
+~ artifacts[MMR-a1].title: "Store notes" -> "both"
+~ board.MMR.artifacts.items[MMR-a1].summary: "design notes" -> "and"
+~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "both"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].summary: "design notes" -> "and"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "both"
+~ nodes[MMR-3].artifacts[MMR-a1].summary: "design notes" -> "and"
+~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "both"
+~ projects[MMR].artifacts[MMR-a1].summary: "design notes" -> "and"
+~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "both"
 
 ### update argv: MMR-a1
 exit 0
@@ -2808,12 +1321,7 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "requester": "XX",
-          "spawned": [],
-+         "title": "x",
--         "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-        },
+~ seeds.MMR[MMR-s1].title: "A hook" -> "x"
 
 ### update argv: MMR-s1 --title x -f json
 exit 0
@@ -2833,12 +1341,7 @@ exit 0
 |   "description": "Ask the other board for a hook."
 | }
 --- state
-          "requester": "XX",
-          "spawned": [],
-+         "title": "x",
--         "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-        },
+~ seeds.MMR[MMR-s1].title: "A hook" -> "x"
 
 ### update argv: MMR-s1 --title x -f jsonl
 exit 0
@@ -2858,24 +1361,14 @@ exit 0
 |   "description": "Ask the other board for a hook."
 | }
 --- state
-          "requester": "XX",
-          "spawned": [],
-+         "title": "x",
--         "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-        },
+~ seeds.MMR[MMR-s1].title: "A hook" -> "x"
 
 ### update argv: MMR-s1 --title x -f ids
 exit 0
 --- stdout
 | MMR-s1
 --- state
-          "requester": "XX",
-          "spawned": [],
-+         "title": "x",
--         "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-        },
+~ seeds.MMR[MMR-s1].title: "A hook" -> "x"
 
 ### update argv: MMR-s1 --title x -f table
 exit 0
@@ -2890,12 +1383,7 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "requester": "XX",
-          "spawned": [],
-+         "title": "x",
--         "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-        },
+~ seeds.MMR[MMR-s1].title: "A hook" -> "x"
 
 ### update argv: MMR-s1 --title x --ascii
 exit 0
@@ -2910,12 +1398,7 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "requester": "XX",
-          "spawned": [],
-+         "title": "x",
--         "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-        },
+~ seeds.MMR[MMR-s1].title: "A hook" -> "x"
 
 ### update argv: MMR-s1 --title x (terminal)
 exit 0
@@ -2930,12 +1413,7 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "requester": "XX",
-          "spawned": [],
-+         "title": "x",
--         "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-        },
+~ seeds.MMR[MMR-s1].title: "A hook" -> "x"
 
 ### update argv: MMR-s1 --kind bug
 exit 0
@@ -2950,12 +1428,7 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "createdAt": "2026-10-01T12:00:00.000Z",
-          "id": "MMR-s1",
-+         "kind": "bug",
--         "kind": "feature",
-          "lede": "Ask the other board for a hook.",
-          "lifecycle": "new",
+~ seeds.MMR[MMR-s1].kind: "feature" -> "bug"
 
 ### update argv: MMR-s1 -k feature --desc y --title z
 exit 0
@@ -2970,19 +1443,8 @@ exit 0
 |   description  y
 |   created      2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lede": "y",
--         "lede": "Ask the other board for a hook.",
-          "lifecycle": "new",
-          "project": "MMR",
-...
-          "requester": "XX",
-          "spawned": [],
-+         "title": "z",
--         "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-        },
+~ seeds.MMR[MMR-s1].lede: "Ask the other board for a hook." -> "y"
+~ seeds.MMR[MMR-s1].title: "A hook" -> "z"
 
 ### update argv: MMR-s1 --desc x
 exit 0
@@ -2997,12 +1459,7 @@ exit 0
 |   description  x
 |   created      2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lede": "x",
--         "lede": "Ask the other board for a hook.",
-          "lifecycle": "new",
-          "project": "MMR",
+~ seeds.MMR[MMR-s1].lede: "Ask the other board for a hook." -> "x"
 
 ### update argv: MMR-s1
 exit 0
@@ -3638,12 +2095,7 @@ exit 0
 |   children       MMR-1 · Platform (in_progress)
 |   distribution   in_progress:1
 --- state
-        "status": "in_progress",
-        "tags": [],
-+       "title": "Dup",
--       "title": "mimir",
-        "type": "project",
-        "updatedAt": "2026-10-01T12:00:00.000Z"
+~ projects[MMR].title: "mimir" -> "Dup"
 
 ### update argv: XX --remote git@github.com:dbtlr/mimir.git
 exit 0
@@ -3657,12 +2109,7 @@ exit 0
 |   children       XX-1 · Elsewhere (ready)
 |   distribution   ready:1
 --- state
-        "parent": null,
-        "pinned": false,
-+       "remote": "github.com/dbtlr/mimir",
--       "remote": null,
-        "status": "ready",
-        "tags": [],
+~ projects[XX].remote: null -> "github.com/dbtlr/mimir"
 
 ### update argv: MMR-a1 --pinned
 exit 1

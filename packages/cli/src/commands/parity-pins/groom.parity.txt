@@ -3,214 +3,70 @@ exit 0
 --- stdout
 | [ok] groomed MMR-4 · groomed
 --- state
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": null,
-              "history": [
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": null,
-          "history": [
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4 groomed -f json
 exit 0
 --- stdout
 | {"groomed":{"ids":["MMR-4"],"state":"groomed"}}
 --- state
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": null,
-              "history": [
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": null,
-          "history": [
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4 groomed -f jsonl
 exit 0
 --- stdout
 | {"groomed":{"ids":["MMR-4"],"state":"groomed"}}
 --- state
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": null,
-              "history": [
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": null,
-          "history": [
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4 groomed -f ids
 exit 0
 --- stdout
 | MMR-4
 --- state
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": null,
-              "history": [
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": null,
-          "history": [
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4 groomed -f table
 exit 0
 --- stdout
 | [ok] groomed MMR-4 · groomed
 --- state
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": null,
-              "history": [
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": null,
-          "history": [
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4 groomed --ascii
 exit 0
 --- stdout
 | [ok] groomed MMR-4 · groomed
 --- state
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": null,
-              "history": [
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": null,
-          "history": [
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4 groomed (terminal)
 exit 0
 --- stdout
 | ␛[32m✓␛[39m groomed MMR-4 · groomed
 --- state
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": null,
-              "history": [
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": null,
-          "history": [
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4,MMR-5 groomed "scoped in the design"
 exit 0
 --- stdout
 | [ok] groomed MMR-4, MMR-5 · groomed
 --- state
-            },
-            {
-+             "annotations": [
-+               {
-+                 "content": "scoped in the design",
-+                 "createdAt": "2026-10-01T12:00:00.000Z"
-+               }
-+             ],
--             "annotations": [],
-              "artifacts": [],
-              "blockOwner": null,
-...
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": null,
-              "history": [
-...
-            },
-            {
-+             "annotations": [
-+               {
-+                 "content": "scoped in the design",
-+                 "createdAt": "2026-10-01T12:00:00.000Z"
-+               }
-+             ],
--             "annotations": [],
-              "artifacts": [],
-              "blockOwner": null,
-...
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": "codex",
-              "history": [
-...
-        "MMR-4",
-        {
-+         "annotations": [
-+           {
-+             "content": "scoped in the design",
-+             "createdAt": "2026-10-01T12:00:00.000Z"
-+           }
-+         ],
--         "annotations": [],
-          "artifacts": [],
-          "blockOwner": null,
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": null,
-          "history": [
-...
-        "MMR-5",
-        {
-+         "annotations": [
-+           {
-+             "content": "scoped in the design",
-+             "createdAt": "2026-10-01T12:00:00.000Z"
-+           }
-+         ],
--         "annotations": [],
-          "artifacts": [],
-          "blockOwner": null,
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": "codex",
-          "history": [
++ board.MMR.nodes.items[MMR-4].annotations[#0]: {"content":"scoped in the design","createdAt":"2026-10-01T12:00:00.000Z"}
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
++ board.MMR.nodes.items[MMR-5].annotations[#0]: {"content":"scoped in the design","createdAt":"2026-10-01T12:00:00.000Z"}
+~ board.MMR.nodes.items[MMR-5].grooming: "not_groomed" -> "groomed"
++ nodes[MMR-4].annotations[#0]: {"content":"scoped in the design","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
++ nodes[MMR-5].annotations[#0]: {"content":"scoped in the design","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-5].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4,MMR-5 groomed -f ids
 exit 0
@@ -218,376 +74,98 @@ exit 0
 | MMR-4
 | MMR-5
 --- state
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": null,
-              "history": [
-...
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": "codex",
-              "history": [
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": null,
-          "history": [
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": "codex",
-          "history": [
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ board.MMR.nodes.items[MMR-5].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-5].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4 MMR-5 groomed
 exit 0
 --- stdout
 | [ok] groomed MMR-4, MMR-5 · groomed
 --- state
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": null,
-              "history": [
-...
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": "codex",
-              "history": [
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": null,
-          "history": [
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": "codex",
-          "history": [
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ board.MMR.nodes.items[MMR-5].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-5].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: "MMR-4, MMR-5" groomed
 exit 0
 --- stdout
 | [ok] groomed MMR-4, MMR-5 · groomed
 --- state
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": null,
-              "history": [
-...
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": "codex",
-              "history": [
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": null,
-          "history": [
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": "codex",
-          "history": [
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ board.MMR.nodes.items[MMR-5].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-5].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4 needs_answers "which store owns the lock?"
 exit 0
 --- stdout
 | [ok] groomed MMR-4 · needs_answers
 --- state
-            },
-            {
-+             "annotations": [
-+               {
-+                 "content": "which store owns the lock?",
-+                 "createdAt": "2026-10-01T12:00:00.000Z"
-+               }
-+             ],
--             "annotations": [],
-              "artifacts": [],
-              "blockOwner": null,
-...
-              "description": null,
-              "externalRef": null,
-+             "grooming": "needs_answers",
--             "grooming": "not_groomed",
-              "harness": null,
-              "history": [
-...
-        "MMR-4",
-        {
-+         "annotations": [
-+           {
-+             "content": "which store owns the lock?",
-+             "createdAt": "2026-10-01T12:00:00.000Z"
-+           }
-+         ],
--         "annotations": [],
-          "artifacts": [],
-          "blockOwner": null,
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "needs_answers",
--         "grooming": "not_groomed",
-          "harness": null,
-          "history": [
++ board.MMR.nodes.items[MMR-4].annotations[#0]: {"content":"which store owns the lock?","createdAt":"2026-10-01T12:00:00.000Z"}
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "needs_answers"
++ nodes[MMR-4].annotations[#0]: {"content":"which store owns the lock?","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-4].grooming: "not_groomed" -> "needs_answers"
 
 ### groom argv: MMR-4 needs_answers "which store owns the lock?" -f json
 exit 0
 --- stdout
 | {"groomed":{"ids":["MMR-4"],"state":"needs_answers"}}
 --- state
-            },
-            {
-+             "annotations": [
-+               {
-+                 "content": "which store owns the lock?",
-+                 "createdAt": "2026-10-01T12:00:00.000Z"
-+               }
-+             ],
--             "annotations": [],
-              "artifacts": [],
-              "blockOwner": null,
-...
-              "description": null,
-              "externalRef": null,
-+             "grooming": "needs_answers",
--             "grooming": "not_groomed",
-              "harness": null,
-              "history": [
-...
-        "MMR-4",
-        {
-+         "annotations": [
-+           {
-+             "content": "which store owns the lock?",
-+             "createdAt": "2026-10-01T12:00:00.000Z"
-+           }
-+         ],
--         "annotations": [],
-          "artifacts": [],
-          "blockOwner": null,
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "needs_answers",
--         "grooming": "not_groomed",
-          "harness": null,
-          "history": [
++ board.MMR.nodes.items[MMR-4].annotations[#0]: {"content":"which store owns the lock?","createdAt":"2026-10-01T12:00:00.000Z"}
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "needs_answers"
++ nodes[MMR-4].annotations[#0]: {"content":"which store owns the lock?","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-4].grooming: "not_groomed" -> "needs_answers"
 
 ### groom argv: MMR-3 not_groomed
 exit 0
 --- stdout
 | [ok] groomed MMR-3 · not_groomed
 --- state
-              "description": "Open the store once.\n\nKeep it open.",
-              "externalRef": null,
-+             "grooming": "not_groomed",
--             "grooming": "groomed",
-              "harness": null,
-              "history": [],
-...
-          "description": "Open the store once.\n\nKeep it open.",
-          "externalRef": null,
-+         "grooming": "not_groomed",
--         "grooming": "groomed",
-          "harness": null,
-          "history": [],
+~ board.MMR.nodes.items[MMR-3].grooming: "groomed" -> "not_groomed"
+~ nodes[MMR-3].grooming: "groomed" -> "not_groomed"
 
 ### groom argv: MMR-4 groomed -- --note text
 exit 0
 --- stdout
 | [ok] groomed MMR-4 · groomed
 --- state
-            },
-            {
-+             "annotations": [
-+               {
-+                 "content": "--note text",
-+                 "createdAt": "2026-10-01T12:00:00.000Z"
-+               }
-+             ],
--             "annotations": [],
-              "artifacts": [],
-              "blockOwner": null,
-...
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": null,
-              "history": [
-...
-        "MMR-4",
-        {
-+         "annotations": [
-+           {
-+             "content": "--note text",
-+             "createdAt": "2026-10-01T12:00:00.000Z"
-+           }
-+         ],
--         "annotations": [],
-          "artifacts": [],
-          "blockOwner": null,
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": null,
-          "history": [
++ board.MMR.nodes.items[MMR-4].annotations[#0]: {"content":"--note text","createdAt":"2026-10-01T12:00:00.000Z"}
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
++ nodes[MMR-4].annotations[#0]: {"content":"--note text","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4 groomed -- --note text -f json
 exit 0
 --- stdout
 | [ok] groomed MMR-4 · groomed
 --- state
-            },
-            {
-+             "annotations": [
-+               {
-+                 "content": "--note text -f json",
-+                 "createdAt": "2026-10-01T12:00:00.000Z"
-+               }
-+             ],
--             "annotations": [],
-              "artifacts": [],
-              "blockOwner": null,
-...
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": null,
-              "history": [
-...
-        "MMR-4",
-        {
-+         "annotations": [
-+           {
-+             "content": "--note text -f json",
-+             "createdAt": "2026-10-01T12:00:00.000Z"
-+           }
-+         ],
--         "annotations": [],
-          "artifacts": [],
-          "blockOwner": null,
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": null,
-          "history": [
++ board.MMR.nodes.items[MMR-4].annotations[#0]: {"content":"--note text -f json","createdAt":"2026-10-01T12:00:00.000Z"}
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
++ nodes[MMR-4].annotations[#0]: {"content":"--note text -f json","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-4 needs_answers -- --which store?
 exit 0
 --- stdout
 | [ok] groomed MMR-4 · needs_answers
 --- state
-            },
-            {
-+             "annotations": [
-+               {
-+                 "content": "--which store?",
-+                 "createdAt": "2026-10-01T12:00:00.000Z"
-+               }
-+             ],
--             "annotations": [],
-              "artifacts": [],
-              "blockOwner": null,
-...
-              "description": null,
-              "externalRef": null,
-+             "grooming": "needs_answers",
--             "grooming": "not_groomed",
-              "harness": null,
-              "history": [
-...
-        "MMR-4",
-        {
-+         "annotations": [
-+           {
-+             "content": "--which store?",
-+             "createdAt": "2026-10-01T12:00:00.000Z"
-+           }
-+         ],
--         "annotations": [],
-          "artifacts": [],
-          "blockOwner": null,
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "needs_answers",
--         "grooming": "not_groomed",
-          "harness": null,
-          "history": [
++ board.MMR.nodes.items[MMR-4].annotations[#0]: {"content":"--which store?","createdAt":"2026-10-01T12:00:00.000Z"}
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "needs_answers"
++ nodes[MMR-4].annotations[#0]: {"content":"--which store?","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-4].grooming: "not_groomed" -> "needs_answers"
 
 ### groom argv: MMR-4 needs_answers which -- -x store?
 exit 0
 --- stdout
 | [ok] groomed MMR-4 · needs_answers
 --- state
-            },
-            {
-+             "annotations": [
-+               {
-+                 "content": "which -x store?",
-+                 "createdAt": "2026-10-01T12:00:00.000Z"
-+               }
-+             ],
--             "annotations": [],
-              "artifacts": [],
-              "blockOwner": null,
-...
-              "description": null,
-              "externalRef": null,
-+             "grooming": "needs_answers",
--             "grooming": "not_groomed",
-              "harness": null,
-              "history": [
-...
-        "MMR-4",
-        {
-+         "annotations": [
-+           {
-+             "content": "which -x store?",
-+             "createdAt": "2026-10-01T12:00:00.000Z"
-+           }
-+         ],
--         "annotations": [],
-          "artifacts": [],
-          "blockOwner": null,
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "needs_answers",
--         "grooming": "not_groomed",
-          "harness": null,
-          "history": [
++ board.MMR.nodes.items[MMR-4].annotations[#0]: {"content":"which -x store?","createdAt":"2026-10-01T12:00:00.000Z"}
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "needs_answers"
++ nodes[MMR-4].annotations[#0]: {"content":"which -x store?","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-4].grooming: "not_groomed" -> "needs_answers"
 
 ### groom argv: MMR-4 needs_answers --
 exit 1
@@ -606,37 +184,10 @@ exit 0
 --- stdout
 | [ok] groomed MMR-3 · not_groomed
 --- state
-                  "content": "Settled; one; store.",
-                  "createdAt": "2026-10-01T12:00:00.000Z"
-+               },
-+               {
-+                 "content": "rethink the approach",
-+                 "createdAt": "2026-10-01T12:00:00.000Z"
-                }
-              ],
-...
-              "description": "Open the store once.\n\nKeep it open.",
-              "externalRef": null,
-+             "grooming": "not_groomed",
--             "grooming": "groomed",
-              "harness": null,
-              "history": [],
-...
-              "content": "Settled; one; store.",
-              "createdAt": "2026-10-01T12:00:00.000Z"
-+           },
-+           {
-+             "content": "rethink the approach",
-+             "createdAt": "2026-10-01T12:00:00.000Z"
-            }
-          ],
-...
-          "description": "Open the store once.\n\nKeep it open.",
-          "externalRef": null,
-+         "grooming": "not_groomed",
--         "grooming": "groomed",
-          "harness": null,
-          "history": [],
++ board.MMR.nodes.items[MMR-3].annotations[#2]: {"content":"rethink the approach","createdAt":"2026-10-01T12:00:00.000Z"}
+~ board.MMR.nodes.items[MMR-3].grooming: "groomed" -> "not_groomed"
++ nodes[MMR-3].annotations[#2]: {"content":"rethink the approach","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-3].grooming: "groomed" -> "not_groomed"
 
 ### groom argv: MMR-4 needs_answers
 exit 1
@@ -789,38 +340,16 @@ exit 0
 --- stdout
 | [ok] groomed MMR-7 · groomed
 --- state
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": null,
-              "history": [
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": null,
-          "history": [
+~ board.MMR.nodes.items[MMR-7].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-7].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: MMR-5 groomed
 exit 0
 --- stdout
 | [ok] groomed MMR-5 · groomed
 --- state
-              "description": null,
-              "externalRef": null,
-+             "grooming": "groomed",
--             "grooming": "not_groomed",
-              "harness": "codex",
-              "history": [
-...
-          "description": null,
-          "externalRef": null,
-+         "grooming": "groomed",
--         "grooming": "not_groomed",
-          "harness": "codex",
-          "history": [
+~ board.MMR.nodes.items[MMR-5].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-5].grooming: "not_groomed" -> "groomed"
 
 ### groom argv: , groomed
 exit 2

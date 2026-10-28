@@ -9,46 +9,14 @@ exit 0
 |   lifecycle  new
 |   created    2026-10-01 12:00 UTC
 --- state
-          "title": "Parked one",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-+       },
-+       {
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "id": "MMR-s6",
-+         "kind": "idea",
-+         "lede": null,
-+         "lifecycle": "new",
-+         "project": "MMR",
-+         "readyToResolve": false,
-+         "requester": null,
-+         "spawned": [],
-+         "title": "Cache it",
-+         "updatedAt": "2026-10-01T12:00:00.000Z"
-        }
-      ],
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache it","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### seed -f ids
 exit 0
 --- stdout
 | MMR-s6
 --- state
-          "title": "Parked one",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-+       },
-+       {
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "id": "MMR-s6",
-+         "kind": "idea",
-+         "lede": null,
-+         "lifecycle": "new",
-+         "project": "MMR",
-+         "readyToResolve": false,
-+         "requester": null,
-+         "spawned": [],
-+         "title": "Cache it",
-+         "updatedAt": "2026-10-01T12:00:00.000Z"
-        }
-      ],
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache it","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### seed -f json
 exit 0
@@ -68,23 +36,7 @@ exit 0
 |   "description": null
 | }
 --- state
-          "title": "Parked one",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-+       },
-+       {
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "id": "MMR-s6",
-+         "kind": "idea",
-+         "lede": null,
-+         "lifecycle": "new",
-+         "project": "MMR",
-+         "readyToResolve": false,
-+         "requester": null,
-+         "spawned": [],
-+         "title": "Cache it",
-+         "updatedAt": "2026-10-01T12:00:00.000Z"
-        }
-      ],
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache it","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### seed -f jsonl
 exit 0
@@ -104,23 +56,7 @@ exit 0
 |   "description": null
 | }
 --- state
-          "title": "Parked one",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-+       },
-+       {
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "id": "MMR-s6",
-+         "kind": "idea",
-+         "lede": null,
-+         "lifecycle": "new",
-+         "project": "MMR",
-+         "readyToResolve": false,
-+         "requester": null,
-+         "spawned": [],
-+         "title": "Cache it",
-+         "updatedAt": "2026-10-01T12:00:00.000Z"
-        }
-      ],
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache it","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### seed -f table
 exit 0
@@ -133,23 +69,7 @@ exit 0
 |   lifecycle  new
 |   created    2026-10-01 12:00 UTC
 --- state
-          "title": "Parked one",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-+       },
-+       {
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "id": "MMR-s6",
-+         "kind": "idea",
-+         "lede": null,
-+         "lifecycle": "new",
-+         "project": "MMR",
-+         "readyToResolve": false,
-+         "requester": null,
-+         "spawned": [],
-+         "title": "Cache it",
-+         "updatedAt": "2026-10-01T12:00:00.000Z"
-        }
-      ],
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache it","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### seed --ascii
 exit 0
@@ -162,23 +82,7 @@ exit 0
 |   lifecycle  new
 |   created    2026-10-01 12:00 UTC
 --- state
-          "title": "Parked one",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-+       },
-+       {
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "id": "MMR-s6",
-+         "kind": "idea",
-+         "lede": null,
-+         "lifecycle": "new",
-+         "project": "MMR",
-+         "readyToResolve": false,
-+         "requester": null,
-+         "spawned": [],
-+         "title": "Cache it",
-+         "updatedAt": "2026-10-01T12:00:00.000Z"
-        }
-      ],
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache it","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### seed --desc
 exit 0
@@ -194,23 +98,7 @@ exit 0
 |                Two paragraphs.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "title": "Parked one",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-+       },
-+       {
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "id": "MMR-s6",
-+         "kind": "idea",
-+         "lede": "Because it is slow. Two paragraphs.",
-+         "lifecycle": "new",
-+         "project": "MMR",
-+         "readyToResolve": false,
-+         "requester": null,
-+         "spawned": [],
-+         "title": "Cache it",
-+         "updatedAt": "2026-10-01T12:00:00.000Z"
-        }
-      ],
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":"Because it is slow. Two paragraphs.","lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache it","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### seed -k bug
 exit 0
@@ -223,23 +111,7 @@ exit 0
 |   lifecycle  new
 |   created    2026-10-01 12:00 UTC
 --- state
-          "title": "Parked one",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-+       },
-+       {
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "id": "MMR-s6",
-+         "kind": "bug",
-+         "lede": null,
-+         "lifecycle": "new",
-+         "project": "MMR",
-+         "readyToResolve": false,
-+         "requester": null,
-+         "spawned": [],
-+         "title": "It breaks",
-+         "updatedAt": "2026-10-01T12:00:00.000Z"
-        }
-      ],
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"bug","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"It breaks","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### seed -k feature
 exit 0
@@ -252,23 +124,7 @@ exit 0
 |   lifecycle  new
 |   created    2026-10-01 12:00 UTC
 --- state
-          "title": "Parked one",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-+       },
-+       {
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "id": "MMR-s6",
-+         "kind": "feature",
-+         "lede": null,
-+         "lifecycle": "new",
-+         "project": "MMR",
-+         "readyToResolve": false,
-+         "requester": null,
-+         "spawned": [],
-+         "title": "A hook",
-+         "updatedAt": "2026-10-01T12:00:00.000Z"
-        }
-      ],
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"feature","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"A hook","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### seed --project XX (requester is the bound project)
 exit 0
@@ -282,23 +138,7 @@ exit 0
 |   requester  MMR
 |   created    2026-10-01 12:00 UTC
 --- state
-          "title": "Their bug",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-+       },
-+       {
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "id": "XX-s2",
-+         "kind": "idea",
-+         "lede": null,
-+         "lifecycle": "new",
-+         "project": "XX",
-+         "readyToResolve": false,
-+         "requester": "MMR",
-+         "spawned": [],
-+         "title": "Ask",
-+         "updatedAt": "2026-10-01T12:00:00.000Z"
-        }
-      ]
++ seeds.XX[XX-s2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"XX-s2","kind":"idea","lede":null,"lifecycle":"new","project":"XX","readyToResolve":false,"requester":"MMR","spawned":[],"title":"Ask","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### seed --project MMR (self-filed)
 exit 0
@@ -311,23 +151,7 @@ exit 0
 |   lifecycle  new
 |   created    2026-10-01 12:00 UTC
 --- state
-          "title": "Parked one",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-+       },
-+       {
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "id": "MMR-s6",
-+         "kind": "idea",
-+         "lede": null,
-+         "lifecycle": "new",
-+         "project": "MMR",
-+         "readyToResolve": false,
-+         "requester": null,
-+         "spawned": [],
-+         "title": "Own",
-+         "updatedAt": "2026-10-01T12:00:00.000Z"
-        }
-      ],
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Own","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### seed --project XX (unbound)
 exit 0
@@ -340,23 +164,7 @@ exit 0
 |   lifecycle  new
 |   created    2026-10-01 12:00 UTC
 --- state
-          "title": "Their bug",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-+       },
-+       {
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "id": "XX-s2",
-+         "kind": "idea",
-+         "lede": null,
-+         "lifecycle": "new",
-+         "project": "XX",
-+         "readyToResolve": false,
-+         "requester": null,
-+         "spawned": [],
-+         "title": "Ask",
-+         "updatedAt": "2026-10-01T12:00:00.000Z"
-        }
-      ]
++ seeds.XX[XX-s2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"XX-s2","kind":"idea","lede":null,"lifecycle":"new","project":"XX","readyToResolve":false,"requester":null,"spawned":[],"title":"Ask","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### seed --scope XX (the scope is the requester)
 exit 0
@@ -370,23 +178,7 @@ exit 0
 |   requester  XX
 |   created    2026-10-01 12:00 UTC
 --- state
-          "title": "Parked one",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-+       },
-+       {
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "id": "MMR-s6",
-+         "kind": "idea",
-+         "lede": null,
-+         "lifecycle": "new",
-+         "project": "MMR",
-+         "readyToResolve": false,
-+         "requester": "XX",
-+         "spawned": [],
-+         "title": "Ask",
-+         "updatedAt": "2026-10-01T12:00:00.000Z"
-        }
-      ],
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":"XX","spawned":[],"title":"Ask","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### seed --scope all
 exit 0
@@ -399,23 +191,7 @@ exit 0
 |   lifecycle  new
 |   created    2026-10-01 12:00 UTC
 --- state
-          "title": "Parked one",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-+       },
-+       {
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "id": "MMR-s6",
-+         "kind": "idea",
-+         "lede": null,
-+         "lifecycle": "new",
-+         "project": "MMR",
-+         "readyToResolve": false,
-+         "requester": null,
-+         "spawned": [],
-+         "title": "Ask",
-+         "updatedAt": "2026-10-01T12:00:00.000Z"
-        }
-      ],
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Ask","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### seed (unbound, no project)
 exit 2
@@ -556,23 +332,7 @@ exit 0
 |   lifecycle  new
 |   created    2026-10-01 12:00 UTC
 --- state
-          "title": "Parked one",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-+       },
-+       {
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "id": "MMR-s6",
-+         "kind": "idea",
-+         "lede": null,
-+         "lifecycle": "new",
-+         "project": "MMR",
-+         "readyToResolve": false,
-+         "requester": null,
-+         "spawned": [],
-+         "title": "Cache it",
-+         "updatedAt": "2026-10-01T12:00:00.000Z"
-        }
-      ],
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache it","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### seed argv: Ask --kind bug -p XX
 exit 0
@@ -585,23 +345,7 @@ exit 0
 |   lifecycle  new
 |   created    2026-10-01 12:00 UTC
 --- state
-          "title": "Their bug",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-+       },
-+       {
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "id": "XX-s2",
-+         "kind": "bug",
-+         "lede": null,
-+         "lifecycle": "new",
-+         "project": "XX",
-+         "readyToResolve": false,
-+         "requester": null,
-+         "spawned": [],
-+         "title": "Ask",
-+         "updatedAt": "2026-10-01T12:00:00.000Z"
-        }
-      ]
++ seeds.XX[XX-s2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"XX-s2","kind":"bug","lede":null,"lifecycle":"new","project":"XX","readyToResolve":false,"requester":null,"spawned":[],"title":"Ask","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### seed argv: "Cache it" -k idea -k bug -s MMR
 exit 2
@@ -638,23 +382,7 @@ exit 0
 |   lifecycle  new
 |   created    2026-10-01 12:00 UTC
 --- state
-          "title": "Parked one",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
-+       },
-+       {
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "id": "MMR-s6",
-+         "kind": "idea",
-+         "lede": null,
-+         "lifecycle": "new",
-+         "project": "MMR",
-+         "readyToResolve": false,
-+         "requester": null,
-+         "spawned": [],
-+         "title": "Cache it",
-+         "updatedAt": "2026-10-01T12:00:00.000Z"
-        }
-      ],
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache it","updatedAt":"2026-10-01T12:00:00.000Z"}
 
 ### promote MMR-s1 (no parent, no link)
 exit 1
@@ -682,318 +410,96 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": "Ask the other board for a hook.",
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": "Ask the other board for a hook.",
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "A hook",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "A hook"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": "Ask the other board for a hook.",
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "A hook",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
-...
-          "kind": "feature",
-          "lede": "Ask the other board for a hook.",
-+         "lifecycle": "promoted",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
-          "requester": "XX",
-+         "spawned": [
-+           "MMR-10"
-+         ],
--         "spawned": [],
-          "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: "Ask the other board for a hook."
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "A hook"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
 
 ### promote MMR-s1 -f ids
 exit 0
 --- stdout
 | MMR-10
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": "Ask the other board for a hook.",
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": "Ask the other board for a hook.",
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "A hook",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "A hook"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": "Ask the other board for a hook.",
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "A hook",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
-...
-          "kind": "feature",
-          "lede": "Ask the other board for a hook.",
-+         "lifecycle": "promoted",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
-          "requester": "XX",
-+         "spawned": [
-+           "MMR-10"
-+         ],
--         "spawned": [],
-          "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: "Ask the other board for a hook."
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "A hook"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
 
 ### promote MMR-s1 -f json
 exit 0
@@ -1016,159 +522,48 @@ exit 0
 |   "created": "MMR-10"
 | }
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": "Ask the other board for a hook.",
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": "Ask the other board for a hook.",
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "A hook",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "A hook"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": "Ask the other board for a hook.",
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "A hook",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
-...
-          "kind": "feature",
-          "lede": "Ask the other board for a hook.",
-+         "lifecycle": "promoted",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
-          "requester": "XX",
-+         "spawned": [
-+           "MMR-10"
-+         ],
--         "spawned": [],
-          "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: "Ask the other board for a hook."
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "A hook"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
 
 ### promote MMR-s1 -f jsonl
 exit 0
@@ -1191,159 +586,48 @@ exit 0
 |   "created": "MMR-10"
 | }
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": "Ask the other board for a hook.",
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": "Ask the other board for a hook.",
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "A hook",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "A hook"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": "Ask the other board for a hook.",
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "A hook",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
-...
-          "kind": "feature",
-          "lede": "Ask the other board for a hook.",
-+         "lifecycle": "promoted",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
-          "requester": "XX",
-+         "spawned": [
-+           "MMR-10"
-+         ],
--         "spawned": [],
-          "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: "Ask the other board for a hook."
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "A hook"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
 
 ### promote MMR-s1 -f table
 exit 0
@@ -1359,159 +643,48 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": "Ask the other board for a hook.",
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": "Ask the other board for a hook.",
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "A hook",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "A hook"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": "Ask the other board for a hook.",
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "A hook",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
-...
-          "kind": "feature",
-          "lede": "Ask the other board for a hook.",
-+         "lifecycle": "promoted",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
-          "requester": "XX",
-+         "spawned": [
-+           "MMR-10"
-+         ],
--         "spawned": [],
-          "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: "Ask the other board for a hook."
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "A hook"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
 
 ### promote MMR-s1 with fields
 exit 0
@@ -1527,177 +700,48 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": "Spawned body.",
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": "Spawned body.",
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": "p1",
-+             "session": null,
-+             "size": "small",
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [
-+               {
-+                 "createdAt": "2026-10-01T12:00:00.000Z",
-+                 "tag": "alpha"
-+               },
-+               {
-+                 "createdAt": "2026-10-01T12:00:00.000Z",
-+                 "tag": "beta"
-+               }
-+             ],
-+             "title": "Add the hook",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Add the hook"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": "Spawned body.",
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": "p1",
-+         "session": null,
-+         "size": "small",
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [
-+           {
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "tag": "alpha"
-+           },
-+           {
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "tag": "beta"
-+           }
-+         ],
-+         "title": "Add the hook",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
-...
-          "kind": "feature",
-          "lede": "Ask the other board for a hook.",
-+         "lifecycle": "promoted",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
-          "requester": "XX",
-+         "spawned": [
-+           "MMR-10"
-+         ],
--         "spawned": [],
-          "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Spawned body.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Spawned body.","lifecycle":"todo","parent":"MMR-2","priority":"p1","session":null,"size":"small","status":"ready","summary":null,"tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}],"title":"Add the hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Add the hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: "Spawned body."
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: "p1"
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: "small"
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: [{"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}]
++ nodes[MMR-10].title: "Add the hook"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
 
 ### promote MMR-s2 --parent
 exit 0
@@ -1711,159 +755,48 @@ exit 0
 |   spawned    MMR-10
 |   created    2026-10-01 12:00 UTC
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": null,
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": null,
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "Cache the plan",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Cache the plan"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Cache the plan",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
-...
-          "kind": "idea",
-          "lede": null,
-+         "lifecycle": "promoted",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
-          "requester": null,
-+         "spawned": [
-+           "MMR-10"
-+         ],
--         "spawned": [],
-          "title": "Cache the plan",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Cache the plan","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Cache the plan"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Cache the plan"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s2].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s2].spawned[#0]: "MMR-10"
 
 ### promote MMR-s1 --link
 exit 0
@@ -1879,19 +812,8 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "kind": "feature",
-          "lede": "Ask the other board for a hook.",
-+         "lifecycle": "promoted",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
-          "requester": "XX",
-+         "spawned": [
-+           "MMR-3"
-+         ],
--         "spawned": [],
-          "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[#0]: "MMR-3"
 
 ### promote MMR-s1 --link -f json
 exit 0
@@ -1913,38 +835,16 @@ exit 0
 |   "description": "Ask the other board for a hook."
 | }
 --- state
-          "kind": "feature",
-          "lede": "Ask the other board for a hook.",
-+         "lifecycle": "promoted",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
-          "requester": "XX",
-+         "spawned": [
-+           "MMR-3"
-+         ],
--         "spawned": [],
-          "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[#0]: "MMR-3"
 
 ### promote MMR-s1 --link -f ids
 exit 0
 --- stdout
 | MMR-3
 --- state
-          "kind": "feature",
-          "lede": "Ask the other board for a hook.",
-+         "lifecycle": "promoted",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
-          "requester": "XX",
-+         "spawned": [
-+           "MMR-3"
-+         ],
--         "spawned": [],
-          "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[#0]: "MMR-3"
 
 ### promote MMR-s1 --size m
 exit 0
@@ -1960,159 +860,48 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": "Ask the other board for a hook.",
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": "Ask the other board for a hook.",
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": "medium",
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "A hook",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "A hook"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": "Ask the other board for a hook.",
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": "medium",
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "A hook",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
-...
-          "kind": "feature",
-          "lede": "Ask the other board for a hook.",
-+         "lifecycle": "promoted",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
-          "requester": "XX",
-+         "spawned": [
-+           "MMR-10"
-+         ],
--         "spawned": [],
-          "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":"medium","status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: "Ask the other board for a hook."
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: "medium"
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "A hook"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
 
 ### promote MMR-s1 --ascii
 exit 0
@@ -2128,159 +917,48 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": "Ask the other board for a hook.",
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": "Ask the other board for a hook.",
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "A hook",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "A hook"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": "Ask the other board for a hook.",
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "A hook",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
-...
-          "kind": "feature",
-          "lede": "Ask the other board for a hook.",
-+         "lifecycle": "promoted",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
-          "requester": "XX",
-+         "spawned": [
-+           "MMR-10"
-+         ],
--         "spawned": [],
-          "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: "Ask the other board for a hook."
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "A hook"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
 
 ### promote MMR-s1 -p p9
 exit 2
@@ -2368,157 +1046,48 @@ exit 0
 |   spawned    MMR-9, MMR-10
 |   created    2026-10-01 12:00 UTC
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": null,
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": null,
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "Export",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "Export"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": null,
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "Export",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ],
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
-...
-          "lifecycle": "promoted",
-          "project": "MMR",
-+         "readyToResolve": false,
--         "readyToResolve": true,
-          "requester": null,
-          "spawned": [
-+           "MMR-9",
-+           "MMR-10"
--           "MMR-9"
-          ],
-          "title": "Export",
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Export","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Export"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: null
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "Export"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s4].readyToResolve: true -> false
++ seeds.MMR[MMR-s4].spawned[#1]: "MMR-10"
 
 ### promote MMR-s1 --parent MMR-99
 exit 1
@@ -2586,177 +1155,48 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": "Ask the other board for a hook.",
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": "Ask the other board for a hook.",
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": "p1",
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [
-+               {
-+                 "createdAt": "2026-10-01T12:00:00.000Z",
-+                 "tag": "alpha"
-+               },
-+               {
-+                 "createdAt": "2026-10-01T12:00:00.000Z",
-+                 "tag": "beta"
-+               }
-+             ],
-+             "title": "A hook",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "A hook"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": "Ask the other board for a hook.",
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": "p1",
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [
-+           {
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "tag": "alpha"
-+           },
-+           {
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "tag": "beta"
-+           }
-+         ],
-+         "title": "A hook",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
-...
-          "kind": "feature",
-          "lede": "Ask the other board for a hook.",
-+         "lifecycle": "promoted",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
-          "requester": "XX",
-+         "spawned": [
-+           "MMR-10"
-+         ],
--         "spawned": [],
-          "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":"p1","session":null,"size":null,"status":"ready","summary":null,"tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: "Ask the other board for a hook."
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: "p1"
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: [{"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}]
++ nodes[MMR-10].title: "A hook"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
 
 ### promote argv: MMR-s1 --parent MMR-2 -p p1 -p p2
 exit 2
@@ -2799,159 +1239,48 @@ exit 0
 --- stdout
 | MMR-10
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": "Ask the other board for a hook.",
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": "Ask the other board for a hook.",
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "A hook",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "A hook"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": "Ask the other board for a hook.",
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "A hook",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
-...
-          "kind": "feature",
-          "lede": "Ask the other board for a hook.",
-+         "lifecycle": "promoted",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
-          "requester": "XX",
-+         "spawned": [
-+           "MMR-10"
-+         ],
--         "spawned": [],
-          "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: "Ask the other board for a hook."
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "A hook"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
 
 ### promote argv: MMR-s1 --parent MMR-2 (terminal)
 exit 0
@@ -2967,159 +1296,48 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-              "annotations": [],
-              "artifacts": [],
-+             "blockOwner": null,
-+             "branch": null,
-+             "children": [],
-+             "completedAt": null,
-+             "createdAt": "2026-10-01T12:00:00.000Z",
-+             "deps": {
-+               "awaitingOn": [],
-+               "blocking": [],
-+               "dependsOn": []
-+             },
-+             "description": "Ask the other board for a hook.",
-+             "externalRef": null,
-+             "grooming": "not_groomed",
-+             "harness": null,
-+             "history": [],
-+             "hold": "none",
-+             "holdReason": null,
-+             "home": {
-+               "parentId": "MMR-2",
-+               "parentOpenEnded": null,
-+               "parentTitle": "Skeleton",
-+               "projectKey": "MMR"
-+             },
-+             "host": null,
-+             "id": "MMR-10",
-+             "lede": "Ask the other board for a hook.",
-+             "lifecycle": "todo",
-+             "parent": "MMR-2",
-+             "priority": null,
-+             "session": null,
-+             "size": null,
-+             "status": "ready",
-+             "summary": null,
-+             "tags": [],
-+             "title": "A hook",
-+             "type": "task",
-+             "updatedAt": "2026-10-01T12:00:00.000Z",
-+             "upstream": null,
-+             "verdicts": {
-+               "blocking": false,
-+               "orphaned": false,
-+               "stale": false
-+             },
-+             "workerHarness": null,
-+             "workerSession": null
-+           },
-+           {
-+             "annotations": [],
-+             "artifacts": [],
-              "blockOwner": "you",
-              "branch": null,
-...
-            }
-          ],
-+         "returned": 8,
--         "returned": 7,
-          "startsAt": 0,
-+         "total": 8
--         "total": 7
-        },
-        {
-...
-              "status": "done",
-              "title": "Export"
-+           },
-+           {
-+             "id": "MMR-10",
-+             "status": "ready",
-+             "title": "A hook"
-            }
-          ],
-...
-          "description": null,
-          "distribution": {
-+           "ready": 3,
--           "ready": 2,
-            "awaiting": 1,
-            "in_progress": 1,
-...
-        "MMR-10",
-        {
-+         "annotations": [],
-+         "artifacts": [],
-+         "blockOwner": null,
-+         "branch": null,
-+         "children": [],
-+         "completedAt": null,
-+         "createdAt": "2026-10-01T12:00:00.000Z",
-+         "deps": {
-+           "awaitingOn": [],
-+           "blocking": [],
-+           "dependsOn": []
-+         },
-+         "description": "Ask the other board for a hook.",
-+         "externalRef": null,
-+         "grooming": "not_groomed",
-+         "harness": null,
-+         "history": [],
-+         "hold": "none",
-+         "holdReason": null,
-+         "home": {
-+           "parentId": "MMR-2",
-+           "parentOpenEnded": null,
-+           "parentTitle": "Skeleton",
-+           "projectKey": "MMR"
-+         },
-+         "host": null,
-+         "id": "MMR-10",
-+         "lifecycle": "todo",
-+         "parent": "MMR-2",
-+         "priority": null,
-+         "session": null,
-+         "size": null,
-+         "status": "ready",
-+         "summary": null,
-+         "tags": [],
-+         "title": "A hook",
-+         "type": "task",
-+         "updatedAt": "2026-10-01T12:00:00.000Z",
-+         "upstream": null,
-+         "verdicts": {
-+           "blocking": false,
-+           "orphaned": false,
-+           "stale": false
-+         },
-+         "workerHarness": null,
-+         "workerSession": null
--         "failed": "MMR-10 doesn't exist"
-        }
-      ]
-...
-        "lastActivityAt": "2026-10-01T12:00:00.005Z",
-        "leafCounts": {
-+         "ready": 3,
--         "ready": 2,
-          "awaiting": 1,
-          "in_progress": 1,
-...
-          "kind": "feature",
-          "lede": "Ask the other board for a hook.",
-+         "lifecycle": "promoted",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
-          "requester": "XX",
-+         "spawned": [
-+           "MMR-10"
-+         ],
--         "spawned": [],
-          "title": "A hook",
-          "updatedAt": "2026-10-01T12:00:00.000Z"
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+- nodes[MMR-10].failed: "MMR-10 doesn't exist"
++ nodes[MMR-10].annotations: []
++ nodes[MMR-10].artifacts: []
++ nodes[MMR-10].blockOwner: null
++ nodes[MMR-10].branch: null
++ nodes[MMR-10].children: []
++ nodes[MMR-10].completedAt: null
++ nodes[MMR-10].createdAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].deps: {"awaitingOn":[],"blocking":[],"dependsOn":[]}
++ nodes[MMR-10].description: "Ask the other board for a hook."
++ nodes[MMR-10].externalRef: null
++ nodes[MMR-10].grooming: "not_groomed"
++ nodes[MMR-10].harness: null
++ nodes[MMR-10].history: []
++ nodes[MMR-10].hold: "none"
++ nodes[MMR-10].holdReason: null
++ nodes[MMR-10].home: {"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"}
++ nodes[MMR-10].host: null
++ nodes[MMR-10].id: "MMR-10"
++ nodes[MMR-10].lifecycle: "todo"
++ nodes[MMR-10].parent: "MMR-2"
++ nodes[MMR-10].priority: null
++ nodes[MMR-10].session: null
++ nodes[MMR-10].size: null
++ nodes[MMR-10].status: "ready"
++ nodes[MMR-10].summary: null
++ nodes[MMR-10].tags: []
++ nodes[MMR-10].title: "A hook"
++ nodes[MMR-10].type: "task"
++ nodes[MMR-10].updatedAt: "2026-10-01T12:00:00.000Z"
++ nodes[MMR-10].upstream: null
++ nodes[MMR-10].verdicts: {"blocking":false,"orphaned":false,"stale":false}
++ nodes[MMR-10].workerHarness: null
++ nodes[MMR-10].workerSession: null
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
 
 ### reject MMR-s1
 exit 0
@@ -3134,26 +1352,16 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "rejected",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
 
 ### reject MMR-s1 -f ids
 exit 0
 --- stdout
 | MMR-s1
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "rejected",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
 
 ### reject MMR-s1 -f json
 exit 0
@@ -3173,13 +1381,8 @@ exit 0
 |   "description": "Ask the other board for a hook."
 | }
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "rejected",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
 
 ### reject MMR-s1 -f jsonl
 exit 0
@@ -3199,13 +1402,8 @@ exit 0
 |   "description": "Ask the other board for a hook."
 | }
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "rejected",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
 
 ### reject MMR-s1 -f table
 exit 0
@@ -3220,13 +1418,8 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "rejected",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
 
 ### reject MMR-s1 --ascii
 exit 0
@@ -3241,13 +1434,8 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "rejected",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
 
 ### reject MMR-s2
 exit 0
@@ -3260,13 +1448,8 @@ exit 0
 |   lifecycle  rejected
 |   created    2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s2",
-          "kind": "idea",
-+         "lifecycle": "rejected",
--         "lede": null,
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s2].lede: null
+~ seeds.MMR[MMR-s2].lifecycle: "new" -> "rejected"
 
 ### reject MMR-s5 (parked)
 exit 0
@@ -3279,13 +1462,8 @@ exit 0
 |   lifecycle  rejected
 |   created    2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s5",
-          "kind": "idea",
-+         "lifecycle": "rejected",
--         "lede": null,
--         "lifecycle": "parked",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s5].lede: null
+~ seeds.MMR[MMR-s5].lifecycle: "parked" -> "rejected"
 
 ### reject MMR-s1 (blank reason)
 exit 2
@@ -3386,13 +1564,8 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "rejected",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
 
 ### reject argv: MMR-s1 out of scope (terminal)
 exit 0
@@ -3407,13 +1580,8 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "rejected",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
 
 ### reject argv: MMR-s1 -- --out of scope
 exit 0
@@ -3428,13 +1596,8 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "rejected",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
 
 ### reject argv: MMR-s1 later -- -1 cycle
 exit 0
@@ -3449,13 +1612,8 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "rejected",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
 
 ### resolve argv: MMR-s1 -- --shipped in MMR-40
 exit 0
@@ -3470,13 +1628,8 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "resolved",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
 
 ### resolve argv: MMR-s1 done -- -1 left
 exit 0
@@ -3491,13 +1644,8 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "resolved",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
 
 ### reject argv: MMR-s1 --
 exit 2
@@ -3524,26 +1672,16 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "resolved",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
 
 ### resolve MMR-s1 -f ids
 exit 0
 --- stdout
 | MMR-s1
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "resolved",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
 
 ### resolve MMR-s1 -f json
 exit 0
@@ -3563,13 +1701,8 @@ exit 0
 |   "description": "Ask the other board for a hook."
 | }
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "resolved",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
 
 ### resolve MMR-s1 -f jsonl
 exit 0
@@ -3589,13 +1722,8 @@ exit 0
 |   "description": "Ask the other board for a hook."
 | }
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "resolved",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
 
 ### resolve MMR-s1 -f table
 exit 0
@@ -3610,13 +1738,8 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "resolved",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
 
 ### resolve MMR-s4 (ready to resolve)
 exit 0
@@ -3630,16 +1753,9 @@ exit 0
 |   spawned    MMR-9
 |   created    2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s4",
-          "kind": "feature",
-+         "lifecycle": "resolved",
--         "lede": null,
--         "lifecycle": "promoted",
-          "project": "MMR",
-+         "readyToResolve": false,
--         "readyToResolve": true,
-          "requester": null,
-          "spawned": [
+- seeds.MMR[MMR-s4].lede: null
+~ seeds.MMR[MMR-s4].lifecycle: "promoted" -> "resolved"
+~ seeds.MMR[MMR-s4].readyToResolve: true -> false
 
 ### resolve MMR-s1 (blank reason)
 exit 2
@@ -3704,13 +1820,8 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "resolved",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
 
 ### resolve MMR-s5 (parked)
 exit 0
@@ -3723,13 +1834,8 @@ exit 0
 |   lifecycle  resolved
 |   created    2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s5",
-          "kind": "idea",
-+         "lifecycle": "resolved",
--         "lede": null,
--         "lifecycle": "parked",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s5].lede: null
+~ seeds.MMR[MMR-s5].lifecycle: "parked" -> "resolved"
 
 ### resolve (no reason)
 exit 2
@@ -3780,13 +1886,8 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "resolved",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
 
 ### resolve argv: MMR-s1 shipped in MMR-40 (terminal)
 exit 0
@@ -3801,13 +1902,8 @@ exit 0
 |   description  Ask the other board for a hook.
 |   created      2026-10-01 12:00 UTC
 --- state
-          "id": "MMR-s1",
-          "kind": "feature",
-+         "lifecycle": "resolved",
--         "lede": "Ask the other board for a hook.",
--         "lifecycle": "new",
-          "project": "MMR",
-          "readyToResolve": false,
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
 
 ### seed argv: x -k idea -s MMR --parent MMR-2
 exit 2
