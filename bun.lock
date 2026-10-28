@@ -18,7 +18,7 @@
     },
     "packages/cli": {
       "name": "@mimir/cli",
-      "version": "0.26.0-next",
+      "version": "0.25.0",
       "bin": {
         "mimir": "./src/main.ts",
       },
@@ -46,7 +46,6 @@
     },
     "packages/core": {
       "name": "@mimir/core",
-      "version": "0.26.0-next",
       "dependencies": {
         "@mimir/contract": "workspace:*",
         "@mimir/helpers": "workspace:*",
@@ -131,7 +130,6 @@
     },
     "packages/wire": {
       "name": "@mimir/wire",
-      "version": "0.26.0-next",
       "dependencies": {
         "@mimir/contract": "workspace:*",
         "@mimir/helpers": "workspace:*",

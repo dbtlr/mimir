@@ -1,39 +1,43 @@
 ---
 name: release-cut
-description: Cut an official mimir release — the two-commit procedure (promote the changelog + tag, verify, open the next cycle). Use when the user grants a release cut: "cut the release", "cut vX.Y.Z", "release the cycle".
+description: Cut an official mimir release — one cut commit (`loom changelog write`), a tag, and the verify gate. Use when the user grants a release cut: "cut the release", "cut vX.Y.Z", "release the cycle".
 ---
 
 # Cutting a release
 
-A **cut** is **two commits with a tag between them**: one promotes the release and
-fires the build, one opens the next development cycle. Between them sits a **verify
-gate** — an official release is not done until it's verified, not glanced at.
+A **cut** is **one commit and a tag**, then a **verify gate** — an official release
+is not done until it's verified, not glanced at.
 
-Between releases, `packages/cli/package.json` carries `X.Y.Z-next`. The cut turns
-that into `X.Y.Z`, then into `X.(Y+1).0-next`.
+Between releases, `packages/cli/package.json` holds the last release. The pending
+fragments in `packages/cli/.changes/` decide the next version (ADR 0039):
+`loom changelog write` computes it, writes the release section, sets the version,
+and deletes the fragments. There is no cycle to open afterwards.
 
 ## 1. Pre-cut checks
 
 - On `main`, working tree clean, fetched fresh (`git fetch && git status`).
 - `bun run verify` is green.
-- `.changes/` has real pending fragments — preview the section they compile to
-  with `bun run changelog:compile`. No fragments means there is nothing to ship —
-  stop. (`finishing-work` + `changelog-guard` keep the fragments honest per-PR;
-  the cut trusts them.)
-- Target version = the `-next` base in `packages/cli/package.json`
-  (`0.13.0-next` → `0.13.0`).
+- Preview the release: `bun run --cwd packages/cli loom changelog write --dry-run`
+  prints the section and `Next version: X.Y.Z`. That is the target version. It
+  fails when no fragments are pending — then there is nothing to ship; stop.
+  (`finishing-work` + `changelog-guard` keep the fragments honest per-PR; the cut
+  trusts them.)
+- No published prerelease has a base above `X.Y.Z` (`gh release list`); a cut
+  below one leaves `self-update --channel next` serving the higher build. The
+  prerelease tagger refuses that state, so a red tagger run on `main` means
+  resolve it first: restore the breaking fragment, or delete those prereleases.
 
 ## 2. Cut commit (PR)
 
 On a branch:
 
-- Bump `packages/cli/package.json` `"version"` from `X.Y.Z-next` to `X.Y.Z`.
-- Sync `bun.lock`: edit the `"version"` line under its `"packages/cli"` entry
-  to match. `bun install` (plain, `--force`, or `--lockfile-only`) never
-  rewrites this field — Bun resolves workspace deps by path, so it's metadata
-  only and `--frozen-lockfile` validates fine either way — a hand edit is the
-  only thing that closes it. Skipping this is what leaves a stray
-  `chore: sync bun.lock` follow-up commit next cycle.
+- Cut the changelog: `bun run --cwd packages/cli loom changelog write` (add
+  `--date YYYY-MM-DD` to date it other than today). It prepends the
+  `## vX.Y.Z - YYYY-MM-DD` section to `packages/cli/CHANGELOG.md`, sets
+  `packages/cli/package.json` `"version"` to `X.Y.Z`, and deletes the consumed
+  fragments. It needs full git history; a shallow clone fails it.
+- Refresh the lockfile: `bun install`, which rewrites the `"version"` line under
+  `bun.lock`'s `"packages/cli"` entry.
 - **If a root `install.sh` still exists** (true until the first stable release built
   from the Loom CLI, v0.26.0): `releases/latest` was an old-CLI release that cannot run
   the Loom installer's post-install step, so the README kept the root installer. This
@@ -43,14 +47,11 @@ On a branch:
   paragraph from `docs/guides/install-location.md`, and remove `install.sh` from the
   path filters in `release.yml`, `prerelease.yml`, and `changelog-guard.yml`. With no
   root `install.sh`, skip this step.
-- Compile the changelog: `bun run changelog:compile --write --version X.Y.Z` —
-  writes the `## vX.Y.Z - YYYY-MM-DD` section into `CHANGELOG.md` and deletes
-  the compiled fragments.
 - Stage and commit together: `packages/cli/package.json`, `bun.lock`,
-  `CHANGELOG.md`, and the deleted `.changes/*.md` fragments (the fragment
-  deletions are what satisfy `changelog-guard` on this PR), plus, when the
-  root-installer step above ran, the deleted `install.sh` and the seven files it
-  edited. No `git add -A`.
+  `packages/cli/CHANGELOG.md`, and the deleted `packages/cli/.changes/` fragments
+  (the fragment deletions are what satisfy `changelog-guard` on this PR), plus,
+  when the root-installer step above ran, the deleted `install.sh` and the seven
+  files it edited. No `git add -A`.
 - _Optional, only when the release warrants it:_ refresh the README (status
   callout, screenshots). Not a gate — skip it for a routine cut.
 
@@ -64,7 +65,7 @@ git tag -a vX.Y.Z -m "Release vX.Y.Z" && git push origin vX.Y.Z
 
 Don't let another PR merge between the cut merge and the tag push: the tag must
 sit on the cut commit, or a stray change gets baked into the binaries while its
-`.changes/` fragment stays pending for the _next_ cut — binary and notes diverge
+fragment stays pending for the _next_ cut — binary and notes diverge
 silently. Push the tag with your
 own credentials, **not** a bot / `GITHUB_TOKEN`: GitHub's anti-recursion guard
 suppresses the `push: tags` trigger for `GITHUB_TOKEN`-authored pushes, so the
@@ -72,7 +73,7 @@ build silently won't fire (this is why the prerelease tagger uses
 `workflow_dispatch`).
 
 The tag fires `release.yml`: it builds the three platform binaries, checksums them,
-extracts the release notes **from the CHANGELOG section you just promoted**,
+extracts the release notes **from the changelog section you just cut**,
 publishes the GitHub Release, and (official tags only) prunes old prereleases.
 
 Publication is staged (MMR-387): the release starts as a **draft**, each asset is
@@ -108,22 +109,8 @@ gh release view vX.Y.Z --json isPrerelease,tagName,assets \
 
 A failure here is a release problem — fix forward, do not paper over it.
 
-## 4. Open the next cycle (PR, required)
+## 4. After the cut
 
-Bump `packages/cli/package.json` `"version"` to `X.(Y+1).0-next` (or a major bump
-if that's the call); sync `bun.lock`'s `"packages/cli"` `"version"` line to match
-(same hand edit as the cut commit — `bun install` won't do it). Stage
-`packages/cli/package.json` and `bun.lock` together, no `git add -A`; open the
-PR; merge. Confirm the prerelease stream resumes (`vX.(Y+1).0-next.1` publishes)
-and `version-guard` is green.
-
-This step is required: `version-guard` fails any build-affecting change that lands
-while a released clean version has no next cycle open — so skipping it is loud, not
-silent. Close it here, as the cut's last move, not as a later follow-up.
-
-`changelog-guard` recognizes both release-procedure PR shapes structurally — the
-cut PR passes as fragment-deletions-only, the cycle-open PR as
-version-metadata-only (every changed line a `"version"` field in
-`packages/cli/package.json` + `bun.lock`) — so neither needs the
-`skip-changelog` label. If the guard goes red on a cycle-open PR, the bump is
-carrying something extra; split that change out rather than labeling past it.
+Nothing reopens a cycle: `package.json` now holds `X.Y.Z`, and the next merge that
+adds a fragment publishes `vX.Y.(Z+1)-next.1` or `vX.(Y+1).0-next.1`, whichever the
+pending fragments decide. Until then, build-affecting merges publish no prerelease.

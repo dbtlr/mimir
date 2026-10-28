@@ -34,28 +34,39 @@ _in this repo_.
 
 ## The CHANGELOG gate
 
-A user-facing change needs a **changelog fragment**: a `.changes/<slug>.md` file
-(task id as the slug, e.g. `.changes/mmr-267.md`) holding the entry under the
-right Keep-a-Changelog heading — `### Added` / `### Changed` / `### Deprecated` /
-`### Removed` / `### Fixed` / `### Security`
-([Keep a Changelog]; grammar in `.changes/README.md`). Add it on the branch, in
-the same PR — not at the release cut. v0.12 deferred every entry to the cut and
-the per-PR record drifted for a whole cycle. Never edit `CHANGELOG.md` directly —
-it holds released sections only and is written by the release cut's compile step
-(ADR 0022); the fragment is what makes parallel PRs conflict-free.
+A user-facing change needs a **changelog fragment** in `packages/cli/.changes/`,
+in Loom's grammar (the guide is `packages/cli/.changes/README.md`; ADR 0039). The
+file name is the kind, with the task id as the slug:
 
-**Completion criterion:** either the PR adds a `.changes/` fragment for this
-change, **or** it carries the `skip-changelog` label. One of the two is true
-before you submit — there is no third option.
+- `breaking.mmr-267.md` — a change a user or script must adapt to: a removed or
+  renamed command, flag, or output field, or any Engine contract change,
+  additive included (its migration: update the host before its clients). It
+  ends with the `### Migration` section and its five labels. `changelog-guard`
+  refuses an Engine schema snapshot or `MIN_CLIENT` change while no breaking
+  fragment is pending.
+- `feature.mmr-267.md` — something new, or a compatible change.
+- `mmr-267.md` — a fix.
+
+The body is `- ` bullets in the repo's entry voice (bolded lead, task id, prose
+body), no headings except a breaking fragment's migration. Links are relative to
+`packages/cli/` (`../../docs/…`). The kind decides the next version, so choose it
+deliberately. Add the fragment on the branch, in the same PR — not at the release
+cut. v0.12 deferred every entry to the cut and the per-PR record drifted for a
+whole cycle. Never edit `packages/cli/CHANGELOG.md` directly — the release cut's
+`loom changelog write` writes it; the fragment is what makes parallel PRs
+conflict-free.
+
+**Completion criterion:** either the PR adds a fragment for this change and
+`bun run --cwd packages/cli loom changelog check` passes, **or** the PR carries the
+`skip-changelog` label. One of the two is true before you submit — there is no
+third option.
 
 CI enforces exactly this: `changelog-guard` fails any PR touching build-affecting
 paths (`packages/**`, `skills/mimir/**`, `package.json`, `bun.lock`,
-`install.sh`, the release workflows) that touches no `.changes/*.md` fragment
-and has no label — and
-parses the fragments it finds with the compiler's own parser
-(`bun run changelog:compile --check`), so a fragment that passes CI is
-guaranteed to compile at the cut. The label is the **only** legitimate way past
-a missing fragment.
+`install.sh`, the release workflows) that touches no `packages/cli/.changes/`
+fragment and has no label, and runs `loom changelog check` on the fragments it
+finds, the validator the cut itself runs. The label is the **only** legitimate
+way past a missing fragment.
 
 **The escape hatch** — `skip-changelog` — is for a genuinely behavior-preserving
 change (an internal refactor, a test-only or build-meta edit). Once the PR exists
@@ -68,4 +79,3 @@ gh pr edit --add-label skip-changelog   # then say why in a PR comment
 If you're reaching for the label because writing the entry is annoying, write the
 entry. The hatch is for _no user-facing change_, not for _can't be bothered_.
 
-[Keep a Changelog]: https://keepachangelog.com/en/1.1.0/

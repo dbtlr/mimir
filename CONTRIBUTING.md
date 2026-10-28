@@ -53,9 +53,10 @@ MIMIR_TEST_BINARY=dist/mimir-linux-x64 MIMIR_SANDBOX_LIFECYCLE_TEST=1 \
 ```
 
 `MIMIR_TEST_BINARY` selects the file to copy into a disposable directory. A missing
-candidate fails the enabled fixture. The fixture expects the binary to report the
-version in `packages/cli/package.json`, which the release workflow stamps from the
-tag before it builds.
+candidate fails the enabled fixture. The fixture expects a `MIMIR_TEST_BINARY`
+candidate to report the version in `packages/cli/package.json`, which the release
+workflow stamps before it builds, and the default `dist/mimir` to report the CLI's
+development version.
 
 For host and PWA changes, run the local integration gates:
 
@@ -199,17 +200,20 @@ compatibility review.
 - Keep PRs small and focused — one logical change per PR.
 - Run `bun run verify` locally before pushing. CI runs the same gate.
 - If the change affects CLI/MCP behavior, output format, the schema, or
-  configuration, add a changelog fragment: a `.changes/<slug>.md` file (the
-  task id is the conventional slug) with the entry under the appropriate
-  Keep-a-Changelog heading — `### Added` / `### Changed` / `### Deprecated` /
-  `### Removed` / `### Fixed` / `### Security`
-  ([Keep a Changelog](https://keepachangelog.com/en/1.1.0/); format details in
-  [`.changes/README.md`](.changes/README.md)). `CHANGELOG.md` itself is written
-  only at the release cut, which compiles the pending fragments — so parallel
-  PRs never conflict on it. The `changelog-guard` check enforces this: a PR
-  touching build-affecting paths (`packages/**`, `skills/mimir/**`,
-  `package.json`, `bun.lock`, `install.sh`, the release workflows) fails CI
-  unless it touches a fragment.
+  configuration, add a changelog fragment to `packages/cli/.changes/`, in
+  Loom's grammar ([the fragment guide](packages/cli/.changes/README.md),
+  [ADR 0039](docs/decisions/0039-changelog-and-versioning-on-loom.md)). The
+  file name sets the kind: `breaking.<slug>.md` for a change a user must adapt
+  to (it ends with a `### Migration` section), `feature.<slug>.md` for a
+  feature, and `<slug>.md` for a fix; the task id is the conventional slug.
+  The kinds decide the next version, so a cycle that changes the Engine
+  contract, additively included, carries a breaking fragment; the guard
+  refuses an Engine schema snapshot or `MIN_CLIENT` change without one. `packages/cli/CHANGELOG.md` itself is written only at the
+  release cut, so parallel PRs never conflict on it. Run
+  `bun run --cwd packages/cli loom changelog check` to validate fragments. The
+  `changelog-guard` check enforces this: a PR touching build-affecting paths
+  (`packages/**`, `skills/mimir/**`, `package.json`, `bun.lock`, `install.sh`,
+  the release workflows) fails CI unless it touches a fragment.
   For a genuinely behavior-preserving change (internal refactor, test- or
   build-meta only), apply the `skip-changelog` label with a one-line reason
   instead.
@@ -265,29 +269,28 @@ into narrative guides.
 Releases are tag-driven, and the binary reports the exact tag it was built from.
 The release workflow stamps the tag's version into `packages/cli/package.json`
 and compiles with `loom build --release`, which bakes that version into the
-binary's release facts; `mimir version` and self-update read them, and
-`packages/cli/package.json` is the fallback for local builds.
+binary's release facts; `mimir version` and self-update read them. Between cuts
+`packages/cli/package.json` holds the last release, and a source or local build
+reports the next minor's development version (`0.25.0` reports `0.26.0-next`).
 
-**Continuous prereleases.** Between releases, `packages/cli/package.json` carries
-the next target as `X.Y.Z-next` (declared, never auto-written). Every
-build-affecting merge to `main` auto-publishes a `vX.Y.Z-next.N` prerelease
-(docs-only merges produce nothing — the tagger is path-filtered). Install
-one with `packages/cli/install.sh 0.26.0-next.5` (a version argument), update to the newest
-with `mimir self-update --channel next`, or pin a build with
-`mimir self-update 0.26.0-next.5`.
+**Continuous prereleases.** Every build-affecting merge to `main` auto-publishes
+a `vX.Y.Z-next.N` prerelease, where `X.Y.Z` is the version the pending
+fragments decide (`loom changelog write --dry-run`) and `N` counts up per
+version. Docs-only merges, and merges while no fragment is pending, produce
+nothing. Install one with `packages/cli/install.sh 0.26.0-next.5` (a version
+argument), update to the newest with `mimir self-update --channel next`, or pin
+a build with `mimir self-update 0.26.0-next.5`.
 
-**Cutting an official release** is a two-commit procedure. A _cut commit_ bumps
-`packages/cli/package.json` `X.Y.Z-next` → `X.Y.Z` (syncing `bun.lock`'s
-matching version line alongside it), compiles the pending `.changes/`
-fragments into a new `## vX.Y.Z - YYYY-MM-DD` section (`bun run
-changelog:compile --write --version X.Y.Z`, which also deletes the compiled
-fragments), and pushes the `vX.Y.Z` tag — the release workflow then builds the
-per-platform binaries and publishes a non-prerelease GitHub Release with notes
-pulled from the changelog. A _next-cycle commit_ then bumps to the next
-`-next` (again syncing `bun.lock`) to resume the prerelease stream; the
-version guard makes a forgotten next-cycle bump loud, not silent. An official
-cut also prunes old prereleases lag-by-one, keeping the previous official's
-cycle trail one release longer.
+**Cutting an official release** is one commit and a tag. The cut commit runs
+`loom changelog write` in `packages/cli`, which prepends the
+`## vX.Y.Z - YYYY-MM-DD` section to `packages/cli/CHANGELOG.md`, sets
+`packages/cli/package.json` to `X.Y.Z`, and deletes the consumed fragments;
+`bun install` then refreshes `bun.lock`. After it merges, the `vX.Y.Z` tag
+starts the release workflow, which builds the per-platform binaries and
+publishes a non-prerelease GitHub Release with notes pulled from the changelog.
+There is no next-cycle commit: the next fragment to merge starts the next
+prerelease stream. An official cut also prunes old prereleases lag-by-one,
+keeping the previous official's cycle trail one release longer.
 
 The full operational runbook — exact commands and the post-publish verify gate —
 lives in the `release-cut` skill (`.claude/skills/release-cut/`).

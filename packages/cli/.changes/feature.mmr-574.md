@@ -1,0 +1,2 @@
+- Remote Engine clients send their build version on every tRPC call. Hosts refuse missing, invalid, too-old, and newer-minor clients with the CLI or host update remedy. `/health` advertises the minimum supported client.
+- Engine schema changes require a regenerated JSON Schema snapshot for compatibility review.

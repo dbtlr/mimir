@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import pkg from '../../cli/package.json';
+import { VERSION } from '../../cli/src/version';
 import { command, isolatedEnvironment } from './process';
 
 /**
@@ -59,10 +60,12 @@ afterAll(async () => {
   }
 });
 
-// A release build reports the version the workflow stamped into package.json;
-// a development build reports the package's version too.
+// Release validation's candidate is a release build, which reports the version
+// the workflow stamped into package.json; the sandbox lane's dist/mimir is a
+// development build, which reports the CLI's development version.
 test.skipIf(!enabled)('the compiled candidate reports its build version', async () => {
-  expect(await run([binary, 'version'], root)).toBe(pkg.version);
+  const expected = process.env.MIMIR_TEST_BINARY === undefined ? VERSION : pkg.version;
+  expect(await run([binary, 'version'], root)).toBe(expected);
 });
 
 test.skipIf(!enabled)('the compiled candidate supports the installation protocol', async () => {

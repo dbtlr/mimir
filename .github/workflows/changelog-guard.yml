@@ -1,25 +1,24 @@
 name: Changelog guard
 
 # Fail any PR that changes build-affecting paths but carries no changelog
-# fragment under .changes/ — the backstop for the finishing-work skill's
-# CHANGELOG gate (MMR-109, reshaped by ADR 0022). Fragments replaced the shared
-# [Unreleased] append point in CHANGELOG.md, which made every parallel merge
-# train conflict (MMR-267); CHANGELOG.md itself is now written only at the
-# release cut.
+# fragment under packages/cli/.changes/ — the backstop for the finishing-work
+# skill's changelog gate (MMR-109, reshaped by ADR 0022 and ADR 0039).
+# Fragments are Loom's (`breaking.<slug>.md`, `feature.<slug>.md`, `<slug>.md`),
+# and `loom changelog write` compiles them into packages/cli/CHANGELOG.md only
+# at the release cut.
 #
 # Escape hatch: a behavior-preserving PR (internal refactor, test/build-meta
 # only) applies the `skip-changelog` label instead of a fragment.
 #
-# Two release-procedure shapes pass structurally, no label needed: the
-# release-cut PR (fragment deletions only — the compile) and the cycle-open PR
-# (every changed line is a `"version"` field in packages/cli/package.json +
-# bun.lock — version metadata has no behavior to log).
+# The release-cut PR passes structurally, no label needed: it deletes the
+# fragments it writes into a new release section, and `loom changelog check`
+# accepts an empty set. Deleting fragments any other way does not count.
 #
-# Runs on every PR and self-determines applicability (like version-guard) so it
-# is always a runnable, requireable check — a `paths:`-filtered required check
-# would hang "pending" on PRs that don't match. `labeled`/`unlabeled` are listed
-# so that applying `skip-changelog` re-runs the gate (a label change does not
-# fire `synchronize`).
+# Runs on every PR and self-determines applicability so it is always a
+# runnable, requireable check — a `paths:`-filtered required check would hang
+# "pending" on PRs that don't match. `labeled`/`unlabeled` are listed so that
+# applying `skip-changelog` re-runs the gate (a label change does not fire
+# `synchronize`).
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
@@ -54,22 +53,14 @@ jobs:
             exit 0
           fi
 
-          # The cycle-open PR (release procedure's closing step) moves only the
-          # version strings in packages/cli/package.json and bun.lock's copy of
-          # it. Version metadata has no behavior to log — pass structurally so
-          # each cycle open doesn't need the label by hand. Both conditions
-          # bind: the file set AND every content line, so a bump smuggling any
-          # other change still requires its fragment. (Counted with `grep -cv`,
-          # not `-qv`: BSD grep short-circuits `-q` even under `-v`, and this
-          # script should stay correct wherever it is run by hand.)
-          other_files=$(echo "$changed" | grep -cvE '^(packages/cli/package\.json|bun\.lock)$' || true)
-          if [ "$other_files" -eq 0 ]; then
-            content=$(git diff -U0 "${base}...HEAD" | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' || true)
-            nonversion_lines=$(echo "$content" | grep -cvE '^[+-][[:space:]]*"version": "' || true)
-            if [ -n "$content" ] && [ "$nonversion_lines" -eq 0 ]; then
-              echo "Version-metadata-only change (the cycle-open shape) — no behavior to log. Gate satisfied."
-              exit 0
-            fi
+          # An Engine contract change, additive included, ships only in a minor
+          # release (ADR 0038), and on 0.x only a breaking fragment cuts one
+          # (ADR 0039). The schema snapshot and MIN_CLIENT mark the contract;
+          # the label does not waive this.
+          if echo "$changed" | grep -qE '^packages/contract/(engine-schemas\.json|src/version\.ts)$' \
+            && ! ls packages/cli/.changes/breaking.*.md > /dev/null 2>&1; then
+            echo "::error::This PR changes the Engine contract, which ships only in a minor release, but no breaking fragment is pending. Add packages/cli/.changes/breaking.<slug>.md; for an additive change, its migration is to update the host before its clients."
+            exit 1
           fi
 
           if [ "$HAS_SKIP_LABEL" = "true" ]; then
@@ -77,45 +68,40 @@ jobs:
             exit 0
           fi
 
-          # Any touch of a fragment satisfies the gate: added (the normal case),
-          # modified (amending an entry), or deleted (the release-cut PR compiles
-          # fragments away). Fragments live flat in .changes/ — the compiler does
-          # not recurse, so a nested path does not count.
-          fragments=$(echo "$changed" | grep -E '^\.changes/[^/]+\.md$' | grep -v '^\.changes/README\.md$' || true)
-          if [ -z "$fragments" ]; then
-            echo "::error::Build-affecting change with no changelog fragment. Add .changes/<slug>.md (see .changes/README.md), or apply the 'skip-changelog' label if this is behavior-preserving."
+          # A fragment added or amended on this PR satisfies the gate. Deleting
+          # fragments counts only for the release cut, which writes them into a
+          # new `## vX.Y.Z - YYYY-MM-DD` section of the changelog. Loom reads
+          # fragments flat in .changes/ and ignores hidden entries;
+          # `loom changelog check` rejects a nested path or a non-Markdown file,
+          # so any other file there counts.
+          fragments=$(echo "$changed" | grep -E '^packages/cli/\.changes/[^.]' | grep -v '^packages/cli/\.changes/README\.md$' || true)
+          present=$(echo "$fragments" | while IFS= read -r f; do if [ -n "$f" ] && [ -f "$f" ]; then echo "$f"; fi; done)
+          # A plain grep reads all of git diff, so pipefail sees no SIGPIPE.
+          section=$(git diff "${base}...HEAD" -- packages/cli/CHANGELOG.md | grep -E '^\+## v[0-9]+\.[0-9]+\.[0-9]+ - ' || true)
+          if [ -z "$present" ] && [ -n "$fragments" ] && [ -n "$section" ]; then
+            echo "Fragments deleted into a new release section — the release cut. Gate satisfied."
+            present="$fragments"
+          fi
+          if [ -z "$present" ]; then
+            echo "::error::Build-affecting change with no changelog fragment. Add packages/cli/.changes/<slug>.md (see packages/cli/.changes/README.md), or apply the 'skip-changelog' label if this is behavior-preserving."
             exit 1
           fi
-
-          # Fragments that exist on head get parsed by the compiler itself (next
-          # step) — one grammar, shared with the release cut, instead of a looser
-          # re-implementation here (ADR 0022 retired the [Unreleased] bullet-diff
-          # and its false PASS/FAIL edges). Deleted-only means the release-cut PR:
-          # nothing to parse, gate satisfied.
-          present=$(echo "$fragments" | while IFS= read -r f; do [ -f "$f" ] && echo "$f" || true; done)
-          if [ -z "$present" ]; then
-            echo "Fragment deletions only — the release-cut compile. Gate satisfied."
-            exit 0
-          fi
-          echo "$present" > "$RUNNER_TEMP/fragments.txt"
-          echo "parse=true" >> "$GITHUB_OUTPUT"
-          echo "Changelog fragment(s) present, parsing with the compiler:"
-          echo "$present"
+          echo "check=true" >> "$GITHUB_OUTPUT"
+          echo "Changelog fragment(s) touched:"
+          echo "$fragments"
 
       - name: Set up Bun
-        if: steps.gate.outputs.parse == 'true'
+        if: steps.gate.outputs.check == 'true'
         uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .tool-versions
 
       - name: Install dependencies
-        if: steps.gate.outputs.parse == 'true'
+        if: steps.gate.outputs.check == 'true'
         run: bun install --frozen-lockfile
 
-      - name: Parse fragments with the compiler's parser
-        if: steps.gate.outputs.parse == 'true'
-        run: |
-          set -euo pipefail
-          # Fragment paths are flat slugs without spaces.
-          # shellcheck disable=SC2046
-          bun packages/cli/scripts/compile-changelog.ts --check $(tr '\n' ' ' < "$RUNNER_TEMP/fragments.txt")
+      # Loom's own validator, the one the release cut runs, checks every
+      # fragment on head; an empty set (the release cut) passes.
+      - name: Check fragments with Loom
+        if: steps.gate.outputs.check == 'true'
+        run: bun run --cwd packages/cli loom changelog check

@@ -3,7 +3,10 @@ name: Prerelease tagger
 # Every build-affecting push to main auto-tags a vX.Y.Z-next.N prerelease, which
 # release.yml then builds + publishes (it already flags `-` tags as prerelease).
 # The path filter is the changeset analyzer: a docs/vault-only merge doesn't
-# match, so no prerelease is produced (MMR-57).
+# match, so no prerelease is produced (MMR-57). X.Y.Z is the version the next
+# cut will release, which the pending changelog fragments decide
+# (`loom changelog write --dry-run` in packages/cli, ADR 0039); with no pending
+# fragments there is nothing to release, so nothing is tagged.
 on:
   push:
     branches: [main]
@@ -38,38 +41,65 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .tool-versions
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
       - name: Compute and push the prerelease tag
         run: |
           set -euo pipefail
           # Annotated tags need a committer identity; the runner has none.
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          ver=$(grep '"version"' packages/cli/package.json | head -1 \
-                | sed -E 's/.*"version" *: *"([^"]+)".*/\1/')
-          case "$ver" in
-            *-next)
-              # Counter = highest existing vX.Y.Z-next.N for this base, + 1.
-              # Only real prerelease builds create tags, so noop merges never
-              # advance it; robust to pruning (we keep the max) and history shape.
-              max=0
-              for t in $(git tag -l "v${ver}.*"); do
-                n="${t#v"${ver}".}"
-                case "$n" in (*[!0-9]*) continue ;; esac
-                if [ "$n" -gt "$max" ]; then max="$n"; fi
-              done
-              n=$((max + 1))
-              tag="v${ver}.${n}"
-              echo "tagging $tag"
-              git tag -a "$tag" -m "Prerelease $tag"
-              git push origin "$tag"
-              # Dispatch the build/publish at the new tag — a GITHUB_TOKEN tag
-              # push won't trigger release.yml's `push: tags` (anti-recursion),
-              # but workflow_dispatch via GITHUB_TOKEN does start a run.
-              gh workflow run release.yml --ref "$tag"
-              echo "dispatched release.yml @ $tag"
-              ;;
-            *)
-              echo "package.json version $ver is not a -next dev version; no prerelease."
-              echo "(The version guard enforces the release/next-cycle invariant.)"
-              ;;
-          esac
+          # `check` fails on any invalid fragment and counts the valid ones.
+          checked=$(bun run --cwd packages/cli loom changelog check)
+          echo "$checked"
+          count=$(printf '%s\n' "$checked" | sed -nE 's/^Checked ([0-9]+) fragments?\.$/\1/p')
+          if [ -z "$count" ]; then
+            echo "::error::could not read the fragment count from: $checked"
+            exit 1
+          fi
+          if [ "$count" -eq 0 ]; then
+            echo "No pending changelog fragments in packages/cli/.changes, so there is nothing to release; no prerelease."
+            exit 0
+          fi
+          ver=$(bun run --cwd packages/cli loom changelog write --dry-run \
+                | sed -nE 's/^Next version: ([0-9]+\.[0-9]+\.[0-9]+)$/\1/p')
+          if [ -z "$ver" ]; then
+            echo "::error::loom changelog write --dry-run printed no next version."
+            exit 1
+          fi
+          # The next version only rises between cuts. Reverting the only breaking
+          # fragment would drop it below prereleases already published, and the
+          # next channel and self-update would keep serving the higher one.
+          released=$(sed -nE 's/^[[:space:]]*"version": "([^"]+)".*/\1/p' packages/cli/package.json | head -1)
+          for t in $(git tag -l 'v*-next.*'); do
+            base="${t#v}"; base="${base%%-next.*}"
+            if [ "$base" = "$ver" ] || [ "$base" = "$released" ]; then continue; fi
+            if [ "$(printf '%s\n%s\n%s\n' "$base" "$ver" "$released" | sort -V | tail -1)" = "$base" ]; then
+              echo "::error::The pending fragments cut ${ver}, below prerelease ${t} published since ${released}. Restore the breaking fragment, or delete the v${base}-next.* prereleases if that change is gone."
+              exit 1
+            fi
+          done
+          # Counter = highest existing vX.Y.Z-next.N for this version, + 1.
+          # Only real prerelease builds create tags, so noop merges never
+          # advance it; robust to pruning (we keep the max) and history shape.
+          max=0
+          for t in $(git tag -l "v${ver}-next.*"); do
+            n="${t#"v${ver}"-next.}"
+            case "$n" in (*[!0-9]*) continue ;; esac
+            if [ "$n" -gt "$max" ]; then max="$n"; fi
+          done
+          tag="v${ver}-next.$((max + 1))"
+          echo "tagging $tag"
+          git tag -a "$tag" -m "Prerelease $tag"
+          git push origin "$tag"
+          # Dispatch the build/publish at the new tag — a GITHUB_TOKEN tag
+          # push won't trigger release.yml's `push: tags` (anti-recursion),
+          # but workflow_dispatch via GITHUB_TOKEN does start a run.
+          gh workflow run release.yml --ref "$tag"
+          echo "dispatched release.yml @ $tag"

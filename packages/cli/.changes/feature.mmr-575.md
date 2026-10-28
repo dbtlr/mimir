@@ -1,0 +1,1 @@
+- Host credential storage for revocable device tokens on SQLite and Postgres. Tokens are hashed at rest and excluded from work-state transfers.

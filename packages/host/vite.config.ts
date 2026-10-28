@@ -1,7 +1,7 @@
-import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { defineConfig, domSetup, testReact } from '@dbtlr/tooling';
+import { VERSION } from '@mimir/cli/src/version';
 import tailwindcss from '@tailwindcss/vite';
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import react from '@vitejs/plugin-react';
@@ -10,28 +10,6 @@ import { searchForWorkspaceRoot } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 import { WELL_900 } from './src/lib/theme-colors.ts';
-
-/**
- * The bundle-side twin of the binary's release version (packages/cli/src/version.ts,
- * MMR-57): the host image's build arg `MIMIR_BUILD_VERSION` carries the tag's
- * version into `build:ui`, and the release workflow stamps the same tag into
- * packages/cli/package.json before the binary compile, so a tagged build
- * reports identical versions on both sides. Absent that (local/dev/PR builds),
- * fall back to the CLI package's version — the same fallback `version.ts` uses
- * — so an un-stamped bundle and an un-stamped daemon agree by default instead
- * of reading as permanently stale.
- */
-function readVersion(pkgPath: URL): string {
-  const pkg: unknown = JSON.parse(readFileSync(pkgPath, 'utf8'));
-  const version =
-    typeof pkg === 'object' && pkg !== null && 'version' in pkg ? pkg.version : undefined;
-  if (typeof version !== 'string') {
-    throw new Error(`no "version" string in ${pkgPath.toString()}`);
-  }
-  return version;
-}
-
-const cliVersion = readVersion(new URL('../cli/package.json', import.meta.url));
 
 /**
  * The PWA layer is app-shell only — precache the shell so the installed app
@@ -80,7 +58,13 @@ for (const plugin of pwaPlugins) {
 
 export default defineConfig({
   define: {
-    MIMIR_BUILD_VERSION: JSON.stringify(process.env.MIMIR_BUILD_VERSION ?? cliVersion),
+    // The bundle-side twin of the binary's release version (MMR-57): the host
+    // image's build arg carries the tag's version into `build:ui`, and the
+    // release workflow stamps the same tag into packages/cli/package.json
+    // before the binary compile, so a tagged build reports one version on both
+    // sides. A local, dev, or PR build falls back to the CLI's untagged
+    // version, so an un-stamped bundle and CLI sit inside each other's window.
+    MIMIR_BUILD_VERSION: JSON.stringify(process.env.MIMIR_BUILD_VERSION ?? VERSION),
   },
   plugins: [
     ...(process.env.VITEST === 'true'

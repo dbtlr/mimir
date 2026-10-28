@@ -1,0 +1,3 @@
+- A shared Engine contract with local and tRPC implementations of `getNode` and
+  `done`. Engine timestamps are `Date` values; existing CLI and HTTP output keeps
+  its current string timestamps.

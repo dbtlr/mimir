@@ -1,6 +1,5 @@
 {
   "name": "@mimir/wire",
-  "version": "0.26.0-next",
   "private": true,
   "description": "The tRPC adapter and remote implementation of the Mimir Engine.",
   "type": "module",

@@ -1,0 +1,1 @@
+- The container host serves `/health` without querying the store, and Docker probes it with Bun using the configured port. The doctor endpoint reports the host store's record findings without CLI configuration diagnostics.

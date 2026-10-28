@@ -2,7 +2,7 @@ name: Release
 
 # Tag-driven releases. A `vX.Y.Z` tag builds standalone binaries (one per
 # platform, each on its native runner so there is no cross-compile) and
-# publishes a GitHub Release with notes pulled from CHANGELOG.md. The build
+# publishes a GitHub Release with notes pulled from packages/cli/CHANGELOG.md. The build
 # matrix also runs on pull requests (build-only, no publish) so the release
 # path is validated before a tag is ever cut.
 #
@@ -73,16 +73,23 @@ jobs:
             bun run test
           fi
 
-      # On a tag build, stamp the tag (minus the leading v) into
-      # packages/cli/package.json. `loom build --release` bakes that version into
-      # the binary's release facts, which `mimir version` and self-update read,
-      # so the binary reports the release it was cut for (MMR-57, MMR-555). PR
-      # build-validation runs on a branch ref and keeps the checked-in -next
-      # version instead; those binaries are never published.
-      - name: Stamp the release version
-        if: github.ref_type == 'tag'
+      # Stamp the build's version into packages/cli/package.json, which
+      # `loom build --release` bakes into the binary's release facts, which
+      # `mimir version` and self-update read (MMR-57, MMR-555). A tag build
+      # stamps the tag minus its leading v, so the binary reports the release it
+      # was cut for. PR build-validation runs on a branch ref and stamps the
+      # CLI's development version, the one a source build reports, because
+      # package.json holds the last release between cuts; those binaries are
+      # never published.
+      - name: Stamp the build version
         run: |
-          bun -e 'const file = "packages/cli/package.json"; const pkg = await Bun.file(file).json(); pkg.version = process.argv[1]; await Bun.write(file, JSON.stringify(pkg, null, 2) + "\n")' "${GITHUB_REF_NAME#v}"
+          set -euo pipefail
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version=$(bun -e 'import { VERSION } from "./packages/cli/src/version.ts"; console.log(VERSION)')
+          fi
+          bun -e 'const file = "packages/cli/package.json"; const pkg = await Bun.file(file).json(); pkg.version = process.argv[1]; await Bun.write(file, JSON.stringify(pkg, null, 2) + "\n")' "$version"
 
       # Loom's release build: one binary per native runner, named for its asset
       # (mimir-<os>-<arch>), with the release facts baked in. Only explicit
@@ -128,11 +135,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .tool-versions
+
       - name: Determine image version and tags
         id: metadata
         run: |
           set -euo pipefail
-          version=$(jq -r .version packages/cli/package.json)
+          # An untagged build reports the CLI's development version, the one
+          # a source build of the binary reports (packages/cli/src/version.ts).
+          version=$(bun -e 'import { VERSION } from "./packages/cli/src/version.ts"; console.log(VERSION)')
           channel=
           if [ "$GITHUB_REF_TYPE" = tag ]; then
             version="${GITHUB_REF_NAME#v}"
@@ -141,11 +155,6 @@ jobs:
           fi
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "channel=${channel}" >> "$GITHUB_OUTPUT"
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: .tool-versions
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -267,13 +276,16 @@ jobs:
       - name: Extract changelog notes
         env:
           IMAGE_VERSION: ${{ needs.host-image.outputs.version }}
+        # Changelog links are relative to packages/cli/, and GitHub resolves a
+        # release body's links from the repository root, so drop the ../../.
         run: |
           ver="${GITHUB_REF_NAME}"
           awk -v ver="$ver" '
             $0 ~ "^## " ver " " { capture = 1; next }
             capture && /^## / { exit }
             capture { print }
-          ' CHANGELOG.md > release-notes.md
+          ' packages/cli/CHANGELOG.md \
+            | sed 's#](\.\./\.\./#](#g' > release-notes.md
           # shellcheck disable=SC2016 # Markdown backticks are literal.
           printf '\n### Host image\n\n`ghcr.io/dbtlr/mimir-host:%s` (linux/amd64, linux/arm64).\n' "$IMAGE_VERSION" >> release-notes.md
           echo "--- release notes ---"; cat release-notes.md
