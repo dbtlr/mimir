@@ -1,6 +1,16 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
-import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -260,11 +270,15 @@ test.skipIf(!enabled)(
     expect(unbound.out).not.toMatch(/Cannot find module|TypeError|at .*\.ts:\d+/);
     expect(readInstallationAt(copied)).toBeUndefined();
 
-    // Bytes swapped in by hand, behind both records, fail closed.
-    await writeFile(box.target, first);
+    // Bytes swapped in by hand, behind both records, fail closed. They land through a
+    // rename: macOS can SIGKILL a signed binary whose bytes were rewritten in place.
+    const swap = `${box.target}.swap`;
+    await writeFile(swap, first);
+    await chmod(swap, 0o755);
+    await rename(swap, box.target);
     const swapped = await run([box.target, 'get', 'MMR-1', '-f', 'json'], box.env('home'));
     expect(swapped.code).not.toBe(0);
-    expect(swapped.out).toContain('does not match its receipt');
+    expect(swapped.out, `exit ${String(swapped.code)}`).toContain('does not match its receipt');
   },
   120_000,
 );
