@@ -50,7 +50,7 @@ before you submit — there is no third option.
 
 CI enforces exactly this: `changelog-guard` fails any PR touching build-affecting
 paths (`packages/**`, `skills/mimir/**`, `package.json`, `bun.lock`,
-`install.sh`, the release workflows) that touches no `.changes/*.md` fragment
+the release workflows) that touches no `.changes/*.md` fragment
 and has no label — and
 parses the fragments it finds with the compiler's own parser
 (`bun run changelog:compile --check`), so a fragment that passes CI is

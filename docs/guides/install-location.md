@@ -1,96 +1,77 @@
 ---
-description: Choose an installation path and register a legacy installation while preserving its existing configuration and board.
+description: Choose an installation path, and how the first run binds an installation to its configuration, data, and cache directories.
 ---
 
 # Install location
 
-Install `mimir` to `~/.local/bin`, the `install.sh` default. To select another
-directory, set `MIMIR_INSTALL_DIR` when you run the installer.
+Install `mimir` with the repository's `install.sh`, which places the binary in
+`~/.local/bin` by default. Choose another absolute directory with `--dir`:
+
+```sh
+curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/packages/cli/install.sh | sh -s -- --dir /opt/mimir/bin
+```
 
 Keep the binary on a local disk, not on a network volume.
 
-The installer places a receipt beside the canonical binary path:
-`mimir.installation.json`. The receipt binds the executable path and SHA-256
-digest to Mimir's configuration, data, and cache directories. A copied binary
-does not inherit this registration.
+The installer takes no environment variables. These retired variables map to
+arguments:
 
-## Upgrade an installation without a receipt
+| Retired | Now |
+| --- | --- |
+| `MIMIR_INSTALL_DIR=<dir>` | `--dir <dir>` |
+| `MIMIR_VERSION=<tag>` | the version argument, such as `0.26.0` (a leading `v` is fine) |
+| `MIMIR_NEXT=1` | the version argument, such as `0.26.0-next.5`; the installer never picks a prerelease on its own, so `mimir self-update --channel next` follows that channel afterward |
 
-Use the current `install.sh` to replace a release that predates installation
-receipts. An old binary's self-update command can replace the executable without
-registering the replacement. The new binary then uses isolated development
-directories instead of the existing board.
+The installer verifies the download against the release's `SHA256SUMS`, writes
+Loom's installation record (`install.json`, in the platform state directory),
+and then runs `mimir mcp install --agent claude` to register the MCP server
+with Claude Code. Pass `--skip-post-install` to skip the registration. Codex
+is not registered: it cannot connect to Loom's MCP protocol revision yet.
 
-1. Identify the existing binary path with `command -v mimir`.
-2. Preserve the `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, and `XDG_CACHE_HOME` values
-   used by the existing installation.
-3. Download the current installer:
+## How the first run binds the installation
 
-   ```sh
-   curl -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh -o install.sh
-   ```
+The installer records the binary's path and digest. It does not choose the
+directories. The first run of a recorded binary registers its receipt,
+`mimir.installation.json` beside the binary, which binds the executable path and
+SHA-256 digest to Mimir's configuration, data, and cache directories. A copied
+binary does not inherit this registration.
 
-4. Select a candidate with installation protocol version 1 before you run the installer.
+The first run adopts the installation only when every XDG root is HOME's
+default: `$HOME/.config`, `$HOME/.local/share`, and `$HOME/.cache`, and outside
+macOS `$HOME/.local/state`, where Loom's record lives. It prints one line naming
+the directories it bound. When any XDG variable points elsewhere, the run adopts
+nothing, names each variable, and uses the development directories beside the
+binary. Unset the variables and run `mimir` once to adopt the defaults.
 
-   If the latest official release predates receipts, select a compatible prerelease
-   with `MIMIR_VERSION=<tag>` or `MIMIR_NEXT=1`.
+An installation that keeps its directories under custom XDG roots has no way to
+adopt them on a fresh install. It needs a receipt from the earlier installer:
+the receipt records those roots, and Loom's installer then upgrades it with them
+kept. Reinstalling such a machine from scratch binds the `$HOME` defaults
+instead, and the existing board stays where it is.
 
-5. Run the installer with the same target directory and XDG roots.
+## Upgrade an earlier installation
 
-   For the default paths:
+Run the installer over the existing binary's directory (`--dir`). A registered
+installation keeps its bindings: the next run sees that Loom's record names the
+new digest and re-records the receipt with the same directories. Different
+ambient XDG values do not redirect it. [Self-update](self-update.md) preserves
+the same bindings.
 
-   ```sh
-   sh install.sh
-   ```
+An installation whose earlier self-update replaced the binary without
+registering it has no receipt, and the new binary uses isolated development
+directories instead of the existing board. If the board lives under the
+`$HOME` defaults, run the installer and then `mimir` once, from an environment
+with no XDG variables set. Otherwise it cannot be adopted; see the custom-roots
+caveat above.
 
-   To select a compatible prerelease at the default paths:
-
-   ```sh
-   MIMIR_VERSION="<compatible-tag>" sh install.sh
-   ```
-
-   Or, to select the newest release-feed entry:
-
-   ```sh
-   MIMIR_NEXT=1 sh install.sh
-   ```
-
-   For custom paths, substitute the existing values in this example.
-   If you need a prerelease, add its selection variable before `sh install.sh`.
-
-   ```sh
-   MIMIR_INSTALL_DIR="/path/to/bin" \
-   XDG_CONFIG_HOME="/path/to/config-root" \
-   XDG_DATA_HOME="/path/to/data-root" \
-   XDG_CACHE_HOME="/path/to/cache-root" \
-   sh install.sh
-   ```
-
-6. Verify that `mimir.installation.json` exists beside the installed binary.
-7. From a bound repository, run `mimir overview` to verify the expected board.
-
-The XDG values are roots: the installer appends `/mimir` to each one. Unset roots
-default to `$HOME/.config`, `$HOME/.local/share`, and `$HOME/.cache`, respectively.
-The first registration cannot recover previous custom roots from an absent
-receipt. It records the values supplied to that installer invocation.
-
-The installer selects the latest official release by default. `MIMIR_NEXT=1`
-selects the newest release-feed entry, and `MIMIR_VERSION=<tag>` selects an exact
-release. The selected candidate must support installation protocol version 1.
-An older candidate is refused before replacement.
-
-Registration preserves the configuration file, board, and caches at those paths.
-The transition does not require a board reset or a data import.
+Verify with `mimir overview` from a bound repository.
 
 ## Repeat installation and relocation
 
 At the same binary path, later installer runs validate the receipt and preserve
-its bindings. Different ambient XDG values do not redirect an existing registered
-installation. [Self-update](self-update.md) preserves the same bindings.
-
-To relocate the binary, run the installer with the new `MIMIR_INSTALL_DIR` and
-the existing XDG roots. At a new target path without a receipt, the installer
-creates a separate registration.
+its bindings. To relocate the binary, run the installer with the new `--dir`; at
+a new path without a receipt, the first run adopts it as a separate installation
+under the rules above.
 
 Do not copy a binary and its receipt to a new path. A receipt with a different
 canonical path or executable digest fails validation before normal state access.

@@ -1,19 +1,23 @@
-import { expect, test } from 'bun:test';
+import { afterAll, beforeAll, expect, test } from 'bun:test';
 
 import { consoleSchemas, engineSchemas, UNIFORM_VERBS } from '@mimir/contract';
-import { inertStore } from '@mimir/core/testing';
 
-import { COMMAND_HELP } from './cli/help';
-import { buildMcpServer } from './mcp/server';
+import { application } from './application';
+import { parityBoard } from './testing/fixture';
+import type { ParityBoard } from './testing/fixture';
+import { loomMcpSession } from './testing/mcp';
 
 /**
  * Every Engine method is claimed by a CLI command or MCP tool that runs through
  * it, and the console's `console.*` methods stay off both surfaces (ADR 0034,
- * decisions 6 and the 2026-10-18 refinements).
+ * decisions 6 and the 2026-10-18 refinements). The commands are read from the
+ * Application's graph and the tools from a live MCP session, so a command added
+ * without its Engine method named here fails.
  */
 
 /** One CLI command and/or MCP tool, and the Engine method(s) it runs through. */
 type Surface = {
+  /** The command path, words joined by spaces. */
   readonly cli?: string;
   readonly mcp?: string;
   readonly methods: readonly string[];
@@ -26,6 +30,13 @@ const same = (name: string, ...methods: string[]): Surface => ({
   methods: methods.length > 0 ? methods : [name],
 });
 
+/** A command beneath a group, whose MCP tool joins the path with `_`. */
+const nested = (path: string, ...methods: string[]): Surface => ({
+  cli: path,
+  mcp: path.replaceAll(' ', '_'),
+  methods,
+});
+
 /** The uniform verbs that also answer a seed id, through a seed-typed Engine method. */
 const SEED_VARIANT: Readonly<Record<string, readonly string[]>> = {
   park: ['seedPark'],
@@ -35,25 +46,27 @@ const SEED_VARIANT: Readonly<Record<string, readonly string[]>> = {
 const SURFACES: readonly Surface[] = [
   // Reads.
   same('artifacts'),
-  { cli: 'get', mcp: 'get', methods: ['getNode', 'getArtifact', 'getSeed'] },
-  { mcp: 'get_seed', methods: ['getSeed'] },
+  same('get', 'getNode', 'getArtifact', 'getSeed'),
   same('list'),
   same('next'),
   same('overview'),
   same('projects'),
-  // The remote lookup has no command yet: `mimir bind` and the auto-bind (MMR-544) are its first callers.
+  // The remote lookup has no command: `mimir bind` and the auto-bind (MMR-544) are its first callers.
   { methods: ['projectsByRemote'] },
   same('search'),
-  { cli: 'seeds', mcp: 'seeds', methods: ['seeds'] },
+  same('seeds'),
   same('status'),
-  { cli: 'tree', methods: ['tree'] },
-  { cli: 'scratch get', mcp: 'scratch_get', methods: ['scratchGet'] },
-  { cli: 'scratch list', mcp: 'scratch_list', methods: ['scratchList'] },
+  same('tree'),
+  nested('scratch get', 'scratchGet'),
+  nested('scratch list', 'scratchList'),
   // Node writes. `update` also patches a project key, an artifact, or a seed id, and `park` and
   // `unpark` also move a seed, each through the seed- or project-typed method.
   same('annotate'),
   same('attach'),
-  same('create'),
+  nested('create project', 'create'),
+  nested('create initiative', 'create'),
+  nested('create phase', 'create'),
+  nested('create task', 'create'),
   same('depend'),
   same('groom'),
   same('move'),
@@ -70,44 +83,51 @@ const SURFACES: readonly Surface[] = [
   same('reject', 'seedReject'),
   same('resolve', 'seedResolve'),
   same('triage'),
-  // Scratchpad writes.
-  { cli: 'scratch agenda add', mcp: 'scratch_agenda_add', methods: ['scratchAgendaAdd'] },
-  {
-    cli: 'scratch agenda complete',
-    mcp: 'scratch_agenda_complete',
-    methods: ['scratchAgendaComplete'],
-  },
-  {
-    cli: 'scratch agenda supersede',
-    mcp: 'scratch_agenda_supersede',
-    methods: ['scratchAgendaSupersede'],
-  },
-  { cli: 'scratch checkpoint', mcp: 'scratch_checkpoint', methods: ['scratchCheckpoint'] },
-  { cli: 'scratch create', mcp: 'scratch_create', methods: ['scratchCreate'] },
-  { cli: 'scratch discard', mcp: 'scratch_discard', methods: ['scratchDiscard'] },
-  { cli: 'scratch freeze', mcp: 'scratch_freeze', methods: ['scratchFreeze'] },
-  { cli: 'scratch update', mcp: 'scratch_update', methods: ['scratchUpdate'] },
+  // Scratchpad writes. `scratch agenda` takes the action as an argument.
+  nested('scratch agenda', 'scratchAgendaAdd', 'scratchAgendaComplete', 'scratchAgendaSupersede'),
+  nested('scratch checkpoint', 'scratchCheckpoint'),
+  nested('scratch create', 'scratchCreate'),
+  nested('scratch discard', 'scratchDiscard'),
+  nested('scratch freeze', 'scratchFreeze'),
+  nested('scratch update', 'scratchUpdate'),
 ];
 
-function mcpToolNames(): Set<string> {
-  const server = buildMcpServer(inertStore(), '0.0.0-test');
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  const internals = server as unknown as { _registeredTools: Record<string, unknown> };
-  // oxlint-disable-next-line eslint/no-underscore-dangle
-  return new Set(Object.keys(internals._registeredTools));
+type Node = ReturnType<typeof application.inspect>['root'];
+
+/** The path of every visible command that has an action. */
+function commandPaths(node: Node, path: readonly string[] = []): string[] {
+  const own = node.hasAction && !node.hidden && path.length > 0 ? [path.join(' ')] : [];
+  return [
+    ...own,
+    ...node.children.flatMap((child) => commandPaths(child, [...path, child.name ?? ''])),
+  ];
 }
 
+let board: ParityBoard;
+let tools: Set<string>;
+const commands = new Set(commandPaths(application.inspect().root));
+
+beforeAll(async () => {
+  board = await parityBoard();
+  const session = loomMcpSession(board.app('MMR'));
+  tools = new Set(await session.tools());
+  await session.close();
+});
+
+afterAll(async () => {
+  await board.close();
+});
+
 test('every claimed CLI command and MCP tool is registered and runs through existing Engine methods', () => {
-  const tools = mcpToolNames();
   for (const { cli, mcp, methods } of SURFACES) {
     if (cli !== undefined) {
-      expect(cli in COMMAND_HELP).toBe(true);
+      expect(commands.has(cli), cli).toBe(true);
     }
     if (mcp !== undefined) {
-      expect(tools.has(mcp)).toBe(true);
+      expect(tools.has(mcp), mcp).toBe(true);
     }
     for (const method of methods) {
-      expect(method in engineSchemas).toBe(true);
+      expect(method in engineSchemas, method).toBe(true);
     }
   }
 });
@@ -124,9 +144,8 @@ const flatName = (name: string): string => name.replaceAll(/[^a-z]/gi, '').toLow
 const SHARED_CONSOLE_NAMES: ReadonlySet<string> = new Set(['overview', 'search']);
 
 test('console methods are namespaced and registered on neither the CLI nor MCP', () => {
-  const tools = mcpToolNames();
   const toolNames = new Set([...tools].map(flatName));
-  const commandNames = new Set(Object.keys(COMMAND_HELP).map(flatName));
+  const commandNames = new Set([...commands].map(flatName));
   for (const method of Object.keys(consoleSchemas)) {
     // `console.overview` and `console.search` share their names with the
     // `overview` and `search` tools; those run the project-scoped flat methods.
@@ -141,5 +160,5 @@ test('console methods are namespaced and registered on neither the CLI nor MCP',
     }
   }
   expect(tools.has('console')).toBe(false);
-  expect('console' in COMMAND_HELP).toBe(false);
+  expect(commands.has('console')).toBe(false);
 });

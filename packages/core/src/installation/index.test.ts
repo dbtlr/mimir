@@ -258,7 +258,7 @@ test('a first run with an XDG root redirected beside HOME adopts nothing', () =>
   expect(existsSync(`${options.executable}.installation.json`)).toBe(false);
   const fallback = join(home, '.local', 'share');
   expect(lines).toEqual([
-    `mimir: Loom's installation record names this binary, but this run does not adopt it as live: XDG_DATA_HOME is ${options.paths.data}, not its default ${fallback}. To adopt the $HOME defaults, run it once with XDG_DATA_HOME unset; if the directories under XDG_DATA_HOME hold your real config, data, or cache, install with the root install.sh instead, which records them. Until then it uses the development directories beside it.\n`,
+    `mimir: Loom's installation record names this binary, but this run does not adopt it as live: XDG_DATA_HOME is ${options.paths.data}, not its default ${fallback}. To adopt the $HOME defaults, run it once with XDG_DATA_HOME unset. Until then it uses the development directories beside it.\n`,
   ]);
 });
 

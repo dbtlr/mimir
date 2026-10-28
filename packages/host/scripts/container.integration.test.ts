@@ -16,7 +16,7 @@ import { pairFixtureDevice } from './pairing-client';
 
 const clientVersion = z
   .object({ version: z.string() })
-  .parse(await Bun.file(new URL('../../bin/package.json', import.meta.url)).json()).version;
+  .parse(await Bun.file(new URL('../../cli/package.json', import.meta.url)).json()).version;
 
 /**
  * Pair a fixture device: the client files the request over HTTP, and the operator

@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test';
 
-import { canonicalJson } from '@mimir/core';
-import type { StoreExport } from '@mimir/core';
-import { createSqliteTestStore, withoutStamp } from '@mimir/core/testing';
-
+import { canonicalJson } from './export';
+import type { StoreExport } from './export';
 import fixture from './fixtures/v0.20-norn-export.json';
+import { createSqliteTestStore } from './store-sqlite/testing';
+import { withoutStamp } from './testing/conformance';
 
 /**
  * The migration path off Norn (ADR 0032 Decision 5): an operator exports a

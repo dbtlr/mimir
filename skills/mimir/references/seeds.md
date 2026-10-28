@@ -63,14 +63,14 @@ mimir seeds                       # the bound board: live seeds, oldest-first
 mimir seeds -p NRN --grouped      # lanes: UNTRIAGED · READY TO RESOLVE · PROMOTED · SETTLED
 mimir seeds --status all --grouped   # adds the PARKED lane
 mimir seeds --status parked       # the seeds set aside for later
-mimir seeds -p all --requester MMR   # everything my board has asked of others
+mimir seeds -p NRN --requester MMR   # what my board has asked of NRN
 mimir get NRN-s3                  # one seed, resolved view
 ```
 
 - Default shows **live** seeds (`new`+`promoted`) **oldest-first** — the
   longest-waiting seed is the triage priority. Parked seeds are left out;
   `--status parked` or `all` lists them. `--status <word>|all`,
-  `--sort asc|desc`, `-p all` for every board, and the shared date ops over
+  `--sort asc|desc`, `-p KEY` for another board, and the shared date ops over
   `created_at` (`--at-or-after created_at:2026-07-01`, `--tz <IANA>`).
 - `seed` captures and `seeds` queries. For tasks and other nodes, `list` is the
   query verb.

@@ -298,3 +298,14 @@ The `self-update` surface of the Loom CLI is Loom's: `self-update [<version>]
 [--channel <channel>] [--check]`. Its `next` channel replaces `MIMIR_NEXT=1`
 and `--next`. The Loom CLI shows no update notices, as the old CLI showed
 none.
+
+## Refinement (2026-10-28, MMR-555): the root installer is retired
+
+The cutover to the Loom CLI deletes the old binary and its root `install.sh`.
+`packages/cli/install.sh` is the only installer, and the Loom CLI is the only
+binary that reads the receipt. The remedies above that name "the root
+`install.sh`" no longer exist: a run that refuses to adopt names the variables
+to unset and nothing else, and an installation under custom XDG roots is
+adopted only through a receipt the earlier installer already wrote. The
+installer's `postInstall` registers the MCP server with Claude Code
+(`mimir mcp install --agent claude`).

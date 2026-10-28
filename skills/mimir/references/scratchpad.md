@@ -10,8 +10,9 @@ can recover the episode without the chat scroll. It is temporary by contract:
 staging state, never the durable record.
 
 A Scratchpad is addressed by a UUID, not a `KEY-seq` id, so its whole
-lifecycle groups under `mimir scratch <operation>` (MCP: `scratch_*` tools).
-Only `scratch` subcommands accept the UUID.
+lifecycle groups under `mimir scratch <operation>` (MCP: the `scratch_*`
+tools, with `scratch_agenda` taking `action` and `words`). Only `scratch`
+subcommands accept the UUID.
 
 Contents: [When a Scratchpad](#when-a-scratchpad--and-when-not) ·
 [The lifecycle](#the-lifecycle) ·
@@ -85,7 +86,7 @@ back byte-for-byte; it is a guard, not a reading.
 `freezing ·` flag on any interrupted freeze. Drill down:
 
 ```sh
-mimir scratch list             # active + freezing, freezing first (-s all for every project)
+mimir scratch list             # active + freezing, freezing first (-s KEY for another project)
 mimir scratch get <uuid>       # the full Journal and Agenda, plus the current token
 ```
 

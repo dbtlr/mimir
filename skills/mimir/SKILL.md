@@ -163,16 +163,17 @@ controller.
 - Ids share one grammar: a project is `KEY` (`MMR`); a task, phase, or
   initiative is `KEY-seq` (`MMR-16`); an artifact is `KEY-a3`; a seed is
   `KEY-s3`. A Scratchpad is a UUID that only the `scratch` subcommands take.
-- Work-state verbs are flat (`mimir done MMR-16`, `mimir resolve MMR-s3`).
+- Work-state verbs are flat (`mimir done MMR-16`, `mimir resolve MMR-s3 <reason>`).
   Scratchpad operations group under `mimir scratch`, and installation commands
-  (`store`, `skill`) group under their noun. `self-update` replaces the binary.
+  (`store`, `skills`) group under their noun. `self-update` replaces the binary.
 - Every create and mutation echoes the affected id. Capture it and compose with
   it: `ID=$(mimir create task "…" --parent MMR-2 -f ids)`. Sequence numbers are
   never reused, so a guessed id writes to the wrong row.
 - Inside a bound repo, commands default to the bound project. `-s KEY` targets
-  another project, and `-s all` spans every project. `mimir projects` lists
-  the active project keys whatever the binding; `--status all` adds the
-  archived ones.
+  another project; a board read names exactly one project, and there is no
+  `-s all`. `mimir projects` lists the active project keys whatever the
+  binding; `--status all` adds the archived ones, and a loop over its keys is
+  the cross-project sweep.
 - `mimir get <id>` reads any record by id.
 - Use the verbs and flags the references show. The surface is exact, and a
   guessed flag can write the wrong field without an error. Before your first
@@ -198,4 +199,8 @@ Read the matching reference before you act in its area.
 | File or triage grooming-queue records: ideas, bugs, cross-board asks    | `references/seeds.md`        |
 
 A host that cannot run shell commands but has the Mimir MCP server configured
-uses the same verbs as tools, with the same names, arguments, and default scope.
+uses the same verbs as tools. A tool is named for its command path joined with
+`_` (`create_task`, `scratch_checkpoint`), and its inputs are the command's
+arguments and options by their declared names (`worker-session`, `at-or-before`).
+A board read takes its project from `scope` or from the clone the server started
+in (`seeds` also takes `project`, which wins); there is no `all`.

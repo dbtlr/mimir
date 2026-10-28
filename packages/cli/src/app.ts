@@ -840,6 +840,15 @@ export function createApp(source: CliSource) {
         skills({ skills: [MIMIR_SKILL] }),
         selfUpdate({ notices: false }),
       ],
+      // The installer registers the MCP server with Claude Code once the binary
+      // is in place. Claude Code only: Codex cannot connect to Loom's MCP
+      // revision 2026-07-28 (tracked upstream as LM-s39), so the installer
+      // leaves Codex alone until that lands.
+      postInstall: {
+        command: ['mcp', 'install', '--agent', 'claude'],
+        message:
+          'Bind a repository with mimir bind <KEY>, and Claude Code can use mimir from there.',
+      },
       version: VERSION,
     })
       .command(getCommand(ports))

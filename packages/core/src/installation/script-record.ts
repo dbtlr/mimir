@@ -105,27 +105,23 @@ type RedirectedRoot = { variable: string; value: string; fallback: string };
 
 /**
  * How a later run can adopt, given every root this one refused. A data root
- * (cache, config, or data) is unset for the `$HOME` defaults, or recorded by
- * the root install.sh when its directories are the real ones. An absolute
+ * (cache, config, or data) is unset for the `$HOME` defaults; an installation
+ * whose directories are not the defaults needs a receipt an earlier installer
+ * wrote, which no current installer writes. An absolute
  * `XDG_STATE_HOME` holds Loom's record itself, so a run with it unset finds no
  * record and adopts nothing: Loom's install.sh is re-run without it first, so
  * the record lands at the default.
  */
 function adoptionRemedy(redirected: readonly RedirectedRoot[]): string {
   const names = redirected.map(({ variable }) => variable);
-  const dataRoots = names.filter((variable) => variable !== 'XDG_STATE_HOME');
   const recordMoves = redirected.some(
     ({ variable, value }) => variable === 'XDG_STATE_HOME' && isAbsolute(value),
   );
   const reinstall = recordMoves
     ? "re-run Loom's install.sh with XDG_STATE_HOME unset so its record moves to the default, then "
     : '';
-  const alternative =
-    dataRoots.length > 0
-      ? `; if the directories under ${series(dataRoots)} hold your real config, data, or cache, install with the root install.sh instead, which records them`
-      : ', or install with the root install.sh instead';
   const runIt = recordMoves ? 'run mimir' : 'run it';
-  return `To adopt the $HOME defaults, ${reinstall}${runIt} once with ${series(names)} unset${alternative}`;
+  return `To adopt the $HOME defaults, ${reinstall}${runIt} once with ${series(names)} unset`;
 }
 
 /**

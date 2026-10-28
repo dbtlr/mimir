@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { mkdtemp, readFile, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { z } from 'zod';
 
@@ -109,6 +109,96 @@ test.each([
   } finally {
     await rm(directory, { force: true, recursive: true });
   }
+});
+
+/**
+ * Run a build step's script in a fresh directory that `setup` fills, with
+ * the directory first on PATH (so a `bun` shim there wins), then read what it left behind.
+ */
+async function runStep<T>(
+  stepName: string,
+  options: {
+    env: Record<string, string>;
+    setup: (directory: string) => Promise<void>;
+    read: (directory: string) => Promise<T>;
+  },
+) {
+  const workflow = workflowSchema.parse(Bun.YAML.parse(await Bun.file(workflowPath).text()));
+  const script = workflow.jobs.build.steps.find((step) => step.name === stepName)?.run;
+  if (script === undefined) {
+    throw new Error(`missing build step ${stepName}`);
+  }
+  const directory = await mkdtemp(join(tmpdir(), 'mimir-release-step-'));
+  try {
+    await options.setup(directory);
+    const child = Bun.spawn(['bash', '-euo', 'pipefail', '-c', script], {
+      cwd: directory,
+      env: {
+        ...process.env,
+        ...options.env,
+        PATH: `${directory}:${dirname(process.execPath)}:${process.env.PATH ?? ''}`,
+      },
+      stderr: 'pipe',
+      stdout: 'pipe',
+    });
+    const [exit, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
+    return { exit, read: await options.read(directory), stderr };
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+}
+
+test('a tag build stamps its version into the CLI package before the build reads it', async () => {
+  const workflow = workflowSchema.parse(Bun.YAML.parse(await Bun.file(workflowPath).text()));
+  const { steps } = workflow.jobs.build;
+  const stamp = steps.findIndex((step) => step.name === 'Stamp the release version');
+  expect(stamp).toBeGreaterThanOrEqual(0);
+  expect(stamp).toBeLessThan(steps.findIndex((step) => step.name === 'Compile'));
+  expect(steps[stamp]?.if).toBe("github.ref_type == 'tag'");
+  const result = await runStep('Stamp the release version', {
+    env: { GITHUB_REF_NAME: 'v0.26.0-next.42' },
+    read: async (directory) =>
+      z
+        .object({ bin: z.unknown(), name: z.string(), version: z.string() })
+        .parse(await Bun.file(join(directory, 'packages/cli/package.json')).json()),
+    setup: async (directory) => {
+      await mkdir(join(directory, 'packages/cli'), { recursive: true });
+      await writeFile(
+        join(directory, 'packages/cli/package.json'),
+        JSON.stringify({
+          bin: { mimir: './src/main.ts' },
+          name: '@mimir/cli',
+          version: '0.26.0-next',
+        }),
+      );
+    },
+  });
+  expect(result.exit, result.stderr).toBe(0);
+  expect(result.read).toEqual({
+    bin: { mimir: './src/main.ts' },
+    name: '@mimir/cli',
+    version: '0.26.0-next.42',
+  });
+});
+
+test.each([
+  ['mimir-darwin-arm64', 'bun-darwin-arm64'],
+  ['mimir-linux-x64', 'bun-linux-x64'],
+  ['mimir-linux-arm64', 'bun-linux-arm64'],
+])('%s compiles with loom build --release for %s, into dist', async (asset, target) => {
+  const result = await runStep('Compile', {
+    env: { ASSET: asset, GITHUB_WORKSPACE: '/work' },
+    read: (directory) => readFile(join(directory, 'bun.log'), 'utf8'),
+    setup: async (directory) => {
+      await writeFile(join(directory, 'bun'), '#!/bin/sh\nprintf "%s\\n" "$*" >> bun.log\n', {
+        mode: 0o755,
+      });
+    },
+  });
+  expect(result.exit, result.stderr).toBe(0);
+  expect(result.read).toBe(
+    `run --cwd packages/cli loom build --release --target ${target} --out /work/dist/${asset}\n`,
+  );
 });
 
 test('the compiled release artifact passes CLI and MCP checks before upload', async () => {
@@ -249,8 +339,8 @@ test.each([
     const directory = await mkdtemp(join(tmpdir(), 'mimir-image-metadata-'));
     const output = join(directory, 'output');
     try {
-      await mkdir(join(directory, 'packages/bin'), { recursive: true });
-      await writeFile(join(directory, 'packages/bin/package.json'), '{"version":"0.26.0-next"}');
+      await mkdir(join(directory, 'packages/cli'), { recursive: true });
+      await writeFile(join(directory, 'packages/cli/package.json'), '{"version":"0.26.0-next"}');
       const child = Bun.spawn(['bash', '-euo', 'pipefail', '-c', script], {
         cwd: directory,
         env: {

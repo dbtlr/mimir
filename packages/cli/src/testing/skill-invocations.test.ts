@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 
-import { SKILL_FILES } from './skill-assets';
+import { SKILL_FILES } from '../skill-files';
 import { extractInvocations, invocationProblems } from './skill-invocations';
 
 const fence = (body: string): string => ['```sh', body, '```'].join('\n');
@@ -111,7 +111,7 @@ test('an unknown verb, subcommand, or undeclared flag is a problem', async () =>
     '`mimir create bogus "x" --parent KEY-4`',
     '`mimir scratch rename <uuid>`',
     '`mimir store migrate`',
-    '`mimir skill instal`',
+    '`mimir skills instal`',
     '`mimir done KEY-9 --priority p1`',
     '`mimir list --direction "x"`',
     '`mimir create <type> "x" --parnet KEY`',
@@ -136,10 +136,28 @@ test('placeholders stand in for a verb, subcommand, or flag value without false 
   expect(problems).toEqual([[], [], [], [], [], []]);
 });
 
-test('a verb only the Loom CLI declares passes, and its near misses do not', async () => {
-  const md = ['`mimir pair <url>`', '`mimir pair`', '`mimir pairs <url>`'].join(' and ');
+test('a hidden or retired spelling is a problem, and the Loom spellings pass', async () => {
+  const md = [
+    '`mimir pair <url>`',
+    '`mimir version`',
+    '`mimir skills install`',
+    '`mimir self-update --channel next`',
+    '`mimir skill install`',
+    '`mimir --version`',
+    '`mimir installation-protocol`',
+    '`mimir self-update --next`',
+  ].join(' and ');
   const problems = await Promise.all(extractInvocations('doc.md', md).map(invocationProblems));
-  expect(problems).toEqual([[], [], ["unknown command 'pairs'"]]);
+  expect(problems.map((found) => found.length > 0)).toEqual([
+    false,
+    false,
+    false,
+    false,
+    true,
+    true,
+    true,
+    true,
+  ]);
 });
 
 // The guard: the skill teaches agents exact verbs and flags, and agents drive

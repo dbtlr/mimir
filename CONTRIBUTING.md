@@ -28,8 +28,9 @@ The Postgres and sandbox lanes need Docker; CI runs both alongside `verify`.
 See the [sandbox guide](docs/guides/development-sandboxes.md)
 for fixtures, snapshots, and candidate migration tests.
 
-The CLI, host admin CLI, and sandbox use Loom 0.15. Keep every `@loomcli`
-dependency pinned to the same exact version. `vp check` loads Loom's lint
+The CLI, host admin CLI, and sandbox use Loom 0.16. Keep every `@loomcli`
+dependency, the `@loomcli/loom` toolchain in `packages/cli` included, pinned to the
+same exact version. `vp check` loads Loom's lint
 rules, and `bun test` checks that each application assembles with
 `assertAssembles`. A `views()` default must name a view supplied in that
 same call; re-supply the default view to preserve the existing format order.
@@ -52,8 +53,9 @@ MIMIR_TEST_BINARY=dist/mimir-linux-x64 MIMIR_SANDBOX_LIFECYCLE_TEST=1 \
 ```
 
 `MIMIR_TEST_BINARY` selects the file to copy into a disposable directory. A missing
-candidate fails the enabled fixture. Set `MIMIR_BUILD_VERSION` to the expected
-version for a stamped binary. Without it, the fixture expects the package version.
+candidate fails the enabled fixture. The fixture expects the binary to report the
+version in `packages/cli/package.json`, which the release workflow stamps from the
+tag before it builds.
 
 For host and PWA changes, run the local integration gates:
 
@@ -79,29 +81,30 @@ config; `src/store-sql` is the one SQL store, written once, with
 `src/store-sqlite` (the default local file) and `src/store-postgres` (the
 shared database) supplying each dialect's connection, DDL, and column
 encodings. Its public surface is the entry `src/index.ts`; test fixtures sit
-behind `@mimir/core/testing`. `packages/bin` (`@mimir/bin`) is the binary:
-`src/cli` and `src/mcp` are the transports; `src/main.ts` is the
-composition root. The layering
-`contract ← core ← bin` is enforced by an oxlint rule — `@mimir/core` may not
-import `@mimir/bin`, bin reaches core only through its two entries, and
-transports may not import each other.
+behind `@mimir/core/testing`.
 
-`packages/cli` (`@mimir/cli`) is the CLI being rebuilt on Loom, beside
-`packages/bin`, which it replaces at cutover (ADR 0037). Its commands are
-Loom declarations that call only the Engine; `src/app.ts` is the composition
-root and the only module that imports `@mimir/core`, which the lint rule
-enforces. A parity harness runs each ported command's cases through the old
-`runCli` and the new `app.invoke` over one store. The structured formats and
-exit codes must match byte for byte, and any `table` or `records` difference
-is an entry in `src/parity/differences.ts`. Help pages are pinned in
-`src/help-pages`.
+`packages/cli` (`@mimir/cli`) is the `mimir` binary: the CLI and the MCP
+server, both on Loom (ADR 0037). Its commands are Loom declarations that call
+only the Engine; `src/app.ts` is the composition root and the only module that
+imports `@mimir/core`, which the lint rule enforces, and `src/main.ts` is the
+entry. The layering `contract ← core ← cli` is enforced by an oxlint rule:
+`@mimir/core` may not import `@mimir/cli`, and the CLI reaches core only through
+its two entries. The parity cases pin each command's output as snapshots in
+`src/parity-pins`; re-record them with `bun run pins:update`. Help pages are
+pinned in `src/help-pages`. `scripts/` holds the release and developer tooling
+(changelog compiler, release publisher, sandbox store, docs fixture). `bun run
+build` compiles the binary into `dist/mimir` with `loom build`; the skill's
+`mimir …` invocations are checked against the command graph by the drift guard
+in `src/testing/skill-invocations.test.ts`. `install.sh` is the installer
+`loom init --only install` renders, and `src/installer.test.ts` fails when it
+drifts.
 
 `packages/host` (`@mimir/host`) contains the operator console and the TanStack
 Start host. Start runs in SPA mode on Nitro's Bun preset. The client routes
 remain code-based in `src/router.tsx`, behind `src/start-router.tsx`.
 `src/start-routes` supplies Start's generated route tree, including the `/health`
 and `/trpc/$` server routes. The host imports `@mimir/wire/server`,
-never `@mimir/bin`. One host runtime shares a store and `LocalEngine` across the
+never `@mimir/cli`. One host runtime shares a store and `LocalEngine` across the
 server bundles; `hostRuntime()` exposes the Engine for console server functions.
 
 `bun run build:ui` builds the host and prerenders a data-free `_shell.html`.
@@ -205,7 +208,7 @@ compatibility review.
   only at the release cut, which compiles the pending fragments — so parallel
   PRs never conflict on it. The `changelog-guard` check enforces this: a PR
   touching build-affecting paths (`packages/**`, `skills/mimir/**`,
-  `package.json`, `bun.lock`, `install.sh`, the release workflows) fails CI
+  `package.json`, `bun.lock`, the release workflows) fails CI
   unless it touches a fragment.
   For a genuinely behavior-preserving change (internal refactor, test- or
   build-meta only), apply the `skip-changelog` label with a one-line reason
@@ -259,19 +262,22 @@ into narrative guides.
 
 ## Releases
 
-Releases are tag-driven, and the binary reports the exact tag it was built from
-(`--version` is injected at compile time; `packages/bin/package.json` is the
-fallback for local builds).
+Releases are tag-driven, and the binary reports the exact tag it was built from.
+The release workflow stamps the tag's version into `packages/cli/package.json`
+and compiles with `loom build --release`, which bakes that version into the
+binary's release facts; `mimir version` and self-update read them, and
+`packages/cli/package.json` is the fallback for local builds.
 
-**Continuous prereleases.** Between releases, `packages/bin/package.json` carries
+**Continuous prereleases.** Between releases, `packages/cli/package.json` carries
 the next target as `X.Y.Z-next` (declared, never auto-written). Every
 build-affecting merge to `main` auto-publishes a `vX.Y.Z-next.N` prerelease
 (docs-only merges produce nothing — the tagger is path-filtered). Install
-or update one with `MIMIR_NEXT=1 sh install.sh`, `mimir self-update --next`, or
-pin a build with `mimir self-update --tag v0.6.0-next.5`.
+one with `install.sh 0.26.0-next.5` (a version argument), update to the newest
+with `mimir self-update --channel next`, or pin a build with
+`mimir self-update 0.6.0-next.5`.
 
 **Cutting an official release** is a two-commit procedure. A _cut commit_ bumps
-`packages/bin/package.json` `X.Y.Z-next` → `X.Y.Z` (syncing `bun.lock`'s
+`packages/cli/package.json` `X.Y.Z-next` → `X.Y.Z` (syncing `bun.lock`'s
 matching version line alongside it), compiles the pending `.changes/`
 fragments into a new `## vX.Y.Z - YYYY-MM-DD` section (`bun run
 changelog:compile --write --version X.Y.Z`, which also deletes the compiled

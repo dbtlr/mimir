@@ -221,14 +221,17 @@ values to be identical.
 
 ## Live installation transition
 
-The [installation guide](install-location.md#upgrade-an-installation-without-a-receipt)
-describes the operator procedure. The release installer performs explicit
-registration and resolves Mimir's XDG directories. Updates to a registered
-installation preserve those bindings.
+The [installation guide](install-location.md#upgrade-an-earlier-installation)
+describes the operator procedure. The release installer records the binary in
+Loom's installation record, and the binary's first run registers the receipt and
+resolves Mimir's XDG directories. Updates to a registered installation preserve
+those bindings.
 
-`packages/sandbox/src/installer.integration.test.ts` models a legacy installation
-layout with an executable placeholder and no receipt. It uses a real synthetic
-board in an owned disposable Postgres sandbox. The placeholder never runs.
+`packages/sandbox/src/cli-installer.integration.test.ts` runs the installer
+against a fake GitHub release feed in a sandbox home: a fresh install, the first
+run's adoption, self-update across two builds, the `next` channel, and an
+installation an earlier installer registered. The post-install registration
+runs against a stand-in `claude` on `PATH`.
 
 The test runs the repository's shell installer against the compiled candidate.
 Only the download transport uses a local `curl` substitute. The test verifies the

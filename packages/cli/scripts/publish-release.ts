@@ -21,7 +21,7 @@
  * - A release that is already public is never modified: complete → success
  *   (idempotent re-run), incomplete → refusal with the diff.
  *
- * Run from the publish job: `bun packages/bin/scripts/publish-release.ts
+ * Run from the publish job: `bun packages/cli/scripts/publish-release.ts
  * --tag vX.Y.Z --notes release-notes.md [--prerelease] <asset>...`.
  */
 import { createHash } from 'node:crypto';

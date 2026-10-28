@@ -9,7 +9,7 @@ A **cut** is **two commits with a tag between them**: one promotes the release a
 fires the build, one opens the next development cycle. Between them sits a **verify
 gate** — an official release is not done until it's verified, not glanced at.
 
-Between releases, `packages/bin/package.json` carries `X.Y.Z-next`. The cut turns
+Between releases, `packages/cli/package.json` carries `X.Y.Z-next`. The cut turns
 that into `X.Y.Z`, then into `X.(Y+1).0-next`.
 
 ## 1. Pre-cut checks
@@ -20,15 +20,15 @@ that into `X.Y.Z`, then into `X.(Y+1).0-next`.
   with `bun run changelog:compile`. No fragments means there is nothing to ship —
   stop. (`finishing-work` + `changelog-guard` keep the fragments honest per-PR;
   the cut trusts them.)
-- Target version = the `-next` base in `packages/bin/package.json`
+- Target version = the `-next` base in `packages/cli/package.json`
   (`0.13.0-next` → `0.13.0`).
 
 ## 2. Cut commit (PR)
 
 On a branch:
 
-- Bump `packages/bin/package.json` `"version"` from `X.Y.Z-next` to `X.Y.Z`.
-- Sync `bun.lock`: edit the `"version"` line under its `"packages/bin"` entry
+- Bump `packages/cli/package.json` `"version"` from `X.Y.Z-next` to `X.Y.Z`.
+- Sync `bun.lock`: edit the `"version"` line under its `"packages/cli"` entry
   to match. `bun install` (plain, `--force`, or `--lockfile-only`) never
   rewrites this field — Bun resolves workspace deps by path, so it's metadata
   only and `--frozen-lockfile` validates fine either way — a hand edit is the
@@ -37,7 +37,7 @@ On a branch:
 - Compile the changelog: `bun run changelog:compile --write --version X.Y.Z` —
   writes the `## vX.Y.Z - YYYY-MM-DD` section into `CHANGELOG.md` and deletes
   the compiled fragments.
-- Stage and commit together: `packages/bin/package.json`, `bun.lock`,
+- Stage and commit together: `packages/cli/package.json`, `bun.lock`,
   `CHANGELOG.md`, and the deleted `.changes/*.md` fragments (the fragment
   deletions are what satisfy `changelog-guard` on this PR). No `git add -A`.
 - _Optional, only when the release warrants it:_ refresh the README (status
@@ -87,7 +87,7 @@ gh release view vX.Y.Z --json isPrerelease,tagName,assets \
   `mimir-linux-arm64` — plus `SHA256SUMS`. (Keep this list in sync with
   `release.yml`'s build matrix.)
 - Download one binary and confirm its checksum matches `SHA256SUMS`.
-- The built/installed binary reports `--version` = `X.Y.Z`.
+- The built/installed binary reports `mimir version` = `X.Y.Z` (and `mimir self-update --check` does not refuse it as a non-release build).
 - Prune ran lag-by-one: the just-shipped cycle's `vX.Y.Z-next.*` trail **and the
   previous official's cycle trail** both remain; only cycles older than the
   previous official are gone (`gh release list`). An early cut with no qualifying
@@ -97,10 +97,10 @@ A failure here is a release problem — fix forward, do not paper over it.
 
 ## 4. Open the next cycle (PR, required)
 
-Bump `packages/bin/package.json` `"version"` to `X.(Y+1).0-next` (or a major bump
-if that's the call); sync `bun.lock`'s `"packages/bin"` `"version"` line to match
+Bump `packages/cli/package.json` `"version"` to `X.(Y+1).0-next` (or a major bump
+if that's the call); sync `bun.lock`'s `"packages/cli"` `"version"` line to match
 (same hand edit as the cut commit — `bun install` won't do it). Stage
-`packages/bin/package.json` and `bun.lock` together, no `git add -A`; open the
+`packages/cli/package.json` and `bun.lock` together, no `git add -A`; open the
 PR; merge. Confirm the prerelease stream resumes (`vX.(Y+1).0-next.1` publishes)
 and `version-guard` is green.
 
@@ -111,6 +111,6 @@ silent. Close it here, as the cut's last move, not as a later follow-up.
 `changelog-guard` recognizes both release-procedure PR shapes structurally — the
 cut PR passes as fragment-deletions-only, the cycle-open PR as
 version-metadata-only (every changed line a `"version"` field in
-`packages/bin/package.json` + `bun.lock`) — so neither needs the
+`packages/cli/package.json` + `bun.lock`) — so neither needs the
 `skip-changelog` label. If the guard goes red on a cycle-open PR, the bump is
 carrying something extra; split that change out rather than labeling past it.

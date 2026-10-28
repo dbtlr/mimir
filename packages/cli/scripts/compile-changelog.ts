@@ -229,7 +229,7 @@ if (import.meta.main) {
     );
   } else {
     // Preview under the next target version (the -next base) and today's date.
-    const pkg = parseJson<{ version: string }>(readFileSync('packages/bin/package.json', 'utf8'));
+    const pkg = parseJson<{ version: string }>(readFileSync('packages/cli/package.json', 'utf8'));
     const base = pkg.version.replace(/-next.*$/, '');
     console.log(renderSection(base, new Date().toISOString().slice(0, 10), fragments));
   }

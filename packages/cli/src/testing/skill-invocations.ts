@@ -1,14 +1,16 @@
 /**
  * Test support for the skill drift guard: reads every `mimir …` invocation the
  * agent skill shows (fenced `sh` blocks and inline code spans) and checks it
- * against the CLI's own surface. Not bundled in production output.
+ * against the Loom CLI's own surface, the command graph the Application
+ * declares, then runs the real parser over it. Not bundled in production output.
  */
+import { fileURLToPath } from 'node:url';
 
-import type { GitPort, Store } from '@mimir/core';
+import type { CommandNode, OptionNode } from '@loomcli/core';
 
-import { COMMAND_HELP } from './help';
-import { runCli } from './run';
-import { fakeIo } from './testing';
+import { createApp } from '../app';
+import { boundClone } from './fixture';
+import { runArgv } from './run';
 
 /** One `mimir` invocation found in a skill file; `words` excludes `mimir`. */
 export type SkillInvocation = { file: string; text: string; words: string[] };
@@ -85,6 +87,22 @@ function tokenize(line: string): Token[] {
   }
   flush();
   return tokens;
+}
+
+/** Whether a quote opened on this shell line is still open at its end (a multi-line argument). */
+function endsInsideQuote(line: string): boolean {
+  let quote = '';
+  for (const ch of line) {
+    if (quote === '' && ch === '#') {
+      return false;
+    }
+    if (quote === '' && (ch === '"' || ch === "'")) {
+      quote = ch;
+    } else if (ch === quote) {
+      quote = '';
+    }
+  }
+  return quote !== '';
 }
 
 /** Strip doc-only optional syntax (`[--flag x]...`, `[--desc "…"]`) from a word. */
@@ -180,6 +198,11 @@ export function extractInvocations(file: string, markdown: string): SkillInvocat
         pending += `${line.trimEnd().slice(0, -1)} `;
         continue;
       }
+      // A quoted argument may run on over several lines.
+      if (endsInsideQuote(pending + line)) {
+        pending += `${line}\n`;
+        continue;
+      }
       found.push(...fromShell(file, command(pending + line)));
       pending = '';
       continue;
@@ -194,160 +217,155 @@ export function extractInvocations(file: string, markdown: string): SkillInvocat
   return found;
 }
 
-/** Flags `mimir` takes with no verb. */
-const ROOT_FLAGS = new Set(['-h', '--help', '-v', '--version']);
-/** Flags every verb accepts: the output format and help. */
-const UNIVERSAL_FLAGS = ['-f', '--format', '-h', '--help', '--ascii'];
-/** What a help row's `--on created_at:<date>` stands for: every date operator. */
-const DATE_FLAGS = ['--on', '--before', '--after', '--at-or-before', '--at-or-after', '--tz'];
-/** What a help row's `--is / --eq / …` stands for: the full selection grammar, dates included. */
-const SELECTION_FLAGS = [
-  '--is',
-  '--not-is',
-  '--eq',
-  '--not-eq',
-  '--in',
-  '--not-in',
-  '--has',
-  '--missing',
-  ...DATE_FLAGS,
-];
+/** Flags `mimir` takes with no verb: Loom's help, and nothing else. */
+const ROOT_FLAGS = new Set(['-h', '--help']);
 /**
- * Verbs checked statically only: most need host wiring the bare runner lacks
- * (they refuse as "unavailable"), `version` is answered before the runner, and
- * `skill install` would really write into $HOME — a side effect, not a parse.
+ * Verbs checked statically only: they act on the machine (the config, the
+ * installed skill, the registered MCP server, the binary itself), so running
+ * their parser here would either refuse for want of host wiring or write into
+ * the real home.
  */
-const STATIC_ONLY_VERBS = new Set(['store', 'doctor', 'self-update', 'skill', 'mcp', 'version']);
-/**
- * Verbs the shipped skill teaches that only the Loom CLI declares. This runner
- * cannot parse them, and the Loom CLI's own tests cover their flags. The set
- * goes when the Loom CLI replaces this one (MMR-555).
- */
-const LOOM_ONLY_VERBS = new Set(['pair']);
+const STATIC_ONLY_VERBS = new Set([
+  'store',
+  'doctor',
+  'self-update',
+  'skills',
+  'mcp',
+  'version',
+  'pair',
+  'bind',
+]);
 
 const isPlaceholder = (word: string): boolean =>
   (word.startsWith('<') && word.endsWith('>')) || word.startsWith('$') || word === '…';
 const isFlag = (word: string): boolean => word.startsWith('-') && word !== '-' && word !== '--';
 
-/** The flag spellings a help descriptor declares, with grammar shorthands expanded. */
-function declaredFlags(key: string): Set<string> {
-  const declared = new Set(UNIVERSAL_FLAGS);
-  for (const [spelling] of COMMAND_HELP[key]?.flags ?? []) {
-    for (const m of spelling.matchAll(/(?:^|[\s/|,])(--?[a-z][a-z-]*)/g)) {
-      declared.add(m[1] ?? '');
-    }
+const graph = createApp({
+  git: boundClone('KEY'),
+  store: () => Promise.reject(new Error('The drift guard reads the graph; it opens no store.')),
+}).inspect();
+
+/** Every spelling an option answers to: long, short, negative, and aliases, dashes included. */
+function spellings(option: OptionNode): string[] {
+  const names = [option.long, option.short, ...option.aliases];
+  if (option.type === 'boolean') {
+    names.push(option.negative);
   }
-  const extra = [
-    ...(declared.has('--is') ? SELECTION_FLAGS : []),
-    ...(declared.has('--on') ? DATE_FLAGS : []),
-  ];
-  for (const flag of extra) {
-    declared.add(flag);
-  }
-  return declared;
+  return names
+    .filter((name): name is string => name !== null)
+    .map((name) => (name.startsWith('-') ? name : `${name.length === 1 ? '-' : '--'}${name}`));
 }
 
-/**
- * A verb's subcommands: its space-keyed descriptors (`scratch create`), or the
- * literal first words of its usage alternatives (`store upgrade | export …`).
- */
-function subcommands(key: string): string[] {
-  const keyed = Object.keys(COMMAND_HELP)
-    .filter((k) => k.startsWith(`${key} `) && !k.slice(key.length + 1).includes(' '))
-    .map((k) => k.slice(key.length + 1));
-  if (keyed.length > 0 || key.includes(' ')) {
-    return keyed;
-  }
-  const synopsis = COMMAND_HELP[key]?.usage.slice(`mimir ${key}`.length).trim() ?? '';
-  return synopsis
-    .split(' | ')
-    .map((alternative) => alternative.split(' ')[0] ?? '')
-    .filter((word) => /^[a-z][a-z-]*$/.test(word));
-}
+const spellingsOf = (nodes: readonly CommandNode[]): string[] =>
+  nodes.flatMap((node) => node.options.flatMap(spellings));
 
-type Resolved = { key: string; problem?: string; placeholder?: boolean };
+const visibleChild = (node: CommandNode, word: string): CommandNode | undefined =>
+  node.children.find(
+    (child) => !child.hidden && (child.name === word || child.aliases.includes(word)),
+  );
 
-/** The deepest help key the leading words name (`scratch agenda add`, `create task`, `list`). */
-function resolveKey(words: string[]): Resolved {
-  let key = words[0] ?? '';
-  for (const word of words.slice(1, 3)) {
-    const subs = subcommands(key);
-    if (subs.length === 0 || isFlag(word)) {
+const descendants = (node: CommandNode): CommandNode[] => [
+  node,
+  ...node.children.flatMap(descendants),
+];
+
+type Resolved = {
+  /** The command path from the root, root excluded. */
+  path: CommandNode[];
+  placeholder?: boolean;
+  problem?: string;
+};
+
+/** The deepest command the leading words name (`scratch agenda add`, `create task`, `list`). */
+function resolve(words: string[]): Resolved {
+  const path: CommandNode[] = [];
+  let node = graph.root;
+  for (const word of words) {
+    if (isFlag(word) || node.children.length === 0) {
       break;
     }
-    if (isPlaceholder(word)) {
-      return { key, placeholder: true };
+    const child = visibleChild(node, word);
+    if (child !== undefined) {
+      path.push(child);
+      node = child;
+      continue;
     }
-    if (!subs.includes(word)) {
-      return { key, problem: `unknown subcommand '${word}' of mimir ${key}` };
+    if (isPlaceholder(word) && path.length > 0) {
+      return { path, placeholder: true };
     }
-    key = `${key} ${word}`;
+    // A command with an action reads the word as an argument; a group cannot.
+    if (!node.hasAction) {
+      return {
+        path,
+        problem:
+          path.length === 0
+            ? `unknown command '${word}'`
+            : `unknown subcommand '${word}' of mimir ${path.map((p) => p.name).join(' ')}`,
+      };
+    }
+    break;
   }
-  return { key };
+  return { path };
 }
 
-/** The flags a key declares; under a placeholder subcommand, any of its subcommands' flags. */
-function flagsFor(resolved: Resolved): Set<string> {
-  const declared = declaredFlags(resolved.key);
-  if (resolved.placeholder === true) {
-    for (const key of Object.keys(COMMAND_HELP).filter((k) => k.startsWith(`${resolved.key} `))) {
-      for (const flag of declaredFlags(key)) {
-        declared.add(flag);
-      }
-    }
+/** The flag spellings the resolved command accepts, with every option it inherits. */
+function declaredFlags({ path, placeholder }: Resolved): Set<string> {
+  const nodes = [graph.root, ...path];
+  const last = path.at(-1);
+  if (placeholder === true && last !== undefined) {
+    nodes.push(...descendants(last).slice(1));
   }
-  return declared;
+  return new Set([...graph.globals.flatMap(spellings), ...spellingsOf(nodes), ...ROOT_FLAGS]);
 }
+
+/** A word the skill writes as a stand-in: `<id>`, `$VAR`, `…`, or a synopsis list (`p0..p3`, `a|b`). */
+const isStandIn = (word: string): boolean =>
+  isPlaceholder(word) || word.includes('..') || word.includes('|') || word.endsWith('-sN');
+
+/** A well-formed value for the flag a stand-in value fills, so the parser sees a real call. */
+const SAMPLE_VALUES: Record<string, string> = {
+  '--expected-updated-at': '2026-01-01T00:00:00.000Z',
+  '--file': fileURLToPath(import.meta.url),
+  '--format': 'json',
+  '--kind': 'idea',
+  '--priority': 'p1',
+  '--size': 's',
+  '--upstream': 'KEY-s1',
+  '-f': 'json',
+  '-k': 'idea',
+  '-p': 'p1',
+};
 
 /**
- * The argv the parser sees: a placeholder positional becomes a well-formed id,
- * and a flag whose value is a placeholder is dropped (it was checked statically).
+ * The argv the parser sees: a stand-in positional becomes a well-formed id, a
+ * stand-in flag value becomes a sample the flag accepts, and a stand-in for a
+ * flag that is not declared stays as it is (it was checked statically).
  */
 function parserArgv(words: string[]): string[] {
-  const argv: string[] = [];
-  for (let i = 0; i < words.length; i += 1) {
-    const word = words[i] ?? '';
-    const next = words[i + 1];
-    if (isFlag(word) && next !== undefined && isPlaceholder(next)) {
-      i += 1;
-    } else {
-      argv.push(isPlaceholder(word) ? 'KEY-1' : word);
+  return words.map((word, i) => {
+    const flag = words[i - 1] ?? '';
+    // A file the skill names (`--file plan.md`) is an example; the parser wants one that exists.
+    if (!isStandIn(word) && flag !== '--file') {
+      return word;
     }
-  }
-  return argv;
+    return isFlag(flag) ? (SAMPLE_VALUES[flag] ?? 'KEY-1') : 'KEY-1';
+  });
 }
 
-const STORE_REACHED = new Error('store reached');
-
-const getStore = (): Store => {
-  throw STORE_REACHED;
-};
-
-/** A git port that is never reached before the store: `bind` only needs one to exist. */
-const INERT_GIT: GitPort = {
-  originUrl: async () => undefined,
-  readConfig: async () => undefined,
-  writeConfig: async () => false,
-};
-
 /**
- * Run the real parser inside a bound repo (the skill's setting); a usage
- * refusal (exit 2) before the store opens is drift.
+ * Run the real parser inside a bound repo (the skill's setting) over a store
+ * that refuses to open: a usage refusal (exit 2) is drift, and any other exit
+ * means the parser accepted the words and reached the store.
  */
 async function parserRefusal(words: string[]): Promise<string | undefined> {
-  const io = fakeIo();
-  try {
-    const code = await runCli(parserArgv(words), getStore, io, {
-      git: INERT_GIT,
-      scope: async () => 'KEY',
-    });
-    return code === 2 ? io.err.join(' ') : undefined;
-  } catch (error) {
-    if (error === STORE_REACHED) {
-      return undefined;
-    }
-    throw error;
-  }
+  const app = createApp({
+    git: boundClone('KEY'),
+    store: () => Promise.reject(new Error('store reached')),
+  });
+  // A synopsis lists alternatives (`--top | --bottom`) the parser takes as one call.
+  const run = await runArgv(app, parserArgv(words), { stdin: 'content' });
+  const refused = run.exitCode === 2 && !run.stderr.includes('cannot be used together');
+  return refused ? run.stderr.trim() : undefined;
 }
 
 /** Why the CLI would not accept this invocation as the skill shows it; empty when it would. */
@@ -359,23 +377,19 @@ export async function invocationProblems(inv: SkillInvocation): Promise<string[]
   if (isFlag(verb)) {
     return ROOT_FLAGS.has(verb) ? [] : [`'${verb}' is not a top-level flag`];
   }
-  if (LOOM_ONLY_VERBS.has(verb)) {
-    return [];
-  }
-  if (!(verb in COMMAND_HELP) || verb.includes(' ')) {
-    return [`unknown command '${verb}'`];
-  }
-  const resolved = resolveKey(inv.words);
+  const resolved = resolve(inv.words);
   if (resolved.problem !== undefined) {
     return [resolved.problem];
   }
   const problems: string[] = [];
-  const declared = flagsFor(resolved);
+  const declared = declaredFlags(resolved);
   const terminator = inv.words.indexOf('--');
   const options = terminator === -1 ? inv.words : inv.words.slice(0, terminator);
-  for (const flag of options.filter(isFlag)) {
+  const name = resolved.path.map((node) => node.name).join(' ');
+  for (const word of options.filter(isFlag)) {
+    const flag = word.split('=')[0] ?? word;
     if (!declared.has(flag)) {
-      problems.push(`'${flag}' is not a flag of mimir ${resolved.key}`);
+      problems.push(`'${flag}' is not a flag of mimir ${name}`);
     }
   }
   // A bare verb in prose (`one \`mimir get\` away`) names the command, not a full call.
