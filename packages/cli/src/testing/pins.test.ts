@@ -136,6 +136,7 @@ test('a stale recording left beside the pins is never promoted by a later run', 
 });
 
 test('recording without a run directory refuses and writes nothing', () => {
+  mkdirSync(join(REPO, '.scratch'), { recursive: true });
   const dir = mkdtempSync(join(REPO, '.scratch', 'pins-fixture-'));
   try {
     const file = join(dir, 'fixture.test.ts');
