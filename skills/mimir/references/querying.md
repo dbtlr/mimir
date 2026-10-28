@@ -1,7 +1,8 @@
 # Querying: asking the board questions
 
 Inside a bound repo every command is already scoped to the bound project; `-s KEY`
-targets another project, `-s all` spans all of them. Selection flags AND-compose.
+targets another project (one project per read; there is no `-s all`, so loop
+over `mimir projects -f ids` for a cross-project sweep). Selection flags AND-compose.
 A well-formed query matching nothing is an **empty set + a stderr warning with the
 expected values** (exit 0) — only structurally bad invocations error (exit 2).
 
@@ -116,7 +117,7 @@ mimir next --eq grooming:groomed   # ready work that is understood well enough t
 mimir list --query health          # live titles containing health
 mimir list -t release:v0.3 --status all     # everything in a release tag
 mimir list --eq priority:p1 --missing size  # grooming: p1 tasks nobody sized
-mimir list -s all --is stale       # cross-project hygiene sweep
+mimir list -s KEY --is stale      # one board's hygiene sweep; repeat per project
 ```
 
 `next`, `list`, and `overview` rows show each `todo` task's grooming state
@@ -155,13 +156,13 @@ mimir get KEY                      # the whole project: children + distribution
 
 ```sh
 mimir artifacts                         # this board's artifacts, newest first
-mimir artifacts -s all -t session_summary   # every board's session retrospectives
+mimir artifacts -s KEY -t session_summary   # one board's session retrospectives
 mimir artifacts --at-or-after created_at:2026-07-01 -q vault  # windowed
 mimir artifacts -f ids | head -1        # the newest id, to feed a get
 ```
 
-`artifacts` is the cross-project sibling of `list`: AND-composed filters, the
-same formats, exit 0 on an empty set. Unlike `overview` it accepts `-s all`.
+`artifacts` is the frozen-record sibling of `list`: AND-composed filters, the
+same formats, exit 0 on an empty set.
 Rows are metadata only — id, project, title, tags, the `summary` lede,
 `created_at`; the frozen body comes from `mimir get KEY-aN --col content`.
 `--limit`/`--offset` page the newest-first feed, and `artifacts` specifically
@@ -174,7 +175,7 @@ lands past the end), leaving stdout a clean machine contract.
 mimir search MMR-42                 # that record, then the records linked to it
 mimir search 42                     # a bare number resolves in the bound project
 mimir search "cross record"         # titles first, then descriptions
-mimir search palette -s all -n 5    # every project, five results
+mimir search palette -s KEY -n 5    # one project, five results
 ```
 
 Use `search` when you do not know which kind of record you want or where it

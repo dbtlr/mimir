@@ -41,9 +41,10 @@ let releases: FakeReleases;
 const builds = new Map<string, Uint8Array>();
 
 /**
- * Compile the Loom CLI as the release build of `version`: Loom's release facts
- * for self-update, and the build version that packages/cli/src/version.ts
- * reads, as the release workflow stamps both.
+ * Compile the Loom CLI as the release build of `version`, baking the release
+ * facts `loom build --release` would: self-update and packages/cli/src/version.ts
+ * both read them. Building through `loom` itself would need the package's
+ * version stamped for each build.
  */
 async function buildRelease(version: string): Promise<Uint8Array> {
   const facts = {
@@ -60,8 +61,6 @@ async function buildRelease(version: string): Promise<Uint8Array> {
       '--compile',
       '--define',
       `__LOOM_RELEASE__=${JSON.stringify(facts)}`,
-      '--define',
-      `MIMIR_BUILD_VERSION=${JSON.stringify(version)}`,
       '--outfile',
       outfile,
     ],
@@ -181,6 +180,8 @@ async function loomRecord(env: Record<string, string>): Promise<unknown> {
   return JSON.parse(await readFile(join(directory, 'install.json'), 'utf8'));
 }
 
+// The installer's own steps are the subject below; its post-install command, which
+// runs the installed binary, has a test of its own.
 test.skipIf(!enabled)(
   'install.sh installs a release, self-update replaces it, and the receipt keeps its bindings',
   async () => {
@@ -188,7 +189,10 @@ test.skipIf(!enabled)(
     const first = builds.get('1.0.0') ?? new Uint8Array();
     const second = builds.get('1.1.0') ?? new Uint8Array();
 
-    const installed = await run(['sh', installer, '--dir', box.bin, '1.0.0'], box.env('home'));
+    const installed = await run(
+      ['sh', installer, '--dir', box.bin, '--skip-post-install', '1.0.0'],
+      box.env('home'),
+    );
     expect(installed.code, installed.out).toBe(0);
     expect(installed.out).toContain(`Installed ${box.target}.`);
     expect(await loomRecord(box.env('home'))).toEqual({
@@ -294,10 +298,92 @@ test.skipIf(!enabled)(
       mode: 'live',
       paths: box.paths,
     });
-    const installed = await run(['sh', installer, '--dir', box.bin], box.env('redirected'));
+    const installed = await run(
+      ['sh', installer, '--dir', box.bin, '--skip-post-install'],
+      box.env('redirected'),
+    );
     expect(installed.code, installed.out).toBe(0);
     expect(installed.out).toContain('Downloading');
     expect(await boardTitle(box.target, box.env('redirected'))).toBe('The upgrade board');
+    expect(readInstallationAt(box.target)).toEqual({
+      ...receipt,
+      sha256: sha256(builds.get('1.1.0') ?? new Uint8Array()),
+    });
+  },
+  120_000,
+);
+
+test.skipIf(!enabled)(
+  'install.sh registers the MCP server with Claude Code, and the binary is adopted by that run',
+  async () => {
+    const box = await sandbox('post-install');
+    // A stand-in Claude Code: it records its calls and succeeds, so nothing real registers.
+    const agents = join(root, 'post-install', 'agents');
+    const log = join(agents, 'claude.log');
+    await mkdir(agents, { recursive: true });
+    await writeFile(join(agents, 'claude'), '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$CLAUDE_LOG"\n', {
+      mode: 0o755,
+    });
+    const env = { ...box.env('home'), CLAUDE_LOG: log, PATH: `${agents}:/usr/bin:/bin` };
+
+    const installed = await run(['sh', installer, '--dir', box.bin, '1.0.0'], env);
+    expect(installed.code, installed.out).toBe(0);
+    expect(installed.out).toContain('Running the post-install command');
+    expect(installed.out).toContain(`Registered mimir with claude to run ${box.target} mcp.`);
+    expect(installed.out).toContain('mimir bind');
+    expect((await readFile(log, 'utf8')).trim().split('\n')).toEqual([
+      '--version',
+      `mcp add -s user mimir -- ${box.target} mcp`,
+    ]);
+    // The post-install run is the binary's first run, so it adopts the $HOME defaults.
+    expect(readInstallationAt(box.target)).toMatchObject({ mode: 'live', paths: box.paths });
+    expect(await boardTitle(box.target, box.env('redirected'))).toBe('The post-install board');
+
+    // Skipping it runs nothing and says how to run it later.
+    await rm(log, { force: true });
+    const skipped = await run(
+      ['sh', installer, '--dir', box.bin, '--skip-post-install', '1.0.0'],
+      env,
+    );
+    expect(skipped.code, skipped.out).toBe(0);
+    expect(skipped.out).toContain('Skipped the post-install command');
+    expect(await Bun.file(log).exists()).toBe(false);
+  },
+  120_000,
+);
+
+test.skipIf(!enabled)(
+  "an old installer's install runs, self-update refuses it, and the Loom installer once repairs it",
+  async () => {
+    const box = await sandbox('old-upgrade');
+    // What the old installer and the old binary's self-update leave: a Loom-built binary
+    // with Mimir's receipt beside it, and no Loom installation record.
+    await mkdir(box.bin, { recursive: true });
+    await writeFile(box.target, builds.get('1.0.0') ?? new Uint8Array(), { mode: 0o755 });
+    const receipt = registerInstallation({
+      executable: box.target,
+      mode: 'live',
+      paths: box.paths,
+    });
+    const env = box.env('redirected');
+
+    // The new binary works on the receipt's directories, not the ambient ones.
+    expect(await boardTitle(box.target, env)).toBe('The old-upgrade board');
+    const refused = await run([box.target, 'self-update', '--check'], env);
+    expect(refused.code).toBe(1);
+    expect(refused.out).toContain('mimir was installed some other way');
+
+    // `--dir` plus a Loom-built version is the one-time reinstall.
+    const reinstalled = await run(
+      ['sh', installer, '--dir', box.bin, '--skip-post-install', '1.1.0'],
+      env,
+    );
+    expect(reinstalled.code, reinstalled.out).toBe(0);
+    const checked = await run([box.target, 'self-update', '--check'], env);
+    expect(checked.code, checked.out).toBe(0);
+    expect(checked.out).not.toContain('installed some other way');
+    // The receipt keeps its directories and follows the new bytes.
+    expect(await boardTitle(box.target, env)).toBe('The old-upgrade board');
     expect(readInstallationAt(box.target)).toEqual({
       ...receipt,
       sha256: sha256(builds.get('1.1.0') ?? new Uint8Array()),

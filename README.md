@@ -45,11 +45,15 @@ there is no second cache of project status to keep in sync.
 Install the standalone binary:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
+curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
 ```
 
-For an existing installation without a receipt, use the
-[legacy upgrade procedure](docs/guides/install-location.md#upgrade-an-installation-without-a-receipt).
+The installer verifies the release and records the installation. The Loom
+installer, `packages/cli/install.sh`, also registers the MCP server with Claude
+Code (Codex cannot connect to the server's MCP protocol revision yet). See
+[Install location](docs/guides/install-location.md) for which installer to use,
+the first-run binding, and upgrading an earlier installation. `mimir version`
+prints the installed version, and `mimir self-update` replaces the binary.
 
 Choose the store before first use:
 
@@ -69,7 +73,7 @@ Then create a project and bind a repository to it:
 mimir create project "Aurora" --key AUR --yes
 cd path/to/aurora
 mimir bind AUR
-mimir skill install --global --agent codex
+mimir skills install
 ```
 
 From the bound repository, an agent can orient and begin the highest-ranked

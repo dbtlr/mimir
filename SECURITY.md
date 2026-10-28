@@ -9,7 +9,7 @@ issue.
 
 Include:
 
-- The version of `mimir` affected (`mimir --version`).
+- The version of `mimir` affected (`mimir version`).
 - The platform you reproduced on.
 - A description of the issue, ideally with a minimal reproducer.
 - Whether the issue has been disclosed anywhere else.

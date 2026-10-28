@@ -6,8 +6,12 @@ without reconstructing work state from chat history.
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
+curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
 ```
+
+[Install location](../guides/install-location.md) explains the two installers,
+the Loom installer's `--dir` and version arguments and its Claude Code MCP
+registration, and how the first run binds the installation.
 
 The standalone binary does not require Bun or any other program. By default
 Mimir keeps work state in one SQLite file, `store.sqlite`, in its data
@@ -64,15 +68,19 @@ from an earlier version is ignored and can be deleted.
 
 ## Connect an agent
 
-Install Mimir's bundled skill for the agent environment you use:
+Install Mimir's bundled skill into your home folder for every agent it supports,
+or for one with `--agent claude` or `--agent agents`. Add `--project` to keep
+the skill with the current repository instead:
 
 ```sh
-mimir skill install --global --agent codex
-# or
-mimir skill install --global --agent claude
+mimir skills install
 ```
 
-Configure `mimir mcp` as an MCP server when the agent supports MCP. The skill
+The Loom installer (`packages/cli/install.sh`) registers `mimir mcp` with
+Claude Code. If you installed with the root `install.sh`, run
+`mimir mcp install --agent claude` to register it, or `mimir mcp config`
+to print a client configuration for another agent. Codex cannot connect to the
+server's MCP protocol revision yet. The skill
 teaches the workflow and lifecycle contract; MCP exposes the same core reads and
 writes as tools. See [Work with agents](working-with-agents.md) for the division
 of responsibility.

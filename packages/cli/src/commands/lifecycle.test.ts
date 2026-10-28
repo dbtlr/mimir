@@ -211,6 +211,69 @@ test('start fills only what the flags leave out', async () => {
   expect(JSON.parse(run.stdout)).toMatchObject({ harness: 'codex', session: 'codex-thread' });
 });
 
+test.each([
+  ['claude', { CLAUDECODE: '1', CLAUDE_CODE_SESSION_ID: 'claude-session' }, 'claude-session'],
+  ['codex', { CODEX_THREAD_ID: 'codex-thread' }, 'codex-thread'],
+  ['opencode', { OPENCODE: '1', OPENCODE_SESSION_ID: 'opencode-session' }, 'opencode-session'],
+] satisfies [string, Record<string, string>, string][])(
+  'start with no handle flags records the %s shell identity',
+  async (harness, env, session) => {
+    const run = await onFreshBoard(['start', 'MMR-3', '-f', 'json'], env);
+    expect(run.exitCode, run.stderr).toBe(0);
+    expect(JSON.parse(run.stdout)).toMatchObject({ harness, session });
+  },
+);
+
+test('a harness flag that matches the shell lets it fill the session', async () => {
+  const run = await onFreshBoard(['start', 'MMR-3', '--harness', 'codex', '-f', 'json'], {
+    CODEX_THREAD_ID: 'detected-thread',
+  });
+  expect(JSON.parse(run.stdout)).toMatchObject({ harness: 'codex', session: 'detected-thread' });
+});
+
+const nestedShell = { CLAUDECODE: '1', CLAUDE_CODE_SESSION_ID: 'outer', CODEX_THREAD_ID: 'inner' };
+
+test('start in nested harnesses leaves the handles empty and explains the flags on stderr', async () => {
+  const run = await onFreshBoard(['start', 'MMR-3', '-f', 'json'], nestedShell);
+  expect(run.exitCode, run.stderr).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject({ harness: null, session: null });
+  expect(run.stderr).toContain('detected multiple harnesses (claude, codex)');
+  expect(run.stderr).toContain('--harness and --session explicitly');
+});
+
+test('start in nested harnesses keeps an explicit harness and fills nothing else', async () => {
+  const run = await onFreshBoard(
+    ['start', 'MMR-3', '--harness', 'custom', '-f', 'json'],
+    nestedShell,
+  );
+  expect(run.exitCode, run.stderr).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject({ harness: 'custom', session: null });
+});
+
+test('an explicit harness and session resolve nested harnesses without a note', async () => {
+  const run = await onFreshBoard(
+    ['start', 'MMR-3', '--harness', 'codex', '--session', 'chosen', '-f', 'json'],
+    nestedShell,
+  );
+  expect(run.exitCode, run.stderr).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject({ harness: 'codex', session: 'chosen' });
+  expect(run.stderr).not.toContain('multiple harnesses');
+});
+
+test('an ordinary update does not infer handles from the shell', async () => {
+  const fresh = await parityBoard();
+  try {
+    const run = await runArgv(fresh.app('MMR'), ['update', 'MMR-3', '--title', 'renamed'], {
+      env: { CODEX_THREAD_ID: 'thread', TERM: 'xterm-256color' },
+    });
+    expect(run.exitCode, run.stderr).toBe(0);
+    const read = await runArgv(fresh.app('MMR'), ['get', 'MMR-3', '-f', 'json']);
+    expect(JSON.parse(read.stdout)).toMatchObject({ harness: null, session: null });
+  } finally {
+    await fresh.close();
+  }
+});
+
 test('queue names the harnesses it will not choose between and refuses without a session', async () => {
   const run = await onFreshBoard(['queue', 'MMR-3'], {
     CLAUDECODE: '1',

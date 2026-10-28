@@ -4,66 +4,57 @@ description: Self-update channels, installation receipt preservation, and replac
 
 # Self-update
 
-`mimir self-update [--next] [--tag <tag>]` replaces the running binary in
-place. A registered installation keeps its configuration, data, and cache
-directories.
+`mimir self-update [<version>] [--channel <channel>] [--check]` replaces the
+running binary in place, using Loom's self-update. A registered installation
+keeps its configuration, data, and cache directories.
 
-For an installation without a receipt, use the
-[legacy installation transition](install-location.md#upgrade-an-installation-without-a-receipt)
-first. Self-update does not create a missing receipt.
+Self-update replaces only a binary that `install.sh` placed and nothing has
+changed since: it compares the binary with Loom's installation record
+(`install.json`) before it asks the network anything. A binary installed some
+other way, a copy, or a binary whose bytes changed is refused with the command
+that reinstalls it. Self-update does not create a missing record; run
+[`packages/cli/install.sh`](install-location.md) first. That installer installs
+Loom-built releases (0.26.0-next prereleases from this cutover on, and 0.26.0 and
+later); an older version needs the root installer.
+
+An installation upgraded by an old binary's self-update has no Loom record. Run the
+Loom installer once with `--dir <dir> <version>`, as
+[Install location](install-location.md#upgrade-an-earlier-installation) shows.
 
 ## Channels
 
-- **Default (no flags)** resolves the latest official tag through the
-  `/releases/latest` redirect and installs it if newer.
-- **`--next`** selects the highest SemVer release from the releases atom feed,
-  including prereleases, and installs it if newer.
-- **`--tag <tag>`** selects an exact tag, including an older release, unless
-  it matches the running version. The candidate must support installation
-  protocol version 1.
+- **Default (no arguments)** resolves the latest release on the running
+  binary's own channel: a stable binary follows the latest official release, a
+  prerelease binary follows `next`. It installs the release only if it is newer.
+- **`--channel next`** follows the highest SemVer release from the releases
+  feed, prereleases included, and installs it if newer. `--channel stable`
+  returns to official releases.
+- **`<version>`** selects an exact release, such as `0.26.0` or
+  `0.26.0-next.5`, newer or older, unless it equals the running version. It
+  cannot be combined with `--channel`.
+- **`--check`** reports what an update would do and replaces nothing.
 
-Already-current is a no-op that reports the current version and exits 0.
-Releases without installation protocol support cannot replace the binary
-through this updater, even with `--tag`.
+Already-current is a no-op that reports the current version and exits 0. The
+earlier `--next` and `--tag <tag>` spellings are refused with the replacement
+named.
 
 ## Verification and replacement
 
-Self-update downloads the platform asset and `SHA256SUMS` for the selected tag.
-It verifies the asset's SHA-256 before replacement. A missing checksum entry
-or a mismatch aborts the update.
+Self-update downloads the platform asset and `SHA256SUMS` for the selected
+release and verifies the asset's SHA-256 before replacement. A missing
+checksum entry or a mismatch aborts the update. The verified bytes go to a
+staging file beside the binary and are renamed over it, so a running copy keeps
+running, and Loom's record is rewritten with the new digest.
 
-The updater validates any existing receipt before it writes a candidate to
-`<binary>.<uuid>.self-update`. It probes the candidate's installation protocol
-with empty, isolated configuration. An incompatible candidate leaves the
-installed binary and receipt unchanged.
-
-After the probe, the updater renames the candidate over the canonical binary
-path. A registered installation then receives a new receipt with the replacement
-digest and the same bindings. The receipt uses
-`<binary>.installation.json.<uuid>.tmp` before its own rename.
-
-Each rename is atomic on the same filesystem. The binary and receipt updates
-are separate operations, not one atomic transaction. An interruption between
-them leaves a mismatched receipt, and subsequent normal commands refuse access
-to the bound state. The installer also refuses a mismatched existing receipt.
-
-After the candidate write, handled probe and replacement errors remove the
-candidate file. Receipt-write cleanup also removes its temporary file. An abrupt
-termination or an initial staging-write failure can leave temporary files behind.
-Neither replacement mechanism automatically rolls back a binary after its rename.
+The next run of the new binary sees that Loom's record names the new digest and
+re-records Mimir's receipt with the same bindings. An interruption between the
+rename and the record leaves a mismatch, and the next run refuses until
+`install.sh` installs again.
 
 ## Where self-update applies
 
-Source invocations through a `bun`-prefixed executable refuse self-update.
-An unregistered standalone binary can replace itself, but the replacement does
-not gain installation authority.
+Source invocations through a `bun`-prefixed executable and development builds
+refuse self-update, because they are not release binaries.
 
 Self-update replaces the CLI binary only. The host container updates by image
 tag: see [Upgrade the host](host.md#upgrade-the-host-and-the-clis-that-share-its-postgres).
-
-## Source
-
-[`release.ts`](../../packages/bin/src/self-update/release.ts) owns release
-selection, checksum verification, and replacement.
-[`command.ts`](../../packages/bin/src/self-update/command.ts) owns the version
-gate.

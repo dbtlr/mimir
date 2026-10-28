@@ -164,7 +164,8 @@ the envelope, `-f records` forces the sections. The set formats are category
 errors here: `-f table`, `-f jsonl`, and `-f ids` are **usage** (exit 2) with a
 hint at `mimir list` (a composite is not one table / a row stream / an id set).
 It reads **one project** — bare uses the bound scope, `-s KEY` names it, and `-s
-all` is a usage error (`run 'mimir list -s all' for a cross-project set`).
+all` is a usage error (`'-s all' is retired`, with a hint to name a project; `mimir
+projects` lists the keys). Every board read is one project.
 
 The envelope is one composite object — never the set wrapper. Task objects are
 the same **lean projection** `list`/`next` emit; each `awaiting` task adds an
@@ -440,10 +441,10 @@ Adopted from Norn — keyed to selection mode:
 
 Errors flow through the same selection→format pipeline as success, but **stream is orthogonal to format**: success → stdout, error → stderr (always); stdout stays empty on failure.
 
-- **Machine (`json` / `jsonl`):** `{"error":{"code","message","hint?"}}`. `hint` present only when remediation is offered.
-- **Human (`records` / `table` / `ids`):** the Norn line `✗ <message>` (`[err]` when `--ascii` / `NO_COLOR`) + optional `note: <hint>` line — the glyph carries severity, the code is omitted.
-- **MCP:** the same envelope as the `isError` text content (no exit codes).
-- **Envelope `code` vocabulary:** `usage · not_found · validation · conflict · invariant` — the four core `MimirError` codes plus the transport-level **`usage`** (CLI-only; the same semantic _invocation_ fault surfaces as `validation` over MCP, which has no `usage`/exit-code concept).
+- **Machine (`json` / `jsonl`):** Loom's failure envelope, `{"error":{"code","exitCode","message","hints"}}` — `code` is a kebab-case string, `exitCode` the process exit code (1 or 2), `message` one sentence, and `hints` an array of strings (empty when no remediation is offered).
+- **Human (`records` / `table` / `ids`):** `mimir: <message>` on stderr, then each hint on its own line.
+- **MCP:** a failed tool call sets `isError`, carries the message as text content, and carries the failure as `structuredContent.failure` (`code`, `exitCode`, `message`, `hints`).
+- **Envelope `code` vocabulary:** `usage · not-found · validation · conflict · invariant` — Mimir's own usage code plus the four core `MimirError` codes in kebab case — and Loom's parser codes (`unknown-option`, and the like) for a fault the parser raises. `usage` and the parser codes exit 2; the domain codes exit 1.
 
 ## Help tiers
 

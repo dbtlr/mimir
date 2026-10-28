@@ -221,14 +221,17 @@ values to be identical.
 
 ## Live installation transition
 
-The [installation guide](install-location.md#upgrade-an-installation-without-a-receipt)
-describes the operator procedure. The release installer performs explicit
-registration and resolves Mimir's XDG directories. Updates to a registered
-installation preserve those bindings.
+The [installation guide](install-location.md#upgrade-an-earlier-installation)
+describes the operator procedure. The release installer records the binary in
+Loom's installation record, and the binary's first run registers the receipt and
+resolves Mimir's XDG directories. Updates to a registered installation preserve
+those bindings.
 
-`packages/sandbox/src/installer.integration.test.ts` models a legacy installation
-layout with an executable placeholder and no receipt. It uses a real synthetic
-board in an owned disposable Postgres sandbox. The placeholder never runs.
+`packages/sandbox/src/cli-installer.integration.test.ts` runs the installer
+against a fake GitHub release feed in a sandbox home: a fresh install, the first
+run's adoption, self-update across two builds, the `next` channel, and an
+installation an earlier installer registered. The post-install registration
+runs against a stand-in `claude` on `PATH`.
 
 The test runs the repository's shell installer against the compiled candidate.
 Only the download transport uses a local `curl` substitute. The test verifies the
@@ -236,12 +239,15 @@ new receipt, configuration and cache preservation, and unchanged board contents.
 A second installation verifies that existing bindings survive different ambient
 XDG values. This is a modeled layout transition, not a run of an old release.
 
-The installer stages the binary as `<binary>.<uuid>.install` and then writes
-the receipt through `<binary>.installation.json.<uuid>.tmp`. Handled errors
-remove temporary files. Abrupt termination can leave them behind. The two renames
-are separate operations, so interruption can leave a mismatched receipt that
-refuses normal state access.
+The Loom installer stages the download as `.mimir.XXXXXX` beside the binary and
+the record as `.install.json.XXXXXX` in Loom's installation directory, then
+renames each into place. The binary's first run writes Mimir's receipt through
+`<binary>.installation.json.<uuid>.tmp`. Handled errors remove temporary files.
+Abrupt termination can leave them behind; after an interrupted install, look for
+those three names. The renames are separate operations, so interruption can leave
+a binary without a record, which `self-update` refuses until the installer runs
+again.
 
 This workflow never updates an existing live installation during development
-or testing. The shell installer creates a live-mode receipt only inside the
-disposable test layout.
+or testing. Live-mode records and receipts exist only inside the disposable
+test layout.

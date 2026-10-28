@@ -136,7 +136,7 @@ export class Sandbox {
     await launchHost(this.repository, authority, { port });
   }
   private async worker(authority: Authority, operation: 'seed' | 'verify'): Promise<string> {
-    return command([process.execPath, 'run', 'packages/bin/scripts/sandbox-store.ts', operation], {
+    return command([process.execPath, 'run', 'packages/cli/scripts/sandbox-store.ts', operation], {
       cwd: this.repository,
       env: this.env(authority),
     });
@@ -384,7 +384,7 @@ export class Sandbox {
           join(this.repository, 'packages/core/src/testing/conformance.ts'),
         ),
         workerSha256: await hashFile(
-          join(this.repository, 'packages/bin/scripts/sandbox-store.ts'),
+          join(this.repository, 'packages/cli/scripts/sandbox-store.ts'),
         ),
       };
       await privateJson(join(authority.root, 'fixture.json'), fixtureInput);
@@ -442,7 +442,15 @@ export class Sandbox {
     if (
       !verb ||
       verb.startsWith('-') ||
-      new Set(['installation-install', 'installation-protocol', 'self-update', 'skill']).has(verb)
+      // skills and mcp install into the real home and agent configs; bare mcp never returns.
+      new Set([
+        'installation-install',
+        'installation-protocol',
+        'mcp',
+        'self-update',
+        'skill',
+        'skills',
+      ]).has(verb)
     ) {
       throw new SandboxUsageError(
         'Sandbox run accepts finite work and store commands; installation machinery is disabled. Put the command before options.',

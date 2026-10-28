@@ -4,19 +4,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-
-import pkg from '../../bin/package.json';
+import pkg from '../../cli/package.json';
 import { command, isolatedEnvironment } from './process';
 
 /**
  * `mimir mcp` resolves its Project Binding from the directory it is spawned in
  * (MMR-558). The candidate binary is copied into a temp dir, so it keeps its
- * store beside itself and never touches a live one; a clone whose config sets
- * `mimir.project` binds the server, and a bare directory does not. Release
- * validation supplies MIMIR_TEST_BINARY; the sandbox lane defaults to dist/mimir.
- * MMR-555's cutover repoints this test at the Loom binary rather than deleting it.
+ * store beside itself and never touches a live one. Release validation
+ * supplies MIMIR_TEST_BINARY, the binary the workflow just built; the sandbox
+ * lane defaults to dist/mimir, which `bun run build` produces.
+ * The server speaks protocol revision 2026-07-28 only, which the MCP SDK's
+ * client does not, so the test sends JSON-RPC lines itself.
  */
 const repository = fileURLToPath(new URL('../../../', import.meta.url));
 const enabled = process.env.MIMIR_SANDBOX_LIFECYCLE_TEST === '1';
@@ -35,7 +33,7 @@ beforeAll(async () => {
   if (!enabled) {
     return;
   }
-  root = await realpath(await mkdtemp(join(tmpdir(), 'mimir-mcp-binding-')));
+  root = await realpath(await mkdtemp(join(tmpdir(), 'mimir-loom-mcp-binding-')));
   binary = join(root, 'bin', 'mimir');
   bound = join(root, 'clone');
   unbound = join(root, 'plain');
@@ -61,36 +59,78 @@ afterAll(async () => {
   }
 });
 
+// A release build reports the version the workflow stamped into package.json;
+// a development build reports the package's version too.
 test.skipIf(!enabled)('the compiled candidate reports its build version', async () => {
-  expect(await run([binary, '--version'], root)).toBe(
-    process.env.MIMIR_BUILD_VERSION ?? pkg.version,
-  );
+  expect(await run([binary, 'version'], root)).toBe(pkg.version);
 });
 
 test.skipIf(!enabled)('the compiled candidate supports the installation protocol', async () => {
   expect(await run([binary, 'installation-protocol'], root)).toBe('{"installationProtocol":1}');
 });
 
-/** Call `tool` with no scope on a `mimir mcp` server spawned in `cwd`. */
-async function callFrom(tool: string, cwd: string): Promise<{ isError: boolean; text: string }> {
+type ToolResult = {
+  content: { text: string }[];
+  isError: boolean;
+  structuredContent?: unknown;
+};
+
+/** Call `tool` with no arguments on a `mimir mcp` server spawned in `cwd`. */
+async function callFrom(
+  tool: string,
+  cwd: string,
+  args: Record<string, unknown> = {},
+): Promise<{ isError: boolean; text: string; structured: unknown }> {
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(isolatedEnvironment())) {
     if (value !== undefined) {
       env[key] = value;
     }
   }
-  const transport = new StdioClientTransport({ args: ['mcp'], command: binary, cwd, env });
-  const client = new Client({ name: 'mcp-binding-test', version: '0.0.0' });
+  const server = Bun.spawn([binary, 'mcp'], {
+    cwd,
+    env,
+    stderr: 'pipe',
+    stdin: 'pipe',
+    stdout: 'pipe',
+  });
   try {
-    await client.connect(transport);
-    const result = await client.callTool({ arguments: {}, name: tool });
-    const content = Array.isArray(result.content) ? result.content : [];
-    const text = content
-      .map((part: { text?: unknown }) => (typeof part.text === 'string' ? part.text : ''))
-      .join('');
-    return { isError: result.isError === true, text };
+    await server.stdin.write(
+      `${JSON.stringify({
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'tools/call',
+        params: {
+          _meta: {
+            'io.modelcontextprotocol/clientCapabilities': {},
+            'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+          },
+          arguments: args,
+          name: tool,
+        },
+      })}\n`,
+    );
+    await server.stdin.flush();
+    // One request, one line back; the server answers a call before stdin ends.
+    const reader = server.stdout.getReader();
+    let buffered = '';
+    while (!buffered.includes('\n')) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      buffered += new TextDecoder().decode(value);
+    }
+    const { result } = JSON.parse(buffered.split('\n')[0] ?? '') as { result: ToolResult };
+    return {
+      isError: result.isError,
+      structured: result.structuredContent,
+      text: result.content.map((part) => part.text).join(''),
+    };
   } finally {
-    await client.close();
+    await server.stdin.end();
+    server.kill();
+    await server.exited;
   }
 }
 
@@ -105,8 +145,6 @@ test.skipIf(!enabled)(
   30_000,
 );
 
-// `overview` reads one board, so the same scope-less call reads the bound board
-// from the clone and refuses outside it. (`next` widens to the portfolio when unbound.)
 test.skipIf(!enabled)(
   'a scope-less overview from the bound clone reads that project',
   async () => {
@@ -118,12 +156,30 @@ test.skipIf(!enabled)(
   30_000,
 );
 
+// An explicit scope wins over the binding the spawn directory supplies.
 test.skipIf(!enabled)(
-  'the same overview from an unbound directory refuses with the needs-a-project error',
+  'an explicit scope from the bound clone reads that project instead',
   async () => {
-    const result = await callFrom('overview', unbound);
-    expect(result.isError).toBe(true);
-    expect(result.text).toContain('overview needs a project');
+    const result = await callFrom('next', bound, { scope: 'OTHR' });
+    expect(result.isError, result.text).toBe(false);
+    expect(result.text).toContain('the other task');
+    expect(result.text).not.toContain('the bound task');
+  },
+  30_000,
+);
+
+// A board read names one project (ADR 0037): from an unbound directory, the
+// same scope-less calls are refused with the usage error that names both ways
+// to supply one, where the old `next` widened to the portfolio.
+test.skipIf(!enabled)(
+  'the same overview and next from an unbound directory refuse with the needs-a-project error',
+  async () => {
+    for (const tool of ['overview', 'next']) {
+      const result = await callFrom(tool, unbound);
+      expect(result.isError, tool).toBe(true);
+      expect(result.text, tool).toContain(`${tool} needs a project`);
+      expect(result.structured, tool).toMatchObject({ failure: { code: 'usage', exitCode: 2 } });
+    }
   },
   30_000,
 );

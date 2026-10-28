@@ -245,7 +245,8 @@ The Loom CLI installs through `loom init`'s managed `install.sh`
 plugin. Both record a script installation in Loom's installation record,
 `install.json` in the platform state directory, as the binary's path and
 SHA-256 digest. That record holds no install mode and no directories, and the
-managed script runs no step of the installed binary, so Mimir keeps its own
+managed script runs no step of the installed binary (superseded by the MMR-555
+refinement below: its `postInstall` runs `mcp install`), so Mimir keeps its own
 receipt beside the binary until Loom's record can carry an application's
 bindings (LM-s30).
 
@@ -262,7 +263,8 @@ written:
   `$HOME` default, the run writes no receipt. It prints one line to stderr
   naming every such variable and both ways to adopt: unset the variables for
   the `$HOME` defaults, or, when the directories under them are the real
-  ones, install with the root `install.sh`, which records them. An absolute
+  ones, install with the root `install.sh`, which records them (superseded by the
+  MMR-555 refinement below). An absolute
   `XDG_STATE_HOME` holds Loom's record itself, so a run with it unset would
   find no record; its remedy is to re-run Loom's `install.sh` with it unset,
   so the record moves to the default, or to install with the root
@@ -298,3 +300,20 @@ The `self-update` surface of the Loom CLI is Loom's: `self-update [<version>]
 [--channel <channel>] [--check]`. Its `next` channel replaces `MIMIR_NEXT=1`
 and `--next`. The Loom CLI shows no update notices, as the old CLI showed
 none.
+
+## Refinement (2026-10-28, MMR-555): the Loom installer is the installer
+
+The cutover to the Loom CLI deletes the old binary. `packages/cli/install.sh`
+is the installer for Loom-built releases, and the Loom CLI is the only binary
+that reads the receipt. The remedies above that name "the root `install.sh`" are
+gone from the binary's refusal line: a run that refuses to adopt names the
+variables to unset and nothing else, and an installation under custom XDG roots
+is adopted only through a receipt an earlier installer already wrote. The
+installer's `postInstall` registers the MCP server with Claude Code
+(`mcp install --agent claude`), so it runs the installed binary.
+
+The root `install.sh` stays in place, unchanged, until the first stable release
+built from the Loom CLI: until then `releases/latest` is an old-CLI release that
+treats `mcp install` as a request to serve MCP, which would hang the Loom
+installer. The cut commit of that release deletes it and moves the README to
+`packages/cli/install.sh`.

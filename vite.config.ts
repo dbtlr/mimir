@@ -10,7 +10,7 @@ type Override = LintOverride;
  * vite-plus centralizes lint/fmt here — per-package `lint` blocks are ignored
  * (only Vite/Vitest/build config is honored per package). `toolingConfig`'s
  * `node`/`react` take glob lists to scope each target to its package:
- *   - `packages/bin/**` is the Bun binary (CLI/MCP/HTTP transports) and
+ *   - `packages/cli/**` is the Bun binary (CLI and MCP on Loom) and
  *     `packages/core/**` is the domain core it builds on — `node` is the
  *     closest shipped target (allows `node:` builtins). NOTE: there is no
  *     `bun` target yet, so `bun:*` imports and the `Bun` global are not covered.
@@ -25,35 +25,30 @@ type Override = LintOverride;
  * keep correctness like rules-of-hooks). Re-enable one at a time there.
  *
  * Layer-boundary enforcement (the one thing toolingConfig can't express) rides
- * through `lint.overrides`. The flow is `contract ← @mimir/core ← @mimir/bin`,
+ * through `lint.overrides`. The flow is `contract ← @mimir/core ← @mimir/cli`,
  * and `@mimir/cli` (the Loom CLI) imports core only in its composition root,
- * `src/app.ts`, and never imports bin outside its tests:
+ * `src/app.ts`, and in its tests and developer scripts:
  *   - The console's server functions (`packages/host/src/api/fns/**`) call the
  *     host's Engine only — no core and no host runtime
  *     except in `fns/engine.ts`, which opens it (ADR 0034).
- *   - `@mimir/core` (`packages/core`) never imports `@mimir/bin`, tests included.
- *   - `@mimir/bin` reaches core only through its entries, `@mimir/core` and
+ *   - `@mimir/core` (`packages/core`) never imports `@mimir/cli`, tests included.
+ *   - `@mimir/cli` reaches core only through its entries, `@mimir/core` and
  *     `@mimir/core/testing` — never a deep path.
- *   - Inside bin, transports (cli, mcp) never import each other.
- *     `main.ts` is the composition root and is intentionally unrestricted
- *     among transports.
  *
- * Patterns match the relative import specifiers we actually write (`../cli/x`,
- * `../../bin/y`); `**` spans the leading `..` segments. Brace/extglob `@(...)`
+ * Patterns match the relative import specifiers we actually write (`../x/y`);
+ * `**` spans the leading `..` segments. Brace/extglob `@(...)`
  * forms are avoided — oxlint silently ignores them in `overrides[].files`.
  */
-const layerGroups = (layer: string): string[] => [`**/${layer}`, `**/${layer}/**`];
-
-/** The only paths into core a bin file may import: its two entries. */
+/** The only paths into core a CLI or host file may import: its two entries. */
 const coreEntryOnly = {
   group: ['@mimir/core/*', '!@mimir/core/testing', '**/core/src', '**/core/src/**'],
-  message: 'Layer boundary: bin reaches core only through @mimir/core or @mimir/core/testing.',
+  message: 'Layer boundary: reach core only through @mimir/core or @mimir/core/testing.',
 };
 
-/** Core never reaches up into bin, by package name or by relative path. */
-const noBinImports = {
-  group: ['@mimir/bin', '@mimir/bin/**', '**/bin', '**/bin/**'],
-  message: 'Layer boundary: @mimir/core may not import from @mimir/bin (contract <- core <- bin).',
+/** Core never reaches up into the CLI, by package name or by relative path. */
+const noCliImports = {
+  group: ['@mimir/cli', '@mimir/cli/**', '**/cli/src', '**/cli/src/**'],
+  message: 'Layer boundary: @mimir/core may not import from @mimir/cli (contract <- core <- cli).',
 };
 
 const noWireImports = {
@@ -73,12 +68,6 @@ const cliNoWire = {
   group: ['@mimir/wire', '@mimir/wire/**', '**/wire/src', '**/wire/src/**'],
   message:
     'Layer boundary: only packages/cli/src/app.ts imports @mimir/wire; commands reach work state through the Engine.',
-};
-
-/** The Loom CLI replaces the old binary and never builds on it, tests and test support included. */
-const cliNoBin = {
-  group: ['@mimir/bin', '@mimir/bin/**', '**/bin/src', '**/bin/src/**'],
-  message: 'Layer boundary: @mimir/cli may not import @mimir/bin.',
 };
 
 /**
@@ -115,16 +104,6 @@ const restrict = (files: string[], patterns: object[]): Override => ({
   files,
   rules: { 'no-restricted-imports': ['error', { patterns }] },
 });
-
-/** Forbid `files` from importing the transport `layers` given, and core's internals. */
-const forbid = (files: string[], layers: string[]): Override =>
-  restrict(files, [
-    {
-      group: layers.flatMap(layerGroups),
-      message: `Layer boundary: ${files[0]} may not import from ${layers.join(', ')} (transports never import each other).`,
-    },
-    coreEntryOnly,
-  ]);
 
 /**
  * Conformance backlog — @dbtlr/tooling's rules are best practices we adopt.
@@ -180,11 +159,11 @@ const uiLintOverride: Override = {
 };
 
 const layerOverrides: Override[] = [
-  restrict(['packages/contract/**', 'packages/wire/**'], [noBinImports, noCoreImports]),
+  restrict(['packages/contract/**', 'packages/wire/**'], [noCliImports, noCoreImports]),
   restrict(
     ['packages/wire/src/client.ts'],
     [
-      noBinImports,
+      noCliImports,
       noCoreImports,
       {
         allowTypeImports: true,
@@ -193,32 +172,32 @@ const layerOverrides: Override[] = [
       },
     ],
   ),
-  restrict(['packages/bin/**'], [coreEntryOnly]),
-  restrict(['packages/host/**'], [noBinImports, coreEntryOnly]),
+  restrict(['packages/host/**'], [coreEntryOnly]),
   // The console's server functions reach the domain only through the host's
   // Engine (ADR 0034 decision 7): never core or the host
   // runtime that holds them. Only fns/engine.ts opens the runtime, and it
   // hands the rest the `Engine` interface.
-  restrict(['packages/host/src/api/fns/**'], [noBinImports, serverFnBoundary(true)]),
-  restrict(['packages/host/src/api/fns/engine.ts'], [noBinImports, serverFnBoundary(false)]),
-  forbid(['packages/bin/src/cli/**'], ['mcp']),
-  forbid(['packages/bin/src/mcp/**'], ['cli']),
-  restrict(['packages/cli/**'], [cliNoCore, cliNoWire, cliNoBin, cliNoTesting]),
-  restrict(['packages/cli/src/app.ts'], [cliNoBin, cliNoTesting, coreEntryOnly]),
+  restrict(['packages/host/src/api/fns/**'], [serverFnBoundary(true)]),
+  restrict(['packages/host/src/api/fns/engine.ts'], [serverFnBoundary(false)]),
+  restrict(['packages/cli/**'], [cliNoCore, cliNoWire, cliNoTesting]),
+  restrict(['packages/cli/src/app.ts'], [cliNoTesting, coreEntryOnly]),
   // Tests legitimately wire layers together (the store fixture from
   // `testing/store`, cross-layer assertions); the boundary constrains shipped
   // code, not tests.
   { files: ['**/*.test.ts'], rules: { 'no-restricted-imports': 'off' } },
-  // The core/bin direction holds for tests too: core tests may not import bin,
-  // and bin tests still reach core only through its entries.
-  restrict(['packages/core/**'], [noBinImports, noWireImports]),
-  restrict(['packages/contract/**'], [noBinImports, noCoreImports, noWireImports]),
-  restrict(['packages/wire/**/*.test.ts'], [coreEntryOnly, noBinImports]),
-  restrict(['packages/bin/**/*.test.ts'], [coreEntryOnly]),
-  // The CLI's tests and test-support modules build stores for the parity cases;
-  // they still reach core only through its entries, and never the old binary.
-  // Shipped CLI modules may not import them (cliNoTesting above).
-  restrict(['packages/cli/**/*.test.ts', 'packages/cli/src/testing/**'], [coreEntryOnly, cliNoBin]),
+  // The core/cli direction holds for tests too: core tests may not import the
+  // CLI, and CLI tests still reach core only through its entries.
+  restrict(['packages/core/**'], [noCliImports, noWireImports]),
+  restrict(['packages/contract/**'], [noCliImports, noCoreImports, noWireImports]),
+  restrict(['packages/wire/**/*.test.ts'], [coreEntryOnly, noCliImports]),
+  // The CLI's tests, test-support modules, and developer scripts build stores
+  // (the parity cases, the sandbox board, the docs fixture); they still reach
+  // core only through its entries. Shipped CLI modules may not import them
+  // (cliNoTesting above).
+  restrict(
+    ['packages/cli/**/*.test.ts', 'packages/cli/src/testing/**', 'packages/cli/scripts/**'],
+    [coreEntryOnly],
+  ),
   // Tests legitimately force bad/loose types — to drive error paths, assert over
   // untyped HTTP responses, narrow DOM queries — so unsafe assertions are allowed
   // in test files (they own both ends; the safety bar is for shipped code).
@@ -227,8 +206,8 @@ const layerOverrides: Override[] = [
     rules: { 'typescript/no-unsafe-type-assertion': 'off' },
   },
   // The UI's vite config is a Node/Bun build script, not shipped browser code —
-  // it reads packages/bin/package.json to stamp the bundle's build version
-  // (MMR-260) alongside the binary's own MIMIR_BUILD_VERSION define.
+  // it reads packages/cli/package.json to stamp the bundle's build version
+  // (MMR-260) alongside the binary's own release-facts version.
   { files: ['packages/host/vite.config.ts'], rules: { 'import/no-nodejs-modules': 'off' } },
   // Playwright/build fixtures execute under Bun and own isolated temporary
   // directories; they are not part of the browser bundle.
@@ -291,7 +270,6 @@ export default defineConfig({
       },
       node: {
         files: [
-          'packages/bin/**',
           'packages/cli/**',
           'packages/core/**',
           'packages/sandbox/**',

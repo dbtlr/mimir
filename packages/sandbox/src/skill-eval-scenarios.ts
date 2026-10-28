@@ -9,7 +9,7 @@ import { join } from 'node:path';
 
 import { z } from 'zod';
 
-import { COMMAND_HELP } from '../../bin/src/cli/help';
+import { application } from '../../cli/src/application';
 import type { MimirCall, Transcript } from './skill-eval-transcript';
 
 export type Evidence = {
@@ -149,8 +149,13 @@ async function startedBeforeEditing(e: Evidence, id: string, path: string): Prom
   return started !== undefined && statSync(join(e.work, path)).mtimeMs >= Date.parse(started.at);
 }
 
-/** Every verb the CLI knows: the top-level keys of its help descriptors. */
-const VERBS = new Set(Object.keys(COMMAND_HELP).filter((key) => !key.includes(' ')));
+/** Every verb the CLI knows: the visible top-level commands of the Loom CLI's graph. */
+const VERBS = new Set(
+  application
+    .inspect()
+    .root.children.filter((command) => !command.hidden)
+    .map((command) => command.name),
+);
 
 /** Checks every scenario carries: the skill says to drive from its references, never to guess a verb. */
 export const UNIVERSAL_CHECKS: readonly Check[] = [

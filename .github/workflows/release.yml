@@ -73,24 +73,27 @@ jobs:
             bun run test
           fi
 
-      # On a tag build, bake the tag (minus the leading v) as MIMIR_BUILD_VERSION,
-      # which the binary compile below reads, so `--version` reports the release
-      # (MMR-57). PR build-validation runs on a branch ref and falls back to
-      # package.json instead — fine, those binaries aren't published.
-      - name: Determine build version
+      # On a tag build, stamp the tag (minus the leading v) into
+      # packages/cli/package.json. `loom build --release` bakes that version into
+      # the binary's release facts, which `mimir version` and self-update read,
+      # so the binary reports the release it was cut for (MMR-57, MMR-555). PR
+      # build-validation runs on a branch ref and keeps the checked-in -next
+      # version instead; those binaries are never published.
+      - name: Stamp the release version
         if: github.ref_type == 'tag'
-        run: echo "MIMIR_BUILD_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+        run: |
+          bun -e 'const file = "packages/cli/package.json"; const pkg = await Bun.file(file).json(); pkg.version = process.argv[1]; await Bun.write(file, JSON.stringify(pkg, null, 2) + "\n")' "${GITHUB_REF_NAME#v}"
 
+      # Loom's release build: one binary per native runner, named for its asset
+      # (mimir-<os>-<arch>), with the release facts baked in. Only explicit
+      # installation grants access to live state.
       - name: Compile
+        env:
+          ASSET: ${{ matrix.asset }}
         run: |
           mkdir -p dist
-          # Only explicit installation grants access to live state.
-          define=()
-          if [ -n "${MIMIR_BUILD_VERSION:-}" ]; then
-            define+=(--define "MIMIR_BUILD_VERSION=\"${MIMIR_BUILD_VERSION}\"")
-          fi
-          bun build packages/bin/src/main.ts --compile "${define[@]}" \
-            --outfile "dist/${{ matrix.asset }}"
+          bun run --cwd packages/cli loom build --release \
+            --target "bun-${ASSET#mimir-}" --out "$GITHUB_WORKSPACE/dist/$ASSET"
 
       - name: Test compiled CLI and MCP
         id: native-smoke
@@ -129,7 +132,7 @@ jobs:
         id: metadata
         run: |
           set -euo pipefail
-          version=$(jq -r .version packages/bin/package.json)
+          version=$(jq -r .version packages/cli/package.json)
           channel=
           if [ "$GITHUB_REF_TYPE" = tag ]; then
             version="${GITHUB_REF_NAME#v}"
@@ -276,7 +279,7 @@ jobs:
           echo "--- release notes ---"; cat release-notes.md
 
       # Draft → upload (retried, verified) → publish. Exit 1 keeps the draft
-      # for a re-run; see packages/bin/scripts/publish-release.ts.
+      # for a re-run; see packages/cli/scripts/publish-release.ts.
       - name: Publish GitHub Release
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -285,7 +288,7 @@ jobs:
           shopt -s failglob   # a missing binary fails here, not as a partial release
           args=(--tag "$GITHUB_REF_NAME" --notes release-notes.md)
           case "$GITHUB_REF_NAME" in *-*) args+=(--prerelease) ;; esac
-          bun packages/bin/scripts/publish-release.ts "${args[@]}" dist/mimir-* dist/SHA256SUMS
+          bun packages/cli/scripts/publish-release.ts "${args[@]}" dist/mimir-* dist/SHA256SUMS
 
       # Prune stale prerelease tags + Releases at an official cut (MMR-58).
       # Lag-by-one retention: delete prereleases from cycles OLDER than the

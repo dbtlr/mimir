@@ -6,14 +6,16 @@ import { applicationDirectory } from '@loomcli/core';
 import { scriptRecordDirectory } from '@mimir/core';
 
 import { createApp } from './app';
+import { application } from './application';
 import { boundClone } from './testing/fixture';
 import { runArgv } from './testing/run';
 
 /**
  * The installer is `loom init`'s managed `install.sh` (MMR-554), rendered for
- * this package's `bin` name and GitHub repository. Re-render it with
- * `bunx @loomcli/loom@<pinned> init --only install` in packages/cli; an edit by
- * hand reads as drift.
+ * this package's `bin` name, GitHub repository, and the Application's
+ * `postInstall`. It installs Loom-built releases; the root `install.sh` stays for
+ * older versions until the first stable Loom-built release. Re-render it with `bun run --cwd packages/cli loom init
+ * --only install`; an edit by hand reads as drift.
  */
 const script = new URL('../install.sh', import.meta.url);
 
@@ -26,6 +28,16 @@ test('install.sh is the installer loom init manages, undrifted', () => {
   expect(checksum).toBe(createHash('sha256').update(content).digest('hex'));
   expect(text).toContain("  app='mimir'\n  repository='dbtlr/mimir'\n");
   expect(statSync(script).mode & 0o111).toBe(0o111);
+});
+
+test('the installer registers the MCP server with Claude Code once it has installed the binary', () => {
+  expect(application.inspect().postInstall).toEqual({
+    command: ['mcp', 'install', '--agent', 'claude'],
+    message: expect.stringContaining('mimir bind'),
+  });
+  const text = readFileSync(script, 'utf8');
+  expect(text).toContain("'mcp' 'install' '--agent' 'claude'");
+  expect(text).toContain('--skip-post-install');
 });
 
 test.each<[string, Record<string, string>]>([

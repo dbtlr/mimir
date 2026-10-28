@@ -1,5 +1,5 @@
 #!/bin/sh
-# Managed by loom init. sha256:e67b639dc0a1251f7d4b2f1878b857a4b289fab94dcde8dd84c9fae5f9711435
+# Managed by loom init. sha256:d12c31678c773b152d2c3729cff52649bacb358787ff4a807f051552ae71add9
 # Installs this application from its GitHub releases: it downloads the binary for this platform,
 # verifies it against the release's SHA256SUMS, moves it into place, and records the installation
 # in install.json, so self-update may later replace the binary. Run it with --help for its usage.
@@ -17,7 +17,7 @@ fail() {
 }
 
 usage() {
-  printf '%s\n' 'Usage: install.sh [--dir <directory>] [<version>]'
+  printf '%s\n' 'Usage: install.sh [--dir <directory>] [--skip-post-install] [<version>]'
 }
 
 print_help() {
@@ -27,12 +27,13 @@ print_help() {
     '       install.sh --help' \
     '' \
     'Arguments:' \
-    '  <version>          The release to install, such as 1.4.0, with or without a leading v.' \
-    '                     By default, the latest release.' \
+    '  <version>            The release to install, such as 1.4.0, with or without a leading v.' \
+    '                       By default, the latest release.' \
     '' \
     'Options:' \
-    '  --dir <directory>  The absolute directory to install into. By default, $HOME/.local/bin.' \
-    '  -h, --help         Print this help.'
+    '  --dir <directory>    The absolute directory to install into. By default, $HOME/.local/bin.' \
+    '  --skip-post-install  Install without running the post-install command.' \
+    '  -h, --help           Print this help.'
 }
 
 argument_error() {
@@ -46,11 +47,15 @@ parse_arguments() {
   dir_given=
   version=
   version_given=
+  skip_post_install=
   while [ $# -gt 0 ]; do
     case $1 in
       -h | --help)
         print_help
         exit 0
+        ;;
+      --skip-post-install)
+        skip_post_install=1
         ;;
       --dir)
         [ $# -ge 2 ] || argument_error '--dir needs a directory.'
@@ -279,6 +284,68 @@ advise_path() {
   esac
 }
 
+with_post_install_words() {
+  "$@" 'mcp' 'install' '--agent' 'claude'
+}
+
+quote_word() {
+  quote="'"
+  case $1 in
+    '' | =* | *[!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_./:=@%+,-]*)
+      rest=$1
+      quoted=
+      while :; do
+        case $rest in
+          *"$quote"*)
+            quoted=$quoted${rest%%"$quote"*}"$quote\\$quote$quote"
+            rest=${rest#*"$quote"}
+            ;;
+          *)
+            quoted=$quote$quoted$rest$quote
+            break
+            ;;
+        esac
+      done
+      ;;
+    *) quoted=$1 ;;
+  esac
+}
+
+print_command_line() {
+  line=
+  for word in "$target" "$@"; do
+    quote_word "$word"
+    line="$line $quoted"
+  done
+  printf '%s\n' " $line" >&2
+}
+
+run_post_install() {
+  if [ -n "$skip_post_install" ]; then
+    say "Skipped the post-install command. Run it to finish setting up $app:"
+    with_post_install_words print_command_line
+    return 0
+  fi
+  say 'Running the post-install command:'
+  with_post_install_words print_command_line
+  status=0
+  if [ -t 0 ]; then
+    with_post_install_words "$target" || status=$?
+  elif (exec </dev/tty) 2>/dev/null; then
+    with_post_install_words "$target" </dev/tty || status=$?
+  else
+    with_post_install_words "$target" </dev/null || status=$?
+  fi
+  if [ "$status" -ne 0 ]; then
+    say "The post-install command failed with exit status $status, and $app is installed. Run it again to finish setting up $app:"
+    with_post_install_words print_command_line
+  fi
+}
+
+print_message() {
+  printf '%s' "$message" | while IFS= read -r line || [ -n "$line" ]; do say "$line"; done
+}
+
 cleanup() {
   if [ -n "${download:-}" ]; then rm -f "$download"; fi
   if [ -n "${sums:-}" ]; then rm -f "$sums"; fi
@@ -289,6 +356,7 @@ main() {
   set -e
   app='mimir'
   repository='dbtlr/mimir'
+  message='Bind a repository with mimir bind <KEY>, and Claude Code can use mimir from there.'
   download=
   sums=
   staging=
@@ -304,6 +372,8 @@ main() {
   write_record
   say "Installed $target."
   advise_path
+  run_post_install
+  print_message
 }
 
 { main "$@"; }

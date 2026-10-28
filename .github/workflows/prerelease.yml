@@ -44,7 +44,7 @@ jobs:
           # Annotated tags need a committer identity; the runner has none.
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          ver=$(grep '"version"' packages/bin/package.json | head -1 \
+          ver=$(grep '"version"' packages/cli/package.json | head -1 \
                 | sed -E 's/.*"version" *: *"([^"]+)".*/\1/')
           case "$ver" in
             *-next)

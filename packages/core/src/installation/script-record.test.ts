@@ -115,11 +115,10 @@ test.each([
   expect(adoption).toHaveProperty('refusal', expect.stringContaining(variable));
 });
 
-test('a redirected data root is unset, or recorded by the root install.sh', () => {
+test('a redirected data root is unset', () => {
   expect(adoptionPaths({ HOME: '/home/a', XDG_DATA_HOME: '/tmp/data' }, 'linux')).toEqual({
     refusal: 'XDG_DATA_HOME is /tmp/data, not its default /home/a/.local/share',
-    remedy:
-      'To adopt the $HOME defaults, run it once with XDG_DATA_HOME unset; if the directories under XDG_DATA_HOME hold your real config, data, or cache, install with the root install.sh instead, which records them',
+    remedy: 'To adopt the $HOME defaults, run it once with XDG_DATA_HOME unset',
   });
 });
 
@@ -129,14 +128,14 @@ test('a redirected state root on linux re-runs Loom install.sh before unsetting 
   expect(adoptionPaths({ HOME: '/home/a', XDG_STATE_HOME: '/tmp/state' }, 'linux')).toEqual({
     refusal: 'XDG_STATE_HOME is /tmp/state, not its default /home/a/.local/state',
     remedy:
-      "To adopt the $HOME defaults, re-run Loom's install.sh with XDG_STATE_HOME unset so its record moves to the default, then run mimir once with XDG_STATE_HOME unset, or install with the root install.sh instead",
+      "To adopt the $HOME defaults, re-run Loom's install.sh with XDG_STATE_HOME unset so its record moves to the default, then run mimir once with XDG_STATE_HOME unset",
   });
 });
 
 test('a relative state root leaves the record at its default, so unsetting it is enough', () => {
   expect(adoptionPaths({ HOME: '/home/a', XDG_STATE_HOME: 'state' }, 'linux')).toHaveProperty(
     'remedy',
-    'To adopt the $HOME defaults, run it once with XDG_STATE_HOME unset, or install with the root install.sh instead',
+    'To adopt the $HOME defaults, run it once with XDG_STATE_HOME unset',
   );
 });
 
@@ -151,7 +150,7 @@ test('one refusal names every redirected root', () => {
     refusal:
       'XDG_CACHE_HOME is /tmp/cache, not its default /home/a/.cache; XDG_CONFIG_HOME is /tmp/config, not its default /home/a/.config; XDG_STATE_HOME is /tmp/state, not its default /home/a/.local/state',
     remedy:
-      "To adopt the $HOME defaults, re-run Loom's install.sh with XDG_STATE_HOME unset so its record moves to the default, then run mimir once with XDG_CACHE_HOME, XDG_CONFIG_HOME, and XDG_STATE_HOME unset; if the directories under XDG_CACHE_HOME and XDG_CONFIG_HOME hold your real config, data, or cache, install with the root install.sh instead, which records them",
+      "To adopt the $HOME defaults, re-run Loom's install.sh with XDG_STATE_HOME unset so its record moves to the default, then run mimir once with XDG_CACHE_HOME, XDG_CONFIG_HOME, and XDG_STATE_HOME unset",
   });
 });
 

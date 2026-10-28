@@ -12,12 +12,14 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { WELL_900 } from './src/lib/theme-colors.ts';
 
 /**
- * The bundle-side twin of `MIMIR_BUILD_VERSION` (packages/bin/src/version.ts,
- * MMR-57): release.yml exports the same env var before both `build:ui` and
- * the binary compile, so a tagged build stamps identical versions on both
- * sides. Absent that (local/dev/PR builds), fall back to the bin package's
- * version — the same fallback `version.ts` uses — so an un-stamped bundle and
- * an un-stamped daemon agree by default instead of reading as permanently stale.
+ * The bundle-side twin of the binary's release version (packages/cli/src/version.ts,
+ * MMR-57): the host image's build arg `MIMIR_BUILD_VERSION` carries the tag's
+ * version into `build:ui`, and the release workflow stamps the same tag into
+ * packages/cli/package.json before the binary compile, so a tagged build
+ * reports identical versions on both sides. Absent that (local/dev/PR builds),
+ * fall back to the CLI package's version — the same fallback `version.ts` uses
+ * — so an un-stamped bundle and an un-stamped daemon agree by default instead
+ * of reading as permanently stale.
  */
 function readVersion(pkgPath: URL): string {
   const pkg: unknown = JSON.parse(readFileSync(pkgPath, 'utf8'));
@@ -29,7 +31,7 @@ function readVersion(pkgPath: URL): string {
   return version;
 }
 
-const binVersion = readVersion(new URL('../bin/package.json', import.meta.url));
+const cliVersion = readVersion(new URL('../cli/package.json', import.meta.url));
 
 /**
  * The PWA layer is app-shell only — precache the shell so the installed app
@@ -78,7 +80,7 @@ for (const plugin of pwaPlugins) {
 
 export default defineConfig({
   define: {
-    MIMIR_BUILD_VERSION: JSON.stringify(process.env.MIMIR_BUILD_VERSION ?? binVersion),
+    MIMIR_BUILD_VERSION: JSON.stringify(process.env.MIMIR_BUILD_VERSION ?? cliVersion),
   },
   plugins: [
     ...(process.env.VITEST === 'true'

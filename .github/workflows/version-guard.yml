@@ -1,6 +1,6 @@
 name: Version guard
 
-# Fail fast if packages/bin/package.json carries a clean (non-prerelease)
+# Fail fast if packages/cli/package.json carries a clean (non-prerelease)
 # version whose tag already exists — i.e. a release happened but nobody opened
 # the next -next cycle, so prereleases would silently stop. Allowed: the release
 # commit itself (its tag isn't pushed yet) and any -next version (MMR-57).
@@ -24,7 +24,7 @@ jobs:
       - name: Assert the release / next-cycle invariant
         run: |
           set -euo pipefail
-          ver=$(grep '"version"' packages/bin/package.json | head -1 \
+          ver=$(grep '"version"' packages/cli/package.json | head -1 \
                 | sed -E 's/.*"version" *: *"([^"]+)".*/\1/')
           case "$ver" in
             *-*)

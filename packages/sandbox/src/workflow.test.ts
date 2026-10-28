@@ -172,6 +172,9 @@ test('sandbox run refuses installation machinery before opening a sandbox', asyn
       ['installation-install', '--mode', 'live'],
       ['self-update'],
       ['--format', 'json', 'self-update'],
+      ['skills', 'install'],
+      ['mcp', 'install', '--agent', 'claude'],
+      ['mcp'],
     ]) {
       expect(await failure(sandbox.run('00000000-0000-4000-8000-000000000000', args))).toContain(
         'installation machinery is disabled',

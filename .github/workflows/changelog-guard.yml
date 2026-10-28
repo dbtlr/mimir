@@ -12,7 +12,7 @@ name: Changelog guard
 #
 # Two release-procedure shapes pass structurally, no label needed: the
 # release-cut PR (fragment deletions only — the compile) and the cycle-open PR
-# (every changed line is a `"version"` field in packages/bin/package.json +
+# (every changed line is a `"version"` field in packages/cli/package.json +
 # bun.lock — version metadata has no behavior to log).
 #
 # Runs on every PR and self-determines applicability (like version-guard) so it
@@ -55,14 +55,14 @@ jobs:
           fi
 
           # The cycle-open PR (release procedure's closing step) moves only the
-          # version strings in packages/bin/package.json and bun.lock's copy of
+          # version strings in packages/cli/package.json and bun.lock's copy of
           # it. Version metadata has no behavior to log — pass structurally so
           # each cycle open doesn't need the label by hand. Both conditions
           # bind: the file set AND every content line, so a bump smuggling any
           # other change still requires its fragment. (Counted with `grep -cv`,
           # not `-qv`: BSD grep short-circuits `-q` even under `-v`, and this
           # script should stay correct wherever it is run by hand.)
-          other_files=$(echo "$changed" | grep -cvE '^(packages/bin/package\.json|bun\.lock)$' || true)
+          other_files=$(echo "$changed" | grep -cvE '^(packages/cli/package\.json|bun\.lock)$' || true)
           if [ "$other_files" -eq 0 ]; then
             content=$(git diff -U0 "${base}...HEAD" | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' || true)
             nonversion_lines=$(echo "$content" | grep -cvE '^[+-][[:space:]]*"version": "' || true)
@@ -118,4 +118,4 @@ jobs:
           set -euo pipefail
           # Fragment paths are flat slugs without spaces.
           # shellcheck disable=SC2046
-          bun packages/bin/scripts/compile-changelog.ts --check $(tr '\n' ' ' < "$RUNNER_TEMP/fragments.txt")
+          bun packages/cli/scripts/compile-changelog.ts --check $(tr '\n' ' ' < "$RUNNER_TEMP/fragments.txt")
