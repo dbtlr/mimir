@@ -13,7 +13,13 @@ changed since: it compares the binary with Loom's installation record
 (`install.json`) before it asks the network anything. A binary installed some
 other way, a copy, or a binary whose bytes changed is refused with the command
 that reinstalls it. Self-update does not create a missing record; run
-[`install.sh`](install-location.md) first.
+[`packages/cli/install.sh`](install-location.md) first. That installer installs
+Loom-built releases (0.26.0-next prereleases from this cutover on, and 0.26.0 and
+later); an older version needs the root installer.
+
+An installation upgraded by an old binary's self-update has no Loom record. Run the
+Loom installer once with `--dir <dir> <version>`, as
+[Install location](install-location.md#upgrade-an-earlier-installation) shows.
 
 ## Channels
 

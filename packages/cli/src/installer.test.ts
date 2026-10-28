@@ -13,8 +13,8 @@ import { runArgv } from './testing/run';
 /**
  * The installer is `loom init`'s managed `install.sh` (MMR-554), rendered for
  * this package's `bin` name, GitHub repository, and the Application's
- * `postInstall`. It is the repository's only installer, and the README fetches
- * it from this path. Re-render it with `bun run --cwd packages/cli loom init
+ * `postInstall`. It installs Loom-built releases; the root `install.sh` stays for
+ * older versions until the first stable Loom-built release. Re-render it with `bun run --cwd packages/cli loom init
  * --only install`; an edit by hand reads as drift.
  */
 const script = new URL('../install.sh', import.meta.url);

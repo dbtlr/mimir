@@ -49,7 +49,7 @@ jobs:
           # (GitHub Actions can't share a filter across workflows). A change outside
           # these can't affect a shipped binary or image, so no entry is needed.
           changed=$(git diff --name-only "${base}...HEAD")
-          if ! echo "$changed" | grep -qE '^(packages/|skills/mimir/|package\.json$|bun\.lock$|Dockerfile$|\.dockerignore$|\.github/workflows/(release|prerelease)\.yml$)'; then
+          if ! echo "$changed" | grep -qE '^(packages/|skills/mimir/|package\.json$|bun\.lock$|Dockerfile$|\.dockerignore$|install\.sh$|\.github/workflows/(release|prerelease)\.yml$)'; then
             echo "No build-affecting paths changed — changelog fragment not required."
             exit 0
           fi

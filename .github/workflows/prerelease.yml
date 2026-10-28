@@ -16,6 +16,7 @@ on:
       - '.dockerignore'
       - '.github/workflows/release.yml'
       - '.github/workflows/prerelease.yml'
+      - 'install.sh'
 
 # Serialize so two quick merges can't race on "highest + 1".
 concurrency:

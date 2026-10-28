@@ -95,7 +95,7 @@ pinned in `src/help-pages`. `scripts/` holds the release and developer tooling
 (changelog compiler, release publisher, sandbox store, docs fixture). `bun run
 build` compiles the binary into `dist/mimir` with `loom build`; the skill's
 `mimir …` invocations are checked against the command graph by the drift guard
-in `src/testing/skill-invocations.test.ts`. `install.sh` is the installer
+in `src/testing/skill-invocations.test.ts`. `packages/cli/install.sh` is the installer
 `loom init --only install` renders, and `src/installer.test.ts` fails when it
 drifts.
 
@@ -208,7 +208,7 @@ compatibility review.
   only at the release cut, which compiles the pending fragments — so parallel
   PRs never conflict on it. The `changelog-guard` check enforces this: a PR
   touching build-affecting paths (`packages/**`, `skills/mimir/**`,
-  `package.json`, `bun.lock`, the release workflows) fails CI
+  `package.json`, `bun.lock`, `install.sh`, the release workflows) fails CI
   unless it touches a fragment.
   For a genuinely behavior-preserving change (internal refactor, test- or
   build-meta only), apply the `skip-changelog` label with a one-line reason
@@ -272,7 +272,7 @@ binary's release facts; `mimir version` and self-update read them, and
 the next target as `X.Y.Z-next` (declared, never auto-written). Every
 build-affecting merge to `main` auto-publishes a `vX.Y.Z-next.N` prerelease
 (docs-only merges produce nothing — the tagger is path-filtered). Install
-one with `install.sh 0.26.0-next.5` (a version argument), update to the newest
+one with `packages/cli/install.sh 0.26.0-next.5` (a version argument), update to the newest
 with `mimir self-update --channel next`, or pin a build with
 `mimir self-update 0.6.0-next.5`.
 

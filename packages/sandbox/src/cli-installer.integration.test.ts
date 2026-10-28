@@ -351,3 +351,43 @@ test.skipIf(!enabled)(
   },
   120_000,
 );
+
+test.skipIf(!enabled)(
+  "an old installer's install runs, self-update refuses it, and the Loom installer once repairs it",
+  async () => {
+    const box = await sandbox('old-upgrade');
+    // What the old installer and the old binary's self-update leave: a Loom-built binary
+    // with Mimir's receipt beside it, and no Loom installation record.
+    await mkdir(box.bin, { recursive: true });
+    await writeFile(box.target, builds.get('1.0.0') ?? new Uint8Array(), { mode: 0o755 });
+    const receipt = registerInstallation({
+      executable: box.target,
+      mode: 'live',
+      paths: box.paths,
+    });
+    const env = box.env('redirected');
+
+    // The new binary works on the receipt's directories, not the ambient ones.
+    expect(await boardTitle(box.target, env)).toBe('The old-upgrade board');
+    const refused = await run([box.target, 'self-update', '--check'], env);
+    expect(refused.code).toBe(1);
+    expect(refused.out).toContain('mimir was installed some other way');
+
+    // `--dir` plus a Loom-built version is the one-time reinstall.
+    const reinstalled = await run(
+      ['sh', installer, '--dir', box.bin, '--skip-post-install', '1.1.0'],
+      env,
+    );
+    expect(reinstalled.code, reinstalled.out).toBe(0);
+    const checked = await run([box.target, 'self-update', '--check'], env);
+    expect(checked.code, checked.out).toBe(0);
+    expect(checked.out).not.toContain('installed some other way');
+    // The receipt keeps its directories and follows the new bytes.
+    expect(await boardTitle(box.target, env)).toBe('The old-upgrade board');
+    expect(readInstallationAt(box.target)).toEqual({
+      ...receipt,
+      sha256: sha256(builds.get('1.1.0') ?? new Uint8Array()),
+    });
+  },
+  120_000,
+);

@@ -45,17 +45,15 @@ there is no second cache of project status to keep in sync.
 Install the standalone binary:
 
 ```sh
-curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/packages/cli/install.sh | sh
+curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
 ```
 
-The installer verifies the release, records the installation, and registers the
-MCP server with Claude Code (Codex cannot connect to the server's MCP protocol
-revision yet). It takes `--dir <directory>` and an optional
-version argument, and replaces the old `MIMIR_INSTALL_DIR`, `MIMIR_VERSION`,
-and `MIMIR_NEXT` variables. See
-[Install location](docs/guides/install-location.md) for the first-run binding
-and upgrading an earlier installation. `mimir version` prints the installed
-version, and `mimir self-update` replaces the binary.
+The installer verifies the release and records the installation. The Loom
+installer, `packages/cli/install.sh`, also registers the MCP server with Claude
+Code (Codex cannot connect to the server's MCP protocol revision yet). See
+[Install location](docs/guides/install-location.md) for which installer to use,
+the first-run binding, and upgrading an earlier installation. `mimir version`
+prints the installed version, and `mimir self-update` replaces the binary.
 
 Choose the store before first use:
 

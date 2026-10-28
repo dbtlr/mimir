@@ -6,13 +6,12 @@ without reconstructing work state from chat history.
 ## Install
 
 ```sh
-curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/packages/cli/install.sh | sh
+curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
 ```
 
-The installer registers the MCP server with Claude Code. Pass `--dir <directory>`
-to install somewhere other than `~/.local/bin`, or a version such as `0.26.0`
-to pin a release; [Install location](../guides/install-location.md) explains
-how the first run binds the installation.
+[Install location](../guides/install-location.md) explains the two installers,
+the Loom installer's `--dir` and version arguments and its Claude Code MCP
+registration, and how the first run binds the installation.
 
 The standalone binary does not require Bun or any other program. By default
 Mimir keeps work state in one SQLite file, `store.sqlite`, in its data

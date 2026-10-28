@@ -5,7 +5,7 @@
 `command -v mimir` — if missing, install (macOS arm64 / Linux):
 
 ```sh
-curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/packages/cli/install.sh | sh
+curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
 ```
 
 (or `bun add -g mimir` from source). Work state lives in one local SQLite file,

@@ -32,6 +32,7 @@ on:
       - '.dockerignore'
       - '.github/workflows/release.yml'
       - '.tool-versions'
+      - 'install.sh'
 
 permissions:
   contents: read

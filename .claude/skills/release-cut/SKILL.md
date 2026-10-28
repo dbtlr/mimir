@@ -34,6 +34,15 @@ On a branch:
   only and `--frozen-lockfile` validates fine either way — a hand edit is the
   only thing that closes it. Skipping this is what leaves a stray
   `chore: sync bun.lock` follow-up commit next cycle.
+- **ONE-TIME, first stable release built from the Loom CLI (v0.26.0) only; delete this
+  bullet from the skill once it has run.** Until then the README installs the root
+  `install.sh`, because `releases/latest` is an old-CLI release that cannot run the
+  Loom installer's post-install step. In this cut commit, delete the root
+  `install.sh`, and switch the install URL in `README.md`,
+  `docs/user/getting-started.md`, and `skills/mimir/references/setup.md` from
+  `main/install.sh` to `main/packages/cli/install.sh`. Drop the root-installer
+  paragraph from `docs/guides/install-location.md`, and `install.sh` from the path
+  filters in `release.yml`, `prerelease.yml`, and `changelog-guard.yml`.
 - Compile the changelog: `bun run changelog:compile --write --version X.Y.Z` —
   writes the `## vX.Y.Z - YYYY-MM-DD` section into `CHANGELOG.md` and deletes
   the compiled fragments.
@@ -87,7 +96,9 @@ gh release view vX.Y.Z --json isPrerelease,tagName,assets \
   `mimir-linux-arm64` — plus `SHA256SUMS`. (Keep this list in sync with
   `release.yml`'s build matrix.)
 - Download one binary and confirm its checksum matches `SHA256SUMS`.
-- The built/installed binary reports `mimir version` = `X.Y.Z` (and `mimir self-update --check` does not refuse it as a non-release build).
+- A binary installed by `packages/cli/install.sh` (not a bare download, which `self-update`
+  refuses as "installed some other way") reports `mimir version` = `X.Y.Z`, and
+  `mimir self-update --check` does not refuse it.
 - Prune ran lag-by-one: the just-shipped cycle's `vX.Y.Z-next.*` trail **and the
   previous official's cycle trail** both remain; only cycles older than the
   previous official are gone (`gh release list`). An early cut with no qualifying
