@@ -10,8 +10,9 @@ name: Changelog guard
 # Escape hatch: a behavior-preserving PR (internal refactor, test/build-meta
 # only) applies the `skip-changelog` label instead of a fragment.
 #
-# The release-cut PR passes structurally, no label needed: it deletes every
-# fragment, and `loom changelog check` accepts an empty set.
+# The release-cut PR passes structurally, no label needed: it deletes the
+# fragments it writes into a new release section, and `loom changelog check`
+# accepts an empty set. Deleting fragments any other way does not count.
 #
 # Runs on every PR and self-determines applicability so it is always a
 # runnable, requireable check — a `paths:`-filtered required check would hang
@@ -67,13 +68,21 @@ jobs:
             exit 0
           fi
 
-          # Any touch of a fragment satisfies the gate: added (the normal case),
-          # modified (amending an entry), or deleted (the release cut). Loom
-          # reads fragments flat in .changes/ and ignores hidden entries;
+          # A fragment added or amended on this PR satisfies the gate. Deleting
+          # fragments counts only for the release cut, which writes them into a
+          # new `## vX.Y.Z - YYYY-MM-DD` section of the changelog. Loom reads
+          # fragments flat in .changes/ and ignores hidden entries;
           # `loom changelog check` rejects a nested path or a non-Markdown file,
           # so any other file there counts.
           fragments=$(echo "$changed" | grep -E '^packages/cli/\.changes/[^.]' | grep -v '^packages/cli/\.changes/README\.md$' || true)
-          if [ -z "$fragments" ]; then
+          present=$(echo "$fragments" | while IFS= read -r f; do if [ -n "$f" ] && [ -f "$f" ]; then echo "$f"; fi; done)
+          # A plain grep reads all of git diff, so pipefail sees no SIGPIPE.
+          section=$(git diff "${base}...HEAD" -- packages/cli/CHANGELOG.md | grep -E '^\+## v[0-9]+\.[0-9]+\.[0-9]+ - ' || true)
+          if [ -z "$present" ] && [ -n "$fragments" ] && [ -n "$section" ]; then
+            echo "Fragments deleted into a new release section — the release cut. Gate satisfied."
+            present="$fragments"
+          fi
+          if [ -z "$present" ]; then
             echo "::error::Build-affecting change with no changelog fragment. Add packages/cli/.changes/<slug>.md (see packages/cli/.changes/README.md), or apply the 'skip-changelog' label if this is behavior-preserving."
             exit 1
           fi

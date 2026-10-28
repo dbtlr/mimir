@@ -653,10 +653,71 @@ test('a build-affecting change without a fragment fails unless labeled', async (
   expect((await guard({ base, head, label: true })).exit).toBe(0);
 });
 
-test('the release cut, which only deletes fragments, passes', async () => {
+test('the release cut, which deletes the fragments it writes into a release section, passes', async () => {
   const result = await guard({
-    base: { 'packages/cli/.changes/feature.mmr-1.md': '- Add.\n' },
-    head: { 'packages/cli/.changes/feature.mmr-1.md': null },
+    base: {
+      'packages/cli/.changes/feature.mmr-1.md': '- Add.\n',
+      'packages/cli/CHANGELOG.md': '# Changelog\n',
+    },
+    head: {
+      'packages/cli/.changes/feature.mmr-1.md': null,
+      'packages/cli/CHANGELOG.md': '# Changelog\n\n## v0.26.0 - 2026-10-28\n\n- Add.\n',
+    },
   });
   expect(result.exit).toBe(0);
+});
+
+test('deleting a fragment outside a release cut does not count as one', async () => {
+  const result = await guard({
+    base: { 'packages/cli/.changes/feature.mmr-1.md': '- Add.\n', 'packages/cli/src/a.ts': '1\n' },
+    head: { 'packages/cli/.changes/feature.mmr-1.md': null, 'packages/cli/src/a.ts': '2\n' },
+  });
+  expect(result.exit).toBe(1);
+  expect(result.stdout).toContain('no changelog fragment');
+});
+
+test('release notes carry only the tag’s section, with docs links that resolve from the repository root', async () => {
+  const workflow = z
+    .object({ jobs: z.object({ publish: jobSchema }) })
+    .parse(Bun.YAML.parse(await Bun.file(workflowPath).text()));
+  const script = workflow.jobs.publish.steps.find(
+    (step) => step.name === 'Extract changelog notes',
+  )?.run;
+  if (script === undefined) {
+    throw new Error('missing release notes script');
+  }
+  const directory = await mkdtemp(join(tmpdir(), 'mimir-release-notes-'));
+  try {
+    await writeFiles(directory, {
+      'packages/cli/CHANGELOG.md': [
+        '# Changelog',
+        '',
+        '## v0.26.0 - 2026-10-28',
+        '',
+        '### Breaking Changes',
+        '',
+        '- **A change** (MMR-1). See [ADR 0039](../../docs/decisions/0039-x.md).',
+        '',
+        '## v0.25.0 - 2026-10-14',
+        '',
+        '- An older entry.',
+        '',
+      ].join('\n'),
+    });
+    const child = Bun.spawn(['bash', '-euo', 'pipefail', '-c', script], {
+      cwd: directory,
+      env: { ...process.env, GITHUB_REF_NAME: 'v0.26.0', IMAGE_VERSION: '0.26.0' },
+      stderr: 'pipe',
+      stdout: 'pipe',
+    });
+    const stderr = await new Response(child.stderr).text();
+    expect(await child.exited, stderr).toBe(0);
+    const notes = await readFile(join(directory, 'release-notes.md'), 'utf8');
+    expect(notes).toContain('[ADR 0039](docs/decisions/0039-x.md)');
+    expect(notes).not.toContain('../../');
+    expect(notes).not.toContain('An older entry');
+    expect(notes).toContain('`ghcr.io/dbtlr/mimir-host:0.26.0`');
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
 });

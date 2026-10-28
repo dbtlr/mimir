@@ -22,6 +22,10 @@ and deletes the fragments. There is no cycle to open afterwards.
   fails when no fragments are pending — then there is nothing to ship; stop.
   (`finishing-work` + `changelog-guard` keep the fragments honest per-PR; the cut
   trusts them.)
+- No published prerelease has a base above `X.Y.Z` (`gh release list`); a cut
+  below one leaves `self-update --channel next` serving the higher build. The
+  prerelease tagger refuses that state, so a red tagger run on `main` means
+  resolve it first: restore the breaking fragment, or delete those prereleases.
 
 ## 2. Cut commit (PR)
 
