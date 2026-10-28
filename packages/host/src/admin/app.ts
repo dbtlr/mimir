@@ -8,7 +8,7 @@
  */
 import { join } from 'node:path';
 
-import { Application, Command, FatalError } from '@loomcli/core';
+import { Application, Command, FatalError, processHandle } from '@loomcli/core';
 import { format } from '@loomcli/plugins/format';
 import { help } from '@loomcli/plugins/help';
 import { exportCommand, importCommand } from '@mimir/cli/src/commands/store';
@@ -38,7 +38,7 @@ export type AdminSource = {
 };
 
 /** Open the store the host configuration names, as the host left it. */
-export function hostStoreOpener(env: NodeJS.ProcessEnv = process.env): () => Promise<BuiltStore> {
+export function hostStoreOpener(env: NodeJS.ProcessEnv): () => Promise<BuiltStore> {
   return async () => {
     const config = await readHostConfig(env);
     return buildStore(
@@ -116,7 +116,11 @@ export function createAdminApp(source: AdminSource) {
 }
 
 /** Run this process's argv against the host's store, then release the store. */
-export async function runMimirHost(env: NodeJS.ProcessEnv = process.env): Promise<number> {
+export async function runMimirHost(): Promise<number> {
+  // The entry runs before any run exists, so it binds the real process's handle once,
+  // reads the environment there, and hands the same handle to the run.
+  const handle = processHandle();
+  const env = handle.env;
   let built: BuiltStore | undefined;
   const open = hostStoreOpener(env);
   const app = createAdminApp({
@@ -127,7 +131,7 @@ export async function runMimirHost(env: NodeJS.ProcessEnv = process.env): Promis
     readStdin: () => Bun.stdin.text(),
   });
   try {
-    return await app.run();
+    return await app.run({ process: handle });
   } finally {
     await built?.close();
   }

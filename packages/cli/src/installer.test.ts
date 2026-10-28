@@ -28,7 +28,7 @@ test('install.sh is the installer loom init manages, undrifted', () => {
   expect(statSync(script).mode & 0o111).toBe(0o111);
 });
 
-test.each([
+test.each<[string, Record<string, string>]>([
   ['darwin', { HOME: '/home/a' }],
   ['linux', { HOME: '/home/a' }],
   ['linux', { HOME: '/home/a', XDG_STATE_HOME: '/state' }],
@@ -39,6 +39,7 @@ test.each([
 ])('core reads the installation record where Loom keeps it (%s, %o)', (platform, env) => {
   const loom = applicationDirectory('installation', 'mimir', {
     env,
+    home: env.HOME ?? '',
     platform,
   });
   expect(scriptRecordDirectory(env, platform)).toBe('path' in loom ? loom.path : undefined);

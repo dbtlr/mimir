@@ -2,8 +2,10 @@
  * Run an Application on argv with a captured host, as a terminal or a pipe.
  * Test-only.
  */
+import { isAbsolute } from 'node:path';
 import { PassThrough } from 'node:stream';
 
+import { processHandle } from '@loomcli/core';
 import type { Application } from '@loomcli/core';
 
 export type ArgvRun = { exitCode: number; stdout: string; stderr: string };
@@ -49,11 +51,15 @@ export async function runArgv(
   const terminal = { columns: tty ? 120 : undefined, isTTY: tty, rows: tty ? 40 : undefined };
   // run() sets the process exit code too; the test process keeps its own.
   const before = process.exitCode;
+  const env = opts.env ?? { TERM: 'xterm-256color' };
+  // Without an absolute HOME the handle's home falls back to the real one; '' is no home.
+  const home = isAbsolute(env.HOME ?? '') ? undefined : '';
   const exitCode = await app.run({
     ...(opts.signal === undefined ? {} : { signal: opts.signal }),
-    host: {
+    process: processHandle({
       argv,
-      env: opts.env ?? { TERM: 'xterm-256color' },
+      env,
+      ...(home === undefined ? {} : { home }),
       stderr: err.stream,
       stdin,
       stdout: out.stream,
@@ -62,7 +68,7 @@ export async function runArgv(
         stdin: { isTTY: opts.interactive ?? false },
         stdout: terminal,
       },
-    },
+    }),
   });
   process.exitCode = before ?? 0;
   return { exitCode, stderr: err.text(), stdout: out.text() };

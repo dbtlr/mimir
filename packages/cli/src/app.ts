@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { hostname } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { Application, FatalError } from '@loomcli/core';
+import { Application, FatalError, processHandle } from '@loomcli/core';
 import { format } from '@loomcli/plugins/format';
 import { help } from '@loomcli/plugins/help';
 import { interaction } from '@loomcli/plugins/interaction';
@@ -166,7 +166,7 @@ export type CliSource = CliSourceEdges &
 type CliSourceEdges = {
   /** The clone the binding is read from and written to. */
   git: GitPort;
-  /** The words of the run, which a failure's hint reads; defaults to this process's. */
+  /** The words of the run, which a failure's hint reads; none means no leading-dash hint. */
   argv?: () => readonly string[];
   /** The machine-local services (MMR-553); a command that needs them refuses when absent. */
   machine?: MachineSource;
@@ -891,6 +891,9 @@ export function createApp(source: CliSource) {
  * names, then release the store.
  */
 export async function runMimir(): Promise<number> {
+  // The entry runs before any run exists, so it binds the real process's handle once and
+  // reads its facts there; the same handle then drives the run.
+  const handle = processHandle();
   const config = readRuntimeConfig();
   let built: BuiltStore | undefined;
   const getBuilt = async (): Promise<BuiltStore> => {
@@ -898,9 +901,10 @@ export async function runMimir(): Promise<number> {
     return built;
   };
   const app = createApp({
-    git: gitPortAt(process.cwd()),
+    argv: () => handle.argv,
+    git: gitPortAt(handle.cwd()),
     machine: {
-      cwd: process.cwd(),
+      cwd: handle.cwd(),
       // The permission check needs only the config file, so a store that cannot
       // be built or read (down, bad credentials) must not hide it.
       doctor: () =>
@@ -913,7 +917,7 @@ export async function runMimir(): Promise<number> {
               ).diagnose(scope);
             } catch (error) {
               warnConfigPermissions(scope, configPath(), (line) => {
-                process.stderr.write(`${line}\n`);
+                handle.stderr.write(`${line}\n`);
               });
               throw error;
             }
@@ -931,7 +935,7 @@ export async function runMimir(): Promise<number> {
     }),
   });
   try {
-    return await app.run();
+    return await app.run({ process: handle });
   } finally {
     await built?.close();
   }
