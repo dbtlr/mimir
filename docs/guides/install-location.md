@@ -56,7 +56,8 @@ default: `$HOME/.config`, `$HOME/.local/share`, and `$HOME/.cache`, and outside
 macOS `$HOME/.local/state`, where Loom's record lives. It prints one line naming
 the directories it bound. When any XDG variable points elsewhere, the run adopts
 nothing, names each variable, and uses the development directories beside the
-binary. Unset the variables and run `mimir` once to adopt the defaults.
+binary. To adopt the defaults, unset the variables, rerun the Loom installer so
+its record moves under the default state root, and then run `mimir` once.
 
 An installation that keeps its directories under custom XDG roots has no way to
 adopt them on a fresh install. It needs a receipt from the earlier installer:

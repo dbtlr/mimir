@@ -76,8 +76,9 @@ the skill with the current repository instead:
 mimir skills install
 ```
 
-The installer already registered `mimir mcp` with Claude Code. Run
-`mimir mcp install --agent claude` to register it again, or `mimir mcp config`
+The Loom installer (`packages/cli/install.sh`) registers `mimir mcp` with
+Claude Code. If you installed with the root `install.sh`, run
+`mimir mcp install --agent claude` to register it, or `mimir mcp config`
 to print a client configuration for another agent. Codex cannot connect to the
 server's MCP protocol revision yet. The skill
 teaches the workflow and lifecycle contract; MCP exposes the same core reads and

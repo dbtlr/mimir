@@ -239,12 +239,15 @@ new receipt, configuration and cache preservation, and unchanged board contents.
 A second installation verifies that existing bindings survive different ambient
 XDG values. This is a modeled layout transition, not a run of an old release.
 
-The installer stages the binary as `<binary>.<uuid>.install` and then writes
-the receipt through `<binary>.installation.json.<uuid>.tmp`. Handled errors
-remove temporary files. Abrupt termination can leave them behind. The two renames
-are separate operations, so interruption can leave a mismatched receipt that
-refuses normal state access.
+The Loom installer stages the download as `.mimir.XXXXXX` beside the binary and
+the record as `.install.json.XXXXXX` in Loom's installation directory, then
+renames each into place. The binary's first run writes Mimir's receipt through
+`<binary>.installation.json.<uuid>.tmp`. Handled errors remove temporary files.
+Abrupt termination can leave them behind; after an interrupted install, look for
+those three names. The renames are separate operations, so interruption can leave
+a binary without a record, which `self-update` refuses until the installer runs
+again.
 
 This workflow never updates an existing live installation during development
-or testing. The shell installer creates a live-mode receipt only inside the
-disposable test layout.
+or testing. Live-mode records and receipts exist only inside the disposable
+test layout.

@@ -17,7 +17,7 @@ The command installs into your home folder for every supported agent; use
 `--agent claude` or `--agent agents` to choose one, and `--project` when the
 skill should live with one repository. `mimir mcp` serves the tool surface to
 an MCP client, and `mimir mcp install --agent claude` registers it with Claude
-Code (the installer does this for you). Codex cannot connect to the server's
+Code (the Loom installer does this for you). Codex cannot connect to the server's
 MCP protocol revision yet. Both the CLI and MCP server honor the clone's git
 config binding (the MCP server reads the directory it was started in). A board
 read names exactly one project, from the binding or from `scope`.

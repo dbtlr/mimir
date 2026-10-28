@@ -442,7 +442,15 @@ export class Sandbox {
     if (
       !verb ||
       verb.startsWith('-') ||
-      new Set(['installation-install', 'installation-protocol', 'self-update', 'skill']).has(verb)
+      // skills and mcp install into the real home and agent configs; bare mcp never returns.
+      new Set([
+        'installation-install',
+        'installation-protocol',
+        'mcp',
+        'self-update',
+        'skill',
+        'skills',
+      ]).has(verb)
     ) {
       throw new SandboxUsageError(
         'Sandbox run accepts finite work and store commands; installation machinery is disabled. Put the command before options.',

@@ -274,7 +274,7 @@ build-affecting merge to `main` auto-publishes a `vX.Y.Z-next.N` prerelease
 (docs-only merges produce nothing — the tagger is path-filtered). Install
 one with `packages/cli/install.sh 0.26.0-next.5` (a version argument), update to the newest
 with `mimir self-update --channel next`, or pin a build with
-`mimir self-update 0.6.0-next.5`.
+`mimir self-update 0.26.0-next.5`.
 
 **Cutting an official release** is a two-commit procedure. A _cut commit_ bumps
 `packages/cli/package.json` `X.Y.Z-next` → `X.Y.Z` (syncing `bun.lock`'s

@@ -34,21 +34,23 @@ On a branch:
   only and `--frozen-lockfile` validates fine either way — a hand edit is the
   only thing that closes it. Skipping this is what leaves a stray
   `chore: sync bun.lock` follow-up commit next cycle.
-- **ONE-TIME, first stable release built from the Loom CLI (v0.26.0) only; delete this
-  bullet from the skill once it has run.** Until then the README installs the root
-  `install.sh`, because `releases/latest` is an old-CLI release that cannot run the
-  Loom installer's post-install step. In this cut commit, delete the root
-  `install.sh`, and switch the install URL in `README.md`,
+- **If a root `install.sh` still exists** (true until the first stable release built
+  from the Loom CLI, v0.26.0): `releases/latest` was an old-CLI release that cannot run
+  the Loom installer's post-install step, so the README kept the root installer. This
+  cut retires it: delete the root `install.sh`, switch the install URL in `README.md`,
   `docs/user/getting-started.md`, and `skills/mimir/references/setup.md` from
-  `main/install.sh` to `main/packages/cli/install.sh`. Drop the root-installer
-  paragraph from `docs/guides/install-location.md`, and `install.sh` from the path
-  filters in `release.yml`, `prerelease.yml`, and `changelog-guard.yml`.
+  `main/install.sh` to `main/packages/cli/install.sh`, drop the root-installer
+  paragraph from `docs/guides/install-location.md`, and remove `install.sh` from the
+  path filters in `release.yml`, `prerelease.yml`, and `changelog-guard.yml`. With no
+  root `install.sh`, skip this step.
 - Compile the changelog: `bun run changelog:compile --write --version X.Y.Z` —
   writes the `## vX.Y.Z - YYYY-MM-DD` section into `CHANGELOG.md` and deletes
   the compiled fragments.
 - Stage and commit together: `packages/cli/package.json`, `bun.lock`,
   `CHANGELOG.md`, and the deleted `.changes/*.md` fragments (the fragment
-  deletions are what satisfy `changelog-guard` on this PR). No `git add -A`.
+  deletions are what satisfy `changelog-guard` on this PR), plus, when the
+  root-installer step above ran, the deleted `install.sh` and the seven files it
+  edited. No `git add -A`.
 - _Optional, only when the release warrants it:_ refresh the README (status
   callout, screenshots). Not a gate — skip it for a routine cut.
 
