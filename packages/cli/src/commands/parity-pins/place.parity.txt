@@ -1,0 +1,1024 @@
+### move argv: MMR-5 --to MMR-1
+exit 0
+--- stdout
+| [ok] moved MMR-5 -> MMR-1
+| MMR-5
+|   type            task
+|   status          > in_progress
+|   title           Ship it
+|   parent          MMR-1
+|   priority        p0
+|   lifecycle       in_progress
+|   grooming        not_groomed
+|   hold            none
+|   harness         codex
+|   session         main-session
+|   worker harness  claude
+|   worker session  task-worker-session
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
+~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
+~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
+~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
+~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ nodes[MMR-1].distribution.awaiting: 1
+- nodes[MMR-2].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+- nodes[MMR-2].distribution.in_progress: 1
+~ nodes[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
+~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
+~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
+~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
+
+### move argv: MMR-5 --to MMR-1 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-5",
+|   "parent": "MMR-1",
+|   "status": "in_progress",
+|   "title": "Ship it",
+|   "type": "task",
+|   "description": null,
+|   "summary": null,
+|   "priority": "p0",
+|   "size": null,
+|   "lifecycle": "in_progress",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": "codex",
+|   "session": "main-session",
+|   "worker_harness": "claude",
+|   "worker_session": "task-worker-session",
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
+~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
+~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
+~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
+~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ nodes[MMR-1].distribution.awaiting: 1
+- nodes[MMR-2].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+- nodes[MMR-2].distribution.in_progress: 1
+~ nodes[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
+~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
+~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
+~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
+
+### move argv: MMR-5 --to MMR-1 -f jsonl
+exit 0
+--- stdout
+| {
+|   "id": "MMR-5",
+|   "parent": "MMR-1",
+|   "status": "in_progress",
+|   "title": "Ship it",
+|   "type": "task",
+|   "description": null,
+|   "summary": null,
+|   "priority": "p0",
+|   "size": null,
+|   "lifecycle": "in_progress",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": "codex",
+|   "session": "main-session",
+|   "worker_harness": "claude",
+|   "worker_session": "task-worker-session",
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
+~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
+~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
+~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
+~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ nodes[MMR-1].distribution.awaiting: 1
+- nodes[MMR-2].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+- nodes[MMR-2].distribution.in_progress: 1
+~ nodes[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
+~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
+~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
+~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
+
+### move argv: MMR-5 --to MMR-1 -f ids
+exit 0
+--- stdout
+| MMR-5
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
+~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
+~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
+~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
+~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ nodes[MMR-1].distribution.awaiting: 1
+- nodes[MMR-2].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+- nodes[MMR-2].distribution.in_progress: 1
+~ nodes[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
+~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
+~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
+~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
+
+### move argv: MMR-5 --to MMR-1 -f table
+exit 0
+--- stdout
+| [ok] moved MMR-5 -> MMR-1
+| 1 task
+|
+| MMR-5   > in_progress   p0   MMR-1   Ship it
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
+~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
+~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
+~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
+~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ nodes[MMR-1].distribution.awaiting: 1
+- nodes[MMR-2].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+- nodes[MMR-2].distribution.in_progress: 1
+~ nodes[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
+~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
+~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
+~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
+
+### move argv: MMR-5 --to MMR-1 --ascii
+exit 0
+--- stdout
+| [ok] moved MMR-5 -> MMR-1
+| MMR-5
+|   type            task
+|   status          > in_progress
+|   title           Ship it
+|   parent          MMR-1
+|   priority        p0
+|   lifecycle       in_progress
+|   grooming        not_groomed
+|   hold            none
+|   harness         codex
+|   session         main-session
+|   worker harness  claude
+|   worker session  task-worker-session
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
+~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
+~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
+~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
+~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ nodes[MMR-1].distribution.awaiting: 1
+- nodes[MMR-2].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+- nodes[MMR-2].distribution.in_progress: 1
+~ nodes[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
+~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
+~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
+~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
+
+### move argv: MMR-5 --to MMR-1 (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m moved MMR-5 → MMR-1
+| ␛[1mMMR-5␛[22m
+|   type            task
+|   status          ␛[36m▶ in_progress␛[39m
+|   title           Ship it
+|   parent          MMR-1
+|   priority        p0
+|   lifecycle       in_progress
+|   grooming        not_groomed
+|   hold            none
+|   harness         codex
+|   session         main-session
+|   worker harness  claude
+|   worker session  task-worker-session
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
+~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
+~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
+~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
+~ nodes[MMR-1].children[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-1].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
++ nodes[MMR-1].distribution.awaiting: 1
+- nodes[MMR-2].children[MMR-5]: {"id":"MMR-5","status":"in_progress","title":"Ship it"}
+- nodes[MMR-2].distribution.in_progress: 1
+~ nodes[MMR-2].status: "in_progress" -> "awaiting"
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
+~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
+~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
+~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
+
+### move argv: MMR-5 --to MMR-2
+exit 0
+--- stdout
+| [ok] moved MMR-5 -> MMR-2
+| MMR-5
+|   type            task
+|   status          > in_progress
+|   title           Ship it
+|   parent          MMR-2
+|   priority        p0
+|   lifecycle       in_progress
+|   grooming        not_groomed
+|   hold            none
+|   harness         codex
+|   session         main-session
+|   worker harness  claude
+|   worker session  task-worker-session
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-2"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-2"}
+
+### move argv: MMR-2 --to MMR-1
+exit 0
+--- stdout
+| [ok] moved MMR-2 -> MMR-1
+| MMR-2
+|   type          phase
+|   status        > in_progress (rollup over 7 direct children)
+|   title         Skeleton
+|   parent        MMR-1
+|   target        2026-11
+|   children      MMR-3 · Wire the store (ready), MMR-4 · Render views (awaiting), MMR-5 · Ship it (in_progress), MMR-6 · Wait on review (blocked), MMR-7 · Spike (done), MMR-8 · Tidy docs (ready), MMR-9 · Export (done)
+|   distribution  ready:2, awaiting:1, in_progress:1, blocked:1, done:2
+--- state
++ nodes[MMR-2].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-1","kind":"move","reason":null,"to":"MMR-1"}
+
+### move argv: MMR-5 --to MMR-5
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "cannot move it under itself"
+| }
+--- state
+unchanged
+
+### move argv: MMR-5 --to MMR-4
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "a task's parent must be a phase or initiative, not a task"
+| }
+--- state
+unchanged
+
+### move argv: MMR-1 --to MMR-2
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "an initiative is top-level — move it with no parent"
+| }
+--- state
+unchanged
+
+### move argv: MMR-5 --to XX-2
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "cross-project move is not supported"
+| }
+--- state
+unchanged
+
+### move argv: MMR-5 --to XX-2 -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "cross-project move is not supported"
+| }
+--- state
+unchanged
+
+### move argv: MMR-99 --to MMR-1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### move argv: MMR-5 --to MMR-99
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### move argv: MMR-5 --to MMR-99 -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### move argv: MMR --to MMR-1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "MMR is a project, not a task, phase, or initiative"
+| }
+--- state
+unchanged
+
+### move argv: MMR-5 --to MMR
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "MMR is a project, not a task, phase, or initiative"
+| }
+--- state
+unchanged
+
+### move argv: MMR-a1 --to MMR-1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "MMR-a1 is an artifact, not a task, phase, or initiative"
+| }
+--- state
+unchanged
+
+### move argv: MMR-5 --to MMR-s1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "act on a seed with promote / reject / resolve"
+|   ],
+|   "message": "MMR-s1 is a seed, not a task, phase, or initiative"
+| }
+--- state
+unchanged
+
+### move argv: nope --to MMR-1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "nope doesn't exist"
+| }
+--- state
+unchanged
+
+### move argv: MMR-5 --to ""
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "move --to expects an id (KEY-seq)"
+| }
+--- state
+unchanged
+
+### move argv: MMR-5
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Option \"--to\" is required. Supply a value."
+| }
+--- state
+unchanged
+
+### move argv: --to MMR-1
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
+| }
+--- state
+unchanged
+
+### move argv: MMR-5 --to MMR-1 --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### move argv: MMR-5 --to MMR-1 --to MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"--to\" can be supplied only once. Remove the repeated option."
+| }
+--- state
+unchanged
+
+### reorder argv: MMR-5 --top
+exit 0
+--- stdout
+| [ok] reordered MMR-5 -> top
+| MMR-5
+|   type            task
+|   status          > in_progress
+|   title           Ship it
+|   parent          MMR-2
+|   priority        p0
+|   lifecycle       in_progress
+|   grooming        not_groomed
+|   hold            none
+|   harness         codex
+|   session         main-session
+|   worker harness  claude
+|   worker session  task-worker-session
+--- state
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-5, MMR-3, MMR-4, MMR-8, MMR-6, MMR-7, MMR-9]
+
+### reorder argv: MMR-5 --top -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-5",
+|   "parent": "MMR-2",
+|   "status": "in_progress",
+|   "title": "Ship it",
+|   "type": "task",
+|   "description": null,
+|   "summary": null,
+|   "priority": "p0",
+|   "size": null,
+|   "lifecycle": "in_progress",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": "codex",
+|   "session": "main-session",
+|   "worker_harness": "claude",
+|   "worker_session": "task-worker-session",
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+--- state
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-5, MMR-3, MMR-4, MMR-8, MMR-6, MMR-7, MMR-9]
+
+### reorder argv: MMR-5 --top -f ids
+exit 0
+--- stdout
+| MMR-5
+--- state
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-5, MMR-3, MMR-4, MMR-8, MMR-6, MMR-7, MMR-9]
+
+### reorder argv: MMR-5 --top -f table
+exit 0
+--- stdout
+| [ok] reordered MMR-5 -> top
+| 1 task
+|
+| MMR-5   > in_progress   p0   MMR-2   Ship it
+--- state
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-5, MMR-3, MMR-4, MMR-8, MMR-6, MMR-7, MMR-9]
+
+### reorder argv: MMR-5 --top --ascii
+exit 0
+--- stdout
+| [ok] reordered MMR-5 -> top
+| MMR-5
+|   type            task
+|   status          > in_progress
+|   title           Ship it
+|   parent          MMR-2
+|   priority        p0
+|   lifecycle       in_progress
+|   grooming        not_groomed
+|   hold            none
+|   harness         codex
+|   session         main-session
+|   worker harness  claude
+|   worker session  task-worker-session
+--- state
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-5, MMR-3, MMR-4, MMR-8, MMR-6, MMR-7, MMR-9]
+
+### reorder argv: MMR-5 --top (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m reordered MMR-5 → top
+| ␛[1mMMR-5␛[22m
+|   type            task
+|   status          ␛[36m▶ in_progress␛[39m
+|   title           Ship it
+|   parent          MMR-2
+|   priority        p0
+|   lifecycle       in_progress
+|   grooming        not_groomed
+|   hold            none
+|   harness         codex
+|   session         main-session
+|   worker harness  claude
+|   worker session  task-worker-session
+--- state
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-5, MMR-3, MMR-4, MMR-8, MMR-6, MMR-7, MMR-9]
+
+### reorder argv: MMR-3 --bottom
+exit 0
+--- stdout
+| [ok] reordered MMR-3 -> bottom
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
+
+### reorder argv: MMR-3 --bottom -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-3",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Wire the store",
+|   "type": "task",
+|   "description": "Open the store once.\n\nKeep it open.",
+|   "summary": "one store per run",
+|   "priority": "p1",
+|   "size": "small",
+|   "lifecycle": "todo",
+|   "grooming": "groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+--- state
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
+
+### reorder argv: MMR-8 --before MMR-4
+exit 0
+--- stdout
+| [ok] reordered MMR-8 -> before MMR-4
+| MMR-8
+|   type       task
+|   status     * ready
+|   title      Tidy docs
+|   parent     MMR-2
+|   priority   p2
+|   lifecycle  todo
+|   grooming   not_groomed
+|   hold       none
+--- state
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-8, MMR-4, MMR-5, MMR-6, MMR-7, MMR-9]
+
+### reorder argv: MMR-8 --before MMR-4 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-8",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Tidy docs",
+|   "type": "task",
+|   "description": null,
+|   "summary": null,
+|   "priority": "p2",
+|   "size": null,
+|   "lifecycle": "todo",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+--- state
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-8, MMR-4, MMR-5, MMR-6, MMR-7, MMR-9]
+
+### reorder argv: MMR-3 --after MMR-5
+exit 0
+--- stdout
+| [ok] reordered MMR-3 -> after MMR-5
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-3, MMR-8, MMR-6, MMR-7, MMR-9]
+
+### reorder argv: MMR-3 --after MMR-5 (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m reordered MMR-3 → after MMR-5
+| ␛[1mMMR-3␛[22m
+|   type         task
+|   status       ␛[32m● ready␛[39m
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-3, MMR-8, MMR-6, MMR-7, MMR-9]
+
+### reorder argv: MMR-99 --top
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### reorder argv: MMR-99 --top -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### reorder argv: MMR --top
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "MMR is a project, not a task"
+| }
+--- state
+unchanged
+
+### reorder argv: MMR-a1 --top
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "MMR-a1 is an artifact, not a task"
+| }
+--- state
+unchanged
+
+### reorder argv: MMR-s1 --top
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "act on a seed with promote / reject / resolve"
+|   ],
+|   "message": "MMR-s1 is a seed, not a task"
+| }
+--- state
+unchanged
+
+### reorder argv: nope --top
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "nope doesn't exist"
+| }
+--- state
+unchanged
+
+### reorder argv: MMR-2 --top
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "only tasks carry rank — reorder a ready task under it instead: MMR-3, MMR-8"
+|   ],
+|   "message": "MMR-2 is a phase, not a task"
+| }
+--- state
+unchanged
+
+### reorder argv: MMR-3 --before MMR-99
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### reorder argv: MMR-3 --before MMR
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "MMR is a project, not a task, phase, or initiative"
+| }
+--- state
+unchanged
+
+### reorder argv: MMR-3 --before MMR-3
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "cannot position a task relative to itself"
+| }
+--- state
+unchanged
+
+### reorder argv: MMR-3 --before XX-3
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "task XX-3 is in a different project; rank is per-project"
+| }
+--- state
+unchanged
+
+### reorder argv: MMR-3 --after ""
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "reorder --after expects an id (KEY-seq)"
+| }
+--- state
+unchanged
+
+### reorder argv: MMR-3 --before ""
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "reorder --before expects an id (KEY-seq)"
+| }
+--- state
+unchanged
+
+### reorder argv: MMR-3
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "One of options \"--top\", \"--bottom\", \"--before\", and \"--after\" is required. Supply at least one of them."
+| }
+--- state
+unchanged
+
+### reorder argv: (no arguments)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"id\" requires a value. Supply a value for \"id\".\nOne of options \"--top\", \"--bottom\", \"--before\", and \"--after\" is required. Supply at least one of them."
+| }
+--- state
+unchanged
+
+### reorder argv: MMR-3 --top --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### reorder argv: MMR-3 --top --bottom
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Options \"--top\", \"--bottom\", \"--before\", and \"--after\" cannot be used together. Supply only one of them."
+| }
+--- state
+unchanged
+
+### reorder argv: MMR-3 --top --before MMR-5
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Options \"--top\", \"--bottom\", \"--before\", and \"--after\" cannot be used together. Supply only one of them."
+| }
+--- state
+unchanged
+
+### reorder argv: MMR-3 --before MMR-5 --before MMR-8
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"--before\" can be supplied only once. Remove the repeated option."
+| }
+--- state
+unchanged
+
+### move argv: MMR-5 --to MMR-1 --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
+|   ],
+|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### reorder argv: MMR-3 --top --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
+|   ],
+|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+

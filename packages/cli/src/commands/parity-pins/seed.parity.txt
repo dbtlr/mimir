@@ -1,0 +1,1558 @@
+### seed (bound)
+exit 0
+--- stdout
+| [ok] filed MMR-s6 · idea
+| MMR-s6
+|   project    MMR
+|   title      Cache it
+|   kind       idea
+|   lifecycle  new
+|   created    2026-10-01 12:00 UTC
+--- state
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache it","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### seed -f ids
+exit 0
+--- stdout
+| MMR-s6
+--- state
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache it","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### seed -f json
+exit 0
+--- stdout
+| {
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "id": "MMR-s6",
+|   "kind": "idea",
+|   "lane": "untriaged",
+|   "lifecycle": "new",
+|   "project": "MMR",
+|   "ready_to_resolve": false,
+|   "requester": null,
+|   "spawned": [],
+|   "title": "Cache it",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "description": null
+| }
+--- state
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache it","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### seed -f jsonl
+exit 0
+--- stdout
+| {
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "id": "MMR-s6",
+|   "kind": "idea",
+|   "lane": "untriaged",
+|   "lifecycle": "new",
+|   "project": "MMR",
+|   "ready_to_resolve": false,
+|   "requester": null,
+|   "spawned": [],
+|   "title": "Cache it",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "description": null
+| }
+--- state
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache it","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### seed -f table
+exit 0
+--- stdout
+| [ok] filed MMR-s6 · idea
+| MMR-s6
+|   project    MMR
+|   title      Cache it
+|   kind       idea
+|   lifecycle  new
+|   created    2026-10-01 12:00 UTC
+--- state
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache it","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### seed --ascii
+exit 0
+--- stdout
+| [ok] filed MMR-s6 · idea
+| MMR-s6
+|   project    MMR
+|   title      Cache it
+|   kind       idea
+|   lifecycle  new
+|   created    2026-10-01 12:00 UTC
+--- state
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache it","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### seed --desc
+exit 0
+--- stdout
+| [ok] filed MMR-s6 · idea
+| MMR-s6
+|   project      MMR
+|   title        Cache it
+|   kind         idea
+|   lifecycle    new
+|   description  Because it is slow.
+|                
+|                Two paragraphs.
+|   created      2026-10-01 12:00 UTC
+--- state
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":"Because it is slow. Two paragraphs.","lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache it","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### seed -k bug
+exit 0
+--- stdout
+| [ok] filed MMR-s6 · bug
+| MMR-s6
+|   project    MMR
+|   title      It breaks
+|   kind       bug
+|   lifecycle  new
+|   created    2026-10-01 12:00 UTC
+--- state
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"bug","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"It breaks","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### seed -k feature
+exit 0
+--- stdout
+| [ok] filed MMR-s6 · feature
+| MMR-s6
+|   project    MMR
+|   title      A hook
+|   kind       feature
+|   lifecycle  new
+|   created    2026-10-01 12:00 UTC
+--- state
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"feature","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"A hook","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### seed --project XX (requester is the bound project)
+exit 0
+--- stdout
+| [ok] filed XX-s2 · idea
+| XX-s2
+|   project    XX
+|   title      Ask
+|   kind       idea
+|   lifecycle  new
+|   requester  MMR
+|   created    2026-10-01 12:00 UTC
+--- state
++ seeds.XX[XX-s2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"XX-s2","kind":"idea","lede":null,"lifecycle":"new","project":"XX","readyToResolve":false,"requester":"MMR","spawned":[],"title":"Ask","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### seed --project MMR (self-filed)
+exit 0
+--- stdout
+| [ok] filed MMR-s6 · idea
+| MMR-s6
+|   project    MMR
+|   title      Own
+|   kind       idea
+|   lifecycle  new
+|   created    2026-10-01 12:00 UTC
+--- state
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Own","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### seed --project XX (unbound)
+exit 0
+--- stdout
+| [ok] filed XX-s2 · idea
+| XX-s2
+|   project    XX
+|   title      Ask
+|   kind       idea
+|   lifecycle  new
+|   created    2026-10-01 12:00 UTC
+--- state
++ seeds.XX[XX-s2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"XX-s2","kind":"idea","lede":null,"lifecycle":"new","project":"XX","readyToResolve":false,"requester":null,"spawned":[],"title":"Ask","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### seed --scope XX (the scope is the requester)
+exit 0
+--- stdout
+| [ok] filed MMR-s6 · idea
+| MMR-s6
+|   project    MMR
+|   title      Ask
+|   kind       idea
+|   lifecycle  new
+|   requester  XX
+|   created    2026-10-01 12:00 UTC
+--- state
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":"XX","spawned":[],"title":"Ask","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### seed --scope all
+exit 0
+--- stdout
+| [ok] filed MMR-s6 · idea
+| MMR-s6
+|   project    MMR
+|   title      Ask
+|   kind       idea
+|   lifecycle  new
+|   created    2026-10-01 12:00 UTC
+--- state
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Ask","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### seed (unbound, no project)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "pass -p KEY or bind a board first (mimir bind KEY)"
+|   ],
+|   "message": "seed requires a target project"
+| }
+--- state
+unchanged
+
+### seed (no kind)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "seed requires -k <idea|bug|feature>"
+| }
+--- state
+unchanged
+
+### seed -k nope
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "invalid kind: nope (expected idea|bug|feature)"
+| }
+--- state
+unchanged
+
+### seed (blank title)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "seed requires a title"
+| }
+--- state
+unchanged
+
+### seed --project ZZ
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key ZZ -y"
+|   ],
+|   "message": "ZZ doesn't exist"
+| }
+--- state
+unchanged
+
+### seed --project nope
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key nope -y"
+|   ],
+|   "message": "nope doesn't exist"
+| }
+--- state
+unchanged
+
+### seed --project all
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key all -y"
+|   ],
+|   "message": "all doesn't exist"
+| }
+--- state
+unchanged
+
+### seed (no title)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"title\" requires a value. Supply a value for \"title\"."
+| }
+--- state
+unchanged
+
+### seed --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
+| }
+--- state
+unchanged
+
+### seed -f yaml
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Option \"format\": Supply one of ids, json, jsonl, records, table."
+| }
+--- state
+unchanged
+
+### seed argv: "Cache it" -k idea -s MMR
+exit 0
+--- stdout
+| [ok] filed MMR-s6 · idea
+| MMR-s6
+|   project    MMR
+|   title      Cache it
+|   kind       idea
+|   lifecycle  new
+|   created    2026-10-01 12:00 UTC
+--- state
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache it","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### seed argv: Ask --kind bug -p XX
+exit 0
+--- stdout
+| [ok] filed XX-s2 · bug
+| XX-s2
+|   project    XX
+|   title      Ask
+|   kind       bug
+|   lifecycle  new
+|   created    2026-10-01 12:00 UTC
+--- state
++ seeds.XX[XX-s2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"XX-s2","kind":"bug","lede":null,"lifecycle":"new","project":"XX","readyToResolve":false,"requester":null,"spawned":[],"title":"Ask","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### seed argv: "Cache it" -k idea -k bug -s MMR
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"-k\" can be supplied only once. Remove the repeated option."
+| }
+--- state
+unchanged
+
+### seed argv: a b -k idea -s MMR
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"seed\" accepts 1 argument. Remove the extra values."
+| }
+--- state
+unchanged
+
+### seed argv: "Cache it" -k idea -s MMR (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m filed MMR-s6 · idea
+| ␛[1mMMR-s6␛[22m
+|   project    MMR
+|   title      Cache it
+|   kind       idea
+|   lifecycle  new
+|   created    2026-10-01 12:00 UTC
+--- state
++ seeds.MMR[MMR-s6]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-s6","kind":"idea","lede":null,"lifecycle":"new","project":"MMR","readyToResolve":false,"requester":null,"spawned":[],"title":"Cache it","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### promote MMR-s1 (no parent, no link)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "promote requires --parent <node> (create) or --link <KEY-seq> (record existing)"
+| }
+--- state
+unchanged
+
+### promote MMR-s1
+exit 0
+--- stdout
+| [ok] promoted MMR-s1 · spawned MMR-10
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    promoted
+|   requester    XX
+|   spawned      MMR-10
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
+
+### promote MMR-s1 -f ids
+exit 0
+--- stdout
+| MMR-10
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
+
+### promote MMR-s1 -f json
+exit 0
+--- stdout
+| {
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "id": "MMR-s1",
+|   "kind": "feature",
+|   "lane": "promoted",
+|   "lifecycle": "promoted",
+|   "project": "MMR",
+|   "ready_to_resolve": false,
+|   "requester": "XX",
+|   "spawned": [
+|     "MMR-10"
+|   ],
+|   "title": "A hook",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "description": "Ask the other board for a hook.",
+|   "created": "MMR-10"
+| }
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
+
+### promote MMR-s1 -f jsonl
+exit 0
+--- stdout
+| {
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "id": "MMR-s1",
+|   "kind": "feature",
+|   "lane": "promoted",
+|   "lifecycle": "promoted",
+|   "project": "MMR",
+|   "ready_to_resolve": false,
+|   "requester": "XX",
+|   "spawned": [
+|     "MMR-10"
+|   ],
+|   "title": "A hook",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "description": "Ask the other board for a hook.",
+|   "created": "MMR-10"
+| }
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
+
+### promote MMR-s1 -f table
+exit 0
+--- stdout
+| [ok] promoted MMR-s1 · spawned MMR-10
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    promoted
+|   requester    XX
+|   spawned      MMR-10
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
+
+### promote MMR-s1 with fields
+exit 0
+--- stdout
+| [ok] promoted MMR-s1 · spawned MMR-10
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    promoted
+|   requester    XX
+|   spawned      MMR-10
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Spawned body.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Spawned body.","lifecycle":"todo","parent":"MMR-2","priority":"p1","session":null,"size":"small","status":"ready","summary":null,"tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}],"title":"Add the hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Add the hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Spawned body.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":"p1","session":null,"size":"small","status":"ready","summary":null,"tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}],"title":"Add the hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
+
+### promote MMR-s2 --parent
+exit 0
+--- stdout
+| [ok] promoted MMR-s2 · spawned MMR-10
+| MMR-s2
+|   project    MMR
+|   title      Cache the plan
+|   kind       idea
+|   lifecycle  promoted
+|   spawned    MMR-10
+|   created    2026-10-01 12:00 UTC
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Cache the plan","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Cache the plan"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Cache the plan","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s2].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s2].spawned[@0]: "MMR-10"
+
+### promote MMR-s1 --link
+exit 0
+--- stdout
+| [ok] promoted MMR-s1 · recorded existing work
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    promoted
+|   requester    XX
+|   spawned      MMR-3
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-3"
+
+### promote MMR-s1 --link -f json
+exit 0
+--- stdout
+| {
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "id": "MMR-s1",
+|   "kind": "feature",
+|   "lane": "promoted",
+|   "lifecycle": "promoted",
+|   "project": "MMR",
+|   "ready_to_resolve": false,
+|   "requester": "XX",
+|   "spawned": [
+|     "MMR-3"
+|   ],
+|   "title": "A hook",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "description": "Ask the other board for a hook."
+| }
+--- state
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-3"
+
+### promote MMR-s1 --link -f ids
+exit 0
+--- stdout
+| MMR-3
+--- state
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-3"
+
+### promote MMR-s1 --size m
+exit 0
+--- stdout
+| [ok] promoted MMR-s1 · spawned MMR-10
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    promoted
+|   requester    XX
+|   spawned      MMR-10
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":"medium","status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":"medium","status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
+
+### promote MMR-s1 --ascii
+exit 0
+--- stdout
+| [ok] promoted MMR-s1 · spawned MMR-10
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    promoted
+|   requester    XX
+|   spawned      MMR-10
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
+
+### promote MMR-s1 -p p9
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "invalid priority: p9 (expected p0|p1|p2|p3)"
+| }
+--- state
+unchanged
+
+### promote MMR-s1 --size huge
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "invalid size: huge (expected small|medium|large)"
+| }
+--- state
+unchanged
+
+### promote MMR-3 (not a seed)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "promote takes a seed id (KEY-sN), got MMR-3"
+| }
+--- state
+unchanged
+
+### promote nope
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "promote takes a seed id (KEY-sN), got nope"
+| }
+--- state
+unchanged
+
+### promote MMR-s99
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-s99 doesn't exist"
+| }
+--- state
+unchanged
+
+### promote MMR-s3 (settled)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "promote applies to a new, parked, or promoted seed"
+|   ],
+|   "message": "seed MMR-s3 is rejected — a terminal seed cannot be promoted"
+| }
+--- state
+unchanged
+
+### promote MMR-s4 (promoted)
+exit 0
+--- stdout
+| [ok] promoted MMR-s4 · spawned MMR-10
+| MMR-s4
+|   project    MMR
+|   title      Export
+|   kind       feature
+|   lifecycle  promoted
+|   spawned    MMR-9, MMR-10
+|   created    2026-10-01 12:00 UTC
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Export","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Export"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Export","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s4].readyToResolve: true -> false
++ seeds.MMR[MMR-s4].spawned[@1]: "MMR-10"
+
+### promote MMR-s1 --parent MMR-99
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "a task parent is a phase or initiative"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### promote MMR-s1 --link MMR-99
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### promote (no id)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
+| }
+--- state
+unchanged
+
+### promote MMR-s1 --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
+| }
+--- state
+unchanged
+
+### promote argv: MMR-s1 --parent MMR-2 -p p1 -t alpha -t beta
+exit 0
+--- stdout
+| [ok] promoted MMR-s1 · spawned MMR-10
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    promoted
+|   requester    XX
+|   spawned      MMR-10
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":"p1","session":null,"size":null,"status":"ready","summary":null,"tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":"p1","session":null,"size":null,"status":"ready","summary":null,"tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
+
+### promote argv: MMR-s1 --parent MMR-2 -p p1 -p p2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"-p\" can be supplied only once. Remove the repeated option."
+| }
+--- state
+unchanged
+
+### promote argv: MMR-s1 --link MMR-3 --link MMR-4
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"--link\" can be supplied only once. Remove the repeated option."
+| }
+--- state
+unchanged
+
+### promote argv: MMR-s1 extra --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"promote\" accepts 1 argument. Remove the extra values."
+| }
+--- state
+unchanged
+
+### promote argv: MMR-s1 --parent MMR-2 -f ids (terminal)
+exit 0
+--- stdout
+| MMR-10
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
+
+### promote argv: MMR-s1 --parent MMR-2 (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m promoted MMR-s1 · spawned MMR-10
+| ␛[1mMMR-s1␛[22m
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    promoted
+|   requester    XX
+|   spawned      MMR-10
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Ask the other board for a hook.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"A hook"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Ask the other board for a hook.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"A hook","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
+
+### reject MMR-s1
+exit 0
+--- stdout
+| [ok] rejected MMR-s1 · out of scope
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    rejected
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
+
+### reject MMR-s1 -f ids
+exit 0
+--- stdout
+| MMR-s1
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
+
+### reject MMR-s1 -f json
+exit 0
+--- stdout
+| {
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "id": "MMR-s1",
+|   "kind": "feature",
+|   "lane": "settled",
+|   "lifecycle": "rejected",
+|   "project": "MMR",
+|   "ready_to_resolve": false,
+|   "requester": "XX",
+|   "spawned": [],
+|   "title": "A hook",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "description": "Ask the other board for a hook."
+| }
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
+
+### reject MMR-s1 -f jsonl
+exit 0
+--- stdout
+| {
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "id": "MMR-s1",
+|   "kind": "feature",
+|   "lane": "settled",
+|   "lifecycle": "rejected",
+|   "project": "MMR",
+|   "ready_to_resolve": false,
+|   "requester": "XX",
+|   "spawned": [],
+|   "title": "A hook",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "description": "Ask the other board for a hook."
+| }
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
+
+### reject MMR-s1 -f table
+exit 0
+--- stdout
+| [ok] rejected MMR-s1 · out of scope
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    rejected
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
+
+### reject MMR-s1 --ascii
+exit 0
+--- stdout
+| [ok] rejected MMR-s1 · out of scope
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    rejected
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
+
+### reject MMR-s2
+exit 0
+--- stdout
+| [ok] rejected MMR-s2 · no longer wanted
+| MMR-s2
+|   project    MMR
+|   title      Cache the plan
+|   kind       idea
+|   lifecycle  rejected
+|   created    2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s2].lede: null
+~ seeds.MMR[MMR-s2].lifecycle: "new" -> "rejected"
+
+### reject MMR-s5 (parked)
+exit 0
+--- stdout
+| [ok] rejected MMR-s5 · drop it
+| MMR-s5
+|   project    MMR
+|   title      Parked one
+|   kind       idea
+|   lifecycle  rejected
+|   created    2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s5].lede: null
+~ seeds.MMR[MMR-s5].lifecycle: "parked" -> "rejected"
+
+### reject MMR-s1 (blank reason)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "reject requires a reason"
+| }
+--- state
+unchanged
+
+### reject MMR-3 (not a seed)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "reject takes a seed id (KEY-sN), got MMR-3"
+| }
+--- state
+unchanged
+
+### reject MMR-s99
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-s99 doesn't exist"
+| }
+--- state
+unchanged
+
+### reject MMR-s3 (settled)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "legal edges: new → parked | promoted | resolved | rejected; parked → new | promoted | resolved | rejected; promoted → resolved | rejected"
+|   ],
+|   "message": "a seed cannot move rejected → rejected"
+| }
+--- state
+unchanged
+
+### reject (no reason)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "reject requires a reason"
+| }
+--- state
+unchanged
+
+### reject (no id)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
+| }
+--- state
+unchanged
+
+### reject MMR-s1 --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
+| }
+--- state
+unchanged
+
+### reject argv: MMR-s1 out of scope
+exit 0
+--- stdout
+| [ok] rejected MMR-s1 · out of scope
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    rejected
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
+
+### reject argv: MMR-s1 out of scope (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m rejected MMR-s1 · out of scope
+| ␛[1mMMR-s1␛[22m
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    rejected
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
+
+### reject argv: MMR-s1 -- --out of scope
+exit 0
+--- stdout
+| [ok] rejected MMR-s1 · --out of scope
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    rejected
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
+
+### reject argv: MMR-s1 later -- -1 cycle
+exit 0
+--- stdout
+| [ok] rejected MMR-s1 · later -1 cycle
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    rejected
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "rejected"
+
+### resolve argv: MMR-s1 -- --shipped in MMR-40
+exit 0
+--- stdout
+| [ok] resolved MMR-s1 · --shipped in MMR-40
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    resolved
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
+
+### resolve argv: MMR-s1 done -- -1 left
+exit 0
+--- stdout
+| [ok] resolved MMR-s1 · done -1 left
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    resolved
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
+
+### reject argv: MMR-s1 --
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "reject requires a reason"
+| }
+--- state
+unchanged
+
+### resolve MMR-s1
+exit 0
+--- stdout
+| [ok] resolved MMR-s1 · shipped in MMR-40
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    resolved
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
+
+### resolve MMR-s1 -f ids
+exit 0
+--- stdout
+| MMR-s1
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
+
+### resolve MMR-s1 -f json
+exit 0
+--- stdout
+| {
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "id": "MMR-s1",
+|   "kind": "feature",
+|   "lane": "settled",
+|   "lifecycle": "resolved",
+|   "project": "MMR",
+|   "ready_to_resolve": false,
+|   "requester": "XX",
+|   "spawned": [],
+|   "title": "A hook",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "description": "Ask the other board for a hook."
+| }
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
+
+### resolve MMR-s1 -f jsonl
+exit 0
+--- stdout
+| {
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "id": "MMR-s1",
+|   "kind": "feature",
+|   "lane": "settled",
+|   "lifecycle": "resolved",
+|   "project": "MMR",
+|   "ready_to_resolve": false,
+|   "requester": "XX",
+|   "spawned": [],
+|   "title": "A hook",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "description": "Ask the other board for a hook."
+| }
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
+
+### resolve MMR-s1 -f table
+exit 0
+--- stdout
+| [ok] resolved MMR-s1 · shipped
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    resolved
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
+
+### resolve MMR-s4 (ready to resolve)
+exit 0
+--- stdout
+| [ok] resolved MMR-s4 · shipped
+| MMR-s4
+|   project    MMR
+|   title      Export
+|   kind       feature
+|   lifecycle  resolved
+|   spawned    MMR-9
+|   created    2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s4].lede: null
+~ seeds.MMR[MMR-s4].lifecycle: "promoted" -> "resolved"
+~ seeds.MMR[MMR-s4].readyToResolve: true -> false
+
+### resolve MMR-s1 (blank reason)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "resolve requires a reason"
+| }
+--- state
+unchanged
+
+### resolve MMR-3 (not a seed)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "resolve takes a seed id (KEY-sN), got MMR-3"
+| }
+--- state
+unchanged
+
+### resolve MMR-s99
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-s99 doesn't exist"
+| }
+--- state
+unchanged
+
+### resolve MMR-s3 (settled)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "legal edges: new → parked | promoted | resolved | rejected; parked → new | promoted | resolved | rejected; promoted → resolved | rejected"
+|   ],
+|   "message": "a seed cannot move rejected → resolved"
+| }
+--- state
+unchanged
+
+### resolve MMR-s1 --ascii
+exit 0
+--- stdout
+| [ok] resolved MMR-s1 · shipped
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    resolved
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
+
+### resolve MMR-s5 (parked)
+exit 0
+--- stdout
+| [ok] resolved MMR-s5 · done
+| MMR-s5
+|   project    MMR
+|   title      Parked one
+|   kind       idea
+|   lifecycle  resolved
+|   created    2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s5].lede: null
+~ seeds.MMR[MMR-s5].lifecycle: "parked" -> "resolved"
+
+### resolve (no reason)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "resolve requires a reason"
+| }
+--- state
+unchanged
+
+### resolve (no id)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
+| }
+--- state
+unchanged
+
+### resolve MMR-s1 --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
+| }
+--- state
+unchanged
+
+### resolve argv: MMR-s1 shipped in MMR-40
+exit 0
+--- stdout
+| [ok] resolved MMR-s1 · shipped in MMR-40
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    resolved
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
+
+### resolve argv: MMR-s1 shipped in MMR-40 (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m resolved MMR-s1 · shipped in MMR-40
+| ␛[1mMMR-s1␛[22m
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    resolved
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+- seeds.MMR[MMR-s1].lede: "Ask the other board for a hook."
+~ seeds.MMR[MMR-s1].lifecycle: "new" -> "resolved"
+
+### seed argv: x -k idea -s MMR --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
+|   ],
+|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### promote argv: MMR-s1 --summary x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--summary' sets the summary at create/update/attach/scratch; list/next filter with '--eq summary:KEY'"
+|   ],
+|   "message": "Unknown option \"--summary\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### reject argv: MMR-s1 no --force
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--force' permits a non-empty discard; use it with scratch discard"
+|   ],
+|   "message": "Unknown option \"--force\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### resolve argv: MMR-s1 done --reason x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--reason' records a Scratchpad supersession or forced discard"
+|   ],
+|   "message": "Unknown option \"--reason\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### seed argv: -s MMR seed "Cache it" -k idea
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "parser",
+|   "hints": [],
+|   "message": "Option \"-s\" belongs to commands next, list, overview, artifacts, search, seeds, seed, triage, scratch list, scratch create, doctor. Supply it after the command name."
+| }
+--- state
+unchanged
+
+### resolve argv: MMR-s1 shipped -f json -f ids
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "parser",
+|   "hints": [],
+|   "message": "Option \"-f\" can be supplied only once. Remove the repeated option."
+| }
+--- state
+unchanged
+

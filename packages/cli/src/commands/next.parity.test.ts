@@ -139,4 +139,4 @@ const CASES: ParityCase[] = [
   argvCase(['next', '-s', 'MMR', '--ascii'], true),
 ];
 
-parityCases(/^next /, CASES);
+parityCases(import.meta.url, CASES);

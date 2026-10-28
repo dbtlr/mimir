@@ -1,0 +1,608 @@
+### seeds -p MMR
+exit 0
+--- stdout
+| 2 seeds
+|
+| feature   new        XX   now   MMR-s1   A hook
+|       Ask the other board for a hook.
+| feature   promoted   XX   now   MMR-s3   A promoted ask
+
+### seeds -p MMR -f records
+exit 0
+--- stdout
+| 2 seeds
+|
+| feature   new        XX   now   MMR-s1   A hook
+|       Ask the other board for a hook.
+| feature   promoted   XX   now   MMR-s3   A promoted ask
+
+### seeds -p MMR -f ids
+exit 0
+--- stdout
+| MMR-s1
+| MMR-s3
+
+### seeds -p MMR -f json
+exit 0
+--- stdout
+| {
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s1",
+|       "kind": "feature",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": "XX",
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": "Ask the other board for a hook."
+|     },
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s3",
+|       "kind": "feature",
+|       "lane": "promoted",
+|       "lifecycle": "promoted",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": "XX",
+|       "spawned": [
+|         "MMR-9"
+|       ],
+|       "title": "A promoted ask",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "total": 2
+| }
+
+### seeds -p MMR -f jsonl
+exit 0
+--- stdout
+| {"created_at":"2026-10-01T12:00:00.000Z","id":"MMR-s1","kind":"feature","lane":"untriaged","lifecycle":"new","project":"MMR","ready_to_resolve":false,"requester":"XX","spawned":[],"title":"A hook","updated_at":"2026-10-01T12:00:00.000Z","lede":"Ask the other board for a hook."}
+| {"created_at":"2026-10-01T12:00:00.000Z","id":"MMR-s3","kind":"feature","lane":"promoted","lifecycle":"promoted","project":"MMR","ready_to_resolve":false,"requester":"XX","spawned":["MMR-9"],"title":"A promoted ask","updated_at":"2026-10-01T12:00:00.000Z","lede":null}
+
+### seeds -p MMR --ascii
+exit 0
+--- stdout
+| 2 seeds
+|
+| feature   new        XX   now   MMR-s1   A hook
+|       Ask the other board for a hook.
+| feature   promoted   XX   now   MMR-s3   A promoted ask
+
+### seeds -s MMR
+exit 0
+--- stdout
+| 2 seeds
+|
+| feature   new        XX   now   MMR-s1   A hook
+|       Ask the other board for a hook.
+| feature   promoted   XX   now   MMR-s3   A promoted ask
+
+### seeds -p XX -f json
+exit 0
+--- stdout
+| {
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "XX-s1",
+|       "kind": "idea",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "XX",
+|       "ready_to_resolve": false,
+|       "requester": null,
+|       "spawned": [],
+|       "title": "Over there",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "total": 1
+| }
+
+### seeds (bound to MMR)
+exit 0
+--- stdout
+| 2 seeds
+|
+| feature   new        XX   now   MMR-s1   A hook
+|       Ask the other board for a hook.
+| feature   promoted   XX   now   MMR-s3   A promoted ask
+
+### seeds (bound to MMR) -f ids
+exit 0
+--- stdout
+| MMR-s1
+| MMR-s3
+
+### seeds -p XX (bound to MMR)
+exit 0
+--- stdout
+| 1 seed
+|
+| idea   new   -   now   XX-s1   Over there
+
+### seeds -p MMR --status all
+exit 0
+--- stdout
+| 4 seeds
+|
+| feature   new        XX   now   MMR-s1   A hook
+|       Ask the other board for a hook.
+| idea      parked     -    now   MMR-s2   A parked idea
+|       Not now.
+| feature   promoted   XX   now   MMR-s3   A promoted ask
+| bug       rejected   -    now   MMR-s4   A rejected report
+
+### seeds -p MMR --status parked -f ids
+exit 0
+--- stdout
+| MMR-s2
+
+### seeds -p MMR --status rejected
+exit 0
+--- stdout
+| 1 seed
+|
+| bug   rejected   -   now   MMR-s4   A rejected report
+
+### seeds -p MMR --status live -f json
+exit 0
+--- stdout
+| {
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s1",
+|       "kind": "feature",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": "XX",
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": "Ask the other board for a hook."
+|     },
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s3",
+|       "kind": "feature",
+|       "lane": "promoted",
+|       "lifecycle": "promoted",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": "XX",
+|       "spawned": [
+|         "MMR-9"
+|       ],
+|       "title": "A promoted ask",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "total": 2
+| }
+
+### seeds -p MMR --sort desc -f ids
+exit 0
+--- stdout
+| MMR-s3
+| MMR-s1
+
+### seeds -p MMR --status all --sort desc
+exit 0
+--- stdout
+| 4 seeds
+|
+| bug       rejected   -    now   MMR-s4   A rejected report
+| feature   promoted   XX   now   MMR-s3   A promoted ask
+| idea      parked     -    now   MMR-s2   A parked idea
+|       Not now.
+| feature   new        XX   now   MMR-s1   A hook
+|       Ask the other board for a hook.
+
+### seeds -p MMR --grouped
+exit 0
+--- stdout
+| 2 seeds
+|
+| untriaged (1)
+| feature   new   XX   now   MMR-s1   A hook
+|       Ask the other board for a hook.
+|
+| ready to resolve (0)
+|
+| promoted (1)
+| feature   promoted   XX   now   MMR-s3   A promoted ask
+|
+| settled (0)
+
+### seeds -p MMR --status all --grouped
+exit 0
+--- stdout
+| 4 seeds
+|
+| untriaged (1)
+| feature   new   XX   now   MMR-s1   A hook
+|       Ask the other board for a hook.
+|
+| ready to resolve (0)
+|
+| promoted (1)
+| feature   promoted   XX   now   MMR-s3   A promoted ask
+|
+| parked (1)
+| idea   parked   -   now   MMR-s2   A parked idea
+|       Not now.
+|
+| settled (1)
+| bug   rejected   -   now   MMR-s4   A rejected report
+
+### seeds -p MMR --status all --grouped --ascii
+exit 0
+--- stdout
+| 4 seeds
+|
+| untriaged (1)
+| feature   new   XX   now   MMR-s1   A hook
+|       Ask the other board for a hook.
+|
+| ready to resolve (0)
+|
+| promoted (1)
+| feature   promoted   XX   now   MMR-s3   A promoted ask
+|
+| parked (1)
+| idea   parked   -   now   MMR-s2   A parked idea
+|       Not now.
+|
+| settled (1)
+| bug   rejected   -   now   MMR-s4   A rejected report
+
+### seeds -p MMR --grouped -f json
+exit 0
+--- stdout
+| {
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s1",
+|       "kind": "feature",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": "XX",
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": "Ask the other board for a hook."
+|     },
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s3",
+|       "kind": "feature",
+|       "lane": "promoted",
+|       "lifecycle": "promoted",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": "XX",
+|       "spawned": [
+|         "MMR-9"
+|       ],
+|       "title": "A promoted ask",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "total": 2
+| }
+
+### seeds -p MMR --requester XX -f ids
+exit 0
+--- stdout
+| MMR-s1
+| MMR-s3
+
+### seeds -p MMR --after created_at:2020-01-01 -f ids
+exit 0
+--- stdout
+| MMR-s1
+| MMR-s3
+
+### seeds -p MMR --before created_at:2020-01-01
+exit 0
+--- stdout
+| 0 seeds
+
+### seeds -p MMR --on created_at:2020-01-01 --tz Asia/Tokyo -f ids
+exit 0
+--- stdout
+|
+
+### seeds -p MMR --at-or-after created_at:2020-01-01T00:00Z -f ids
+exit 0
+--- stdout
+| MMR-s1
+| MMR-s3
+
+### seeds -p MMR --requester ZZ
+exit 0
+--- stdout
+| 0 seeds
+
+### seeds -p MMR --requester ZZ -f json
+exit 0
+--- stdout
+| {
+|   "seeds": [],
+|   "total": 0
+| }
+
+### seeds -p MMR --requester ZZ -f ids
+exit 0
+--- stdout
+|
+
+### seeds -p MMR --requester ZZ --grouped
+exit 0
+--- stdout
+| 0 seeds
+|
+| untriaged (0)
+|
+| ready to resolve (0)
+|
+| settled (0)
+
+### seeds -p MMR --status bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "invalid status: bogus (expected new|parked|promoted|resolved|rejected|live|all)"
+| }
+
+### seeds -p MMR --sort sideways
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "invalid sort: sideways (expected asc|desc)"
+| }
+
+### seeds -p MMR --after title:x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "after applies to created_at, not title"
+| }
+
+### seeds -p MMR --tz Mars/Base
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "pass an IANA timezone (tz), e.g. America/New_York"
+|   ],
+|   "message": "unknown timezone: Mars/Base"
+| }
+
+### seeds -p NOPE
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key NOPE -y"
+|   ],
+|   "message": "NOPE doesn't exist"
+| }
+
+### seeds -p mmr
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key mmr -y"
+|   ],
+|   "message": "mmr doesn't exist"
+| }
+
+### seeds -p MMR --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
+| }
+
+### seeds argv: -p MMR
+exit 0
+--- stdout
+| 2 seeds
+|
+| feature   new        XX   now   MMR-s1   A hook
+|       Ask the other board for a hook.
+| feature   promoted   XX   now   MMR-s3   A promoted ask
+
+### seeds argv: -p MMR -f json
+exit 0
+--- stdout
+| {
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s1",
+|       "kind": "feature",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": "XX",
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": "Ask the other board for a hook."
+|     },
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s3",
+|       "kind": "feature",
+|       "lane": "promoted",
+|       "lifecycle": "promoted",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": "XX",
+|       "spawned": [
+|         "MMR-9"
+|       ],
+|       "title": "A promoted ask",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "total": 2
+| }
+
+### seeds argv: --project MMR --status all --sort desc --format ids
+exit 0
+--- stdout
+| MMR-s4
+| MMR-s3
+| MMR-s2
+| MMR-s1
+
+### seeds argv: -s MMR --grouped
+exit 0
+--- stdout
+| 2 seeds
+|
+| untriaged (1)
+| feature   new   XX   now   MMR-s1   A hook
+|       Ask the other board for a hook.
+|
+| ready to resolve (0)
+|
+| promoted (1)
+| feature   promoted   XX   now   MMR-s3   A promoted ask
+|
+| settled (0)
+
+### seeds argv: -p MMR --status bogus -f json
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "invalid status: bogus (expected new|parked|promoted|resolved|rejected|live|all)"
+| }
+
+### seeds argv: -p MMR --bogus -f json
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+
+### seeds argv: -p MMR -s XX -f ids
+exit 0
+--- stdout
+| MMR-s1
+| MMR-s3
+
+### seeds argv: -p MMR --status new --status all -f ids
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"--status\" can be supplied only once. Remove the repeated option."
+| }
+
+### seeds argv: extra -p MMR
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"seeds\" accepts no arguments. Remove the supplied values."
+| }
+
+### seeds argv: -p MMR seeds -f ids
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "parser",
+|   "hints": [],
+|   "message": "Option \"-p\" belongs to commands next, list, seeds, seed, promote, create task, update. Supply it after the command name."
+| }
+
+### seeds argv: -p MMR (terminal)
+exit 0
+--- stdout
+| 2 seeds
+|
+| feature   new        XX   now   MMR-s1   A hook
+| ␛[90m      Ask the other board for a hook.␛[39m
+| feature   promoted   XX   now   MMR-s3   A promoted ask
+
+### seeds argv: -p MMR --status all --grouped (terminal)
+exit 0
+--- stdout
+| 4 seeds
+|
+| ␛[1muntriaged (1)␛[22m
+| feature   new   XX   now   MMR-s1   A hook
+| ␛[90m      Ask the other board for a hook.␛[39m
+|
+| ␛[1mready to resolve (0)␛[22m
+|
+| ␛[1mpromoted (1)␛[22m
+| feature   promoted   XX   now   MMR-s3   A promoted ask
+|
+| ␛[1mparked (1)␛[22m
+| idea   parked   -   now   MMR-s2   A parked idea
+| ␛[90m      Not now.␛[39m
+|
+| ␛[1msettled (1)␛[22m
+| bug   rejected   -   now   MMR-s4   A rejected report
+
+### seeds argv: -p MMR --requester ZZ (terminal)
+exit 0
+--- stdout
+| 0 seeds
+|
+| No seeds — file one with mimir seed "…" -k <kind>
+

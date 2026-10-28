@@ -1,8 +1,8 @@
 import { argvCase } from '../testing/argv-case';
 import { parityCases } from '../testing/parity';
 import type { ParityCase } from '../testing/parity';
-import { twinCases } from '../testing/twin';
-import type { SetupCase } from '../testing/twin';
+import { writeCases } from '../testing/writes';
+import type { SetupCase } from '../testing/writes';
 
 const overview = (
   name: string,
@@ -48,7 +48,7 @@ const CASES: ParityCase[] = [
   argvCase(['overview', '-s', 'XX', '-f', 'records'], true),
 ];
 
-parityCases(/^overview /, CASES, async (board) => {
+parityCases(import.meta.url, CASES, async (board) => {
   // An active scratchpad, so the overview's scratchpad section has a row.
   await board.engine.scratchCreate({ anchors: ['MMR-3'], project: 'MMR', title: 'Shape it' });
   return undefined;
@@ -71,4 +71,4 @@ const WORKER_CASES: SetupCase[] = [
   },
 ];
 
-twinCases(/^overview worker /, WORKER_CASES);
+writeCases(import.meta.url, WORKER_CASES);

@@ -1,7 +1,7 @@
-import { SEED_REDIRECTS } from '../parity/differences';
 import { argvCase, argvLine } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
-import { twinCases } from '../testing/twin';
+import { SEED_REDIRECTS } from '../testing/redirects';
+import { writeCases } from '../testing/writes';
 
 /** A case by name: the verb, its arguments in order, and its options. */
 const verb = (
@@ -267,4 +267,4 @@ const CASES: ParityCase[] = [
   argvCase(['resolve', 'MMR-s1', 'shipped', '-f', 'json', '-f', 'ids']),
 ];
 
-twinCases(/^(seed|promote|reject|resolve) /, CASES);
+writeCases(import.meta.url, CASES);

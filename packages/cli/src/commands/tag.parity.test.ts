@@ -1,7 +1,7 @@
-import { NODE_REDIRECTS } from '../parity/differences';
 import { argvCase as argv, argvLine } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
-import { twinCases } from '../testing/twin';
+import { NODE_REDIRECTS } from '../testing/redirects';
+import { writeCases } from '../testing/writes';
 
 const CASES: ParityCase[] = [
   // tag: through every format.
@@ -58,4 +58,4 @@ const CASES: ParityCase[] = [
   ...NODE_REDIRECTS.filter((line) => /^(un)?tag /.test(line)).map((line) => argvLine(line)),
 ];
 
-twinCases(/^(un)?tag /, CASES);
+writeCases(import.meta.url, CASES);

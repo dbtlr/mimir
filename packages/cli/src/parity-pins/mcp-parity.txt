@@ -1,0 +1,1538 @@
+### next, scoped
+| {
+|   "returned": 2,
+|   "starts_at": 0,
+|   "total": 2,
+|   "tasks": [
+|     {
+|       "id": "MMR-3",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Wire the store",
+|       "type": "task",
+|       "summary": "one store per run",
+|       "priority": "p1",
+|       "size": "small",
+|       "lifecycle": "todo",
+|       "grooming": "groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-8",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "summary": null,
+|       "priority": "p2",
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
+| }
+
+### next, from the clone binding
+| {
+|   "returned": 2,
+|   "starts_at": 0,
+|   "total": 2,
+|   "tasks": [
+|     {
+|       "id": "MMR-3",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Wire the store",
+|       "type": "task",
+|       "summary": "one store per run",
+|       "priority": "p1",
+|       "size": "small",
+|       "lifecycle": "todo",
+|       "grooming": "groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-8",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "summary": null,
+|       "priority": "p2",
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
+| }
+
+### get a task
+| {
+|   "id": "MMR-3",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Wire the store",
+|   "type": "task",
+|   "description": "Open the store once.\n\nKeep it open.",
+|   "summary": "one store per run",
+|   "priority": "p1",
+|   "size": "small",
+|   "lifecycle": "todo",
+|   "grooming": "groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "deps": {
+|     "awaiting_on": [],
+|     "blocking": [
+|       {
+|         "id": "MMR-4",
+|         "status": "awaiting",
+|         "title": "Render views"
+|       }
+|     ],
+|     "depends_on": []
+|   },
+|   "children": [],
+|   "tags": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-a1",
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes"
+|     }
+|   ]
+| }
+
+### get a seed: get_seed on the old server, get on Loom
+| {
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "id": "MMR-s2",
+|   "kind": "idea",
+|   "lane": "untriaged",
+|   "lifecycle": "new",
+|   "project": "MMR",
+|   "ready_to_resolve": false,
+|   "requester": null,
+|   "spawned": [],
+|   "title": "Cache the plan",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "description": null
+| }
+
+### overview
+| {
+|   "active_scratchpads": {
+|     "count": 2,
+|     "scratchpads": [
+|       {
+|         "id": "<uuid>",
+|         "linked_work": [
+|           "MMR-3"
+|         ],
+|         "open_agenda": 2,
+|         "project": "MMR",
+|         "state": "active",
+|         "title": "Index rewrite",
+|         "updated_at": "2026-10-01T12:00:00.005Z"
+|       },
+|       {
+|         "id": "<uuid>",
+|         "linked_work": [],
+|         "open_agenda": 0,
+|         "project": "MMR",
+|         "state": "active",
+|         "title": "Blank",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "awaiting": {
+|     "count": 1,
+|     "tasks": [
+|       {
+|         "id": "MMR-4",
+|         "parent": "MMR-2",
+|         "status": "awaiting",
+|         "title": "Render views",
+|         "type": "task",
+|         "summary": null,
+|         "priority": null,
+|         "size": null,
+|         "lifecycle": "todo",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z",
+|         "awaiting_on": [
+|           "MMR-3"
+|         ]
+|       }
+|     ]
+|   },
+|   "direction": {
+|     "containers": [],
+|     "count": 0,
+|     "project": null
+|   },
+|   "hygiene": {
+|     "blocked": 1,
+|     "listings": {
+|       "blocked": [
+|         {
+|           "id": "MMR-6",
+|           "parent": "MMR-2",
+|           "status": "blocked",
+|           "title": "Wait on review",
+|           "type": "task",
+|           "summary": null,
+|           "priority": null,
+|           "size": null,
+|           "lifecycle": "todo",
+|           "grooming": "not_groomed",
+|           "hold": "blocked",
+|           "hold_reason": "needs a reviewer",
+|           "block_owner": "you",
+|           "external_ref": null,
+|           "upstream": null,
+|           "host": null,
+|           "harness": null,
+|           "session": null,
+|           "worker_harness": null,
+|           "worker_session": null,
+|           "branch": null,
+|           "completed_at": null,
+|           "created_at": "2026-10-01T12:00:00.000Z",
+|           "updated_at": "2026-10-01T12:00:00.000Z",
+|           "stale": false
+|         }
+|       ],
+|       "stale": [],
+|       "untriaged": [
+|         {
+|           "id": "MMR-s1",
+|           "lede": "Ask the other board for a hook.",
+|           "title": "A hook"
+|         },
+|         {
+|           "id": "MMR-s2",
+|           "lede": null,
+|           "title": "Cache the plan"
+|         }
+|       ]
+|     },
+|     "parked_seeds": 1,
+|     "stale": 0,
+|     "untriaged": 2
+|   },
+|   "in_flight": {
+|     "count": 1,
+|     "tasks": [
+|       {
+|         "id": "MMR-5",
+|         "parent": "MMR-2",
+|         "status": "in_progress",
+|         "title": "Ship it",
+|         "type": "task",
+|         "summary": null,
+|         "priority": "p0",
+|         "size": null,
+|         "lifecycle": "in_progress",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session",
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "next": {
+|     "count": 2,
+|     "tasks": [
+|       {
+|         "id": "MMR-3",
+|         "parent": "MMR-2",
+|         "status": "ready",
+|         "title": "Wire the store",
+|         "type": "task",
+|         "summary": "one store per run",
+|         "priority": "p1",
+|         "size": "small",
+|         "lifecycle": "todo",
+|         "grooming": "groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       },
+|       {
+|         "id": "MMR-8",
+|         "parent": "MMR-2",
+|         "status": "ready",
+|         "title": "Tidy docs",
+|         "type": "task",
+|         "summary": null,
+|         "priority": "p2",
+|         "size": null,
+|         "lifecycle": "todo",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "project": {
+|     "distribution": {
+|       "in_progress": 1
+|     },
+|     "id": "MMR",
+|     "status": "in_progress"
+|   },
+|   "sessions": {
+|     "entries": [
+|       {
+|         "from": "2026-10-01T12:00:00.000Z",
+|         "id": "main-session",
+|         "tasks": [
+|           {
+|             "id": "MMR-5",
+|             "title": "Ship it"
+|           }
+|         ],
+|         "to": "2026-10-01T12:00:00.000Z",
+|         "transitions": 1
+|       }
+|     ],
+|     "shown": 1
+|   }
+| }
+
+### list
+| {
+|   "returned": 7,
+|   "starts_at": 0,
+|   "total": 7,
+|   "tasks": [
+|     {
+|       "id": "MMR-3",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Wire the store",
+|       "type": "task",
+|       "summary": "one store per run",
+|       "priority": "p1",
+|       "size": "small",
+|       "lifecycle": "todo",
+|       "grooming": "groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-4",
+|       "parent": "MMR-2",
+|       "status": "awaiting",
+|       "title": "Render views",
+|       "type": "task",
+|       "summary": null,
+|       "priority": null,
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-5",
+|       "parent": "MMR-2",
+|       "status": "in_progress",
+|       "title": "Ship it",
+|       "type": "task",
+|       "summary": null,
+|       "priority": "p0",
+|       "size": null,
+|       "lifecycle": "in_progress",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": "codex",
+|       "session": "main-session",
+|       "worker_harness": "claude",
+|       "worker_session": "task-worker-session",
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-8",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "summary": null,
+|       "priority": "p2",
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-6",
+|       "parent": "MMR-2",
+|       "status": "blocked",
+|       "title": "Wait on review",
+|       "type": "task",
+|       "summary": null,
+|       "priority": null,
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "blocked",
+|       "hold_reason": "needs a reviewer",
+|       "block_owner": "you",
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-7",
+|       "parent": "MMR-2",
+|       "status": "done",
+|       "title": "Spike",
+|       "type": "task",
+|       "summary": null,
+|       "priority": null,
+|       "size": null,
+|       "lifecycle": "done",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": "2026-10-01T12:00:00.000Z",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-9",
+|       "parent": "MMR-2",
+|       "status": "done",
+|       "title": "Export",
+|       "type": "task",
+|       "summary": null,
+|       "priority": null,
+|       "size": null,
+|       "lifecycle": "done",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": "2026-10-01T12:00:00.000Z",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
+| }
+
+### search
+| {
+|   "results": [
+|     {
+|       "finished": false,
+|       "id": "MMR-3",
+|       "kind": "task",
+|       "lifecycle": "todo",
+|       "match": "title",
+|       "project": "MMR",
+|       "title": "Wire the store",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "finished": false,
+|       "id": "MMR-a1",
+|       "kind": "artifact",
+|       "lifecycle": null,
+|       "match": "title",
+|       "project": "MMR",
+|       "title": "Store notes",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "finished": false,
+|       "id": "MMR",
+|       "kind": "project",
+|       "lifecycle": null,
+|       "match": "description",
+|       "project": "MMR",
+|       "title": "mimir",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "snippet": "The work-state store."
+|     }
+|   ],
+|   "returned": 3,
+|   "starts_at": 0,
+|   "total": 3
+| }
+
+### status
+| {
+|   "distribution": {},
+|   "id": "MMR-3",
+|   "status": "ready"
+| }
+
+### projects
+| {
+|   "returned": 2,
+|   "starts_at": 0,
+|   "total": 2,
+|   "projects": [
+|     {
+|       "id": "MMR",
+|       "parent": null,
+|       "status": "in_progress",
+|       "title": "mimir",
+|       "type": "project",
+|       "description": "The work-state store.",
+|       "pinned": false,
+|       "remote": "github.com/dbtlr/mimir",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "last_activity_at": "2026-10-01T12:00:00.005Z",
+|       "distribution": {
+|         "in_progress": 1
+|       },
+|       "tags": []
+|     },
+|     {
+|       "id": "XX",
+|       "parent": null,
+|       "status": "ready",
+|       "title": "other",
+|       "type": "project",
+|       "description": null,
+|       "pinned": false,
+|       "remote": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "last_activity_at": "2026-10-01T12:00:00.000Z",
+|       "distribution": {
+|         "ready": 1
+|       },
+|       "tags": []
+|     }
+|   ]
+| }
+
+### scratch_list
+| {
+|   "scratchpads": [
+|     {
+|       "id": "<uuid>",
+|       "linked_work": [
+|         "MMR-3"
+|       ],
+|       "open_agenda": 2,
+|       "project": "MMR",
+|       "state": "active",
+|       "title": "Index rewrite",
+|       "updated_at": "2026-10-01T12:00:00.005Z"
+|     },
+|     {
+|       "id": "<uuid>",
+|       "linked_work": [],
+|       "open_agenda": 0,
+|       "project": "MMR",
+|       "state": "active",
+|       "title": "Blank",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "total": 2
+| }
+
+### scratch_get
+| {
+|   "agenda": [
+|     {
+|       "content": "Port the verbs",
+|       "number": 1,
+|       "reason": null,
+|       "state": "open"
+|     },
+|     {
+|       "content": "Wire the host",
+|       "number": 2,
+|       "reason": null,
+|       "state": "open"
+|     },
+|     {
+|       "content": "Spike it",
+|       "number": 3,
+|       "reason": null,
+|       "state": "done"
+|     }
+|   ],
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "freezing_at": null,
+|   "id": "<uuid>",
+|   "journal": [
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "content": "Found the cause.",
+|       "number": 1
+|     }
+|   ],
+|   "linked_work": [
+|     "MMR-3"
+|   ],
+|   "project": "MMR",
+|   "title": "Index rewrite",
+|   "updated_at": "2026-10-01T12:00:00.005Z"
+| }
+
+### start
+| {
+|   "id": "MMR-8",
+|   "parent": "MMR-2",
+|   "status": "in_progress",
+|   "title": "Tidy docs",
+|   "type": "task",
+|   "description": null,
+|   "summary": null,
+|   "priority": "p2",
+|   "size": null,
+|   "lifecycle": "in_progress",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+
+### done
+| {
+|   "id": "MMR-8",
+|   "parent": "MMR-2",
+|   "status": "done",
+|   "title": "Tidy docs",
+|   "type": "task",
+|   "description": null,
+|   "summary": null,
+|   "priority": "p2",
+|   "size": null,
+|   "lifecycle": "done",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": "2026-10-01T12:00:00.000Z",
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+
+### annotate: content on the old server, text on Loom
+| {
+|   "id": "MMR-3",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Wire the store",
+|   "type": "task",
+|   "description": "Open the store once.\n\nKeep it open.",
+|   "summary": "one store per run",
+|   "priority": "p1",
+|   "size": "small",
+|   "lifecycle": "todo",
+|   "grooming": "groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+
+### create a task: create with a type on the old server, create_task on Loom
+| {
+|   "id": "MMR-10",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "New task",
+|   "type": "task",
+|   "description": "Made over MCP.",
+|   "summary": null,
+|   "priority": null,
+|   "size": null,
+|   "lifecycle": "todo",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+
+### create a phase: create_phase on Loom
+| {
+|   "id": "MMR-11",
+|   "parent": "MMR-1",
+|   "status": "new",
+|   "title": "New phase",
+|   "type": "phase",
+|   "description": null,
+|   "summary": null,
+|   "target": null,
+|   "open_ended": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": [],
+|   "distribution": {}
+| }
+
+### update a task: description is desc
+| {
+|   "id": "MMR-3",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Wire the store",
+|   "type": "task",
+|   "description": "Reworded.",
+|   "summary": "one store per run",
+|   "priority": "p1",
+|   "size": "small",
+|   "lifecycle": "todo",
+|   "grooming": "groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+
+### update pins a project
+| {
+|   "id": "MMR",
+|   "parent": null,
+|   "status": "in_progress",
+|   "title": "mimir",
+|   "type": "project",
+|   "description": "The work-state store.",
+|   "pinned": true,
+|   "remote": "github.com/dbtlr/mimir",
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "last_activity_at": "2026-10-01T12:00:00.005Z",
+|   "children": [
+|     {
+|       "id": "MMR-1",
+|       "status": "in_progress",
+|       "title": "Platform"
+|     }
+|   ],
+|   "distribution": {
+|     "in_progress": 1
+|   }
+| }
+
+### update unpins a project with pinned false
+| {
+|   "id": "MMR",
+|   "parent": null,
+|   "status": "in_progress",
+|   "title": "mimir",
+|   "type": "project",
+|   "description": "The work-state store.",
+|   "pinned": false,
+|   "remote": "github.com/dbtlr/mimir",
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "last_activity_at": "2026-10-01T12:00:00.005Z",
+|   "children": [
+|     {
+|       "id": "MMR-1",
+|       "status": "in_progress",
+|       "title": "Platform"
+|     }
+|   ],
+|   "distribution": {
+|     "in_progress": 1
+|   }
+| }
+
+### reorder: position top on the old server, top on Loom
+| {
+|   "id": "MMR-10",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "New task",
+|   "type": "task",
+|   "description": "Made over MCP.",
+|   "summary": null,
+|   "priority": null,
+|   "size": null,
+|   "lifecycle": "todo",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+
+### reorder: position before with ref, before with the sibling on Loom
+| {
+|   "id": "MMR-10",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "New task",
+|   "type": "task",
+|   "description": "Made over MCP.",
+|   "summary": null,
+|   "priority": null,
+|   "size": null,
+|   "lifecycle": "todo",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+
+### tag: ids is one comma-separated string on Loom
+| {
+|   "tagged": {
+|     "ids": [
+|       "MMR-3",
+|       "MMR-4"
+|     ],
+|     "tags": [
+|       "beta"
+|     ]
+|   }
+| }
+
+### seeds
+| {
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s1",
+|       "kind": "feature",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": "XX",
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": "Ask the other board for a hook."
+|     },
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s2",
+|       "kind": "idea",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": null,
+|       "spawned": [],
+|       "title": "Cache the plan",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     },
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s4",
+|       "kind": "feature",
+|       "lane": "ready",
+|       "lifecycle": "promoted",
+|       "project": "MMR",
+|       "ready_to_resolve": true,
+|       "requester": null,
+|       "spawned": [
+|         "MMR-9"
+|       ],
+|       "title": "Export",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "total": 3
+| }
+
+### promote a seed
+| {
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "id": "MMR-s2",
+|   "kind": "idea",
+|   "lane": "promoted",
+|   "lifecycle": "promoted",
+|   "project": "MMR",
+|   "ready_to_resolve": false,
+|   "requester": null,
+|   "spawned": [
+|     "MMR-12"
+|   ],
+|   "title": "Cache the plan",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "description": null,
+|   "created": "MMR-12"
+| }
+
+### triage: dryRun is dry-run
+| {
+|   "board": "MMR",
+|   "dry_run": true,
+|   "failures": [],
+|   "parked": 1,
+|   "ready_to_resolve": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s4",
+|       "kind": "feature",
+|       "lane": "ready",
+|       "lifecycle": "promoted",
+|       "project": "MMR",
+|       "ready_to_resolve": true,
+|       "requester": null,
+|       "spawned": [
+|         "MMR-9"
+|       ],
+|       "title": "Export",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "untriaged": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s1",
+|       "kind": "feature",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": "XX",
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": "Ask the other board for a hook."
+|     }
+|   ],
+|   "upstream_resolutions": []
+| }
+
+### list with kebab-case filters and a tz
+| {
+|   "returned": 6,
+|   "starts_at": 0,
+|   "total": 6,
+|   "tasks": [
+|     {
+|       "id": "MMR-3",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Wire the store",
+|       "type": "task",
+|       "summary": "one store per run",
+|       "priority": "p1",
+|       "size": "small",
+|       "lifecycle": "todo",
+|       "grooming": "groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-10",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "New task",
+|       "type": "task",
+|       "summary": null,
+|       "priority": null,
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-4",
+|       "parent": "MMR-2",
+|       "status": "awaiting",
+|       "title": "Render views",
+|       "type": "task",
+|       "summary": null,
+|       "priority": null,
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-5",
+|       "parent": "MMR-2",
+|       "status": "in_progress",
+|       "title": "Ship it",
+|       "type": "task",
+|       "summary": null,
+|       "priority": "p0",
+|       "size": null,
+|       "lifecycle": "in_progress",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": "codex",
+|       "session": "main-session",
+|       "worker_harness": "claude",
+|       "worker_session": "task-worker-session",
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-12",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "From a seed",
+|       "type": "task",
+|       "summary": null,
+|       "priority": null,
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-6",
+|       "parent": "MMR-2",
+|       "status": "blocked",
+|       "title": "Wait on review",
+|       "type": "task",
+|       "summary": null,
+|       "priority": null,
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "blocked",
+|       "hold_reason": "needs a reviewer",
+|       "block_owner": "you",
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
+| }
+
+### next with kebab-case filters
+| {
+|   "returned": 3,
+|   "starts_at": 0,
+|   "total": 3,
+|   "tasks": [
+|     {
+|       "id": "MMR-3",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Wire the store",
+|       "type": "task",
+|       "summary": "one store per run",
+|       "priority": "p1",
+|       "size": "small",
+|       "lifecycle": "todo",
+|       "grooming": "groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-10",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "New task",
+|       "type": "task",
+|       "summary": null,
+|       "priority": null,
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-12",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "From a seed",
+|       "type": "task",
+|       "summary": null,
+|       "priority": null,
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
+| }
+
+### scratch_agenda add: content is words
+| {
+|   "id": "<uuid>",
+|   "open_agenda": 3,
+|   "project": "MMR",
+|   "title": "Index rewrite",
+|   "updated_at": "2026-10-01T12:00:00.006Z"
+| }
+
+### scratch_agenda complete: number is a word
+| {
+|   "id": "<uuid>",
+|   "open_agenda": 2,
+|   "project": "MMR",
+|   "title": "Index rewrite",
+|   "updated_at": "2026-10-01T12:00:00.007Z"
+| }
+
+### scratch_agenda supersede: number is a word, reason stays
+| {
+|   "id": "<uuid>",
+|   "open_agenda": 1,
+|   "project": "MMR",
+|   "title": "Index rewrite",
+|   "updated_at": "2026-10-01T12:00:00.008Z"
+| }
+
+### scratch_checkpoint: content on the old server, text words on Loom
+| {
+|   "id": "<uuid>",
+|   "open_agenda": 1,
+|   "project": "MMR",
+|   "title": "Index rewrite",
+|   "updated_at": "2026-10-01T12:00:00.009Z"
+| }
+
+### attach with an inline body: node on the old server, id on Loom
+| {
+|   "artifact": {
+|     "id": "MMR-a2"
+|   }
+| }
+
+### the board ends holding the records the cases changed, including every record the answers name
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":1,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.009Z\"}"
++ artifacts[MMR-a2]: {"content":"# Notes\n\nInline body.","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"inline","tags":[],"title":"Inline"}
++ board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"inline","tags":[],"title":"Inline"}
+~ board.MMR.artifacts.returned: 1 -> 2
+~ board.MMR.artifacts.total: 1 -> 2
++ board.MMR.nodes.items[MMR-3].annotations[@2]: {"content":"From the parity run.","createdAt":"2026-10-01T12:00:00.000Z"}
++ board.MMR.nodes.items[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"inline","tags":[],"title":"Inline"}
+~ board.MMR.nodes.items[MMR-3].description: "Open the store once.\n\nKeep it open." -> "Reworded."
++ board.MMR.nodes.items[MMR-3].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}
++ board.MMR.nodes.items[MMR-4].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}
+~ board.MMR.nodes.items[MMR-8].completedAt: null -> "2026-10-01T12:00:00.000Z"
++ board.MMR.nodes.items[MMR-8].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-8].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"done"}
+~ board.MMR.nodes.items[MMR-8].lifecycle: "todo" -> "done"
+~ board.MMR.nodes.items[MMR-8].status: "ready" -> "done"
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Made over MCP.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"Made over MCP.","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"New task","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
++ board.MMR.nodes.items[MMR-12]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-12","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"From a seed","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-5, MMR-6, MMR-7, MMR-8, MMR-9]
+~ board.MMR.nodes.returned: 7 -> 9
+~ board.MMR.nodes.total: 7 -> 9
++ nodes[MMR-1].children[MMR-11]: {"id":"MMR-11","status":"new","title":"New phase"}
++ nodes[MMR-1].distribution.new: 1
+~ nodes[MMR-2].children[MMR-8].status: "ready" -> "done"
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"New task"}
++ nodes[MMR-2].children[MMR-12]: {"id":"MMR-12","status":"ready","title":"From a seed"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
+~ nodes[MMR-2].distribution.done: 2 -> 3
++ nodes[MMR-3].annotations[@2]: {"content":"From the parity run.","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"inline","tags":[],"title":"Inline"}
+~ nodes[MMR-3].description: "Open the store once.\n\nKeep it open." -> "Reworded."
++ nodes[MMR-3].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}
++ nodes[MMR-4].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"beta"}
+~ nodes[MMR-8].completedAt: null -> "2026-10-01T12:00:00.000Z"
++ nodes[MMR-8].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-8].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"done"}
+~ nodes[MMR-8].lifecycle: "todo" -> "done"
+~ nodes[MMR-8].status: "ready" -> "done"
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Made over MCP.","externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"New task","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
++ nodes[MMR-11]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-11","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"New phase","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ nodes[MMR-12]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-12","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"From a seed","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].artifactCount: 1 -> 2
++ projects[MMR].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"inline","tags":[],"title":"Inline"}
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.009Z"
+~ projects[MMR].leafCounts.ready: 2 -> 3
+~ projects[MMR].leafCounts.done: 2 -> 3
+~ scratchpads[pad].agenda[@0].state: "open" -> "done"
+~ scratchpads[pad].agenda[@1].reason: null -> "folded"
+~ scratchpads[pad].agenda[@1].state: "open" -> "superseded"
++ scratchpads[pad].agenda[@3]: {"content":"A new item","number":4,"reason":null,"state":"open"}
++ scratchpads[pad].journal[@1]: {"at":"2026-10-01T12:00:00.000Z","content":"Checkpoint text.","number":2}
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.009Z"
+~ seeds.MMR[MMR-s2].lifecycle: "new" -> "promoted"
++ seeds.MMR[MMR-s2].spawned[@0]: "MMR-12"
+

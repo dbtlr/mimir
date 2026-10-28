@@ -1,0 +1,417 @@
+### groom argv: MMR-4 groomed
+exit 0
+--- stdout
+| [ok] groomed MMR-4 · groomed
+--- state
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
+
+### groom argv: MMR-4 groomed -f json
+exit 0
+--- stdout
+| {"groomed":{"ids":["MMR-4"],"state":"groomed"}}
+--- state
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
+
+### groom argv: MMR-4 groomed -f jsonl
+exit 0
+--- stdout
+| {"groomed":{"ids":["MMR-4"],"state":"groomed"}}
+--- state
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
+
+### groom argv: MMR-4 groomed -f ids
+exit 0
+--- stdout
+| MMR-4
+--- state
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
+
+### groom argv: MMR-4 groomed -f table
+exit 0
+--- stdout
+| [ok] groomed MMR-4 · groomed
+--- state
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
+
+### groom argv: MMR-4 groomed --ascii
+exit 0
+--- stdout
+| [ok] groomed MMR-4 · groomed
+--- state
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
+
+### groom argv: MMR-4 groomed (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m groomed MMR-4 · groomed
+--- state
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
+
+### groom argv: MMR-4,MMR-5 groomed "scoped in the design"
+exit 0
+--- stdout
+| [ok] groomed MMR-4, MMR-5 · groomed
+--- state
++ board.MMR.nodes.items[MMR-4].annotations[@0]: {"content":"scoped in the design","createdAt":"2026-10-01T12:00:00.000Z"}
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
++ board.MMR.nodes.items[MMR-5].annotations[@0]: {"content":"scoped in the design","createdAt":"2026-10-01T12:00:00.000Z"}
+~ board.MMR.nodes.items[MMR-5].grooming: "not_groomed" -> "groomed"
++ nodes[MMR-4].annotations[@0]: {"content":"scoped in the design","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
++ nodes[MMR-5].annotations[@0]: {"content":"scoped in the design","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-5].grooming: "not_groomed" -> "groomed"
+
+### groom argv: MMR-4,MMR-5 groomed -f ids
+exit 0
+--- stdout
+| MMR-4
+| MMR-5
+--- state
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ board.MMR.nodes.items[MMR-5].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-5].grooming: "not_groomed" -> "groomed"
+
+### groom argv: MMR-4 MMR-5 groomed
+exit 0
+--- stdout
+| [ok] groomed MMR-4, MMR-5 · groomed
+--- state
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ board.MMR.nodes.items[MMR-5].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-5].grooming: "not_groomed" -> "groomed"
+
+### groom argv: "MMR-4, MMR-5" groomed
+exit 0
+--- stdout
+| [ok] groomed MMR-4, MMR-5 · groomed
+--- state
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
+~ board.MMR.nodes.items[MMR-5].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-5].grooming: "not_groomed" -> "groomed"
+
+### groom argv: MMR-4 needs_answers "which store owns the lock?"
+exit 0
+--- stdout
+| [ok] groomed MMR-4 · needs_answers
+--- state
++ board.MMR.nodes.items[MMR-4].annotations[@0]: {"content":"which store owns the lock?","createdAt":"2026-10-01T12:00:00.000Z"}
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "needs_answers"
++ nodes[MMR-4].annotations[@0]: {"content":"which store owns the lock?","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-4].grooming: "not_groomed" -> "needs_answers"
+
+### groom argv: MMR-4 needs_answers "which store owns the lock?" -f json
+exit 0
+--- stdout
+| {"groomed":{"ids":["MMR-4"],"state":"needs_answers"}}
+--- state
++ board.MMR.nodes.items[MMR-4].annotations[@0]: {"content":"which store owns the lock?","createdAt":"2026-10-01T12:00:00.000Z"}
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "needs_answers"
++ nodes[MMR-4].annotations[@0]: {"content":"which store owns the lock?","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-4].grooming: "not_groomed" -> "needs_answers"
+
+### groom argv: MMR-3 not_groomed
+exit 0
+--- stdout
+| [ok] groomed MMR-3 · not_groomed
+--- state
+~ board.MMR.nodes.items[MMR-3].grooming: "groomed" -> "not_groomed"
+~ nodes[MMR-3].grooming: "groomed" -> "not_groomed"
+
+### groom argv: MMR-4 groomed -- --note text
+exit 0
+--- stdout
+| [ok] groomed MMR-4 · groomed
+--- state
++ board.MMR.nodes.items[MMR-4].annotations[@0]: {"content":"--note text","createdAt":"2026-10-01T12:00:00.000Z"}
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
++ nodes[MMR-4].annotations[@0]: {"content":"--note text","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
+
+### groom argv: MMR-4 groomed -- --note text -f json
+exit 0
+--- stdout
+| [ok] groomed MMR-4 · groomed
+--- state
++ board.MMR.nodes.items[MMR-4].annotations[@0]: {"content":"--note text -f json","createdAt":"2026-10-01T12:00:00.000Z"}
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "groomed"
++ nodes[MMR-4].annotations[@0]: {"content":"--note text -f json","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-4].grooming: "not_groomed" -> "groomed"
+
+### groom argv: MMR-4 needs_answers -- --which store?
+exit 0
+--- stdout
+| [ok] groomed MMR-4 · needs_answers
+--- state
++ board.MMR.nodes.items[MMR-4].annotations[@0]: {"content":"--which store?","createdAt":"2026-10-01T12:00:00.000Z"}
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "needs_answers"
++ nodes[MMR-4].annotations[@0]: {"content":"--which store?","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-4].grooming: "not_groomed" -> "needs_answers"
+
+### groom argv: MMR-4 needs_answers which -- -x store?
+exit 0
+--- stdout
+| [ok] groomed MMR-4 · needs_answers
+--- state
++ board.MMR.nodes.items[MMR-4].annotations[@0]: {"content":"which -x store?","createdAt":"2026-10-01T12:00:00.000Z"}
+~ board.MMR.nodes.items[MMR-4].grooming: "not_groomed" -> "needs_answers"
++ nodes[MMR-4].annotations[@0]: {"content":"which -x store?","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-4].grooming: "not_groomed" -> "needs_answers"
+
+### groom argv: MMR-4 needs_answers --
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "needs_answers requires a note naming the open questions"
+| }
+--- state
+unchanged
+
+### groom argv: MMR-3 not_groomed "rethink the approach"
+exit 0
+--- stdout
+| [ok] groomed MMR-3 · not_groomed
+--- state
++ board.MMR.nodes.items[MMR-3].annotations[@2]: {"content":"rethink the approach","createdAt":"2026-10-01T12:00:00.000Z"}
+~ board.MMR.nodes.items[MMR-3].grooming: "groomed" -> "not_groomed"
++ nodes[MMR-3].annotations[@2]: {"content":"rethink the approach","createdAt":"2026-10-01T12:00:00.000Z"}
+~ nodes[MMR-3].grooming: "groomed" -> "not_groomed"
+
+### groom argv: MMR-4 needs_answers
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "needs_answers requires a note naming the open questions"
+| }
+--- state
+unchanged
+
+### groom argv: MMR-4 needs_answers -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "needs_answers requires a note naming the open questions"
+| }
+--- state
+unchanged
+
+### groom argv: MMR-4 bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "groom MMR-12 needs_answers \"which store owns the lock?\""
+|   ],
+|   "message": "unknown grooming state 'bogus' (expected not_groomed|needs_answers|groomed)"
+| }
+--- state
+unchanged
+
+### groom argv: MMR-4 bogus -f json
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "groom MMR-12 needs_answers \"which store owns the lock?\""
+|   ],
+|   "message": "unknown grooming state 'bogus' (expected not_groomed|needs_answers|groomed)"
+| }
+--- state
+unchanged
+
+### groom argv: MMR-99 groomed
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### groom argv: MMR-4,MMR-99 groomed
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### groom argv: MMR groomed
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "MMR is a project, not a task"
+| }
+--- state
+unchanged
+
+### groom argv: MMR-2 groomed
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "containers aren't started directly — start a ready task under it: MMR-3, MMR-8"
+|   ],
+|   "message": "MMR-2 is a phase, not a task"
+| }
+--- state
+unchanged
+
+### groom argv: MMR-a1 groomed
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "MMR-a1 is an artifact, not a task"
+| }
+--- state
+unchanged
+
+### groom argv: MMR-s1 groomed
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "act on a seed with promote / reject / resolve"
+|   ],
+|   "message": "MMR-s1 is a seed, not a task"
+| }
+--- state
+unchanged
+
+### groom argv: nope groomed
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "nope doesn't exist"
+| }
+--- state
+unchanged
+
+### groom argv: MMR-7 groomed
+exit 0
+--- stdout
+| [ok] groomed MMR-7 · groomed
+--- state
+~ board.MMR.nodes.items[MMR-7].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-7].grooming: "not_groomed" -> "groomed"
+
+### groom argv: MMR-5 groomed
+exit 0
+--- stdout
+| [ok] groomed MMR-5 · groomed
+--- state
+~ board.MMR.nodes.items[MMR-5].grooming: "not_groomed" -> "groomed"
+~ nodes[MMR-5].grooming: "not_groomed" -> "groomed"
+
+### groom argv: , groomed
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "groom MMR-12,MMR-13 groomed"
+|   ],
+|   "message": "groom requires ids (KEY-seq)"
+| }
+--- state
+unchanged
+
+### groom argv: (no arguments)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"ids\" requires a value. Supply a value for \"ids\".\nArgument \"state\" requires a value. Supply a value for \"state\"."
+| }
+--- state
+unchanged
+
+### groom argv: MMR-4
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"state\" requires a value. Supply a value for \"state\"."
+| }
+--- state
+unchanged
+
+### groom argv: MMR-4 groomed --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### groom argv: MMR-4 groomed --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
+|   ],
+|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+

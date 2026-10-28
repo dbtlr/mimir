@@ -1,0 +1,805 @@
+### triage (bound)
+exit 0
+--- stdout
+| {
+|   "board": "MMR",
+|   "dry_run": false,
+|   "failures": [],
+|   "parked": 1,
+|   "ready_to_resolve": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s4",
+|       "kind": "feature",
+|       "lane": "ready",
+|       "lifecycle": "promoted",
+|       "project": "MMR",
+|       "ready_to_resolve": true,
+|       "requester": null,
+|       "spawned": [
+|         "MMR-9"
+|       ],
+|       "title": "Export",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "untriaged": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s1",
+|       "kind": "feature",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": "XX",
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": "Ask the other board for a hook."
+|     },
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s2",
+|       "kind": "idea",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": null,
+|       "spawned": [],
+|       "title": "Cache the plan",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "upstream_resolutions": []
+| }
+--- state
+unchanged
+
+### triage -f records
+exit 0
+--- stdout
+| triage MMR
+| 2 untriaged seeds · 1 parked · 1 ready to resolve · 0 upstream resolutions (0 annotated, 0 already recorded)
+|
+| untriaged (2)
+| feature   new   XX   now   MMR-s1   A hook
+|       Ask the other board for a hook.
+| idea      new   -    now   MMR-s2   Cache the plan
+|
+| ready to resolve (1)
+| feature   promoted   -   now   MMR-s4   Export *
+|
+| 1 parked seed — list them: mimir seeds -p MMR --status parked
+|
+| upstream resolutions (0)
+--- state
+unchanged
+
+### triage -f table
+exit 0
+--- stdout
+| triage MMR
+| 2 untriaged seeds · 1 parked · 1 ready to resolve · 0 upstream resolutions (0 annotated, 0 already recorded)
+|
+| untriaged (2)
+| feature   new   XX   now   MMR-s1   A hook
+|       Ask the other board for a hook.
+| idea      new   -    now   MMR-s2   Cache the plan
+|
+| ready to resolve (1)
+| feature   promoted   -   now   MMR-s4   Export *
+|
+| 1 parked seed — list them: mimir seeds -p MMR --status parked
+|
+| upstream resolutions (0)
+--- state
+unchanged
+
+### triage -f ids
+exit 0
+--- stdout
+|
+--- state
+unchanged
+
+### triage -f json
+exit 0
+--- stdout
+| {
+|   "board": "MMR",
+|   "dry_run": false,
+|   "failures": [],
+|   "parked": 1,
+|   "ready_to_resolve": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s4",
+|       "kind": "feature",
+|       "lane": "ready",
+|       "lifecycle": "promoted",
+|       "project": "MMR",
+|       "ready_to_resolve": true,
+|       "requester": null,
+|       "spawned": [
+|         "MMR-9"
+|       ],
+|       "title": "Export",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "untriaged": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s1",
+|       "kind": "feature",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": "XX",
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": "Ask the other board for a hook."
+|     },
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s2",
+|       "kind": "idea",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": null,
+|       "spawned": [],
+|       "title": "Cache the plan",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "upstream_resolutions": []
+| }
+--- state
+unchanged
+
+### triage -f jsonl
+exit 0
+--- stdout
+| {"board":"MMR","dry_run":false,"failures":[],"parked":1,"ready_to_resolve":[{"created_at":"2026-10-01T12:00:00.000Z","id":"MMR-s4","kind":"feature","lane":"ready","lifecycle":"promoted","project":"MMR","ready_to_resolve":true,"requester":null,"spawned":["MMR-9"],"title":"Export","updated_at":"2026-10-01T12:00:00.000Z","lede":null}],"untriaged":[{"created_at":"2026-10-01T12:00:00.000Z","id":"MMR-s1","kind":"feature","lane":"untriaged","lifecycle":"new","project":"MMR","ready_to_resolve":false,"requester":"XX","spawned":[],"title":"A hook","updated_at":"2026-10-01T12:00:00.000Z","lede":"Ask the other board for a hook."},{"created_at":"2026-10-01T12:00:00.000Z","id":"MMR-s2","kind":"idea","lane":"untriaged","lifecycle":"new","project":"MMR","ready_to_resolve":false,"requester":null,"spawned":[],"title":"Cache the plan","updated_at":"2026-10-01T12:00:00.000Z","lede":null}],"upstream_resolutions":[]}
+--- state
+unchanged
+
+### triage --ascii
+exit 0
+--- stdout
+| triage MMR
+| 2 untriaged seeds · 1 parked · 1 ready to resolve · 0 upstream resolutions (0 annotated, 0 already recorded)
+|
+| untriaged (2)
+| feature   new   XX   now   MMR-s1   A hook
+|       Ask the other board for a hook.
+| idea      new   -    now   MMR-s2   Cache the plan
+|
+| ready to resolve (1)
+| feature   promoted   -   now   MMR-s4   Export *
+|
+| 1 parked seed — list them: mimir seeds -p MMR --status parked
+|
+| upstream resolutions (0)
+--- state
+unchanged
+
+### triage --dry-run
+exit 0
+--- stdout
+| {
+|   "board": "MMR",
+|   "dry_run": true,
+|   "failures": [],
+|   "parked": 1,
+|   "ready_to_resolve": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s4",
+|       "kind": "feature",
+|       "lane": "ready",
+|       "lifecycle": "promoted",
+|       "project": "MMR",
+|       "ready_to_resolve": true,
+|       "requester": null,
+|       "spawned": [
+|         "MMR-9"
+|       ],
+|       "title": "Export",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "untriaged": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s1",
+|       "kind": "feature",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": "XX",
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": "Ask the other board for a hook."
+|     },
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s2",
+|       "kind": "idea",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": null,
+|       "spawned": [],
+|       "title": "Cache the plan",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "upstream_resolutions": []
+| }
+--- state
+unchanged
+
+### triage --dry-run -f records
+exit 0
+--- stdout
+| triage MMR
+| 2 untriaged seeds · 1 parked · 1 ready to resolve · 0 upstream resolutions (0 would annotate, 0 already recorded)
+| [dry run — no annotations written]
+|
+| untriaged (2)
+| feature   new   XX   now   MMR-s1   A hook
+|       Ask the other board for a hook.
+| idea      new   -    now   MMR-s2   Cache the plan
+|
+| ready to resolve (1)
+| feature   promoted   -   now   MMR-s4   Export *
+|
+| 1 parked seed — list them: mimir seeds -p MMR --status parked
+|
+| upstream resolutions (0)
+--- state
+unchanged
+
+### triage XX
+exit 0
+--- stdout
+| triage XX
+| 0 untriaged seeds · 0 ready to resolve · 1 upstream resolution (1 annotated, 0 already recorded)
+|
+| untriaged (0)
+|
+| ready to resolve (0)
+|
+| upstream resolutions (1)
+| XX-s1 -> XX-4 resolved: fixed   annotated
+--- state
++ board.XX.nodes.items[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
+
+### triage XX -f json
+exit 0
+--- stdout
+| {
+|   "board": "XX",
+|   "dry_run": false,
+|   "failures": [],
+|   "parked": 0,
+|   "ready_to_resolve": [],
+|   "untriaged": [],
+|   "upstream_resolutions": [
+|     {
+|       "already_recorded": false,
+|       "annotated": true,
+|       "blocked": false,
+|       "lifecycle": "resolved",
+|       "reason": "fixed",
+|       "task": "XX-4",
+|       "upstream": "XX-s1"
+|     }
+|   ]
+| }
+--- state
++ board.XX.nodes.items[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
+
+### triage XX -f ids
+exit 0
+--- stdout
+| XX-4
+--- state
++ board.XX.nodes.items[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
+
+### triage XX --dry-run -f records
+exit 0
+--- stdout
+| triage XX
+| 0 untriaged seeds · 0 ready to resolve · 1 upstream resolution (1 would annotate, 0 already recorded)
+| [dry run — no annotations written]
+|
+| untriaged (0)
+|
+| ready to resolve (0)
+|
+| upstream resolutions (1)
+| XX-s1 -> XX-4 resolved: fixed   would annotate
+--- state
+unchanged
+
+### triage XX --dry-run -f json
+exit 0
+--- stdout
+| {
+|   "board": "XX",
+|   "dry_run": true,
+|   "failures": [],
+|   "parked": 0,
+|   "ready_to_resolve": [],
+|   "untriaged": [],
+|   "upstream_resolutions": [
+|     {
+|       "already_recorded": false,
+|       "annotated": false,
+|       "blocked": false,
+|       "lifecycle": "resolved",
+|       "reason": "fixed",
+|       "task": "XX-4",
+|       "upstream": "XX-s1"
+|     }
+|   ]
+| }
+--- state
+unchanged
+
+### triage XX (bound elsewhere)
+exit 0
+--- stdout
+| triage XX
+| 0 untriaged seeds · 0 ready to resolve · 1 upstream resolution (1 annotated, 0 already recorded)
+|
+| untriaged (0)
+|
+| ready to resolve (0)
+|
+| upstream resolutions (1)
+| XX-s1 -> XX-4 resolved: fixed   annotated
+--- state
++ board.XX.nodes.items[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
+
+### triage --scope XX
+exit 0
+--- stdout
+| triage XX
+| 0 untriaged seeds · 0 ready to resolve · 1 upstream resolution (1 annotated, 0 already recorded)
+|
+| untriaged (0)
+|
+| ready to resolve (0)
+|
+| upstream resolutions (1)
+| XX-s1 -> XX-4 resolved: fixed   annotated
+--- state
++ board.XX.nodes.items[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
+
+### triage --scope XX (bound elsewhere)
+exit 0
+--- stdout
+| {
+|   "board": "XX",
+|   "dry_run": false,
+|   "failures": [],
+|   "parked": 0,
+|   "ready_to_resolve": [],
+|   "untriaged": [],
+|   "upstream_resolutions": [
+|     {
+|       "already_recorded": false,
+|       "annotated": true,
+|       "blocked": false,
+|       "lifecycle": "resolved",
+|       "reason": "fixed",
+|       "task": "XX-4",
+|       "upstream": "XX-s1"
+|     }
+|   ]
+| }
+--- state
++ board.XX.nodes.items[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
+
+### triage (unbound)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "pass a KEY or bind a board first (mimir bind KEY)"
+|   ],
+|   "message": "triage requires a board"
+| }
+--- state
+unchanged
+
+### triage (blank board)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "pass a KEY or bind a board first (mimir bind KEY)"
+|   ],
+|   "message": "triage requires a board"
+| }
+--- state
+unchanged
+
+### triage ZZ
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key ZZ -y"
+|   ],
+|   "message": "ZZ doesn't exist"
+| }
+--- state
+unchanged
+
+### triage nope
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key nope -y"
+|   ],
+|   "message": "nope doesn't exist"
+| }
+--- state
+unchanged
+
+### triage --scope all
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "pass a KEY or bind a board first (mimir bind KEY)"
+|   ],
+|   "message": "triage requires a board"
+| }
+--- state
+unchanged
+
+### triage --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
+| }
+--- state
+unchanged
+
+### triage argv: MMR -f json
+exit 0
+--- stdout
+| {
+|   "board": "MMR",
+|   "dry_run": false,
+|   "failures": [],
+|   "parked": 1,
+|   "ready_to_resolve": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s4",
+|       "kind": "feature",
+|       "lane": "ready",
+|       "lifecycle": "promoted",
+|       "project": "MMR",
+|       "ready_to_resolve": true,
+|       "requester": null,
+|       "spawned": [
+|         "MMR-9"
+|       ],
+|       "title": "Export",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "untriaged": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s1",
+|       "kind": "feature",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": "XX",
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": "Ask the other board for a hook."
+|     },
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s2",
+|       "kind": "idea",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": null,
+|       "spawned": [],
+|       "title": "Cache the plan",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "upstream_resolutions": []
+| }
+--- state
+unchanged
+
+### triage argv: MMR --format jsonl
+exit 0
+--- stdout
+| {"board":"MMR","dry_run":false,"failures":[],"parked":1,"ready_to_resolve":[{"created_at":"2026-10-01T12:00:00.000Z","id":"MMR-s4","kind":"feature","lane":"ready","lifecycle":"promoted","project":"MMR","ready_to_resolve":true,"requester":null,"spawned":["MMR-9"],"title":"Export","updated_at":"2026-10-01T12:00:00.000Z","lede":null}],"untriaged":[{"created_at":"2026-10-01T12:00:00.000Z","id":"MMR-s1","kind":"feature","lane":"untriaged","lifecycle":"new","project":"MMR","ready_to_resolve":false,"requester":"XX","spawned":[],"title":"A hook","updated_at":"2026-10-01T12:00:00.000Z","lede":"Ask the other board for a hook."},{"created_at":"2026-10-01T12:00:00.000Z","id":"MMR-s2","kind":"idea","lane":"untriaged","lifecycle":"new","project":"MMR","ready_to_resolve":false,"requester":null,"spawned":[],"title":"Cache the plan","updated_at":"2026-10-01T12:00:00.000Z","lede":null}],"upstream_resolutions":[]}
+--- state
+unchanged
+
+### triage argv: XX --dry-run -f records
+exit 0
+--- stdout
+| triage XX
+| 0 untriaged seeds · 0 ready to resolve · 1 upstream resolution (1 would annotate, 0 already recorded)
+| [dry run — no annotations written]
+|
+| untriaged (0)
+|
+| ready to resolve (0)
+|
+| upstream resolutions (1)
+| XX-s1 -> XX-4 resolved: fixed   would annotate
+--- state
+unchanged
+
+### triage argv: -s MMR
+exit 0
+--- stdout
+| {
+|   "board": "MMR",
+|   "dry_run": false,
+|   "failures": [],
+|   "parked": 1,
+|   "ready_to_resolve": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s4",
+|       "kind": "feature",
+|       "lane": "ready",
+|       "lifecycle": "promoted",
+|       "project": "MMR",
+|       "ready_to_resolve": true,
+|       "requester": null,
+|       "spawned": [
+|         "MMR-9"
+|       ],
+|       "title": "Export",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "untriaged": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s1",
+|       "kind": "feature",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": "XX",
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": "Ask the other board for a hook."
+|     },
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s2",
+|       "kind": "idea",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": null,
+|       "spawned": [],
+|       "title": "Cache the plan",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "upstream_resolutions": []
+| }
+--- state
+unchanged
+
+### triage argv: MMR XX
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"triage\" accepts 1 argument. Remove the extra values."
+| }
+--- state
+unchanged
+
+### triage argv: MMR -f json -f ids
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"-f\" can be supplied only once. Remove the repeated option."
+| }
+--- state
+unchanged
+
+### triage argv: MMR --force
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--force' permits a non-empty discard; use it with scratch discard"
+|   ],
+|   "message": "Unknown option \"--force\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### triage argv: MMR (terminal)
+exit 0
+--- stdout
+| ␛[1mtriage MMR␛[22m
+| 2 untriaged seeds · 1 parked · 1 ready to resolve · 0 upstream resolutions (0 annotated, 0 already recorded)
+|
+| ␛[1muntriaged (2)␛[22m
+| feature   new   XX   now   MMR-s1   A hook
+| ␛[90m      Ask the other board for a hook.␛[39m
+| idea      new   -    now   MMR-s2   Cache the plan
+|
+| ␛[1mready to resolve (1)␛[22m
+| feature   promoted   -   now   MMR-s4   Export ␛[32m●␛[39m
+|
+| 1 parked seed — list them: mimir seeds -p MMR --status parked
+|
+| ␛[1mupstream resolutions (0)␛[22m
+--- state
+unchanged
+
+### triage argv: XX (terminal)
+exit 0
+--- stdout
+| ␛[1mtriage XX␛[22m
+| 0 untriaged seeds · 0 ready to resolve · 1 upstream resolution (1 annotated, 0 already recorded)
+|
+| ␛[1muntriaged (0)␛[22m
+|
+| ␛[1mready to resolve (0)␛[22m
+|
+| ␛[1mupstream resolutions (1)␛[22m
+| XX-s1 → XX-4 resolved: fixed   annotated
+--- state
++ board.XX.nodes.items[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
+
+### triage argv: XX --dry-run (terminal)
+exit 0
+--- stdout
+| ␛[1mtriage XX␛[22m
+| 0 untriaged seeds · 0 ready to resolve · 1 upstream resolution (1 would annotate, 0 already recorded)
+| ␛[90m(dry run — no annotations written)␛[39m
+|
+| ␛[1muntriaged (0)␛[22m
+|
+| ␛[1mready to resolve (0)␛[22m
+|
+| ␛[1mupstream resolutions (1)␛[22m
+| XX-s1 → XX-4 resolved: fixed   would annotate
+--- state
+unchanged
+
+### triage argv: MMR -f json (terminal)
+exit 0
+--- stdout
+| {
+|   "board": "MMR",
+|   "dry_run": false,
+|   "failures": [],
+|   "parked": 1,
+|   "ready_to_resolve": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s4",
+|       "kind": "feature",
+|       "lane": "ready",
+|       "lifecycle": "promoted",
+|       "project": "MMR",
+|       "ready_to_resolve": true,
+|       "requester": null,
+|       "spawned": [
+|         "MMR-9"
+|       ],
+|       "title": "Export",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "untriaged": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s1",
+|       "kind": "feature",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": "XX",
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": "Ask the other board for a hook."
+|     },
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-s2",
+|       "kind": "idea",
+|       "lane": "untriaged",
+|       "lifecycle": "new",
+|       "project": "MMR",
+|       "ready_to_resolve": false,
+|       "requester": null,
+|       "spawned": [],
+|       "title": "Cache the plan",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "lede": null
+|     }
+|   ],
+|   "upstream_resolutions": []
+| }
+--- state
+unchanged
+

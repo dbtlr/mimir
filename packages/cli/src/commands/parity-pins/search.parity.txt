@@ -1,0 +1,505 @@
+### search store -s MMR
+exit 0
+--- stdout
+| 3 results
+|
+| MMR-3    task       title         Wire the store
+| MMR-a1   artifact   title         Store notes
+| MMR      project    description   mimir
+|       The work-state store.
+
+### search store -s MMR -f records
+exit 0
+--- stdout
+| 3 results
+|
+| MMR-3    task       title         Wire the store
+| MMR-a1   artifact   title         Store notes
+| MMR      project    description   mimir
+|       The work-state store.
+
+### search store -s MMR -f ids
+exit 0
+--- stdout
+| MMR-3
+| MMR-a1
+| MMR
+
+### search store -s MMR -f json
+exit 0
+--- stdout
+| {
+|   "results": [
+|     {
+|       "finished": false,
+|       "id": "MMR-3",
+|       "kind": "task",
+|       "lifecycle": "todo",
+|       "match": "title",
+|       "project": "MMR",
+|       "title": "Wire the store",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "finished": false,
+|       "id": "MMR-a1",
+|       "kind": "artifact",
+|       "lifecycle": null,
+|       "match": "title",
+|       "project": "MMR",
+|       "title": "Store notes",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "finished": false,
+|       "id": "MMR",
+|       "kind": "project",
+|       "lifecycle": null,
+|       "match": "description",
+|       "project": "MMR",
+|       "title": "mimir",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "snippet": "The work-state store."
+|     }
+|   ],
+|   "returned": 3,
+|   "starts_at": 0,
+|   "total": 3
+| }
+
+### search store -s MMR -f jsonl
+exit 0
+--- stdout
+| {"finished":false,"id":"MMR-3","kind":"task","lifecycle":"todo","match":"title","project":"MMR","title":"Wire the store","updated_at":"2026-10-01T12:00:00.000Z"}
+| {"finished":false,"id":"MMR-a1","kind":"artifact","lifecycle":null,"match":"title","project":"MMR","title":"Store notes","updated_at":"2026-10-01T12:00:00.000Z"}
+| {"finished":false,"id":"MMR","kind":"project","lifecycle":null,"match":"description","project":"MMR","title":"mimir","updated_at":"2026-10-01T12:00:00.000Z","snippet":"The work-state store."}
+
+### search store -s MMR --ascii
+exit 0
+--- stdout
+| 3 results
+|
+| MMR-3    task       title         Wire the store
+| MMR-a1   artifact   title         Store notes
+| MMR      project    description   mimir
+|       The work-state store.
+
+### search MMR-3 -s MMR
+exit 0
+--- stdout
+| 4 results
+|
+| MMR-3    task       id         Wire the store
+| MMR-2    phase      parent     Skeleton
+| MMR-4    task       blocks     Render views
+| MMR-a1   artifact   artifact   Store notes
+
+### search MMR-3 -s MMR -f json
+exit 0
+--- stdout
+| {
+|   "results": [
+|     {
+|       "finished": false,
+|       "id": "MMR-3",
+|       "kind": "task",
+|       "lifecycle": "todo",
+|       "match": "id",
+|       "project": "MMR",
+|       "title": "Wire the store",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "finished": false,
+|       "id": "MMR-2",
+|       "kind": "phase",
+|       "lifecycle": null,
+|       "match": "link",
+|       "project": "MMR",
+|       "title": "Skeleton",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "link": "parent"
+|     },
+|     {
+|       "finished": false,
+|       "id": "MMR-4",
+|       "kind": "task",
+|       "lifecycle": "todo",
+|       "match": "link",
+|       "project": "MMR",
+|       "title": "Render views",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "link": "blocks"
+|     },
+|     {
+|       "finished": false,
+|       "id": "MMR-a1",
+|       "kind": "artifact",
+|       "lifecycle": null,
+|       "match": "link",
+|       "project": "MMR",
+|       "title": "Store notes",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "link": "artifact"
+|     }
+|   ],
+|   "returned": 4,
+|   "starts_at": 0,
+|   "total": 4
+| }
+
+### search 3 -s MMR -f ids
+exit 0
+--- stdout
+| MMR-3
+| MMR-2
+| MMR-4
+| MMR-a1
+
+### search notes -s MMR
+exit 0
+--- stdout
+| 1 result
+|
+| MMR-a1   artifact   title   Store notes
+
+### search keep -s MMR -f json
+exit 0
+--- stdout
+| {
+|   "results": [
+|     {
+|       "finished": false,
+|       "id": "MMR-3",
+|       "kind": "task",
+|       "lifecycle": "todo",
+|       "match": "description",
+|       "project": "MMR",
+|       "title": "Wire the store",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "snippet": "Open the store once. Keep it open."
+|     }
+|   ],
+|   "returned": 1,
+|   "starts_at": 0,
+|   "total": 1
+| }
+
+### search store (bound to MMR)
+exit 0
+--- stdout
+| 3 results
+|
+| MMR-3    task       title         Wire the store
+| MMR-a1   artifact   title         Store notes
+| MMR      project    description   mimir
+|       The work-state store.
+
+### search store (bound to MMR) -f ids
+exit 0
+--- stdout
+| MMR-3
+| MMR-a1
+| MMR
+
+### search ours -s XX (bound to MMR)
+exit 0
+--- stdout
+| 1 result
+|
+| XX-3   task   title   Not ours
+
+### search store -s MMR -n 1
+exit 0
+--- stdout
+| 3 results
+|
+| MMR-3   task   title   Wire the store
+
+### search task -s MMR -n 100 -f ids
+exit 0
+--- stdout
+|
+
+### search zzzz -s MMR
+exit 0
+--- stdout
+| 0 results
+
+### search zzzz -s MMR -f json
+exit 0
+--- stdout
+| {
+|   "results": [],
+|   "returned": 0,
+|   "starts_at": 0,
+|   "total": 0
+| }
+
+### search zzzz -s MMR -f ids
+exit 0
+--- stdout
+|
+
+### search store -s MMR -n 0
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "limit is a whole number from 1 to 100"
+|   ],
+|   "message": "invalid limit: 0"
+| }
+
+### search store -s MMR -n 101
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "limit is a whole number from 1 to 100"
+|   ],
+|   "message": "invalid limit: 101"
+| }
+
+### search store -s MMR -n 2x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "limit is a whole number of rows (0 or more)"
+|   ],
+|   "message": "invalid limit: 2x"
+| }
+
+### search store -s NOPE
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key NOPE -y"
+|   ],
+|   "message": "NOPE doesn't exist"
+| }
+
+### search store -s mmr
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key mmr -y"
+|   ],
+|   "message": "mmr doesn't exist"
+| }
+
+### search (no query)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "e.g. 'mimir search MMR-12' or 'mimir search auth'"
+|   ],
+|   "message": "search needs a query"
+| }
+
+### search store -s MMR --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
+| }
+
+### search argv: store -s MMR
+exit 0
+--- stdout
+| 3 results
+|
+| MMR-3    task       title         Wire the store
+| MMR-a1   artifact   title         Store notes
+| MMR      project    description   mimir
+|       The work-state store.
+
+### search argv: store -s MMR -f json
+exit 0
+--- stdout
+| {
+|   "results": [
+|     {
+|       "finished": false,
+|       "id": "MMR-3",
+|       "kind": "task",
+|       "lifecycle": "todo",
+|       "match": "title",
+|       "project": "MMR",
+|       "title": "Wire the store",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "finished": false,
+|       "id": "MMR-a1",
+|       "kind": "artifact",
+|       "lifecycle": null,
+|       "match": "title",
+|       "project": "MMR",
+|       "title": "Store notes",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "finished": false,
+|       "id": "MMR",
+|       "kind": "project",
+|       "lifecycle": null,
+|       "match": "description",
+|       "project": "MMR",
+|       "title": "mimir",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "snippet": "The work-state store."
+|     }
+|   ],
+|   "returned": 3,
+|   "starts_at": 0,
+|   "total": 3
+| }
+
+### search argv: cross record -s MMR
+exit 0
+--- stdout
+| 0 results
+
+### search argv: Wire the store -s MMR -f ids
+exit 0
+--- stdout
+| MMR-3
+
+### search argv: --scope MMR --limit 2 --format ids store
+exit 0
+--- stdout
+| MMR-3
+| MMR-a1
+
+### search argv: store -s MMR -n 0 -f json
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "limit is a whole number from 1 to 100"
+|   ],
+|   "message": "invalid limit: 0"
+| }
+
+### search argv: store -s MMR --bogus -f json
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+
+### search argv: -s MMR -f ids -- store
+exit 0
+--- stdout
+| MMR-3
+| MMR-a1
+| MMR
+
+### search argv: -s MMR -f json -- -store
+exit 0
+--- stdout
+| {
+|   "results": [
+|     {
+|       "finished": false,
+|       "id": "MMR",
+|       "kind": "project",
+|       "lifecycle": null,
+|       "match": "description",
+|       "project": "MMR",
+|       "title": "mimir",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "snippet": "The work-state store."
+|     },
+|     {
+|       "finished": false,
+|       "id": "MMR-3",
+|       "kind": "task",
+|       "lifecycle": "todo",
+|       "match": "description",
+|       "project": "MMR",
+|       "title": "Wire the store",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "snippet": "Open the store once. Keep it open."
+|     }
+|   ],
+|   "returned": 2,
+|   "starts_at": 0,
+|   "total": 2
+| }
+
+### search argv: store -s MMR -n 1 -n 2 -f ids
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"-n\" can be supplied only once. Remove the repeated option."
+| }
+
+### search argv: -s MMR search store -f ids
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "parser",
+|   "hints": [],
+|   "message": "Option \"-s\" belongs to commands next, list, overview, artifacts, search, seeds, seed, triage, scratch list, scratch create, doctor. Supply it after the command name."
+| }
+
+### search argv: ours -s MMR -f ids
+exit 0
+--- stdout
+|
+
+### search argv: store -s MMR (terminal)
+exit 0
+--- stdout
+| 3 results
+|
+| MMR-3    task       title         Wire the store
+| MMR-a1   artifact   title         Store notes
+| MMR      project    description   mimir
+| ␛[90m      The work-state store.␛[39m
+
+### search argv: MMR-3 -s MMR -f records (terminal)
+exit 0
+--- stdout
+| 4 results
+|
+| MMR-3    task       id         Wire the store
+| MMR-2    phase      parent     Skeleton
+| MMR-4    task       blocks     Render views
+| MMR-a1   artifact   artifact   Store notes
+
+### search argv: zzzz -s MMR (terminal)
+exit 0
+--- stdout
+| 0 results
+

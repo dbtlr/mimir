@@ -1,9 +1,9 @@
-import { MACHINE_REDIRECTS } from '../parity/differences';
 import { argvLine } from '../testing/argv-case';
 import type { ArgvExtras } from '../testing/argv-case';
 import type { ParityBoard } from '../testing/fixture';
 import type { ParityCase } from '../testing/parity';
-import { twinCases } from '../testing/twin';
+import { MACHINE_REDIRECTS } from '../testing/redirects';
+import { writeCases } from '../testing/writes';
 
 /** A clone's origin, which matches no project's remote. */
 const STRANGER = 'git@github.com:acme/widgets.git';
@@ -102,4 +102,4 @@ async function sharedOriginProjects(board: ParityBoard): Promise<void> {
 }
 
 // Binding records an origin on a project, so each CLI runs on its own board.
-twinCases(/^bind /, CASES, sharedOriginProjects);
+writeCases(import.meta.url, CASES, sharedOriginProjects);

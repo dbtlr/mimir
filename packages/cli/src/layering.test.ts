@@ -17,8 +17,22 @@ const probe = (name: string): string =>
     new URL(`commands/layering-probe-${name}-${String(process.pid)}.ts`, import.meta.url),
   );
 
+// The old package's name is spelled in two pieces so that a search of this
+// package for the dependency finds nothing: no file here may import it.
+const OLD_PACKAGE = ['@mimir', 'bin'].join('/');
+const BIN_SOURCE = `export { runCli } from '${OLD_PACKAGE}/src/cli';\n`;
+const BIN_REFUSAL = `@mimir/cli may not import ${OLD_PACKAGE}`;
+
 const PROBES = {
-  bin: { path: probe('bin'), source: "export { runCli } from '@mimir/bin/src/cli';\n" },
+  bin: { path: probe('bin'), source: BIN_SOURCE },
+  // A test and a test-support module are held to the same rule as shipped code.
+  binInTest: { path: probe('bin-test').replace(/\.ts$/, '.test.ts'), source: BIN_SOURCE },
+  binInTesting: {
+    path: fileURLToPath(
+      new URL(`testing/layering-probe-bin-${String(process.pid)}.ts`, import.meta.url),
+    ),
+    source: BIN_SOURCE,
+  },
   contract: { path: probe('contract'), source: "export { MimirError } from '@mimir/contract';\n" },
   core: {
     path: probe('core'),
@@ -102,7 +116,12 @@ test('a command module that imports @mimir/core is refused', () => {
 });
 
 test('a command module that imports the old binary is refused', () => {
-  expect(of(PROBES.bin.path)).toContain('@mimir/cli may not import @mimir/bin');
+  expect(of(PROBES.bin.path)).toContain(BIN_REFUSAL);
+});
+
+test('a test and a test-support module that import the old binary are refused', () => {
+  expect(of(PROBES.binInTest.path)).toContain(BIN_REFUSAL);
+  expect(of(PROBES.binInTesting.path)).toContain(BIN_REFUSAL);
 });
 
 test('a command module that imports the wire is refused', () => {

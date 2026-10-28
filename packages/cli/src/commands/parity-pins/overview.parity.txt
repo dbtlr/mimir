@@ -1,0 +1,1369 @@
+### overview -s MMR
+exit 0
+--- stdout
+| {
+|   "active_scratchpads": {
+|     "count": 1,
+|     "scratchpads": [
+|       {
+|         "id": "<uuid>",
+|         "linked_work": [
+|           "MMR-3"
+|         ],
+|         "open_agenda": 0,
+|         "project": "MMR",
+|         "state": "active",
+|         "title": "Shape it",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "awaiting": {
+|     "count": 1,
+|     "tasks": [
+|       {
+|         "id": "MMR-4",
+|         "parent": "MMR-2",
+|         "status": "awaiting",
+|         "title": "Render views",
+|         "type": "task",
+|         "summary": null,
+|         "priority": null,
+|         "size": null,
+|         "lifecycle": "todo",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z",
+|         "awaiting_on": [
+|           "MMR-3"
+|         ]
+|       }
+|     ]
+|   },
+|   "direction": {
+|     "containers": [],
+|     "count": 0,
+|     "project": null
+|   },
+|   "hygiene": {
+|     "blocked": 1,
+|     "listings": {
+|       "blocked": [
+|         {
+|           "id": "MMR-6",
+|           "parent": "MMR-2",
+|           "status": "blocked",
+|           "title": "Wait on review",
+|           "type": "task",
+|           "summary": null,
+|           "priority": null,
+|           "size": null,
+|           "lifecycle": "todo",
+|           "grooming": "not_groomed",
+|           "hold": "blocked",
+|           "hold_reason": "needs a reviewer",
+|           "block_owner": "you",
+|           "external_ref": null,
+|           "upstream": null,
+|           "host": null,
+|           "harness": null,
+|           "session": null,
+|           "worker_harness": null,
+|           "worker_session": null,
+|           "branch": null,
+|           "completed_at": null,
+|           "created_at": "2026-10-01T12:00:00.000Z",
+|           "updated_at": "2026-10-01T12:00:00.000Z",
+|           "stale": false
+|         }
+|       ],
+|       "stale": [],
+|       "untriaged": [
+|         {
+|           "id": "MMR-s1",
+|           "lede": "Ask the other board for a hook.",
+|           "title": "A hook"
+|         }
+|       ]
+|     },
+|     "parked_seeds": 0,
+|     "stale": 0,
+|     "untriaged": 1
+|   },
+|   "in_flight": {
+|     "count": 1,
+|     "tasks": [
+|       {
+|         "id": "MMR-5",
+|         "parent": "MMR-2",
+|         "status": "in_progress",
+|         "title": "Ship it",
+|         "type": "task",
+|         "summary": null,
+|         "priority": "p0",
+|         "size": null,
+|         "lifecycle": "in_progress",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session",
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "next": {
+|     "count": 2,
+|     "tasks": [
+|       {
+|         "id": "MMR-3",
+|         "parent": "MMR-2",
+|         "status": "ready",
+|         "title": "Wire the store",
+|         "type": "task",
+|         "summary": "one store per run",
+|         "priority": "p1",
+|         "size": "small",
+|         "lifecycle": "todo",
+|         "grooming": "groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       },
+|       {
+|         "id": "MMR-8",
+|         "parent": "MMR-2",
+|         "status": "ready",
+|         "title": "Tidy docs",
+|         "type": "task",
+|         "summary": null,
+|         "priority": "p2",
+|         "size": null,
+|         "lifecycle": "todo",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "project": {
+|     "distribution": {
+|       "in_progress": 1
+|     },
+|     "id": "MMR",
+|     "status": "in_progress"
+|   },
+|   "sessions": {
+|     "entries": [
+|       {
+|         "from": "2026-10-01T12:00:00.000Z",
+|         "id": "main-session",
+|         "tasks": [
+|           {
+|             "id": "MMR-5",
+|             "title": "Ship it"
+|           }
+|         ],
+|         "to": "2026-10-01T12:00:00.000Z",
+|         "transitions": 1
+|       }
+|     ],
+|     "shown": 1
+|   }
+| }
+
+### overview -s MMR -f json
+exit 0
+--- stdout
+| {
+|   "active_scratchpads": {
+|     "count": 1,
+|     "scratchpads": [
+|       {
+|         "id": "<uuid>",
+|         "linked_work": [
+|           "MMR-3"
+|         ],
+|         "open_agenda": 0,
+|         "project": "MMR",
+|         "state": "active",
+|         "title": "Shape it",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "awaiting": {
+|     "count": 1,
+|     "tasks": [
+|       {
+|         "id": "MMR-4",
+|         "parent": "MMR-2",
+|         "status": "awaiting",
+|         "title": "Render views",
+|         "type": "task",
+|         "summary": null,
+|         "priority": null,
+|         "size": null,
+|         "lifecycle": "todo",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z",
+|         "awaiting_on": [
+|           "MMR-3"
+|         ]
+|       }
+|     ]
+|   },
+|   "direction": {
+|     "containers": [],
+|     "count": 0,
+|     "project": null
+|   },
+|   "hygiene": {
+|     "blocked": 1,
+|     "listings": {
+|       "blocked": [
+|         {
+|           "id": "MMR-6",
+|           "parent": "MMR-2",
+|           "status": "blocked",
+|           "title": "Wait on review",
+|           "type": "task",
+|           "summary": null,
+|           "priority": null,
+|           "size": null,
+|           "lifecycle": "todo",
+|           "grooming": "not_groomed",
+|           "hold": "blocked",
+|           "hold_reason": "needs a reviewer",
+|           "block_owner": "you",
+|           "external_ref": null,
+|           "upstream": null,
+|           "host": null,
+|           "harness": null,
+|           "session": null,
+|           "worker_harness": null,
+|           "worker_session": null,
+|           "branch": null,
+|           "completed_at": null,
+|           "created_at": "2026-10-01T12:00:00.000Z",
+|           "updated_at": "2026-10-01T12:00:00.000Z",
+|           "stale": false
+|         }
+|       ],
+|       "stale": [],
+|       "untriaged": [
+|         {
+|           "id": "MMR-s1",
+|           "lede": "Ask the other board for a hook.",
+|           "title": "A hook"
+|         }
+|       ]
+|     },
+|     "parked_seeds": 0,
+|     "stale": 0,
+|     "untriaged": 1
+|   },
+|   "in_flight": {
+|     "count": 1,
+|     "tasks": [
+|       {
+|         "id": "MMR-5",
+|         "parent": "MMR-2",
+|         "status": "in_progress",
+|         "title": "Ship it",
+|         "type": "task",
+|         "summary": null,
+|         "priority": "p0",
+|         "size": null,
+|         "lifecycle": "in_progress",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session",
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "next": {
+|     "count": 2,
+|     "tasks": [
+|       {
+|         "id": "MMR-3",
+|         "parent": "MMR-2",
+|         "status": "ready",
+|         "title": "Wire the store",
+|         "type": "task",
+|         "summary": "one store per run",
+|         "priority": "p1",
+|         "size": "small",
+|         "lifecycle": "todo",
+|         "grooming": "groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       },
+|       {
+|         "id": "MMR-8",
+|         "parent": "MMR-2",
+|         "status": "ready",
+|         "title": "Tidy docs",
+|         "type": "task",
+|         "summary": null,
+|         "priority": "p2",
+|         "size": null,
+|         "lifecycle": "todo",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "project": {
+|     "distribution": {
+|       "in_progress": 1
+|     },
+|     "id": "MMR",
+|     "status": "in_progress"
+|   },
+|   "sessions": {
+|     "entries": [
+|       {
+|         "from": "2026-10-01T12:00:00.000Z",
+|         "id": "main-session",
+|         "tasks": [
+|           {
+|             "id": "MMR-5",
+|             "title": "Ship it"
+|           }
+|         ],
+|         "to": "2026-10-01T12:00:00.000Z",
+|         "transitions": 1
+|       }
+|     ],
+|     "shown": 1
+|   }
+| }
+
+### overview -s MMR -f records
+exit 0
+--- stdout
+| MMR · > in_progress · in_progress:1
+|
+| in flight (1)
+|   MMR-5   > in_progress   p0   MMR-2   Ship it · codex · main-session · worker claude · task-worker-session
+|
+| active scratchpads (1)
+|   <uuid> · MMR · Shape it · 0 open Agenda · now · linked MMR-3
+|
+| next (2)
+|   MMR-3   * ready   p1   groomed       MMR-2   Wire the store
+|   MMR-8   * ready   p2   not_groomed   MMR-2   Tidy docs
+|
+| awaiting (1)
+|   MMR-4   ~ awaiting        not_groomed   MMR-2   Render views · awaiting MMR-3
+|
+| recent sessions (1 shown)
+|   main-session · 2026-10-01 12:00 -> 12:00 UTC · 1 transition · MMR-5
+|
+| hygiene
+|   1 untriaged seed — run 'mimir triage MMR'
+|     MMR-s1   A hook · Ask the other board for a hook.
+|   1 blocked — run 'mimir list -s MMR --status blocked'
+|     MMR-6   x blocked        not_groomed   MMR-2   Wait on review · needs a reviewer
+
+### overview -s MMR --ascii -f records
+exit 0
+--- stdout
+| MMR · > in_progress · in_progress:1
+|
+| in flight (1)
+|   MMR-5   > in_progress   p0   MMR-2   Ship it · codex · main-session · worker claude · task-worker-session
+|
+| active scratchpads (1)
+|   <uuid> · MMR · Shape it · 0 open Agenda · now · linked MMR-3
+|
+| next (2)
+|   MMR-3   * ready   p1   groomed       MMR-2   Wire the store
+|   MMR-8   * ready   p2   not_groomed   MMR-2   Tidy docs
+|
+| awaiting (1)
+|   MMR-4   ~ awaiting        not_groomed   MMR-2   Render views · awaiting MMR-3
+|
+| recent sessions (1 shown)
+|   main-session · 2026-10-01 12:00 -> 12:00 UTC · 1 transition · MMR-5
+|
+| hygiene
+|   1 untriaged seed — run 'mimir triage MMR'
+|     MMR-s1   A hook · Ask the other board for a hook.
+|   1 blocked — run 'mimir list -s MMR --status blocked'
+|     MMR-6   x blocked        not_groomed   MMR-2   Wait on review · needs a reviewer
+
+### overview -s XX -f records
+exit 0
+--- stdout
+| XX · * ready · ready:1
+|
+| in flight (0)
+|
+| active scratchpads (0)
+|
+| next (1)
+|   XX-3   * ready        not_groomed   XX-2   Not ours
+|
+| awaiting (0)
+|
+| recent sessions (0 shown)
+|
+| hygiene
+|   nothing flagged
+
+### overview -s XX -f json
+exit 0
+--- stdout
+| {
+|   "active_scratchpads": {
+|     "count": 0,
+|     "scratchpads": []
+|   },
+|   "awaiting": {
+|     "count": 0,
+|     "tasks": []
+|   },
+|   "direction": {
+|     "containers": [],
+|     "count": 0,
+|     "project": null
+|   },
+|   "hygiene": {
+|     "blocked": 0,
+|     "listings": {
+|       "blocked": [],
+|       "stale": [],
+|       "untriaged": []
+|     },
+|     "parked_seeds": 0,
+|     "stale": 0,
+|     "untriaged": 0
+|   },
+|   "in_flight": {
+|     "count": 0,
+|     "tasks": []
+|   },
+|   "next": {
+|     "count": 1,
+|     "tasks": [
+|       {
+|         "id": "XX-3",
+|         "parent": "XX-2",
+|         "status": "ready",
+|         "title": "Not ours",
+|         "type": "task",
+|         "summary": null,
+|         "priority": null,
+|         "size": null,
+|         "lifecycle": "todo",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "project": {
+|     "distribution": {
+|       "ready": 1
+|     },
+|     "id": "XX",
+|     "status": "ready"
+|   },
+|   "sessions": {
+|     "entries": [],
+|     "shown": 0
+|   }
+| }
+
+### overview (bound to MMR)
+exit 0
+--- stdout
+| {
+|   "active_scratchpads": {
+|     "count": 1,
+|     "scratchpads": [
+|       {
+|         "id": "<uuid>",
+|         "linked_work": [
+|           "MMR-3"
+|         ],
+|         "open_agenda": 0,
+|         "project": "MMR",
+|         "state": "active",
+|         "title": "Shape it",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "awaiting": {
+|     "count": 1,
+|     "tasks": [
+|       {
+|         "id": "MMR-4",
+|         "parent": "MMR-2",
+|         "status": "awaiting",
+|         "title": "Render views",
+|         "type": "task",
+|         "summary": null,
+|         "priority": null,
+|         "size": null,
+|         "lifecycle": "todo",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z",
+|         "awaiting_on": [
+|           "MMR-3"
+|         ]
+|       }
+|     ]
+|   },
+|   "direction": {
+|     "containers": [],
+|     "count": 0,
+|     "project": null
+|   },
+|   "hygiene": {
+|     "blocked": 1,
+|     "listings": {
+|       "blocked": [
+|         {
+|           "id": "MMR-6",
+|           "parent": "MMR-2",
+|           "status": "blocked",
+|           "title": "Wait on review",
+|           "type": "task",
+|           "summary": null,
+|           "priority": null,
+|           "size": null,
+|           "lifecycle": "todo",
+|           "grooming": "not_groomed",
+|           "hold": "blocked",
+|           "hold_reason": "needs a reviewer",
+|           "block_owner": "you",
+|           "external_ref": null,
+|           "upstream": null,
+|           "host": null,
+|           "harness": null,
+|           "session": null,
+|           "worker_harness": null,
+|           "worker_session": null,
+|           "branch": null,
+|           "completed_at": null,
+|           "created_at": "2026-10-01T12:00:00.000Z",
+|           "updated_at": "2026-10-01T12:00:00.000Z",
+|           "stale": false
+|         }
+|       ],
+|       "stale": [],
+|       "untriaged": [
+|         {
+|           "id": "MMR-s1",
+|           "lede": "Ask the other board for a hook.",
+|           "title": "A hook"
+|         }
+|       ]
+|     },
+|     "parked_seeds": 0,
+|     "stale": 0,
+|     "untriaged": 1
+|   },
+|   "in_flight": {
+|     "count": 1,
+|     "tasks": [
+|       {
+|         "id": "MMR-5",
+|         "parent": "MMR-2",
+|         "status": "in_progress",
+|         "title": "Ship it",
+|         "type": "task",
+|         "summary": null,
+|         "priority": "p0",
+|         "size": null,
+|         "lifecycle": "in_progress",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session",
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "next": {
+|     "count": 2,
+|     "tasks": [
+|       {
+|         "id": "MMR-3",
+|         "parent": "MMR-2",
+|         "status": "ready",
+|         "title": "Wire the store",
+|         "type": "task",
+|         "summary": "one store per run",
+|         "priority": "p1",
+|         "size": "small",
+|         "lifecycle": "todo",
+|         "grooming": "groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       },
+|       {
+|         "id": "MMR-8",
+|         "parent": "MMR-2",
+|         "status": "ready",
+|         "title": "Tidy docs",
+|         "type": "task",
+|         "summary": null,
+|         "priority": "p2",
+|         "size": null,
+|         "lifecycle": "todo",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "project": {
+|     "distribution": {
+|       "in_progress": 1
+|     },
+|     "id": "MMR",
+|     "status": "in_progress"
+|   },
+|   "sessions": {
+|     "entries": [
+|       {
+|         "from": "2026-10-01T12:00:00.000Z",
+|         "id": "main-session",
+|         "tasks": [
+|           {
+|             "id": "MMR-5",
+|             "title": "Ship it"
+|           }
+|         ],
+|         "to": "2026-10-01T12:00:00.000Z",
+|         "transitions": 1
+|       }
+|     ],
+|     "shown": 1
+|   }
+| }
+
+### overview (bound to MMR) -f records
+exit 0
+--- stdout
+| MMR · > in_progress · in_progress:1
+|
+| in flight (1)
+|   MMR-5   > in_progress   p0   MMR-2   Ship it · codex · main-session · worker claude · task-worker-session
+|
+| active scratchpads (1)
+|   <uuid> · MMR · Shape it · 0 open Agenda · now · linked MMR-3
+|
+| next (2)
+|   MMR-3   * ready   p1   groomed       MMR-2   Wire the store
+|   MMR-8   * ready   p2   not_groomed   MMR-2   Tidy docs
+|
+| awaiting (1)
+|   MMR-4   ~ awaiting        not_groomed   MMR-2   Render views · awaiting MMR-3
+|
+| recent sessions (1 shown)
+|   main-session · 2026-10-01 12:00 -> 12:00 UTC · 1 transition · MMR-5
+|
+| hygiene
+|   1 untriaged seed — run 'mimir triage MMR'
+|     MMR-s1   A hook · Ask the other board for a hook.
+|   1 blocked — run 'mimir list -s MMR --status blocked'
+|     MMR-6   x blocked        not_groomed   MMR-2   Wait on review · needs a reviewer
+
+### overview -s XX (bound to MMR)
+exit 0
+--- stdout
+| {
+|   "active_scratchpads": {
+|     "count": 0,
+|     "scratchpads": []
+|   },
+|   "awaiting": {
+|     "count": 0,
+|     "tasks": []
+|   },
+|   "direction": {
+|     "containers": [],
+|     "count": 0,
+|     "project": null
+|   },
+|   "hygiene": {
+|     "blocked": 0,
+|     "listings": {
+|       "blocked": [],
+|       "stale": [],
+|       "untriaged": []
+|     },
+|     "parked_seeds": 0,
+|     "stale": 0,
+|     "untriaged": 0
+|   },
+|   "in_flight": {
+|     "count": 0,
+|     "tasks": []
+|   },
+|   "next": {
+|     "count": 1,
+|     "tasks": [
+|       {
+|         "id": "XX-3",
+|         "parent": "XX-2",
+|         "status": "ready",
+|         "title": "Not ours",
+|         "type": "task",
+|         "summary": null,
+|         "priority": null,
+|         "size": null,
+|         "lifecycle": "todo",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "project": {
+|     "distribution": {
+|       "ready": 1
+|     },
+|     "id": "XX",
+|     "status": "ready"
+|   },
+|   "sessions": {
+|     "entries": [],
+|     "shown": 0
+|   }
+| }
+
+### overview -s NOPE
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key NOPE -y"
+|   ],
+|   "message": "NOPE doesn't exist"
+| }
+
+### overview -s mmr
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key mmr -y"
+|   ],
+|   "message": "mmr doesn't exist"
+| }
+
+### overview -s MMR --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
+| }
+
+### overview argv: -s MMR
+exit 0
+--- stdout
+| {
+|   "active_scratchpads": {
+|     "count": 1,
+|     "scratchpads": [
+|       {
+|         "id": "<uuid>",
+|         "linked_work": [
+|           "MMR-3"
+|         ],
+|         "open_agenda": 0,
+|         "project": "MMR",
+|         "state": "active",
+|         "title": "Shape it",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "awaiting": {
+|     "count": 1,
+|     "tasks": [
+|       {
+|         "id": "MMR-4",
+|         "parent": "MMR-2",
+|         "status": "awaiting",
+|         "title": "Render views",
+|         "type": "task",
+|         "summary": null,
+|         "priority": null,
+|         "size": null,
+|         "lifecycle": "todo",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z",
+|         "awaiting_on": [
+|           "MMR-3"
+|         ]
+|       }
+|     ]
+|   },
+|   "direction": {
+|     "containers": [],
+|     "count": 0,
+|     "project": null
+|   },
+|   "hygiene": {
+|     "blocked": 1,
+|     "listings": {
+|       "blocked": [
+|         {
+|           "id": "MMR-6",
+|           "parent": "MMR-2",
+|           "status": "blocked",
+|           "title": "Wait on review",
+|           "type": "task",
+|           "summary": null,
+|           "priority": null,
+|           "size": null,
+|           "lifecycle": "todo",
+|           "grooming": "not_groomed",
+|           "hold": "blocked",
+|           "hold_reason": "needs a reviewer",
+|           "block_owner": "you",
+|           "external_ref": null,
+|           "upstream": null,
+|           "host": null,
+|           "harness": null,
+|           "session": null,
+|           "worker_harness": null,
+|           "worker_session": null,
+|           "branch": null,
+|           "completed_at": null,
+|           "created_at": "2026-10-01T12:00:00.000Z",
+|           "updated_at": "2026-10-01T12:00:00.000Z",
+|           "stale": false
+|         }
+|       ],
+|       "stale": [],
+|       "untriaged": [
+|         {
+|           "id": "MMR-s1",
+|           "lede": "Ask the other board for a hook.",
+|           "title": "A hook"
+|         }
+|       ]
+|     },
+|     "parked_seeds": 0,
+|     "stale": 0,
+|     "untriaged": 1
+|   },
+|   "in_flight": {
+|     "count": 1,
+|     "tasks": [
+|       {
+|         "id": "MMR-5",
+|         "parent": "MMR-2",
+|         "status": "in_progress",
+|         "title": "Ship it",
+|         "type": "task",
+|         "summary": null,
+|         "priority": "p0",
+|         "size": null,
+|         "lifecycle": "in_progress",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session",
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "next": {
+|     "count": 2,
+|     "tasks": [
+|       {
+|         "id": "MMR-3",
+|         "parent": "MMR-2",
+|         "status": "ready",
+|         "title": "Wire the store",
+|         "type": "task",
+|         "summary": "one store per run",
+|         "priority": "p1",
+|         "size": "small",
+|         "lifecycle": "todo",
+|         "grooming": "groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       },
+|       {
+|         "id": "MMR-8",
+|         "parent": "MMR-2",
+|         "status": "ready",
+|         "title": "Tidy docs",
+|         "type": "task",
+|         "summary": null,
+|         "priority": "p2",
+|         "size": null,
+|         "lifecycle": "todo",
+|         "grooming": "not_groomed",
+|         "hold": "none",
+|         "hold_reason": null,
+|         "block_owner": null,
+|         "external_ref": null,
+|         "upstream": null,
+|         "host": null,
+|         "harness": null,
+|         "session": null,
+|         "worker_harness": null,
+|         "worker_session": null,
+|         "branch": null,
+|         "completed_at": null,
+|         "created_at": "2026-10-01T12:00:00.000Z",
+|         "updated_at": "2026-10-01T12:00:00.000Z"
+|       }
+|     ]
+|   },
+|   "project": {
+|     "distribution": {
+|       "in_progress": 1
+|     },
+|     "id": "MMR",
+|     "status": "in_progress"
+|   },
+|   "sessions": {
+|     "entries": [
+|       {
+|         "from": "2026-10-01T12:00:00.000Z",
+|         "id": "main-session",
+|         "tasks": [
+|           {
+|             "id": "MMR-5",
+|             "title": "Ship it"
+|           }
+|         ],
+|         "to": "2026-10-01T12:00:00.000Z",
+|         "transitions": 1
+|       }
+|     ],
+|     "shown": 1
+|   }
+| }
+
+### overview argv: --scope MMR --format records
+exit 0
+--- stdout
+| MMR · > in_progress · in_progress:1
+|
+| in flight (1)
+|   MMR-5   > in_progress   p0   MMR-2   Ship it · codex · main-session · worker claude · task-worker-session
+|
+| active scratchpads (1)
+|   <uuid> · MMR · Shape it · 0 open Agenda · now · linked MMR-3
+|
+| next (2)
+|   MMR-3   * ready   p1   groomed       MMR-2   Wire the store
+|   MMR-8   * ready   p2   not_groomed   MMR-2   Tidy docs
+|
+| awaiting (1)
+|   MMR-4   ~ awaiting        not_groomed   MMR-2   Render views · awaiting MMR-3
+|
+| recent sessions (1 shown)
+|   main-session · 2026-10-01 12:00 -> 12:00 UTC · 1 transition · MMR-5
+|
+| hygiene
+|   1 untriaged seed — run 'mimir triage MMR'
+|     MMR-s1   A hook · Ask the other board for a hook.
+|   1 blocked — run 'mimir list -s MMR --status blocked'
+|     MMR-6   x blocked        not_groomed   MMR-2   Wait on review · needs a reviewer
+
+### overview argv: -s NOPE -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key NOPE -y"
+|   ],
+|   "message": "NOPE doesn't exist"
+| }
+
+### overview argv: -s MMR -f table
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Option \"--format\": Supply one of json, jsonl, records."
+| }
+
+### overview argv: -s MMR -f ids
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Option \"--format\": Supply one of json, jsonl, records."
+| }
+
+### overview argv: -s MMR extra
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"overview\" accepts no arguments. Remove the supplied values."
+| }
+
+### overview argv: -s MMR -f jsonl
+exit 0
+--- stdout
+| {"active_scratchpads":{"count":1,"scratchpads":[{"id":"<uuid>","linked_work":["MMR-3"],"open_agenda":0,"project":"MMR","state":"active","title":"Shape it","updated_at":"2026-10-01T12:00:00.000Z"}]},"awaiting":{"count":1,"tasks":[{"id":"MMR-4","parent":"MMR-2","status":"awaiting","title":"Render views","type":"task","summary":null,"priority":null,"size":null,"lifecycle":"todo","grooming":"not_groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","awaiting_on":["MMR-3"]}]},"direction":{"containers":[],"count":0,"project":null},"hygiene":{"blocked":1,"listings":{"blocked":[{"id":"MMR-6","parent":"MMR-2","status":"blocked","title":"Wait on review","type":"task","summary":null,"priority":null,"size":null,"lifecycle":"todo","grooming":"not_groomed","hold":"blocked","hold_reason":"needs a reviewer","block_owner":"you","external_ref":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","stale":false}],"stale":[],"untriaged":[{"id":"MMR-s1","lede":"Ask the other board for a hook.","title":"A hook"}]},"parked_seeds":0,"stale":0,"untriaged":1},"in_flight":{"count":1,"tasks":[{"id":"MMR-5","parent":"MMR-2","status":"in_progress","title":"Ship it","type":"task","summary":null,"priority":"p0","size":null,"lifecycle":"in_progress","grooming":"not_groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"upstream":null,"host":null,"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session","branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z"}]},"next":{"count":2,"tasks":[{"id":"MMR-3","parent":"MMR-2","status":"ready","title":"Wire the store","type":"task","summary":"one store per run","priority":"p1","size":"small","lifecycle":"todo","grooming":"groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z"},{"id":"MMR-8","parent":"MMR-2","status":"ready","title":"Tidy docs","type":"task","summary":null,"priority":"p2","size":null,"lifecycle":"todo","grooming":"not_groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z"}]},"project":{"distribution":{"in_progress":1},"id":"MMR","status":"in_progress"},"sessions":{"entries":[{"from":"2026-10-01T12:00:00.000Z","id":"main-session","tasks":[{"id":"MMR-5","title":"Ship it"}],"to":"2026-10-01T12:00:00.000Z","transitions":1}],"shown":1}}
+
+### overview argv: -s MMR (terminal)
+exit 0
+--- stdout
+| ␛[1mMMR␛[22m · ␛[36m▶ in_progress␛[39m · in_progress:1
+|
+| in flight (1)
+|   MMR-5   ␛[36m▶ in_progress␛[39m   p0   MMR-2   Ship it · codex · main-session · worker claude · task-worker-session
+|
+| active scratchpads (1)
+|   <uuid> · MMR · Shape it · 0 open Agenda · now · linked MMR-3
+|
+| next (2)
+|   MMR-3   ␛[32m● ready␛[39m   p1   groomed       MMR-2   Wire the store
+|   MMR-8   ␛[32m● ready␛[39m   p2   not_groomed   MMR-2   Tidy docs
+|
+| awaiting (1)
+|   MMR-4   ␛[33m◔ awaiting␛[39m        not_groomed   MMR-2   Render views · awaiting MMR-3
+|
+| recent sessions (1 shown)
+|   main-session · 2026-10-01 12:00 → 12:00 UTC · 1 transition · MMR-5
+|
+| hygiene
+|   1 untriaged seed — run 'mimir triage MMR'
+|     MMR-s1   A hook · Ask the other board for a hook.
+|   1 blocked — run 'mimir list -s MMR --status blocked'
+|     MMR-6   ␛[31m■ blocked␛[39m        not_groomed   MMR-2   Wait on review · needs a reviewer
+
+### overview argv: -s MMR -f records (terminal)
+exit 0
+--- stdout
+| ␛[1mMMR␛[22m · ␛[36m▶ in_progress␛[39m · in_progress:1
+|
+| in flight (1)
+|   MMR-5   ␛[36m▶ in_progress␛[39m   p0   MMR-2   Ship it · codex · main-session · worker claude · task-worker-session
+|
+| active scratchpads (1)
+|   <uuid> · MMR · Shape it · 0 open Agenda · now · linked MMR-3
+|
+| next (2)
+|   MMR-3   ␛[32m● ready␛[39m   p1   groomed       MMR-2   Wire the store
+|   MMR-8   ␛[32m● ready␛[39m   p2   not_groomed   MMR-2   Tidy docs
+|
+| awaiting (1)
+|   MMR-4   ␛[33m◔ awaiting␛[39m        not_groomed   MMR-2   Render views · awaiting MMR-3
+|
+| recent sessions (1 shown)
+|   main-session · 2026-10-01 12:00 → 12:00 UTC · 1 transition · MMR-5
+|
+| hygiene
+|   1 untriaged seed — run 'mimir triage MMR'
+|     MMR-s1   A hook · Ask the other board for a hook.
+|   1 blocked — run 'mimir list -s MMR --status blocked'
+|     MMR-6   ␛[31m■ blocked␛[39m        not_groomed   MMR-2   Wait on review · needs a reviewer
+
+### overview argv: -s XX -f records (terminal)
+exit 0
+--- stdout
+| ␛[1mXX␛[22m · ␛[32m● ready␛[39m · ready:1
+|
+| in flight (0)
+|
+| active scratchpads (0)
+|
+| next (1)
+|   XX-3   ␛[32m● ready␛[39m        not_groomed   XX-2   Not ours
+|
+| awaiting (0)
+|
+| recent sessions (0 shown)
+|
+| hygiene
+|   nothing flagged
+
+### overview worker session with unknown harness
+exit 0
+--- stdout
+| MMR · > in_progress · in_progress:1
+|
+| in flight (1)
+|   MMR-5   > in_progress   p0   MMR-2   Ship it · codex · main-session · worker unknown-provider-worker
+|
+| active scratchpads (2)
+|   <uuid> · MMR · Index rewrite · 2 open Agenda · now · linked MMR-3
+|   <uuid> · MMR · Blank · 0 open Agenda · now
+|
+| next (2)
+|   MMR-3   * ready   p1   groomed       MMR-2   Wire the store
+|   MMR-8   * ready   p2   not_groomed   MMR-2   Tidy docs
+|
+| awaiting (1)
+|   MMR-4   ~ awaiting        not_groomed   MMR-2   Render views · awaiting MMR-3
+|
+| recent sessions (1 shown)
+|   main-session · 2026-10-01 12:00 -> 12:00 UTC · 2 transitions · MMR-5
+|
+| hygiene
+|   2 untriaged seeds — run 'mimir triage MMR'
+|     MMR-s1   A hook · Ask the other board for a hook.
+|     MMR-s2   Cache the plan
+|   1 blocked — run 'mimir list -s MMR --status blocked'
+|     MMR-6   x blocked        not_groomed   MMR-2   Wait on review · needs a reviewer
+|   1 parked seed — list them: mimir seeds -p MMR --status parked
+--- state
+unchanged
+
+### overview worker cleared
+exit 0
+--- stdout
+| MMR · > in_progress · in_progress:1
+|
+| in flight (1)
+|   MMR-5   > in_progress   p0   MMR-2   Ship it · codex · main-session
+|
+| active scratchpads (2)
+|   <uuid> · MMR · Index rewrite · 2 open Agenda · now · linked MMR-3
+|   <uuid> · MMR · Blank · 0 open Agenda · now
+|
+| next (2)
+|   MMR-3   * ready   p1   groomed       MMR-2   Wire the store
+|   MMR-8   * ready   p2   not_groomed   MMR-2   Tidy docs
+|
+| awaiting (1)
+|   MMR-4   ~ awaiting        not_groomed   MMR-2   Render views · awaiting MMR-3
+|
+| recent sessions (1 shown)
+|   main-session · 2026-10-01 12:00 -> 12:00 UTC · 2 transitions · MMR-5
+|
+| hygiene
+|   2 untriaged seeds — run 'mimir triage MMR'
+|     MMR-s1   A hook · Ask the other board for a hook.
+|     MMR-s2   Cache the plan
+|   1 blocked — run 'mimir list -s MMR --status blocked'
+|     MMR-6   x blocked        not_groomed   MMR-2   Wait on review · needs a reviewer
+|   1 parked seed — list them: mimir seeds -p MMR --status parked
+--- state
+unchanged
+

@@ -1,0 +1,1765 @@
+### scratch create bound
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  0
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.000Z
+--- state
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"Index rewrite","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch create -f ids
+exit 0
+--- stdout
+| <uuid>
+--- state
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"Index rewrite","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch create -f json
+exit 0
+--- stdout
+| {"id":"<uuid>","open_agenda":0,"project":"MMR","title":"Index rewrite","updated_at":"2026-10-01T12:00:00.000Z"}
+--- state
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"Index rewrite","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch create -f jsonl
+exit 0
+--- stdout
+| {"id":"<uuid>","open_agenda":0,"project":"MMR","title":"Index rewrite","updated_at":"2026-10-01T12:00:00.000Z"}
+--- state
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"Index rewrite","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch create -f table
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  0
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.000Z
+--- state
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"Index rewrite","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch create --ascii
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  0
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.000Z
+--- state
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"Index rewrite","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch create words
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  0
+| project  MMR
+| title  Index
+| updated at  2026-10-01T12:00:00.000Z
+--- state
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"Index","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch create --title
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  0
+| project  MMR
+| title  From a flag
+| updated at  2026-10-01T12:00:00.000Z
+--- state
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"From a flag\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"From a flag","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch create --title wins
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  0
+| project  MMR
+| title  From a flag
+| updated at  2026-10-01T12:00:00.000Z
+--- state
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"From a flag\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"From a flag","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch create --link
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  0
+| project  MMR
+| title  Linked
+| updated at  2026-10-01T12:00:00.000Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\",\"MMR-4\"],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Linked\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ scratchpads[<held>]: {"agenda":[],"anchors":["MMR-3","MMR-4"],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"Linked","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch create --scope XX
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  0
+| project  XX
+| title  Elsewhere
+| updated at  2026-10-01T12:00:00.000Z
+--- state
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"XX\",\"state\":\"active\",\"title\":\"Elsewhere\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"XX","title":"Elsewhere","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch create --scope XX (bound elsewhere)
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  0
+| project  XX
+| title  Elsewhere
+| updated at  2026-10-01T12:00:00.000Z
+--- state
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"XX\",\"state\":\"active\",\"title\":\"Elsewhere\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"XX","title":"Elsewhere","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch create (unbound)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "bind a project or pass -s KEY"
+|   ],
+|   "message": "scratch create needs a project"
+| }
+--- state
+unchanged
+
+### scratch create --scope all
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "bind a project or pass -s KEY"
+|   ],
+|   "message": "scratch create needs a project"
+| }
+--- state
+unchanged
+
+### scratch create (no title)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch create requires a title"
+| }
+--- state
+unchanged
+
+### scratch create (blank title)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch create requires a title"
+| }
+--- state
+unchanged
+
+### scratch create --scope ZZ
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "project ZZ doesn't exist"
+| }
+--- state
+unchanged
+
+### scratch create --scope nope
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "project nope doesn't exist"
+| }
+--- state
+unchanged
+
+### scratch create --link MMR-99
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### scratch create --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
+| }
+--- state
+unchanged
+
+### scratch update --title
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  2
+| project  MMR
+| title  Renamed
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Renamed\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].title: "Index rewrite" -> "Renamed"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch update --title -f ids
+exit 0
+--- stdout
+| <uuid>
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Renamed\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].title: "Index rewrite" -> "Renamed"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch update --title -f json
+exit 0
+--- stdout
+| {"id":"<uuid>","open_agenda":2,"project":"MMR","title":"Renamed","updated_at":"2026-10-01T12:00:00.006Z"}
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Renamed\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].title: "Index rewrite" -> "Renamed"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch update --title -f jsonl
+exit 0
+--- stdout
+| {"id":"<uuid>","open_agenda":2,"project":"MMR","title":"Renamed","updated_at":"2026-10-01T12:00:00.006Z"}
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Renamed\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].title: "Index rewrite" -> "Renamed"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch update --title -f table
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  2
+| project  MMR
+| title  Renamed
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Renamed\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].title: "Index rewrite" -> "Renamed"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch update --link
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  2
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-4\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].anchors[@0]: "MMR-3" -> "MMR-4"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch update --clear-links
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  2
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+- scratchpads[pad].anchors[@0]: "MMR-3"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch update (no change)
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  2
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch update --clear-links --link
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch update cannot combine --clear-links and --link"
+| }
+--- state
+unchanged
+
+### scratch update (no guard)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch mutation requires --expected-updated-at <timestamp>"
+| }
+--- state
+unchanged
+
+### scratch update (stale guard)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "reload it and retry the mutation"
+|   ],
+|   "message": "the scratchpad changed concurrently"
+| }
+--- state
+unchanged
+
+### scratch update (unreadable guard)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "reload it and retry the mutation"
+|   ],
+|   "message": "the scratchpad changed concurrently"
+| }
+--- state
+unchanged
+
+### scratch update (unknown pad)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "<uuid> doesn't exist"
+| }
+--- state
+unchanged
+
+### scratch update (discarded pad)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "<uuid> doesn't exist"
+| }
+--- state
+unchanged
+
+### scratch update (not a uuid)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "nope doesn't exist"
+| }
+--- state
+unchanged
+
+### scratch update (no id)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
+| }
+--- state
+unchanged
+
+### scratch checkpoint inline
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  2
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
++ scratchpads[pad].journal[@1]: {"at":"2026-10-01T12:00:00.000Z","content":"Settled the plan.","number":2}
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch checkpoint -f ids
+exit 0
+--- stdout
+| <uuid>
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
++ scratchpads[pad].journal[@1]: {"at":"2026-10-01T12:00:00.000Z","content":"Settled the plan.","number":2}
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch checkpoint -f json
+exit 0
+--- stdout
+| {"id":"<uuid>","open_agenda":2,"project":"MMR","title":"Index rewrite","updated_at":"2026-10-01T12:00:00.006Z"}
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
++ scratchpads[pad].journal[@1]: {"at":"2026-10-01T12:00:00.000Z","content":"Settled the plan.","number":2}
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch checkpoint -f jsonl
+exit 0
+--- stdout
+| {"id":"<uuid>","open_agenda":2,"project":"MMR","title":"Index rewrite","updated_at":"2026-10-01T12:00:00.006Z"}
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
++ scratchpads[pad].journal[@1]: {"at":"2026-10-01T12:00:00.000Z","content":"Settled the plan.","number":2}
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch checkpoint on a blank pad
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "reload it and retry the mutation"
+|   ],
+|   "message": "the scratchpad changed concurrently"
+| }
+--- state
+unchanged
+
+### scratch checkpoint -f table
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  2
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
++ scratchpads[pad].journal[@1]: {"at":"2026-10-01T12:00:00.000Z","content":"Settled.","number":2}
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch checkpoint (no id)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
+| }
+--- state
+unchanged
+
+### scratch checkpoint (no content)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch checkpoint requires content or --file"
+| }
+--- state
+unchanged
+
+### scratch checkpoint (no guard)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch mutation requires --expected-updated-at <timestamp>"
+| }
+--- state
+unchanged
+
+### scratch checkpoint (stale guard)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "reload it and retry the mutation"
+|   ],
+|   "message": "the scratchpad changed concurrently"
+| }
+--- state
+unchanged
+
+### scratch checkpoint (unknown pad)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "<uuid> doesn't exist"
+| }
+--- state
+unchanged
+
+### scratch checkpoint (discarded pad)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "<uuid> doesn't exist"
+| }
+--- state
+unchanged
+
+### scratch agenda add
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  3
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":3,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
++ scratchpads[pad].agenda[@3]: {"content":"Do the thing","number":4,"reason":null,"state":"open"}
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch agenda add -f ids
+exit 0
+--- stdout
+| <uuid>
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":3,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
++ scratchpads[pad].agenda[@3]: {"content":"Do the thing","number":4,"reason":null,"state":"open"}
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch agenda add -f json
+exit 0
+--- stdout
+| {"id":"<uuid>","open_agenda":3,"project":"MMR","title":"Index rewrite","updated_at":"2026-10-01T12:00:00.006Z"}
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":3,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
++ scratchpads[pad].agenda[@3]: {"content":"Do the thing","number":4,"reason":null,"state":"open"}
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch agenda add -f table
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  3
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":3,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
++ scratchpads[pad].agenda[@3]: {"content":"Do the thing","number":4,"reason":null,"state":"open"}
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch agenda add (no content)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch agenda add requires content"
+| }
+--- state
+unchanged
+
+### scratch agenda add (no guard)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch mutation requires --expected-updated-at <timestamp>"
+| }
+--- state
+unchanged
+
+### scratch agenda add (stale guard)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "reload it and retry the mutation"
+|   ],
+|   "message": "the scratchpad changed concurrently"
+| }
+--- state
+unchanged
+
+### scratch agenda add (unknown pad)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "<uuid> doesn't exist"
+| }
+--- state
+unchanged
+
+### scratch agenda add (discarded pad)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "<uuid> doesn't exist"
+| }
+--- state
+unchanged
+
+### scratch agenda complete 1
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  1
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":1,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].agenda[@0].state: "open" -> "done"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch agenda complete 1 -f json
+exit 0
+--- stdout
+| {"id":"<uuid>","open_agenda":1,"project":"MMR","title":"Index rewrite","updated_at":"2026-10-01T12:00:00.006Z"}
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":1,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].agenda[@0].state: "open" -> "done"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch agenda complete 1 -f ids
+exit 0
+--- stdout
+| <uuid>
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":1,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].agenda[@0].state: "open" -> "done"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch agenda complete 3 (already done)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "Agenda item 3 is already done"
+| }
+--- state
+unchanged
+
+### scratch agenda complete 9 (no such item)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "Agenda item 9 doesn't exist"
+| }
+--- state
+unchanged
+
+### scratch agenda complete 0
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch agenda complete requires a positive item number"
+| }
+--- state
+unchanged
+
+### scratch agenda complete x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch agenda complete requires a positive item number"
+| }
+--- state
+unchanged
+
+### scratch agenda complete 1.5
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch agenda complete requires a positive item number"
+| }
+--- state
+unchanged
+
+### scratch agenda complete (no number)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch agenda complete requires a positive item number"
+| }
+--- state
+unchanged
+
+### scratch agenda complete (no guard)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch mutation requires --expected-updated-at <timestamp>"
+| }
+--- state
+unchanged
+
+### scratch agenda supersede 2
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  1
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":1,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].agenda[@1].reason: null -> "folded into 1"
+~ scratchpads[pad].agenda[@1].state: "open" -> "superseded"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch agenda supersede 2 -f json
+exit 0
+--- stdout
+| {"id":"<uuid>","open_agenda":1,"project":"MMR","title":"Index rewrite","updated_at":"2026-10-01T12:00:00.006Z"}
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":1,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].agenda[@1].reason: null -> "folded"
+~ scratchpads[pad].agenda[@1].state: "open" -> "superseded"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch agenda supersede 2 -f ids
+exit 0
+--- stdout
+| <uuid>
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":1,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].agenda[@1].reason: null -> "folded"
+~ scratchpads[pad].agenda[@1].state: "open" -> "superseded"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch agenda supersede 3 (already done)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "Agenda item 3 is already done"
+| }
+--- state
+unchanged
+
+### scratch agenda supersede 2 (no reason)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch agenda supersede requires a reason"
+| }
+--- state
+unchanged
+
+### scratch agenda supersede (no number)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch agenda supersede requires a positive item number"
+| }
+--- state
+unchanged
+
+### scratch agenda supersede 9 (no such item)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "Agenda item 9 doesn't exist"
+| }
+--- state
+unchanged
+
+### scratch agenda frob
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch agenda requires add, complete, or supersede"
+| }
+--- state
+unchanged
+
+### scratch agenda (no action)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"action\" requires a value. Supply a value for \"action\".\nArgument \"id\" requires a value. Supply a value for \"id\"."
+| }
+--- state
+unchanged
+
+### scratch agenda (no id)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
+| }
+--- state
+unchanged
+
+### scratch freeze --summary
+exit 0
+--- stdout
+| created at  2026-10-01 12:00 UTC
+| id  MMR-a2
+| linked work  ["MMR-3"]
+| project  MMR
+| summary  The index notes
+| tags  ["scratchpad"]
+| title  Index rewrite
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+- activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ artifacts[MMR-a2]: {"content":"## Journal\n\n### 1 — 2026-10-01T12:00:00.000Z\n\nFound the cause.\n\n## Agenda\n\n1. [ ] Port the verbs\n2. [ ] Wire the host\n3. [x] Spike it","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
++ board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
+~ board.MMR.artifacts.returned: 1 -> 2
+~ board.MMR.artifacts.total: 1 -> 2
++ board.MMR.nodes.items[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
++ nodes[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
+~ projects[MMR].artifactCount: 1 -> 2
++ projects[MMR].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.000Z"
+~ scratchpads[pad]: {"agenda":[{"content":"Port the verbs","number":1,"reason":null,"state":"open"},{"content":"Wire the host","number":2,"reason":null,"state":"open"},{"content":"Spike it","number":3,"reason":null,"state":"done"}],"anchors":["MMR-3"],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"Found the cause.","number":1}],"project":"MMR","title":"Index rewrite","updatedAt":"2026-10-01T12:00:00.005Z"} -> {"failed":"<uuid> doesn't exist"}
+
+### scratch freeze --summary -f ids
+exit 0
+--- stdout
+| MMR-a2
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+- activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ artifacts[MMR-a2]: {"content":"## Journal\n\n### 1 — 2026-10-01T12:00:00.000Z\n\nFound the cause.\n\n## Agenda\n\n1. [ ] Port the verbs\n2. [ ] Wire the host\n3. [x] Spike it","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
++ board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
+~ board.MMR.artifacts.returned: 1 -> 2
+~ board.MMR.artifacts.total: 1 -> 2
++ board.MMR.nodes.items[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
++ nodes[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
+~ projects[MMR].artifactCount: 1 -> 2
++ projects[MMR].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.000Z"
+~ scratchpads[pad]: {"agenda":[{"content":"Port the verbs","number":1,"reason":null,"state":"open"},{"content":"Wire the host","number":2,"reason":null,"state":"open"},{"content":"Spike it","number":3,"reason":null,"state":"done"}],"anchors":["MMR-3"],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"Found the cause.","number":1}],"project":"MMR","title":"Index rewrite","updatedAt":"2026-10-01T12:00:00.005Z"} -> {"failed":"<uuid> doesn't exist"}
+
+### scratch freeze --summary -f json
+exit 0
+--- stdout
+| {"created_at":"2026-10-01T12:00:00.000Z","id":"MMR-a2","linked_work":["MMR-3"],"project":"MMR","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+- activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ artifacts[MMR-a2]: {"content":"## Journal\n\n### 1 — 2026-10-01T12:00:00.000Z\n\nFound the cause.\n\n## Agenda\n\n1. [ ] Port the verbs\n2. [ ] Wire the host\n3. [x] Spike it","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
++ board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
+~ board.MMR.artifacts.returned: 1 -> 2
+~ board.MMR.artifacts.total: 1 -> 2
++ board.MMR.nodes.items[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
++ nodes[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
+~ projects[MMR].artifactCount: 1 -> 2
++ projects[MMR].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.000Z"
+~ scratchpads[pad]: {"agenda":[{"content":"Port the verbs","number":1,"reason":null,"state":"open"},{"content":"Wire the host","number":2,"reason":null,"state":"open"},{"content":"Spike it","number":3,"reason":null,"state":"done"}],"anchors":["MMR-3"],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"Found the cause.","number":1}],"project":"MMR","title":"Index rewrite","updatedAt":"2026-10-01T12:00:00.005Z"} -> {"failed":"<uuid> doesn't exist"}
+
+### scratch freeze --summary -f jsonl
+exit 0
+--- stdout
+| {"created_at":"2026-10-01T12:00:00.000Z","id":"MMR-a2","linked_work":["MMR-3"],"project":"MMR","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+- activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ artifacts[MMR-a2]: {"content":"## Journal\n\n### 1 — 2026-10-01T12:00:00.000Z\n\nFound the cause.\n\n## Agenda\n\n1. [ ] Port the verbs\n2. [ ] Wire the host\n3. [x] Spike it","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
++ board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
+~ board.MMR.artifacts.returned: 1 -> 2
+~ board.MMR.artifacts.total: 1 -> 2
++ board.MMR.nodes.items[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
++ nodes[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
+~ projects[MMR].artifactCount: 1 -> 2
++ projects[MMR].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.000Z"
+~ scratchpads[pad]: {"agenda":[{"content":"Port the verbs","number":1,"reason":null,"state":"open"},{"content":"Wire the host","number":2,"reason":null,"state":"open"},{"content":"Spike it","number":3,"reason":null,"state":"done"}],"anchors":["MMR-3"],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"Found the cause.","number":1}],"project":"MMR","title":"Index rewrite","updatedAt":"2026-10-01T12:00:00.005Z"} -> {"failed":"<uuid> doesn't exist"}
+
+### scratch freeze --summary -f table
+exit 0
+--- stdout
+| created at  2026-10-01 12:00 UTC
+| id  MMR-a2
+| linked work  ["MMR-3"]
+| project  MMR
+| summary  The index notes
+| tags  ["scratchpad"]
+| title  Index rewrite
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+- activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ artifacts[MMR-a2]: {"content":"## Journal\n\n### 1 — 2026-10-01T12:00:00.000Z\n\nFound the cause.\n\n## Agenda\n\n1. [ ] Port the verbs\n2. [ ] Wire the host\n3. [x] Spike it","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
++ board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
+~ board.MMR.artifacts.returned: 1 -> 2
+~ board.MMR.artifacts.total: 1 -> 2
++ board.MMR.nodes.items[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
++ nodes[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
+~ projects[MMR].artifactCount: 1 -> 2
++ projects[MMR].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"The index notes","tags":["scratchpad"],"title":"Index rewrite"}
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.000Z"
+~ scratchpads[pad]: {"agenda":[{"content":"Port the verbs","number":1,"reason":null,"state":"open"},{"content":"Wire the host","number":2,"reason":null,"state":"open"},{"content":"Spike it","number":3,"reason":null,"state":"done"}],"anchors":["MMR-3"],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"Found the cause.","number":1}],"project":"MMR","title":"Index rewrite","updatedAt":"2026-10-01T12:00:00.005Z"} -> {"failed":"<uuid> doesn't exist"}
+
+### scratch freeze --tag
+exit 0
+--- stdout
+| created at  2026-10-01 12:00 UTC
+| id  MMR-a2
+| linked work  ["MMR-3"]
+| project  MMR
+| summary  The index notes
+| tags  ["design","index","scratchpad"]
+| title  Index rewrite
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+- activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ artifacts[MMR-a2]: {"content":"## Journal\n\n### 1 — 2026-10-01T12:00:00.000Z\n\nFound the cause.\n\n## Agenda\n\n1. [ ] Port the verbs\n2. [ ] Wire the host\n3. [x] Spike it","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"The index notes","tags":["design","index","scratchpad"],"title":"Index rewrite"}
++ board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"The index notes","tags":["design","index","scratchpad"],"title":"Index rewrite"}
+~ board.MMR.artifacts.returned: 1 -> 2
+~ board.MMR.artifacts.total: 1 -> 2
++ board.MMR.nodes.items[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"The index notes","tags":["design","index","scratchpad"],"title":"Index rewrite"}
++ nodes[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"The index notes","tags":["design","index","scratchpad"],"title":"Index rewrite"}
+~ projects[MMR].artifactCount: 1 -> 2
++ projects[MMR].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"The index notes","tags":["design","index","scratchpad"],"title":"Index rewrite"}
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.000Z"
+~ scratchpads[pad]: {"agenda":[{"content":"Port the verbs","number":1,"reason":null,"state":"open"},{"content":"Wire the host","number":2,"reason":null,"state":"open"},{"content":"Spike it","number":3,"reason":null,"state":"done"}],"anchors":["MMR-3"],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"Found the cause.","number":1}],"project":"MMR","title":"Index rewrite","updatedAt":"2026-10-01T12:00:00.005Z"} -> {"failed":"<uuid> doesn't exist"}
+
+### scratch freeze a blank pad
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "reload it and retry the mutation"
+|   ],
+|   "message": "the scratchpad changed concurrently"
+| }
+--- state
+unchanged
+
+### scratch freeze (no summary)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch freeze requires --summary"
+| }
+--- state
+unchanged
+
+### scratch freeze (no guard)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch mutation requires --expected-updated-at <timestamp>"
+| }
+--- state
+unchanged
+
+### scratch freeze (stale guard)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "reload it and retry the mutation"
+|   ],
+|   "message": "the scratchpad changed concurrently"
+| }
+--- state
+unchanged
+
+### scratch freeze (unknown pad)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "<uuid> doesn't exist"
+| }
+--- state
+unchanged
+
+### scratch freeze (discarded pad)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "<uuid> doesn't exist"
+| }
+--- state
+unchanged
+
+### scratch discard a blank pad
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "reload it and retry the mutation"
+|   ],
+|   "message": "the scratchpad changed concurrently"
+| }
+--- state
+unchanged
+
+### scratch discard a blank pad -f ids
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "reload it and retry the mutation"
+|   ],
+|   "message": "the scratchpad changed concurrently"
+| }
+--- state
+unchanged
+
+### scratch discard a blank pad -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "reload it and retry the mutation"
+|   ],
+|   "message": "the scratchpad changed concurrently"
+| }
+--- state
+unchanged
+
+### scratch discard a blank pad -f jsonl
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "reload it and retry the mutation"
+|   ],
+|   "message": "the scratchpad changed concurrently"
+| }
+--- state
+unchanged
+
+### scratch discard a blank pad -f table
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "reload it and retry the mutation"
+|   ],
+|   "message": "the scratchpad changed concurrently"
+| }
+--- state
+unchanged
+
+### scratch discard a pad with work
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "settle the items or retry with force and a reason"
+|   ],
+|   "message": "discard refused with open Agenda items: 1. Port the verbs; 2. Wire the host"
+| }
+--- state
+unchanged
+
+### scratch discard --force
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "forced discard requires a reason"
+| }
+--- state
+unchanged
+
+### scratch discard --force --reason
+exit 0
+--- stdout
+| id  <uuid>
+| result  discarded
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+- activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.000Z"
+~ scratchpads[pad]: {"agenda":[{"content":"Port the verbs","number":1,"reason":null,"state":"open"},{"content":"Wire the host","number":2,"reason":null,"state":"open"},{"content":"Spike it","number":3,"reason":null,"state":"done"}],"anchors":["MMR-3"],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"Found the cause.","number":1}],"project":"MMR","title":"Index rewrite","updatedAt":"2026-10-01T12:00:00.005Z"} -> {"failed":"<uuid> doesn't exist"}
+
+### scratch discard --reason
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "reload it and retry the mutation"
+|   ],
+|   "message": "the scratchpad changed concurrently"
+| }
+--- state
+unchanged
+
+### scratch discard (no guard)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch mutation requires --expected-updated-at <timestamp>"
+| }
+--- state
+unchanged
+
+### scratch discard (stale guard)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "reload it and retry the mutation"
+|   ],
+|   "message": "the scratchpad changed concurrently"
+| }
+--- state
+unchanged
+
+### scratch discard (unknown pad)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "<uuid> doesn't exist"
+| }
+--- state
+unchanged
+
+### scratch discard (discarded pad)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "<uuid> doesn't exist"
+| }
+--- state
+unchanged
+
+### scratch argv: create "Index rewrite" -s MMR
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  0
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.000Z
+--- state
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"Index rewrite","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch argv: create a b c -s MMR
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  0
+| project  MMR
+| title  a b c
+| updated at  2026-10-01T12:00:00.000Z
+--- state
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"a b c\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"a b c","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch argv: create --title x -s MMR -f json
+exit 0
+--- stdout
+| {"id":"<uuid>","open_agenda":0,"project":"MMR","title":"x","updated_at":"2026-10-01T12:00:00.000Z"}
+--- state
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"x\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"x","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch argv: create x --link MMR-3 --link MMR-4 -s MMR
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  0
+| project  MMR
+| title  x
+| updated at  2026-10-01T12:00:00.000Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\",\"MMR-4\"],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"x\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ scratchpads[<held>]: {"agenda":[],"anchors":["MMR-3","MMR-4"],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"x","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch argv: create x -s MMR -s XX
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"-s\" can be supplied only once. Remove the repeated option."
+| }
+--- state
+unchanged
+
+### scratch argv: create x -s MMR (terminal)
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  0
+| project  MMR
+| title  x
+| updated at  2026-10-01T12:00:00.000Z
+--- state
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"x\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"x","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch argv: update {pad} --expected-updated-at {token} --title t
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  2
+| project  MMR
+| title  t
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"t\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].title: "Index rewrite" -> "t"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch argv: update {pad} --expected-updated-at {token} --title t (terminal)
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  2
+| project  MMR
+| title  t
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"t\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].title: "Index rewrite" -> "t"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch argv: update {pad} --expected-updated-at {token} --title t --title u
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"--title\" can be supplied only once. Remove the repeated option."
+| }
+--- state
+unchanged
+
+### scratch argv: checkpoint {pad} --file <dir>/checkpoint.md --expected-updated-at {token}
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  2
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
++ scratchpads[pad].journal[@1]: {"at":"2026-10-01T12:00:00.000Z","content":"Distinctive file checkpoint 7c1e.\n\nTwo paragraphs.","number":2}
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch argv: checkpoint {pad} Both. --file <dir>/checkpoint.md --expected-updated-at {token}
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "scratch checkpoint accepts either inline content or --file, not both"
+| }
+--- state
+unchanged
+
+### scratch argv: checkpoint {pad} a b --expected-updated-at {token} (terminal)
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  2
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
++ scratchpads[pad].journal[@1]: {"at":"2026-10-01T12:00:00.000Z","content":"a b","number":2}
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch argv: create x -s MMR --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
+|   ],
+|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### scratch argv: update abc --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
+|   ],
+|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### scratch argv: checkpoint abc t --dry-run
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--dry-run' previews a triage pass; use it with triage (store import previews by default)"
+|   ],
+|   "message": "Unknown option \"--dry-run\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### scratch argv: agenda add abc x --dry-run
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--dry-run' previews a triage pass; use it with triage (store import previews by default)"
+|   ],
+|   "message": "Unknown option \"--dry-run\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### scratch argv: freeze abc --direction x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "the ## Next narrative is set after create: mimir update <id> --direction \"…\""
+|   ],
+|   "message": "Unknown option \"--direction\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### scratch argv: discard abc --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
+|   ],
+|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### scratch argv: -s MMR scratch create x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "parser",
+|   "hints": [],
+|   "message": "Option \"-s\" belongs to commands next, list, overview, artifacts, search, seeds, seed, triage, scratch list, scratch create, doctor. Supply it after the command name."
+| }
+--- state
+unchanged
+
+### scratch argv: checkpoint {pad} a b c --expected-updated-at {token}
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  2
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
++ scratchpads[pad].journal[@1]: {"at":"2026-10-01T12:00:00.000Z","content":"a b c","number":2}
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch argv: checkpoint {pad} Settled --expected-updated-at {token} -- -1 day
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  2
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
++ scratchpads[pad].journal[@1]: {"at":"2026-10-01T12:00:00.000Z","content":"Settled -1 day","number":2}
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch argv: agenda add {pad} Do --expected-updated-at {token} -- -x item
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  3
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":3,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
++ scratchpads[pad].agenda[@3]: {"content":"Do -x item","number":4,"reason":null,"state":"open"}
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch argv: agenda supersede {pad} 2 because --expected-updated-at {token} -- -1 day
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  1
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":1,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].agenda[@1].reason: null -> "because -1 day"
+~ scratchpads[pad].agenda[@1].state: "open" -> "superseded"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch argv: agenda complete {pad} --expected-updated-at {token} -- 1
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  1
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":1,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].agenda[@0].state: "open" -> "done"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch argv: create Index -s MMR -- -rewrite
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  0
+| project  MMR
+| title  Index -rewrite
+| updated at  2026-10-01T12:00:00.000Z
+--- state
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index -rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ scratchpads[<held>]: {"agenda":[],"anchors":[],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[],"project":"MMR","title":"Index -rewrite","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### scratch argv: agenda add {pad} a b --expected-updated-at {token}
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  3
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":3,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
++ scratchpads[pad].agenda[@3]: {"content":"a b","number":4,"reason":null,"state":"open"}
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch argv: agenda complete {pad} 1 --expected-updated-at {token}
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  1
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":1,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].agenda[@0].state: "open" -> "done"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch argv: agenda supersede {pad} 2 because --expected-updated-at {token}
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  1
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":1,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].agenda[@1].reason: null -> "because"
+~ scratchpads[pad].agenda[@1].state: "open" -> "superseded"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch argv: agenda supersede {pad} 2 because --expected-updated-at {token} (terminal)
+exit 0
+--- stdout
+| id  <uuid>
+| open agenda  1
+| project  MMR
+| title  Index rewrite
+| updated at  2026-10-01T12:00:00.006Z
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":1,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.006Z\"}"
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+~ scratchpads[pad].agenda[@1].reason: null -> "because"
+~ scratchpads[pad].agenda[@1].state: "open" -> "superseded"
+~ scratchpads[pad].updatedAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.006Z"
+
+### scratch argv: freeze {pad} --summary s -t a -t b --expected-updated-at {token}
+exit 0
+--- stdout
+| created at  2026-10-01 12:00 UTC
+| id  MMR-a2
+| linked work  ["MMR-3"]
+| project  MMR
+| summary  s
+| tags  ["a","b","scratchpad"]
+| title  Index rewrite
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+- activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ artifacts[MMR-a2]: {"content":"## Journal\n\n### 1 — 2026-10-01T12:00:00.000Z\n\nFound the cause.\n\n## Agenda\n\n1. [ ] Port the verbs\n2. [ ] Wire the host\n3. [x] Spike it","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"s","tags":["a","b","scratchpad"],"title":"Index rewrite"}
++ board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"s","tags":["a","b","scratchpad"],"title":"Index rewrite"}
+~ board.MMR.artifacts.returned: 1 -> 2
+~ board.MMR.artifacts.total: 1 -> 2
++ board.MMR.nodes.items[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"s","tags":["a","b","scratchpad"],"title":"Index rewrite"}
++ nodes[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"s","tags":["a","b","scratchpad"],"title":"Index rewrite"}
+~ projects[MMR].artifactCount: 1 -> 2
++ projects[MMR].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"s","tags":["a","b","scratchpad"],"title":"Index rewrite"}
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.000Z"
+~ scratchpads[pad]: {"agenda":[{"content":"Port the verbs","number":1,"reason":null,"state":"open"},{"content":"Wire the host","number":2,"reason":null,"state":"open"},{"content":"Spike it","number":3,"reason":null,"state":"done"}],"anchors":["MMR-3"],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"Found the cause.","number":1}],"project":"MMR","title":"Index rewrite","updatedAt":"2026-10-01T12:00:00.005Z"} -> {"failed":"<uuid> doesn't exist"}
+
+### scratch argv: freeze {pad} --summary s --expected-updated-at {token} (terminal)
+exit 0
+--- stdout
+| created at  2026-10-01 12:00 UTC
+| id  MMR-a2
+| linked work  ["MMR-3"]
+| project  MMR
+| summary  s
+| tags  ["scratchpad"]
+| title  Index rewrite
+--- state
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+- activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
++ artifacts[MMR-a2]: {"content":"## Journal\n\n### 1 — 2026-10-01T12:00:00.000Z\n\nFound the cause.\n\n## Agenda\n\n1. [ ] Port the verbs\n2. [ ] Wire the host\n3. [x] Spike it","createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"s","tags":["scratchpad"],"title":"Index rewrite"}
++ board.MMR.artifacts.items[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":["MMR-3"],"project":"MMR","summary":"s","tags":["scratchpad"],"title":"Index rewrite"}
+~ board.MMR.artifacts.returned: 1 -> 2
+~ board.MMR.artifacts.total: 1 -> 2
++ board.MMR.nodes.items[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"s","tags":["scratchpad"],"title":"Index rewrite"}
++ nodes[MMR-3].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"s","tags":["scratchpad"],"title":"Index rewrite"}
+~ projects[MMR].artifactCount: 1 -> 2
++ projects[MMR].artifacts[MMR-a2]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a2","summary":"s","tags":["scratchpad"],"title":"Index rewrite"}
+~ projects[MMR].lastActivityAt: "2026-10-01T12:00:00.005Z" -> "2026-10-01T12:00:00.000Z"
+~ scratchpads[pad]: {"agenda":[{"content":"Port the verbs","number":1,"reason":null,"state":"open"},{"content":"Wire the host","number":2,"reason":null,"state":"open"},{"content":"Spike it","number":3,"reason":null,"state":"done"}],"anchors":["MMR-3"],"createdAt":"2026-10-01T12:00:00.000Z","freezingAt":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"Found the cause.","number":1}],"project":"MMR","title":"Index rewrite","updatedAt":"2026-10-01T12:00:00.005Z"} -> {"failed":"<uuid> doesn't exist"}
+
+### scratch argv: discard {blank} --force --expected-updated-at {token}
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "reload it and retry the mutation"
+|   ],
+|   "message": "the scratchpad changed concurrently"
+| }
+--- state
+unchanged
+
+### scratch argv: discard {blank} --expected-updated-at {token} (terminal)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "reload it and retry the mutation"
+|   ],
+|   "message": "the scratchpad changed concurrently"
+| }
+--- state
+unchanged
+

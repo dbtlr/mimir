@@ -4,10 +4,9 @@ import { SCHEMA_VERSION, upgradeSchema } from '@mimir/core';
 import type { GlobalConfig, PostgresHandle } from '@mimir/core';
 import { createEmptyPostgresDb } from '@mimir/core/testing';
 
-import { PARITY_DIFFERENCES } from '../parity/differences';
 import { parityBoard } from '../testing/fixture';
 import type { ParityBoard } from '../testing/fixture';
-import { parityProblems, registerParity, runNew, runOld } from '../testing/parity';
+import { pinText, registerParity, runNew } from '../testing/parity';
 import type { ParityCase } from '../testing/parity';
 import { runArgv } from '../testing/run';
 
@@ -88,34 +87,26 @@ const CASES: PgCase[] = [
   upgrade('store upgrade (removed backend)', { store: { problem: 'removed-backend' } }),
 ];
 
-// Each CLI gets its own database (above), so one shared board fits; no records are written.
-registerParity(/^store upgrade \(/, CASES, async (c) => {
+// Each case gets its own database, so one shared board fits; no records are written.
+registerParity(import.meta.url, CASES, async (c) => {
   state.config = c.config;
-  const run = async <Run>(act: () => Promise<Run>): Promise<Run> => {
-    const fresh = await freshDatabase(c.start ?? 'empty');
-    state.db = fresh.db;
-    try {
-      return await act();
-    } finally {
-      await fresh.close();
-    }
-  };
-  const old = await run(() => runOld(board.store, c, board.oldDefaults()));
-  const now = await run(() => runNew((argv) => board.app(undefined, argv), c));
-  return parityProblems(board.app(), c, old, now, PARITY_DIFFERENCES);
+  const fresh = await freshDatabase(c.start ?? 'empty');
+  state.db = fresh.db;
+  try {
+    const run = await runNew((argv) => board.app(undefined, argv), c);
+    // The unusable-config message names the checkout's own config file.
+    return pinText(run, board.dir).replaceAll(/\S*\.dev\/config\/mimir\/config\.toml/g, '<config>');
+  } finally {
+    await fresh.close();
+  }
 });
 
-// The missing URL is a plain Error in core, not a renderable one: the old CLI let it
-// escape to its entry point, so the case compares the message rather than a failure shape.
-test('store upgrade on postgres with no url fails with the same message', async () => {
+// The missing URL is a plain Error in core, not a renderable one: it escapes to the entry
+// point, so the case pins the message rather than a failure shape.
+test('store upgrade on postgres with no url fails with the missing-url message', async () => {
   state.config = { store: { backend: 'postgres' } };
-  const c: ParityCase = { name: 'store upgrade (postgres, no url)', path: ['store', 'upgrade'] };
-  const old = await runOld(board.store, c, board.oldDefaults()).then(
-    () => '',
-    (error: unknown) => (error instanceof Error ? error.message : String(error)),
-  );
-  expect(old).toContain('needs [store] url');
   const now = await runArgv(board.app(), ['store', 'upgrade']);
   expect(now.exitCode).toBe(1);
-  expect(now.stderr).toContain(old);
+  expect(now.stderr).toContain('[store] backend = "postgres" needs [store] url in ');
+  expect(now.stderr).toContain('the Postgres connection URL. See docs/guides/postgres-store.md');
 });

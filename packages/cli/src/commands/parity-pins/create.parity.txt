@@ -1,0 +1,1738 @@
+### create argv: project Gamma --key GAM -y
+exit 0
+--- stdout
+| [ok] created project GAM
+--- state
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### create argv: project Gamma --key GAM --yes
+exit 0
+--- stdout
+| [ok] created project GAM
+--- state
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### create argv: project Gamma --key GAM -y -f json
+exit 0
+--- stdout
+| {"project":{"key":"GAM","name":"Gamma"}}
+--- state
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### create argv: project Gamma --key GAM -y -f jsonl
+exit 0
+--- stdout
+| {"project":{"key":"GAM","name":"Gamma"}}
+--- state
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### create argv: project Gamma --key GAM -y -f ids
+exit 0
+--- stdout
+| GAM
+--- state
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### create argv: project --name Gamma --key GAM -y
+exit 0
+--- stdout
+| [ok] created project GAM
+--- state
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### create argv: project --name Gamma --key GAM -y -f json
+exit 0
+--- stdout
+| {"project":{"key":"GAM","name":"Gamma"}}
+--- state
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### create argv: project Gamma --key GAM -y -f table
+exit 0
+--- stdout
+| [ok] created project GAM
+--- state
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### create argv: project Gamma --key GAM -y --ascii
+exit 0
+--- stdout
+| [ok] created project GAM
+--- state
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### create argv: project Gamma --key GAM -y (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m created project GAM
+--- state
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### create argv: project Gamma --key GAM -y --desc "The third board."
+exit 0
+--- stdout
+| [ok] created project GAM
+--- state
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":"The third board.","distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### create argv: project Gamma --key GAM -y --remote git@github.com:dbtlr/gamma.git
+exit 0
+--- stdout
+| [ok] created project GAM
+--- state
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":"github.com/dbtlr/gamma","status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### create argv: project Gamma --key GAM -y -t one -t two
+exit 0
+--- stdout
+| [ok] created project GAM
+--- state
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":null,"status":"new","tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"one"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"two"}],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### create argv: project Gamma --key GAM
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "re-run with -y/--yes to confirm"
+|   ],
+|   "message": "create project GAM: the key is immutable — confirmation required"
+| }
+--- state
+unchanged
+
+### create argv: project Gamma --key GAM -f json
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "re-run with -y/--yes to confirm"
+|   ],
+|   "message": "create project GAM: the key is immutable — confirmation required"
+| }
+--- state
+unchanged
+
+### create argv: project --key GAM -y
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "create project \"Name\" --key KEY"
+|   ],
+|   "message": "create project requires a name"
+| }
+--- state
+unchanged
+
+### create argv: project " " --key GAM -y
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "project name cannot be blank"
+| }
+--- state
+unchanged
+
+### create argv: project Gamma --key MMR -y
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "conflict",
+|   "hints": [],
+|   "message": "project key already exists: MMR"
+| }
+--- state
+unchanged
+
+### create argv: project Gamma --key MMR -y -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "conflict",
+|   "hints": [],
+|   "message": "project key already exists: MMR"
+| }
+--- state
+unchanged
+
+### create argv: project Gamma --key g -y
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "project key must match [A-Z]{2,4}: g"
+| }
+--- state
+unchanged
+
+### create argv: project Gamma --key gam -y
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "project key must match [A-Z]{2,4}: gam"
+| }
+--- state
+unchanged
+
+### create argv: project Gamma --key TOOLONG -y
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "project key must match [A-Z]{2,4}: TOOLONG"
+| }
+--- state
+unchanged
+
+### create argv: project Gamma --key GAM -y --remote "not a remote"
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "use the clone URL, such as git@github.com:owner/repo.git or https://github.com/owner/repo"
+|   ],
+|   "message": "not a Git remote: \"not a remote\""
+| }
+--- state
+unchanged
+
+### create argv: project Gamma --key GAM -y --remote git@github.com:dbtlr/mimir.git
+exit 0
+--- stdout
+| [ok] created project GAM
+--- state
++ projects[GAM]: {"artifactCount":0,"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","description":null,"distribution":{},"id":"GAM","lastActivityAt":"2026-10-01T12:00:00.000Z","leafCounts":{},"parent":null,"pinned":false,"remote":"github.com/dbtlr/mimir","status":"new","tags":[],"title":"Gamma","type":"project","updatedAt":"2026-10-01T12:00:00.000Z"}
+
+### create argv: project Gamma -y
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Option \"--key\" is required. Supply a value."
+| }
+--- state
+unchanged
+
+### create argv: project Gamma --key GAM -y --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### create argv: project Gamma --key GAM -y --parent MMR
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### create argv: project Gamma --key GAM -y --groomed
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--groomed\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### create argv: project Gamma --key GAM --key GAN -y
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"--key\" can be supplied only once. Remove the repeated option."
+| }
+--- state
+unchanged
+
+### create argv: project Gamma Delta --key GAM -y
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"project\" accepts 1 argument. Remove the extra values."
+| }
+--- state
+unchanged
+
+### create argv: initiative Growth --parent MMR
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type    initiative
+|   status  o new (rollup over 0 direct children)
+|   title   Growth
+--- state
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
+
+### create argv: initiative Growth --parent MMR -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-10",
+|   "parent": null,
+|   "status": "new",
+|   "title": "Growth",
+|   "type": "initiative",
+|   "description": null,
+|   "summary": null,
+|   "open_ended": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": [],
+|   "distribution": {}
+| }
+--- state
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
+
+### create argv: initiative Growth --parent MMR -f jsonl
+exit 0
+--- stdout
+| {
+|   "id": "MMR-10",
+|   "parent": null,
+|   "status": "new",
+|   "title": "Growth",
+|   "type": "initiative",
+|   "description": null,
+|   "summary": null,
+|   "open_ended": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": [],
+|   "distribution": {}
+| }
+--- state
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
+
+### create argv: initiative Growth --parent MMR -f ids
+exit 0
+--- stdout
+| MMR-10
+--- state
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
+
+### create argv: initiative Growth --parent MMR -f table
+exit 0
+--- stdout
+| [ok] created MMR-10
+| 1 task
+|
+| MMR-10   o new           Growth
+--- state
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
+
+### create argv: initiative Growth --parent MMR --ascii
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type    initiative
+|   status  o new (rollup over 0 direct children)
+|   title   Growth
+--- state
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
+
+### create argv: initiative Growth --parent MMR (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m created MMR-10
+| ␛[1mMMR-10␛[22m
+|   type    initiative
+|   status  ␛[90m○ new␛[39m (rollup over 0 direct children)
+|   title   Growth
+|
+|   hint  mimir tree MMR-10   — full subtree
+|         mimir list --status ready -s MMR   — leaf-actionable tasks
+--- state
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
+
+### create argv: initiative Growth --parent MMR --desc "Grow the board." --summary growth
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type         initiative
+|   status       o new (rollup over 0 direct children)
+|   title        Growth
+|   description  Grow the board.
+|   summary      growth
+--- state
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Grow the board.","distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":"growth","tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
+
+### create argv: initiative Growth --parent MMR -t one --tag two
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type    initiative
+|   status  o new (rollup over 0 direct children)
+|   title   Growth
+--- state
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"one"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"two"}],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
+
+### create argv: initiative Growth --parent MMR --open-ended
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type        initiative
+|   status      * ready (rollup over 0 direct children)
+|   title       Growth
+|   open-ended  yes
+--- state
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":true,"parent":null,"status":"ready","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Growth"}
+
+### create argv: initiative Growth --parent MMR --not-open-ended
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type    initiative
+|   status  o new (rollup over 0 direct children)
+|   title   Growth
+--- state
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":false,"parent":null,"status":"new","summary":null,"tags":[],"title":"Growth","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Growth"}
++ projects[MMR].distribution.new: 1
+
+### create argv: initiative --parent MMR -- "-Dash first"
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type    initiative
+|   status  o new (rollup over 0 direct children)
+|   title   -Dash first
+--- state
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":null,"parentOpenEnded":null,"parentTitle":null,"projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":null,"status":"new","summary":null,"tags":[],"title":"-Dash first","type":"initiative","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
++ projects[MMR].children[MMR-10]: {"id":"MMR-10","status":"new","title":"-Dash first"}
++ projects[MMR].distribution.new: 1
+
+### create argv: initiative --parent MMR
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "a leading-dash title needs the '--' terminator: mimir create <type> [flags] -- <title>"
+|   ],
+|   "message": "create initiative requires a title"
+| }
+--- state
+unchanged
+
+### create argv: initiative --parent MMR -f json
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "a leading-dash title needs the '--' terminator: mimir create <type> [flags] -- <title>"
+|   ],
+|   "message": "create initiative requires a title"
+| }
+--- state
+unchanged
+
+### create argv: initiative " " --parent MMR
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "a leading-dash title needs the '--' terminator: mimir create <type> [flags] -- <title>"
+|   ],
+|   "message": "create initiative requires a title"
+| }
+--- state
+unchanged
+
+### create argv: initiative Growth --parent MMR-1
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "an initiative's parent must be a project (KEY)"
+| }
+--- state
+unchanged
+
+### create argv: initiative Growth --parent mmr
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "an initiative's parent must be a project (KEY)"
+| }
+--- state
+unchanged
+
+### create argv: initiative Growth --parent NOPE
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key NOPE -y"
+|   ],
+|   "message": "NOPE doesn't exist"
+| }
+--- state
+unchanged
+
+### create argv: initiative Growth --parent NOPE -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key NOPE -y"
+|   ],
+|   "message": "NOPE doesn't exist"
+| }
+--- state
+unchanged
+
+### create argv: initiative Growth --parent MMR --open-ended --not-open-ended
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "at most one of --open-ended | --not-open-ended"
+| }
+--- state
+unchanged
+
+### create argv: initiative Growth
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Option \"--parent\" is required. Supply a value."
+| }
+--- state
+unchanged
+
+### create argv: initiative Growth --parent MMR --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### create argv: initiative --weird-title --parent MMR
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "a leading-dash title needs the '--' terminator: mimir create <type> [flags] -- <title>"
+|   ],
+|   "message": "Unknown option \"--weird-title\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### create argv: initiative Growth More --parent MMR
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"initiative\" accepts 1 argument. Remove the extra values."
+| }
+--- state
+unchanged
+
+### create argv: initiative Growth --parent MMR --target 2026-11
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--target\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### create argv: initiative Growth --parent MMR --groomed
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--groomed\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### create argv: initiative Growth --parent MMR --remote x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--remote\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### create argv: phase Beta --parent MMR-1
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type    phase
+|   status  o new (rollup over 0 direct children)
+|   title   Beta
+|   parent  MMR-1
+--- state
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
+
+### create argv: phase Beta --parent MMR-1 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-10",
+|   "parent": "MMR-1",
+|   "status": "new",
+|   "title": "Beta",
+|   "type": "phase",
+|   "description": null,
+|   "summary": null,
+|   "target": null,
+|   "open_ended": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": [],
+|   "distribution": {}
+| }
+--- state
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
+
+### create argv: phase Beta --parent MMR-1 -f jsonl
+exit 0
+--- stdout
+| {
+|   "id": "MMR-10",
+|   "parent": "MMR-1",
+|   "status": "new",
+|   "title": "Beta",
+|   "type": "phase",
+|   "description": null,
+|   "summary": null,
+|   "target": null,
+|   "open_ended": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": [],
+|   "distribution": {}
+| }
+--- state
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
+
+### create argv: phase Beta --parent MMR-1 -f ids
+exit 0
+--- stdout
+| MMR-10
+--- state
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
+
+### create argv: phase Beta --parent MMR-1 --ascii
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type    phase
+|   status  o new (rollup over 0 direct children)
+|   title   Beta
+|   parent  MMR-1
+--- state
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
+
+### create argv: phase Beta --parent MMR-1 -f table
+exit 0
+--- stdout
+| [ok] created MMR-10
+| 1 task
+|
+| MMR-10   o new        MMR-1   Beta
+--- state
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
+
+### create argv: phase Beta --parent MMR-1 (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m created MMR-10
+| ␛[1mMMR-10␛[22m
+|   type    phase
+|   status  ␛[90m○ new␛[39m (rollup over 0 direct children)
+|   title   Beta
+|   parent  MMR-1
+|
+|   hint  mimir tree MMR-10   — full subtree
+|         mimir list --status ready -s MMR   — leaf-actionable tasks
+--- state
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
+
+### create argv: phase Beta --parent MMR-1 --target 2027-01 --desc Second.
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type         phase
+|   status       o new (rollup over 0 direct children)
+|   title        Beta
+|   parent       MMR-1
+|   description  Second.
+|   target       2027-01
+--- state
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Second.","distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":"2027-01","title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
+
+### create argv: phase Beta --parent MMR-1 --summary beta -t one
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type     phase
+|   status   o new (rollup over 0 direct children)
+|   title    Beta
+|   parent   MMR-1
+|   summary  beta
+--- state
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":"beta","tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"one"}],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
+
+### create argv: phase Beta --parent MMR-1 --open-ended
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type        phase
+|   status      * ready (rollup over 0 direct children)
+|   title       Beta
+|   parent      MMR-1
+|   open-ended  yes
+--- state
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Beta"}
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":true,"parent":"MMR-1","status":"ready","summary":null,"tags":[],"target":null,"title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
+
+### create argv: phase --parent MMR-1 -- "-Dash first"
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type    phase
+|   status  o new (rollup over 0 direct children)
+|   title   -Dash first
+|   parent  MMR-1
+--- state
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"-Dash first"}
++ nodes[MMR-1].distribution.new: 1
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":null,"title":"-Dash first","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
+
+### create argv: phase --parent MMR-1
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "a leading-dash title needs the '--' terminator: mimir create <type> [flags] -- <title>"
+|   ],
+|   "message": "create phase requires a title"
+| }
+--- state
+unchanged
+
+### create argv: phase Beta --parent MMR
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "a phase's parent must be an initiative (KEY-seq)"
+| }
+--- state
+unchanged
+
+### create argv: phase Beta --parent MMR-3
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "a phase's parent must be an initiative, not a task"
+| }
+--- state
+unchanged
+
+### create argv: phase Beta --parent MMR-2
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "a phase's parent must be an initiative, not a phase"
+| }
+--- state
+unchanged
+
+### create argv: phase Beta --parent MMR-99
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### create argv: phase Beta --parent MMR-99 -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### create argv: phase Beta --parent MMR-a1
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "a phase's parent must be an initiative (KEY-seq)"
+| }
+--- state
+unchanged
+
+### create argv: phase Beta --parent MMR-s1
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "a phase's parent must be an initiative (KEY-seq)"
+| }
+--- state
+unchanged
+
+### create argv: phase Beta --parent nope
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "a phase's parent must be an initiative (KEY-seq)"
+| }
+--- state
+unchanged
+
+### create argv: phase Beta --parent MMR-1 --target someday
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type    phase
+|   status  o new (rollup over 0 direct children)
+|   title   Beta
+|   parent  MMR-1
+|   target  someday
+--- state
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"new","title":"Beta"}
++ nodes[MMR-1].distribution.new: 1
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"children":[],"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"distribution":{},"history":[],"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"id":"MMR-10","open_ended":null,"parent":"MMR-1","status":"new","summary":null,"tags":[],"target":"someday","title":"Beta","type":"phase","updatedAt":"2026-10-01T12:00:00.000Z","verdicts":{"blocking":false,"orphaned":false,"stale":false}}
+
+### create argv: phase Beta --parent MMR-1 --open-ended --not-open-ended
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "at most one of --open-ended | --not-open-ended"
+| }
+--- state
+unchanged
+
+### create argv: phase Beta
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Option \"--parent\" is required. Supply a value."
+| }
+--- state
+unchanged
+
+### create argv: phase Beta --parent MMR-1 --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### create argv: task "Ship docs" --parent MMR-2
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type       task
+|   status     * ready
+|   title      Ship docs
+|   parent     MMR-2
+|   lifecycle  todo
+|   grooming   not_groomed
+|   hold       none
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+
+### create argv: task "Ship docs" --parent MMR-2 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-10",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Ship docs",
+|   "type": "task",
+|   "description": null,
+|   "summary": null,
+|   "priority": null,
+|   "size": null,
+|   "lifecycle": "todo",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+
+### create argv: task "Ship docs" --parent MMR-2 -f jsonl
+exit 0
+--- stdout
+| {
+|   "id": "MMR-10",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Ship docs",
+|   "type": "task",
+|   "description": null,
+|   "summary": null,
+|   "priority": null,
+|   "size": null,
+|   "lifecycle": "todo",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+
+### create argv: task "Ship docs" --parent MMR-2 -f ids
+exit 0
+--- stdout
+| MMR-10
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+
+### create argv: task "Ship docs" --parent MMR-2 -f table
+exit 0
+--- stdout
+| [ok] created MMR-10
+| 1 task
+|
+| MMR-10   * ready        not_groomed   MMR-2   Ship docs
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+
+### create argv: task "Ship docs" --parent MMR-2 --ascii
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type       task
+|   status     * ready
+|   title      Ship docs
+|   parent     MMR-2
+|   lifecycle  todo
+|   grooming   not_groomed
+|   hold       none
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+
+### create argv: task "Ship docs" --parent MMR-2 (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m created MMR-10
+| ␛[1mMMR-10␛[22m
+|   type       task
+|   status     ␛[32m● ready␛[39m
+|   title      Ship docs
+|   parent     MMR-2
+|   lifecycle  todo
+|   grooming   not_groomed
+|   hold       none
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+
+### create argv: task "Ship docs" --parent MMR-1
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type       task
+|   status     * ready
+|   title      Ship docs
+|   parent     MMR-1
+|   lifecycle  todo
+|   grooming   not_groomed
+|   hold       none
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-1","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-1].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
++ nodes[MMR-1].distribution.ready: 1
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-1","parentOpenEnded":null,"parentTitle":"Platform","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-1","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+
+### create argv: task "Ship docs" --parent XX-2
+exit 0
+--- stdout
+| [ok] created XX-5
+| XX-5
+|   type       task
+|   status     * ready
+|   title      Ship docs
+|   parent     XX-2
+|   lifecycle  todo
+|   grooming   not_groomed
+|   hold       none
+--- state
++ board.XX.nodes.items[XX-5]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-5","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.XX.nodes.returned: 2 -> 3
+~ board.XX.nodes.total: 2 -> 3
++ nodes[XX-2].children[XX-5]: {"id":"XX-5","status":"ready","title":"Ship docs"}
+~ nodes[XX-2].distribution.ready: 2 -> 3
++ nodes[XX-5]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-5","lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[XX].leafCounts.ready: 2 -> 3
+
+### create argv: task "Ship docs" --parent MMR-2 --desc "Write them." --summary docs --ref GH-12 -t docs -t ship
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type          task
+|   status        * ready
+|   title         Ship docs
+|   parent        MMR-2
+|   description   Write them.
+|   summary       docs
+|   lifecycle     todo
+|   grooming      not_groomed
+|   hold          none
+|   external ref  GH-12
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Write them.","externalRef":"GH-12","grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":"docs","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":"docs","tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"docs"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"ship"}],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":"Write them.","externalRef":"GH-12","grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":"docs","tags":[{"createdAt":"2026-10-01T12:00:00.000Z","tag":"docs"},{"createdAt":"2026-10-01T12:00:00.000Z","tag":"ship"}],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+
+### create argv: task "Ship docs" --parent MMR-2 --priority p1 --size m
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type       task
+|   status     * ready
+|   title      Ship docs
+|   parent     MMR-2
+|   priority   p1
+|   size       medium
+|   lifecycle  todo
+|   grooming   not_groomed
+|   hold       none
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":"p1","session":null,"size":"medium","status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":"p1","session":null,"size":"medium","status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+
+### create argv: task "Ship docs" --parent MMR-2 -p p0 --size large
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type       task
+|   status     * ready
+|   title      Ship docs
+|   parent     MMR-2
+|   priority   p0
+|   size       large
+|   lifecycle  todo
+|   grooming   not_groomed
+|   hold       none
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":"p0","session":null,"size":"large","status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":"p0","session":null,"size":"large","status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+
+### create argv: task "Ship docs" --parent MMR-2 --groomed
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type       task
+|   status     * ready
+|   title      Ship docs
+|   parent     MMR-2
+|   lifecycle  todo
+|   grooming   groomed
+|   hold       none
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+
+### create argv: task "Ship docs" --parent MMR-2 --upstream XX-s1
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type       task
+|   status     * ready
+|   title      Ship docs
+|   parent     MMR-2
+|   lifecycle  todo
+|   grooming   not_groomed
+|   hold       none
+|   upstream   XX-s1
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+
+### create argv: task "Ship docs" --parent MMR-2 --upstream none
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type       task
+|   status     * ready
+|   title      Ship docs
+|   parent     MMR-2
+|   lifecycle  todo
+|   grooming   not_groomed
+|   hold       none
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+
+### create argv: task "Ship docs" --parent MMR-2 --host asgard --harness claude --session s-1 --branch docs
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type       task
+|   status     * ready
+|   title      Ship docs
+|   parent     MMR-2
+|   lifecycle  todo
+|   grooming   not_groomed
+|   hold       none
+|   host       asgard
+|   harness    claude
+|   session    s-1
+|   branch     docs
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":"docs","children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":"claude","history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":"asgard","id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":"s-1","size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"Ship docs"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":"docs","children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":"claude","history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":"asgard","id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":"s-1","size":null,"status":"ready","summary":null,"tags":[],"title":"Ship docs","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+
+### create argv: task --parent MMR-2 -- "-Dash first"
+exit 0
+--- stdout
+| [ok] created MMR-10
+| MMR-10
+|   type       task
+|   status     * ready
+|   title      -Dash first
+|   parent     MMR-2
+|   lifecycle  todo
+|   grooming   not_groomed
+|   hold       none
+--- state
++ board.MMR.nodes.items[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lede":null,"lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"-Dash first","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ board.MMR.nodes.returned: 7 -> 8
+~ board.MMR.nodes.total: 7 -> 8
++ nodes[MMR-2].children[MMR-10]: {"id":"MMR-10","status":"ready","title":"-Dash first"}
+~ nodes[MMR-2].distribution.ready: 2 -> 3
++ nodes[MMR-10]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"MMR-2","parentOpenEnded":null,"parentTitle":"Skeleton","projectKey":"MMR"},"host":null,"id":"MMR-10","lifecycle":"todo","parent":"MMR-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"-Dash first","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
+~ projects[MMR].leafCounts.ready: 2 -> 3
+
+### create argv: task --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "a leading-dash title needs the '--' terminator: mimir create <type> [flags] -- <title>"
+|   ],
+|   "message": "create task requires a title"
+| }
+--- state
+unchanged
+
+### create argv: task --parent MMR-2 -f json
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "a leading-dash title needs the '--' terminator: mimir create <type> [flags] -- <title>"
+|   ],
+|   "message": "create task requires a title"
+| }
+--- state
+unchanged
+
+### create argv: task " " --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "a leading-dash title needs the '--' terminator: mimir create <type> [flags] -- <title>"
+|   ],
+|   "message": "create task requires a title"
+| }
+--- state
+unchanged
+
+### create argv: task "Ship docs" --parent MMR
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "a task's parent must be a phase or initiative (KEY-seq)"
+| }
+--- state
+unchanged
+
+### create argv: task "Ship docs" --parent mmr-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "a task's parent must be a phase or initiative (KEY-seq)"
+| }
+--- state
+unchanged
+
+### create argv: task "Ship docs" --parent MMR-99
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### create argv: task "Ship docs" --parent MMR-99 -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### create argv: task "Ship docs" --parent MMR-3
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "a task's parent must be a phase or initiative, not a task"
+| }
+--- state
+unchanged
+
+### create argv: task "Ship docs" --parent MMR-a1
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "a task's parent must be a phase or initiative (KEY-seq)"
+| }
+--- state
+unchanged
+
+### create argv: task "Ship docs" --parent MMR-s1
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "a task's parent must be a phase or initiative (KEY-seq)"
+| }
+--- state
+unchanged
+
+### create argv: task "Ship docs" --parent MMR-2 -p zz
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "invalid priority: zz (expected p0|p1|p2|p3)"
+| }
+--- state
+unchanged
+
+### create argv: task "Ship docs" --parent MMR-2 --size huge
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "invalid size: huge (expected small|medium|large)"
+| }
+--- state
+unchanged
+
+### create argv: task "Ship docs" --parent MMR-2 --upstream bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "--upstream expects a seed id (KEY-sN) or 'none' to clear, got bogus"
+| }
+--- state
+unchanged
+
+### create argv: task "Ship docs" --parent MMR-2 --upstream MMR-3
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "--upstream expects a seed id (KEY-sN) or 'none' to clear, got MMR-3"
+| }
+--- state
+unchanged
+
+### create argv: task "Ship docs"
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Option \"--parent\" is required. Supply a value."
+| }
+--- state
+unchanged
+
+### create argv: task "Ship docs" --parent MMR-2 --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### create argv: task --weird-title --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "a leading-dash title needs the '--' terminator: mimir create <type> [flags] -- <title>"
+|   ],
+|   "message": "Unknown option \"--weird-title\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### create argv: task "Ship docs" --parent MMR-2 --target 2026-11
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--target\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### create argv: task "Ship docs" --parent MMR-2 --open-ended
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--open-ended\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### create argv: task "Ship docs" --parent MMR-2 --parent MMR-1
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"--parent\" can be supplied only once. Remove the repeated option."
+| }
+--- state
+unchanged
+
+### create argv: task "Ship docs" More --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"task\" accepts 1 argument. Remove the extra values."
+| }
+--- state
+unchanged
+
+### create argv: epic Title
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "parser",
+|   "hints": [],
+|   "message": "Unknown command \"epic\". Use one of: project, initiative, phase, task."
+| }
+--- state
+unchanged
+
+### create argv: (no arguments)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "parser",
+|   "hints": [],
+|   "message": "Option \"--format\" belongs to commands create project, create initiative, create phase, create task. Supply it after the command name."
+| }
+--- state
+unchanged
+
+### create argv: task x --parent MMR-2 --direction x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "the ## Next narrative is set after create: mimir update <id> --direction \"…\""
+|   ],
+|   "message": "Unknown option \"--direction\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### create argv: phase x --parent MMR-1 --clear-links
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--clear-links' replaces linked work; use it with scratch update"
+|   ],
+|   "message": "Unknown option \"--clear-links\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### create argv: initiative x --parent MMR --not-pinned
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--not-pinned' unpins a project: mimir update <KEY> --not-pinned"
+|   ],
+|   "message": "Unknown option \"--not-pinned\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### create argv: project x --key GAM -y --since 2020-01-01
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--since' is retired; every resource windows created_at with '--at-or-after created_at:YYYY-MM-DD'"
+|   ],
+|   "message": "Unknown option \"--since\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+

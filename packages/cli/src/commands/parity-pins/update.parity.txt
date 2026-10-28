@@ -1,0 +1,2244 @@
+### update argv: MMR-3 --title "Wire the store once"
+exit 0
+--- stdout
+| [ok] updated MMR-3 (title)
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store once
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+
+### update argv: MMR-3 --title "Wire the store once" -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-3",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Wire the store once",
+|   "type": "task",
+|   "description": "Open the store once.\n\nKeep it open.",
+|   "summary": "one store per run",
+|   "priority": "p1",
+|   "size": "small",
+|   "lifecycle": "todo",
+|   "grooming": "groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+--- state
+~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+
+### update argv: MMR-3 --title "Wire the store once" -f jsonl
+exit 0
+--- stdout
+| {
+|   "id": "MMR-3",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Wire the store once",
+|   "type": "task",
+|   "description": "Open the store once.\n\nKeep it open.",
+|   "summary": "one store per run",
+|   "priority": "p1",
+|   "size": "small",
+|   "lifecycle": "todo",
+|   "grooming": "groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+--- state
+~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+
+### update argv: MMR-3 --title "Wire the store once" -f ids
+exit 0
+--- stdout
+| MMR-3
+--- state
+~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+
+### update argv: MMR-3 --title ""
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "title cannot be blank"
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --title "Wire the store once" -f table
+exit 0
+--- stdout
+| [ok] updated MMR-3 (title)
+| 1 task
+|
+| MMR-3   * ready   p1   groomed   MMR-2   Wire the store once
+--- state
+~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+
+### update argv: MMR-3 --title "Wire the store once" --ascii
+exit 0
+--- stdout
+| [ok] updated MMR-3 (title)
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store once
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+
+### update argv: MMR-3 --title "Wire the store once" (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m updated MMR-3 (title)
+| ␛[1mMMR-3␛[22m
+|   type         task
+|   status       ␛[32m● ready␛[39m
+|   title        Wire the store once
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Wire the store once"
+
+### update argv: MMR-3
+exit 0
+--- stdout
+| [ok] updated MMR-3
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+unchanged
+
+### update argv: MMR-3 --desc "A new description."
+exit 0
+--- stdout
+| [ok] updated MMR-3 (description)
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  A new description.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+~ board.MMR.nodes.items[MMR-3].description: "Open the store once.\n\nKeep it open." -> "A new description."
+~ nodes[MMR-3].description: "Open the store once.\n\nKeep it open." -> "A new description."
+
+### update argv: MMR-3 --summary "one store"
+exit 0
+--- stdout
+| [ok] updated MMR-3 (summary)
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+~ board.MMR.nodes.items[MMR-3].lede: "one store per run" -> "one store"
+~ board.MMR.nodes.items[MMR-3].summary: "one store per run" -> "one store"
+~ nodes[MMR-3].summary: "one store per run" -> "one store"
+
+### update argv: MMR-3 --summary ""
+exit 0
+--- stdout
+| [ok] updated MMR-3 (summary)
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+~ board.MMR.nodes.items[MMR-3].lede: "one store per run" -> "Open the store once. Keep it open."
+~ board.MMR.nodes.items[MMR-3].summary: "one store per run" -> null
+~ nodes[MMR-3].summary: "one store per run" -> null
+
+### update argv: MMR-3 -p p0
+exit 0
+--- stdout
+| [ok] updated MMR-3 (priority)
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p0
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+~ board.MMR.nodes.items[MMR-3].priority: "p1" -> "p0"
+~ nodes[MMR-3].priority: "p1" -> "p0"
+
+### update argv: MMR-3 --priority p3 --size l
+exit 0
+--- stdout
+| [ok] updated MMR-3 (priority, size)
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p3
+|   size         large
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+~ board.MMR.nodes.items[MMR-3].priority: "p1" -> "p3"
+~ board.MMR.nodes.items[MMR-3].size: "small" -> "large"
+~ nodes[MMR-3].priority: "p1" -> "p3"
+~ nodes[MMR-3].size: "small" -> "large"
+
+### update argv: MMR-3 --size medium
+exit 0
+--- stdout
+| [ok] updated MMR-3 (size)
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         medium
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+~ board.MMR.nodes.items[MMR-3].size: "small" -> "medium"
+~ nodes[MMR-3].size: "small" -> "medium"
+
+### update argv: MMR-3 --ref GH-3
+exit 0
+--- stdout
+| [ok] updated MMR-3 (ref)
+| MMR-3
+|   type          task
+|   status        * ready
+|   title         Wire the store
+|   parent        MMR-2
+|   description   Open the store once.
+|                 
+|                 Keep it open.
+|   summary       one store per run
+|   priority      p1
+|   size          small
+|   lifecycle     todo
+|   grooming      groomed
+|   hold          none
+|   external ref  GH-3
+--- state
+~ board.MMR.nodes.items[MMR-3].externalRef: null -> "GH-3"
+~ nodes[MMR-3].externalRef: null -> "GH-3"
+
+### update argv: MMR-3 --upstream XX-s1
+exit 0
+--- stdout
+| [ok] updated MMR-3 (upstream)
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+|   upstream     XX-s1
+--- state
+~ board.MMR.nodes.items[MMR-3].upstream: null -> "XX-s1"
+~ nodes[MMR-3].upstream: null -> "XX-s1"
+
+### update argv: MMR-3 --upstream none
+exit 0
+--- stdout
+| [ok] updated MMR-3 (upstream)
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+unchanged
+
+### update argv: MMR-3 --host asgard --harness claude
+exit 0
+--- stdout
+| [ok] updated MMR-3 (harness, host)
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+|   host         asgard
+|   harness      claude
+--- state
+~ board.MMR.nodes.items[MMR-3].harness: null -> "claude"
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"harness":"claude","host":"asgard"},"kind":"assignment","reason":null,"to":"{\"harness\":\"claude\",\"session\":null,\"worker_harness\":null,\"worker_session\":null}"}
+~ board.MMR.nodes.items[MMR-3].host: null -> "asgard"
+~ nodes[MMR-3].harness: null -> "claude"
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"harness":"claude","host":"asgard"},"kind":"assignment","reason":null,"to":"{\"harness\":\"claude\",\"session\":null,\"worker_harness\":null,\"worker_session\":null}"}
+~ nodes[MMR-3].host: null -> "asgard"
+
+### update argv: MMR-3 --session s-9 --branch store
+exit 0
+--- stdout
+| [ok] updated MMR-3 (branch, session)
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+|   session      s-9
+|   branch       store
+--- state
+~ board.MMR.nodes.items[MMR-3].branch: null -> "store"
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"branch":"store","session":"s-9"},"kind":"assignment","reason":null,"to":"{\"harness\":null,\"session\":\"s-9\",\"worker_harness\":null,\"worker_session\":null}"}
+~ board.MMR.nodes.items[MMR-3].session: null -> "s-9"
+~ nodes[MMR-3].branch: null -> "store"
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"branch":"store","session":"s-9"},"kind":"assignment","reason":null,"to":"{\"harness\":null,\"session\":\"s-9\",\"worker_harness\":null,\"worker_session\":null}"}
+~ nodes[MMR-3].session: null -> "s-9"
+
+### update argv: MMR-5 --worker-harness codex --worker-session replacement
+exit 0
+--- stdout
+| [ok] updated MMR-5 (worker-harness, worker-session)
+| MMR-5
+|   type            task
+|   status          > in_progress
+|   title           Ship it
+|   parent          MMR-2
+|   priority        p0
+|   lifecycle       in_progress
+|   grooming        not_groomed
+|   hold            none
+|   harness         codex
+|   session         main-session
+|   worker harness  codex
+|   worker session  replacement
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_harness":"codex","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"codex\",\"worker_session\":\"replacement\"}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> "codex"
+~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_harness":"codex","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"codex\",\"worker_session\":\"replacement\"}"}
+~ nodes[MMR-5].workerHarness: "claude" -> "codex"
+~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
+
+### update argv: MMR-5 --worker-session replacement -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-5",
+|   "parent": "MMR-2",
+|   "status": "in_progress",
+|   "title": "Ship it",
+|   "type": "task",
+|   "description": null,
+|   "summary": null,
+|   "priority": "p0",
+|   "size": null,
+|   "lifecycle": "in_progress",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": "codex",
+|   "session": "main-session",
+|   "worker_harness": null,
+|   "worker_session": "replacement",
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
+~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ nodes[MMR-5].workerHarness: "claude" -> null
+~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
+
+### update argv: MMR-5 --worker-session replacement -f jsonl
+exit 0
+--- stdout
+| {
+|   "id": "MMR-5",
+|   "parent": "MMR-2",
+|   "status": "in_progress",
+|   "title": "Ship it",
+|   "type": "task",
+|   "description": null,
+|   "summary": null,
+|   "priority": "p0",
+|   "size": null,
+|   "lifecycle": "in_progress",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": "codex",
+|   "session": "main-session",
+|   "worker_harness": null,
+|   "worker_session": "replacement",
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
+~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ nodes[MMR-5].workerHarness: "claude" -> null
+~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
+
+### update argv: MMR-5 --worker-session replacement -f table
+exit 0
+--- stdout
+| [ok] updated MMR-5 (worker-session)
+| 1 task
+|
+| MMR-5   > in_progress   p0   MMR-2   Ship it
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
+~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ nodes[MMR-5].workerHarness: "claude" -> null
+~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
+
+### update argv: MMR-5 --worker-session replacement -f ids
+exit 0
+--- stdout
+| MMR-5
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
+~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ nodes[MMR-5].workerHarness: "claude" -> null
+~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
+
+### update argv: MMR-5 --worker-session replacement (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m updated MMR-5 (worker-session)
+| ␛[1mMMR-5␛[22m
+|   type            task
+|   status          ␛[36m▶ in_progress␛[39m
+|   title           Ship it
+|   parent          MMR-2
+|   priority        p0
+|   lifecycle       in_progress
+|   grooming        not_groomed
+|   hold            none
+|   harness         codex
+|   session         main-session
+|   worker session  replacement
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
+~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
+~ nodes[MMR-5].workerHarness: "claude" -> null
+~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
+
+### update argv: MMR-5 --worker-harness ""
+exit 0
+--- stdout
+| [ok] updated MMR-5 (worker-harness)
+| MMR-5
+|   type            task
+|   status          > in_progress
+|   title           Ship it
+|   parent          MMR-2
+|   priority        p0
+|   lifecycle       in_progress
+|   grooming        not_groomed
+|   hold            none
+|   harness         codex
+|   session         main-session
+|   worker session  task-worker-session
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"task-worker-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"task-worker-session\"}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"task-worker-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"task-worker-session\"}"}
+~ nodes[MMR-5].workerHarness: "claude" -> null
+
+### update argv: MMR-5 --worker-session ""
+exit 0
+--- stdout
+| [ok] updated MMR-5 (worker-session)
+| MMR-5
+|   type       task
+|   status     > in_progress
+|   title      Ship it
+|   parent     MMR-2
+|   priority   p0
+|   lifecycle  in_progress
+|   grooming   not_groomed
+|   hold       none
+|   harness    codex
+|   session    main-session
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
+~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
+~ nodes[MMR-5].workerHarness: "claude" -> null
+~ nodes[MMR-5].workerSession: "task-worker-session" -> null
+
+### update argv: MMR-5 --worker-harness "" --worker-session "" -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-5",
+|   "parent": "MMR-2",
+|   "status": "in_progress",
+|   "title": "Ship it",
+|   "type": "task",
+|   "description": null,
+|   "summary": null,
+|   "priority": "p0",
+|   "size": null,
+|   "lifecycle": "in_progress",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": "codex",
+|   "session": "main-session",
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
+~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
+~ nodes[MMR-5].workerHarness: "claude" -> null
+~ nodes[MMR-5].workerSession: "task-worker-session" -> null
+
+### update argv: MMR-5 --worker-harness codex --worker-session main-session
+exit 0
+--- stdout
+| [ok] updated MMR-5 (worker-harness, worker-session)
+| MMR-5
+|   type       task
+|   status     > in_progress
+|   title      Ship it
+|   parent     MMR-2
+|   priority   p0
+|   lifecycle  in_progress
+|   grooming   not_groomed
+|   hold       none
+|   harness    codex
+|   session    main-session
+--- state
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
+~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
+~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
+~ nodes[MMR-5].workerHarness: "claude" -> null
+~ nodes[MMR-5].workerSession: "task-worker-session" -> null
+
+### update argv: MMR-3 --title Both --desc and --summary more -p p2
+exit 0
+--- stdout
+| [ok] updated MMR-3 (title, description, priority, summary)
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Both
+|   parent       MMR-2
+|   description  and
+|   summary      more
+|   priority     p2
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+~ board.MMR.nodes.items[MMR-3].description: "Open the store once.\n\nKeep it open." -> "and"
+~ board.MMR.nodes.items[MMR-3].lede: "one store per run" -> "more"
+~ board.MMR.nodes.items[MMR-3].priority: "p1" -> "p2"
+~ board.MMR.nodes.items[MMR-3].summary: "one store per run" -> "more"
+~ board.MMR.nodes.items[MMR-3].title: "Wire the store" -> "Both"
+~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Both"
+~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Both"
+~ nodes[MMR-2].children[MMR-3].title: "Wire the store" -> "Both"
+~ nodes[MMR-3].description: "Open the store once.\n\nKeep it open." -> "and"
+~ nodes[MMR-3].priority: "p1" -> "p2"
+~ nodes[MMR-3].summary: "one store per run" -> "more"
+~ nodes[MMR-3].title: "Wire the store" -> "Both"
+~ nodes[MMR-4].deps.awaitingOn[MMR-3].title: "Wire the store" -> "Both"
+~ nodes[MMR-4].deps.dependsOn[MMR-3].title: "Wire the store" -> "Both"
+
+### update argv: MMR-2 --target 2027-03
+exit 0
+--- stdout
+| [ok] updated MMR-2 (target)
+| MMR-2
+|   type          phase
+|   status        > in_progress (rollup over 7 direct children)
+|   title         Skeleton
+|   parent        MMR-1
+|   target        2027-03
+|   children      MMR-3 · Wire the store (ready), MMR-4 · Render views (awaiting), MMR-5 · Ship it (in_progress), MMR-6 · Wait on review (blocked), MMR-7 · Spike (done), MMR-8 · Tidy docs (ready), MMR-9 · Export (done)
+|   distribution  ready:2, awaiting:1, in_progress:1, blocked:1, done:2
+--- state
+~ nodes[MMR-2].target: "2026-11" -> "2027-03"
+
+### update argv: MMR-2 --direction "Next: wire it."
+exit 0
+--- stdout
+| [ok] updated MMR-2 (next)
+| MMR-2
+|   type          phase
+|   status        > in_progress (rollup over 7 direct children)
+|   title         Skeleton
+|   parent        MMR-1
+|   next          Next: wire it.
+|   target        2026-11
+|   children      MMR-3 · Wire the store (ready), MMR-4 · Render views (awaiting), MMR-5 · Ship it (in_progress), MMR-6 · Wait on review (blocked), MMR-7 · Spike (done), MMR-8 · Tidy docs (ready), MMR-9 · Export (done)
+|   distribution  ready:2, awaiting:1, in_progress:1, blocked:1, done:2
+--- state
++ nodes[MMR-2].next: "Next: wire it."
+
+### update argv: MMR-2 --open-ended
+exit 0
+--- stdout
+| [ok] updated MMR-2 (open_ended)
+| MMR-2
+|   type          phase
+|   status        > in_progress (rollup over 7 direct children)
+|   title         Skeleton
+|   parent        MMR-1
+|   target        2026-11
+|   open-ended    yes
+|   children      MMR-3 · Wire the store (ready), MMR-4 · Render views (awaiting), MMR-5 · Ship it (in_progress), MMR-6 · Wait on review (blocked), MMR-7 · Spike (done), MMR-8 · Tidy docs (ready), MMR-9 · Export (done)
+|   distribution  ready:2, awaiting:1, in_progress:1, blocked:1, done:2
+--- state
+~ board.MMR.nodes.items[MMR-3].home.parentOpenEnded: null -> true
+~ board.MMR.nodes.items[MMR-4].home.parentOpenEnded: null -> true
+~ board.MMR.nodes.items[MMR-5].home.parentOpenEnded: null -> true
+~ board.MMR.nodes.items[MMR-8].home.parentOpenEnded: null -> true
+~ board.MMR.nodes.items[MMR-6].home.parentOpenEnded: null -> true
+~ board.MMR.nodes.items[MMR-7].home.parentOpenEnded: null -> true
+~ board.MMR.nodes.items[MMR-9].home.parentOpenEnded: null -> true
+~ nodes[MMR-2].open_ended: null -> true
+~ nodes[MMR-3].home.parentOpenEnded: null -> true
+~ nodes[MMR-4].home.parentOpenEnded: null -> true
+~ nodes[MMR-5].home.parentOpenEnded: null -> true
+~ nodes[MMR-6].home.parentOpenEnded: null -> true
+~ nodes[MMR-7].home.parentOpenEnded: null -> true
+~ nodes[MMR-8].home.parentOpenEnded: null -> true
+~ nodes[MMR-9].home.parentOpenEnded: null -> true
+
+### update argv: MMR-2 --not-open-ended
+exit 0
+--- stdout
+| [ok] updated MMR-2 (open_ended)
+| MMR-2
+|   type          phase
+|   status        > in_progress (rollup over 7 direct children)
+|   title         Skeleton
+|   parent        MMR-1
+|   target        2026-11
+|   children      MMR-3 · Wire the store (ready), MMR-4 · Render views (awaiting), MMR-5 · Ship it (in_progress), MMR-6 · Wait on review (blocked), MMR-7 · Spike (done), MMR-8 · Tidy docs (ready), MMR-9 · Export (done)
+|   distribution  ready:2, awaiting:1, in_progress:1, blocked:1, done:2
+--- state
+~ board.MMR.nodes.items[MMR-3].home.parentOpenEnded: null -> false
+~ board.MMR.nodes.items[MMR-4].home.parentOpenEnded: null -> false
+~ board.MMR.nodes.items[MMR-5].home.parentOpenEnded: null -> false
+~ board.MMR.nodes.items[MMR-8].home.parentOpenEnded: null -> false
+~ board.MMR.nodes.items[MMR-6].home.parentOpenEnded: null -> false
+~ board.MMR.nodes.items[MMR-7].home.parentOpenEnded: null -> false
+~ board.MMR.nodes.items[MMR-9].home.parentOpenEnded: null -> false
+~ nodes[MMR-2].open_ended: null -> false
+~ nodes[MMR-3].home.parentOpenEnded: null -> false
+~ nodes[MMR-4].home.parentOpenEnded: null -> false
+~ nodes[MMR-5].home.parentOpenEnded: null -> false
+~ nodes[MMR-6].home.parentOpenEnded: null -> false
+~ nodes[MMR-7].home.parentOpenEnded: null -> false
+~ nodes[MMR-8].home.parentOpenEnded: null -> false
+~ nodes[MMR-9].home.parentOpenEnded: null -> false
+
+### update argv: MMR-1 --title "Platform work" --direction "Next: the store."
+exit 0
+--- stdout
+| [ok] updated MMR-1 (title, next)
+| MMR-1
+|   type          initiative
+|   status        > in_progress (rollup over 1 direct child)
+|   title         Platform work
+|   next          Next: the store.
+|   children      MMR-2 · Skeleton (in_progress)
+|   distribution  in_progress:1
+--- state
+~ nodes[MMR-1].title: "Platform" -> "Platform work"
++ nodes[MMR-1].next: "Next: the store."
+~ nodes[MMR-2].home.parentTitle: "Platform" -> "Platform work"
+~ projects[MMR].children[MMR-1].title: "Platform" -> "Platform work"
+
+### update argv: MMR-2 (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m updated MMR-2
+| ␛[1mMMR-2␛[22m
+|   type          phase
+|   status        ␛[36m▶ in_progress␛[39m (rollup over 7 direct children)
+|   title         Skeleton
+|   parent        MMR-1
+|   target        2026-11
+|   children      MMR-3 · Wire the store (ready), MMR-4 · Render views (awaiting), MMR-5 · Ship it (in_progress), MMR-6 · Wait on review (blocked), MMR-7 · Spike (done), MMR-8 · Tidy docs (ready), MMR-9 · Export (done)
+|   distribution  ready:2, awaiting:1, in_progress:1, blocked:1, done:2
+|
+|   hint  mimir tree MMR-2   — full subtree
+|         mimir list --status ready -s MMR   — leaf-actionable tasks
+--- state
+unchanged
+
+### update argv: MMR --name Mimir
+exit 0
+--- stdout
+| MMR
+|   type           project
+|   status         > in_progress (rollup over 1 direct child)
+|   title          Mimir
+|   description    The work-state store.
+|   remote         github.com/dbtlr/mimir
+|   last activity  2026-10-01 12:00 UTC
+|   children       MMR-1 · Platform (in_progress)
+|   distribution   in_progress:1
+--- state
+~ projects[MMR].title: "mimir" -> "Mimir"
+
+### update argv: MMR --name Mimir -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR",
+|   "parent": null,
+|   "status": "in_progress",
+|   "title": "Mimir",
+|   "type": "project",
+|   "description": "The work-state store.",
+|   "pinned": false,
+|   "remote": "github.com/dbtlr/mimir",
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "last_activity_at": "2026-10-01T12:00:00.005Z",
+|   "children": [
+|     {
+|       "id": "MMR-1",
+|       "status": "in_progress",
+|       "title": "Platform"
+|     }
+|   ],
+|   "distribution": {
+|     "in_progress": 1
+|   }
+| }
+--- state
+~ projects[MMR].title: "mimir" -> "Mimir"
+
+### update argv: MMR --name Mimir -f jsonl
+exit 0
+--- stdout
+| {
+|   "id": "MMR",
+|   "parent": null,
+|   "status": "in_progress",
+|   "title": "Mimir",
+|   "type": "project",
+|   "description": "The work-state store.",
+|   "pinned": false,
+|   "remote": "github.com/dbtlr/mimir",
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "last_activity_at": "2026-10-01T12:00:00.005Z",
+|   "children": [
+|     {
+|       "id": "MMR-1",
+|       "status": "in_progress",
+|       "title": "Platform"
+|     }
+|   ],
+|   "distribution": {
+|     "in_progress": 1
+|   }
+| }
+--- state
+~ projects[MMR].title: "mimir" -> "Mimir"
+
+### update argv: MMR --name Mimir -f ids
+exit 0
+--- stdout
+| MMR
+--- state
+~ projects[MMR].title: "mimir" -> "Mimir"
+
+### update argv: MMR --name Mimir --ascii
+exit 0
+--- stdout
+| MMR
+|   type           project
+|   status         > in_progress (rollup over 1 direct child)
+|   title          Mimir
+|   description    The work-state store.
+|   remote         github.com/dbtlr/mimir
+|   last activity  2026-10-01 12:00 UTC
+|   children       MMR-1 · Platform (in_progress)
+|   distribution   in_progress:1
+--- state
+~ projects[MMR].title: "mimir" -> "Mimir"
+
+### update argv: MMR --name Mimir -f table
+exit 0
+--- stdout
+| 1 task
+|
+| MMR   > in_progress           Mimir
+--- state
+~ projects[MMR].title: "mimir" -> "Mimir"
+
+### update argv: MMR --name Mimir (terminal)
+exit 0
+--- stdout
+| ␛[1mMMR␛[22m
+|   type           project
+|   status         ␛[36m▶ in_progress␛[39m (rollup over 1 direct child)
+|   title          Mimir
+|   description    The work-state store.
+|   remote         github.com/dbtlr/mimir
+|   last activity  2026-10-01 12:00 UTC
+|   children       MMR-1 · Platform (in_progress)
+|   distribution   in_progress:1
+|
+|   hint  mimir tree MMR   — full subtree
+|         mimir list --status ready -s MMR   — leaf-actionable tasks
+--- state
+~ projects[MMR].title: "mimir" -> "Mimir"
+
+### update argv: MMR --desc "A new project description."
+exit 0
+--- stdout
+| MMR
+|   type           project
+|   status         > in_progress (rollup over 1 direct child)
+|   title          mimir
+|   description    A new project description.
+|   remote         github.com/dbtlr/mimir
+|   last activity  2026-10-01 12:00 UTC
+|   children       MMR-1 · Platform (in_progress)
+|   distribution   in_progress:1
+--- state
+~ projects[MMR].description: "The work-state store." -> "A new project description."
+
+### update argv: MMR --direction "Next: ship it."
+exit 0
+--- stdout
+| MMR
+|   type           project
+|   status         > in_progress (rollup over 1 direct child)
+|   title          mimir
+|   description    The work-state store.
+|   next           Next: ship it.
+|   remote         github.com/dbtlr/mimir
+|   last activity  2026-10-01 12:00 UTC
+|   children       MMR-1 · Platform (in_progress)
+|   distribution   in_progress:1
+--- state
++ projects[MMR].next: "Next: ship it."
+
+### update argv: MMR --pinned
+exit 0
+--- stdout
+| MMR
+|   type           project
+|   status         > in_progress (rollup over 1 direct child)
+|   title          mimir
+|   description    The work-state store.
+|   pinned         yes
+|   remote         github.com/dbtlr/mimir
+|   last activity  2026-10-01 12:00 UTC
+|   children       MMR-1 · Platform (in_progress)
+|   distribution   in_progress:1
+--- state
+~ projects[MMR].pinned: false -> true
+
+### update argv: MMR --not-pinned
+exit 0
+--- stdout
+| MMR
+|   type           project
+|   status         > in_progress (rollup over 1 direct child)
+|   title          mimir
+|   description    The work-state store.
+|   remote         github.com/dbtlr/mimir
+|   last activity  2026-10-01 12:00 UTC
+|   children       MMR-1 · Platform (in_progress)
+|   distribution   in_progress:1
+--- state
+unchanged
+
+### update argv: MMR --remote git@github.com:dbtlr/other.git
+exit 0
+--- stdout
+| MMR
+|   type           project
+|   status         > in_progress (rollup over 1 direct child)
+|   title          mimir
+|   description    The work-state store.
+|   remote         github.com/dbtlr/other
+|   last activity  2026-10-01 12:00 UTC
+|   children       MMR-1 · Platform (in_progress)
+|   distribution   in_progress:1
+--- state
+~ projects[MMR].remote: "github.com/dbtlr/mimir" -> "github.com/dbtlr/other"
+
+### update argv: MMR --remote ""
+exit 0
+--- stdout
+| MMR
+|   type           project
+|   status         > in_progress (rollup over 1 direct child)
+|   title          mimir
+|   description    The work-state store.
+|   last activity  2026-10-01 12:00 UTC
+|   children       MMR-1 · Platform (in_progress)
+|   distribution   in_progress:1
+--- state
+~ projects[MMR].remote: "github.com/dbtlr/mimir" -> null
+
+### update argv: XX --pinned --name Other
+exit 0
+--- stdout
+| XX
+|   type           project
+|   status         * ready (rollup over 1 direct child)
+|   title          Other
+|   pinned         yes
+|   last activity  2026-10-01 12:00 UTC
+|   children       XX-1 · Elsewhere (ready)
+|   distribution   ready:1
+--- state
+~ projects[XX].pinned: false -> true
+~ projects[XX].title: "other" -> "Other"
+
+### update argv: MMR
+exit 0
+--- stdout
+| MMR
+|   type           project
+|   status         > in_progress (rollup over 1 direct child)
+|   title          mimir
+|   description    The work-state store.
+|   remote         github.com/dbtlr/mimir
+|   last activity  2026-10-01 12:00 UTC
+|   children       MMR-1 · Platform (in_progress)
+|   distribution   in_progress:1
+--- state
+unchanged
+
+### update argv: MMR-a1 --title x
+exit 0
+--- stdout
+| MMR-a1
+|   title    x
+|   summary  design notes
+|   project  MMR
+|   links    MMR-3
+|   tags     design
+|   created  2026-10-01 12:00 UTC
+--- state
+~ artifacts[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
+
+### update argv: MMR-a1 --title x -f json
+exit 0
+--- stdout
+| {
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "id": "MMR-a1",
+|   "links": [
+|     "MMR-3"
+|   ],
+|   "project": "MMR",
+|   "tags": [
+|     "design"
+|   ],
+|   "title": "x",
+|   "summary": "design notes"
+| }
+--- state
+~ artifacts[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
+
+### update argv: MMR-a1 --title x -f jsonl
+exit 0
+--- stdout
+| {
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "id": "MMR-a1",
+|   "links": [
+|     "MMR-3"
+|   ],
+|   "project": "MMR",
+|   "tags": [
+|     "design"
+|   ],
+|   "title": "x",
+|   "summary": "design notes"
+| }
+--- state
+~ artifacts[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
+
+### update argv: MMR-a1 --title x -f ids
+exit 0
+--- stdout
+| MMR-a1
+--- state
+~ artifacts[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
+
+### update argv: MMR-a1 --title x -f table
+exit 0
+--- stdout
+| 1 artifact
+|
+| MMR-a1   x   design   2026-10-01
+--- state
+~ artifacts[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
+
+### update argv: MMR-a1 --title x --ascii
+exit 0
+--- stdout
+| MMR-a1
+|   title    x
+|   summary  design notes
+|   project  MMR
+|   links    MMR-3
+|   tags     design
+|   created  2026-10-01 12:00 UTC
+--- state
+~ artifacts[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
+
+### update argv: MMR-a1 --title x (terminal)
+exit 0
+--- stdout
+| ␛[1mMMR-a1␛[22m
+|   title    x
+|   summary  design notes
+|   project  MMR
+|   links    MMR-3
+|   tags     design
+|   created  2026-10-01 12:00 UTC
+--- state
+~ artifacts[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "x"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "x"
+~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "x"
+
+### update argv: MMR-a1 --summary x
+exit 0
+--- stdout
+| MMR-a1
+|   title    Store notes
+|   summary  x
+|   project  MMR
+|   links    MMR-3
+|   tags     design
+|   created  2026-10-01 12:00 UTC
+--- state
+~ artifacts[MMR-a1].summary: "design notes" -> "x"
+~ board.MMR.artifacts.items[MMR-a1].summary: "design notes" -> "x"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].summary: "design notes" -> "x"
+~ nodes[MMR-3].artifacts[MMR-a1].summary: "design notes" -> "x"
+~ projects[MMR].artifacts[MMR-a1].summary: "design notes" -> "x"
+
+### update argv: MMR-a1 --summary ""
+exit 0
+--- stdout
+| MMR-a1
+|   title    Store notes
+|   project  MMR
+|   links    MMR-3
+|   tags     design
+|   created  2026-10-01 12:00 UTC
+--- state
+- artifacts[MMR-a1].summary: "design notes"
+- board.MMR.artifacts.items[MMR-a1].summary: "design notes"
+- board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].summary: "design notes"
+- nodes[MMR-3].artifacts[MMR-a1].summary: "design notes"
+- projects[MMR].artifacts[MMR-a1].summary: "design notes"
+
+### update argv: MMR-a1 --title both --summary and
+exit 0
+--- stdout
+| MMR-a1
+|   title    both
+|   summary  and
+|   project  MMR
+|   links    MMR-3
+|   tags     design
+|   created  2026-10-01 12:00 UTC
+--- state
+~ artifacts[MMR-a1].summary: "design notes" -> "and"
+~ artifacts[MMR-a1].title: "Store notes" -> "both"
+~ board.MMR.artifacts.items[MMR-a1].summary: "design notes" -> "and"
+~ board.MMR.artifacts.items[MMR-a1].title: "Store notes" -> "both"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].summary: "design notes" -> "and"
+~ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "both"
+~ nodes[MMR-3].artifacts[MMR-a1].summary: "design notes" -> "and"
+~ nodes[MMR-3].artifacts[MMR-a1].title: "Store notes" -> "both"
+~ projects[MMR].artifacts[MMR-a1].summary: "design notes" -> "and"
+~ projects[MMR].artifacts[MMR-a1].title: "Store notes" -> "both"
+
+### update argv: MMR-a1
+exit 0
+--- stdout
+| MMR-a1
+|   title    Store notes
+|   summary  design notes
+|   project  MMR
+|   links    MMR-3
+|   tags     design
+|   created  2026-10-01 12:00 UTC
+--- state
+unchanged
+
+### update argv: MMR-s1 --title x
+exit 0
+--- stdout
+| [ok] updated MMR-s1 (title)
+| MMR-s1
+|   project      MMR
+|   title        x
+|   kind         feature
+|   lifecycle    new
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+~ seeds.MMR[MMR-s1].title: "A hook" -> "x"
+
+### update argv: MMR-s1 --title x -f json
+exit 0
+--- stdout
+| {
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "id": "MMR-s1",
+|   "kind": "feature",
+|   "lane": "untriaged",
+|   "lifecycle": "new",
+|   "project": "MMR",
+|   "ready_to_resolve": false,
+|   "requester": "XX",
+|   "spawned": [],
+|   "title": "x",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "description": "Ask the other board for a hook."
+| }
+--- state
+~ seeds.MMR[MMR-s1].title: "A hook" -> "x"
+
+### update argv: MMR-s1 --title x -f jsonl
+exit 0
+--- stdout
+| {
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "id": "MMR-s1",
+|   "kind": "feature",
+|   "lane": "untriaged",
+|   "lifecycle": "new",
+|   "project": "MMR",
+|   "ready_to_resolve": false,
+|   "requester": "XX",
+|   "spawned": [],
+|   "title": "x",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "description": "Ask the other board for a hook."
+| }
+--- state
+~ seeds.MMR[MMR-s1].title: "A hook" -> "x"
+
+### update argv: MMR-s1 --title x -f ids
+exit 0
+--- stdout
+| MMR-s1
+--- state
+~ seeds.MMR[MMR-s1].title: "A hook" -> "x"
+
+### update argv: MMR-s1 --title x -f table
+exit 0
+--- stdout
+| [ok] updated MMR-s1 (title)
+| MMR-s1
+|   project      MMR
+|   title        x
+|   kind         feature
+|   lifecycle    new
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+~ seeds.MMR[MMR-s1].title: "A hook" -> "x"
+
+### update argv: MMR-s1 --title x --ascii
+exit 0
+--- stdout
+| [ok] updated MMR-s1 (title)
+| MMR-s1
+|   project      MMR
+|   title        x
+|   kind         feature
+|   lifecycle    new
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+~ seeds.MMR[MMR-s1].title: "A hook" -> "x"
+
+### update argv: MMR-s1 --title x (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m updated MMR-s1 (title)
+| ␛[1mMMR-s1␛[22m
+|   project      MMR
+|   title        x
+|   kind         feature
+|   lifecycle    new
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+~ seeds.MMR[MMR-s1].title: "A hook" -> "x"
+
+### update argv: MMR-s1 --kind bug
+exit 0
+--- stdout
+| [ok] updated MMR-s1 (kind)
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         bug
+|   lifecycle    new
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+~ seeds.MMR[MMR-s1].kind: "feature" -> "bug"
+
+### update argv: MMR-s1 -k feature --desc y --title z
+exit 0
+--- stdout
+| [ok] updated MMR-s1 (title, description, kind)
+| MMR-s1
+|   project      MMR
+|   title        z
+|   kind         feature
+|   lifecycle    new
+|   requester    XX
+|   description  y
+|   created      2026-10-01 12:00 UTC
+--- state
+~ seeds.MMR[MMR-s1].lede: "Ask the other board for a hook." -> "y"
+~ seeds.MMR[MMR-s1].title: "A hook" -> "z"
+
+### update argv: MMR-s1 --desc x
+exit 0
+--- stdout
+| [ok] updated MMR-s1 (description)
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    new
+|   requester    XX
+|   description  x
+|   created      2026-10-01 12:00 UTC
+--- state
+~ seeds.MMR[MMR-s1].lede: "Ask the other board for a hook." -> "x"
+
+### update argv: MMR-s1
+exit 0
+--- stdout
+| [ok] updated MMR-s1
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    new
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+--- state
+unchanged
+
+### update argv: MMR-a1 --title ""
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "an artifact title cannot be blank"
+| }
+--- state
+unchanged
+
+### update argv: MMR-a99 --title x
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-a99 doesn't exist"
+| }
+--- state
+unchanged
+
+### update argv: MMR-a1 -p p1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--priority doesn't apply to an artifact — title and summary are its mutable fields"
+| }
+--- state
+unchanged
+
+### update argv: MMR-a1 --desc x
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--desc doesn't apply to an artifact — title and summary are its mutable fields"
+| }
+--- state
+unchanged
+
+### update argv: MMR-a1 --direction x --ref GH-1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--ref doesn't apply to an artifact — title and summary are its mutable fields"
+| }
+--- state
+unchanged
+
+### update argv: MMR-s1 --kind nope
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "invalid kind: nope (expected idea|bug|feature)"
+| }
+--- state
+unchanged
+
+### update argv: MMR-s1 --title "  "
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "a seed requires a title"
+| }
+--- state
+unchanged
+
+### update argv: MMR-s1 --title late
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "patches (title/kind/description) apply only to a new, parked, or promoted seed"
+|   ],
+|   "message": "seed MMR-s1 is resolved — a terminal seed is frozen"
+| }
+--- state
+unchanged
+
+### update argv: MMR-s1 --kind bug #2
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "patches (title/kind/description) apply only to a new, parked, or promoted seed"
+|   ],
+|   "message": "seed MMR-s1 is rejected — a terminal seed is frozen"
+| }
+--- state
+unchanged
+
+### update argv: MMR-s1 -p p1
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "--priority doesn't apply to a seed — patch --title, --kind, or --desc"
+| }
+--- state
+unchanged
+
+### update argv: MMR-s1 --summary x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "--summary doesn't apply to a seed — patch --title, --kind, or --desc"
+| }
+--- state
+unchanged
+
+### update argv: MMR-s99 --title x
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-s99 doesn't exist"
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --kind bug
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--kind doesn't apply to a task or container — only a seed has a kind"
+| }
+--- state
+unchanged
+
+### update argv: MMR --kind bug
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--kind doesn't apply to a project — only a seed has a kind"
+| }
+--- state
+unchanged
+
+### update argv: MMR-a1 --kind bug
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--kind doesn't apply to an artifact — only a seed has a kind"
+| }
+--- state
+unchanged
+
+### update argv: MMR-99 --title x
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### update argv: MMR-99 --title x -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### update argv: NOPE --name x
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key NOPE -y"
+|   ],
+|   "message": "NOPE doesn't exist"
+| }
+--- state
+unchanged
+
+### update argv: nope --title x
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "nope doesn't exist"
+| }
+--- state
+unchanged
+
+### update argv: nope --name x
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "nope doesn't exist"
+| }
+--- state
+unchanged
+
+### update argv: nope --name x -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "nope doesn't exist"
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 -p zz
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "invalid priority: zz (expected p0|p1|p2|p3)"
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --size huge
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "invalid size: huge (expected small|medium|large)"
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --upstream bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "--upstream expects a seed id (KEY-sN) or 'none' to clear, got bogus"
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --upstream MMR-3
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "--upstream expects a seed id (KEY-sN) or 'none' to clear, got MMR-3"
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --target 2027-03
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "target applies only to phases"
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --open-ended
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "open_ended applies only to phases and initiatives"
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --direction "Next: nothing."
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "next applies only to phases and initiatives"
+| }
+--- state
+unchanged
+
+### update argv: MMR-2 -p p1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "priority, size, external_ref, upstream, and the execution handles (host, harness, session, branch, worker_harness, worker_session) apply only to tasks"
+| }
+--- state
+unchanged
+
+### update argv: MMR-2 --ref GH-1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "priority, size, external_ref, upstream, and the execution handles (host, harness, session, branch, worker_harness, worker_session) apply only to tasks"
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --worker-session worker
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "worker session requires a nonblank main session"
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --worker-harness claude
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "worker harness requires a nonblank worker session"
+| }
+--- state
+unchanged
+
+### update argv: MMR-2 --worker-session worker
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "priority, size, external_ref, upstream, and the execution handles (host, harness, session, branch, worker_harness, worker_session) apply only to tasks"
+| }
+--- state
+unchanged
+
+### update argv: MMR-99 --worker-session worker
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### update argv: MMR --worker-harness claude
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--worker-harness doesn't apply to a project — use --name to rename it"
+| }
+--- state
+unchanged
+
+### update argv: MMR --worker-session worker
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--worker-session doesn't apply to a project — use --name to rename it"
+| }
+--- state
+unchanged
+
+### update argv: MMR-s1 --worker-session worker
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "--worker-session doesn't apply to a seed — patch --title, --kind, or --desc"
+| }
+--- state
+unchanged
+
+### update argv: MMR-a1 --worker-session worker
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--worker-session doesn't apply to an artifact — title and summary are its mutable fields"
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --pinned
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--pinned doesn't apply to a task or container — only a project can be pinned"
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --not-pinned
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--not-pinned doesn't apply to a task or container — only a project can be pinned"
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --name x
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--name doesn't apply to a task or container — only a project can be renamed"
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --remote git@github.com:a/b.git
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--remote doesn't apply to a task or container — only a project can be given a Git remote"
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --open-ended --not-open-ended
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "at most one of --open-ended | --not-open-ended"
+| }
+--- state
+unchanged
+
+### update argv: MMR --pinned --not-pinned
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "at most one of --pinned | --not-pinned"
+| }
+--- state
+unchanged
+
+### update argv: MMR --title x
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--title doesn't apply to a project — use --name to rename it"
+| }
+--- state
+unchanged
+
+### update argv: MMR --summary x
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--summary doesn't apply to a project — use --name to rename it"
+| }
+--- state
+unchanged
+
+### update argv: MMR -p p1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--priority doesn't apply to a project — use --name to rename it"
+| }
+--- state
+unchanged
+
+### update argv: MMR --ref GH-1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--ref doesn't apply to a project — use --name to rename it"
+| }
+--- state
+unchanged
+
+### update argv: MMR --open-ended
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--open-ended doesn't apply to a project — use --name to rename it"
+| }
+--- state
+unchanged
+
+### update argv: MMR --remote git@github.com:dbtlr/mimir.git --name Dup
+exit 0
+--- stdout
+| MMR
+|   type           project
+|   status         > in_progress (rollup over 1 direct child)
+|   title          Dup
+|   description    The work-state store.
+|   remote         github.com/dbtlr/mimir
+|   last activity  2026-10-01 12:00 UTC
+|   children       MMR-1 · Platform (in_progress)
+|   distribution   in_progress:1
+--- state
+~ projects[MMR].title: "mimir" -> "Dup"
+
+### update argv: XX --remote git@github.com:dbtlr/mimir.git
+exit 0
+--- stdout
+| XX
+|   type           project
+|   status         * ready (rollup over 1 direct child)
+|   title          other
+|   remote         github.com/dbtlr/mimir
+|   last activity  2026-10-01 12:00 UTC
+|   children       XX-1 · Elsewhere (ready)
+|   distribution   ready:1
+--- state
+~ projects[XX].remote: null -> "github.com/dbtlr/mimir"
+
+### update argv: MMR-a1 --pinned
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--pinned doesn't apply to an artifact — only a project can be pinned"
+| }
+--- state
+unchanged
+
+### update argv: MMR-s1 --pinned
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "--pinned doesn't apply to a seed — only a project can be pinned"
+| }
+--- state
+unchanged
+
+### update argv: (no arguments)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --title a --title b
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"--title\" can be supplied only once. Remove the repeated option."
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 MMR-4 --title a
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"update\" accepts 1 argument. Remove the extra values."
+| }
+--- state
+unchanged
+
+### update argv: MMR-s1 --kind idea --kind bug
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"--kind\" can be supplied only once. Remove the repeated option."
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --title x --clear-links
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--clear-links' replaces linked work; use it with scratch update"
+|   ],
+|   "message": "Unknown option \"--clear-links\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --title x --groomed
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--groomed' creates a task already groomed; list/next filter with '--eq grooming:groomed', and 'mimir groom <ids> <state>' sets it later"
+|   ],
+|   "message": "Unknown option \"--groomed\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+

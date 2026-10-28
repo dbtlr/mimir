@@ -5,12 +5,14 @@ import { join } from 'node:path';
 
 import { canonicalJson } from '@mimir/core';
 
-import { MACHINE_REDIRECTS, PARITY_DIFFERENCES } from '../parity/differences';
 import { argvLine } from '../testing/argv-case';
+import { freezeClock } from '../testing/clock';
 import { parityBoard } from '../testing/fixture';
 import type { ParityBoard } from '../testing/fixture';
-import { parityProblems, registerParity, runNew, runOld } from '../testing/parity';
+import { pinText, registerParity, runNew } from '../testing/parity';
 import type { ParityCase } from '../testing/parity';
+import { quoted } from '../testing/pins';
+import { MACHINE_REDIRECTS } from '../testing/redirects';
 
 let board: ParityBoard;
 let document = '';
@@ -24,6 +26,7 @@ const taken = join(DIR, 'taken.json');
 const folder = join(DIR, 'folder');
 
 beforeAll(async () => {
+  freezeClock(true);
   board = await parityBoard();
   document = `${canonicalJson(await board.store.export())}\n`;
   writeFileSync(doc, document);
@@ -35,6 +38,7 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   await board.close();
+  freezeClock(false);
   rmSync(DIR, { force: true, recursive: true });
 });
 
@@ -157,25 +161,15 @@ const CASES: StoreCase[] = [
   ...MACHINE_REDIRECTS.filter((line) => line.startsWith('store ')).map((line) => argvLine(line)),
 ];
 
-// One board is shared, unlike the twin harness's board per CLI: the cases name files on a
-// shared disk, whose paths both CLIs print and must agree on, and import, which refuses or
+// One board is shared: the cases name files on a shared disk, and import, which refuses or
 // skips what the store already holds, writes nothing to the board.
-registerParity(/^store /, CASES, async (c) => {
+registerParity(import.meta.url, CASES, async (c) => {
   board.stdin.text = c.stdin === 'DOCUMENT' ? document : (c.stdin ?? '');
-  const old = await runOld(board.store, c, board.oldDefaults(c.bound));
-  // Each CLI writes its own file: the old one's is taken away before the new one runs.
+  const run = await runNew((words) => board.app(c.bound, words), c);
   const file =
     c.output !== undefined && c.output !== '-' && c.output !== taken ? c.output : undefined;
-  const oldText = file !== undefined && existsSync(file) ? readFileSync(file, 'utf8') : undefined;
-  if (file !== undefined) {
-    rmSync(file, { force: true });
-  }
-  const now = await runNew((words) => board.app(c.bound, words), c);
-  if (file !== undefined && oldText !== undefined) {
-    // The file the new CLI wrote is the file the old one did.
-    expect(readFileSync(file, 'utf8')).toBe(oldText);
-  }
-  return parityProblems(board.app(), c, old, now, PARITY_DIFFERENCES);
+  const written = file !== undefined && existsSync(file) ? readFileSync(file, 'utf8') : undefined;
+  return pinText(run, DIR, written === undefined ? '' : `--- file\n${quoted(written)}`);
 });
 
 test('a refused export leaves the existing backup untouched', () => {
