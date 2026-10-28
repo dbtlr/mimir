@@ -1,0 +1,1 @@
+- The container host validates environment configuration, accepts Postgres connection URLs directly or from secret files, and migrates its store before serving. Image builds grant Postgres authority; development hosts use isolated SQLite or `bun run sandbox host <id>` for owned Postgres.
