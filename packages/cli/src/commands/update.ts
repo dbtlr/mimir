@@ -234,9 +234,10 @@ export function updateCommand(ports: Ports) {
   async function updateProject(id: string, options: UpdateOptions) {
     refuseNodeOnlyFlags(options);
     refuseKind(options, 'project');
+    // An explicit `pinned: false` (an MCP caller's, or `--pinned=false`) unpins, like `--not-pinned`.
     const pinned = flagPair(
       options.pinned,
-      options['not-pinned'],
+      options['not-pinned'] === true || options.pinned === false ? true : undefined,
       'at most one of --pinned | --not-pinned',
     );
     const engine = await ports.engine();

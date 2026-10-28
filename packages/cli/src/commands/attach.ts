@@ -1,10 +1,10 @@
 /**
  * `attach [id]`: freeze a document as an artifact, linked to nodes of one
- * project. The body is a file (`--file`), else piped stdin.
+ * project. The body is `--content` text, else a file (`--file`), else piped stdin.
  */
 import { Command } from '@loomcli/core';
 import { helpCommand, helpInput } from '@loomcli/plugins/help/extension';
-import { mcpCommand } from '@loomcli/plugins/mcp/extension';
+import { mcpCommand, mcpInput } from '@loomcli/plugins/mcp/extension';
 import { intentEncoders, PROJECT_KEY_PATTERN, projectNotFound } from '@mimir/contract';
 
 import { MimirUsageError } from '../failures';
@@ -29,6 +29,10 @@ export function attachCommand(ports: Ports) {
             note: 'link a design to a task',
           },
           {
+            command: 'attach MMR-16 --content "# Notes" --title "Notes"',
+            note: 'an inline body, as an MCP host sends it',
+          },
+          {
             command: 'cat notes.md | mimir attach --project MMR --title "Notes"',
             note: 'a project-level artifact from stdin',
           },
@@ -40,10 +44,12 @@ export function attachCommand(ports: Ports) {
     .argument('id', { description: 'A node to link (KEY-seq).' })
     .option('file', {
       description: 'The document. Read from stdin when omitted.',
-      extensions: [helpInput({ placeholder: 'path' })],
+      // Off MCP: a path would read any file on the server's machine; a tool sends `content`.
+      extensions: [helpInput({ placeholder: 'path' }), mcpInput({ exclude: true })],
       stdin: true,
       type: 'content',
     })
+    .option('content', text('The document text, in place of --file or piped stdin.'))
     .option('link', {
       description: 'More nodes to link. Repeat it, or separate with commas.',
       extensions: [helpInput({ placeholder: 'ids' })],
@@ -55,12 +61,17 @@ export function attachCommand(ports: Ports) {
     .option('summary', text('A one-line summary.'))
     .option('tag', tagOption)
     .option('ascii', asciiOption)
+    .exclusive('content', 'file')
     .result<Notice>({ views: noticeViews })
     .views({ records: noticeViews.records }, { default: 'records' })
     .action(async ({ args, host, options, out }) => {
-      const content = await contentText(options.file, host.terminal.stdin.isTTY);
+      // Inline text wins; the file option may hold stdin then, which is left unread.
+      const content =
+        options.content ?? (await contentText(options.file, host.terminal.stdin.isTTY));
       if (content.trim() === '') {
-        throw new MimirUsageError('attach requires content (--file <path> or piped stdin)');
+        throw new MimirUsageError(
+          'attach requires content (--content <text>, --file <path>, or piped stdin)',
+        );
       }
       const links = [
         ...(args.id === undefined ? [] : [args.id]),
@@ -75,9 +86,11 @@ export function attachCommand(ports: Ports) {
       }
       const title =
         options.title ??
-        (options.file?.path === undefined ? undefined : basename(options.file.path));
+        (options.content !== undefined || options.file?.path === undefined
+          ? undefined
+          : basename(options.file.path));
       if (title === undefined || title.trim() === '') {
-        throw new MimirUsageError('attach from stdin requires --title <text>');
+        throw new MimirUsageError('attach from --content or stdin requires --title <text>');
       }
       const engine = await ports.engine();
       const written = await withListHint(links, () =>

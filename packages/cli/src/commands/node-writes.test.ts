@@ -94,7 +94,9 @@ test('attach on an interactive stdin refuses instead of waiting for the keyboard
     stdin: '# would block a real terminal',
   });
   expect(run.exitCode).toBe(2);
-  expect(run.stderr).toContain('attach requires content (--file <path> or piped stdin)');
+  expect(run.stderr).toContain(
+    'attach requires content (--content <text>, --file <path>, or piped stdin)',
+  );
 });
 
 test('attach reads the document from stdin and needs a title then', async () => {
@@ -109,12 +111,57 @@ test('attach reads the document from stdin and needs a title then', async () => 
     stdin: '# Piped\n',
   });
   expect(bare.exitCode).toBe(2);
-  expect(bare.stderr).toContain('attach from stdin requires --title <text>');
+  expect(bare.stderr).toContain('attach from --content or stdin requires --title <text>');
   const none = await runArgv(board.app(), ['attach', 'MMR-5', '--title', 'x'], {
     stdin: ' \n',
   });
   expect(none.exitCode).toBe(2);
-  expect(none.stderr).toContain('attach requires content (--file <path> or piped stdin)');
+  expect(none.stderr).toContain(
+    'attach requires content (--content <text>, --file <path>, or piped stdin)',
+  );
+});
+
+test('attach takes the body inline with --content, and reads no stdin', async () => {
+  const run = await runArgv(
+    board.app(),
+    ['attach', 'MMR-5', '--content', '# Inline\n', '--title', 'Inline notes', '-f', 'json'],
+    { stdin: 'ignored piped text' },
+  );
+  expect(run.exitCode).toBe(0);
+  const { id } = JSON.parse(run.stdout).artifact;
+  const got = await board.engine.getArtifact({ content: true, id });
+  expect(got.content).toBe('# Inline');
+  expect(got.title).toBe('Inline notes');
+});
+
+test('attach --content needs a title, as the old MCP attach did', async () => {
+  const run = await runArgv(board.app(), ['attach', 'MMR-5', '--content', 'body']);
+  expect(run.exitCode).toBe(2);
+  expect(run.stderr).toContain('attach from --content or stdin requires --title <text>');
+});
+
+test('attach refuses blank --content', async () => {
+  const run = await runArgv(board.app(), ['attach', 'MMR-5', '--content', '  ', '--title', 'x']);
+  expect(run.exitCode).toBe(2);
+  expect(run.stderr).toContain(
+    'attach requires content (--content <text>, --file <path>, or piped stdin)',
+  );
+});
+
+test('attach refuses --content with --file, naming both', async () => {
+  const run = await runArgv(board.app(), [
+    'attach',
+    'MMR-5',
+    '--content',
+    'body',
+    '--file',
+    '/does/not/matter.md',
+    '--title',
+    'x',
+  ]);
+  expect(run.exitCode).toBe(2);
+  expect(run.stderr).toContain('--content');
+  expect(run.stderr).toContain('--file');
 });
 
 test('attach titles a file by its name', async () => {
