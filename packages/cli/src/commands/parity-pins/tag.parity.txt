@@ -3,88 +3,88 @@ exit 0
 --- stdout
 | [ok] tagged MMR-5: design
 --- state
-+ board.MMR.nodes.items[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
-+ nodes[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ board.MMR.nodes.items[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ nodes[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
 
 ### tag argv: MMR-5 design -f json
 exit 0
 --- stdout
 | {"tagged":{"ids":["MMR-5"],"tags":["design"]}}
 --- state
-+ board.MMR.nodes.items[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
-+ nodes[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ board.MMR.nodes.items[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ nodes[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
 
 ### tag argv: MMR-5 design -f jsonl
 exit 0
 --- stdout
 | {"tagged":{"ids":["MMR-5"],"tags":["design"]}}
 --- state
-+ board.MMR.nodes.items[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
-+ nodes[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ board.MMR.nodes.items[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ nodes[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
 
 ### tag argv: MMR-5 design -f ids
 exit 0
 --- stdout
 | MMR-5
 --- state
-+ board.MMR.nodes.items[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
-+ nodes[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ board.MMR.nodes.items[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ nodes[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
 
 ### tag argv: MMR-5 design -f table
 exit 0
 --- stdout
 | [ok] tagged MMR-5: design
 --- state
-+ board.MMR.nodes.items[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
-+ nodes[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ board.MMR.nodes.items[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ nodes[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
 
 ### tag argv: MMR-5 design --ascii
 exit 0
 --- stdout
 | [ok] tagged MMR-5: design
 --- state
-+ board.MMR.nodes.items[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
-+ nodes[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ board.MMR.nodes.items[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ nodes[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
 
 ### tag argv: MMR-5 design (terminal)
 exit 0
 --- stdout
 | ␛[32m✓␛[39m tagged MMR-5: design
 --- state
-+ board.MMR.nodes.items[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
-+ nodes[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ board.MMR.nodes.items[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ nodes[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
 
 ### tag argv: MMR-5,MMR-6 design review
 exit 0
 --- stdout
 | [ok] tagged MMR-5, MMR-6: design, review
 --- state
-+ board.MMR.nodes.items[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
-+ board.MMR.nodes.items[MMR-5].tags[#1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"review"}
-+ board.MMR.nodes.items[MMR-6].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
-+ board.MMR.nodes.items[MMR-6].tags[#1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"review"}
-+ nodes[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
-+ nodes[MMR-5].tags[#1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"review"}
-+ nodes[MMR-6].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
-+ nodes[MMR-6].tags[#1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"review"}
++ board.MMR.nodes.items[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ board.MMR.nodes.items[MMR-5].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"review"}
++ board.MMR.nodes.items[MMR-6].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ board.MMR.nodes.items[MMR-6].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"review"}
++ nodes[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ nodes[MMR-5].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"review"}
++ nodes[MMR-6].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ nodes[MMR-6].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"review"}
 
 ### tag argv: MMR-5 -- -dash
 exit 0
 --- stdout
 | [ok] tagged MMR-5: -dash
 --- state
-+ board.MMR.nodes.items[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"-dash"}
-+ nodes[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"-dash"}
++ board.MMR.nodes.items[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"-dash"}
++ nodes[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"-dash"}
 
 ### tag argv: MMR-5 design -- -dash
 exit 0
 --- stdout
 | [ok] tagged MMR-5: design, -dash
 --- state
-+ board.MMR.nodes.items[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"-dash"}
-+ board.MMR.nodes.items[MMR-5].tags[#1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
-+ nodes[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"-dash"}
-+ nodes[MMR-5].tags[#1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ board.MMR.nodes.items[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"-dash"}
++ board.MMR.nodes.items[MMR-5].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ nodes[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"-dash"}
++ nodes[MMR-5].tags[@1]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
 
 ### untag argv: MMR-3 -- -dash
 exit 0
@@ -98,10 +98,10 @@ exit 0
 --- stdout
 | [ok] tagged MMR-5, MMR-6: design
 --- state
-+ board.MMR.nodes.items[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
-+ board.MMR.nodes.items[MMR-6].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
-+ nodes[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
-+ nodes[MMR-6].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ board.MMR.nodes.items[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ board.MMR.nodes.items[MMR-6].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ nodes[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ nodes[MMR-6].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
 
 ### tag argv: MMR-5,MMR-6 design -f ids
 exit 0
@@ -109,10 +109,10 @@ exit 0
 | MMR-5
 | MMR-6
 --- state
-+ board.MMR.nodes.items[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
-+ board.MMR.nodes.items[MMR-6].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
-+ nodes[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
-+ nodes[MMR-6].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ board.MMR.nodes.items[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ board.MMR.nodes.items[MMR-6].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ nodes[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
++ nodes[MMR-6].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"design"}
 
 ### tag argv: MMR-3 alpha
 exit 0
@@ -126,24 +126,24 @@ exit 0
 --- stdout
 | [ok] tagged MMR: platform
 --- state
-+ projects[MMR].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"platform"}
++ projects[MMR].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"platform"}
 
 ### tag argv: MMR-a1 design extra
 exit 0
 --- stdout
 | [ok] tagged MMR-a1: design, extra
 --- state
-+ artifacts[MMR-a1].tags[#1]: "extra"
-+ board.MMR.artifacts.items[MMR-a1].tags[#1]: "extra"
-+ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].tags[#1]: "extra"
-+ projects[MMR].artifacts[MMR-a1].tags[#1]: "extra"
++ artifacts[MMR-a1].tags[@1]: "extra"
++ board.MMR.artifacts.items[MMR-a1].tags[@1]: "extra"
++ board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].tags[@1]: "extra"
++ projects[MMR].artifacts[MMR-a1].tags[@1]: "extra"
 
 ### tag argv: MMR-2 phase-tag
 exit 0
 --- stdout
 | [ok] tagged MMR-2: phase-tag
 --- state
-+ nodes[MMR-2].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"phase-tag"}
++ nodes[MMR-2].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"phase-tag"}
 
 ### tag argv: MMR-99 design
 exit 1
@@ -252,16 +252,16 @@ exit 0
 --- stdout
 | [ok] tagged MMR-5: Bad Tag
 --- state
-+ board.MMR.nodes.items[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"Bad Tag"}
-+ nodes[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"Bad Tag"}
++ board.MMR.nodes.items[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"Bad Tag"}
++ nodes[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"Bad Tag"}
 
 ### tag argv: MMR-5 ""
 exit 0
 --- stdout
 | [ok] tagged MMR-5: 
 --- state
-+ board.MMR.nodes.items[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":""}
-+ nodes[MMR-5].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":""}
++ board.MMR.nodes.items[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":""}
++ nodes[MMR-5].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":""}
 
 ### tag argv: MMR-5
 exit 2
@@ -304,58 +304,58 @@ exit 0
 --- stdout
 | [ok] untagged MMR-3: alpha
 --- state
-- board.MMR.nodes.items[MMR-3].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-- nodes[MMR-3].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
+- board.MMR.nodes.items[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
+- nodes[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
 
 ### untag argv: MMR-3 alpha -f json
 exit 0
 --- stdout
 | {"untagged":{"ids":["MMR-3"],"tags":["alpha"]}}
 --- state
-- board.MMR.nodes.items[MMR-3].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-- nodes[MMR-3].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
+- board.MMR.nodes.items[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
+- nodes[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
 
 ### untag argv: MMR-3 alpha -f jsonl
 exit 0
 --- stdout
 | {"untagged":{"ids":["MMR-3"],"tags":["alpha"]}}
 --- state
-- board.MMR.nodes.items[MMR-3].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-- nodes[MMR-3].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
+- board.MMR.nodes.items[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
+- nodes[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
 
 ### untag argv: MMR-3 alpha -f ids
 exit 0
 --- stdout
 | MMR-3
 --- state
-- board.MMR.nodes.items[MMR-3].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-- nodes[MMR-3].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
+- board.MMR.nodes.items[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
+- nodes[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
 
 ### untag argv: MMR-3 alpha -f table
 exit 0
 --- stdout
 | [ok] untagged MMR-3: alpha
 --- state
-- board.MMR.nodes.items[MMR-3].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-- nodes[MMR-3].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
+- board.MMR.nodes.items[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
+- nodes[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
 
 ### untag argv: MMR-3 alpha (terminal)
 exit 0
 --- stdout
 | ␛[32m✓␛[39m untagged MMR-3: alpha
 --- state
-- board.MMR.nodes.items[MMR-3].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-- nodes[MMR-3].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
+- board.MMR.nodes.items[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
+- nodes[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
 
 ### untag argv: MMR-3,MMR-4 alpha
 exit 0
 --- stdout
 | [ok] untagged MMR-3, MMR-4: alpha
 --- state
-- board.MMR.nodes.items[MMR-3].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-- board.MMR.nodes.items[MMR-4].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-- nodes[MMR-3].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
-- nodes[MMR-4].tags[#0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
+- board.MMR.nodes.items[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
+- board.MMR.nodes.items[MMR-4].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
+- nodes[MMR-3].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
+- nodes[MMR-4].tags[@0]: {"createdAt":"2026-10-01T12:00:00.000Z","tag":"alpha"}
 
 ### untag argv: MMR-3 never-set
 exit 0
@@ -369,10 +369,10 @@ exit 0
 --- stdout
 | [ok] untagged MMR-a1: design
 --- state
-- artifacts[MMR-a1].tags[#0]: "design"
-- board.MMR.artifacts.items[MMR-a1].tags[#0]: "design"
-- board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].tags[#0]: "design"
-- projects[MMR].artifacts[MMR-a1].tags[#0]: "design"
+- artifacts[MMR-a1].tags[@0]: "design"
+- board.MMR.artifacts.items[MMR-a1].tags[@0]: "design"
+- board.MMR.nodes.items[MMR-3].artifacts[MMR-a1].tags[@0]: "design"
+- projects[MMR].artifacts[MMR-a1].tags[@0]: "design"
 
 ### untag argv: MMR-99 alpha
 exit 1

@@ -289,8 +289,8 @@ exit 0
 | upstream resolutions (1)
 | XX-s1 -> XX-4 resolved: fixed   annotated
 --- state
-+ board.XX.nodes.items[XX-4].annotations[#0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
-+ nodes[XX-4].annotations[#0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ board.XX.nodes.items[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
 
 ### triage XX -f json
 exit 0
@@ -315,16 +315,16 @@ exit 0
 |   ]
 | }
 --- state
-+ board.XX.nodes.items[XX-4].annotations[#0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
-+ nodes[XX-4].annotations[#0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ board.XX.nodes.items[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
 
 ### triage XX -f ids
 exit 0
 --- stdout
 | XX-4
 --- state
-+ board.XX.nodes.items[XX-4].annotations[#0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
-+ nodes[XX-4].annotations[#0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ board.XX.nodes.items[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
 
 ### triage XX --dry-run -f records
 exit 0
@@ -380,8 +380,8 @@ exit 0
 | upstream resolutions (1)
 | XX-s1 -> XX-4 resolved: fixed   annotated
 --- state
-+ board.XX.nodes.items[XX-4].annotations[#0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
-+ nodes[XX-4].annotations[#0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ board.XX.nodes.items[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
 
 ### triage --scope XX
 exit 0
@@ -396,8 +396,8 @@ exit 0
 | upstream resolutions (1)
 | XX-s1 -> XX-4 resolved: fixed   annotated
 --- state
-+ board.XX.nodes.items[XX-4].annotations[#0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
-+ nodes[XX-4].annotations[#0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ board.XX.nodes.items[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
 
 ### triage --scope XX (bound elsewhere)
 exit 0
@@ -422,8 +422,8 @@ exit 0
 |   ]
 | }
 --- state
-+ board.XX.nodes.items[XX-4].annotations[#0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
-+ nodes[XX-4].annotations[#0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ board.XX.nodes.items[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
 
 ### triage (unbound)
 exit 2
@@ -723,8 +723,8 @@ exit 0
 | ␛[1mupstream resolutions (1)␛[22m
 | XX-s1 → XX-4 resolved: fixed   annotated
 --- state
-+ board.XX.nodes.items[XX-4].annotations[#0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
-+ nodes[XX-4].annotations[#0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ board.XX.nodes.items[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
++ nodes[XX-4].annotations[@0]: {"content":"upstream XX-s1 resolved: fixed","createdAt":"2026-10-01T12:00:00.000Z"}
 
 ### triage argv: XX --dry-run (terminal)
 exit 0

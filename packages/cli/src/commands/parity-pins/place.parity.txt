@@ -16,11 +16,11 @@ exit 0
 |   worker harness  claude
 |   worker session  task-worker-session
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
@@ -60,11 +60,11 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
@@ -104,11 +104,11 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
@@ -121,11 +121,11 @@ exit 0
 --- stdout
 | MMR-5
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
@@ -141,11 +141,11 @@ exit 0
 |
 | MMR-5   > in_progress   p0   MMR-1   Ship it
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
@@ -171,11 +171,11 @@ exit 0
 |   worker harness  claude
 |   worker session  task-worker-session
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
@@ -201,11 +201,11 @@ exit 0
 |   worker harness  claude
 |   worker session  task-worker-session
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ board.MMR.nodes.items[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ board.MMR.nodes.items[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ board.MMR.nodes.items[MMR-5].parent: "MMR-2" -> "MMR-1"
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-1"}
 ~ nodes[MMR-5].home.parentId: "MMR-2" -> "MMR-1"
 ~ nodes[MMR-5].home.parentTitle: "Skeleton" -> "Platform"
 ~ nodes[MMR-5].parent: "MMR-2" -> "MMR-1"
@@ -231,8 +231,8 @@ exit 0
 |   worker harness  claude
 |   worker session  task-worker-session
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-2"}
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-2"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-2"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-2","kind":"move","reason":null,"to":"MMR-2"}
 
 ### move argv: MMR-2 --to MMR-1
 exit 0
@@ -247,7 +247,7 @@ exit 0
 |   children      MMR-3 · Wire the store (ready), MMR-4 · Render views (awaiting), MMR-5 · Ship it (in_progress), MMR-6 · Wait on review (blocked), MMR-7 · Spike (done), MMR-8 · Tidy docs (ready), MMR-9 · Export (done)
 |   distribution  ready:2, awaiting:1, in_progress:1, blocked:1, done:2
 --- state
-+ nodes[MMR-2].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-1","kind":"move","reason":null,"to":"MMR-1"}
++ nodes[MMR-2].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"MMR-1","kind":"move","reason":null,"to":"MMR-1"}
 
 ### move argv: MMR-5 --to MMR-5
 exit 1
@@ -493,7 +493,7 @@ exit 0
 |   worker harness  claude
 |   worker session  task-worker-session
 --- state
-unchanged
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-5, MMR-3, MMR-4, MMR-8, MMR-6, MMR-7, MMR-9]
 
 ### reorder argv: MMR-5 --top -f json
 exit 0
@@ -527,14 +527,14 @@ exit 0
 |   "children": []
 | }
 --- state
-unchanged
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-5, MMR-3, MMR-4, MMR-8, MMR-6, MMR-7, MMR-9]
 
 ### reorder argv: MMR-5 --top -f ids
 exit 0
 --- stdout
 | MMR-5
 --- state
-unchanged
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-5, MMR-3, MMR-4, MMR-8, MMR-6, MMR-7, MMR-9]
 
 ### reorder argv: MMR-5 --top -f table
 exit 0
@@ -544,7 +544,7 @@ exit 0
 |
 | MMR-5   > in_progress   p0   MMR-2   Ship it
 --- state
-unchanged
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-5, MMR-3, MMR-4, MMR-8, MMR-6, MMR-7, MMR-9]
 
 ### reorder argv: MMR-5 --top --ascii
 exit 0
@@ -564,7 +564,7 @@ exit 0
 |   worker harness  claude
 |   worker session  task-worker-session
 --- state
-unchanged
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-5, MMR-3, MMR-4, MMR-8, MMR-6, MMR-7, MMR-9]
 
 ### reorder argv: MMR-5 --top (terminal)
 exit 0
@@ -584,7 +584,7 @@ exit 0
 |   worker harness  claude
 |   worker session  task-worker-session
 --- state
-unchanged
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-5, MMR-3, MMR-4, MMR-8, MMR-6, MMR-7, MMR-9]
 
 ### reorder argv: MMR-3 --bottom
 exit 0
@@ -605,7 +605,7 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-unchanged
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 
 ### reorder argv: MMR-3 --bottom -f json
 exit 0
@@ -639,7 +639,7 @@ exit 0
 |   "children": []
 | }
 --- state
-unchanged
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 
 ### reorder argv: MMR-8 --before MMR-4
 exit 0
@@ -655,7 +655,7 @@ exit 0
 |   grooming   not_groomed
 |   hold       none
 --- state
-unchanged
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-8, MMR-4, MMR-5, MMR-6, MMR-7, MMR-9]
 
 ### reorder argv: MMR-8 --before MMR-4 -f json
 exit 0
@@ -689,7 +689,7 @@ exit 0
 |   "children": []
 | }
 --- state
-unchanged
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-8, MMR-4, MMR-5, MMR-6, MMR-7, MMR-9]
 
 ### reorder argv: MMR-3 --after MMR-5
 exit 0
@@ -710,7 +710,7 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-unchanged
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-3, MMR-8, MMR-6, MMR-7, MMR-9]
 
 ### reorder argv: MMR-3 --after MMR-5 (terminal)
 exit 0
@@ -731,7 +731,7 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-unchanged
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-3, MMR-8, MMR-6, MMR-7, MMR-9]
 
 ### reorder argv: MMR-99 --top
 exit 1

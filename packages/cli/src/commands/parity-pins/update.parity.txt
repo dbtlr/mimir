@@ -428,10 +428,10 @@ exit 0
 |   harness      claude
 --- state
 ~ board.MMR.nodes.items[MMR-3].harness: null -> "claude"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"harness":"claude","host":"asgard"},"kind":"assignment","reason":null,"to":"{\"harness\":\"claude\",\"session\":null,\"worker_harness\":null,\"worker_session\":null}"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"harness":"claude","host":"asgard"},"kind":"assignment","reason":null,"to":"{\"harness\":\"claude\",\"session\":null,\"worker_harness\":null,\"worker_session\":null}"}
 ~ board.MMR.nodes.items[MMR-3].host: null -> "asgard"
 ~ nodes[MMR-3].harness: null -> "claude"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"harness":"claude","host":"asgard"},"kind":"assignment","reason":null,"to":"{\"harness\":\"claude\",\"session\":null,\"worker_harness\":null,\"worker_session\":null}"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"harness":"claude","host":"asgard"},"kind":"assignment","reason":null,"to":"{\"harness\":\"claude\",\"session\":null,\"worker_harness\":null,\"worker_session\":null}"}
 ~ nodes[MMR-3].host: null -> "asgard"
 
 ### update argv: MMR-3 --session s-9 --branch store
@@ -456,10 +456,10 @@ exit 0
 |   branch       store
 --- state
 ~ board.MMR.nodes.items[MMR-3].branch: null -> "store"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"branch":"store","session":"s-9"},"kind":"assignment","reason":null,"to":"{\"harness\":null,\"session\":\"s-9\",\"worker_harness\":null,\"worker_session\":null}"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"branch":"store","session":"s-9"},"kind":"assignment","reason":null,"to":"{\"harness\":null,\"session\":\"s-9\",\"worker_harness\":null,\"worker_session\":null}"}
 ~ board.MMR.nodes.items[MMR-3].session: null -> "s-9"
 ~ nodes[MMR-3].branch: null -> "store"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"branch":"store","session":"s-9"},"kind":"assignment","reason":null,"to":"{\"harness\":null,\"session\":\"s-9\",\"worker_harness\":null,\"worker_session\":null}"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":null,\"session\":null,\"worker_harness\":null,\"worker_session\":null}","handles":{"branch":"store","session":"s-9"},"kind":"assignment","reason":null,"to":"{\"harness\":null,\"session\":\"s-9\",\"worker_harness\":null,\"worker_session\":null}"}
 ~ nodes[MMR-3].session: null -> "s-9"
 
 ### update argv: MMR-5 --worker-harness codex --worker-session replacement
@@ -480,10 +480,10 @@ exit 0
 |   worker harness  codex
 |   worker session  replacement
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_harness":"codex","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"codex\",\"worker_session\":\"replacement\"}"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_harness":"codex","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"codex\",\"worker_session\":\"replacement\"}"}
 ~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> "codex"
 ~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_harness":"codex","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"codex\",\"worker_session\":\"replacement\"}"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_harness":"codex","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"codex\",\"worker_session\":\"replacement\"}"}
 ~ nodes[MMR-5].workerHarness: "claude" -> "codex"
 ~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
 
@@ -519,10 +519,10 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
 ~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
 ~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
 ~ nodes[MMR-5].workerHarness: "claude" -> null
 ~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
 
@@ -558,10 +558,10 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
 ~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
 ~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
 ~ nodes[MMR-5].workerHarness: "claude" -> null
 ~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
 
@@ -573,10 +573,10 @@ exit 0
 |
 | MMR-5   > in_progress   p0   MMR-2   Ship it
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
 ~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
 ~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
 ~ nodes[MMR-5].workerHarness: "claude" -> null
 ~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
 
@@ -585,10 +585,10 @@ exit 0
 --- stdout
 | MMR-5
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
 ~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
 ~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
 ~ nodes[MMR-5].workerHarness: "claude" -> null
 ~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
 
@@ -609,10 +609,10 @@ exit 0
 |   session         main-session
 |   worker session  replacement
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
 ~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
 ~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> "replacement"
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"replacement"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"replacement\"}"}
 ~ nodes[MMR-5].workerHarness: "claude" -> null
 ~ nodes[MMR-5].workerSession: "task-worker-session" -> "replacement"
 
@@ -633,9 +633,9 @@ exit 0
 |   session         main-session
 |   worker session  task-worker-session
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"task-worker-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"task-worker-session\"}"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"task-worker-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"task-worker-session\"}"}
 ~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"task-worker-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"task-worker-session\"}"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session","worker_session":"task-worker-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":\"task-worker-session\"}"}
 ~ nodes[MMR-5].workerHarness: "claude" -> null
 
 ### update argv: MMR-5 --worker-session ""
@@ -654,10 +654,10 @@ exit 0
 |   harness    codex
 |   session    main-session
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
 ~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
 ~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
 ~ nodes[MMR-5].workerHarness: "claude" -> null
 ~ nodes[MMR-5].workerSession: "task-worker-session" -> null
 
@@ -693,10 +693,10 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
 ~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
 ~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
 ~ nodes[MMR-5].workerHarness: "claude" -> null
 ~ nodes[MMR-5].workerSession: "task-worker-session" -> null
 
@@ -716,10 +716,10 @@ exit 0
 |   harness    codex
 |   session    main-session
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
 ~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
 ~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":\"claude\",\"worker_session\":\"task-worker-session\"}","handles":{"harness":"codex","session":"main-session"},"kind":"assignment","reason":null,"to":"{\"harness\":\"codex\",\"session\":\"main-session\",\"worker_harness\":null,\"worker_session\":null}"}
 ~ nodes[MMR-5].workerHarness: "claude" -> null
 ~ nodes[MMR-5].workerSession: "task-worker-session" -> null
 

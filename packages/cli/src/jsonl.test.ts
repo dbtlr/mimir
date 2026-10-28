@@ -23,6 +23,8 @@ type Sample = {
   args?: Readonly<Record<string, string>>;
   options?: Readonly<Record<string, string>>;
   relation: Relation;
+  /** For `records`: the array of the json document that jsonl serializes, one line per element. */
+  records?: string;
 };
 
 const SAMPLES: readonly Sample[] = [
@@ -30,14 +32,28 @@ const SAMPLES: readonly Sample[] = [
   { options: { scope: 'MMR' }, path: ['overview'], relation: 'compact' },
   { args: { id: 'MMR' }, path: ['tree'], relation: 'compact' },
   { args: { id: 'MMR-3' }, path: ['get'], relation: 'same' },
-  { options: { scope: 'MMR' }, path: ['next'], relation: 'records' },
-  { options: { scope: 'MMR' }, path: ['list'], relation: 'records' },
-  { path: ['projects'], relation: 'records' },
-  { options: { scope: 'MMR' }, path: ['artifacts'], relation: 'records' },
-  { args: { query: 'store' }, options: { scope: 'MMR' }, path: ['search'], relation: 'records' },
-  { options: { project: 'MMR' }, path: ['seeds'], relation: 'records' },
-  { options: { scope: 'MMR' }, path: ['scratch', 'list'], relation: 'records' },
+  { options: { scope: 'MMR' }, path: ['next'], records: 'tasks', relation: 'records' },
+  { options: { scope: 'MMR' }, path: ['list'], records: 'tasks', relation: 'records' },
+  { path: ['projects'], records: 'projects', relation: 'records' },
+  { options: { scope: 'MMR' }, path: ['artifacts'], records: 'artifacts', relation: 'records' },
+  {
+    args: { query: 'store' },
+    options: { scope: 'MMR' },
+    path: ['search'],
+    records: 'results',
+    relation: 'records',
+  },
+  { options: { project: 'MMR' }, path: ['seeds'], records: 'seeds', relation: 'records' },
+  {
+    options: { scope: 'MMR' },
+    path: ['scratch', 'list'],
+    records: 'scratchpads',
+    relation: 'records',
+  },
 ];
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 let board: ParityBoard;
 beforeAll(async () => {
@@ -51,23 +67,6 @@ afterAll(async () => {
 });
 
 const nameOf = (sample: Sample): string => sample.path.join(' ');
-
-/** Every record in an array anywhere in `document`, compacted. */
-function recordsIn(document: unknown): Set<string> {
-  const found = new Set<string>();
-  const visit = (value: unknown): void => {
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        found.add(JSON.stringify(item));
-      }
-    }
-    if (typeof value === 'object' && value !== null) {
-      Object.values(value).forEach(visit);
-    }
-  };
-  visit(document);
-  return found;
-}
 
 /** A sample run under one format. */
 const under = (sample: Sample, format: string): Promise<ParityRun> => {
@@ -115,9 +114,11 @@ test.each(SAMPLES)('$path jsonl relates to its json document as $relation', asyn
   } else if (sample.relation === 'compact') {
     expect(jsonl.stdout).toBe(`${JSON.stringify(document)}\n`);
   } else {
+    const array = isRecord(document) ? document[sample.records ?? ''] : undefined;
+    expect(Array.isArray(array)).toBe(true);
     const lines = jsonl.stdout.split('\n').filter((line) => line !== '');
+    // Every element, once, in order: a dropped, repeated, or reordered row fails.
+    expect(lines).toEqual((array as unknown[]).map((record) => JSON.stringify(record)));
     expect(lines.length).toBeGreaterThan(0);
-    const records = recordsIn(document);
-    expect(lines.filter((line) => !records.has(JSON.stringify(parseJson(line))))).toEqual([]);
   }
 });

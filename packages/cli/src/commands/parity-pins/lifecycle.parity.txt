@@ -20,14 +20,14 @@ exit 0
 |   session      run-1
 --- state
 ~ board.MMR.nodes.items[MMR-3].harness: null -> "codex"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "queued"
 ~ board.MMR.nodes.items[MMR-3].session: null -> "run-1"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "queued"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "queued"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "queued"
 ~ nodes[MMR-3].harness: null -> "codex"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "queued"
 ~ nodes[MMR-3].session: null -> "run-1"
 ~ nodes[MMR-3].status: "ready" -> "queued"
@@ -46,14 +46,14 @@ exit 0
 | MMR-3   = queued   p1   MMR-2   Wire the store
 --- state
 ~ board.MMR.nodes.items[MMR-3].harness: null -> "codex"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "queued"
 ~ board.MMR.nodes.items[MMR-3].session: null -> "run-1"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "queued"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "queued"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "queued"
 ~ nodes[MMR-3].harness: null -> "codex"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "queued"
 ~ nodes[MMR-3].session: null -> "run-1"
 ~ nodes[MMR-3].status: "ready" -> "queued"
@@ -69,14 +69,14 @@ exit 0
 | MMR-3
 --- state
 ~ board.MMR.nodes.items[MMR-3].harness: null -> "codex"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "queued"
 ~ board.MMR.nodes.items[MMR-3].session: null -> "run-1"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "queued"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "queued"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "queued"
 ~ nodes[MMR-3].harness: null -> "codex"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "queued"
 ~ nodes[MMR-3].session: null -> "run-1"
 ~ nodes[MMR-3].status: "ready" -> "queued"
@@ -116,14 +116,14 @@ exit 0
 | }
 --- state
 ~ board.MMR.nodes.items[MMR-3].harness: null -> "codex"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "queued"
 ~ board.MMR.nodes.items[MMR-3].session: null -> "run-1"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "queued"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "queued"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "queued"
 ~ nodes[MMR-3].harness: null -> "codex"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "queued"
 ~ nodes[MMR-3].session: null -> "run-1"
 ~ nodes[MMR-3].status: "ready" -> "queued"
@@ -166,14 +166,14 @@ exit 0
 | }
 --- state
 ~ board.MMR.nodes.items[MMR-3].harness: null -> "codex"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "queued"
 ~ board.MMR.nodes.items[MMR-3].session: null -> "run-1"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "queued"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "queued"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "queued"
 ~ nodes[MMR-3].harness: null -> "codex"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "queued"
 ~ nodes[MMR-3].session: null -> "run-1"
 ~ nodes[MMR-3].status: "ready" -> "queued"
@@ -205,14 +205,14 @@ exit 0
 |   session      run-1
 --- state
 ~ board.MMR.nodes.items[MMR-3].harness: null -> "codex"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "queued"
 ~ board.MMR.nodes.items[MMR-3].session: null -> "run-1"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "queued"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "queued"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "queued"
 ~ nodes[MMR-3].harness: null -> "codex"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "queued"
 ~ nodes[MMR-3].session: null -> "run-1"
 ~ nodes[MMR-3].status: "ready" -> "queued"
@@ -244,14 +244,14 @@ exit 0
 |   session      run-1
 --- state
 ~ board.MMR.nodes.items[MMR-3].harness: null -> "codex"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "queued"
 ~ board.MMR.nodes.items[MMR-3].session: null -> "run-1"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "queued"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "queued"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "queued"
 ~ nodes[MMR-3].harness: null -> "codex"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"harness":"codex","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "queued"
 ~ nodes[MMR-3].session: null -> "run-1"
 ~ nodes[MMR-3].status: "ready" -> "queued"
@@ -281,13 +281,13 @@ exit 0
 |   hold         none
 |   session      run-1
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "queued"
 ~ board.MMR.nodes.items[MMR-3].session: null -> "run-1"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "queued"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "queued"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "queued"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "queued"
 ~ nodes[MMR-3].session: null -> "run-1"
 ~ nodes[MMR-3].status: "ready" -> "queued"
@@ -331,7 +331,7 @@ exit 0
 --- state
 ~ board.MMR.nodes.items[MMR-3].branch: null -> "feat/x"
 ~ board.MMR.nodes.items[MMR-3].harness: null -> "codex"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"branch":"feat/x","harness":"codex","host":"laptop","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"branch":"feat/x","harness":"codex","host":"laptop","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ board.MMR.nodes.items[MMR-3].host: null -> "laptop"
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "queued"
 ~ board.MMR.nodes.items[MMR-3].session: null -> "run-1"
@@ -340,7 +340,7 @@ exit 0
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "queued"
 ~ nodes[MMR-3].branch: null -> "feat/x"
 ~ nodes[MMR-3].harness: null -> "codex"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"branch":"feat/x","harness":"codex","host":"laptop","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"branch":"feat/x","harness":"codex","host":"laptop","session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ nodes[MMR-3].host: null -> "laptop"
 ~ nodes[MMR-3].lifecycle: "todo" -> "queued"
 ~ nodes[MMR-3].session: null -> "run-1"
@@ -402,11 +402,11 @@ exit 0
 |   session    run-1
 --- state
 ~ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "queued"
-+ board.MMR.nodes.items[MMR-4].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ board.MMR.nodes.items[MMR-4].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ board.MMR.nodes.items[MMR-4].lifecycle: "todo" -> "queued"
 ~ board.MMR.nodes.items[MMR-4].session: null -> "run-1"
 ~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "queued"
-+ nodes[MMR-4].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
++ nodes[MMR-4].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"queued"}
 ~ nodes[MMR-4].lifecycle: "todo" -> "queued"
 ~ nodes[MMR-4].session: null -> "run-1"
 ~ nodes[MMR-4].status: "awaiting" -> "queued"
@@ -611,13 +611,13 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "todo"
 ~ board.MMR.nodes.items[MMR-3].session: "run-1" -> null
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "ready"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "todo"
 ~ nodes[MMR-3].session: "run-1" -> null
 ~ nodes[MMR-3].status: "queued" -> "ready"
@@ -635,13 +635,13 @@ exit 0
 |
 | MMR-3   * ready   p1   groomed   MMR-2   Wire the store
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "todo"
 ~ board.MMR.nodes.items[MMR-3].session: "run-1" -> null
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "ready"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "todo"
 ~ nodes[MMR-3].session: "run-1" -> null
 ~ nodes[MMR-3].status: "queued" -> "ready"
@@ -656,13 +656,13 @@ exit 0
 --- stdout
 | MMR-3
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "todo"
 ~ board.MMR.nodes.items[MMR-3].session: "run-1" -> null
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "ready"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "todo"
 ~ nodes[MMR-3].session: "run-1" -> null
 ~ nodes[MMR-3].status: "queued" -> "ready"
@@ -701,13 +701,13 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "todo"
 ~ board.MMR.nodes.items[MMR-3].session: "run-1" -> null
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "ready"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "todo"
 ~ nodes[MMR-3].session: "run-1" -> null
 ~ nodes[MMR-3].status: "queued" -> "ready"
@@ -749,13 +749,13 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "todo"
 ~ board.MMR.nodes.items[MMR-3].session: "run-1" -> null
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "ready"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "todo"
 ~ nodes[MMR-3].session: "run-1" -> null
 ~ nodes[MMR-3].status: "queued" -> "ready"
@@ -784,13 +784,13 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "todo"
 ~ board.MMR.nodes.items[MMR-3].session: "run-1" -> null
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "ready"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"run cancelled","to":"todo"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "todo"
 ~ nodes[MMR-3].session: "run-1" -> null
 ~ nodes[MMR-3].status: "queued" -> "ready"
@@ -819,13 +819,13 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"--weird","to":"todo"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"--weird","to":"todo"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "todo"
 ~ board.MMR.nodes.items[MMR-3].session: "run-1" -> null
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "ready"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"--weird","to":"todo"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"--weird","to":"todo"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "todo"
 ~ nodes[MMR-3].session: "run-1" -> null
 ~ nodes[MMR-3].status: "queued" -> "ready"
@@ -854,13 +854,13 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"slip -1 day","to":"todo"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"slip -1 day","to":"todo"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "todo"
 ~ board.MMR.nodes.items[MMR-3].session: "run-1" -> null
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "ready"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"slip -1 day","to":"todo"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"slip -1 day","to":"todo"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "todo"
 ~ nodes[MMR-3].session: "run-1" -> null
 ~ nodes[MMR-3].status: "queued" -> "ready"
@@ -1001,12 +1001,12 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "in_progress"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ nodes[MMR-3].status: "ready" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "in_progress"
@@ -1023,12 +1023,12 @@ exit 0
 |
 | MMR-3   > in_progress   p1   MMR-2   Wire the store
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "in_progress"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ nodes[MMR-3].status: "ready" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "in_progress"
@@ -1042,12 +1042,12 @@ exit 0
 --- stdout
 | MMR-3
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "in_progress"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ nodes[MMR-3].status: "ready" -> "in_progress"
 ~ projects[MMR].leafCounts.ready: 2 -> 1
@@ -1085,12 +1085,12 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "in_progress"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ nodes[MMR-3].status: "ready" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "in_progress"
@@ -1131,12 +1131,12 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "in_progress"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ nodes[MMR-3].status: "ready" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "in_progress"
@@ -1164,12 +1164,12 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "in_progress"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ nodes[MMR-3].status: "ready" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "in_progress"
@@ -1212,7 +1212,7 @@ exit 0
 --- state
 ~ board.MMR.nodes.items[MMR-3].branch: null -> "feat/x"
 ~ board.MMR.nodes.items[MMR-3].harness: null -> "codex"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"branch":"feat/x","harness":"codex","host":"laptop","session":"s-91"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"branch":"feat/x","harness":"codex","host":"laptop","session":"s-91"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].host: null -> "laptop"
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].session: null -> "s-91"
@@ -1221,7 +1221,7 @@ exit 0
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "in_progress"
 ~ nodes[MMR-3].branch: null -> "feat/x"
 ~ nodes[MMR-3].harness: null -> "codex"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"branch":"feat/x","harness":"codex","host":"laptop","session":"s-91"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"branch":"feat/x","harness":"codex","host":"laptop","session":"s-91"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].host: null -> "laptop"
 ~ nodes[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ nodes[MMR-3].session: null -> "s-91"
@@ -1253,14 +1253,14 @@ exit 0
 |   host         laptop
 |   session      s-91
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"host":"laptop","session":"s-91"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"host":"laptop","session":"s-91"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].host: null -> "laptop"
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].session: null -> "s-91"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "in_progress"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"host":"laptop","session":"s-91"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","handles":{"host":"laptop","session":"s-91"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].host: null -> "laptop"
 ~ nodes[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ nodes[MMR-3].session: null -> "s-91"
@@ -1290,12 +1290,12 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "in_progress"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ nodes[MMR-3].status: "ready" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "in_progress"
@@ -1318,10 +1318,10 @@ exit 0
 |   hold       none
 --- state
 ~ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "in_progress"
-+ board.MMR.nodes.items[MMR-4].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-4].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-4].lifecycle: "todo" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "in_progress"
-+ nodes[MMR-4].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-4].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-4].lifecycle: "todo" -> "in_progress"
 ~ nodes[MMR-4].status: "awaiting" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-4].status: "awaiting" -> "in_progress"
@@ -1529,12 +1529,12 @@ exit 0
 |   grooming     groomed
 |   hold         none
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "in_progress"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "in_progress"
 ~ nodes[MMR-3].status: "ready" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "in_progress"
@@ -1572,9 +1572,9 @@ exit 0
 |   hold reason  needs a reviewer
 |   block owner  you
 --- state
-+ board.MMR.nodes.items[MMR-6].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-6].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-6].lifecycle: "todo" -> "in_progress"
-+ nodes[MMR-6].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-6].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-6].lifecycle: "todo" -> "in_progress"
 
 ### start argv: MMR-3 -- x
@@ -1609,12 +1609,12 @@ exit 0
 |   hold         none
 |   session      run-1
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "in_progress"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ nodes[MMR-3].status: "queued" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-3].status: "queued" -> "in_progress"
@@ -1655,12 +1655,12 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "in_progress"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ nodes[MMR-3].status: "queued" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-3].status: "queued" -> "in_progress"
@@ -1677,12 +1677,12 @@ exit 0
 |
 | MMR-3   > in_progress   p1   MMR-2   Wire the store
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "in_progress"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ nodes[MMR-3].status: "queued" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-3].status: "queued" -> "in_progress"
@@ -1696,12 +1696,12 @@ exit 0
 --- stdout
 | MMR-3
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "in_progress"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ nodes[MMR-3].status: "queued" -> "in_progress"
 - projects[MMR].leafCounts.queued: 1
@@ -1741,12 +1741,12 @@ exit 0
 |   hold         none
 |   session      run-1
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "in_progress"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ nodes[MMR-3].status: "queued" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-3].status: "queued" -> "in_progress"
@@ -1775,12 +1775,12 @@ exit 0
 |   hold         none
 |   session      run-1
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "in_progress"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ nodes[MMR-3].status: "queued" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-3].status: "queued" -> "in_progress"
@@ -1821,14 +1821,14 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1","worker_harness":"claude","worker_session":"worker-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1","worker_harness":"claude","worker_session":"worker-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].workerHarness: null -> "claude"
 ~ board.MMR.nodes.items[MMR-3].workerSession: null -> "worker-1"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "in_progress"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1","worker_harness":"claude","worker_session":"worker-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1","worker_harness":"claude","worker_session":"worker-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ nodes[MMR-3].status: "queued" -> "in_progress"
 ~ nodes[MMR-3].workerHarness: null -> "claude"
@@ -1871,13 +1871,13 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1","worker_session":"worker-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1","worker_session":"worker-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].workerSession: null -> "worker-1"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "in_progress"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1","worker_session":"worker-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1","worker_session":"worker-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ nodes[MMR-3].status: "queued" -> "in_progress"
 ~ nodes[MMR-3].workerSession: null -> "worker-1"
@@ -1919,12 +1919,12 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "in_progress"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ nodes[MMR-3].status: "queued" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-3].status: "queued" -> "in_progress"
@@ -1955,14 +1955,14 @@ exit 0
 |   worker harness  claude
 |   worker session  worker-1
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1","worker_harness":"claude","worker_session":"worker-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1","worker_harness":"claude","worker_session":"worker-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-3].workerHarness: null -> "claude"
 ~ board.MMR.nodes.items[MMR-3].workerSession: null -> "worker-1"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "queued" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "in_progress"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1","worker_harness":"claude","worker_session":"worker-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1","worker_harness":"claude","worker_session":"worker-1"},"kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "in_progress"
 ~ nodes[MMR-3].status: "queued" -> "in_progress"
 ~ nodes[MMR-3].workerHarness: null -> "claude"
@@ -2003,10 +2003,11 @@ exit 0
 |   worker harness  claude
 |   worker session  task-worker-session
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "in_progress" -> "under_review"
 ~ board.MMR.nodes.items[MMR-5].status: "in_progress" -> "under_review"
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-8, MMR-5, MMR-6, MMR-7, MMR-9]
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
 ~ nodes[MMR-5].lifecycle: "in_progress" -> "under_review"
 ~ nodes[MMR-5].status: "in_progress" -> "under_review"
 ~ nodes[MMR-2].children[MMR-5].status: "in_progress" -> "under_review"
@@ -2028,10 +2029,11 @@ exit 0
 |
 | MMR-5   ? under_review   p0   MMR-2   Ship it
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "in_progress" -> "under_review"
 ~ board.MMR.nodes.items[MMR-5].status: "in_progress" -> "under_review"
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-8, MMR-5, MMR-6, MMR-7, MMR-9]
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
 ~ nodes[MMR-5].lifecycle: "in_progress" -> "under_review"
 ~ nodes[MMR-5].status: "in_progress" -> "under_review"
 ~ nodes[MMR-2].children[MMR-5].status: "in_progress" -> "under_review"
@@ -2050,10 +2052,11 @@ exit 0
 --- stdout
 | MMR-5
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "in_progress" -> "under_review"
 ~ board.MMR.nodes.items[MMR-5].status: "in_progress" -> "under_review"
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-8, MMR-5, MMR-6, MMR-7, MMR-9]
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
 ~ nodes[MMR-5].lifecycle: "in_progress" -> "under_review"
 ~ nodes[MMR-5].status: "in_progress" -> "under_review"
 ~ projects[MMR].children[MMR-1].status: "in_progress" -> "under_review"
@@ -2095,10 +2098,11 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "in_progress" -> "under_review"
 ~ board.MMR.nodes.items[MMR-5].status: "in_progress" -> "under_review"
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-8, MMR-5, MMR-6, MMR-7, MMR-9]
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
 ~ nodes[MMR-5].lifecycle: "in_progress" -> "under_review"
 ~ nodes[MMR-5].status: "in_progress" -> "under_review"
 ~ nodes[MMR-2].children[MMR-5].status: "in_progress" -> "under_review"
@@ -2130,10 +2134,11 @@ exit 0
 |   worker harness  claude
 |   worker session  task-worker-session
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "in_progress" -> "under_review"
 ~ board.MMR.nodes.items[MMR-5].status: "in_progress" -> "under_review"
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-8, MMR-5, MMR-6, MMR-7, MMR-9]
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","kind":"lifecycle","reason":null,"to":"under_review"}
 ~ nodes[MMR-5].lifecycle: "in_progress" -> "under_review"
 ~ nodes[MMR-5].status: "in_progress" -> "under_review"
 ~ nodes[MMR-2].children[MMR-5].status: "in_progress" -> "under_review"
@@ -2239,10 +2244,10 @@ exit 0
 |   worker harness  claude
 |   worker session  task-worker-session
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-5].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "under_review" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-5].status: "under_review" -> "in_progress"
-+ nodes[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-5].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-5].lifecycle: "under_review" -> "in_progress"
 ~ nodes[MMR-5].status: "under_review" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-5].status: "under_review" -> "in_progress"
@@ -2288,10 +2293,10 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-5].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "under_review" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-5].status: "under_review" -> "in_progress"
-+ nodes[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-5].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-5].lifecycle: "under_review" -> "in_progress"
 ~ nodes[MMR-5].status: "under_review" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-5].status: "under_review" -> "in_progress"
@@ -2323,10 +2328,10 @@ exit 0
 |   worker harness  claude
 |   worker session  task-worker-session
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":"needs tests","to":"in_progress"}
++ board.MMR.nodes.items[MMR-5].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":"needs tests","to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "under_review" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-5].status: "under_review" -> "in_progress"
-+ nodes[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":"needs tests","to":"in_progress"}
++ nodes[MMR-5].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":"needs tests","to":"in_progress"}
 ~ nodes[MMR-5].lifecycle: "under_review" -> "in_progress"
 ~ nodes[MMR-5].status: "under_review" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-5].status: "under_review" -> "in_progress"
@@ -2372,10 +2377,10 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":"needs tests","to":"in_progress"}
++ board.MMR.nodes.items[MMR-5].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":"needs tests","to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "under_review" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-5].status: "under_review" -> "in_progress"
-+ nodes[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":"needs tests","to":"in_progress"}
++ nodes[MMR-5].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":"needs tests","to":"in_progress"}
 ~ nodes[MMR-5].lifecycle: "under_review" -> "in_progress"
 ~ nodes[MMR-5].status: "under_review" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-5].status: "under_review" -> "in_progress"
@@ -2397,10 +2402,10 @@ exit 0
 |
 | MMR-5   > in_progress   p0   MMR-2   Ship it
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":"needs tests","to":"in_progress"}
++ board.MMR.nodes.items[MMR-5].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":"needs tests","to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "under_review" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-5].status: "under_review" -> "in_progress"
-+ nodes[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":"needs tests","to":"in_progress"}
++ nodes[MMR-5].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":"needs tests","to":"in_progress"}
 ~ nodes[MMR-5].lifecycle: "under_review" -> "in_progress"
 ~ nodes[MMR-5].status: "under_review" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-5].status: "under_review" -> "in_progress"
@@ -2419,10 +2424,10 @@ exit 0
 --- stdout
 | MMR-5
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-5].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "under_review" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-5].status: "under_review" -> "in_progress"
-+ nodes[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-5].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-5].lifecycle: "under_review" -> "in_progress"
 ~ nodes[MMR-5].status: "under_review" -> "in_progress"
 ~ projects[MMR].children[MMR-1].status: "under_review" -> "in_progress"
@@ -2450,10 +2455,10 @@ exit 0
 |   worker harness  claude
 |   worker session  task-worker-session
 --- state
-+ board.MMR.nodes.items[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":"needs tests","to":"in_progress"}
++ board.MMR.nodes.items[MMR-5].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":"needs tests","to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "under_review" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-5].status: "under_review" -> "in_progress"
-+ nodes[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":"needs tests","to":"in_progress"}
++ nodes[MMR-5].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","kind":"lifecycle","reason":"needs tests","to":"in_progress"}
 ~ nodes[MMR-5].lifecycle: "under_review" -> "in_progress"
 ~ nodes[MMR-5].status: "under_review" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-5].status: "under_review" -> "in_progress"
@@ -2534,15 +2539,16 @@ exit 0
 --- state
 ~ board.MMR.nodes.items[MMR-5].completedAt: null -> "2026-10-01T12:00:00.000Z"
 ~ board.MMR.nodes.items[MMR-5].harness: "codex" -> null
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "in_progress" -> "done"
 ~ board.MMR.nodes.items[MMR-5].session: "main-session" -> null
 ~ board.MMR.nodes.items[MMR-5].status: "in_progress" -> "done"
 ~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
 ~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-8, MMR-5, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-5].completedAt: null -> "2026-10-01T12:00:00.000Z"
 ~ nodes[MMR-5].harness: "codex" -> null
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
 ~ nodes[MMR-5].lifecycle: "in_progress" -> "done"
 ~ nodes[MMR-5].session: "main-session" -> null
 ~ nodes[MMR-5].status: "in_progress" -> "done"
@@ -2569,15 +2575,16 @@ exit 0
 --- state
 ~ board.MMR.nodes.items[MMR-5].completedAt: null -> "2026-10-01T12:00:00.000Z"
 ~ board.MMR.nodes.items[MMR-5].harness: "codex" -> null
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "in_progress" -> "done"
 ~ board.MMR.nodes.items[MMR-5].session: "main-session" -> null
 ~ board.MMR.nodes.items[MMR-5].status: "in_progress" -> "done"
 ~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
 ~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-8, MMR-5, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-5].completedAt: null -> "2026-10-01T12:00:00.000Z"
 ~ nodes[MMR-5].harness: "codex" -> null
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
 ~ nodes[MMR-5].lifecycle: "in_progress" -> "done"
 ~ nodes[MMR-5].session: "main-session" -> null
 ~ nodes[MMR-5].status: "in_progress" -> "done"
@@ -2601,15 +2608,16 @@ exit 0
 --- state
 ~ board.MMR.nodes.items[MMR-5].completedAt: null -> "2026-10-01T12:00:00.000Z"
 ~ board.MMR.nodes.items[MMR-5].harness: "codex" -> null
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "in_progress" -> "done"
 ~ board.MMR.nodes.items[MMR-5].session: "main-session" -> null
 ~ board.MMR.nodes.items[MMR-5].status: "in_progress" -> "done"
 ~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
 ~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-8, MMR-5, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-5].completedAt: null -> "2026-10-01T12:00:00.000Z"
 ~ nodes[MMR-5].harness: "codex" -> null
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
 ~ nodes[MMR-5].lifecycle: "in_progress" -> "done"
 ~ nodes[MMR-5].session: "main-session" -> null
 ~ nodes[MMR-5].status: "in_progress" -> "done"
@@ -2656,15 +2664,16 @@ exit 0
 --- state
 ~ board.MMR.nodes.items[MMR-5].completedAt: null -> "2026-10-01T12:00:00.000Z"
 ~ board.MMR.nodes.items[MMR-5].harness: "codex" -> null
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "in_progress" -> "done"
 ~ board.MMR.nodes.items[MMR-5].session: "main-session" -> null
 ~ board.MMR.nodes.items[MMR-5].status: "in_progress" -> "done"
 ~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
 ~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-8, MMR-5, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-5].completedAt: null -> "2026-10-01T12:00:00.000Z"
 ~ nodes[MMR-5].harness: "codex" -> null
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
 ~ nodes[MMR-5].lifecycle: "in_progress" -> "done"
 ~ nodes[MMR-5].session: "main-session" -> null
 ~ nodes[MMR-5].status: "in_progress" -> "done"
@@ -2715,15 +2724,16 @@ exit 0
 --- state
 ~ board.MMR.nodes.items[MMR-5].completedAt: null -> "2026-10-01T12:00:00.000Z"
 ~ board.MMR.nodes.items[MMR-5].harness: "codex" -> null
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "in_progress" -> "done"
 ~ board.MMR.nodes.items[MMR-5].session: "main-session" -> null
 ~ board.MMR.nodes.items[MMR-5].status: "in_progress" -> "done"
 ~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
 ~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-8, MMR-5, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-5].completedAt: null -> "2026-10-01T12:00:00.000Z"
 ~ nodes[MMR-5].harness: "codex" -> null
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
 ~ nodes[MMR-5].lifecycle: "in_progress" -> "done"
 ~ nodes[MMR-5].session: "main-session" -> null
 ~ nodes[MMR-5].status: "in_progress" -> "done"
@@ -2757,15 +2767,16 @@ exit 0
 --- state
 ~ board.MMR.nodes.items[MMR-5].completedAt: null -> "2026-10-01T12:00:00.000Z"
 ~ board.MMR.nodes.items[MMR-5].harness: "codex" -> null
-+ board.MMR.nodes.items[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
++ board.MMR.nodes.items[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "in_progress" -> "done"
 ~ board.MMR.nodes.items[MMR-5].session: "main-session" -> null
 ~ board.MMR.nodes.items[MMR-5].status: "in_progress" -> "done"
 ~ board.MMR.nodes.items[MMR-5].workerHarness: "claude" -> null
 ~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-8, MMR-5, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-5].completedAt: null -> "2026-10-01T12:00:00.000Z"
 ~ nodes[MMR-5].harness: "codex" -> null
-+ nodes[MMR-5].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
++ nodes[MMR-5].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"in_progress","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
 ~ nodes[MMR-5].lifecycle: "in_progress" -> "done"
 ~ nodes[MMR-5].session: "main-session" -> null
 ~ nodes[MMR-5].status: "in_progress" -> "done"
@@ -2799,7 +2810,7 @@ exit 0
 --- state
 ~ board.MMR.nodes.items[MMR-5].completedAt: null -> "2026-10-01T12:00:00.000Z"
 ~ board.MMR.nodes.items[MMR-5].harness: "codex" -> null
-+ board.MMR.nodes.items[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
++ board.MMR.nodes.items[MMR-5].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
 ~ board.MMR.nodes.items[MMR-5].lifecycle: "under_review" -> "done"
 ~ board.MMR.nodes.items[MMR-5].session: "main-session" -> null
 ~ board.MMR.nodes.items[MMR-5].status: "under_review" -> "done"
@@ -2807,7 +2818,7 @@ exit 0
 ~ board.MMR.nodes.items[MMR-5].workerSession: "task-worker-session" -> null
 ~ nodes[MMR-5].completedAt: null -> "2026-10-01T12:00:00.000Z"
 ~ nodes[MMR-5].harness: "codex" -> null
-+ nodes[MMR-5].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
++ nodes[MMR-5].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"under_review","handles":{"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session"},"kind":"lifecycle","reason":null,"to":"done"}
 ~ nodes[MMR-5].lifecycle: "under_review" -> "done"
 ~ nodes[MMR-5].session: "main-session" -> null
 ~ nodes[MMR-5].status: "under_review" -> "done"
@@ -2846,15 +2857,16 @@ exit 0
 --- state
 ~ board.MMR.nodes.items[MMR-3].completedAt: null -> "2026-10-01T12:00:00.000Z"
 ~ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"done"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"done"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "done"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "done"
 - board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "done"
 ~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "ready"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].completedAt: null -> "2026-10-01T12:00:00.000Z"
 ~ nodes[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"done"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"done"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "done"
 ~ nodes[MMR-3].status: "ready" -> "done"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "done"
@@ -2960,16 +2972,17 @@ exit 0
 --- state
 ~ board.MMR.nodes.items[MMR-3].completedAt: null -> "2026-10-01T12:00:00.000Z"
 ~ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"done"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"done"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "done"
 ~ board.MMR.nodes.items[MMR-3].session: "run-1" -> null
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "done"
 - board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"queued","title":"Wire the store"}
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "done"
 ~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "ready"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].completedAt: null -> "2026-10-01T12:00:00.000Z"
 ~ nodes[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"done"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":null,"to":"done"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "done"
 ~ nodes[MMR-3].session: "run-1" -> null
 ~ nodes[MMR-3].status: "queued" -> "done"
@@ -3004,14 +3017,15 @@ exit 0
 |   hold         none
 --- state
 ~ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"abandoned"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"abandoned"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "abandoned"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "abandoned"
 - board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "abandoned"
 ~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "ready"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"abandoned"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"abandoned"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "abandoned"
 ~ nodes[MMR-3].status: "ready" -> "abandoned"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "abandoned"
@@ -3041,14 +3055,15 @@ exit 0
 |   hold         none
 --- state
 ~ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"superseded by MMR-9","to":"abandoned"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"superseded by MMR-9","to":"abandoned"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "abandoned"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "abandoned"
 - board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "abandoned"
 ~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "ready"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"superseded by MMR-9","to":"abandoned"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"superseded by MMR-9","to":"abandoned"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "abandoned"
 ~ nodes[MMR-3].status: "ready" -> "abandoned"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "abandoned"
@@ -3091,14 +3106,15 @@ exit 0
 | }
 --- state
 ~ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"superseded by MMR-9","to":"abandoned"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"superseded by MMR-9","to":"abandoned"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "abandoned"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "abandoned"
 - board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "abandoned"
 ~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "ready"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"superseded by MMR-9","to":"abandoned"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"superseded by MMR-9","to":"abandoned"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "abandoned"
 ~ nodes[MMR-3].status: "ready" -> "abandoned"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "abandoned"
@@ -3117,14 +3133,15 @@ exit 0
 | MMR-3   X abandoned   p1   MMR-2   Wire the store
 --- state
 ~ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"superseded","to":"abandoned"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"superseded","to":"abandoned"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "abandoned"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "abandoned"
 - board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "abandoned"
 ~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "ready"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"superseded","to":"abandoned"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"superseded","to":"abandoned"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "abandoned"
 ~ nodes[MMR-3].status: "ready" -> "abandoned"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "abandoned"
@@ -3140,14 +3157,15 @@ exit 0
 | MMR-3
 --- state
 ~ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"abandoned"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"abandoned"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "abandoned"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "abandoned"
 - board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "abandoned"
 ~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "ready"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"abandoned"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":null,"to":"abandoned"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "abandoned"
 ~ nodes[MMR-3].status: "ready" -> "abandoned"
 - projects[MMR].leafCounts.awaiting: 1
@@ -3173,14 +3191,15 @@ exit 0
 |   hold         none
 --- state
 ~ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"superseded","to":"abandoned"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"superseded","to":"abandoned"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "abandoned"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "abandoned"
 - board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "abandoned"
 ~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "ready"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"superseded","to":"abandoned"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"superseded","to":"abandoned"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "abandoned"
 ~ nodes[MMR-3].status: "ready" -> "abandoned"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "abandoned"
@@ -3250,14 +3269,15 @@ exit 0
 |   hold         none
 --- state
 ~ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"--foo","to":"abandoned"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"--foo","to":"abandoned"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "todo" -> "abandoned"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "abandoned"
 - board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"ready","title":"Wire the store"}
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "abandoned"
 ~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "ready"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"--foo","to":"abandoned"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"todo","kind":"lifecycle","reason":"--foo","to":"abandoned"}
 ~ nodes[MMR-3].lifecycle: "todo" -> "abandoned"
 ~ nodes[MMR-3].status: "ready" -> "abandoned"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "abandoned"
@@ -3299,15 +3319,16 @@ exit 0
 |   hold         none
 --- state
 ~ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"dropped","to":"abandoned"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"dropped","to":"abandoned"}
 ~ board.MMR.nodes.items[MMR-3].lifecycle: "queued" -> "abandoned"
 ~ board.MMR.nodes.items[MMR-3].session: "run-1" -> null
 ~ board.MMR.nodes.items[MMR-3].status: "queued" -> "abandoned"
 - board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3]: {"id":"MMR-3","status":"queued","title":"Wire the store"}
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "queued" -> "abandoned"
 ~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "ready"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "ready"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"dropped","to":"abandoned"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"queued","handles":{"session":"run-1"},"kind":"lifecycle","reason":"dropped","to":"abandoned"}
 ~ nodes[MMR-3].lifecycle: "queued" -> "abandoned"
 ~ nodes[MMR-3].session: "run-1" -> null
 ~ nodes[MMR-3].status: "queued" -> "abandoned"
@@ -3336,11 +3357,12 @@ exit 0
 |   hold       none
 --- state
 ~ board.MMR.nodes.items[MMR-7].completedAt: "2026-10-01T12:00:00.000Z" -> null
-+ board.MMR.nodes.items[MMR-7].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-7].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-7].lifecycle: "done" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-7].status: "done" -> "in_progress"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-5, MMR-8, MMR-7, MMR-6, MMR-9]
 ~ nodes[MMR-7].completedAt: "2026-10-01T12:00:00.000Z" -> null
-+ nodes[MMR-7].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-7].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-7].lifecycle: "done" -> "in_progress"
 ~ nodes[MMR-7].status: "done" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-7].status: "done" -> "in_progress"
@@ -3382,11 +3404,12 @@ exit 0
 | }
 --- state
 ~ board.MMR.nodes.items[MMR-7].completedAt: "2026-10-01T12:00:00.000Z" -> null
-+ board.MMR.nodes.items[MMR-7].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-7].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-7].lifecycle: "done" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-7].status: "done" -> "in_progress"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-5, MMR-8, MMR-7, MMR-6, MMR-9]
 ~ nodes[MMR-7].completedAt: "2026-10-01T12:00:00.000Z" -> null
-+ nodes[MMR-7].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-7].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-7].lifecycle: "done" -> "in_progress"
 ~ nodes[MMR-7].status: "done" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-7].status: "done" -> "in_progress"
@@ -3404,11 +3427,12 @@ exit 0
 | MMR-7   > in_progress        MMR-2   Spike
 --- state
 ~ board.MMR.nodes.items[MMR-7].completedAt: "2026-10-01T12:00:00.000Z" -> null
-+ board.MMR.nodes.items[MMR-7].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-7].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-7].lifecycle: "done" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-7].status: "done" -> "in_progress"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-5, MMR-8, MMR-7, MMR-6, MMR-9]
 ~ nodes[MMR-7].completedAt: "2026-10-01T12:00:00.000Z" -> null
-+ nodes[MMR-7].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-7].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-7].lifecycle: "done" -> "in_progress"
 ~ nodes[MMR-7].status: "done" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-7].status: "done" -> "in_progress"
@@ -3423,11 +3447,12 @@ exit 0
 | MMR-7
 --- state
 ~ board.MMR.nodes.items[MMR-7].completedAt: "2026-10-01T12:00:00.000Z" -> null
-+ board.MMR.nodes.items[MMR-7].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":null,"to":"in_progress"}
++ board.MMR.nodes.items[MMR-7].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-7].lifecycle: "done" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-7].status: "done" -> "in_progress"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-5, MMR-8, MMR-7, MMR-6, MMR-9]
 ~ nodes[MMR-7].completedAt: "2026-10-01T12:00:00.000Z" -> null
-+ nodes[MMR-7].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":null,"to":"in_progress"}
++ nodes[MMR-7].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":null,"to":"in_progress"}
 ~ nodes[MMR-7].lifecycle: "done" -> "in_progress"
 ~ nodes[MMR-7].status: "done" -> "in_progress"
 ~ projects[MMR].leafCounts.in_progress: 1 -> 2
@@ -3447,11 +3472,12 @@ exit 0
 |   hold       none
 --- state
 ~ board.MMR.nodes.items[MMR-7].completedAt: "2026-10-01T12:00:00.000Z" -> null
-+ board.MMR.nodes.items[MMR-7].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":"regressed","to":"in_progress"}
++ board.MMR.nodes.items[MMR-7].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":"regressed","to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-7].lifecycle: "done" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-7].status: "done" -> "in_progress"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-5, MMR-8, MMR-7, MMR-6, MMR-9]
 ~ nodes[MMR-7].completedAt: "2026-10-01T12:00:00.000Z" -> null
-+ nodes[MMR-7].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":"regressed","to":"in_progress"}
++ nodes[MMR-7].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":"regressed","to":"in_progress"}
 ~ nodes[MMR-7].lifecycle: "done" -> "in_progress"
 ~ nodes[MMR-7].status: "done" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-7].status: "done" -> "in_progress"
@@ -3474,11 +3500,12 @@ exit 0
 |   hold       none
 --- state
 ~ board.MMR.nodes.items[MMR-7].completedAt: "2026-10-01T12:00:00.000Z" -> null
-+ board.MMR.nodes.items[MMR-7].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":"regressed","to":"in_progress"}
++ board.MMR.nodes.items[MMR-7].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":"regressed","to":"in_progress"}
 ~ board.MMR.nodes.items[MMR-7].lifecycle: "done" -> "in_progress"
 ~ board.MMR.nodes.items[MMR-7].status: "done" -> "in_progress"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-4, MMR-5, MMR-8, MMR-7, MMR-6, MMR-9]
 ~ nodes[MMR-7].completedAt: "2026-10-01T12:00:00.000Z" -> null
-+ nodes[MMR-7].history[#2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":"regressed","to":"in_progress"}
++ nodes[MMR-7].history[@2]: {"at":"2026-10-01T12:00:00.000Z","from":"done","kind":"lifecycle","reason":"regressed","to":"in_progress"}
 ~ nodes[MMR-7].lifecycle: "done" -> "in_progress"
 ~ nodes[MMR-7].status: "done" -> "in_progress"
 ~ nodes[MMR-2].children[MMR-7].status: "done" -> "in_progress"
@@ -3544,12 +3571,13 @@ exit 0
 |   grooming     groomed
 |   hold         parked
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"parked"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"parked"}
 ~ board.MMR.nodes.items[MMR-3].hold: "none" -> "parked"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "parked"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "parked"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "parked"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"parked"}
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"parked"}
 ~ nodes[MMR-3].hold: "none" -> "parked"
 ~ nodes[MMR-3].status: "ready" -> "parked"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "parked"
@@ -3578,13 +3606,14 @@ exit 0
 |   hold         parked
 |   hold reason  waiting on design
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"waiting on design","to":"parked"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"waiting on design","to":"parked"}
 ~ board.MMR.nodes.items[MMR-3].hold: "none" -> "parked"
 ~ board.MMR.nodes.items[MMR-3].holdReason: null -> "waiting on design"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "parked"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "parked"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "parked"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"waiting on design","to":"parked"}
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"waiting on design","to":"parked"}
 ~ nodes[MMR-3].hold: "none" -> "parked"
 ~ nodes[MMR-3].holdReason: null -> "waiting on design"
 ~ nodes[MMR-3].status: "ready" -> "parked"
@@ -3626,13 +3655,14 @@ exit 0
 |   "children": []
 | }
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"waiting on design","to":"parked"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"waiting on design","to":"parked"}
 ~ board.MMR.nodes.items[MMR-3].hold: "none" -> "parked"
 ~ board.MMR.nodes.items[MMR-3].holdReason: null -> "waiting on design"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "parked"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "parked"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "parked"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"waiting on design","to":"parked"}
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"waiting on design","to":"parked"}
 ~ nodes[MMR-3].hold: "none" -> "parked"
 ~ nodes[MMR-3].holdReason: null -> "waiting on design"
 ~ nodes[MMR-3].status: "ready" -> "parked"
@@ -3650,12 +3680,13 @@ exit 0
 |
 | MMR-3   = parked   p1   groomed   MMR-2   Wire the store
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"parked"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"parked"}
 ~ board.MMR.nodes.items[MMR-3].hold: "none" -> "parked"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "parked"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "parked"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "parked"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"parked"}
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"parked"}
 ~ nodes[MMR-3].hold: "none" -> "parked"
 ~ nodes[MMR-3].status: "ready" -> "parked"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "parked"
@@ -3669,12 +3700,13 @@ exit 0
 --- stdout
 | MMR-3
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"parked"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"parked"}
 ~ board.MMR.nodes.items[MMR-3].hold: "none" -> "parked"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "parked"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "parked"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "parked"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"parked"}
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"parked"}
 ~ nodes[MMR-3].hold: "none" -> "parked"
 ~ nodes[MMR-3].status: "ready" -> "parked"
 ~ projects[MMR].leafCounts.ready: 2 -> 1
@@ -3700,13 +3732,14 @@ exit 0
 |   hold         parked
 |   hold reason  --weird
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"--weird","to":"parked"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"--weird","to":"parked"}
 ~ board.MMR.nodes.items[MMR-3].hold: "none" -> "parked"
 ~ board.MMR.nodes.items[MMR-3].holdReason: null -> "--weird"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "parked"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "parked"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "parked"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"--weird","to":"parked"}
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"--weird","to":"parked"}
 ~ nodes[MMR-3].hold: "none" -> "parked"
 ~ nodes[MMR-3].holdReason: null -> "--weird"
 ~ nodes[MMR-3].status: "ready" -> "parked"
@@ -3736,13 +3769,14 @@ exit 0
 |   hold         parked
 |   hold reason  slip -1 day
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"slip -1 day","to":"parked"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"slip -1 day","to":"parked"}
 ~ board.MMR.nodes.items[MMR-3].hold: "none" -> "parked"
 ~ board.MMR.nodes.items[MMR-3].holdReason: null -> "slip -1 day"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "parked"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "parked"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "parked"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"slip -1 day","to":"parked"}
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"slip -1 day","to":"parked"}
 ~ nodes[MMR-3].hold: "none" -> "parked"
 ~ nodes[MMR-3].holdReason: null -> "slip -1 day"
 ~ nodes[MMR-3].status: "ready" -> "parked"
@@ -3772,13 +3806,14 @@ exit 0
 |   hold         parked
 |   hold reason  waiting
 --- state
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"waiting","to":"parked"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"waiting","to":"parked"}
 ~ board.MMR.nodes.items[MMR-3].hold: "none" -> "parked"
 ~ board.MMR.nodes.items[MMR-3].holdReason: null -> "waiting"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "parked"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "parked"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "parked"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"waiting","to":"parked"}
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"waiting","to":"parked"}
 ~ nodes[MMR-3].hold: "none" -> "parked"
 ~ nodes[MMR-3].holdReason: null -> "waiting"
 ~ nodes[MMR-3].status: "ready" -> "parked"
@@ -4019,10 +4054,10 @@ exit 0
 --- state
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "parked" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "parked" -> "ready"
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
 ~ board.MMR.nodes.items[MMR-3].hold: "parked" -> "none"
 ~ board.MMR.nodes.items[MMR-3].status: "parked" -> "ready"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
 ~ nodes[MMR-3].hold: "parked" -> "none"
 ~ nodes[MMR-3].status: "parked" -> "ready"
 ~ nodes[MMR-2].children[MMR-3].status: "parked" -> "ready"
@@ -4065,10 +4100,10 @@ exit 0
 --- state
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "parked" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "parked" -> "ready"
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
 ~ board.MMR.nodes.items[MMR-3].hold: "parked" -> "none"
 ~ board.MMR.nodes.items[MMR-3].status: "parked" -> "ready"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
 ~ nodes[MMR-3].hold: "parked" -> "none"
 ~ nodes[MMR-3].status: "parked" -> "ready"
 ~ nodes[MMR-2].children[MMR-3].status: "parked" -> "ready"
@@ -4087,10 +4122,10 @@ exit 0
 --- state
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "parked" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "parked" -> "ready"
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
 ~ board.MMR.nodes.items[MMR-3].hold: "parked" -> "none"
 ~ board.MMR.nodes.items[MMR-3].status: "parked" -> "ready"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
 ~ nodes[MMR-3].hold: "parked" -> "none"
 ~ nodes[MMR-3].status: "parked" -> "ready"
 ~ nodes[MMR-2].children[MMR-3].status: "parked" -> "ready"
@@ -4106,10 +4141,10 @@ exit 0
 --- state
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "parked" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "parked" -> "ready"
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
 ~ board.MMR.nodes.items[MMR-3].hold: "parked" -> "none"
 ~ board.MMR.nodes.items[MMR-3].status: "parked" -> "ready"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
 ~ nodes[MMR-3].hold: "parked" -> "none"
 ~ nodes[MMR-3].status: "parked" -> "ready"
 - projects[MMR].leafCounts.parked: 1
@@ -4136,10 +4171,10 @@ exit 0
 --- state
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "parked" -> "ready"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "parked" -> "ready"
-+ board.MMR.nodes.items[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
++ board.MMR.nodes.items[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
 ~ board.MMR.nodes.items[MMR-3].hold: "parked" -> "none"
 ~ board.MMR.nodes.items[MMR-3].status: "parked" -> "ready"
-+ nodes[MMR-3].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
++ nodes[MMR-3].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"parked","kind":"hold","reason":null,"to":"none"}
 ~ nodes[MMR-3].hold: "parked" -> "none"
 ~ nodes[MMR-3].status: "parked" -> "ready"
 ~ nodes[MMR-2].children[MMR-3].status: "parked" -> "ready"
@@ -4293,13 +4328,14 @@ exit 0
 |   block owner  you
 --- state
 ~ board.MMR.nodes.items[MMR-3].blockOwner: null -> "you"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
 ~ board.MMR.nodes.items[MMR-3].hold: "none" -> "blocked"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "blocked"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].blockOwner: null -> "you"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
 ~ nodes[MMR-3].hold: "none" -> "blocked"
 ~ nodes[MMR-3].status: "ready" -> "blocked"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "blocked"
@@ -4330,14 +4366,15 @@ exit 0
 |   block owner  you
 --- state
 ~ board.MMR.nodes.items[MMR-3].blockOwner: null -> "you"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"upstream API down","to":"blocked"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"upstream API down","to":"blocked"}
 ~ board.MMR.nodes.items[MMR-3].hold: "none" -> "blocked"
 ~ board.MMR.nodes.items[MMR-3].holdReason: null -> "upstream API down"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "blocked"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].blockOwner: null -> "you"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"upstream API down","to":"blocked"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"upstream API down","to":"blocked"}
 ~ nodes[MMR-3].hold: "none" -> "blocked"
 ~ nodes[MMR-3].holdReason: null -> "upstream API down"
 ~ nodes[MMR-3].status: "ready" -> "blocked"
@@ -4380,14 +4417,15 @@ exit 0
 | }
 --- state
 ~ board.MMR.nodes.items[MMR-3].blockOwner: null -> "you"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"upstream API down","to":"blocked"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"upstream API down","to":"blocked"}
 ~ board.MMR.nodes.items[MMR-3].hold: "none" -> "blocked"
 ~ board.MMR.nodes.items[MMR-3].holdReason: null -> "upstream API down"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "blocked"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].blockOwner: null -> "you"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"upstream API down","to":"blocked"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"upstream API down","to":"blocked"}
 ~ nodes[MMR-3].hold: "none" -> "blocked"
 ~ nodes[MMR-3].holdReason: null -> "upstream API down"
 ~ nodes[MMR-3].status: "ready" -> "blocked"
@@ -4419,14 +4457,15 @@ exit 0
 |   block owner  you
 --- state
 ~ board.MMR.nodes.items[MMR-3].blockOwner: null -> "you"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"need a decision","to":"blocked"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"need a decision","to":"blocked"}
 ~ board.MMR.nodes.items[MMR-3].hold: "none" -> "blocked"
 ~ board.MMR.nodes.items[MMR-3].holdReason: null -> "need a decision"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "blocked"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].blockOwner: null -> "you"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"need a decision","to":"blocked"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"need a decision","to":"blocked"}
 ~ nodes[MMR-3].hold: "none" -> "blocked"
 ~ nodes[MMR-3].holdReason: null -> "need a decision"
 ~ nodes[MMR-3].status: "ready" -> "blocked"
@@ -4469,14 +4508,15 @@ exit 0
 | }
 --- state
 ~ board.MMR.nodes.items[MMR-3].blockOwner: null -> "others"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"upstream down","to":"blocked"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"upstream down","to":"blocked"}
 ~ board.MMR.nodes.items[MMR-3].hold: "none" -> "blocked"
 ~ board.MMR.nodes.items[MMR-3].holdReason: null -> "upstream down"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "blocked"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].blockOwner: null -> "others"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"upstream down","to":"blocked"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"upstream down","to":"blocked"}
 ~ nodes[MMR-3].hold: "none" -> "blocked"
 ~ nodes[MMR-3].holdReason: null -> "upstream down"
 ~ nodes[MMR-3].status: "ready" -> "blocked"
@@ -4495,13 +4535,14 @@ exit 0
 | MMR-3   x blocked   p1   groomed   MMR-2   Wire the store
 --- state
 ~ board.MMR.nodes.items[MMR-3].blockOwner: null -> "you"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
 ~ board.MMR.nodes.items[MMR-3].hold: "none" -> "blocked"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "blocked"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].blockOwner: null -> "you"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
 ~ nodes[MMR-3].hold: "none" -> "blocked"
 ~ nodes[MMR-3].status: "ready" -> "blocked"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "blocked"
@@ -4516,13 +4557,14 @@ exit 0
 | MMR-3
 --- state
 ~ board.MMR.nodes.items[MMR-3].blockOwner: null -> "you"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
 ~ board.MMR.nodes.items[MMR-3].hold: "none" -> "blocked"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "blocked"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].blockOwner: null -> "you"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
 ~ nodes[MMR-3].hold: "none" -> "blocked"
 ~ nodes[MMR-3].status: "ready" -> "blocked"
 ~ projects[MMR].leafCounts.ready: 2 -> 1
@@ -4550,14 +4592,15 @@ exit 0
 |   block owner  you
 --- state
 ~ board.MMR.nodes.items[MMR-3].blockOwner: null -> "you"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"waiting","to":"blocked"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"waiting","to":"blocked"}
 ~ board.MMR.nodes.items[MMR-3].hold: "none" -> "blocked"
 ~ board.MMR.nodes.items[MMR-3].holdReason: null -> "waiting"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "blocked"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].blockOwner: null -> "you"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"waiting","to":"blocked"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"waiting","to":"blocked"}
 ~ nodes[MMR-3].hold: "none" -> "blocked"
 ~ nodes[MMR-3].holdReason: null -> "waiting"
 ~ nodes[MMR-3].status: "ready" -> "blocked"
@@ -4583,11 +4626,12 @@ exit 0
 --- state
 ~ board.MMR.nodes.items[MMR-3].deps.blocking[MMR-4].status: "awaiting" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].blockOwner: null -> "you"
-+ board.MMR.nodes.items[MMR-4].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
++ board.MMR.nodes.items[MMR-4].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
 ~ board.MMR.nodes.items[MMR-4].hold: "none" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].status: "awaiting" -> "blocked"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-3, MMR-5, MMR-8, MMR-4, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-4].blockOwner: null -> "you"
-+ nodes[MMR-4].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
++ nodes[MMR-4].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
 ~ nodes[MMR-4].hold: "none" -> "blocked"
 ~ nodes[MMR-4].status: "awaiting" -> "blocked"
 ~ nodes[MMR-2].children[MMR-4].status: "awaiting" -> "blocked"
@@ -4709,13 +4753,14 @@ exit 0
 | }
 --- state
 ~ board.MMR.nodes.items[MMR-3].blockOwner: null -> "you"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
 ~ board.MMR.nodes.items[MMR-3].hold: "none" -> "blocked"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "blocked"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].blockOwner: null -> "you"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":null,"to":"blocked"}
 ~ nodes[MMR-3].hold: "none" -> "blocked"
 ~ nodes[MMR-3].status: "ready" -> "blocked"
 ~ nodes[MMR-2].children[MMR-3].status: "ready" -> "blocked"
@@ -4746,14 +4791,15 @@ exit 0
 |   block owner  you
 --- state
 ~ board.MMR.nodes.items[MMR-3].blockOwner: null -> "you"
-+ board.MMR.nodes.items[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"-x","to":"blocked"}
++ board.MMR.nodes.items[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"-x","to":"blocked"}
 ~ board.MMR.nodes.items[MMR-3].hold: "none" -> "blocked"
 ~ board.MMR.nodes.items[MMR-3].holdReason: null -> "-x"
 ~ board.MMR.nodes.items[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.awaitingOn[MMR-3].status: "ready" -> "blocked"
 ~ board.MMR.nodes.items[MMR-4].deps.dependsOn[MMR-3].status: "ready" -> "blocked"
+~ board.MMR.nodes.items order: [MMR-3, MMR-4, MMR-5, MMR-8, MMR-6, MMR-7, MMR-9] -> [MMR-4, MMR-5, MMR-8, MMR-3, MMR-6, MMR-7, MMR-9]
 ~ nodes[MMR-3].blockOwner: null -> "you"
-+ nodes[MMR-3].history[#0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"-x","to":"blocked"}
++ nodes[MMR-3].history[@0]: {"at":"2026-10-01T12:00:00.000Z","from":"none","kind":"hold","reason":"-x","to":"blocked"}
 ~ nodes[MMR-3].hold: "none" -> "blocked"
 ~ nodes[MMR-3].holdReason: null -> "-x"
 ~ nodes[MMR-3].status: "ready" -> "blocked"
@@ -4813,12 +4859,12 @@ exit 0
 |   hold       none
 --- state
 ~ board.MMR.nodes.items[MMR-6].blockOwner: "you" -> null
-+ board.MMR.nodes.items[MMR-6].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
++ board.MMR.nodes.items[MMR-6].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
 ~ board.MMR.nodes.items[MMR-6].hold: "blocked" -> "none"
 ~ board.MMR.nodes.items[MMR-6].holdReason: "needs a reviewer" -> null
 ~ board.MMR.nodes.items[MMR-6].status: "blocked" -> "ready"
 ~ nodes[MMR-6].blockOwner: "you" -> null
-+ nodes[MMR-6].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
++ nodes[MMR-6].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
 ~ nodes[MMR-6].hold: "blocked" -> "none"
 ~ nodes[MMR-6].holdReason: "needs a reviewer" -> null
 ~ nodes[MMR-6].status: "blocked" -> "ready"
@@ -4861,12 +4907,12 @@ exit 0
 | }
 --- state
 ~ board.MMR.nodes.items[MMR-6].blockOwner: "you" -> null
-+ board.MMR.nodes.items[MMR-6].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
++ board.MMR.nodes.items[MMR-6].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
 ~ board.MMR.nodes.items[MMR-6].hold: "blocked" -> "none"
 ~ board.MMR.nodes.items[MMR-6].holdReason: "needs a reviewer" -> null
 ~ board.MMR.nodes.items[MMR-6].status: "blocked" -> "ready"
 ~ nodes[MMR-6].blockOwner: "you" -> null
-+ nodes[MMR-6].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
++ nodes[MMR-6].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
 ~ nodes[MMR-6].hold: "blocked" -> "none"
 ~ nodes[MMR-6].holdReason: "needs a reviewer" -> null
 ~ nodes[MMR-6].status: "blocked" -> "ready"
@@ -4885,12 +4931,12 @@ exit 0
 | MMR-6   * ready        not_groomed   MMR-2   Wait on review
 --- state
 ~ board.MMR.nodes.items[MMR-6].blockOwner: "you" -> null
-+ board.MMR.nodes.items[MMR-6].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
++ board.MMR.nodes.items[MMR-6].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
 ~ board.MMR.nodes.items[MMR-6].hold: "blocked" -> "none"
 ~ board.MMR.nodes.items[MMR-6].holdReason: "needs a reviewer" -> null
 ~ board.MMR.nodes.items[MMR-6].status: "blocked" -> "ready"
 ~ nodes[MMR-6].blockOwner: "you" -> null
-+ nodes[MMR-6].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
++ nodes[MMR-6].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
 ~ nodes[MMR-6].hold: "blocked" -> "none"
 ~ nodes[MMR-6].holdReason: "needs a reviewer" -> null
 ~ nodes[MMR-6].status: "blocked" -> "ready"
@@ -4906,12 +4952,12 @@ exit 0
 | MMR-6
 --- state
 ~ board.MMR.nodes.items[MMR-6].blockOwner: "you" -> null
-+ board.MMR.nodes.items[MMR-6].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
++ board.MMR.nodes.items[MMR-6].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
 ~ board.MMR.nodes.items[MMR-6].hold: "blocked" -> "none"
 ~ board.MMR.nodes.items[MMR-6].holdReason: "needs a reviewer" -> null
 ~ board.MMR.nodes.items[MMR-6].status: "blocked" -> "ready"
 ~ nodes[MMR-6].blockOwner: "you" -> null
-+ nodes[MMR-6].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
++ nodes[MMR-6].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
 ~ nodes[MMR-6].hold: "blocked" -> "none"
 ~ nodes[MMR-6].holdReason: "needs a reviewer" -> null
 ~ nodes[MMR-6].status: "blocked" -> "ready"
@@ -4932,12 +4978,12 @@ exit 0
 |   hold       none
 --- state
 ~ board.MMR.nodes.items[MMR-6].blockOwner: "you" -> null
-+ board.MMR.nodes.items[MMR-6].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
++ board.MMR.nodes.items[MMR-6].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
 ~ board.MMR.nodes.items[MMR-6].hold: "blocked" -> "none"
 ~ board.MMR.nodes.items[MMR-6].holdReason: "needs a reviewer" -> null
 ~ board.MMR.nodes.items[MMR-6].status: "blocked" -> "ready"
 ~ nodes[MMR-6].blockOwner: "you" -> null
-+ nodes[MMR-6].history[#1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
++ nodes[MMR-6].history[@1]: {"at":"2026-10-01T12:00:00.000Z","from":"blocked","kind":"hold","reason":null,"to":"none"}
 ~ nodes[MMR-6].hold: "blocked" -> "none"
 ~ nodes[MMR-6].holdReason: "needs a reviewer" -> null
 ~ nodes[MMR-6].status: "blocked" -> "ready"
@@ -4990,9 +5036,9 @@ exit 0
 --- stdout
 | [ok] archived XX
 --- state
-~ activePads[#0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"XX doesn't exist\"}"
-~ activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
-+ activePads[#2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"XX doesn't exist\"}"
+~ activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 - board.XX.nodes.items[XX-3]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-3","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 - board.XX.nodes.items[XX-4]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-4","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 ~ board.XX.nodes.returned: 2 -> 0
@@ -5007,9 +5053,9 @@ exit 0
 --- stdout
 | [ok] archived XX · superseded by XX2
 --- state
-~ activePads[#0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"XX doesn't exist\"}"
-~ activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
-+ activePads[#2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"XX doesn't exist\"}"
+~ activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 - board.XX.nodes.items[XX-3]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-3","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 - board.XX.nodes.items[XX-4]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-4","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 ~ board.XX.nodes.returned: 2 -> 0
@@ -5024,9 +5070,9 @@ exit 0
 --- stdout
 | {"project":{"archived_at":"2026-10-01T12:00:00.000Z","key":"XX"}}
 --- state
-~ activePads[#0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"XX doesn't exist\"}"
-~ activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
-+ activePads[#2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"XX doesn't exist\"}"
+~ activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 - board.XX.nodes.items[XX-3]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-3","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 - board.XX.nodes.items[XX-4]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-4","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 ~ board.XX.nodes.returned: 2 -> 0
@@ -5041,9 +5087,9 @@ exit 0
 --- stdout
 | {"project":{"archived_at":"2026-10-01T12:00:00.000Z","key":"XX"}}
 --- state
-~ activePads[#0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"XX doesn't exist\"}"
-~ activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
-+ activePads[#2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"XX doesn't exist\"}"
+~ activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 - board.XX.nodes.items[XX-3]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-3","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 - board.XX.nodes.items[XX-4]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-4","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 ~ board.XX.nodes.returned: 2 -> 0
@@ -5058,9 +5104,9 @@ exit 0
 --- stdout
 | XX
 --- state
-~ activePads[#0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"XX doesn't exist\"}"
-~ activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
-+ activePads[#2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"XX doesn't exist\"}"
+~ activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 - board.XX.nodes.items[XX-3]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-3","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 - board.XX.nodes.items[XX-4]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-4","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 ~ board.XX.nodes.returned: 2 -> 0
@@ -5075,9 +5121,9 @@ exit 0
 --- stdout
 | [ok] archived XX
 --- state
-~ activePads[#0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"XX doesn't exist\"}"
-~ activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
-+ activePads[#2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"XX doesn't exist\"}"
+~ activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 - board.XX.nodes.items[XX-3]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-3","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 - board.XX.nodes.items[XX-4]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-4","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 ~ board.XX.nodes.returned: 2 -> 0
@@ -5092,9 +5138,9 @@ exit 0
 --- stdout
 | ␛[32m✓␛[39m archived XX · superseded
 --- state
-~ activePads[#0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"XX doesn't exist\"}"
-~ activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
-+ activePads[#2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"XX doesn't exist\"}"
+~ activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 - board.XX.nodes.items[XX-3]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-3","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 - board.XX.nodes.items[XX-4]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-4","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 ~ board.XX.nodes.returned: 2 -> 0
@@ -5122,8 +5168,8 @@ exit 0
 | [ok] archived MMR
 | [warn] released 1 dependent(s): XX-3
 --- state
-~ activePads[#0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"MMR doesn't exist\"}"
-- activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"MMR doesn't exist\"}"
+- activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 - board.MMR.artifacts.items[MMR-a1]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a1","links":["MMR-3"],"project":"MMR","summary":"design notes","tags":["design"],"title":"Store notes"}
 ~ board.MMR.artifacts.returned: 1 -> 0
 ~ board.MMR.artifacts.total: 1 -> 0
@@ -5179,8 +5225,8 @@ exit 0
 --- stdout
 | {"project":{"archived_at":"2026-10-01T12:00:00.000Z","key":"MMR"}}
 --- state
-~ activePads[#0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"MMR doesn't exist\"}"
-- activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"MMR doesn't exist\"}"
+- activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 - board.MMR.artifacts.items[MMR-a1]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a1","links":["MMR-3"],"project":"MMR","summary":"design notes","tags":["design"],"title":"Store notes"}
 ~ board.MMR.artifacts.returned: 1 -> 0
 ~ board.MMR.artifacts.total: 1 -> 0
@@ -5233,8 +5279,8 @@ exit 0
 --- stdout
 | MMR
 --- state
-~ activePads[#0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"MMR doesn't exist\"}"
-- activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"MMR doesn't exist\"}"
+- activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 - board.MMR.artifacts.items[MMR-a1]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a1","links":["MMR-3"],"project":"MMR","summary":"design notes","tags":["design"],"title":"Store notes"}
 ~ board.MMR.artifacts.returned: 1 -> 0
 ~ board.MMR.artifacts.total: 1 -> 0
@@ -5288,8 +5334,8 @@ exit 0
 | ␛[32m✓␛[39m archived MMR
 | ␛[33m⚠␛[39m released 1 dependent(s): XX-3
 --- state
-~ activePads[#0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"MMR doesn't exist\"}"
-- activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"MMR doesn't exist\"}"
+- activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 - board.MMR.artifacts.items[MMR-a1]: {"createdAt":"2026-10-01T12:00:00.000Z","id":"MMR-a1","links":["MMR-3"],"project":"MMR","summary":"design notes","tags":["design"],"title":"Store notes"}
 ~ board.MMR.artifacts.returned: 1 -> 0
 ~ board.MMR.artifacts.total: 1 -> 0
@@ -5387,9 +5433,9 @@ exit 0
 --- stdout
 | [ok] archived XX
 --- state
-~ activePads[#0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"XX doesn't exist\"}"
-~ activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
-+ activePads[#2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"XX doesn't exist\"}"
+~ activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 - board.XX.nodes.items[XX-3]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-3","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 - board.XX.nodes.items[XX-4]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-4","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 ~ board.XX.nodes.returned: 2 -> 0
@@ -5404,9 +5450,9 @@ exit 0
 --- stdout
 | [ok] archived XX · --weird
 --- state
-~ activePads[#0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"XX doesn't exist\"}"
-~ activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
-+ activePads[#2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"failed\":\"XX doesn't exist\"}"
+~ activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
++ activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 - board.XX.nodes.items[XX-3]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-3","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 - board.XX.nodes.items[XX-4]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-4","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 ~ board.XX.nodes.returned: 2 -> 0
@@ -5447,9 +5493,9 @@ exit 0
 --- stdout
 | [ok] unarchived XX
 --- state
-~ activePads[#0]: "{\"failed\":\"XX doesn't exist\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
-~ activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
-- activePads[#2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"failed\":\"XX doesn't exist\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
+~ activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+- activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 + board.XX.nodes.items[XX-3]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-3","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 + board.XX.nodes.items[XX-4]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-4","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 ~ board.XX.nodes.returned: 0 -> 2
@@ -5464,9 +5510,9 @@ exit 0
 --- stdout
 | {"project":{"archived_at":null,"key":"XX"}}
 --- state
-~ activePads[#0]: "{\"failed\":\"XX doesn't exist\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
-~ activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
-- activePads[#2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"failed\":\"XX doesn't exist\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
+~ activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+- activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 + board.XX.nodes.items[XX-3]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-3","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 + board.XX.nodes.items[XX-4]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-4","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 ~ board.XX.nodes.returned: 0 -> 2
@@ -5481,9 +5527,9 @@ exit 0
 --- stdout
 | {"project":{"archived_at":null,"key":"XX"}}
 --- state
-~ activePads[#0]: "{\"failed\":\"XX doesn't exist\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
-~ activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
-- activePads[#2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"failed\":\"XX doesn't exist\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
+~ activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+- activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 + board.XX.nodes.items[XX-3]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-3","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 + board.XX.nodes.items[XX-4]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-4","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 ~ board.XX.nodes.returned: 0 -> 2
@@ -5498,9 +5544,9 @@ exit 0
 --- stdout
 | XX
 --- state
-~ activePads[#0]: "{\"failed\":\"XX doesn't exist\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
-~ activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
-- activePads[#2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"failed\":\"XX doesn't exist\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
+~ activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+- activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 + board.XX.nodes.items[XX-3]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-3","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 + board.XX.nodes.items[XX-4]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-4","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 ~ board.XX.nodes.returned: 0 -> 2
@@ -5515,9 +5561,9 @@ exit 0
 --- stdout
 | [ok] unarchived XX
 --- state
-~ activePads[#0]: "{\"failed\":\"XX doesn't exist\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
-~ activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
-- activePads[#2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"failed\":\"XX doesn't exist\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
+~ activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+- activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 + board.XX.nodes.items[XX-3]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-3","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 + board.XX.nodes.items[XX-4]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-4","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 ~ board.XX.nodes.returned: 0 -> 2
@@ -5532,9 +5578,9 @@ exit 0
 --- stdout
 | ␛[32m✓␛[39m unarchived XX
 --- state
-~ activePads[#0]: "{\"failed\":\"XX doesn't exist\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
-~ activePads[#1]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
-- activePads[#2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+~ activePads[@0]: "{\"failed\":\"XX doesn't exist\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}"
+~ activePads[@1]: "{\"id\":\"<uuid>\",\"linkedWork\":[\"MMR-3\"],\"openAgenda\":2,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Index rewrite\",\"updatedAt\":\"2026-10-01T12:00:00.005Z\"}" -> "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
+- activePads[@2]: "{\"id\":\"<uuid>\",\"linkedWork\":[],\"openAgenda\":0,\"project\":\"MMR\",\"state\":\"active\",\"title\":\"Blank\",\"updatedAt\":\"2026-10-01T12:00:00.000Z\"}"
 + board.XX.nodes.items[XX-3]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-3","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Not ours","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":null,"verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 + board.XX.nodes.items[XX-4]: {"annotations":[],"artifacts":[],"blockOwner":null,"branch":null,"children":[],"completedAt":null,"createdAt":"2026-10-01T12:00:00.000Z","deps":{"awaitingOn":[],"blocking":[],"dependsOn":[]},"description":null,"externalRef":null,"grooming":"not_groomed","harness":null,"history":[],"hold":"none","holdReason":null,"home":{"parentId":"XX-2","parentOpenEnded":null,"parentTitle":"Far","projectKey":"XX"},"host":null,"id":"XX-4","lede":null,"lifecycle":"todo","parent":"XX-2","priority":null,"session":null,"size":null,"status":"ready","summary":null,"tags":[],"title":"Waiting on their fix","type":"task","updatedAt":"2026-10-01T12:00:00.000Z","upstream":"XX-s1","verdicts":{"blocking":false,"orphaned":false,"stale":false},"workerHarness":null,"workerSession":null}
 ~ board.XX.nodes.returned: 0 -> 2

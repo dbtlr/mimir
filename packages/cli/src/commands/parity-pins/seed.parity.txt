@@ -451,7 +451,7 @@ exit 0
 + nodes[MMR-10].workerSession: null
 ~ projects[MMR].leafCounts.ready: 2 -> 3
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
-+ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 
 ### promote MMR-s1 -f ids
 exit 0
@@ -499,7 +499,7 @@ exit 0
 + nodes[MMR-10].workerSession: null
 ~ projects[MMR].leafCounts.ready: 2 -> 3
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
-+ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 
 ### promote MMR-s1 -f json
 exit 0
@@ -563,7 +563,7 @@ exit 0
 + nodes[MMR-10].workerSession: null
 ~ projects[MMR].leafCounts.ready: 2 -> 3
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
-+ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 
 ### promote MMR-s1 -f jsonl
 exit 0
@@ -627,7 +627,7 @@ exit 0
 + nodes[MMR-10].workerSession: null
 ~ projects[MMR].leafCounts.ready: 2 -> 3
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
-+ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 
 ### promote MMR-s1 -f table
 exit 0
@@ -684,7 +684,7 @@ exit 0
 + nodes[MMR-10].workerSession: null
 ~ projects[MMR].leafCounts.ready: 2 -> 3
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
-+ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 
 ### promote MMR-s1 with fields
 exit 0
@@ -741,7 +741,7 @@ exit 0
 + nodes[MMR-10].workerSession: null
 ~ projects[MMR].leafCounts.ready: 2 -> 3
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
-+ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 
 ### promote MMR-s2 --parent
 exit 0
@@ -796,7 +796,7 @@ exit 0
 + nodes[MMR-10].workerSession: null
 ~ projects[MMR].leafCounts.ready: 2 -> 3
 ~ seeds.MMR[MMR-s2].lifecycle: "new" -> "promoted"
-+ seeds.MMR[MMR-s2].spawned[#0]: "MMR-10"
++ seeds.MMR[MMR-s2].spawned[@0]: "MMR-10"
 
 ### promote MMR-s1 --link
 exit 0
@@ -813,7 +813,7 @@ exit 0
 |   created      2026-10-01 12:00 UTC
 --- state
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
-+ seeds.MMR[MMR-s1].spawned[#0]: "MMR-3"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-3"
 
 ### promote MMR-s1 --link -f json
 exit 0
@@ -836,7 +836,7 @@ exit 0
 | }
 --- state
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
-+ seeds.MMR[MMR-s1].spawned[#0]: "MMR-3"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-3"
 
 ### promote MMR-s1 --link -f ids
 exit 0
@@ -844,7 +844,7 @@ exit 0
 | MMR-3
 --- state
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
-+ seeds.MMR[MMR-s1].spawned[#0]: "MMR-3"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-3"
 
 ### promote MMR-s1 --size m
 exit 0
@@ -901,7 +901,7 @@ exit 0
 + nodes[MMR-10].workerSession: null
 ~ projects[MMR].leafCounts.ready: 2 -> 3
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
-+ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 
 ### promote MMR-s1 --ascii
 exit 0
@@ -958,7 +958,7 @@ exit 0
 + nodes[MMR-10].workerSession: null
 ~ projects[MMR].leafCounts.ready: 2 -> 3
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
-+ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 
 ### promote MMR-s1 -p p9
 exit 2
@@ -1087,7 +1087,7 @@ exit 0
 + nodes[MMR-10].workerSession: null
 ~ projects[MMR].leafCounts.ready: 2 -> 3
 ~ seeds.MMR[MMR-s4].readyToResolve: true -> false
-+ seeds.MMR[MMR-s4].spawned[#1]: "MMR-10"
++ seeds.MMR[MMR-s4].spawned[@1]: "MMR-10"
 
 ### promote MMR-s1 --parent MMR-99
 exit 1
@@ -1196,7 +1196,7 @@ exit 0
 + nodes[MMR-10].workerSession: null
 ~ projects[MMR].leafCounts.ready: 2 -> 3
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
-+ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 
 ### promote argv: MMR-s1 --parent MMR-2 -p p1 -p p2
 exit 2
@@ -1280,7 +1280,7 @@ exit 0
 + nodes[MMR-10].workerSession: null
 ~ projects[MMR].leafCounts.ready: 2 -> 3
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
-+ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 
 ### promote argv: MMR-s1 --parent MMR-2 (terminal)
 exit 0
@@ -1337,7 +1337,7 @@ exit 0
 + nodes[MMR-10].workerSession: null
 ~ projects[MMR].leafCounts.ready: 2 -> 3
 ~ seeds.MMR[MMR-s1].lifecycle: "new" -> "promoted"
-+ seeds.MMR[MMR-s1].spawned[#0]: "MMR-10"
++ seeds.MMR[MMR-s1].spawned[@0]: "MMR-10"
 
 ### reject MMR-s1
 exit 0

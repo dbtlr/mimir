@@ -1,5 +1,13 @@
 import { expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+  existsSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -58,7 +66,10 @@ test('real ANSI bytes and the printable text of them pin differently', () => {
 });
 
 /** Run a fixture test file in update mode through the update script; its exit and the pin file it left. */
-function updateFixture(source: string): { exitCode: number; pins: string | undefined } {
+function updateFixture(
+  source: string,
+  seed?: (pinsDir: string) => void,
+): { exitCode: number; pins: string | undefined; files: string[] } {
   mkdirSync(join(REPO, '.scratch'), { recursive: true });
   const dir = mkdtempSync(join(REPO, '.scratch', 'pins-fixture-'));
   try {
@@ -67,6 +78,10 @@ function updateFixture(source: string): { exitCode: number; pins: string | undef
       file,
       `import { expect, test } from 'bun:test';\nimport { pinsOf } from '${join(REPO, 'packages/cli/src/testing/pins')}';\n${source}`,
     );
+    if (seed !== undefined) {
+      mkdirSync(join(dir, 'parity-pins'), { recursive: true });
+      seed(join(dir, 'parity-pins'));
+    }
     const run = Bun.spawnSync(['bun', join(REPO, 'packages/cli/scripts/update-pins.ts'), file], {
       cwd: REPO,
       env: { ...process.env, MIMIR_UPDATE_PINS: undefined },
@@ -74,6 +89,9 @@ function updateFixture(source: string): { exitCode: number; pins: string | undef
     const pinFile = join(dir, 'parity-pins', 'fixture.txt');
     return {
       exitCode: run.exitCode,
+      files: existsSync(join(dir, 'parity-pins'))
+        ? readdirSync(join(dir, 'parity-pins')).toSorted()
+        : [],
       pins: existsSync(pinFile) ? readFileSync(pinFile, 'utf8') : undefined,
     };
   } finally {
@@ -97,4 +115,62 @@ test('a failure in a test that is not a case writes no pins', () => {
   const run = updateFixture(`${PASSING}\ntest('another', () => expect(1).toBe(2));\n`);
   expect(run.exitCode).not.toBe(0);
   expect(run.pins).toBeUndefined();
+});
+
+test('a stale recording left beside the pins is never promoted by a later run', () => {
+  const run = updateFixture(PASSING, (pinsDir) => {
+    writeFileSync(join(pinsDir, 'other.txt.staged'), '### stale\nold\n\n');
+  });
+  expect(run.exitCode).toBe(0);
+  expect(run.files).toEqual(['fixture.txt', 'other.txt.staged']);
+});
+
+test('recording without a run directory refuses and writes nothing', () => {
+  const dir = mkdtempSync(join(REPO, '.scratch', 'pins-fixture-'));
+  try {
+    const file = join(dir, 'fixture.test.ts');
+    writeFileSync(
+      file,
+      `import { test } from 'bun:test';\nimport { pinsOf } from '${join(REPO, 'packages/cli/src/testing/pins')}';\nconst pins = pinsOf(import.meta.url);\nconst key = pins.claim('one');\ntest('case', () => pins.check(key, 'text\\n'));\n`,
+    );
+    const run = Bun.spawnSync(['bun', 'test', file], {
+      cwd: REPO,
+      env: { ...process.env, MIMIR_PINS_STAGE: undefined, MIMIR_UPDATE_PINS: '1' },
+    });
+    expect(run.exitCode).not.toBe(0);
+    expect(existsSync(join(dir, 'parity-pins'))).toBe(false);
+  } finally {
+    rmSync(dir, { force: true, recursive: true });
+  }
+});
+
+test('records that swap places are a change, with the new order pinned', () => {
+  const before = JSON.stringify({ list: [{ id: 'MMR-3' }, { id: 'MMR-4' }] });
+  const after = JSON.stringify({ list: [{ id: 'MMR-4' }, { id: 'MMR-3' }] });
+  expect(changedRecords(before, after)).toBe('~ list order: [MMR-3, MMR-4] -> [MMR-4, MMR-3]\n');
+});
+
+test('a repeated name never collides with a name that spells its occurrence mark', () => {
+  const twice = JSON.stringify({
+    rows: [
+      ['x', 1],
+      ['x', 2],
+    ],
+  });
+  const spelled = JSON.stringify({
+    rows: [
+      ['x', 1],
+      ['x#2', 2],
+    ],
+  });
+  const tilde = JSON.stringify({
+    rows: [
+      ['x', 1],
+      ['x~2', 2],
+    ],
+  });
+  expect(changedRecords(twice, spelled)).not.toBe('');
+  expect(changedRecords(twice, tilde)).not.toBe('');
+  expect(changedRecords(spelled, tilde)).not.toBe('');
+  expect(changedRecords(twice, twice)).toBe('');
 });

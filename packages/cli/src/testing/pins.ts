@@ -8,10 +8,12 @@ import { afterAll, expect, test } from 'bun:test';
  *   bun packages/cli/scripts/update-pins.ts packages/cli/src/commands/get.parity.test.ts
  *
  * The script (also `bun run pins:update`, no arguments for every parity file)
- * runs the tests with `MIMIR_UPDATE_PINS=1`, which stages each file's pins as
- * `<file>.staged`, and replaces the pin files only if the whole run passed:
- * every test and cleanup hook. A failed run writes nothing. Re-recording needs
- * the whole file to run, and rewrites it in case order. The pins hold what the retired old CLI was proven to print,
+ * runs the tests with `MIMIR_UPDATE_PINS=1` and `MIMIR_PINS_STAGE` set to a
+ * directory only that run owns, where recording writes each file's pins. It
+ * replaces the pin files with that run's recordings only if the whole run
+ * passed (every test and cleanup hook), and always removes the directory, so a
+ * failed run leaves nothing behind. Recording without the directory refuses.
+ * Re-recording needs the whole file to run, and rewrites it in case order. The pins hold what the retired old CLI was proven to print,
  * modulo the reviewed differences recorded in ADR 0037. Test-only.
  *
  * A pin file is a run of entries, each `### <case name>`, a body, and a blank
@@ -25,10 +27,20 @@ import { fileURLToPath } from 'node:url';
 /** Whether this run re-records pins instead of comparing with them. */
 const UPDATING = process.env.MIMIR_UPDATE_PINS === '1';
 
-const HEADER = '### ';
+/**
+ * The directory the update script owns for one run; recording writes only
+ * there. A recording with no run directory would leave files beside the pins
+ * for any later run to find, so it refuses.
+ */
+export const STAGE_ENV = 'MIMIR_PINS_STAGE';
+const STAGE = process.env[STAGE_ENV];
+if (UPDATING && (STAGE === undefined || STAGE === '')) {
+  throw new Error(
+    `MIMIR_UPDATE_PINS=1 records only for a run that owns a staging directory (${STAGE_ENV}); use bun run pins:update`,
+  );
+}
 
-/** The suffix of a recording that awaits promotion (see `scripts/update-pins.ts`). */
-export const STAGED = '.staged';
+const HEADER = '### ';
 
 /** What one case printed, ready to pin. */
 export type PinnedRun = {
@@ -97,24 +109,38 @@ function labelOf(element: unknown, at: number): { label: string; value: unknown 
     }
   }
   if (Array.isArray(element) && element.length === 2 && typeof element[0] === 'string') {
-    return { label: element[0], value: element[1] };
+    return { label: escaped(element[0]), value: element[1] };
   }
-  return { label: `#${String(at)}`, value: element };
+  return { label: `@${String(at)}`, value: element };
 }
 
-/** An array's elements by label, a repeated label numbered `label~2`, in order. */
-function labelled(items: readonly unknown[]): Map<string, unknown> {
-  const out = new Map<string, unknown>();
+/** A name with the characters this notation uses (`\`, `#`, `@`) escaped, so no name can pass for a mark. */
+const escaped = (name: string): string => name.replaceAll(/[\\#@]/g, (c) => `\\${c}`);
+
+/**
+ * An array's elements by label, in order. A name read twice carries its
+ * occurrence after a `#` (`x`, `x#2`); a literal `#` in a name is escaped, so
+ * no name collides with an occurrence mark, and a place is `@n`, which no name
+ * can spell either.
+ */
+function labelled(items: readonly unknown[]): { order: string[]; byLabel: Map<string, unknown> } {
+  const byLabel = new Map<string, unknown>();
+  const seen = new Map<string, number>();
+  const order: string[] = [];
   items.forEach((item, at) => {
     const { label, value } = labelOf(item, at);
-    let key = label;
-    for (let n = 2; out.has(key); n++) {
-      key = `${label}~${String(n)}`;
-    }
-    out.set(key, value);
+    const occurrence = (seen.get(label) ?? 0) + 1;
+    seen.set(label, occurrence);
+    const key = occurrence === 1 ? label : `${label}#${String(occurrence)}`;
+    byLabel.set(key, value);
+    order.push(key);
   });
-  return out;
+  return { byLabel, order };
 }
+
+/** The labels of `order` that `other` also holds, in order. */
+const kept = (order: readonly string[], other: ReadonlyMap<string, unknown>): string[] =>
+  order.filter((label) => other.has(label));
 
 /** `value` on one line, its control characters visible. */
 const shown = (value: unknown): string => visible(JSON.stringify(value) ?? 'undefined');
@@ -140,15 +166,21 @@ function walk(path: string, before: unknown, after: unknown, out: string[]): voi
   if (Array.isArray(before) && Array.isArray(after)) {
     const was = labelled(before);
     const now = labelled(after);
-    for (const label of new Set([...was.keys(), ...now.keys()])) {
+    for (const label of new Set([...was.order, ...now.order])) {
       const here = `${path}[${label}]`;
-      if (!now.has(label)) {
-        out.push(`- ${here}: ${shown(was.get(label))}`);
-      } else if (!was.has(label)) {
-        out.push(`+ ${here}: ${shown(now.get(label))}`);
+      if (!now.byLabel.has(label)) {
+        out.push(`- ${here}: ${shown(was.byLabel.get(label))}`);
+      } else if (!was.byLabel.has(label)) {
+        out.push(`+ ${here}: ${shown(now.byLabel.get(label))}`);
       } else {
-        walk(here, was.get(label), now.get(label), out);
+        walk(here, was.byLabel.get(label), now.byLabel.get(label), out);
       }
+    }
+    // Position is part of a list's state: the records both sides hold must keep their order.
+    const orderWas = kept(was.order, now.byLabel);
+    const orderNow = kept(now.order, was.byLabel);
+    if (orderWas.join('\u0000') !== orderNow.join('\u0000')) {
+      out.push(`~ ${path} order: [${orderWas.join(', ')}] -> [${orderNow.join(', ')}]`);
     }
     return;
   }
@@ -222,8 +254,8 @@ export class Pins {
   /**
    * Stage the recorded pins, in case order, when this run covered the whole
    * file. A test run cannot know its own outcome from inside, so the pins go to
-   * `<file>.staged`; `scripts/update-pins.ts` promotes them only when the whole
-   * run, every test and cleanup hook, passed.
+   * the run's staging directory, named by the encoded path of the pin file;
+   * `scripts/update-pins.ts` promotes them only when the whole run passed.
    */
   save(): void {
     if (!UPDATING) {
@@ -233,11 +265,11 @@ export class Pins {
     if (missing.length > 0) {
       throw new Error(`pins not staged: no run for ${missing.join(', ')}`);
     }
-    mkdirSync(dirname(this.path), { recursive: true });
     const body = [...this.names]
       .map((name) => `${HEADER}${name}\n${this.#recorded.get(name)!}\n`)
       .join('');
-    writeFileSync(`${this.path}${STAGED}`, body);
+    mkdirSync(STAGE!, { recursive: true });
+    writeFileSync(join(STAGE!, encodeURIComponent(this.path)), body);
   }
 }
 
