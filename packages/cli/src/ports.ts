@@ -67,6 +67,17 @@ export type Wire = {
   scratchReceipt: (scratchpad: Scratchpad) => Record<string, unknown>;
 };
 
+/**
+ * The installer's edges (ADR 0031), supplied over core: the answer to the
+ * installer's probe of a candidate binary, and the candidate's own install.
+ */
+export type Installation = {
+  /** The one line the probe expects. */
+  protocolResponse: string;
+  /** Install this binary; throws an `Error` with the reason when it cannot. */
+  install: (args: string[]) => void;
+};
+
 export type Ports = {
   /** The Engine, opened on first ask, so help and usage errors never open the store. */
   engine: () => Promise<Engine>;
@@ -74,6 +85,8 @@ export type Ports = {
   scope: (notify: (line: string) => void) => Promise<string | undefined>;
   grammar: Grammar;
   wire: Wire;
+  /** The hidden installer commands' edges. */
+  installation: Installation;
   /** The machine-local services (MMR-553): the binding, doctor, and the store's own upgrade and transfer. */
   machine: Machine;
 };

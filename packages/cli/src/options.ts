@@ -5,6 +5,7 @@
  */
 import type { BooleanOption, StringOption } from '@loomcli/core';
 import { helpInput } from '@loomcli/plugins/help/extension';
+import { mcpInput } from '@loomcli/plugins/mcp/extension';
 
 export const scopeOption = {
   description: 'The project to read. Defaults to the clone binding.',
@@ -21,8 +22,10 @@ export const colOption = {
   type: 'string',
 } satisfies StringOption;
 
+// Off MCP: a tool answers in JSON, which no glyph or color touches.
 export const asciiOption = {
   description: 'Print without color, in ASCII glyphs.',
+  extensions: [mcpInput({ exclude: true })],
   type: 'boolean',
 } satisfies BooleanOption;
 

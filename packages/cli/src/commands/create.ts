@@ -5,7 +5,7 @@
 import { Command, FatalError } from '@loomcli/core';
 import type { StringOption } from '@loomcli/core';
 import { helpCommand, helpInput } from '@loomcli/plugins/help/extension';
-import { mcpCommand } from '@loomcli/plugins/mcp/extension';
+import { mcpCommand, mcpInput } from '@loomcli/plugins/mcp/extension';
 import { confirm } from '@loomcli/prompts';
 import { MimirError, PROJECT_KEY_PATTERN } from '@mimir/contract';
 
@@ -71,86 +71,92 @@ function requireParentKind(
 }
 
 function projectCommand(ports: Ports) {
-  return new Command('project', {
-    description: 'Create a project. Its key is immutable, so creating one asks for confirmation.',
-    extensions: [
-      helpCommand({
-        examples: [
-          {
-            command: 'create project "Mimir" --key MMR -y',
-            note: 'confirm without a prompt',
-          },
-        ],
-      }),
-      mcpCommand({ annotations: writeHints }),
-    ],
-  })
-    .argument('name', {
-      description: "The project's name, or give it as --name.",
+  return (
+    new Command('project', {
+      description: 'Create a project. Its key is immutable, so creating one asks for confirmation.',
+      extensions: [
+        helpCommand({
+          examples: [
+            {
+              command: 'create project "Mimir" --key MMR -y',
+              note: 'confirm without a prompt',
+            },
+          ],
+        }),
+        mcpCommand({ annotations: writeHints }),
+      ],
     })
-    .option('key', {
-      description: 'The project key: two to four capital letters. It cannot change.',
-      extensions: [helpInput({ placeholder: 'KEY' })],
-      required: true,
-      type: 'string',
-    })
-    .option('name', text("The project's name, when not given as the argument."))
-    .option('desc', descOption)
-    .option('remote', text('The Git remote the project lives at.', 'url'))
-    .option('tag', tagOption)
-    .option('yes', {
-      description: 'Confirm without a prompt.',
-      short: 'y',
-      type: 'boolean',
-    })
-    .option('ascii', asciiOption)
-    .result<Notice>({ views: noticeViews })
-    .views({ records: noticeViews.records }, { default: 'records' })
-    .action(async (context) => {
-      const { args, host, interactive, options, out } = context;
-      const name = args.name ?? options.name;
-      if (name === undefined) {
-        throw new MimirUsageError(
-          'create project requires a name',
-          'create project "Name" --key KEY',
-        );
-      }
-      // The key is immutable, so creation is the one gated write: a prompt on a
-      // terminal, and -y/--yes where there is none.
-      if (!options.yes) {
-        if (!interactive) {
+      .argument('name', {
+        description: "The project's name, or give it as --name.",
+      })
+      .option('key', {
+        description: 'The project key: two to four capital letters. It cannot change.',
+        extensions: [helpInput({ placeholder: 'KEY' })],
+        required: true,
+        type: 'string',
+      })
+      // Off MCP: a tool takes the name as its argument, and a tool lists one input per name.
+      .option('name', {
+        ...text("The project's name, when not given as the argument."),
+        extensions: [helpInput({ placeholder: 'text' }), mcpInput({ exclude: true })],
+      })
+      .option('desc', descOption)
+      .option('remote', text('The Git remote the project lives at.', 'url'))
+      .option('tag', tagOption)
+      .option('yes', {
+        description: 'Confirm without a prompt.',
+        short: 'y',
+        type: 'boolean',
+      })
+      .option('ascii', asciiOption)
+      .result<Notice>({ views: noticeViews })
+      .views({ records: noticeViews.records }, { default: 'records' })
+      .action(async (context) => {
+        const { args, host, interactive, options, out } = context;
+        const name = args.name ?? options.name;
+        if (name === undefined) {
           throw new MimirUsageError(
-            `create project ${options.key}: the key is immutable — confirmation required`,
-            're-run with -y/--yes to confirm',
+            'create project requires a name',
+            'create project "Name" --key KEY',
           );
         }
-        const proceed = await confirm(context, {
-          default: false,
-          message: `create project ${options.key} ("${name}") — the key is immutable. proceed?`,
-        });
-        if (!proceed) {
-          throw new FatalError('aborted');
+        // The key is immutable, so creation is the one gated write: a prompt on a
+        // terminal, and -y/--yes where there is none.
+        if (!options.yes) {
+          if (!interactive) {
+            throw new MimirUsageError(
+              `create project ${options.key}: the key is immutable — confirmation required`,
+              're-run with -y/--yes to confirm',
+            );
+          }
+          const proceed = await confirm(context, {
+            default: false,
+            message: `create project ${options.key} ("${name}") — the key is immutable. proceed?`,
+          });
+          if (!proceed) {
+            throw new FatalError('aborted');
+          }
         }
-      }
-      // A key not shaped like one is a refusal of the key, not of the schema.
-      if (!PROJECT_KEY_PATTERN.test(options.key)) {
-        throw new MimirError('validation', `project key must match [A-Z]{2,4}: ${options.key}`);
-      }
-      const engine = await ports.engine();
-      const project = await engine.create({
-        description: options.desc,
-        key: options.key,
-        name,
-        remote: options.remote,
-        tags: tagsOf(options.tag),
-        type: 'project',
-      });
-      await out.results({
-        ids: project.id,
-        json: { project: { key: project.id, name: project.title } },
-        line: okLine(presentationOf(host, options.ascii), `created project ${project.id}`),
-      });
-    });
+        // A key not shaped like one is a refusal of the key, not of the schema.
+        if (!PROJECT_KEY_PATTERN.test(options.key)) {
+          throw new MimirError('validation', `project key must match [A-Z]{2,4}: ${options.key}`);
+        }
+        const engine = await ports.engine();
+        const project = await engine.create({
+          description: options.desc,
+          key: options.key,
+          name,
+          remote: options.remote,
+          tags: tagsOf(options.tag),
+          type: 'project',
+        });
+        await out.results({
+          ids: project.id,
+          json: { project: { key: project.id, name: project.title } },
+          line: okLine(presentationOf(host, options.ascii), `created project ${project.id}`),
+        });
+      })
+  );
 }
 
 function initiativeCommand(ports: Ports) {

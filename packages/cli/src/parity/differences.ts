@@ -59,7 +59,12 @@ export type ParityDifference =
    * them. Loom hands them over, and the command refuses them with its own usage
    * failure: exit 2, code `usage`, naming the words. Argv cases only.
    */
-  | { case: string; kind: 'stray-refusal'; reason: string };
+  | { case: string; kind: 'stray-refusal'; reason: string }
+  /**
+   * Both CLIs refuse with the same Mimir code, exit code, and hints, but the new
+   * message names an option the old CLI did not have.
+   */
+  | { case: string; kind: 'message-changed'; message: string; reason: string };
 
 /**
  * Two reviewed differences every case carries, which the harness normalizes
@@ -76,6 +81,8 @@ export const LOOM_RESETS: readonly string[] = ['\u001B[22m', '\u001B[39m'];
 
 const LOOM_PARSER = "Loom's parser reports a structural fault in Loom's words and failure code.";
 const REPEATED = 'Loom refuses a repeated single-value option; the old CLI kept the last value.';
+const INLINE_CONTENT =
+  'attach gains --content (the old MCP attach took the body inline), so the refusal names it.';
 const STRAY = 'Loom refuses a positional the command does not declare; the old CLI ignored it.';
 const EXCLUSIVE =
   'Loom refuses options that exclude each other; the old CLI took the first one it read.';
@@ -443,6 +450,18 @@ export const PARITY_DIFFERENCES: readonly ParityDifference[] = [
     case: 'groom argv: MMR-4 groomed --bogus',
     kind: 'loom-voice',
     reason: LOOM_PARSER,
+  },
+  {
+    case: 'attach argv: MMR-5 --file <empty>',
+    kind: 'message-changed',
+    message: 'attach requires content (--content <text>, --file <path>, or piped stdin)',
+    reason: INLINE_CONTENT,
+  },
+  {
+    case: 'attach argv: MMR-5 --file <file> --title " "',
+    kind: 'message-changed',
+    message: 'attach from --content or stdin requires --title <text>',
+    reason: INLINE_CONTENT,
   },
   {
     case: 'attach argv: MMR-5 --file <file> --bogus',

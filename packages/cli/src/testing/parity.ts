@@ -356,6 +356,33 @@ function engineRefusalProblems(old: ParityRun, next: ParityRun): string[] {
   return [];
 }
 
+/** A `message-changed` entry: the same refusal, its message naming an option the old CLI lacked. */
+function messageChangedProblems(old: ParityRun, next: ParityRun, message: string): string[] {
+  const want = old.failure;
+  const got = next.failure;
+  if (want === undefined || got === undefined) {
+    return ['a message-changed entry needs both CLIs to refuse'];
+  }
+  const problems: string[] = [];
+  if (old.exitCode !== next.exitCode) {
+    problems.push(`exit code: old ${String(old.exitCode)}, new ${String(next.exitCode)}`);
+  }
+  if (want.code !== got.code || !MIMIR_CODES.has(got.code)) {
+    problems.push(`failure code: old ${want.code}, new ${got.code}`);
+  }
+  if (JSON.stringify(want.hints) !== JSON.stringify(got.hints)) {
+    problems.push('failure hints differ');
+  }
+  if (want.message === got.message) {
+    problems.push('a message-changed entry names failures that match; remove it');
+  } else if (got.message !== message) {
+    problems.push(
+      `failure message: the entry pins "${message}", the new CLI said "${got.message}"`,
+    );
+  }
+  return problems;
+}
+
 /** A `loom-voice` entry: the new failure is Loom's own, and differs from the old one. */
 function loomVoiceProblems(old: ParityRun, next: ParityRun): string[] {
   const problems = loomFaultProblems(next.failure);
@@ -475,6 +502,9 @@ export function parityProblems(
   }
   if (entry?.kind === 'loom-scoped') {
     return loomScopedProblems(old, next);
+  }
+  if (entry?.kind === 'message-changed') {
+    return messageChangedProblems(old, next, entry.message);
   }
   if (entry?.kind === 'engine-refusal') {
     return engineRefusalProblems(old, next);

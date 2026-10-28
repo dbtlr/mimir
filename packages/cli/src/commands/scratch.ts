@@ -6,7 +6,7 @@
  */
 import { Command } from '@loomcli/core';
 import { helpCommand, helpInput } from '@loomcli/plugins/help/extension';
-import { mcpCommand } from '@loomcli/plugins/mcp/extension';
+import { mcpCommand, mcpInput } from '@loomcli/plugins/mcp/extension';
 import { intentEncoders, MimirError } from '@mimir/contract';
 import type { ArtifactDetail, Engine, Scratchpad } from '@mimir/contract';
 
@@ -238,7 +238,8 @@ function scratchWriteCommands(ports: Ports) {
     .option('expected-updated-at', expectedOption)
     .option('file', {
       description: 'Read the checkpoint from this file instead, or from piped stdin.',
-      extensions: [helpInput({ placeholder: 'path' })],
+      // Off MCP: a path would read any file on the server's machine; a tool sends `text`.
+      extensions: [helpInput({ placeholder: 'path' }), mcpInput({ exclude: true })],
       stdin: true,
       type: 'content',
     })

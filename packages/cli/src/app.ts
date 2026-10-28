@@ -14,6 +14,7 @@ import { Application, FatalError, processHandle } from '@loomcli/core';
 import { format } from '@loomcli/plugins/format';
 import { help } from '@loomcli/plugins/help';
 import { interaction } from '@loomcli/plugins/interaction';
+import { mcp } from '@loomcli/plugins/mcp';
 import { selfUpdate } from '@loomcli/plugins/self-update';
 import { skills } from '@loomcli/plugins/skills';
 import { MimirError } from '@mimir/contract';
@@ -37,6 +38,7 @@ import {
   dateFilterWindows,
   findingLine,
   gitPortAt,
+  INSTALLATION_PROTOCOL_RESPONSE,
   hostOrigin,
   LocalEngine,
   MAX_SEARCH_LIMIT,
@@ -53,6 +55,7 @@ import {
   promoteToWire,
   readConfig,
   readCredentials,
+  runInstallationCommand,
   readRuntimeConfig,
   recordedPairing,
   requireTimeZone,
@@ -97,6 +100,7 @@ import { dependCommand, undependCommand } from './commands/depend';
 import { doctorCommand } from './commands/doctor';
 import { getCommand } from './commands/get';
 import { groomCommand } from './commands/groom';
+import { installationInstallCommand, installationProtocolCommand } from './commands/installation';
 import {
   abandonVerb,
   archiveVerb,
@@ -786,6 +790,10 @@ export function corePorts(source: CliSource): Ports {
       maxSearchLimit: MAX_SEARCH_LIMIT,
       timeZone: requireTimeZone,
     },
+    installation: {
+      install: runInstallationCommand,
+      protocolResponse: INSTALLATION_PROTOCOL_RESPONSE,
+    },
     machine,
     scope: (notify) => bindingScope(getEngine, source.git, notify)(),
     wire: {
@@ -826,6 +834,8 @@ export function createApp(source: CliSource) {
         format({ short: 'f' }),
         // --no-input: a scripted run answers every question from its flags.
         interaction(),
+        // `mimir mcp` serves the commands that opt in with mcpCommand (ADR 0037).
+        mcp(),
         // The skill files stay embedded, so the installed skill matches this binary.
         skills({ skills: [MIMIR_SKILL] }),
         selfUpdate({ notices: false }),
@@ -868,6 +878,9 @@ export function createApp(source: CliSource) {
       .command(pairCommand(ports))
       .command(storeCommand(ports))
       .command(versionCommand(ports))
+      // ADR 0031: the installer's handshake, hidden from help and MCP.
+      .command(installationProtocolCommand(ports))
+      .command(installationInstallCommand(ports))
       // MMR-550: the fourteen uniform lifecycle verbs.
       .command(queueVerb(ports))
       .command(unqueueVerb(ports))

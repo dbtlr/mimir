@@ -40,3 +40,6 @@ packages/host/test-results/
 # TanStack Start and Nitro build output
 packages/host/.output/
 packages/host/.tanstack/
+
+# Per-worktree scratch (temp builds, fixtures, experiment output)
+.scratch/
