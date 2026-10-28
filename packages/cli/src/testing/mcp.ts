@@ -1,22 +1,22 @@
 /**
- * Both MCP servers, driven in process for the capability and structured-content
- * parity tests: the old SDK server over a store, and Loom's generated server
- * over an Application on piped stdio. Test-only.
+ * Loom's generated MCP server, driven in process over an Application on piped
+ * stdio, for the capability and structured-content parity tests. Test-only.
+ *
+ * It runs on `processHandle` with piped streams rather than `mockProcess`: the
+ * mock's stdin is fixed text that ends, while an MCP session writes each
+ * request after it has read the previous reply. Environment and home are given
+ * (`home: ''` is no home), so no real home is read.
  */
 import { PassThrough } from 'node:stream';
 
 import { processHandle } from '@loomcli/core';
 import type { Application } from '@loomcli/core';
-import { buildMcpServer } from '@mimir/bin/src/mcp';
-import type { Store } from '@mimir/core';
 import { parseJson } from '@mimir/helpers';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 
-/** What a tool call answered, in the shape both servers share. */
+/** What a tool call answered. */
 export type ToolAnswer = {
   isError: boolean;
-  /** The structured content: the old server's JSON text parsed, Loom's `structuredContent`. */
+  /** The call's `structuredContent`. */
   structured: unknown;
   text: string;
 };
@@ -40,7 +40,7 @@ const schemaOf = (tools: readonly ListedTool[], name: string): ToolSchema => {
   };
 };
 
-/** One MCP server a test calls tools on. */
+/** The MCP server a test calls tools on. */
 export type McpSession = {
   /** Every tool name the server lists. */
   tools: () => Promise<string[]>;
@@ -66,28 +66,6 @@ function textOf(content: unknown): string {
   return parts
     .map((part: { text?: unknown }) => (typeof part.text === 'string' ? part.text : ''))
     .join('');
-}
-
-/** The old server over `store`, its binding `bound`, on an in-memory transport. */
-export async function oldMcpSession(store: Store, bound?: string): Promise<McpSession> {
-  const server = buildMcpServer(store, '0.0.0', () => Promise.resolve(bound));
-  const [serverSide, clientSide] = InMemoryTransport.createLinkedPair();
-  await server.connect(serverSide);
-  const client = new Client({ name: 'parity', version: '0.0.0' });
-  await client.connect(clientSide);
-  return {
-    call: async (name, args) => {
-      const result = await client.callTool({ arguments: args, name });
-      const text = textOf(result.content);
-      const isError = result.isError === true;
-      return { isError, structured: isError ? undefined : parseJson(text), text };
-    },
-    close: async () => {
-      await client.close();
-    },
-    schema: async (name) => schemaOf((await client.listTools()).tools, name),
-    tools: async () => (await client.listTools()).tools.map((tool) => tool.name),
-  };
 }
 
 /** Loom's server: `<app> mcp` run over piped stdio, one request at a time. */

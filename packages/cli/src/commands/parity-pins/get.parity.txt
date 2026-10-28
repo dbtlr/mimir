@@ -1,0 +1,1322 @@
+### get MMR-3
+exit 0
+--- stdout
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+|   blocking     MMR-4 · Render views
+|   tags         alpha
+|   annotations  2
+|   artifacts    1
+
+### get MMR-3 -f records
+exit 0
+--- stdout
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+|   blocking     MMR-4 · Render views
+|   tags         alpha
+|   annotations  2
+|   artifacts    1
+
+### get MMR-3 -f table
+exit 0
+--- stdout
+| 1 task
+|
+| MMR-3   * ready   p1   groomed   MMR-2   Wire the store
+
+### get MMR-3 -f ids
+exit 0
+--- stdout
+| MMR-3
+
+### get MMR-3 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-3",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Wire the store",
+|   "type": "task",
+|   "description": "Open the store once.\n\nKeep it open.",
+|   "summary": "one store per run",
+|   "priority": "p1",
+|   "size": "small",
+|   "lifecycle": "todo",
+|   "grooming": "groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "deps": {
+|     "awaiting_on": [],
+|     "blocking": [
+|       {
+|         "id": "MMR-4",
+|         "status": "awaiting",
+|         "title": "Render views"
+|       }
+|     ],
+|     "depends_on": []
+|   },
+|   "children": [],
+|   "tags": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-a1",
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes"
+|     }
+|   ]
+| }
+
+### get MMR-3 -f jsonl
+exit 0
+--- stdout
+| {
+|   "id": "MMR-3",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Wire the store",
+|   "type": "task",
+|   "description": "Open the store once.\n\nKeep it open.",
+|   "summary": "one store per run",
+|   "priority": "p1",
+|   "size": "small",
+|   "lifecycle": "todo",
+|   "grooming": "groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "deps": {
+|     "awaiting_on": [],
+|     "blocking": [
+|       {
+|         "id": "MMR-4",
+|         "status": "awaiting",
+|         "title": "Render views"
+|       }
+|     ],
+|     "depends_on": []
+|   },
+|   "children": [],
+|   "tags": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-a1",
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes"
+|     }
+|   ]
+| }
+
+### get MMR-3 --ascii
+exit 0
+--- stdout
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+|   blocking     MMR-4 · Render views
+|   tags         alpha
+|   annotations  2
+|   artifacts    1
+
+### get MMR-3 --col history
+exit 0
+--- stdout
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+|   blocking     MMR-4 · Render views
+|   tags         alpha
+|   annotations  2
+|   artifacts    1
+
+### get MMR-3 --col history -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-3",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Wire the store",
+|   "type": "task",
+|   "description": "Open the store once.\n\nKeep it open.",
+|   "summary": "one store per run",
+|   "priority": "p1",
+|   "size": "small",
+|   "lifecycle": "todo",
+|   "grooming": "groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "deps": {
+|     "awaiting_on": [],
+|     "blocking": [
+|       {
+|         "id": "MMR-4",
+|         "status": "awaiting",
+|         "title": "Render views"
+|       }
+|     ],
+|     "depends_on": []
+|   },
+|   "children": [],
+|   "tags": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-a1",
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes"
+|     }
+|   ],
+|   "history": []
+| }
+
+### get MMR-3 --col annotations
+exit 0
+--- stdout
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+|   blocking     MMR-4 · Render views
+|   tags         alpha
+|   annotations  2026-10-01 12:00 UTC — First pass.
+|                Second line.
+|                2026-10-01 12:00 UTC — Settled; one; store.
+|   artifacts    1
+
+### get MMR-3 --col verdicts
+exit 0
+--- stdout
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+|   blocking     MMR-4 · Render views
+|   tags         alpha
+|   annotations  2
+|   artifacts    1
+|   verdicts     blocking
+
+### get MMR-3 --col deps,tags -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-3",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Wire the store",
+|   "type": "task",
+|   "description": "Open the store once.\n\nKeep it open.",
+|   "summary": "one store per run",
+|   "priority": "p1",
+|   "size": "small",
+|   "lifecycle": "todo",
+|   "grooming": "groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "deps": {
+|     "awaiting_on": [],
+|     "blocking": [
+|       {
+|         "id": "MMR-4",
+|         "status": "awaiting",
+|         "title": "Render views"
+|       }
+|     ],
+|     "depends_on": []
+|   },
+|   "children": [],
+|   "tags": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-a1",
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes"
+|     }
+|   ]
+| }
+
+### get MMR-3 --col content
+exit 0
+--- stdout
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+|   blocking     MMR-4 · Render views
+|   tags         alpha
+|   annotations  2
+|   artifacts    1
+
+### get MMR-4
+exit 0
+--- stdout
+| MMR-4
+|   type         task
+|   status       ~ awaiting
+|   title        Render views
+|   parent       MMR-2
+|   lifecycle    todo
+|   grooming     not_groomed
+|   hold         none
+|   depends on   MMR-3 · Wire the store
+|   awaiting on  MMR-3 · Wire the store
+|   tags         alpha
+
+### get MMR-4 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-4",
+|   "parent": "MMR-2",
+|   "status": "awaiting",
+|   "title": "Render views",
+|   "type": "task",
+|   "description": null,
+|   "summary": null,
+|   "priority": null,
+|   "size": null,
+|   "lifecycle": "todo",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "deps": {
+|     "awaiting_on": [
+|       {
+|         "id": "MMR-3",
+|         "status": "ready",
+|         "title": "Wire the store"
+|       }
+|     ],
+|     "blocking": [],
+|     "depends_on": [
+|       {
+|         "id": "MMR-3",
+|         "status": "ready",
+|         "title": "Wire the store"
+|       }
+|     ]
+|   },
+|   "children": [],
+|   "tags": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "annotations": [],
+|   "artifacts": []
+| }
+
+### get MMR-5
+exit 0
+--- stdout
+| MMR-5
+|   type            task
+|   status          > in_progress
+|   title           Ship it
+|   parent          MMR-2
+|   priority        p0
+|   lifecycle       in_progress
+|   grooming        not_groomed
+|   hold            none
+|   harness         codex
+|   session         main-session
+|   worker harness  claude
+|   worker session  task-worker-session
+
+### get MMR-5 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-5",
+|   "parent": "MMR-2",
+|   "status": "in_progress",
+|   "title": "Ship it",
+|   "type": "task",
+|   "description": null,
+|   "summary": null,
+|   "priority": "p0",
+|   "size": null,
+|   "lifecycle": "in_progress",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": "codex",
+|   "session": "main-session",
+|   "worker_harness": "claude",
+|   "worker_session": "task-worker-session",
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "deps": {
+|     "awaiting_on": [],
+|     "blocking": [],
+|     "depends_on": []
+|   },
+|   "children": [],
+|   "tags": [],
+|   "annotations": [],
+|   "artifacts": []
+| }
+
+### get MMR-5 --col history
+exit 0
+--- stdout
+| MMR-5
+|   type            task
+|   status          > in_progress
+|   title           Ship it
+|   parent          MMR-2
+|   priority        p0
+|   lifecycle       in_progress
+|   grooming        not_groomed
+|   hold            none
+|   harness         codex
+|   session         main-session
+|   worker harness  claude
+|   worker session  task-worker-session
+|   history         lifecycle todo -> in_progress
+
+### get MMR-6
+exit 0
+--- stdout
+| MMR-6
+|   type         task
+|   status       x blocked
+|   title        Wait on review
+|   parent       MMR-2
+|   lifecycle    todo
+|   grooming     not_groomed
+|   hold         blocked
+|   hold reason  needs a reviewer
+|   block owner  you
+
+### get MMR-7 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-7",
+|   "parent": "MMR-2",
+|   "status": "done",
+|   "title": "Spike",
+|   "type": "task",
+|   "description": null,
+|   "summary": null,
+|   "priority": null,
+|   "size": null,
+|   "lifecycle": "done",
+|   "grooming": "not_groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": "2026-10-01T12:00:00.000Z",
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "deps": {
+|     "awaiting_on": [],
+|     "blocking": [],
+|     "depends_on": []
+|   },
+|   "children": [],
+|   "tags": [],
+|   "annotations": [],
+|   "artifacts": []
+| }
+
+### get MMR-7
+exit 0
+--- stdout
+| MMR-7
+|   type       task
+|   status     v done
+|   title      Spike
+|   parent     MMR-2
+|   lifecycle  done
+|   grooming   not_groomed
+|   hold       none
+|   completed  2026-10-01 12:00 UTC
+
+### get MMR-7 --col history
+exit 0
+--- stdout
+| MMR-7
+|   type       task
+|   status     v done
+|   title      Spike
+|   parent     MMR-2
+|   lifecycle  done
+|   grooming   not_groomed
+|   hold       none
+|   completed  2026-10-01 12:00 UTC
+|   history    lifecycle todo -> in_progress; lifecycle in_progress -> done
+
+### get MMR-2
+exit 0
+--- stdout
+| MMR-2
+|   type          phase
+|   status        > in_progress (rollup over 6 direct children)
+|   title         Skeleton
+|   parent        MMR-1
+|   target        2026-11
+|   children      MMR-3 · Wire the store (ready), MMR-4 · Render views (awaiting), MMR-5 · Ship it (in_progress), MMR-6 · Wait on review (blocked), MMR-7 · Spike (done), MMR-8 · Tidy docs (ready)
+|   distribution  ready:2, awaiting:1, in_progress:1, blocked:1, done:1
+
+### get MMR-2 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-2",
+|   "parent": "MMR-1",
+|   "status": "in_progress",
+|   "title": "Skeleton",
+|   "type": "phase",
+|   "description": null,
+|   "summary": null,
+|   "target": "2026-11",
+|   "open_ended": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "deps": {
+|     "awaiting_on": [],
+|     "blocking": [],
+|     "depends_on": []
+|   },
+|   "children": [
+|     {
+|       "id": "MMR-3",
+|       "status": "ready",
+|       "title": "Wire the store"
+|     },
+|     {
+|       "id": "MMR-4",
+|       "status": "awaiting",
+|       "title": "Render views"
+|     },
+|     {
+|       "id": "MMR-5",
+|       "status": "in_progress",
+|       "title": "Ship it"
+|     },
+|     {
+|       "id": "MMR-6",
+|       "status": "blocked",
+|       "title": "Wait on review"
+|     },
+|     {
+|       "id": "MMR-7",
+|       "status": "done",
+|       "title": "Spike"
+|     },
+|     {
+|       "id": "MMR-8",
+|       "status": "ready",
+|       "title": "Tidy docs"
+|     }
+|   ],
+|   "distribution": {
+|     "ready": 2,
+|     "awaiting": 1,
+|     "in_progress": 1,
+|     "blocked": 1,
+|     "done": 1
+|   },
+|   "tags": [],
+|   "annotations": [],
+|   "artifacts": []
+| }
+
+### get MMR-1 -f table
+exit 0
+--- stdout
+| 1 task
+|
+| MMR-1   > in_progress           Platform
+
+### get MMR
+exit 0
+--- stdout
+| MMR
+|   type           project
+|   status         > in_progress (rollup over 1 direct child)
+|   title          mimir
+|   description    The work-state store.
+|   remote         github.com/dbtlr/mimir
+|   last activity  2026-10-01 12:00 UTC
+|   children       MMR-1 · Platform (in_progress)
+|   distribution   in_progress:1
+|   artifacts      1
+
+### get MMR -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR",
+|   "parent": null,
+|   "status": "in_progress",
+|   "title": "mimir",
+|   "type": "project",
+|   "description": "The work-state store.",
+|   "pinned": false,
+|   "remote": "github.com/dbtlr/mimir",
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "last_activity_at": "2026-10-01T12:00:00.000Z",
+|   "children": [
+|     {
+|       "id": "MMR-1",
+|       "status": "in_progress",
+|       "title": "Platform"
+|     }
+|   ],
+|   "distribution": {
+|     "in_progress": 1
+|   },
+|   "tags": [],
+|   "artifacts": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-a1",
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes"
+|     }
+|   ]
+| }
+
+### get MMR-a1
+exit 0
+--- stdout
+| MMR-a1
+|   title    Store notes
+|   summary  design notes
+|   project  MMR
+|   links    MMR-3
+|   tags     design
+|   created  2026-10-01 12:00 UTC
+
+### get MMR-a1 --col content
+exit 0
+--- stdout
+| MMR-a1
+|   title    Store notes
+|   summary  design notes
+|   project  MMR
+|   links    MMR-3
+|   tags     design
+|   created  2026-10-01 12:00 UTC
+|
+| # Notes
+|
+| The body.
+
+### get MMR-a1 --col content -f json
+exit 0
+--- stdout
+| {
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "id": "MMR-a1",
+|   "links": [
+|     "MMR-3"
+|   ],
+|   "project": "MMR",
+|   "tags": [
+|     "design"
+|   ],
+|   "title": "Store notes",
+|   "summary": "design notes",
+|   "content": "# Notes\n\nThe body."
+| }
+
+### get MMR-a1 -f table
+exit 0
+--- stdout
+| 1 artifact
+|
+| MMR-a1   Store notes   design   2026-10-01
+
+### get MMR-a1 -f ids
+exit 0
+--- stdout
+| MMR-a1
+
+### get MMR-s1
+exit 0
+--- stdout
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    new
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+
+### get MMR-s1 -f json
+exit 0
+--- stdout
+| {
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "id": "MMR-s1",
+|   "kind": "feature",
+|   "lane": "untriaged",
+|   "lifecycle": "new",
+|   "project": "MMR",
+|   "ready_to_resolve": false,
+|   "requester": "XX",
+|   "spawned": [],
+|   "title": "A hook",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "description": "Ask the other board for a hook."
+| }
+
+### get MMR-s1 -f table
+exit 0
+--- stdout
+| MMR-s1
+|   project      MMR
+|   title        A hook
+|   kind         feature
+|   lifecycle    new
+|   requester    XX
+|   description  Ask the other board for a hook.
+|   created      2026-10-01 12:00 UTC
+
+### get MMR-s1 -f ids
+exit 0
+--- stdout
+| MMR-s1
+
+### get MMR-99
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-99 doesn't exist"
+| }
+
+### get MMR-99 -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-99 doesn't exist"
+| }
+
+### get MMR-a99
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-a99 doesn't exist"
+| }
+
+### get MMR-s99
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-s99 doesn't exist"
+| }
+
+### get NOPE
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key NOPE -y"
+|   ],
+|   "message": "NOPE doesn't exist"
+| }
+
+### get mmr-3
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "mmr-3 doesn't exist"
+| }
+
+### get MMR-3 --col bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "columns: deps, description, next, annotations, artifacts, history, tags, children, distribution, leafCounts, artifactCount, verdicts, home, lede, content"
+|   ],
+|   "message": "unknown column: bogus"
+| }
+
+### get MMR-3 --col status
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "optional columns: deps, description, next, annotations, artifacts, history, tags, children, distribution, leafCounts, artifactCount, verdicts, home, lede, content"
+|   ],
+|   "message": "--col adds optional columns; 'status' is always shown"
+| }
+
+### get MMR-3 --col lede
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "try 'mimir list --col lede' or 'mimir next --col lede'"
+|   ],
+|   "message": "'lede' is a list column; 'get' shows the full record"
+| }
+
+### get MMR-3 --col .history
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "columns are flat now: --col history (the dot prefix was dropped)"
+| }
+
+### get (no id)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
+| }
+
+### get MMR-3 --tz UTC
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--tz' resolves a bare date in a query and renders its results; use it with list, next, artifacts, seeds"
+|   ],
+|   "message": "Unknown option \"tz\". Supply the name of a declared option."
+| }
+
+### get MMR-3 -f yaml
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Option \"format\": Supply one of ids, json, jsonl, records, table."
+| }
+
+### get argv: MMR-3
+exit 0
+--- stdout
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+|   blocking     MMR-4 · Render views
+|   tags         alpha
+|   annotations  2
+|   artifacts    1
+
+### get argv: MMR-3 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-3",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Wire the store",
+|   "type": "task",
+|   "description": "Open the store once.\n\nKeep it open.",
+|   "summary": "one store per run",
+|   "priority": "p1",
+|   "size": "small",
+|   "lifecycle": "todo",
+|   "grooming": "groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "deps": {
+|     "awaiting_on": [],
+|     "blocking": [
+|       {
+|         "id": "MMR-4",
+|         "status": "awaiting",
+|         "title": "Render views"
+|       }
+|     ],
+|     "depends_on": []
+|   },
+|   "children": [],
+|   "tags": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-a1",
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes"
+|     }
+|   ]
+| }
+
+### get argv: MMR-3 --format ids
+exit 0
+--- stdout
+| MMR-3
+
+### get argv: MMR-3 --col lede
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "try 'mimir list --col lede' or 'mimir next --col lede'"
+|   ],
+|   "message": "'lede' is a list column; 'get' shows the full record"
+| }
+
+### get argv: MMR-3 --col bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "columns: deps, description, next, annotations, artifacts, history, tags, children, distribution, leafCounts, artifactCount, verdicts, home, lede, content"
+|   ],
+|   "message": "unknown column: bogus"
+| }
+
+### get argv: NOPE -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key NOPE -y"
+|   ],
+|   "message": "NOPE doesn't exist"
+| }
+
+### get argv: MMR-3 -f json -f ids
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "parser",
+|   "hints": [],
+|   "message": "Option \"-f\" can be supplied only once. Remove the repeated option."
+| }
+
+### get argv: MMR-3 extra
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"get\" accepts 1 argument. Remove the extra values."
+| }
+
+### get argv: MMR-3 --tz UTC
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--tz' resolves a bare date in a query and renders its results; use it with list, next, artifacts, seeds"
+|   ],
+|   "message": "Unknown option \"--tz\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+
+### get argv: MMR-3 --at-or-before created_at:2020-01-01
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--at-or-before FIELD:VALUE' filters a query; use it with list, next, artifacts, seeds"
+|   ],
+|   "message": "Unknown option \"--at-or-before\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+
+### get argv: MMR-3 --at-or-after created_at:2020-01-01
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--at-or-after FIELD:VALUE' filters a query; use it with list, next, artifacts, seeds"
+|   ],
+|   "message": "Unknown option \"--at-or-after\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+
+### get argv: MMR-3 --on created_at:2020-01-01
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--on' names the owner at block (you|others), the prerequisites at depend/undepend, and a date filter at list, next, artifacts, seeds"
+|   ],
+|   "message": "Unknown option \"--on\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+
+### get argv: MMR-3 --query x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'-q, --query' searches titles; use it with artifacts, list, or next"
+|   ],
+|   "message": "Unknown option \"--query\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+
+### get argv: MMR-3 -q x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'-q, --query' searches titles; use it with artifacts, list, or next"
+|   ],
+|   "message": "Unknown option \"-q\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+
+### get argv: MMR-3 (terminal)
+exit 0
+--- stdout
+| ␛[1mMMR-3␛[22m
+|   type         task
+|   status       ␛[32m● ready␛[39m
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+|   blocking     MMR-4 · Render views
+|   tags         alpha
+|   annotations  2
+|   artifacts    1
+
+### get argv: MMR-3 -f table (terminal)
+exit 0
+--- stdout
+| 1 task
+|
+| MMR-3   ␛[32m● ready␛[39m   p1   groomed   MMR-2   Wire the store
+
+### get argv: MMR-a1 (terminal)
+exit 0
+--- stdout
+| ␛[1mMMR-a1␛[22m
+|   title    Store notes
+|   summary  design notes
+|   project  MMR
+|   links    MMR-3
+|   tags     design
+|   created  2026-10-01 12:00 UTC
+

@@ -112,7 +112,7 @@ const CASES: ParityCase[] = [
   argvCase(['artifacts', '-s', 'MMR', '-t', 'nothing'], true),
 ];
 
-parityCases(/^artifacts /, CASES, async (board) => {
+parityCases(import.meta.url, CASES, async (board) => {
   await board.engine.attach({
     content: 'Second body.',
     project: 'MMR',

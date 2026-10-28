@@ -45,4 +45,4 @@ const CASES: ParityCase[] = [
   argvCase(['status', 'MMR', '-f', 'table'], true),
 ];
 
-parityCases(/^status /, CASES);
+parityCases(import.meta.url, CASES);

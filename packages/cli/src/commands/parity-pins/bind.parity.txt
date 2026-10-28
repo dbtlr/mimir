@@ -1,0 +1,380 @@
+### bind (bound to MMR)
+exit 0
+--- stdout
+| MMR
+--- state
+unchanged
+
+### bind (bound to MMR) -f records
+exit 0
+--- stdout
+| MMR
+--- state
+unchanged
+
+### bind (bound to MMR) -f table
+exit 0
+--- stdout
+| MMR
+--- state
+unchanged
+
+### bind (bound to MMR) -f ids
+exit 0
+--- stdout
+| MMR
+--- state
+unchanged
+
+### bind (bound to MMR) -f json
+exit 0
+--- stdout
+| {"bound":{"project":"MMR","source":"git-config"}}
+--- state
+unchanged
+
+### bind (bound to MMR) -f jsonl
+exit 0
+--- stdout
+| {"bound":{"project":"MMR","source":"git-config"}}
+--- state
+unchanged
+
+### bind (unbound)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "unbound",
+|   "hints": [],
+|   "message": "unbound: run mimir bind KEY"
+| }
+--- state
+unchanged
+
+### bind (unbound) -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "unbound",
+|   "hints": [],
+|   "message": "unbound: run mimir bind KEY"
+| }
+--- state
+unchanged
+
+### bind (unbound, origin matches nothing)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "unbound",
+|   "hints": [],
+|   "message": "unbound: run mimir bind KEY"
+| }
+--- state
+unchanged
+
+### bind (origin matches two projects)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "unbound",
+|   "hints": [],
+|   "message": "unbound: run mimir bind KEY (several projects match this origin: AA, BB)"
+| }
+--- state
+unchanged
+
+### bind (origin matches two projects) -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "unbound",
+|   "hints": [],
+|   "message": "unbound: run mimir bind KEY (several projects match this origin: AA, BB)"
+| }
+--- state
+unchanged
+
+### bind (origin matches MMR)
+exit 0
+--- stdout
+| MMR
+--- state
+unchanged
+
+### bind (origin matches MMR) -f json
+exit 0
+--- stdout
+| {"bound":{"project":"MMR","source":"origin"}}
+--- state
+unchanged
+
+### bind MMR
+exit 0
+--- stdout
+| [ok] bound to MMR (git config mimir.project)
+--- state
+unchanged
+
+### bind MMR -f records
+exit 0
+--- stdout
+| [ok] bound to MMR (git config mimir.project)
+--- state
+unchanged
+
+### bind MMR -f table
+exit 0
+--- stdout
+| [ok] bound to MMR (git config mimir.project)
+--- state
+unchanged
+
+### bind MMR -f ids
+exit 0
+--- stdout
+| MMR
+--- state
+unchanged
+
+### bind MMR -f json
+exit 0
+--- stdout
+| {"bound":{"project":"MMR"}}
+--- state
+unchanged
+
+### bind MMR -f jsonl
+exit 0
+--- stdout
+| {"bound":{"project":"MMR"}}
+--- state
+unchanged
+
+### bind MMR (bound to XX)
+exit 0
+--- stdout
+| [ok] bound to MMR (git config mimir.project)
+--- state
+unchanged
+
+### bind XX (origin)
+exit 0
+--- stdout
+| [ok] bound to XX (git config mimir.project)
+| [ok] recorded the origin github.com/acme/widgets on XX
+--- state
+        "parent": null,
+        "pinned": false,
++       "remote": "github.com/acme/widgets",
+-       "remote": null,
+        "status": "ready",
+        "tags": [],
+
+### bind XX (origin) -f json
+exit 0
+--- stdout
+| {"bound":{"project":"XX","recordedRemote":"github.com/acme/widgets"}}
+--- state
+        "parent": null,
+        "pinned": false,
++       "remote": "github.com/acme/widgets",
+-       "remote": null,
+        "status": "ready",
+        "tags": [],
+
+### bind XX (origin) -f ids
+exit 0
+--- stdout
+| XX
+--- state
+        "parent": null,
+        "pinned": false,
++       "remote": "github.com/acme/widgets",
+-       "remote": null,
+        "status": "ready",
+        "tags": [],
+
+### bind MMR (origin)
+exit 0
+--- stdout
+| [ok] bound to MMR (git config mimir.project)
+--- state
+unchanged
+
+### bind NOPE
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key NOPE -y"
+|   ],
+|   "message": "NOPE doesn't exist"
+| }
+--- state
+unchanged
+
+### bind MMR-3
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "bind takes a project KEY such as MMR"
+|   ],
+|   "message": "MMR-3 is not a project key"
+| }
+--- state
+unchanged
+
+### bind MMR-3 -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "bind takes a project KEY such as MMR"
+|   ],
+|   "message": "MMR-3 is not a project key"
+| }
+--- state
+unchanged
+
+### bind MMR -f yaml
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Option \"format\": Supply one of ids, json, jsonl, records, table."
+| }
+--- state
+unchanged
+
+### bind MMR --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
+| }
+--- state
+unchanged
+
+### bind argv: MMR
+exit 0
+--- stdout
+| [ok] bound to MMR (git config mimir.project)
+--- state
+unchanged
+
+### bind argv: MMR -f json
+exit 0
+--- stdout
+| {"bound":{"project":"MMR"}}
+--- state
+unchanged
+
+### bind argv: --format ids MMR
+exit 0
+--- stdout
+| MMR
+--- state
+unchanged
+
+### bind argv: -f json (bound)
+exit 0
+--- stdout
+| {"bound":{"project":"MMR","source":"git-config"}}
+--- state
+unchanged
+
+### bind argv: -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "unbound",
+|   "hints": [],
+|   "message": "unbound: run mimir bind KEY"
+| }
+--- state
+unchanged
+
+### bind argv: MMR extra
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"bind\" accepts 1 argument. Remove the extra values."
+| }
+--- state
+unchanged
+
+### bind argv: MMR -f json -f ids
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "parser",
+|   "hints": [],
+|   "message": "Option \"-f\" can be supplied only once. Remove the repeated option."
+| }
+--- state
+unchanged
+
+### bind argv: MMR (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m bound to MMR (git config mimir.project)
+--- state
+unchanged
+
+### bind argv: XX (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m bound to XX (git config mimir.project)
+| ␛[32m✓␛[39m recorded the origin github.com/acme/widgets on XX
+--- state
+        "parent": null,
+        "pinned": false,
++       "remote": "github.com/acme/widgets",
+-       "remote": null,
+        "status": "ready",
+        "tags": [],
+
+### bind argv: (no arguments) (terminal) (bound)
+exit 0
+--- stdout
+| MMR
+--- state
+unchanged
+
+### bind argv: MMR --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
+|   ],
+|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+

@@ -1,0 +1,1091 @@
+### tag argv: MMR-5 design
+exit 0
+--- stdout
+| [ok] tagged MMR-5: design
+--- state
+              "status": "in_progress",
+              "summary": null,
++             "tags": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "design"
++               }
++             ],
+-             "tags": [],
+              "title": "Ship it",
+              "type": "task",
+...
+          "status": "in_progress",
+          "summary": null,
++         "tags": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "design"
++           }
++         ],
+-         "tags": [],
+          "title": "Ship it",
+          "type": "task",
+
+### tag argv: MMR-5 design -f json
+exit 0
+--- stdout
+| {"tagged":{"ids":["MMR-5"],"tags":["design"]}}
+--- state
+              "status": "in_progress",
+              "summary": null,
++             "tags": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "design"
++               }
++             ],
+-             "tags": [],
+              "title": "Ship it",
+              "type": "task",
+...
+          "status": "in_progress",
+          "summary": null,
++         "tags": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "design"
++           }
++         ],
+-         "tags": [],
+          "title": "Ship it",
+          "type": "task",
+
+### tag argv: MMR-5 design -f jsonl
+exit 0
+--- stdout
+| {"tagged":{"ids":["MMR-5"],"tags":["design"]}}
+--- state
+              "status": "in_progress",
+              "summary": null,
++             "tags": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "design"
++               }
++             ],
+-             "tags": [],
+              "title": "Ship it",
+              "type": "task",
+...
+          "status": "in_progress",
+          "summary": null,
++         "tags": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "design"
++           }
++         ],
+-         "tags": [],
+          "title": "Ship it",
+          "type": "task",
+
+### tag argv: MMR-5 design -f ids
+exit 0
+--- stdout
+| MMR-5
+--- state
+              "status": "in_progress",
+              "summary": null,
++             "tags": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "design"
++               }
++             ],
+-             "tags": [],
+              "title": "Ship it",
+              "type": "task",
+...
+          "status": "in_progress",
+          "summary": null,
++         "tags": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "design"
++           }
++         ],
+-         "tags": [],
+          "title": "Ship it",
+          "type": "task",
+
+### tag argv: MMR-5 design -f table
+exit 0
+--- stdout
+| [ok] tagged MMR-5: design
+--- state
+              "status": "in_progress",
+              "summary": null,
++             "tags": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "design"
++               }
++             ],
+-             "tags": [],
+              "title": "Ship it",
+              "type": "task",
+...
+          "status": "in_progress",
+          "summary": null,
++         "tags": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "design"
++           }
++         ],
+-         "tags": [],
+          "title": "Ship it",
+          "type": "task",
+
+### tag argv: MMR-5 design --ascii
+exit 0
+--- stdout
+| [ok] tagged MMR-5: design
+--- state
+              "status": "in_progress",
+              "summary": null,
++             "tags": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "design"
++               }
++             ],
+-             "tags": [],
+              "title": "Ship it",
+              "type": "task",
+...
+          "status": "in_progress",
+          "summary": null,
++         "tags": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "design"
++           }
++         ],
+-         "tags": [],
+          "title": "Ship it",
+          "type": "task",
+
+### tag argv: MMR-5 design (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m tagged MMR-5: design
+--- state
+              "status": "in_progress",
+              "summary": null,
++             "tags": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "design"
++               }
++             ],
+-             "tags": [],
+              "title": "Ship it",
+              "type": "task",
+...
+          "status": "in_progress",
+          "summary": null,
++         "tags": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "design"
++           }
++         ],
+-         "tags": [],
+          "title": "Ship it",
+          "type": "task",
+
+### tag argv: MMR-5,MMR-6 design review
+exit 0
+--- stdout
+| [ok] tagged MMR-5, MMR-6: design, review
+--- state
+              "status": "in_progress",
+              "summary": null,
++             "tags": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "design"
++               },
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "review"
++               }
++             ],
+-             "tags": [],
+              "title": "Ship it",
+              "type": "task",
+...
+              "status": "blocked",
+              "summary": null,
++             "tags": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "design"
++               },
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "review"
++               }
++             ],
+-             "tags": [],
+              "title": "Wait on review",
+              "type": "task",
+...
+          "status": "in_progress",
+          "summary": null,
++         "tags": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "design"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "review"
++           }
++         ],
+-         "tags": [],
+          "title": "Ship it",
+          "type": "task",
+...
+          "status": "blocked",
+          "summary": null,
++         "tags": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "design"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "review"
++           }
++         ],
+-         "tags": [],
+          "title": "Wait on review",
+          "type": "task",
+
+### tag argv: MMR-5 -- -dash
+exit 0
+--- stdout
+| [ok] tagged MMR-5: -dash
+--- state
+              "status": "in_progress",
+              "summary": null,
++             "tags": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "-dash"
++               }
++             ],
+-             "tags": [],
+              "title": "Ship it",
+              "type": "task",
+...
+          "status": "in_progress",
+          "summary": null,
++         "tags": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "-dash"
++           }
++         ],
+-         "tags": [],
+          "title": "Ship it",
+          "type": "task",
+
+### tag argv: MMR-5 design -- -dash
+exit 0
+--- stdout
+| [ok] tagged MMR-5: design, -dash
+--- state
+              "status": "in_progress",
+              "summary": null,
++             "tags": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "-dash"
++               },
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "design"
++               }
++             ],
+-             "tags": [],
+              "title": "Ship it",
+              "type": "task",
+...
+          "status": "in_progress",
+          "summary": null,
++         "tags": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "-dash"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "design"
++           }
++         ],
+-         "tags": [],
+          "title": "Ship it",
+          "type": "task",
+
+### untag argv: MMR-3 -- -dash
+exit 0
+--- stdout
+| [ok] untagged MMR-3: -dash
+--- state
+unchanged
+
+### tag argv: "MMR-5, MMR-6" design
+exit 0
+--- stdout
+| [ok] tagged MMR-5, MMR-6: design
+--- state
+              "status": "in_progress",
+              "summary": null,
++             "tags": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "design"
++               }
++             ],
+-             "tags": [],
+              "title": "Ship it",
+              "type": "task",
+...
+              "status": "blocked",
+              "summary": null,
++             "tags": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "design"
++               }
++             ],
+-             "tags": [],
+              "title": "Wait on review",
+              "type": "task",
+...
+          "status": "in_progress",
+          "summary": null,
++         "tags": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "design"
++           }
++         ],
+-         "tags": [],
+          "title": "Ship it",
+          "type": "task",
+...
+          "status": "blocked",
+          "summary": null,
++         "tags": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "design"
++           }
++         ],
+-         "tags": [],
+          "title": "Wait on review",
+          "type": "task",
+
+### tag argv: MMR-5,MMR-6 design -f ids
+exit 0
+--- stdout
+| MMR-5
+| MMR-6
+--- state
+              "status": "in_progress",
+              "summary": null,
++             "tags": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "design"
++               }
++             ],
+-             "tags": [],
+              "title": "Ship it",
+              "type": "task",
+...
+              "status": "blocked",
+              "summary": null,
++             "tags": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "design"
++               }
++             ],
+-             "tags": [],
+              "title": "Wait on review",
+              "type": "task",
+...
+          "status": "in_progress",
+          "summary": null,
++         "tags": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "design"
++           }
++         ],
+-         "tags": [],
+          "title": "Ship it",
+          "type": "task",
+...
+          "status": "blocked",
+          "summary": null,
++         "tags": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "design"
++           }
++         ],
+-         "tags": [],
+          "title": "Wait on review",
+          "type": "task",
+
+### tag argv: MMR-3 alpha
+exit 0
+--- stdout
+| [ok] tagged MMR-3: alpha
+--- state
+unchanged
+
+### tag argv: MMR platform
+exit 0
+--- stdout
+| [ok] tagged MMR: platform
+--- state
+        "remote": "github.com/dbtlr/mimir",
+        "status": "in_progress",
++       "tags": [
++         {
++           "createdAt": "2026-10-01T12:00:00.000Z",
++           "tag": "platform"
++         }
++       ],
+-       "tags": [],
+        "title": "mimir",
+        "type": "project",
+
+### tag argv: MMR-a1 design extra
+exit 0
+--- stdout
+| [ok] tagged MMR-a1: design, extra
+--- state
+          "summary": "design notes",
+          "tags": [
++           "design",
++           "extra"
+-           "design"
+          ],
+          "title": "Store notes"
+...
+                  "summary": "design notes",
+                  "tags": [
++                   "design",
++                   "extra"
+-                   "design"
+                  ],
+                  "title": "Store notes"
+...
+              "summary": "design notes",
+              "tags": [
++               "design",
++               "extra"
+-               "design"
+              ],
+              "title": "Store notes"
+...
+            "summary": "design notes",
+            "tags": [
++             "design",
++             "extra"
+-             "design"
+            ],
+            "title": "Store notes"
+
+### tag argv: MMR-2 phase-tag
+exit 0
+--- stdout
+| [ok] tagged MMR-2: phase-tag
+--- state
+          "status": "in_progress",
+          "summary": null,
++         "tags": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "phase-tag"
++           }
++         ],
+-         "tags": [],
+          "target": "2026-11",
+          "title": "Skeleton",
+
+### tag argv: MMR-99 design
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### tag argv: MMR-99 design -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### tag argv: MMR-s1 design
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "MMR-s1 is a seed, not a task, project, or artifact"
+| }
+--- state
+unchanged
+
+### tag argv: nope design
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "ids: KEY (project) · KEY-seq (task/phase/initiative) · KEY-aN (artifact)"
+|   ],
+|   "message": "nope is not a valid id"
+| }
+--- state
+unchanged
+
+### tag argv: XXXXX design
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "ids: KEY (project) · KEY-seq (task/phase/initiative) · KEY-aN (artifact)"
+|   ],
+|   "message": "XXXXX is not a valid id"
+| }
+--- state
+unchanged
+
+### tag argv: MMR-5,MMR-99 design
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### tag argv: ZZ design
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key ZZ -y"
+|   ],
+|   "message": "ZZ doesn't exist"
+| }
+--- state
+unchanged
+
+### tag argv: , design
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "tag requires ids (comma-separated)"
+| }
+--- state
+unchanged
+
+### tag argv: MMR-5 "Bad Tag"
+exit 0
+--- stdout
+| [ok] tagged MMR-5: Bad Tag
+--- state
+              "status": "in_progress",
+              "summary": null,
++             "tags": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": "Bad Tag"
++               }
++             ],
+-             "tags": [],
+              "title": "Ship it",
+              "type": "task",
+...
+          "status": "in_progress",
+          "summary": null,
++         "tags": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": "Bad Tag"
++           }
++         ],
+-         "tags": [],
+          "title": "Ship it",
+          "type": "task",
+
+### tag argv: MMR-5 ""
+exit 0
+--- stdout
+| [ok] tagged MMR-5: 
+--- state
+              "status": "in_progress",
+              "summary": null,
++             "tags": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "tag": ""
++               }
++             ],
+-             "tags": [],
+              "title": "Ship it",
+              "type": "task",
+...
+          "status": "in_progress",
+          "summary": null,
++         "tags": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "tag": ""
++           }
++         ],
+-         "tags": [],
+          "title": "Ship it",
+          "type": "task",
+
+### tag argv: MMR-5
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "tag requires at least one tag"
+| }
+--- state
+unchanged
+
+### tag argv: (no arguments)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"ids\" requires a value. Supply a value for \"ids\"."
+| }
+--- state
+unchanged
+
+### tag argv: MMR-5 design --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### untag argv: MMR-3 alpha
+exit 0
+--- stdout
+| [ok] untagged MMR-3: alpha
+--- state
+              "status": "ready",
+              "summary": "one store per run",
++             "tags": [],
+-             "tags": [
+-               {
+-                 "createdAt": "2026-10-01T12:00:00.000Z",
+-                 "tag": "alpha"
+-               }
+-             ],
+              "title": "Wire the store",
+              "type": "task",
+...
+          "status": "ready",
+          "summary": "one store per run",
++         "tags": [],
+-         "tags": [
+-           {
+-             "createdAt": "2026-10-01T12:00:00.000Z",
+-             "tag": "alpha"
+-           }
+-         ],
+          "title": "Wire the store",
+          "type": "task",
+
+### untag argv: MMR-3 alpha -f json
+exit 0
+--- stdout
+| {"untagged":{"ids":["MMR-3"],"tags":["alpha"]}}
+--- state
+              "status": "ready",
+              "summary": "one store per run",
++             "tags": [],
+-             "tags": [
+-               {
+-                 "createdAt": "2026-10-01T12:00:00.000Z",
+-                 "tag": "alpha"
+-               }
+-             ],
+              "title": "Wire the store",
+              "type": "task",
+...
+          "status": "ready",
+          "summary": "one store per run",
++         "tags": [],
+-         "tags": [
+-           {
+-             "createdAt": "2026-10-01T12:00:00.000Z",
+-             "tag": "alpha"
+-           }
+-         ],
+          "title": "Wire the store",
+          "type": "task",
+
+### untag argv: MMR-3 alpha -f jsonl
+exit 0
+--- stdout
+| {"untagged":{"ids":["MMR-3"],"tags":["alpha"]}}
+--- state
+              "status": "ready",
+              "summary": "one store per run",
++             "tags": [],
+-             "tags": [
+-               {
+-                 "createdAt": "2026-10-01T12:00:00.000Z",
+-                 "tag": "alpha"
+-               }
+-             ],
+              "title": "Wire the store",
+              "type": "task",
+...
+          "status": "ready",
+          "summary": "one store per run",
++         "tags": [],
+-         "tags": [
+-           {
+-             "createdAt": "2026-10-01T12:00:00.000Z",
+-             "tag": "alpha"
+-           }
+-         ],
+          "title": "Wire the store",
+          "type": "task",
+
+### untag argv: MMR-3 alpha -f ids
+exit 0
+--- stdout
+| MMR-3
+--- state
+              "status": "ready",
+              "summary": "one store per run",
++             "tags": [],
+-             "tags": [
+-               {
+-                 "createdAt": "2026-10-01T12:00:00.000Z",
+-                 "tag": "alpha"
+-               }
+-             ],
+              "title": "Wire the store",
+              "type": "task",
+...
+          "status": "ready",
+          "summary": "one store per run",
++         "tags": [],
+-         "tags": [
+-           {
+-             "createdAt": "2026-10-01T12:00:00.000Z",
+-             "tag": "alpha"
+-           }
+-         ],
+          "title": "Wire the store",
+          "type": "task",
+
+### untag argv: MMR-3 alpha -f table
+exit 0
+--- stdout
+| [ok] untagged MMR-3: alpha
+--- state
+              "status": "ready",
+              "summary": "one store per run",
++             "tags": [],
+-             "tags": [
+-               {
+-                 "createdAt": "2026-10-01T12:00:00.000Z",
+-                 "tag": "alpha"
+-               }
+-             ],
+              "title": "Wire the store",
+              "type": "task",
+...
+          "status": "ready",
+          "summary": "one store per run",
++         "tags": [],
+-         "tags": [
+-           {
+-             "createdAt": "2026-10-01T12:00:00.000Z",
+-             "tag": "alpha"
+-           }
+-         ],
+          "title": "Wire the store",
+          "type": "task",
+
+### untag argv: MMR-3 alpha (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m untagged MMR-3: alpha
+--- state
+              "status": "ready",
+              "summary": "one store per run",
++             "tags": [],
+-             "tags": [
+-               {
+-                 "createdAt": "2026-10-01T12:00:00.000Z",
+-                 "tag": "alpha"
+-               }
+-             ],
+              "title": "Wire the store",
+              "type": "task",
+...
+          "status": "ready",
+          "summary": "one store per run",
++         "tags": [],
+-         "tags": [
+-           {
+-             "createdAt": "2026-10-01T12:00:00.000Z",
+-             "tag": "alpha"
+-           }
+-         ],
+          "title": "Wire the store",
+          "type": "task",
+
+### untag argv: MMR-3,MMR-4 alpha
+exit 0
+--- stdout
+| [ok] untagged MMR-3, MMR-4: alpha
+--- state
+              "status": "ready",
+              "summary": "one store per run",
++             "tags": [],
+-             "tags": [
+-               {
+-                 "createdAt": "2026-10-01T12:00:00.000Z",
+-                 "tag": "alpha"
+-               }
+-             ],
+              "title": "Wire the store",
+              "type": "task",
+...
+              "status": "awaiting",
+              "summary": null,
++             "tags": [],
+-             "tags": [
+-               {
+-                 "createdAt": "2026-10-01T12:00:00.000Z",
+-                 "tag": "alpha"
+-               }
+-             ],
+              "title": "Render views",
+              "type": "task",
+...
+          "status": "ready",
+          "summary": "one store per run",
++         "tags": [],
+-         "tags": [
+-           {
+-             "createdAt": "2026-10-01T12:00:00.000Z",
+-             "tag": "alpha"
+-           }
+-         ],
+          "title": "Wire the store",
+          "type": "task",
+...
+          "status": "awaiting",
+          "summary": null,
++         "tags": [],
+-         "tags": [
+-           {
+-             "createdAt": "2026-10-01T12:00:00.000Z",
+-             "tag": "alpha"
+-           }
+-         ],
+          "title": "Render views",
+          "type": "task",
+
+### untag argv: MMR-3 never-set
+exit 0
+--- stdout
+| [ok] untagged MMR-3: never-set
+--- state
+unchanged
+
+### untag argv: MMR-a1 design
+exit 0
+--- stdout
+| [ok] untagged MMR-a1: design
+--- state
+          "project": "MMR",
+          "summary": "design notes",
++         "tags": [],
+-         "tags": [
+-           "design"
+-         ],
+          "title": "Store notes"
+        }
+...
+                  "id": "MMR-a1",
+                  "summary": "design notes",
++                 "tags": [],
+-                 "tags": [
+-                   "design"
+-                 ],
+                  "title": "Store notes"
+                }
+...
+              "project": "MMR",
+              "summary": "design notes",
++             "tags": [],
+-             "tags": [
+-               "design"
+-             ],
+              "title": "Store notes"
+            }
+...
+            "id": "MMR-a1",
+            "summary": "design notes",
++           "tags": [],
+-           "tags": [
+-             "design"
+-           ],
+            "title": "Store notes"
+          }
+
+### untag argv: MMR-99 alpha
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### untag argv: MMR-s1 alpha
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "MMR-s1 is a seed, not a task, project, or artifact"
+| }
+--- state
+unchanged
+
+### untag argv: nope alpha
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "ids: KEY (project) · KEY-seq (task/phase/initiative) · KEY-aN (artifact)"
+|   ],
+|   "message": "nope is not a valid id"
+| }
+--- state
+unchanged
+
+### untag argv: , alpha
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "untag requires ids (comma-separated)"
+| }
+--- state
+unchanged
+
+### untag argv: MMR-3
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "untag requires at least one tag"
+| }
+--- state
+unchanged
+
+### tag argv: MMR-5 design --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
+|   ],
+|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### untag argv: MMR-3 alpha --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
+|   ],
+|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+

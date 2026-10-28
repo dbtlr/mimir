@@ -1,0 +1,1000 @@
+### next -s MMR
+exit 0
+--- stdout
+| 2 tasks
+|
+| MMR-3   * ready   p1   groomed       MMR-2   Wire the store
+| MMR-8   * ready   p2   not_groomed   MMR-2   Tidy docs
+
+### next -s MMR -f records
+exit 0
+--- stdout
+| MMR-3
+|   type       task
+|   status     * ready
+|   title      Wire the store
+|   parent     MMR-2
+|   summary    one store per run
+|   priority   p1
+|   size       small
+|   lifecycle  todo
+|   grooming   groomed
+|   hold       none
+|
+| MMR-8
+|   type       task
+|   status     * ready
+|   title      Tidy docs
+|   parent     MMR-2
+|   priority   p2
+|   lifecycle  todo
+|   grooming   not_groomed
+|   hold       none
+
+### next -s MMR -f ids
+exit 0
+--- stdout
+| MMR-3
+| MMR-8
+
+### next -s MMR -f json
+exit 0
+--- stdout
+| {
+|   "returned": 2,
+|   "starts_at": 0,
+|   "total": 2,
+|   "tasks": [
+|     {
+|       "id": "MMR-3",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Wire the store",
+|       "type": "task",
+|       "summary": "one store per run",
+|       "priority": "p1",
+|       "size": "small",
+|       "lifecycle": "todo",
+|       "grooming": "groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-8",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "summary": null,
+|       "priority": "p2",
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
+| }
+
+### next -s MMR -f jsonl
+exit 0
+--- stdout
+| {"id":"MMR-3","parent":"MMR-2","status":"ready","title":"Wire the store","type":"task","summary":"one store per run","priority":"p1","size":"small","lifecycle":"todo","grooming":"groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z"}
+| {"id":"MMR-8","parent":"MMR-2","status":"ready","title":"Tidy docs","type":"task","summary":null,"priority":"p2","size":null,"lifecycle":"todo","grooming":"not_groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z"}
+
+### next -s MMR --ascii
+exit 0
+--- stdout
+| 2 tasks
+|
+| MMR-3   * ready   p1   groomed       MMR-2   Wire the store
+| MMR-8   * ready   p2   not_groomed   MMR-2   Tidy docs
+
+### next (bound to MMR)
+exit 0
+--- stdout
+| 2 tasks
+|
+| MMR-3   * ready   p1   groomed       MMR-2   Wire the store
+| MMR-8   * ready   p2   not_groomed   MMR-2   Tidy docs
+
+### next (bound to MMR) -f json
+exit 0
+--- stdout
+| {
+|   "returned": 2,
+|   "starts_at": 0,
+|   "total": 2,
+|   "tasks": [
+|     {
+|       "id": "MMR-3",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Wire the store",
+|       "type": "task",
+|       "summary": "one store per run",
+|       "priority": "p1",
+|       "size": "small",
+|       "lifecycle": "todo",
+|       "grooming": "groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-8",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "summary": null,
+|       "priority": "p2",
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
+| }
+
+### next -s XX (bound to MMR)
+exit 0
+--- stdout
+| 1 task
+|
+| XX-3   * ready        not_groomed   XX-2   Not ours
+
+### next -s MMR -p p1
+exit 0
+--- stdout
+| 1 task
+|
+| MMR-3   * ready   p1   groomed   MMR-2   Wire the store
+
+### next -s MMR --size s
+exit 0
+--- stdout
+| 1 task
+|
+| MMR-3   * ready   p1   groomed   MMR-2   Wire the store
+
+### next -s MMR --size small -f ids
+exit 0
+--- stdout
+| MMR-3
+
+### next -s MMR -q store
+exit 0
+--- stdout
+| 1 task
+|
+| MMR-3   * ready   p1   groomed   MMR-2   Wire the store
+
+### next -s MMR -q mmr-8 -f ids
+exit 0
+--- stdout
+| MMR-8
+
+### next -s MMR -n 1
+exit 0
+--- stdout
+| 2 tasks
+|
+| MMR-3   * ready   p1   groomed   MMR-2   Wire the store
+
+### next -s MMR -n 1 -f json
+exit 0
+--- stdout
+| {
+|   "returned": 1,
+|   "starts_at": 0,
+|   "total": 2,
+|   "tasks": [
+|     {
+|       "id": "MMR-3",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Wire the store",
+|       "type": "task",
+|       "summary": "one store per run",
+|       "priority": "p1",
+|       "size": "small",
+|       "lifecycle": "todo",
+|       "grooming": "groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
+| }
+
+### next -s MMR -n 0 -f json
+exit 0
+--- stdout
+| {
+|   "returned": 0,
+|   "starts_at": 0,
+|   "total": 2,
+|   "tasks": []
+| }
+
+### next -s MMR --is stale -f ids
+exit 0
+--- stdout
+|
+
+### next -s MMR --not-is orphaned
+exit 0
+--- stdout
+| 2 tasks
+|
+| MMR-3   * ready   p1   groomed       MMR-2   Wire the store
+| MMR-8   * ready   p2   not_groomed   MMR-2   Tidy docs
+
+### next -s MMR --eq priority:p1 -f ids
+exit 0
+--- stdout
+| MMR-3
+
+### next -s MMR --not-eq priority:p1 -f ids
+exit 0
+--- stdout
+| MMR-8
+
+### next -s MMR --in priority:p1,p2 -f json
+exit 0
+--- stdout
+| {
+|   "returned": 2,
+|   "starts_at": 0,
+|   "total": 2,
+|   "tasks": [
+|     {
+|       "id": "MMR-3",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Wire the store",
+|       "type": "task",
+|       "summary": "one store per run",
+|       "priority": "p1",
+|       "size": "small",
+|       "lifecycle": "todo",
+|       "grooming": "groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-8",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "summary": null,
+|       "priority": "p2",
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
+| }
+
+### next -s MMR --not-in priority:p1 -f ids
+exit 0
+--- stdout
+| MMR-8
+
+### next -s MMR --has summary -f ids
+exit 0
+--- stdout
+| MMR-3
+
+### next -s MMR --missing summary -f ids
+exit 0
+--- stdout
+| MMR-8
+
+### next -s MMR --eq tag:alpha
+exit 0
+--- stdout
+| 1 task
+|
+| MMR-3   * ready   p1   groomed   MMR-2   Wire the store
+
+### next -s MMR --after created_at:2020-01-01 -f ids
+exit 0
+--- stdout
+| MMR-3
+| MMR-8
+
+### next -s MMR --before created_at:2020-01-01 -f json
+exit 0
+--- stdout
+| {
+|   "returned": 0,
+|   "starts_at": 0,
+|   "total": 0,
+|   "tasks": []
+| }
+
+### next -s MMR --on created_at:2020-01-01 --tz Asia/Tokyo -f ids
+exit 0
+--- stdout
+|
+
+### next -s MMR --at-or-after created_at:2020-01-01T00:00Z -f ids
+exit 0
+--- stdout
+| MMR-3
+| MMR-8
+
+### next -s MMR --at-or-before created_at:2020-01-01T00:00Z -f ids
+exit 0
+--- stdout
+|
+
+### next -s MMR --tz UTC --col lede
+exit 0
+--- stdout
+| 2 tasks
+|
+| MMR-3   * ready   p1   groomed       MMR-2   Wire the store
+|       one store per run
+| MMR-8   * ready   p2   not_groomed   MMR-2   Tidy docs
+
+### next -s MMR --col deps,tags -f json
+exit 0
+--- stdout
+| {
+|   "returned": 2,
+|   "starts_at": 0,
+|   "total": 2,
+|   "tasks": [
+|     {
+|       "id": "MMR-3",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Wire the store",
+|       "type": "task",
+|       "summary": "one store per run",
+|       "priority": "p1",
+|       "size": "small",
+|       "lifecycle": "todo",
+|       "grooming": "groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "deps": {
+|         "awaiting_on": [],
+|         "blocking": [
+|           {
+|             "id": "MMR-4",
+|             "status": "awaiting",
+|             "title": "Render views"
+|           }
+|         ],
+|         "depends_on": []
+|       },
+|       "tags": [
+|         {
+|           "created_at": "2026-10-01T12:00:00.000Z",
+|           "tag": "alpha"
+|         }
+|       ]
+|     },
+|     {
+|       "id": "MMR-8",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "summary": null,
+|       "priority": "p2",
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "deps": {
+|         "awaiting_on": [],
+|         "blocking": [],
+|         "depends_on": []
+|       },
+|       "tags": []
+|     }
+|   ]
+| }
+
+### next -s MMR --col lede -f records
+exit 0
+--- stdout
+| MMR-3
+|   type       task
+|   status     * ready
+|   title      Wire the store
+|   parent     MMR-2
+|   summary    one store per run
+|   lede       one store per run
+|   priority   p1
+|   size       small
+|   lifecycle  todo
+|   grooming   groomed
+|   hold       none
+|
+| MMR-8
+|   type       task
+|   status     * ready
+|   title      Tidy docs
+|   parent     MMR-2
+|   priority   p2
+|   lifecycle  todo
+|   grooming   not_groomed
+|   hold       none
+
+### next -s MMR --eq priority:p9
+exit 0
+--- stdout
+| 0 tasks
+
+### next -s MMR --eq priority:p9 -f json
+exit 0
+--- stdout
+| {
+|   "returned": 0,
+|   "starts_at": 0,
+|   "total": 0,
+|   "tasks": []
+| }
+
+### next -s XX -p p0
+exit 0
+--- stdout
+| 0 tasks
+
+### next -s XX -p p0 -f records
+exit 0
+--- stdout
+|
+
+### next -s XX -p p0 -f ids
+exit 0
+--- stdout
+|
+
+### next -s XX -p p0 -f json
+exit 0
+--- stdout
+| {
+|   "returned": 0,
+|   "starts_at": 0,
+|   "total": 0,
+|   "tasks": []
+| }
+
+### next -s XX -p p0 -f jsonl
+exit 0
+--- stdout
+|
+
+### next -s MMR -p zz
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "invalid priority: zz (expected p0|p1|p2|p3)"
+| }
+
+### next -s MMR --size huge
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "invalid size: huge (expected small|medium|large)"
+| }
+
+### next -s MMR -n 2x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "limit is a whole number of rows (0 or more)"
+|   ],
+|   "message": "invalid limit: 2x"
+| }
+
+### next -s MMR --is bad
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "invalid verdict: bad (expected stale|blocking|orphaned)"
+| }
+
+### next -s MMR --eq bogus:1
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "fields: block_owner, branch, completed_at, created_at, external_ref, grooming, harness, hold, hold_reason, host, id, lifecycle, parent, priority, session, size, status, summary, tag, target, title, type, updated_at, upstream, worker_harness, worker_session"
+|   ],
+|   "message": "unknown field bogus"
+| }
+
+### next -s MMR --eq priority
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "--eq expects FIELD:VALUE, got \"priority\""
+| }
+
+### next -s MMR --eq created_at:2020-01-01
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "use --before / --on / --after / --at-or-before / --at-or-after"
+|   ],
+|   "message": "--eq does not apply to date field created_at"
+| }
+
+### next -s MMR --before title:x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "--before applies to date fields, and title is not one"
+| }
+
+### next -s MMR --after created_at:someday
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "takes YYYY-MM-DD or a zoned ISO timestamp (2026-08-01T09:30:00Z)"
+|   ],
+|   "message": "invalid date: someday"
+| }
+
+### next -s MMR --tz Mars/Base
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "pass an IANA timezone (tz), e.g. America/New_York"
+|   ],
+|   "message": "unknown timezone: Mars/Base"
+| }
+
+### next -s MMR --col bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "columns: deps, description, next, annotations, artifacts, history, tags, children, distribution, leafCounts, artifactCount, verdicts, home, lede, content"
+|   ],
+|   "message": "unknown column: bogus"
+| }
+
+### next -s NOPE
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key NOPE -y"
+|   ],
+|   "message": "NOPE doesn't exist"
+| }
+
+### next -s mmr
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key mmr -y"
+|   ],
+|   "message": "mmr doesn't exist"
+| }
+
+### next -s XX-1
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key XX-1 -y"
+|   ],
+|   "message": "XX-1 doesn't exist"
+| }
+
+### next -s A -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key A -y"
+|   ],
+|   "message": "A doesn't exist"
+| }
+
+### next -s ABCDEFGHIJKLMNOP
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key ABCDEFGHIJKLMNOP -y"
+|   ],
+|   "message": "ABCDEFGHIJKLMNOP doesn't exist"
+| }
+
+### next -s ""
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key  -y"
+|   ],
+|   "message": " doesn't exist"
+| }
+
+### next -s MMR --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
+| }
+
+### next argv: -s MMR
+exit 0
+--- stdout
+| 2 tasks
+|
+| MMR-3   * ready   p1   groomed       MMR-2   Wire the store
+| MMR-8   * ready   p2   not_groomed   MMR-2   Tidy docs
+
+### next argv: -s MMR -f json
+exit 0
+--- stdout
+| {
+|   "returned": 2,
+|   "starts_at": 0,
+|   "total": 2,
+|   "tasks": [
+|     {
+|       "id": "MMR-3",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Wire the store",
+|       "type": "task",
+|       "summary": "one store per run",
+|       "priority": "p1",
+|       "size": "small",
+|       "lifecycle": "todo",
+|       "grooming": "groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "id": "MMR-8",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "summary": null,
+|       "priority": "p2",
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ]
+| }
+
+### next argv: --scope MMR --priority p1 --format ids
+exit 0
+--- stdout
+| MMR-3
+
+### next argv: -s MMR --eq priority:p1 --eq tag:alpha -f ids
+exit 0
+--- stdout
+| MMR-3
+
+### next argv: -s MMR -p zz
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "invalid priority: zz (expected p0|p1|p2|p3)"
+| }
+
+### next argv: -s MMR -p zz -f json
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "invalid priority: zz (expected p0|p1|p2|p3)"
+| }
+
+### next argv: -s mmr
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key mmr -y"
+|   ],
+|   "message": "mmr doesn't exist"
+| }
+
+### next argv: -s MMR --bogus -f json
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+
+### next argv: -s MMR -p p1 -p p2 -f ids
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"-p\" can be supplied only once. Remove the repeated option."
+| }
+
+### next argv: -s MMR --ascii --ascii
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"--ascii\" can be supplied only once. Remove the repeated option."
+| }
+
+### next argv: extra -s MMR
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"next\" accepts no arguments. Remove the supplied values."
+| }
+
+### next argv: -s MMR next -f ids
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "parser",
+|   "hints": [],
+|   "message": "Option \"-s\" belongs to commands next, list, overview, artifacts, search, seeds, seed, triage, scratch list, scratch create, doctor. Supply it after the command name."
+| }
+
+### next argv: -s MMR (terminal)
+exit 0
+--- stdout
+| 2 tasks
+|
+| MMR-3   ␛[32m● ready␛[39m   p1   groomed       MMR-2   Wire the store
+| MMR-8   ␛[32m● ready␛[39m   p2   not_groomed   MMR-2   Tidy docs
+
+### next argv: -s MMR -f records (terminal)
+exit 0
+--- stdout
+| ␛[1mMMR-3␛[22m
+|   type       task
+|   status     ␛[32m● ready␛[39m
+|   title      Wire the store
+|   parent     MMR-2
+|   summary    one store per run
+|   priority   p1
+|   size       small
+|   lifecycle  todo
+|   grooming   groomed
+|   hold       none
+|
+| ␛[1mMMR-8␛[22m
+|   type       task
+|   status     ␛[32m● ready␛[39m
+|   title      Tidy docs
+|   parent     MMR-2
+|   priority   p2
+|   lifecycle  todo
+|   grooming   not_groomed
+|   hold       none
+
+### next argv: -s XX -p p0 (terminal)
+exit 0
+--- stdout
+| 0 tasks
+|
+| No ready tasks in XX — mimir list --status awaiting -s XX shows what's queued
+
+### next argv: -s MMR --ascii (terminal)
+exit 0
+--- stdout
+| 2 tasks
+|
+| MMR-3   * ready   p1   groomed       MMR-2   Wire the store
+| MMR-8   * ready   p2   not_groomed   MMR-2   Tidy docs
+

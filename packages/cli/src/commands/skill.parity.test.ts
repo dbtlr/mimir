@@ -2,10 +2,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-
-import { runCli } from '@mimir/bin/src/cli';
-import { SKILL_FILES as OLD_SKILL_FILES, skillDirFor } from '@mimir/bin/src/cli/skill-assets';
-import { fakeIo } from '@mimir/bin/src/cli/testing';
+import { fileURLToPath } from 'node:url';
 
 import { createApp } from '../app';
 import { MIMIR_SKILL, SKILL_FILES } from '../skill-files';
@@ -13,11 +10,12 @@ import { boundClone } from '../testing/fixture';
 import { runArgv } from '../testing/run';
 
 /**
- * `skill install` moves onto Loom's skills plugin, so its command line and
- * messages are the plugin's: the group is `skills`, the agents are `claude` and
- * `agents`, and `--project` replaces `--local`. What stays is the contract that
- * matters to an installed skill, the files: the embedded skill is written to the
- * same paths with the same bytes, so it still matches the binary.
+ * `skills install` is Loom's skills plugin, so its command line and messages
+ * are the plugin's: the group is `skills`, the agents are `claude` and
+ * `agents`, and `--project` selects the working copy. What matters to an
+ * installed skill is the files: the embedded skill is written to the same paths
+ * with the same bytes as the repo's `skills/mimir/` folder, the single source it
+ * is embedded from, so it still matches the binary.
  */
 let scratch: string;
 beforeEach(() => {
@@ -27,9 +25,8 @@ afterEach(() => {
   rmSync(scratch, { force: true, recursive: true });
 });
 
-/** The old install into a working copy: its global form writes to the real home, which a test must not touch. */
-const oldInstall = (argv: string[], cwd: string) =>
-  runCli(argv, () => Promise.reject(new Error('the store is not read')), fakeIo(), { cwd });
+/** The repo's skill folder, the source `skill-files.ts` embeds. */
+const SKILL_SOURCE = fileURLToPath(new URL('../../../../skills/mimir', import.meta.url));
 
 const app = () =>
   createApp({
@@ -58,39 +55,36 @@ const env = (home: string) => ({
 const skillFolder = (home: string, folder: '.claude' | '.agents') =>
   join(home, folder, 'skills', 'mimir');
 
-test('the embedded skill is the one the old binary embeds', () => {
-  expect(SKILL_FILES).toEqual(OLD_SKILL_FILES);
+/** What every install must write: the source folder's files. */
+const expected = () => tree(SKILL_SOURCE);
+
+test('the embedded skill is the repo skill folder, file for file', () => {
+  expect(
+    SKILL_FILES.map((file): [string, string] => [file.path, file.content]).toSorted((a, b) =>
+      a[0].localeCompare(b[0]),
+    ),
+  ).toEqual(expected());
   expect(MIMIR_SKILL.name).toBe('mimir');
 });
 
-test('install writes the same files the old skill install wrote for Claude Code', async () => {
-  const oldHome = join(scratch, 'old');
-  const newHome = join(scratch, 'new');
-  mkdirSync(oldHome);
-  mkdirSync(newHome);
-  expect(await oldInstall(['skill', 'install', '--local'], oldHome)).toBe(0);
+test('install writes the skill folder for Claude Code', async () => {
+  const home = join(scratch, 'home');
+  mkdirSync(home);
   const run = await runArgv(app(), ['skills', 'install', '--agent', 'claude'], {
-    env: env(newHome),
+    env: env(home),
   });
   expect(run.exitCode).toBe(0);
-  expect(tree(skillFolder(newHome, '.claude'))).toEqual(tree(skillFolder(oldHome, '.claude')));
-  expect(tree(skillFolder(newHome, '.claude')).map(([path]) => path)).toEqual(
-    OLD_SKILL_FILES.map((file) => file.path).toSorted((a, b) => a.localeCompare(b)),
-  );
+  expect(tree(skillFolder(home, '.claude'))).toEqual(expected());
 });
 
-test('install writes the same files the old skill install wrote for Codex, in the shared agents folder', async () => {
-  const oldHome = join(scratch, 'old');
-  const newHome = join(scratch, 'new');
-  mkdirSync(oldHome);
-  mkdirSync(newHome);
-  expect(await oldInstall(['skill', 'install', '--local', '--agent', 'codex'], oldHome)).toBe(0);
+test('install writes the skill folder for Codex, in the shared agents folder', async () => {
+  const home = join(scratch, 'home');
+  mkdirSync(home);
   const run = await runArgv(app(), ['skills', 'install', '--agent', 'agents'], {
-    env: env(newHome),
+    env: env(home),
   });
   expect(run.exitCode).toBe(0);
-  expect(tree(skillFolder(newHome, '.agents'))).toEqual(tree(skillFolder(oldHome, '.agents')));
-  expect(skillDirFor('codex', oldHome)).toBe(skillFolder(oldHome, '.agents'));
+  expect(tree(skillFolder(home, '.agents'))).toEqual(expected());
 });
 
 test('install without --agent writes both folders', async () => {
@@ -99,23 +93,20 @@ test('install without --agent writes both folders', async () => {
   const run = await runArgv(app(), ['skills', 'install'], { env: env(home) });
   expect(run.exitCode).toBe(0);
   expect(statSync(skillFolder(home, '.claude')).isDirectory()).toBe(true);
-  expect(tree(skillFolder(home, '.agents'))).toEqual(tree(skillFolder(home, '.claude')));
+  expect(tree(skillFolder(home, '.agents'))).toEqual(expected());
+  expect(tree(skillFolder(home, '.claude'))).toEqual(expected());
 });
 
-test('install --project writes the working copy the same tree the old --local did', async () => {
-  const oldRepo = join(scratch, 'old-repo');
-  const newRepo = join(scratch, 'new-repo');
-  for (const repo of [oldRepo, newRepo]) {
-    mkdirSync(join(repo, '.git'), { recursive: true });
-  }
-  expect(await oldInstall(['skill', 'install', '--local'], oldRepo)).toBe(0);
+test('install --project writes the working copy the skill folder', async () => {
+  const repo = join(scratch, 'repo');
+  mkdirSync(join(repo, '.git'), { recursive: true });
   const run = await runArgv(
     app(),
-    ['skills', 'install', '--project', '--agent', 'claude', '--directory', newRepo],
+    ['skills', 'install', '--project', '--agent', 'claude', '--directory', repo],
     { env: env(join(scratch, 'home')) },
   );
   expect(run.exitCode).toBe(0);
-  expect(tree(skillFolder(newRepo, '.claude'))).toEqual(tree(skillFolder(oldRepo, '.claude')));
+  expect(tree(skillFolder(repo, '.claude'))).toEqual(expected());
 });
 
 // The plugin adds verbs the old command lacked; the one that deletes is pinned.

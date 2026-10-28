@@ -29,10 +29,9 @@ hands each command a set of ports: the Engine, the binding, and the pure input
 grammar and wire codecs the CLI shares with the other transports, such as the
 `FIELD:VALUE` filter parser and the node wire mapper. A command reads work
 state through the Engine alone. An oxlint rule refuses an import of
-`@mimir/core` outside `src/app.ts`, and an import of `@mimir/bin` outside the
-package's tests. The test-support modules under `src/testing` are the one
-exemption: they build stores and run the old CLI for the parity harness, so
-the same rule refuses an import of them outside the tests.
+`@mimir/core` outside `src/app.ts`, and an import of `@mimir/bin` anywhere in
+the package, tests included. The test-support modules under `src/testing`
+build stores, so the same rule refuses an import of them outside the tests.
 
 ### Help is generated
 
@@ -125,6 +124,20 @@ wrote `\e[0m`. A Loom entry whose new failure carries a Mimir code, or whose
 failures match, fails its case, and an entry that matches no case fails its
 command's parity test, so the list does not go stale.
 
+> 2026-10-27: The cases now run as snapshots of the Loom CLI, and the old CLI is
+> no longer the oracle. Before the old CLI left the package, every case's output
+> was recorded while the parity suite still passed against it, so each recorded
+> snapshot equals what the old CLI printed, modulo the reviewed differences
+> above. The snapshots live beside each test file in `parity-pins/` as plain
+> text (the exit code, stdout, a failure's code, message, and hints, and for a
+> write the records it changed), and `MIMIR_UPDATE_PINS=1` re-records a file
+> after a deliberate change. The difference list is retired with the oracle:
+> the rules above describe how the snapshots were first proven, and a change to
+> a snapshot is now a reviewed diff. The MCP structured-content cases are
+> pinned the same way, and the old server's tool list and input schemas are
+> frozen in `src/parity/retired-mcp-tools.ts` so the capability map is still
+> diffed against the retired contract.
+
 ### Loom generates the MCP contract
 
 A command opts in to MCP with Loom's `mcpCommand` declaration as it is ported.
@@ -209,3 +222,4 @@ responsibility, through `mimir-host doctor` and the console.
 ## Changelog
 
 - 2026-10-21: Added the remote-doctor refinement. MMR-588 implements the client checks separately from MMR-579's pairing command.
+- 2026-10-27: Noted that the parity cases run as snapshots of the Loom CLI and the old CLI is no longer the oracle (MMR-600).

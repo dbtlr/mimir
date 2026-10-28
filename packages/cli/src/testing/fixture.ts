@@ -1,12 +1,11 @@
 /**
- * A small board both CLIs read in the parity cases: two projects, a hierarchy,
+ * A small board the parity cases read: two projects, a hierarchy,
  * tasks in every common state, an artifact, and a seed. Test-only.
  */
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { Defaults } from '@mimir/bin/src/cli/run';
 import { LocalEngine, openSqlite } from '@mimir/core';
 import type { DoctorBackend, DoctorFinding, GitPort, Store } from '@mimir/core';
 import { createTestStore } from '@mimir/core/testing';
@@ -22,13 +21,11 @@ export type ParityBoard = {
    * failures reading `argv` as the run's words, when given.
    */
   app: (bound?: string, argv?: readonly string[], origin?: string) => ReturnType<typeof createApp>;
-  /** The old CLI's machine-local defaults over the same board, for `runOld`. */
-  oldDefaults: (bound?: string, origin?: string) => Defaults;
   /** Findings a doctor case adds to the real, clean diagnosis; clear them after the case. */
   findings: DoctorFinding[];
   /** The text `store import -` reads from standard input. */
   stdin: { text: string };
-  /** A scratch directory both CLIs may write files into. */
+  /** A scratch directory the cases may write files into. */
   dir: string;
   close: () => Promise<void>;
 };
@@ -185,12 +182,6 @@ export async function parityBoard(replaced: BoardEdges = {}): Promise<ParityBoar
     dir,
     engine,
     findings,
-    oldDefaults: (bound, origin) => ({
-      cwd: dir,
-      doctor,
-      git: writableClone(bound, origin),
-      store: edges,
-    }),
     stdin,
     store,
   };

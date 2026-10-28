@@ -97,7 +97,7 @@ const CASES: ParityCase[] = [
   argvCase(['seeds', '-p', 'MMR', '--requester', 'ZZ'], true),
 ];
 
-parityCases(/^seeds /, CASES, async (board) => {
+parityCases(import.meta.url, CASES, async (board) => {
   // One seed in each lane: parked, promoted, and rejected beside the fixture's new one.
   const parked = await board.engine.seedCreate({
     description: 'Not now.',

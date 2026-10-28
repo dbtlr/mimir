@@ -1,0 +1,227 @@
+### scratch list -s MMR
+exit 0
+--- stdout
+| <uuid>  MMR  Shape the watcher  now
+| <uuid>  MMR  A second pad  now
+
+### scratch list -s MMR -f records
+exit 0
+--- stdout
+| <uuid>  MMR  Shape the watcher  now
+| <uuid>  MMR  A second pad  now
+
+### scratch list -s MMR -f ids
+exit 0
+--- stdout
+| <uuid>
+| <uuid>
+
+### scratch list -s MMR -f json
+exit 0
+--- stdout
+| {"scratchpads":[{"id":"<uuid>","linked_work":["MMR-3"],"open_agenda":1,"project":"MMR","state":"active","title":"Shape the watcher","updated_at":"2026-10-01T12:00:00.002Z"},{"id":"<uuid>","linked_work":[],"open_agenda":0,"project":"MMR","state":"active","title":"A second pad","updated_at":"2026-10-01T12:00:00.000Z"}],"total":2}
+
+### scratch list -s MMR -f jsonl
+exit 0
+--- stdout
+| {"id":"<uuid>","linked_work":["MMR-3"],"open_agenda":1,"project":"MMR","state":"active","title":"Shape the watcher","updated_at":"2026-10-01T12:00:00.002Z"}
+| {"id":"<uuid>","linked_work":[],"open_agenda":0,"project":"MMR","state":"active","title":"A second pad","updated_at":"2026-10-01T12:00:00.000Z"}
+
+### scratch list -s XX -f json
+exit 0
+--- stdout
+| {"scratchpads":[{"id":"<uuid>","linked_work":[],"open_agenda":0,"project":"XX","state":"active","title":"Elsewhere","updated_at":"2026-10-01T12:00:00.000Z"}],"total":1}
+
+### scratch list (bound to MMR)
+exit 0
+--- stdout
+| <uuid>  MMR  Shape the watcher  now
+| <uuid>  MMR  A second pad  now
+
+### scratch list -s XX (bound to MMR)
+exit 0
+--- stdout
+| <uuid>  XX  Elsewhere  now
+
+### scratch get <pad>
+exit 0
+--- stdout
+| agenda  [{"content":"verify recovery","number":1,"reason":null,"state":"open"}]
+| created at  2026-10-01 12:00 UTC
+| freezing at  
+| id  <uuid>
+| journal  [{"at":"2026-10-01 12:00 UTC","content":"settled the API","number":1}]
+| linked work  ["MMR-3"]
+| project  MMR
+| title  Shape the watcher
+| updated at  2026-10-01T12:00:00.002Z
+
+### scratch get <pad> -f records
+exit 0
+--- stdout
+| agenda  [{"content":"verify recovery","number":1,"reason":null,"state":"open"}]
+| created at  2026-10-01 12:00 UTC
+| freezing at  
+| id  <uuid>
+| journal  [{"at":"2026-10-01 12:00 UTC","content":"settled the API","number":1}]
+| linked work  ["MMR-3"]
+| project  MMR
+| title  Shape the watcher
+| updated at  2026-10-01T12:00:00.002Z
+
+### scratch get <pad> -f ids
+exit 0
+--- stdout
+| <uuid>
+
+### scratch get <pad> -f json
+exit 0
+--- stdout
+| {"agenda":[{"content":"verify recovery","number":1,"reason":null,"state":"open"}],"created_at":"2026-10-01T12:00:00.000Z","freezing_at":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"settled the API","number":1}],"linked_work":["MMR-3"],"project":"MMR","title":"Shape the watcher","updated_at":"2026-10-01T12:00:00.002Z"}
+
+### scratch get <pad> -f jsonl
+exit 0
+--- stdout
+| {"agenda":[{"content":"verify recovery","number":1,"reason":null,"state":"open"}],"created_at":"2026-10-01T12:00:00.000Z","freezing_at":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"settled the API","number":1}],"linked_work":["MMR-3"],"project":"MMR","title":"Shape the watcher","updated_at":"2026-10-01T12:00:00.002Z"}
+
+### scratch get <pad> --ascii
+exit 0
+--- stdout
+| agenda  [{"content":"verify recovery","number":1,"reason":null,"state":"open"}]
+| created at  2026-10-01 12:00 UTC
+| freezing at  
+| id  <uuid>
+| journal  [{"at":"2026-10-01 12:00 UTC","content":"settled the API","number":1}]
+| linked work  ["MMR-3"]
+| project  MMR
+| title  Shape the watcher
+| updated at  2026-10-01T12:00:00.002Z
+
+### scratch get nope
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "nope doesn't exist"
+| }
+
+### scratch get (no id)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
+| }
+
+### scratch list -s MMR --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
+| }
+
+### scratch argv: list -s MMR
+exit 0
+--- stdout
+| <uuid>  MMR  Shape the watcher  now
+| <uuid>  MMR  A second pad  now
+
+### scratch argv: list --scope MMR --format ids
+exit 0
+--- stdout
+| <uuid>
+| <uuid>
+
+### scratch argv: get <pad> -f json
+exit 0
+--- stdout
+| {"agenda":[{"content":"verify recovery","number":1,"reason":null,"state":"open"}],"created_at":"2026-10-01T12:00:00.000Z","freezing_at":null,"id":"<uuid>","journal":[{"at":"2026-10-01T12:00:00.000Z","content":"settled the API","number":1}],"linked_work":["MMR-3"],"project":"MMR","title":"Shape the watcher","updated_at":"2026-10-01T12:00:00.002Z"}
+
+### scratch argv: get nope -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "nope doesn't exist"
+| }
+
+### scratch argv: list -s MMR -s XX -f ids
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"-s\" can be supplied only once. Remove the repeated option."
+| }
+
+### scratch argv: list extra -s MMR
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"list\" accepts no arguments. Remove the supplied values."
+| }
+
+### scratch argv: (no arguments)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "parser",
+|   "hints": [],
+|   "message": "Option \"--format\" belongs to commands scratch list, scratch get, scratch create, scratch update, scratch checkpoint, scratch agenda, scratch freeze, scratch discard. Supply it after the command name."
+| }
+
+### scratch argv: bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "parser",
+|   "hints": [],
+|   "message": "Unknown command \"bogus\". Use one of: list, get, create, update, checkpoint, agenda, freeze, discard."
+| }
+
+### scratch argv: list -s ZZZ
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key ZZZ -y"
+|   ],
+|   "message": "ZZZ doesn't exist"
+| }
+
+### scratch argv: list -s MMR (terminal)
+exit 0
+--- stdout
+| <uuid>  MMR  Shape the watcher  now
+| <uuid>  MMR  A second pad  now
+
+### scratch argv: get <pad> -f records (terminal)
+exit 0
+--- stdout
+| agenda  [{"content":"verify recovery","number":1,"reason":null,"state":"open"}]
+| created at  2026-10-01 12:00 UTC
+| freezing at  
+| id  <uuid>
+| journal  [{"at":"2026-10-01 12:00 UTC","content":"settled the API","number":1}]
+| linked work  ["MMR-3"]
+| project  MMR
+| title  Shape the watcher
+| updated at  2026-10-01T12:00:00.002Z
+

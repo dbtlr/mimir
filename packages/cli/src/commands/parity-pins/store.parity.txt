@@ -1,0 +1,6554 @@
+### store upgrade
+exit 0
+--- stdout
+| {"applied":["0001_init","0002_grooming","0003_block_owner","0004_seed_parked","0005_project_pinned","0006_project_remote","0007_task_queued","0008_main_worker","0009_device_tokens","0010_pairing_requests"],"from":0,"to":10}
+
+### store upgrade -f records
+exit 0
+--- stdout
+| [ok] store: schema upgraded from 0 to 10 (0001_init, 0002_grooming, 0003_block_owner, 0004_seed_parked, 0005_project_pinned, 0006_project_remote, 0007_task_queued, 0008_main_worker, 0009_device_tokens, 0010_pairing_requests)
+
+### store upgrade -f table
+exit 0
+--- stdout
+| [ok] store: schema upgraded from 0 to 10 (0001_init, 0002_grooming, 0003_block_owner, 0004_seed_parked, 0005_project_pinned, 0006_project_remote, 0007_task_queued, 0008_main_worker, 0009_device_tokens, 0010_pairing_requests)
+
+### store upgrade -f ids
+exit 0
+--- stdout
+| [ok] store: schema upgraded from 0 to 10 (0001_init, 0002_grooming, 0003_block_owner, 0004_seed_parked, 0005_project_pinned, 0006_project_remote, 0007_task_queued, 0008_main_worker, 0009_device_tokens, 0010_pairing_requests)
+
+### store upgrade -f json
+exit 0
+--- stdout
+| {"applied":["0001_init","0002_grooming","0003_block_owner","0004_seed_parked","0005_project_pinned","0006_project_remote","0007_task_queued","0008_main_worker","0009_device_tokens","0010_pairing_requests"],"from":0,"to":10}
+
+### store upgrade -f jsonl
+exit 0
+--- stdout
+| {"applied":["0001_init","0002_grooming","0003_block_owner","0004_seed_parked","0005_project_pinned","0006_project_remote","0007_task_queued","0008_main_worker","0009_device_tokens","0010_pairing_requests"],"from":0,"to":10}
+
+### store export -
+exit 0
+--- stdout
+| {
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "content": "# Notes\n\nThe body.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "key": "MMR",
+|       "links": [
+|         "MMR-3"
+|       ],
+|       "seq": 1,
+|       "source_scratch": null,
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "bodySections": [
+|     {
+|       "description": "Open the store once.\n\nKeep it open.",
+|       "next": {
+|         "present": false,
+|         "text": null
+|       },
+|       "stem": "MMR-3"
+|     }
+|   ],
+|   "edges": [
+|     {
+|       "depends_on_node_id": "MMR-3",
+|       "node_id": "MMR-4"
+|     }
+|   ],
+|   "exported_at": "2026-01-01T00:00:00.000Z",
+|   "nodes": [
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Platform",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "MMR-1",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": "2026-11",
+|       "title": "Skeleton",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p1",
+|       "project_id": "MMR",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": "small",
+|       "summary": "one store per run",
+|       "target": null,
+|       "title": "Wire the store",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-4",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": 131072,
+|       "seq": 4,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Render views",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": "codex",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-5",
+|       "lifecycle": "in_progress",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p0",
+|       "project_id": "MMR",
+|       "rank": 196608,
+|       "seq": 5,
+|       "session": "main-session",
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Ship it",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": "claude",
+|       "worker_session": "task-worker-session"
+|     },
+|     {
+|       "block_owner": "you",
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "blocked",
+|       "hold_reason": "needs a reviewer",
+|       "host": null,
+|       "id": "MMR-6",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 6,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Wait on review",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": "2026-10-01T12:00:00.000Z",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-7",
+|       "lifecycle": "done",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 7,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Spike",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-8",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p2",
+|       "project_id": "MMR",
+|       "rank": 393216,
+|       "seq": 8,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Elsewhere",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "XX-1",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Far",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "XX-2",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Not ours",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     }
+|   ],
+|   "projects": [
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 1,
+|         "node": 8,
+|         "seed": 1
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "The work-state store.",
+|       "key": "MMR",
+|       "name": "mimir",
+|       "pinned": false,
+|       "remote": "github.com/dbtlr/mimir",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 0,
+|         "node": 3,
+|         "seed": 0
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "key": "XX",
+|       "name": "other",
+|       "pinned": false,
+|       "remote": null,
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "schema_version": 7,
+|   "scratchpads": [],
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "Ask the other board for a hook.",
+|       "history": [],
+|       "key": "MMR",
+|       "kind": "feature",
+|       "lifecycle": "new",
+|       "requester": "XX",
+|       "seq": 1,
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "tags": [
+|     {
+|       "entity_id": "MMR-3",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     },
+|     {
+|       "entity_id": "MMR-4",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "transitions": [
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": null,
+|       "kind": "dependency",
+|       "node_id": "MMR-4",
+|       "reason": null,
+|       "to_value": "MMR-3"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "handles": {
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session"
+|       },
+|       "kind": "lifecycle",
+|       "node_id": "MMR-5",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "none",
+|       "kind": "hold",
+|       "node_id": "MMR-6",
+|       "reason": "needs a reviewer",
+|       "to_value": "blocked"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "in_progress",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "done"
+|     }
+|   ]
+| }
+
+### store export - -f records
+exit 0
+--- stdout
+| {
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "content": "# Notes\n\nThe body.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "key": "MMR",
+|       "links": [
+|         "MMR-3"
+|       ],
+|       "seq": 1,
+|       "source_scratch": null,
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "bodySections": [
+|     {
+|       "description": "Open the store once.\n\nKeep it open.",
+|       "next": {
+|         "present": false,
+|         "text": null
+|       },
+|       "stem": "MMR-3"
+|     }
+|   ],
+|   "edges": [
+|     {
+|       "depends_on_node_id": "MMR-3",
+|       "node_id": "MMR-4"
+|     }
+|   ],
+|   "exported_at": "2026-01-01T00:00:00.000Z",
+|   "nodes": [
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Platform",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "MMR-1",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": "2026-11",
+|       "title": "Skeleton",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p1",
+|       "project_id": "MMR",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": "small",
+|       "summary": "one store per run",
+|       "target": null,
+|       "title": "Wire the store",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-4",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": 131072,
+|       "seq": 4,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Render views",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": "codex",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-5",
+|       "lifecycle": "in_progress",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p0",
+|       "project_id": "MMR",
+|       "rank": 196608,
+|       "seq": 5,
+|       "session": "main-session",
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Ship it",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": "claude",
+|       "worker_session": "task-worker-session"
+|     },
+|     {
+|       "block_owner": "you",
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "blocked",
+|       "hold_reason": "needs a reviewer",
+|       "host": null,
+|       "id": "MMR-6",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 6,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Wait on review",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": "2026-10-01T12:00:00.000Z",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-7",
+|       "lifecycle": "done",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 7,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Spike",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-8",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p2",
+|       "project_id": "MMR",
+|       "rank": 393216,
+|       "seq": 8,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Elsewhere",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "XX-1",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Far",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "XX-2",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Not ours",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     }
+|   ],
+|   "projects": [
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 1,
+|         "node": 8,
+|         "seed": 1
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "The work-state store.",
+|       "key": "MMR",
+|       "name": "mimir",
+|       "pinned": false,
+|       "remote": "github.com/dbtlr/mimir",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 0,
+|         "node": 3,
+|         "seed": 0
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "key": "XX",
+|       "name": "other",
+|       "pinned": false,
+|       "remote": null,
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "schema_version": 7,
+|   "scratchpads": [],
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "Ask the other board for a hook.",
+|       "history": [],
+|       "key": "MMR",
+|       "kind": "feature",
+|       "lifecycle": "new",
+|       "requester": "XX",
+|       "seq": 1,
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "tags": [
+|     {
+|       "entity_id": "MMR-3",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     },
+|     {
+|       "entity_id": "MMR-4",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "transitions": [
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": null,
+|       "kind": "dependency",
+|       "node_id": "MMR-4",
+|       "reason": null,
+|       "to_value": "MMR-3"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "handles": {
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session"
+|       },
+|       "kind": "lifecycle",
+|       "node_id": "MMR-5",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "none",
+|       "kind": "hold",
+|       "node_id": "MMR-6",
+|       "reason": "needs a reviewer",
+|       "to_value": "blocked"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "in_progress",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "done"
+|     }
+|   ]
+| }
+
+### store export - -f json
+exit 0
+--- stdout
+| {
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "content": "# Notes\n\nThe body.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "key": "MMR",
+|       "links": [
+|         "MMR-3"
+|       ],
+|       "seq": 1,
+|       "source_scratch": null,
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "bodySections": [
+|     {
+|       "description": "Open the store once.\n\nKeep it open.",
+|       "next": {
+|         "present": false,
+|         "text": null
+|       },
+|       "stem": "MMR-3"
+|     }
+|   ],
+|   "edges": [
+|     {
+|       "depends_on_node_id": "MMR-3",
+|       "node_id": "MMR-4"
+|     }
+|   ],
+|   "exported_at": "2026-01-01T00:00:00.000Z",
+|   "nodes": [
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Platform",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "MMR-1",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": "2026-11",
+|       "title": "Skeleton",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p1",
+|       "project_id": "MMR",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": "small",
+|       "summary": "one store per run",
+|       "target": null,
+|       "title": "Wire the store",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-4",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": 131072,
+|       "seq": 4,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Render views",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": "codex",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-5",
+|       "lifecycle": "in_progress",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p0",
+|       "project_id": "MMR",
+|       "rank": 196608,
+|       "seq": 5,
+|       "session": "main-session",
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Ship it",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": "claude",
+|       "worker_session": "task-worker-session"
+|     },
+|     {
+|       "block_owner": "you",
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "blocked",
+|       "hold_reason": "needs a reviewer",
+|       "host": null,
+|       "id": "MMR-6",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 6,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Wait on review",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": "2026-10-01T12:00:00.000Z",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-7",
+|       "lifecycle": "done",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 7,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Spike",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-8",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p2",
+|       "project_id": "MMR",
+|       "rank": 393216,
+|       "seq": 8,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Elsewhere",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "XX-1",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Far",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "XX-2",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Not ours",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     }
+|   ],
+|   "projects": [
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 1,
+|         "node": 8,
+|         "seed": 1
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "The work-state store.",
+|       "key": "MMR",
+|       "name": "mimir",
+|       "pinned": false,
+|       "remote": "github.com/dbtlr/mimir",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 0,
+|         "node": 3,
+|         "seed": 0
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "key": "XX",
+|       "name": "other",
+|       "pinned": false,
+|       "remote": null,
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "schema_version": 7,
+|   "scratchpads": [],
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "Ask the other board for a hook.",
+|       "history": [],
+|       "key": "MMR",
+|       "kind": "feature",
+|       "lifecycle": "new",
+|       "requester": "XX",
+|       "seq": 1,
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "tags": [
+|     {
+|       "entity_id": "MMR-3",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     },
+|     {
+|       "entity_id": "MMR-4",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "transitions": [
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": null,
+|       "kind": "dependency",
+|       "node_id": "MMR-4",
+|       "reason": null,
+|       "to_value": "MMR-3"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "handles": {
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session"
+|       },
+|       "kind": "lifecycle",
+|       "node_id": "MMR-5",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "none",
+|       "kind": "hold",
+|       "node_id": "MMR-6",
+|       "reason": "needs a reviewer",
+|       "to_value": "blocked"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "in_progress",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "done"
+|     }
+|   ]
+| }
+
+### store export - -f jsonl
+exit 0
+--- stdout
+| {
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "content": "# Notes\n\nThe body.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "key": "MMR",
+|       "links": [
+|         "MMR-3"
+|       ],
+|       "seq": 1,
+|       "source_scratch": null,
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "bodySections": [
+|     {
+|       "description": "Open the store once.\n\nKeep it open.",
+|       "next": {
+|         "present": false,
+|         "text": null
+|       },
+|       "stem": "MMR-3"
+|     }
+|   ],
+|   "edges": [
+|     {
+|       "depends_on_node_id": "MMR-3",
+|       "node_id": "MMR-4"
+|     }
+|   ],
+|   "exported_at": "2026-01-01T00:00:00.000Z",
+|   "nodes": [
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Platform",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "MMR-1",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": "2026-11",
+|       "title": "Skeleton",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p1",
+|       "project_id": "MMR",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": "small",
+|       "summary": "one store per run",
+|       "target": null,
+|       "title": "Wire the store",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-4",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": 131072,
+|       "seq": 4,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Render views",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": "codex",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-5",
+|       "lifecycle": "in_progress",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p0",
+|       "project_id": "MMR",
+|       "rank": 196608,
+|       "seq": 5,
+|       "session": "main-session",
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Ship it",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": "claude",
+|       "worker_session": "task-worker-session"
+|     },
+|     {
+|       "block_owner": "you",
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "blocked",
+|       "hold_reason": "needs a reviewer",
+|       "host": null,
+|       "id": "MMR-6",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 6,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Wait on review",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": "2026-10-01T12:00:00.000Z",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-7",
+|       "lifecycle": "done",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 7,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Spike",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-8",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p2",
+|       "project_id": "MMR",
+|       "rank": 393216,
+|       "seq": 8,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Elsewhere",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "XX-1",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Far",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "XX-2",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Not ours",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     }
+|   ],
+|   "projects": [
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 1,
+|         "node": 8,
+|         "seed": 1
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "The work-state store.",
+|       "key": "MMR",
+|       "name": "mimir",
+|       "pinned": false,
+|       "remote": "github.com/dbtlr/mimir",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 0,
+|         "node": 3,
+|         "seed": 0
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "key": "XX",
+|       "name": "other",
+|       "pinned": false,
+|       "remote": null,
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "schema_version": 7,
+|   "scratchpads": [],
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "Ask the other board for a hook.",
+|       "history": [],
+|       "key": "MMR",
+|       "kind": "feature",
+|       "lifecycle": "new",
+|       "requester": "XX",
+|       "seq": 1,
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "tags": [
+|     {
+|       "entity_id": "MMR-3",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     },
+|     {
+|       "entity_id": "MMR-4",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "transitions": [
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": null,
+|       "kind": "dependency",
+|       "node_id": "MMR-4",
+|       "reason": null,
+|       "to_value": "MMR-3"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "handles": {
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session"
+|       },
+|       "kind": "lifecycle",
+|       "node_id": "MMR-5",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "none",
+|       "kind": "hold",
+|       "node_id": "MMR-6",
+|       "reason": "needs a reviewer",
+|       "to_value": "blocked"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "in_progress",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "done"
+|     }
+|   ]
+| }
+
+### store export - -f ids
+exit 0
+--- stdout
+| {
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "content": "# Notes\n\nThe body.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "key": "MMR",
+|       "links": [
+|         "MMR-3"
+|       ],
+|       "seq": 1,
+|       "source_scratch": null,
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "bodySections": [
+|     {
+|       "description": "Open the store once.\n\nKeep it open.",
+|       "next": {
+|         "present": false,
+|         "text": null
+|       },
+|       "stem": "MMR-3"
+|     }
+|   ],
+|   "edges": [
+|     {
+|       "depends_on_node_id": "MMR-3",
+|       "node_id": "MMR-4"
+|     }
+|   ],
+|   "exported_at": "2026-01-01T00:00:00.000Z",
+|   "nodes": [
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Platform",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "MMR-1",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": "2026-11",
+|       "title": "Skeleton",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p1",
+|       "project_id": "MMR",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": "small",
+|       "summary": "one store per run",
+|       "target": null,
+|       "title": "Wire the store",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-4",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": 131072,
+|       "seq": 4,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Render views",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": "codex",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-5",
+|       "lifecycle": "in_progress",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p0",
+|       "project_id": "MMR",
+|       "rank": 196608,
+|       "seq": 5,
+|       "session": "main-session",
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Ship it",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": "claude",
+|       "worker_session": "task-worker-session"
+|     },
+|     {
+|       "block_owner": "you",
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "blocked",
+|       "hold_reason": "needs a reviewer",
+|       "host": null,
+|       "id": "MMR-6",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 6,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Wait on review",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": "2026-10-01T12:00:00.000Z",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-7",
+|       "lifecycle": "done",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 7,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Spike",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-8",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p2",
+|       "project_id": "MMR",
+|       "rank": 393216,
+|       "seq": 8,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Elsewhere",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "XX-1",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Far",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "XX-2",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Not ours",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     }
+|   ],
+|   "projects": [
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 1,
+|         "node": 8,
+|         "seed": 1
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "The work-state store.",
+|       "key": "MMR",
+|       "name": "mimir",
+|       "pinned": false,
+|       "remote": "github.com/dbtlr/mimir",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 0,
+|         "node": 3,
+|         "seed": 0
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "key": "XX",
+|       "name": "other",
+|       "pinned": false,
+|       "remote": null,
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "schema_version": 7,
+|   "scratchpads": [],
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "Ask the other board for a hook.",
+|       "history": [],
+|       "key": "MMR",
+|       "kind": "feature",
+|       "lifecycle": "new",
+|       "requester": "XX",
+|       "seq": 1,
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "tags": [
+|     {
+|       "entity_id": "MMR-3",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     },
+|     {
+|       "entity_id": "MMR-4",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "transitions": [
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": null,
+|       "kind": "dependency",
+|       "node_id": "MMR-4",
+|       "reason": null,
+|       "to_value": "MMR-3"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "handles": {
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session"
+|       },
+|       "kind": "lifecycle",
+|       "node_id": "MMR-5",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "none",
+|       "kind": "hold",
+|       "node_id": "MMR-6",
+|       "reason": "needs a reviewer",
+|       "to_value": "blocked"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "in_progress",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "done"
+|     }
+|   ]
+| }
+
+### store export <file>
+exit 0
+--- stdout
+| {"artifacts":1,"nodes":11,"projects":2,"scratchpads":0,"seeds":1,"exported_at":"2026-01-01T00:00:00.000Z","path":"<dir>/a.json","schema_version":7}
+--- file
+| {
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "content": "# Notes\n\nThe body.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "key": "MMR",
+|       "links": [
+|         "MMR-3"
+|       ],
+|       "seq": 1,
+|       "source_scratch": null,
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "bodySections": [
+|     {
+|       "description": "Open the store once.\n\nKeep it open.",
+|       "next": {
+|         "present": false,
+|         "text": null
+|       },
+|       "stem": "MMR-3"
+|     }
+|   ],
+|   "edges": [
+|     {
+|       "depends_on_node_id": "MMR-3",
+|       "node_id": "MMR-4"
+|     }
+|   ],
+|   "exported_at": "2026-01-01T00:00:00.000Z",
+|   "nodes": [
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Platform",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "MMR-1",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": "2026-11",
+|       "title": "Skeleton",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p1",
+|       "project_id": "MMR",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": "small",
+|       "summary": "one store per run",
+|       "target": null,
+|       "title": "Wire the store",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-4",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": 131072,
+|       "seq": 4,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Render views",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": "codex",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-5",
+|       "lifecycle": "in_progress",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p0",
+|       "project_id": "MMR",
+|       "rank": 196608,
+|       "seq": 5,
+|       "session": "main-session",
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Ship it",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": "claude",
+|       "worker_session": "task-worker-session"
+|     },
+|     {
+|       "block_owner": "you",
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "blocked",
+|       "hold_reason": "needs a reviewer",
+|       "host": null,
+|       "id": "MMR-6",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 6,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Wait on review",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": "2026-10-01T12:00:00.000Z",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-7",
+|       "lifecycle": "done",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 7,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Spike",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-8",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p2",
+|       "project_id": "MMR",
+|       "rank": 393216,
+|       "seq": 8,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Elsewhere",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "XX-1",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Far",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "XX-2",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Not ours",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     }
+|   ],
+|   "projects": [
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 1,
+|         "node": 8,
+|         "seed": 1
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "The work-state store.",
+|       "key": "MMR",
+|       "name": "mimir",
+|       "pinned": false,
+|       "remote": "github.com/dbtlr/mimir",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 0,
+|         "node": 3,
+|         "seed": 0
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "key": "XX",
+|       "name": "other",
+|       "pinned": false,
+|       "remote": null,
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "schema_version": 7,
+|   "scratchpads": [],
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "Ask the other board for a hook.",
+|       "history": [],
+|       "key": "MMR",
+|       "kind": "feature",
+|       "lifecycle": "new",
+|       "requester": "XX",
+|       "seq": 1,
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "tags": [
+|     {
+|       "entity_id": "MMR-3",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     },
+|     {
+|       "entity_id": "MMR-4",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "transitions": [
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": null,
+|       "kind": "dependency",
+|       "node_id": "MMR-4",
+|       "reason": null,
+|       "to_value": "MMR-3"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "handles": {
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session"
+|       },
+|       "kind": "lifecycle",
+|       "node_id": "MMR-5",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "none",
+|       "kind": "hold",
+|       "node_id": "MMR-6",
+|       "reason": "needs a reviewer",
+|       "to_value": "blocked"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "in_progress",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "done"
+|     }
+|   ]
+| }
+
+### store export <file> -f records
+exit 0
+--- stdout
+| [ok] store: exported 2 projects, 11 nodes, 1 artifact, 1 seed, 0 scratchpads to <dir>/b.json
+--- file
+| {
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "content": "# Notes\n\nThe body.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "key": "MMR",
+|       "links": [
+|         "MMR-3"
+|       ],
+|       "seq": 1,
+|       "source_scratch": null,
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "bodySections": [
+|     {
+|       "description": "Open the store once.\n\nKeep it open.",
+|       "next": {
+|         "present": false,
+|         "text": null
+|       },
+|       "stem": "MMR-3"
+|     }
+|   ],
+|   "edges": [
+|     {
+|       "depends_on_node_id": "MMR-3",
+|       "node_id": "MMR-4"
+|     }
+|   ],
+|   "exported_at": "2026-01-01T00:00:00.000Z",
+|   "nodes": [
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Platform",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "MMR-1",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": "2026-11",
+|       "title": "Skeleton",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p1",
+|       "project_id": "MMR",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": "small",
+|       "summary": "one store per run",
+|       "target": null,
+|       "title": "Wire the store",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-4",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": 131072,
+|       "seq": 4,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Render views",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": "codex",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-5",
+|       "lifecycle": "in_progress",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p0",
+|       "project_id": "MMR",
+|       "rank": 196608,
+|       "seq": 5,
+|       "session": "main-session",
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Ship it",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": "claude",
+|       "worker_session": "task-worker-session"
+|     },
+|     {
+|       "block_owner": "you",
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "blocked",
+|       "hold_reason": "needs a reviewer",
+|       "host": null,
+|       "id": "MMR-6",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 6,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Wait on review",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": "2026-10-01T12:00:00.000Z",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-7",
+|       "lifecycle": "done",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 7,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Spike",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-8",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p2",
+|       "project_id": "MMR",
+|       "rank": 393216,
+|       "seq": 8,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Elsewhere",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "XX-1",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Far",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "XX-2",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Not ours",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     }
+|   ],
+|   "projects": [
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 1,
+|         "node": 8,
+|         "seed": 1
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "The work-state store.",
+|       "key": "MMR",
+|       "name": "mimir",
+|       "pinned": false,
+|       "remote": "github.com/dbtlr/mimir",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 0,
+|         "node": 3,
+|         "seed": 0
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "key": "XX",
+|       "name": "other",
+|       "pinned": false,
+|       "remote": null,
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "schema_version": 7,
+|   "scratchpads": [],
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "Ask the other board for a hook.",
+|       "history": [],
+|       "key": "MMR",
+|       "kind": "feature",
+|       "lifecycle": "new",
+|       "requester": "XX",
+|       "seq": 1,
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "tags": [
+|     {
+|       "entity_id": "MMR-3",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     },
+|     {
+|       "entity_id": "MMR-4",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "transitions": [
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": null,
+|       "kind": "dependency",
+|       "node_id": "MMR-4",
+|       "reason": null,
+|       "to_value": "MMR-3"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "handles": {
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session"
+|       },
+|       "kind": "lifecycle",
+|       "node_id": "MMR-5",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "none",
+|       "kind": "hold",
+|       "node_id": "MMR-6",
+|       "reason": "needs a reviewer",
+|       "to_value": "blocked"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "in_progress",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "done"
+|     }
+|   ]
+| }
+
+### store export <file> -f table
+exit 0
+--- stdout
+| [ok] store: exported 2 projects, 11 nodes, 1 artifact, 1 seed, 0 scratchpads to <dir>/c.json
+--- file
+| {
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "content": "# Notes\n\nThe body.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "key": "MMR",
+|       "links": [
+|         "MMR-3"
+|       ],
+|       "seq": 1,
+|       "source_scratch": null,
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "bodySections": [
+|     {
+|       "description": "Open the store once.\n\nKeep it open.",
+|       "next": {
+|         "present": false,
+|         "text": null
+|       },
+|       "stem": "MMR-3"
+|     }
+|   ],
+|   "edges": [
+|     {
+|       "depends_on_node_id": "MMR-3",
+|       "node_id": "MMR-4"
+|     }
+|   ],
+|   "exported_at": "2026-01-01T00:00:00.000Z",
+|   "nodes": [
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Platform",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "MMR-1",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": "2026-11",
+|       "title": "Skeleton",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p1",
+|       "project_id": "MMR",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": "small",
+|       "summary": "one store per run",
+|       "target": null,
+|       "title": "Wire the store",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-4",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": 131072,
+|       "seq": 4,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Render views",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": "codex",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-5",
+|       "lifecycle": "in_progress",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p0",
+|       "project_id": "MMR",
+|       "rank": 196608,
+|       "seq": 5,
+|       "session": "main-session",
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Ship it",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": "claude",
+|       "worker_session": "task-worker-session"
+|     },
+|     {
+|       "block_owner": "you",
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "blocked",
+|       "hold_reason": "needs a reviewer",
+|       "host": null,
+|       "id": "MMR-6",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 6,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Wait on review",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": "2026-10-01T12:00:00.000Z",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-7",
+|       "lifecycle": "done",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 7,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Spike",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-8",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p2",
+|       "project_id": "MMR",
+|       "rank": 393216,
+|       "seq": 8,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Elsewhere",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "XX-1",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Far",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "XX-2",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Not ours",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     }
+|   ],
+|   "projects": [
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 1,
+|         "node": 8,
+|         "seed": 1
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "The work-state store.",
+|       "key": "MMR",
+|       "name": "mimir",
+|       "pinned": false,
+|       "remote": "github.com/dbtlr/mimir",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 0,
+|         "node": 3,
+|         "seed": 0
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "key": "XX",
+|       "name": "other",
+|       "pinned": false,
+|       "remote": null,
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "schema_version": 7,
+|   "scratchpads": [],
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "Ask the other board for a hook.",
+|       "history": [],
+|       "key": "MMR",
+|       "kind": "feature",
+|       "lifecycle": "new",
+|       "requester": "XX",
+|       "seq": 1,
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "tags": [
+|     {
+|       "entity_id": "MMR-3",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     },
+|     {
+|       "entity_id": "MMR-4",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "transitions": [
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": null,
+|       "kind": "dependency",
+|       "node_id": "MMR-4",
+|       "reason": null,
+|       "to_value": "MMR-3"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "handles": {
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session"
+|       },
+|       "kind": "lifecycle",
+|       "node_id": "MMR-5",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "none",
+|       "kind": "hold",
+|       "node_id": "MMR-6",
+|       "reason": "needs a reviewer",
+|       "to_value": "blocked"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "in_progress",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "done"
+|     }
+|   ]
+| }
+
+### store export <file> -f ids
+exit 0
+--- stdout
+| [ok] store: exported 2 projects, 11 nodes, 1 artifact, 1 seed, 0 scratchpads to <dir>/d.json
+--- file
+| {
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "content": "# Notes\n\nThe body.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "key": "MMR",
+|       "links": [
+|         "MMR-3"
+|       ],
+|       "seq": 1,
+|       "source_scratch": null,
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "bodySections": [
+|     {
+|       "description": "Open the store once.\n\nKeep it open.",
+|       "next": {
+|         "present": false,
+|         "text": null
+|       },
+|       "stem": "MMR-3"
+|     }
+|   ],
+|   "edges": [
+|     {
+|       "depends_on_node_id": "MMR-3",
+|       "node_id": "MMR-4"
+|     }
+|   ],
+|   "exported_at": "2026-01-01T00:00:00.000Z",
+|   "nodes": [
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Platform",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "MMR-1",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": "2026-11",
+|       "title": "Skeleton",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p1",
+|       "project_id": "MMR",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": "small",
+|       "summary": "one store per run",
+|       "target": null,
+|       "title": "Wire the store",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-4",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": 131072,
+|       "seq": 4,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Render views",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": "codex",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-5",
+|       "lifecycle": "in_progress",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p0",
+|       "project_id": "MMR",
+|       "rank": 196608,
+|       "seq": 5,
+|       "session": "main-session",
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Ship it",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": "claude",
+|       "worker_session": "task-worker-session"
+|     },
+|     {
+|       "block_owner": "you",
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "blocked",
+|       "hold_reason": "needs a reviewer",
+|       "host": null,
+|       "id": "MMR-6",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 6,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Wait on review",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": "2026-10-01T12:00:00.000Z",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-7",
+|       "lifecycle": "done",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 7,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Spike",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-8",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p2",
+|       "project_id": "MMR",
+|       "rank": 393216,
+|       "seq": 8,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Elsewhere",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "XX-1",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Far",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "XX-2",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Not ours",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     }
+|   ],
+|   "projects": [
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 1,
+|         "node": 8,
+|         "seed": 1
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "The work-state store.",
+|       "key": "MMR",
+|       "name": "mimir",
+|       "pinned": false,
+|       "remote": "github.com/dbtlr/mimir",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 0,
+|         "node": 3,
+|         "seed": 0
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "key": "XX",
+|       "name": "other",
+|       "pinned": false,
+|       "remote": null,
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "schema_version": 7,
+|   "scratchpads": [],
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "Ask the other board for a hook.",
+|       "history": [],
+|       "key": "MMR",
+|       "kind": "feature",
+|       "lifecycle": "new",
+|       "requester": "XX",
+|       "seq": 1,
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "tags": [
+|     {
+|       "entity_id": "MMR-3",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     },
+|     {
+|       "entity_id": "MMR-4",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "transitions": [
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": null,
+|       "kind": "dependency",
+|       "node_id": "MMR-4",
+|       "reason": null,
+|       "to_value": "MMR-3"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "handles": {
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session"
+|       },
+|       "kind": "lifecycle",
+|       "node_id": "MMR-5",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "none",
+|       "kind": "hold",
+|       "node_id": "MMR-6",
+|       "reason": "needs a reviewer",
+|       "to_value": "blocked"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "in_progress",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "done"
+|     }
+|   ]
+| }
+
+### store export <file> -f json
+exit 0
+--- stdout
+| {"artifacts":1,"nodes":11,"projects":2,"scratchpads":0,"seeds":1,"exported_at":"2026-01-01T00:00:00.000Z","path":"<dir>/e.json","schema_version":7}
+--- file
+| {
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "content": "# Notes\n\nThe body.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "key": "MMR",
+|       "links": [
+|         "MMR-3"
+|       ],
+|       "seq": 1,
+|       "source_scratch": null,
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "bodySections": [
+|     {
+|       "description": "Open the store once.\n\nKeep it open.",
+|       "next": {
+|         "present": false,
+|         "text": null
+|       },
+|       "stem": "MMR-3"
+|     }
+|   ],
+|   "edges": [
+|     {
+|       "depends_on_node_id": "MMR-3",
+|       "node_id": "MMR-4"
+|     }
+|   ],
+|   "exported_at": "2026-01-01T00:00:00.000Z",
+|   "nodes": [
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Platform",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "MMR-1",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": "2026-11",
+|       "title": "Skeleton",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p1",
+|       "project_id": "MMR",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": "small",
+|       "summary": "one store per run",
+|       "target": null,
+|       "title": "Wire the store",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-4",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": 131072,
+|       "seq": 4,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Render views",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": "codex",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-5",
+|       "lifecycle": "in_progress",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p0",
+|       "project_id": "MMR",
+|       "rank": 196608,
+|       "seq": 5,
+|       "session": "main-session",
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Ship it",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": "claude",
+|       "worker_session": "task-worker-session"
+|     },
+|     {
+|       "block_owner": "you",
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "blocked",
+|       "hold_reason": "needs a reviewer",
+|       "host": null,
+|       "id": "MMR-6",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 6,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Wait on review",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": "2026-10-01T12:00:00.000Z",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-7",
+|       "lifecycle": "done",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 7,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Spike",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-8",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p2",
+|       "project_id": "MMR",
+|       "rank": 393216,
+|       "seq": 8,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Elsewhere",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "XX-1",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Far",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "XX-2",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Not ours",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     }
+|   ],
+|   "projects": [
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 1,
+|         "node": 8,
+|         "seed": 1
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "The work-state store.",
+|       "key": "MMR",
+|       "name": "mimir",
+|       "pinned": false,
+|       "remote": "github.com/dbtlr/mimir",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 0,
+|         "node": 3,
+|         "seed": 0
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "key": "XX",
+|       "name": "other",
+|       "pinned": false,
+|       "remote": null,
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "schema_version": 7,
+|   "scratchpads": [],
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "Ask the other board for a hook.",
+|       "history": [],
+|       "key": "MMR",
+|       "kind": "feature",
+|       "lifecycle": "new",
+|       "requester": "XX",
+|       "seq": 1,
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "tags": [
+|     {
+|       "entity_id": "MMR-3",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     },
+|     {
+|       "entity_id": "MMR-4",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "transitions": [
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": null,
+|       "kind": "dependency",
+|       "node_id": "MMR-4",
+|       "reason": null,
+|       "to_value": "MMR-3"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "handles": {
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session"
+|       },
+|       "kind": "lifecycle",
+|       "node_id": "MMR-5",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "none",
+|       "kind": "hold",
+|       "node_id": "MMR-6",
+|       "reason": "needs a reviewer",
+|       "to_value": "blocked"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "in_progress",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "done"
+|     }
+|   ]
+| }
+
+### store export <file> -f jsonl
+exit 0
+--- stdout
+| {"artifacts":1,"nodes":11,"projects":2,"scratchpads":0,"seeds":1,"exported_at":"2026-01-01T00:00:00.000Z","path":"<dir>/f.json","schema_version":7}
+--- file
+| {
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "content": "# Notes\n\nThe body.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "key": "MMR",
+|       "links": [
+|         "MMR-3"
+|       ],
+|       "seq": 1,
+|       "source_scratch": null,
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "bodySections": [
+|     {
+|       "description": "Open the store once.\n\nKeep it open.",
+|       "next": {
+|         "present": false,
+|         "text": null
+|       },
+|       "stem": "MMR-3"
+|     }
+|   ],
+|   "edges": [
+|     {
+|       "depends_on_node_id": "MMR-3",
+|       "node_id": "MMR-4"
+|     }
+|   ],
+|   "exported_at": "2026-01-01T00:00:00.000Z",
+|   "nodes": [
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Platform",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "MMR-1",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": "2026-11",
+|       "title": "Skeleton",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p1",
+|       "project_id": "MMR",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": "small",
+|       "summary": "one store per run",
+|       "target": null,
+|       "title": "Wire the store",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-4",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": 131072,
+|       "seq": 4,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Render views",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": "codex",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-5",
+|       "lifecycle": "in_progress",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p0",
+|       "project_id": "MMR",
+|       "rank": 196608,
+|       "seq": 5,
+|       "session": "main-session",
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Ship it",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": "claude",
+|       "worker_session": "task-worker-session"
+|     },
+|     {
+|       "block_owner": "you",
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "blocked",
+|       "hold_reason": "needs a reviewer",
+|       "host": null,
+|       "id": "MMR-6",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 6,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Wait on review",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": "2026-10-01T12:00:00.000Z",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-7",
+|       "lifecycle": "done",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 7,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Spike",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-8",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p2",
+|       "project_id": "MMR",
+|       "rank": 393216,
+|       "seq": 8,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Elsewhere",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "XX-1",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Far",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "XX-2",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Not ours",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     }
+|   ],
+|   "projects": [
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 1,
+|         "node": 8,
+|         "seed": 1
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "The work-state store.",
+|       "key": "MMR",
+|       "name": "mimir",
+|       "pinned": false,
+|       "remote": "github.com/dbtlr/mimir",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 0,
+|         "node": 3,
+|         "seed": 0
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "key": "XX",
+|       "name": "other",
+|       "pinned": false,
+|       "remote": null,
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "schema_version": 7,
+|   "scratchpads": [],
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "Ask the other board for a hook.",
+|       "history": [],
+|       "key": "MMR",
+|       "kind": "feature",
+|       "lifecycle": "new",
+|       "requester": "XX",
+|       "seq": 1,
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "tags": [
+|     {
+|       "entity_id": "MMR-3",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     },
+|     {
+|       "entity_id": "MMR-4",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "transitions": [
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": null,
+|       "kind": "dependency",
+|       "node_id": "MMR-4",
+|       "reason": null,
+|       "to_value": "MMR-3"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "handles": {
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session"
+|       },
+|       "kind": "lifecycle",
+|       "node_id": "MMR-5",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "none",
+|       "kind": "hold",
+|       "node_id": "MMR-6",
+|       "reason": "needs a reviewer",
+|       "to_value": "blocked"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "in_progress",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "done"
+|     }
+|   ]
+| }
+
+### store export <taken>
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "export refuses to overwrite a backup — remove or rename the file, or name another path"
+|   ],
+|   "message": "store export: <dir>/taken.json already exists"
+| }
+
+### store export <taken> -f json
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "export refuses to overwrite a backup — remove or rename the file, or name another path"
+|   ],
+|   "message": "store export: <dir>/taken.json already exists"
+| }
+
+### store import <doc>
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "a fresh import owns the identities it brings — import into an empty store, or resume to finish a partial import"
+|   ],
+|   "message": "the target already holds an imported project: MMR, XX"
+| }
+
+### store import <doc> -f records
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "a fresh import owns the identities it brings — import into an empty store, or resume to finish a partial import"
+|   ],
+|   "message": "the target already holds an imported project: MMR, XX"
+| }
+
+### store import <doc> -f table
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "a fresh import owns the identities it brings — import into an empty store, or resume to finish a partial import"
+|   ],
+|   "message": "the target already holds an imported project: MMR, XX"
+| }
+
+### store import <doc> -f ids
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "a fresh import owns the identities it brings — import into an empty store, or resume to finish a partial import"
+|   ],
+|   "message": "the target already holds an imported project: MMR, XX"
+| }
+
+### store import <doc> -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "a fresh import owns the identities it brings — import into an empty store, or resume to finish a partial import"
+|   ],
+|   "message": "the target already holds an imported project: MMR, XX"
+| }
+
+### store import <doc> -f jsonl
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "a fresh import owns the identities it brings — import into an empty store, or resume to finish a partial import"
+|   ],
+|   "message": "the target already holds an imported project: MMR, XX"
+| }
+
+### store import <doc> --resume
+exit 0
+--- stdout
+| {"applied":false,"created":0,"mode":"resume","skipped":15}
+
+### store import <doc> --resume -f json
+exit 0
+--- stdout
+| {"applied":false,"created":0,"mode":"resume","skipped":15}
+
+### store import <doc> --apply --resume
+exit 0
+--- stdout
+| {"applied":true,"created":0,"mode":"resume","skipped":15}
+
+### store import <doc> --apply --resume -f json
+exit 0
+--- stdout
+| {"applied":true,"created":0,"mode":"resume","skipped":15}
+
+### store import <doc> --apply
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "a fresh import owns the identities it brings — import into an empty store, or resume to finish a partial import"
+|   ],
+|   "message": "the target already holds an imported project: MMR, XX"
+| }
+
+### store import <doc> --apply -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "a fresh import owns the identities it brings — import into an empty store, or resume to finish a partial import"
+|   ],
+|   "message": "the target already holds an imported project: MMR, XX"
+| }
+
+### store import - (stdin)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "a fresh import owns the identities it brings — import into an empty store, or resume to finish a partial import"
+|   ],
+|   "message": "the target already holds an imported project: MMR, XX"
+| }
+
+### store import - --resume -f json (stdin)
+exit 0
+--- stdout
+| {"applied":false,"created":0,"mode":"resume","skipped":15}
+
+### store import - (not json)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "store import: stdin isn't valid JSON"
+| }
+
+### store import <missing>
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "store import: <dir>/missing.json doesn't exist"
+| }
+
+### store import <folder>
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "pass the transfer document itself, or - to read it from stdin"
+|   ],
+|   "message": "store import: <dir>/folder is not a file"
+| }
+
+### store import <not json>
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "store import: <dir>/not-json.txt isn't valid JSON"
+| }
+
+### store import <not a document>
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "write one with 'mimir store export <file>'"
+|   ],
+|   "message": "store import: <dir>/not-document.json isn't a store export document (no numeric schema_version)"
+| }
+
+### store import <newer schema>
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "this binary reads schema versions 1, 2, 3, 4, 5, 6, 7"
+|   ],
+|   "message": "unsupported transfer document schema version 99"
+| }
+
+### store import <newer schema> -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "this binary reads schema versions 1, 2, 3, 4, 5, 6, 7"
+|   ],
+|   "message": "unsupported transfer document schema version 99"
+| }
+
+### store export (no file)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"file\" requires a value. Supply a value for \"file\"."
+| }
+
+### store import (no file)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"file\" requires a value. Supply a value for \"file\"."
+| }
+
+### store upgrade -f yaml
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Option \"format\": Supply one of ids, json, jsonl, records, table."
+| }
+
+### store upgrade --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
+| }
+
+### store upgrade --apply
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"apply\". Supply the name of a declared option."
+| }
+
+### store export <file> --apply
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"apply\". Supply the name of a declared option."
+| }
+
+### store export <file> --resume
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"resume\". Supply the name of a declared option."
+| }
+
+### store
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "missing-subcommand",
+|   "hints": [],
+|   "message": "Command \"store\" requires a subcommand. Use one of: upgrade, export, import."
+| }
+
+### store frobnicate
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-command",
+|   "hints": [],
+|   "message": "Unknown command \"frobnicate\". Use one of: upgrade, export, import."
+| }
+
+### store argv: upgrade -f json
+exit 0
+--- stdout
+| {"applied":["0001_init","0002_grooming","0003_block_owner","0004_seed_parked","0005_project_pinned","0006_project_remote","0007_task_queued","0008_main_worker","0009_device_tokens","0010_pairing_requests"],"from":0,"to":10}
+
+### store argv: export - --format json
+exit 0
+--- stdout
+| {
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "content": "# Notes\n\nThe body.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "key": "MMR",
+|       "links": [
+|         "MMR-3"
+|       ],
+|       "seq": 1,
+|       "source_scratch": null,
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "bodySections": [
+|     {
+|       "description": "Open the store once.\n\nKeep it open.",
+|       "next": {
+|         "present": false,
+|         "text": null
+|       },
+|       "stem": "MMR-3"
+|     }
+|   ],
+|   "edges": [
+|     {
+|       "depends_on_node_id": "MMR-3",
+|       "node_id": "MMR-4"
+|     }
+|   ],
+|   "exported_at": "2026-01-01T00:00:00.000Z",
+|   "nodes": [
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Platform",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "MMR-1",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": "2026-11",
+|       "title": "Skeleton",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p1",
+|       "project_id": "MMR",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": "small",
+|       "summary": "one store per run",
+|       "target": null,
+|       "title": "Wire the store",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-4",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": 131072,
+|       "seq": 4,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Render views",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": "codex",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-5",
+|       "lifecycle": "in_progress",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p0",
+|       "project_id": "MMR",
+|       "rank": 196608,
+|       "seq": 5,
+|       "session": "main-session",
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Ship it",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": "claude",
+|       "worker_session": "task-worker-session"
+|     },
+|     {
+|       "block_owner": "you",
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "blocked",
+|       "hold_reason": "needs a reviewer",
+|       "host": null,
+|       "id": "MMR-6",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 6,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Wait on review",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": "2026-10-01T12:00:00.000Z",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-7",
+|       "lifecycle": "done",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 7,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Spike",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-8",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p2",
+|       "project_id": "MMR",
+|       "rank": 393216,
+|       "seq": 8,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Elsewhere",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "XX-1",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Far",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "XX-2",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Not ours",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     }
+|   ],
+|   "projects": [
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 1,
+|         "node": 8,
+|         "seed": 1
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "The work-state store.",
+|       "key": "MMR",
+|       "name": "mimir",
+|       "pinned": false,
+|       "remote": "github.com/dbtlr/mimir",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 0,
+|         "node": 3,
+|         "seed": 0
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "key": "XX",
+|       "name": "other",
+|       "pinned": false,
+|       "remote": null,
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "schema_version": 7,
+|   "scratchpads": [],
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "Ask the other board for a hook.",
+|       "history": [],
+|       "key": "MMR",
+|       "kind": "feature",
+|       "lifecycle": "new",
+|       "requester": "XX",
+|       "seq": 1,
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "tags": [
+|     {
+|       "entity_id": "MMR-3",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     },
+|     {
+|       "entity_id": "MMR-4",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "transitions": [
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": null,
+|       "kind": "dependency",
+|       "node_id": "MMR-4",
+|       "reason": null,
+|       "to_value": "MMR-3"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "handles": {
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session"
+|       },
+|       "kind": "lifecycle",
+|       "node_id": "MMR-5",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "none",
+|       "kind": "hold",
+|       "node_id": "MMR-6",
+|       "reason": "needs a reviewer",
+|       "to_value": "blocked"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "in_progress",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "done"
+|     }
+|   ]
+| }
+
+### store argv: import <dir>/doc.json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "a fresh import owns the identities it brings — import into an empty store, or resume to finish a partial import"
+|   ],
+|   "message": "the target already holds an imported project: MMR, XX"
+| }
+
+### store argv: import <dir>/doc.json --apply --resume -f json
+exit 0
+--- stdout
+| {"applied":true,"created":0,"mode":"resume","skipped":15}
+
+### store argv: upgrade extra
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"upgrade\" accepts no arguments. Remove the supplied values."
+| }
+
+### store argv: export - extra
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"export\" accepts 1 argument. Remove the extra values."
+| }
+
+### store argv: import <dir>/doc.json extra
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"import\" accepts 1 argument. Remove the extra values."
+| }
+
+### store argv: upgrade -f json -f ids
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"-f\" can be supplied only once. Remove the repeated option."
+| }
+
+### store argv: upgrade (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m store: schema upgraded from 0 to 10 (0001_init, 0002_grooming, 0003_block_owner, 0004_seed_parked, 0005_project_pinned, 0006_project_remote, 0007_task_queued, 0008_main_worker, 0009_device_tokens, 0010_pairing_requests)
+
+### store argv: import <dir>/doc.json (terminal)
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "a fresh import owns the identities it brings — import into an empty store, or resume to finish a partial import"
+|   ],
+|   "message": "the target already holds an imported project: MMR, XX"
+| }
+
+### store argv: import <dir>/doc.json -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "a fresh import owns the identities it brings — import into an empty store, or resume to finish a partial import"
+|   ],
+|   "message": "the target already holds an imported project: MMR, XX"
+| }
+
+### store argv: upgrade --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
+|   ],
+|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+
+### store argv: export - --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
+|   ],
+|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+
+### store argv: import x.json --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
+|   ],
+|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+

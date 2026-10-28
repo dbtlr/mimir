@@ -75,20 +75,19 @@ const cliNoWire = {
     'Layer boundary: only packages/cli/src/app.ts imports @mimir/wire; commands reach work state through the Engine.',
 };
 
-/** The Loom CLI replaces the old binary and never builds on it. */
+/** The Loom CLI replaces the old binary and never builds on it, tests and test support included. */
 const cliNoBin = {
   group: ['@mimir/bin', '@mimir/bin/**', '**/bin/src', '**/bin/src/**'],
-  message: 'Layer boundary: @mimir/cli may not import @mimir/bin; the parity harness alone does.',
+  message: 'Layer boundary: @mimir/cli may not import @mimir/bin.',
 };
 
 /**
- * The CLI's test-support modules build stores and run the old binary, so the
- * shipped modules may not import them: they would reach core around the Engine.
+ * The CLI's test-support modules build stores, so the shipped modules may not
+ * import them: they would reach core around the Engine.
  */
 const cliNoTesting = {
   group: ['**/testing', '**/testing/**'],
-  message:
-    'Layer boundary: only tests import packages/cli/src/testing; it reaches core and the old binary.',
+  message: 'Layer boundary: only tests import packages/cli/src/testing; it reaches core.',
 };
 
 const noCoreImports = {
@@ -216,10 +215,10 @@ const layerOverrides: Override[] = [
   restrict(['packages/contract/**'], [noBinImports, noCoreImports, noWireImports]),
   restrict(['packages/wire/**/*.test.ts'], [coreEntryOnly, noBinImports]),
   restrict(['packages/bin/**/*.test.ts'], [coreEntryOnly]),
-  // The CLI's tests and test-support modules build stores and run the old CLI
-  // for the parity harness; they still reach core only through its entries.
+  // The CLI's tests and test-support modules build stores for the parity cases;
+  // they still reach core only through its entries, and never the old binary.
   // Shipped CLI modules may not import them (cliNoTesting above).
-  restrict(['packages/cli/**/*.test.ts', 'packages/cli/src/testing/**'], [coreEntryOnly]),
+  restrict(['packages/cli/**/*.test.ts', 'packages/cli/src/testing/**'], [coreEntryOnly, cliNoBin]),
   // Tests legitimately force bad/loose types — to drive error paths, assert over
   // untyped HTTP responses, narrow DOM queries — so unsafe assertions are allowed
   // in test files (they own both ends; the safety bar is for shipped code).

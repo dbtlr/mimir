@@ -1,30 +1,26 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test';
 
 import { ADDED, NOT_CARRIED, TOOL_COVERAGE } from './parity/mcp-capabilities';
+import { RETIRED_MCP_TOOLS } from './parity/retired-mcp-tools';
+import type { RetiredToolSchema } from './parity/retired-mcp-tools';
 import { parityBoard } from './testing/fixture';
 import type { ParityBoard } from './testing/fixture';
-import { loomMcpSession, oldMcpSession } from './testing/mcp';
+import { loomMcpSession } from './testing/mcp';
 import type { ToolSchema } from './testing/mcp';
 
 /**
- * MCP capability parity (ADR 0037): the old server's every tool is covered by
- * a Loom tool the checked-in map names, and the map names nothing that does
+ * MCP capability parity (ADR 0037): the old server's every tool, frozen in
+ * `parity/retired-mcp-tools.ts`, is covered by a Loom tool the checked-in map names, and the map names nothing that does
  * not exist. The machine-local and installer commands stay off MCP.
  */
 let board: ParityBoard;
-let oldTools: string[];
 let loomTools: string[];
-const oldSchemas = new Map<string, ToolSchema>();
+const oldTools = Object.keys(RETIRED_MCP_TOOLS);
+const oldSchemas = new Map<string, RetiredToolSchema>(Object.entries(RETIRED_MCP_TOOLS));
 const loomSchemas = new Map<string, ToolSchema>();
 
 beforeAll(async () => {
   board = await parityBoard();
-  const old = await oldMcpSession(board.store);
-  oldTools = await old.tools();
-  for (const tool of oldTools) {
-    oldSchemas.set(tool, await old.schema(tool));
-  }
-  await old.close();
   const loom = loomMcpSession(board.app('MMR'));
   loomTools = await loom.tools();
   for (const tool of loomTools) {

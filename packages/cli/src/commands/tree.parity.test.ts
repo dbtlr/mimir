@@ -37,4 +37,4 @@ const CASES: ParityCase[] = [
   argvCase(['tree', 'MMR-2', '-f', 'records'], true),
 ];
 
-parityCases(/^tree /, CASES);
+parityCases(import.meta.url, CASES);

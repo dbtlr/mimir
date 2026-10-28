@@ -3,10 +3,10 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { SCRATCH_REDIRECTS } from '../parity/differences';
 import { argvCase, argvLine } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
-import { twinCases } from '../testing/twin';
+import { SCRATCH_REDIRECTS } from '../testing/redirects';
+import { writeCases } from '../testing/writes';
 
 /**
  * The scratch writes act on a Scratchpad each board carries, named by tokens:
@@ -15,6 +15,8 @@ import { twinCases } from '../testing/twin';
  */
 const dir = mkdtempSync(join(tmpdir(), 'mimir-scratch-parity-'));
 const file = join(dir, 'checkpoint.md');
+/** A case named without the temp directory, so its name is the same on every run. */
+const inDir = (c: ParityCase): ParityCase => ({ ...c, name: c.name.replaceAll(dir, '<dir>') });
 writeFileSync(file, 'Distinctive file checkpoint 7c1e.\n\nTwo paragraphs.\n');
 afterAll(() => {
   rmSync(dir, { force: true, recursive: true });
@@ -342,17 +344,29 @@ const CASES: ParityCase[] = [
     'u',
   ]),
   // A checkpoint from a file; its content is distinctive so the board snapshot covers it.
-  argvCase(['scratch', 'checkpoint', '{pad}', '--file', file, '--expected-updated-at', '{token}']),
-  argvCase([
-    'scratch',
-    'checkpoint',
-    '{pad}',
-    'Both.',
-    '--file',
-    file,
-    '--expected-updated-at',
-    '{token}',
-  ]),
+  inDir(
+    argvCase([
+      'scratch',
+      'checkpoint',
+      '{pad}',
+      '--file',
+      file,
+      '--expected-updated-at',
+      '{token}',
+    ]),
+  ),
+  inDir(
+    argvCase([
+      'scratch',
+      'checkpoint',
+      '{pad}',
+      'Both.',
+      '--file',
+      file,
+      '--expected-updated-at',
+      '{token}',
+    ]),
+  ),
   argvCase(['scratch', 'checkpoint', '{pad}', 'a', 'b', '--expected-updated-at', '{token}'], true),
   // Misplaced flags, each redirected as the old CLI redirected them.
   ...SCRATCH_REDIRECTS.map((line) => argvLine(line, { path: line.split(' ').slice(0, 2) })),
@@ -444,8 +458,4 @@ const CASES: ParityCase[] = [
   argvCase(['scratch', 'discard', '{blank}', '--expected-updated-at', '{token}'], true),
 ];
 
-/** The difference entries of the write subcommands; the group and the reads are claimed in scratch.parity.test.ts. */
-const WRITE_ENTRY =
-  /^scratch (create|update|checkpoint|agenda|freeze|discard)\b|^scratch argv: (-s MMR scratch create|create|update|checkpoint|agenda|freeze|discard)\b/;
-
-twinCases(WRITE_ENTRY, CASES);
+writeCases(import.meta.url, CASES);

@@ -1,7 +1,7 @@
-import { NODE_REDIRECTS } from '../parity/differences';
 import { argvCase, argvLine } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
-import { twinCases } from '../testing/twin';
+import { NODE_REDIRECTS } from '../testing/redirects';
+import { writeCases } from '../testing/writes';
 
 /** `create` with its words, so each name leads with `create`. */
 const create = (words: string[], tty?: true): ParityCase => argvCase(['create', ...words], tty);
@@ -198,4 +198,4 @@ const REDIRECTS: ParityCase[] = NODE_REDIRECTS.filter((line) => line.startsWith(
 
 const CASES = [...PROJECT, ...INITIATIVE, ...PHASE, ...TASK, ...OTHER, ...REDIRECTS];
 
-twinCases(/^create /, CASES);
+writeCases(import.meta.url, CASES);

@@ -1,7 +1,7 @@
-import { LIST_REDIRECTS } from '../parity/differences';
 import { argvCase, argvLine } from '../testing/argv-case';
 import { parityCases } from '../testing/parity';
 import type { ParityCase } from '../testing/parity';
+import { LIST_REDIRECTS } from '../testing/redirects';
 
 const list = (name: string, options: ParityCase['options'] = {}, bound?: string): ParityCase => ({
   name,
@@ -143,4 +143,4 @@ const CASES: ParityCase[] = [
   argvCase(['list', '-s', 'XX', '-q', 'nothing'], true),
 ];
 
-parityCases(/^list /, CASES);
+parityCases(import.meta.url, CASES);

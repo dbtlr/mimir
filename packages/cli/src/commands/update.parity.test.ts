@@ -1,7 +1,7 @@
-import { NODE_REDIRECTS } from '../parity/differences';
 import { argvCase as argv, argvLine } from '../testing/argv-case';
-import { twinCases } from '../testing/twin';
-import type { SetupCase } from '../testing/twin';
+import { NODE_REDIRECTS } from '../testing/redirects';
+import { writeCases } from '../testing/writes';
+import type { SetupCase } from '../testing/writes';
 
 /** A case that runs after the seed `MMR-s1` has settled, which freezes it. */
 const settled = (words: string[], settle: 'seedReject' | 'seedResolve'): SetupCase => ({
@@ -158,4 +158,4 @@ const CASES: SetupCase[] = [
   ...NODE_REDIRECTS.filter((line) => line.startsWith('update ')).map((line) => argvLine(line)),
 ];
 
-twinCases(/^update /, CASES);
+writeCases(import.meta.url, CASES);

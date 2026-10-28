@@ -1,0 +1,455 @@
+### annotate argv: MMR-3 Settled on one store
+exit 0
+--- stdout
+| [ok] annotated MMR-3
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+                  "content": "Settled; one; store.",
+                  "createdAt": "2026-10-01T12:00:00.000Z"
++               },
++               {
++                 "content": "Settled on one store",
++                 "createdAt": "2026-10-01T12:00:00.000Z"
+                }
+              ],
+...
+            {
+              "content": "Settled; one; store.",
++             "createdAt": "2026-10-01T12:00:00.000Z"
++           },
++           {
++             "content": "Settled on one store",
+              "createdAt": "2026-10-01T12:00:00.000Z"
+            }
+
+### annotate argv: MMR-3 "a note" -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-3",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Wire the store",
+|   "type": "task",
+|   "description": "Open the store once.\n\nKeep it open.",
+|   "summary": "one store per run",
+|   "priority": "p1",
+|   "size": "small",
+|   "lifecycle": "todo",
+|   "grooming": "groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+--- state
+                  "content": "Settled; one; store.",
+                  "createdAt": "2026-10-01T12:00:00.000Z"
++               },
++               {
++                 "content": "a note",
++                 "createdAt": "2026-10-01T12:00:00.000Z"
+                }
+              ],
+...
+            {
+              "content": "Settled; one; store.",
++             "createdAt": "2026-10-01T12:00:00.000Z"
++           },
++           {
++             "content": "a note",
+              "createdAt": "2026-10-01T12:00:00.000Z"
+            }
+
+### annotate argv: MMR-3 "a note" -f jsonl
+exit 0
+--- stdout
+| {
+|   "id": "MMR-3",
+|   "parent": "MMR-2",
+|   "status": "ready",
+|   "title": "Wire the store",
+|   "type": "task",
+|   "description": "Open the store once.\n\nKeep it open.",
+|   "summary": "one store per run",
+|   "priority": "p1",
+|   "size": "small",
+|   "lifecycle": "todo",
+|   "grooming": "groomed",
+|   "hold": "none",
+|   "hold_reason": null,
+|   "block_owner": null,
+|   "external_ref": null,
+|   "upstream": null,
+|   "host": null,
+|   "harness": null,
+|   "session": null,
+|   "worker_harness": null,
+|   "worker_session": null,
+|   "branch": null,
+|   "completed_at": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "children": []
+| }
+--- state
+                  "content": "Settled; one; store.",
+                  "createdAt": "2026-10-01T12:00:00.000Z"
++               },
++               {
++                 "content": "a note",
++                 "createdAt": "2026-10-01T12:00:00.000Z"
+                }
+              ],
+...
+            {
+              "content": "Settled; one; store.",
++             "createdAt": "2026-10-01T12:00:00.000Z"
++           },
++           {
++             "content": "a note",
+              "createdAt": "2026-10-01T12:00:00.000Z"
+            }
+
+### annotate argv: MMR-3 "a note" -f ids
+exit 0
+--- stdout
+| MMR-3
+--- state
+                  "content": "Settled; one; store.",
+                  "createdAt": "2026-10-01T12:00:00.000Z"
++               },
++               {
++                 "content": "a note",
++                 "createdAt": "2026-10-01T12:00:00.000Z"
+                }
+              ],
+...
+            {
+              "content": "Settled; one; store.",
++             "createdAt": "2026-10-01T12:00:00.000Z"
++           },
++           {
++             "content": "a note",
+              "createdAt": "2026-10-01T12:00:00.000Z"
+            }
+
+### annotate argv: MMR-3 "a note" -f table
+exit 0
+--- stdout
+| [ok] annotated MMR-3
+| 1 task
+|
+| MMR-3   * ready   p1   groomed   MMR-2   Wire the store
+--- state
+                  "content": "Settled; one; store.",
+                  "createdAt": "2026-10-01T12:00:00.000Z"
++               },
++               {
++                 "content": "a note",
++                 "createdAt": "2026-10-01T12:00:00.000Z"
+                }
+              ],
+...
+            {
+              "content": "Settled; one; store.",
++             "createdAt": "2026-10-01T12:00:00.000Z"
++           },
++           {
++             "content": "a note",
+              "createdAt": "2026-10-01T12:00:00.000Z"
+            }
+
+### annotate argv: MMR-3 "a note" --ascii
+exit 0
+--- stdout
+| [ok] annotated MMR-3
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+                  "content": "Settled; one; store.",
+                  "createdAt": "2026-10-01T12:00:00.000Z"
++               },
++               {
++                 "content": "a note",
++                 "createdAt": "2026-10-01T12:00:00.000Z"
+                }
+              ],
+...
+            {
+              "content": "Settled; one; store.",
++             "createdAt": "2026-10-01T12:00:00.000Z"
++           },
++           {
++             "content": "a note",
+              "createdAt": "2026-10-01T12:00:00.000Z"
+            }
+
+### annotate argv: MMR-3 "a note" (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m annotated MMR-3
+| ␛[1mMMR-3␛[22m
+|   type         task
+|   status       ␛[32m● ready␛[39m
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+                  "content": "Settled; one; store.",
+                  "createdAt": "2026-10-01T12:00:00.000Z"
++               },
++               {
++                 "content": "a note",
++                 "createdAt": "2026-10-01T12:00:00.000Z"
+                }
+              ],
+...
+            {
+              "content": "Settled; one; store.",
++             "createdAt": "2026-10-01T12:00:00.000Z"
++           },
++           {
++             "content": "a note",
+              "createdAt": "2026-10-01T12:00:00.000Z"
+            }
+
+### annotate argv: MMR-2 "a note on a container" (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m annotated MMR-2
+| ␛[1mMMR-2␛[22m
+|   type          phase
+|   status        ␛[36m▶ in_progress␛[39m (rollup over 7 direct children)
+|   title         Skeleton
+|   parent        MMR-1
+|   target        2026-11
+|   children      MMR-3 · Wire the store (ready), MMR-4 · Render views (awaiting), MMR-5 · Ship it (in_progress), MMR-6 · Wait on review (blocked), MMR-7 · Spike (done), MMR-8 · Tidy docs (ready), MMR-9 · Export (done)
+|   distribution  ready:2, awaiting:1, in_progress:1, blocked:1, done:2
+|
+|   hint  mimir tree MMR-2   — full subtree
+|         mimir list --status ready -s MMR   — leaf-actionable tasks
+--- state
+        "MMR-2",
+        {
++         "annotations": [
++           {
++             "content": "a note on a container",
++             "createdAt": "2026-10-01T12:00:00.000Z"
++           }
++         ],
+-         "annotations": [],
+          "artifacts": [],
+          "children": [
+
+### annotate argv: MMR-3 -- "-a note led by a dash"
+exit 0
+--- stdout
+| [ok] annotated MMR-3
+| MMR-3
+|   type         task
+|   status       * ready
+|   title        Wire the store
+|   parent       MMR-2
+|   description  Open the store once.
+|                
+|                Keep it open.
+|   summary      one store per run
+|   priority     p1
+|   size         small
+|   lifecycle    todo
+|   grooming     groomed
+|   hold         none
+--- state
+                  "content": "Settled; one; store.",
+                  "createdAt": "2026-10-01T12:00:00.000Z"
++               },
++               {
++                 "content": "-a note led by a dash",
++                 "createdAt": "2026-10-01T12:00:00.000Z"
+                }
+              ],
+...
+            {
+              "content": "Settled; one; store.",
++             "createdAt": "2026-10-01T12:00:00.000Z"
++           },
++           {
++             "content": "-a note led by a dash",
+              "createdAt": "2026-10-01T12:00:00.000Z"
+            }
+
+### annotate argv: MMR-3 " "
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "annotate content cannot be blank"
+| }
+--- state
+unchanged
+
+### annotate argv: MMR-99 "a note"
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### annotate argv: MMR-99 "a note" -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### annotate argv: MMR "a note"
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "MMR is a project, not a task, phase, or initiative"
+| }
+--- state
+unchanged
+
+### annotate argv: MMR-a1 "a note"
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "MMR-a1 is an artifact, not a task, phase, or initiative"
+| }
+--- state
+unchanged
+
+### annotate argv: MMR-s1 "a note"
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "act on a seed with promote / reject / resolve"
+|   ],
+|   "message": "MMR-s1 is a seed, not a task, phase, or initiative"
+| }
+--- state
+unchanged
+
+### annotate argv: nope "a note"
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "nope doesn't exist"
+| }
+--- state
+unchanged
+
+### annotate argv: (no arguments)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
+| }
+--- state
+unchanged
+
+### annotate argv: MMR-3 "a note" --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### annotate argv: MMR-3 note --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
+|   ],
+|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+

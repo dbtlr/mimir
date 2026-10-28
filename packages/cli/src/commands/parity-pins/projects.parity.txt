@@ -1,0 +1,330 @@
+### projects
+exit 0
+--- stdout
+| 2 projects
+|
+| MMR   > in_progress           mimir
+| XX    * ready                 other
+
+### projects -f records
+exit 0
+--- stdout
+| MMR
+|   type           project
+|   status         > in_progress (rollup over 1 direct child)
+|   title          mimir
+|   description    The work-state store.
+|   remote         github.com/dbtlr/mimir
+|   last activity  2026-10-01 12:00 UTC
+|   distribution   in_progress:1
+|
+| XX
+|   type           project
+|   status         * ready (rollup over 1 direct child)
+|   title          other
+|   last activity  2026-10-01 12:00 UTC
+|   distribution   ready:1
+
+### projects -f ids
+exit 0
+--- stdout
+| MMR
+| XX
+
+### projects -f json
+exit 0
+--- stdout
+| {
+|   "returned": 2,
+|   "starts_at": 0,
+|   "total": 2,
+|   "projects": [
+|     {
+|       "id": "MMR",
+|       "parent": null,
+|       "status": "in_progress",
+|       "title": "mimir",
+|       "type": "project",
+|       "description": "The work-state store.",
+|       "pinned": false,
+|       "remote": "github.com/dbtlr/mimir",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "last_activity_at": "2026-10-01T12:00:00.000Z",
+|       "distribution": {
+|         "in_progress": 1
+|       },
+|       "tags": []
+|     },
+|     {
+|       "id": "XX",
+|       "parent": null,
+|       "status": "ready",
+|       "title": "other",
+|       "type": "project",
+|       "description": null,
+|       "pinned": false,
+|       "remote": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "last_activity_at": "2026-10-01T12:00:00.000Z",
+|       "distribution": {
+|         "ready": 1
+|       },
+|       "tags": []
+|     }
+|   ]
+| }
+
+### projects -f jsonl
+exit 0
+--- stdout
+| {"id":"MMR","parent":null,"status":"in_progress","title":"mimir","type":"project","description":"The work-state store.","pinned":false,"remote":"github.com/dbtlr/mimir","created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","last_activity_at":"2026-10-01T12:00:00.000Z","distribution":{"in_progress":1},"tags":[]}
+| {"id":"XX","parent":null,"status":"ready","title":"other","type":"project","description":null,"pinned":false,"remote":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","last_activity_at":"2026-10-01T12:00:00.000Z","distribution":{"ready":1},"tags":[]}
+
+### projects --ascii
+exit 0
+--- stdout
+| 2 projects
+|
+| MMR   > in_progress           mimir
+| XX    * ready                 other
+
+### projects (bound to MMR)
+exit 0
+--- stdout
+| 2 projects
+|
+| MMR   > in_progress           mimir
+| XX    * ready                 other
+
+### projects --status archived
+exit 0
+--- stdout
+| 1 project
+|
+| OLD   o new           retired
+
+### projects --status archived -f json
+exit 0
+--- stdout
+| {
+|   "returned": 1,
+|   "starts_at": 0,
+|   "total": 1,
+|   "projects": [
+|     {
+|       "id": "OLD",
+|       "parent": null,
+|       "status": "new",
+|       "title": "retired",
+|       "type": "project",
+|       "description": null,
+|       "archived_at": "2026-10-01T12:00:00.000Z",
+|       "pinned": false,
+|       "remote": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "last_activity_at": "2026-10-01T12:00:00.000Z",
+|       "distribution": {},
+|       "tags": []
+|     }
+|   ]
+| }
+
+### projects --status all -f ids
+exit 0
+--- stdout
+| MMR
+| OLD
+| XX
+
+### projects --status active -f ids
+exit 0
+--- stdout
+| MMR
+| XX
+
+### projects --status bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "invalid status: bogus (expected active|archived|all)"
+| }
+
+### projects --scope MMR
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"scope\". Supply the name of a declared option."
+| }
+
+### projects --limit 2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "projects takes only --status and --format"
+|   ],
+|   "message": "Unknown option \"limit\". Supply the name of a declared option."
+| }
+
+### projects argv: -f json
+exit 0
+--- stdout
+| {
+|   "returned": 2,
+|   "starts_at": 0,
+|   "total": 2,
+|   "projects": [
+|     {
+|       "id": "MMR",
+|       "parent": null,
+|       "status": "in_progress",
+|       "title": "mimir",
+|       "type": "project",
+|       "description": "The work-state store.",
+|       "pinned": false,
+|       "remote": "github.com/dbtlr/mimir",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "last_activity_at": "2026-10-01T12:00:00.000Z",
+|       "distribution": {
+|         "in_progress": 1
+|       },
+|       "tags": []
+|     },
+|     {
+|       "id": "XX",
+|       "parent": null,
+|       "status": "ready",
+|       "title": "other",
+|       "type": "project",
+|       "description": null,
+|       "pinned": false,
+|       "remote": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "last_activity_at": "2026-10-01T12:00:00.000Z",
+|       "distribution": {
+|         "ready": 1
+|       },
+|       "tags": []
+|     }
+|   ]
+| }
+
+### projects argv: --status all --format ids
+exit 0
+--- stdout
+| MMR
+| OLD
+| XX
+
+### projects argv: --status bogus -f json
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "invalid status: bogus (expected active|archived|all)"
+| }
+
+### projects argv: --status all --status archived -f ids
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"--status\" can be supplied only once. Remove the repeated option."
+| }
+
+### projects argv: extra
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"projects\" accepts no arguments. Remove the supplied values."
+| }
+
+### projects argv: -q x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'-q, --query' searches titles; use it with artifacts, list, or next"
+|   ],
+|   "message": "Unknown option \"-q\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+
+### projects argv: -t x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "projects takes only --status and --format"
+|   ],
+|   "message": "Unknown option \"-t\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+
+### projects argv: -n 1
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "projects takes only --status and --format"
+|   ],
+|   "message": "Unknown option \"-n\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+
+### projects argv: (no arguments) (terminal)
+exit 0
+--- stdout
+| 2 projects
+|
+| MMR   ␛[36m▶ in_progress␛[39m           mimir
+| XX    ␛[32m● ready      ␛[39m           other
+
+### projects argv: -f records (terminal)
+exit 0
+--- stdout
+| ␛[1mMMR␛[22m
+|   type           project
+|   status         ␛[36m▶ in_progress␛[39m (rollup over 1 direct child)
+|   title          mimir
+|   description    The work-state store.
+|   remote         github.com/dbtlr/mimir
+|   last activity  2026-10-01 12:00 UTC
+|   distribution   in_progress:1
+|
+|   hint  mimir tree MMR   — full subtree
+|         mimir list --status ready -s MMR   — leaf-actionable tasks
+|
+| ␛[1mXX␛[22m
+|   type           project
+|   status         ␛[32m● ready␛[39m (rollup over 1 direct child)
+|   title          other
+|   last activity  2026-10-01 12:00 UTC
+|   distribution   ready:1
+|
+|   hint  mimir tree XX   — full subtree
+|         mimir list --status ready -s XX   — leaf-actionable tasks
+

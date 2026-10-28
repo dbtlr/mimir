@@ -3,10 +3,10 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { NODE_REDIRECTS } from '../parity/differences';
 import { argvCase as argv, argvLine } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
-import { twinCases } from '../testing/twin';
+import { NODE_REDIRECTS } from '../testing/redirects';
+import { writeCases } from '../testing/writes';
 
 // The cases name real files, so both CLIs read the same bytes at the same path.
 const dir = mkdtempSync(join(tmpdir(), 'mimir-attach-'));
@@ -18,7 +18,7 @@ afterAll(() => {
   rmSync(dir, { force: true, recursive: true });
 });
 
-/** The case names carry no machine path, so a difference entry can name one. */
+/** The case names carry no machine path, so a pin's name is the same on every machine. */
 const attach = (line: string[], tty?: true): ParityCase => {
   const masked: Record<string, string> = {
     [empty]: '<empty>',
@@ -74,4 +74,4 @@ const CASES: ParityCase[] = [
   ...NODE_REDIRECTS.filter((line) => line.startsWith('attach ')).map((line) => argvLine(line)),
 ];
 
-twinCases(/^attach /, CASES);
+writeCases(import.meta.url, CASES);

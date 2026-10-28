@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
 
+import { freezeClock, FROZEN_AT } from './clock';
 import { parityBoard } from './fixture';
 import { boardSnapshot } from './snapshot';
-import { freezeClock, FROZEN_AT } from './twin';
 
 test('a refused write that leaves a new pad behind fails the untouched-board check', async () => {
   const board = await parityBoard();

@@ -1,0 +1,471 @@
+### artifacts -s MMR
+exit 0
+--- stdout
+| 2 artifacts
+|
+| MMR-a2   Session notes   session_summary   now
+|       a session retrospective
+| MMR-a1   Store notes     design            now
+|       design notes
+
+### artifacts -s MMR -f records
+exit 0
+--- stdout
+| 2 artifacts
+|
+| MMR-a2   Session notes   session_summary   now
+|       a session retrospective
+| MMR-a1   Store notes     design            now
+|       design notes
+
+### artifacts -s MMR -f ids
+exit 0
+--- stdout
+| MMR-a2
+| MMR-a1
+
+### artifacts -s MMR -f json
+exit 0
+--- stdout
+| {
+|   "artifacts": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-a2",
+|       "links": [],
+|       "project": "MMR",
+|       "tags": [
+|         "session_summary"
+|       ],
+|       "title": "Session notes",
+|       "summary": "a session retrospective"
+|     },
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-a1",
+|       "links": [
+|         "MMR-3"
+|       ],
+|       "project": "MMR",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes",
+|       "summary": "design notes"
+|     }
+|   ],
+|   "returned": 2,
+|   "starts_at": 0,
+|   "total": 2
+| }
+
+### artifacts -s MMR -f jsonl
+exit 0
+--- stdout
+| {"created_at":"2026-10-01T12:00:00.000Z","id":"MMR-a2","links":[],"project":"MMR","tags":["session_summary"],"title":"Session notes","summary":"a session retrospective"}
+| {"created_at":"2026-10-01T12:00:00.000Z","id":"MMR-a1","links":["MMR-3"],"project":"MMR","tags":["design"],"title":"Store notes","summary":"design notes"}
+
+### artifacts -s MMR --ascii
+exit 0
+--- stdout
+| 2 artifacts
+|
+| MMR-a2   Session notes   session_summary   now
+|       a session retrospective
+| MMR-a1   Store notes     design            now
+|       design notes
+
+### artifacts -s XX -f json
+exit 0
+--- stdout
+| {
+|   "artifacts": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "XX-a1",
+|       "links": [],
+|       "project": "XX",
+|       "tags": [],
+|       "title": "Other notes"
+|     }
+|   ],
+|   "returned": 1,
+|   "starts_at": 0,
+|   "total": 1
+| }
+
+### artifacts (bound to MMR)
+exit 0
+--- stdout
+| 2 artifacts
+|
+| MMR-a2   Session notes   session_summary   now
+|       a session retrospective
+| MMR-a1   Store notes     design            now
+|       design notes
+
+### artifacts (bound to MMR) -f ids
+exit 0
+--- stdout
+| MMR-a2
+| MMR-a1
+
+### artifacts -s XX (bound to MMR)
+exit 0
+--- stdout
+| 1 artifact
+|
+| XX-a1   Other notes      now
+
+### artifacts -s MMR -t session_summary
+exit 0
+--- stdout
+| 1 artifact
+|
+| MMR-a2   Session notes   session_summary   now
+|       a session retrospective
+
+### artifacts -s MMR -q notes -f ids
+exit 0
+--- stdout
+| MMR-a2
+| MMR-a1
+
+### artifacts -s MMR -n 1 -f json
+exit 0
+--- stdout
+| {
+|   "artifacts": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-a2",
+|       "links": [],
+|       "project": "MMR",
+|       "tags": [
+|         "session_summary"
+|       ],
+|       "title": "Session notes",
+|       "summary": "a session retrospective"
+|     }
+|   ],
+|   "returned": 1,
+|   "starts_at": 0,
+|   "total": 2
+| }
+
+### artifacts -s MMR -n 1 --offset 1 -f ids
+exit 0
+--- stdout
+| MMR-a1
+
+### artifacts -s MMR --offset 5
+exit 0
+--- stdout
+| 2 artifacts
+
+### artifacts -s MMR --offset 5 -f json
+exit 0
+--- stdout
+| {
+|   "artifacts": [],
+|   "returned": 0,
+|   "starts_at": 5,
+|   "total": 2
+| }
+
+### artifacts -s MMR --after created_at:2020-01-01 -f ids
+exit 0
+--- stdout
+| MMR-a2
+| MMR-a1
+
+### artifacts -s MMR --before created_at:2020-01-01
+exit 0
+--- stdout
+| 0 artifacts
+
+### artifacts -s MMR --on created_at:2020-01-01 --tz Asia/Tokyo -f ids
+exit 0
+--- stdout
+|
+
+### artifacts -s MMR --at-or-after created_at:2020-01-01T00:00Z -f ids
+exit 0
+--- stdout
+| MMR-a2
+| MMR-a1
+
+### artifacts -s MMR --at-or-before created_at:2020-01-01T00:00Z
+exit 0
+--- stdout
+| 0 artifacts
+
+### artifacts -s MMR -t nothing
+exit 0
+--- stdout
+| 0 artifacts
+
+### artifacts -s MMR -t nothing -f json
+exit 0
+--- stdout
+| {
+|   "artifacts": [],
+|   "returned": 0,
+|   "starts_at": 0,
+|   "total": 0
+| }
+
+### artifacts -s MMR -t nothing -f ids
+exit 0
+--- stdout
+|
+
+### artifacts -s MMR -n 2x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "limit is a whole number of rows (0 or more)"
+|   ],
+|   "message": "invalid limit: 2x"
+| }
+
+### artifacts -s MMR --offset 2x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "offset is a whole count of rows to skip (0 or more)"
+|   ],
+|   "message": "invalid offset: 2x"
+| }
+
+### artifacts -s MMR --after title:x
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "after applies to created_at, not title"
+| }
+
+### artifacts -s MMR --after 2020-01-01
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "qualify the value with the date field: created_at:2020-01-01"
+|   ],
+|   "message": "after expects FIELD:VALUE, got \"2020-01-01\""
+| }
+
+### artifacts -s MMR --after created_at:someday
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "takes YYYY-MM-DD or a zoned ISO timestamp (2026-08-01T09:30:00Z)"
+|   ],
+|   "message": "invalid date: someday"
+| }
+
+### artifacts -s MMR --tz Mars/Base
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "pass an IANA timezone (tz), e.g. America/New_York"
+|   ],
+|   "message": "unknown timezone: Mars/Base"
+| }
+
+### artifacts -s NOPE
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key NOPE -y"
+|   ],
+|   "message": "NOPE doesn't exist"
+| }
+
+### artifacts -s mmr
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key mmr -y"
+|   ],
+|   "message": "mmr doesn't exist"
+| }
+
+### artifacts -s MMR --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
+| }
+
+### artifacts argv: -s MMR
+exit 0
+--- stdout
+| 2 artifacts
+|
+| MMR-a2   Session notes   session_summary   now
+|       a session retrospective
+| MMR-a1   Store notes     design            now
+|       design notes
+
+### artifacts argv: -s MMR -f json
+exit 0
+--- stdout
+| {
+|   "artifacts": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-a2",
+|       "links": [],
+|       "project": "MMR",
+|       "tags": [
+|         "session_summary"
+|       ],
+|       "title": "Session notes",
+|       "summary": "a session retrospective"
+|     },
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "id": "MMR-a1",
+|       "links": [
+|         "MMR-3"
+|       ],
+|       "project": "MMR",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes",
+|       "summary": "design notes"
+|     }
+|   ],
+|   "returned": 2,
+|   "starts_at": 0,
+|   "total": 2
+| }
+
+### artifacts argv: --scope MMR --tag session_summary --format ids
+exit 0
+--- stdout
+| MMR-a2
+
+### artifacts argv: -s MMR --after created_at:2020-01-01 --before created_at:2999-01-01 -f ids
+exit 0
+--- stdout
+| MMR-a2
+| MMR-a1
+
+### artifacts argv: -s MMR --offset 2x -f json
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [
+|     "offset is a whole count of rows to skip (0 or more)"
+|   ],
+|   "message": "invalid offset: 2x"
+| }
+
+### artifacts argv: -s MMR --bogus -f json
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+
+### artifacts argv: -s MMR --not-before created_at:2020-01-01
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--not-before' is retired; the inclusive lower bound is '--at-or-after FIELD:VALUE'"
+|   ],
+|   "message": "Unknown option \"--not-before\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+
+### artifacts argv: -s MMR -t a -t b -f ids
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"-t\" can be supplied only once. Remove the repeated option."
+| }
+
+### artifacts argv: extra -s MMR
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"artifacts\" accepts no arguments. Remove the supplied values."
+| }
+
+### artifacts argv: -s MMR artifacts -f ids
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "parser",
+|   "hints": [],
+|   "message": "Option \"-s\" belongs to commands next, list, overview, artifacts, search, seeds, seed, triage, scratch list, scratch create, doctor. Supply it after the command name."
+| }
+
+### artifacts argv: -s MMR (terminal)
+exit 0
+--- stdout
+| 2 artifacts
+|
+| MMR-a2   Session notes   session_summary   now
+| ␛[90m      a session retrospective␛[39m
+| MMR-a1   Store notes     design            now
+| ␛[90m      design notes␛[39m
+
+### artifacts argv: -s MMR -f records (terminal)
+exit 0
+--- stdout
+| 2 artifacts
+|
+| MMR-a2   Session notes   session_summary   now
+| ␛[90m      a session retrospective␛[39m
+| MMR-a1   Store notes     design            now
+| ␛[90m      design notes␛[39m
+
+### artifacts argv: -s MMR -t nothing (terminal)
+exit 0
+--- stdout
+| 0 artifacts
+

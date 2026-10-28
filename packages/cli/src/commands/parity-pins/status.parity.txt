@@ -1,0 +1,230 @@
+### status MMR-3
+exit 0
+--- stdout
+| {
+|   "distribution": {},
+|   "id": "MMR-3",
+|   "status": "ready"
+| }
+
+### status MMR-3 -f json
+exit 0
+--- stdout
+| {
+|   "distribution": {},
+|   "id": "MMR-3",
+|   "status": "ready"
+| }
+
+### status MMR-3 -f records
+exit 0
+--- stdout
+| MMR-3
+|   status        * ready
+|   distribution  (none)
+
+### status MMR-3 -f table
+exit 0
+--- stdout
+| MMR-3
+|   status        * ready
+|   distribution  (none)
+
+### status MMR-3 --ascii -f records
+exit 0
+--- stdout
+| MMR-3
+|   status        * ready
+|   distribution  (none)
+
+### status MMR-2 -f records
+exit 0
+--- stdout
+| MMR-2
+|   status        > in_progress (rollup over 6 direct children)
+|   distribution  ready:2, awaiting:1, in_progress:1, blocked:1, done:1
+
+### status MMR-1 -f json
+exit 0
+--- stdout
+| {
+|   "distribution": {
+|     "in_progress": 1
+|   },
+|   "id": "MMR-1",
+|   "status": "in_progress"
+| }
+
+### status MMR -f json
+exit 0
+--- stdout
+| {
+|   "distribution": {
+|     "in_progress": 1
+|   },
+|   "id": "MMR",
+|   "status": "in_progress"
+| }
+
+### status MMR -f records
+exit 0
+--- stdout
+| MMR
+|   status        > in_progress (rollup over 1 direct child)
+|   distribution  in_progress:1
+
+### status MMR-5 -f json
+exit 0
+--- stdout
+| {
+|   "distribution": {},
+|   "id": "MMR-5",
+|   "status": "in_progress"
+| }
+
+### status MMR-6 -f records
+exit 0
+--- stdout
+| MMR-6
+|   status        x blocked
+|   distribution  (none)
+
+### status MMR-99
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-99 doesn't exist"
+| }
+
+### status NOPE
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key NOPE -y"
+|   ],
+|   "message": "NOPE doesn't exist"
+| }
+
+### status bogus
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "bogus doesn't exist"
+| }
+
+### status (no id)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
+| }
+
+### status MMR-3 -f yaml
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Option \"format\": Supply one of json, jsonl, records, table."
+| }
+
+### status argv: MMR-3
+exit 0
+--- stdout
+| {
+|   "distribution": {},
+|   "id": "MMR-3",
+|   "status": "ready"
+| }
+
+### status argv: MMR-3 -f records
+exit 0
+--- stdout
+| MMR-3
+|   status        * ready
+|   distribution  (none)
+
+### status argv: MMR-99 -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-99 doesn't exist"
+| }
+
+### status argv: MMR-3 -f ids
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Option \"--format\": Supply one of json, jsonl, records, table."
+| }
+
+### status argv: MMR-3 extra
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"status\" accepts 1 argument. Remove the extra values."
+| }
+
+### status argv: MMR-3 -f jsonl
+exit 0
+--- stdout
+| {"distribution":{},"id":"MMR-3","status":"ready"}
+
+### status argv: MMR-3 (terminal)
+exit 0
+--- stdout
+| {
+|   "distribution": {},
+|   "id": "MMR-3",
+|   "status": "ready"
+| }
+
+### status argv: MMR-3 -f records (terminal)
+exit 0
+--- stdout
+| ␛[1mMMR-3␛[22m
+|   status        ␛[32m● ready␛[39m
+|   distribution  (none)
+
+### status argv: MMR-2 -f records (terminal)
+exit 0
+--- stdout
+| ␛[1mMMR-2␛[22m
+|   status        ␛[36m▶ in_progress␛[39m (rollup over 6 direct children)
+|   distribution  ready:2, awaiting:1, in_progress:1, blocked:1, done:1
+|
+|   hint  mimir tree MMR-2   — full subtree
+|         mimir list --status ready -s MMR   — leaf-actionable tasks
+
+### status argv: MMR -f table (terminal)
+exit 0
+--- stdout
+| ␛[1mMMR␛[22m
+|   status        ␛[36m▶ in_progress␛[39m (rollup over 1 direct child)
+|   distribution  in_progress:1
+|
+|   hint  mimir tree MMR   — full subtree
+|         mimir list --status ready -s MMR   — leaf-actionable tasks
+

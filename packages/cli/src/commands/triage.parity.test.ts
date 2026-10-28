@@ -1,7 +1,7 @@
-import { SEED_REDIRECTS } from '../parity/differences';
 import { argvLine } from '../testing/argv-case';
 import type { ParityCase } from '../testing/parity';
-import { twinCases } from '../testing/twin';
+import { SEED_REDIRECTS } from '../testing/redirects';
+import { writeCases } from '../testing/writes';
 
 const triage = (
   name: string,
@@ -65,4 +65,4 @@ const CASES: ParityCase[] = [
   argv('MMR -f json', true),
 ];
 
-twinCases(/^triage /, CASES);
+writeCases(import.meta.url, CASES);

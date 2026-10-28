@@ -71,10 +71,7 @@ function withPad(padId: string): (c: ParityCase) => ParityCase {
   });
 }
 
-/** The difference entries for the group and its two reads; the writes claim theirs in scratch-writes.parity.test.ts. */
-const READ_ENTRY = /^scratch (get|list)\b|^scratch argv: (get|list|bogus|\(no arguments\))/;
-
-parityCases(READ_ENTRY, CASES, async (board) => {
+parityCases(import.meta.url, CASES, async (board) => {
   const first = await board.engine.scratchCreate({
     anchors: ['MMR-3'],
     project: 'MMR',

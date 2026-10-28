@@ -46,7 +46,7 @@ const CASES: ParityCase[] = [
   argvCase(['projects', '-f', 'records'], true),
 ];
 
-parityCases(/^projects /, CASES, async (board) => {
+parityCases(import.meta.url, CASES, async (board) => {
   // An archived project, so the shelves differ.
   await board.engine.create({ key: 'OLD', name: 'retired', type: 'project' });
   await board.engine.archive({ id: 'OLD' });

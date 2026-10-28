@@ -3,25 +3,24 @@ import { afterAll, beforeAll, expect, test } from 'bun:test';
 import { UNIFORM_VERBS } from '@mimir/contract';
 import type { Engine } from '@mimir/contract';
 
-import { LIFECYCLE_REDIRECTS } from '../parity/differences';
 import { argvLine } from '../testing/argv-case';
 import type { ArgvExtras } from '../testing/argv-case';
-import { twinCases } from '../testing/twin';
-import type { Setup, SetupCase } from '../testing/twin';
+import { LIFECYCLE_REDIRECTS } from '../testing/redirects';
+import { writeCases } from '../testing/writes';
+import type { Setup, SetupCase } from '../testing/writes';
 
 /**
- * The fourteen uniform verbs against the old CLI. A verb writes, so each case
- * runs on a fresh twin board (testing/twin.ts): the old CLI on one, the new on
- * an identical twin at one frozen instant, and the boards must end up in the
- * same state. A refused verb must leave the board as it found it.
+ * The fourteen uniform verbs, pinned. A verb writes, so each case runs on a
+ * fresh board at one frozen instant (testing/writes.ts) and pins its output and
+ * the records it changed. A refused verb must leave the board as it found it.
  *
  * The board: MMR-3 and MMR-8 are todo, MMR-4 awaits MMR-3, MMR-5 is in
  * progress, MMR-6 is blocked, MMR-7 is done, MMR-s1 is an untriaged seed, and
  * XX is a second project.
  *
- * The old CLI fills queue's and start's handles from the process environment;
- * the harness variables are cleared here so both CLIs see the same shell. The
- * new CLI's own fill is pinned in lifecycle.test.ts.
+ * Queue and start fill their handles from the process environment; the harness
+ * variables are cleared here so the pins do not depend on the shell. The fill
+ * itself is pinned in lifecycle.test.ts.
  */
 const HARNESS_VARIABLES = [
   'CLAUDE_CODE_SESSION_ID',
@@ -378,7 +377,7 @@ const CASES: SetupCase[] = [
   ...LIFECYCLE_REDIRECTS.map((line) => argv(line)),
 ];
 
-twinCases(new RegExp(`^(${UNIFORM_VERBS.join('|')}) `), CASES);
+writeCases(import.meta.url, CASES);
 
 test('every uniform verb has parity cases', () => {
   const covered = new Set(CASES.map((c) => c.path[0]));

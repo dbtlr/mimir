@@ -1,0 +1,1797 @@
+### attach argv: MMR-5 --file <file>
+exit 0
+--- stdout
+| [ok] attached artifact MMR-a2
+--- state
+        "MMR-a2",
+        {
++         "content": "# Design\n\nThe body.",
++         "createdAt": "2026-10-01T12:00:00.000Z",
++         "id": "MMR-a2",
++         "links": [
++           "MMR-5"
++         ],
++         "project": "MMR",
++         "tags": [],
++         "title": "design.md"
+-         "failed": "MMR-a2 doesn't exist"
+        }
+      ]
+...
+            {
+              "annotations": [],
++             "artifacts": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "id": "MMR-a2",
++                 "tags": [],
++                 "title": "design.md"
++               }
++             ],
+-             "artifacts": [],
+              "blockOwner": null,
+              "branch": null,
+...
+            {
+              "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "links": [
++               "MMR-5"
++             ],
++             "project": "MMR",
++             "tags": [],
++             "title": "design.md"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
+              "id": "MMR-a1",
+              "links": [
+...
+            }
+          ],
++         "returned": 2,
+-         "returned": 1,
+          "startsAt": 0,
++         "total": 2
+-         "total": 1
+        }
+      ],
+...
+        {
+          "annotations": [],
++         "artifacts": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "tags": [],
++             "title": "design.md"
++           }
++         ],
+-         "artifacts": [],
+          "blockOwner": null,
+          "branch": null,
+...
+    "projects": [
+      {
++       "artifactCount": 2,
+-       "artifactCount": 1,
+        "artifacts": [
+          {
+...
+            ],
+            "title": "Store notes"
++         },
++         {
++           "createdAt": "2026-10-01T12:00:00.000Z",
++           "id": "MMR-a2",
++           "tags": [],
++           "title": "design.md"
+          }
+        ],
+
+### attach argv: MMR-5 --file <file> -f json
+exit 0
+--- stdout
+| {"artifact":{"id":"MMR-a2"}}
+--- state
+        "MMR-a2",
+        {
++         "content": "# Design\n\nThe body.",
++         "createdAt": "2026-10-01T12:00:00.000Z",
++         "id": "MMR-a2",
++         "links": [
++           "MMR-5"
++         ],
++         "project": "MMR",
++         "tags": [],
++         "title": "design.md"
+-         "failed": "MMR-a2 doesn't exist"
+        }
+      ]
+...
+            {
+              "annotations": [],
++             "artifacts": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "id": "MMR-a2",
++                 "tags": [],
++                 "title": "design.md"
++               }
++             ],
+-             "artifacts": [],
+              "blockOwner": null,
+              "branch": null,
+...
+            {
+              "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "links": [
++               "MMR-5"
++             ],
++             "project": "MMR",
++             "tags": [],
++             "title": "design.md"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
+              "id": "MMR-a1",
+              "links": [
+...
+            }
+          ],
++         "returned": 2,
+-         "returned": 1,
+          "startsAt": 0,
++         "total": 2
+-         "total": 1
+        }
+      ],
+...
+        {
+          "annotations": [],
++         "artifacts": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "tags": [],
++             "title": "design.md"
++           }
++         ],
+-         "artifacts": [],
+          "blockOwner": null,
+          "branch": null,
+...
+    "projects": [
+      {
++       "artifactCount": 2,
+-       "artifactCount": 1,
+        "artifacts": [
+          {
+...
+            ],
+            "title": "Store notes"
++         },
++         {
++           "createdAt": "2026-10-01T12:00:00.000Z",
++           "id": "MMR-a2",
++           "tags": [],
++           "title": "design.md"
+          }
+        ],
+
+### attach argv: MMR-5 --file <file> -f jsonl
+exit 0
+--- stdout
+| {"artifact":{"id":"MMR-a2"}}
+--- state
+        "MMR-a2",
+        {
++         "content": "# Design\n\nThe body.",
++         "createdAt": "2026-10-01T12:00:00.000Z",
++         "id": "MMR-a2",
++         "links": [
++           "MMR-5"
++         ],
++         "project": "MMR",
++         "tags": [],
++         "title": "design.md"
+-         "failed": "MMR-a2 doesn't exist"
+        }
+      ]
+...
+            {
+              "annotations": [],
++             "artifacts": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "id": "MMR-a2",
++                 "tags": [],
++                 "title": "design.md"
++               }
++             ],
+-             "artifacts": [],
+              "blockOwner": null,
+              "branch": null,
+...
+            {
+              "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "links": [
++               "MMR-5"
++             ],
++             "project": "MMR",
++             "tags": [],
++             "title": "design.md"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
+              "id": "MMR-a1",
+              "links": [
+...
+            }
+          ],
++         "returned": 2,
+-         "returned": 1,
+          "startsAt": 0,
++         "total": 2
+-         "total": 1
+        }
+      ],
+...
+        {
+          "annotations": [],
++         "artifacts": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "tags": [],
++             "title": "design.md"
++           }
++         ],
+-         "artifacts": [],
+          "blockOwner": null,
+          "branch": null,
+...
+    "projects": [
+      {
++       "artifactCount": 2,
+-       "artifactCount": 1,
+        "artifacts": [
+          {
+...
+            ],
+            "title": "Store notes"
++         },
++         {
++           "createdAt": "2026-10-01T12:00:00.000Z",
++           "id": "MMR-a2",
++           "tags": [],
++           "title": "design.md"
+          }
+        ],
+
+### attach argv: MMR-5 --file <file> -f ids
+exit 0
+--- stdout
+| MMR-a2
+--- state
+        "MMR-a2",
+        {
++         "content": "# Design\n\nThe body.",
++         "createdAt": "2026-10-01T12:00:00.000Z",
++         "id": "MMR-a2",
++         "links": [
++           "MMR-5"
++         ],
++         "project": "MMR",
++         "tags": [],
++         "title": "design.md"
+-         "failed": "MMR-a2 doesn't exist"
+        }
+      ]
+...
+            {
+              "annotations": [],
++             "artifacts": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "id": "MMR-a2",
++                 "tags": [],
++                 "title": "design.md"
++               }
++             ],
+-             "artifacts": [],
+              "blockOwner": null,
+              "branch": null,
+...
+            {
+              "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "links": [
++               "MMR-5"
++             ],
++             "project": "MMR",
++             "tags": [],
++             "title": "design.md"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
+              "id": "MMR-a1",
+              "links": [
+...
+            }
+          ],
++         "returned": 2,
+-         "returned": 1,
+          "startsAt": 0,
++         "total": 2
+-         "total": 1
+        }
+      ],
+...
+        {
+          "annotations": [],
++         "artifacts": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "tags": [],
++             "title": "design.md"
++           }
++         ],
+-         "artifacts": [],
+          "blockOwner": null,
+          "branch": null,
+...
+    "projects": [
+      {
++       "artifactCount": 2,
+-       "artifactCount": 1,
+        "artifacts": [
+          {
+...
+            ],
+            "title": "Store notes"
++         },
++         {
++           "createdAt": "2026-10-01T12:00:00.000Z",
++           "id": "MMR-a2",
++           "tags": [],
++           "title": "design.md"
+          }
+        ],
+
+### attach argv: MMR-5 --file <file> -f table
+exit 0
+--- stdout
+| [ok] attached artifact MMR-a2
+--- state
+        "MMR-a2",
+        {
++         "content": "# Design\n\nThe body.",
++         "createdAt": "2026-10-01T12:00:00.000Z",
++         "id": "MMR-a2",
++         "links": [
++           "MMR-5"
++         ],
++         "project": "MMR",
++         "tags": [],
++         "title": "design.md"
+-         "failed": "MMR-a2 doesn't exist"
+        }
+      ]
+...
+            {
+              "annotations": [],
++             "artifacts": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "id": "MMR-a2",
++                 "tags": [],
++                 "title": "design.md"
++               }
++             ],
+-             "artifacts": [],
+              "blockOwner": null,
+              "branch": null,
+...
+            {
+              "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "links": [
++               "MMR-5"
++             ],
++             "project": "MMR",
++             "tags": [],
++             "title": "design.md"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
+              "id": "MMR-a1",
+              "links": [
+...
+            }
+          ],
++         "returned": 2,
+-         "returned": 1,
+          "startsAt": 0,
++         "total": 2
+-         "total": 1
+        }
+      ],
+...
+        {
+          "annotations": [],
++         "artifacts": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "tags": [],
++             "title": "design.md"
++           }
++         ],
+-         "artifacts": [],
+          "blockOwner": null,
+          "branch": null,
+...
+    "projects": [
+      {
++       "artifactCount": 2,
+-       "artifactCount": 1,
+        "artifacts": [
+          {
+...
+            ],
+            "title": "Store notes"
++         },
++         {
++           "createdAt": "2026-10-01T12:00:00.000Z",
++           "id": "MMR-a2",
++           "tags": [],
++           "title": "design.md"
+          }
+        ],
+
+### attach argv: MMR-5 --file <file> --ascii
+exit 0
+--- stdout
+| [ok] attached artifact MMR-a2
+--- state
+        "MMR-a2",
+        {
++         "content": "# Design\n\nThe body.",
++         "createdAt": "2026-10-01T12:00:00.000Z",
++         "id": "MMR-a2",
++         "links": [
++           "MMR-5"
++         ],
++         "project": "MMR",
++         "tags": [],
++         "title": "design.md"
+-         "failed": "MMR-a2 doesn't exist"
+        }
+      ]
+...
+            {
+              "annotations": [],
++             "artifacts": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "id": "MMR-a2",
++                 "tags": [],
++                 "title": "design.md"
++               }
++             ],
+-             "artifacts": [],
+              "blockOwner": null,
+              "branch": null,
+...
+            {
+              "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "links": [
++               "MMR-5"
++             ],
++             "project": "MMR",
++             "tags": [],
++             "title": "design.md"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
+              "id": "MMR-a1",
+              "links": [
+...
+            }
+          ],
++         "returned": 2,
+-         "returned": 1,
+          "startsAt": 0,
++         "total": 2
+-         "total": 1
+        }
+      ],
+...
+        {
+          "annotations": [],
++         "artifacts": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "tags": [],
++             "title": "design.md"
++           }
++         ],
+-         "artifacts": [],
+          "blockOwner": null,
+          "branch": null,
+...
+    "projects": [
+      {
++       "artifactCount": 2,
+-       "artifactCount": 1,
+        "artifacts": [
+          {
+...
+            ],
+            "title": "Store notes"
++         },
++         {
++           "createdAt": "2026-10-01T12:00:00.000Z",
++           "id": "MMR-a2",
++           "tags": [],
++           "title": "design.md"
+          }
+        ],
+
+### attach argv: MMR-5 --file <file> (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m attached artifact MMR-a2
+--- state
+        "MMR-a2",
+        {
++         "content": "# Design\n\nThe body.",
++         "createdAt": "2026-10-01T12:00:00.000Z",
++         "id": "MMR-a2",
++         "links": [
++           "MMR-5"
++         ],
++         "project": "MMR",
++         "tags": [],
++         "title": "design.md"
+-         "failed": "MMR-a2 doesn't exist"
+        }
+      ]
+...
+            {
+              "annotations": [],
++             "artifacts": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "id": "MMR-a2",
++                 "tags": [],
++                 "title": "design.md"
++               }
++             ],
+-             "artifacts": [],
+              "blockOwner": null,
+              "branch": null,
+...
+            {
+              "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "links": [
++               "MMR-5"
++             ],
++             "project": "MMR",
++             "tags": [],
++             "title": "design.md"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
+              "id": "MMR-a1",
+              "links": [
+...
+            }
+          ],
++         "returned": 2,
+-         "returned": 1,
+          "startsAt": 0,
++         "total": 2
+-         "total": 1
+        }
+      ],
+...
+        {
+          "annotations": [],
++         "artifacts": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "tags": [],
++             "title": "design.md"
++           }
++         ],
+-         "artifacts": [],
+          "blockOwner": null,
+          "branch": null,
+...
+    "projects": [
+      {
++       "artifactCount": 2,
+-       "artifactCount": 1,
+        "artifacts": [
+          {
+...
+            ],
+            "title": "Store notes"
++         },
++         {
++           "createdAt": "2026-10-01T12:00:00.000Z",
++           "id": "MMR-a2",
++           "tags": [],
++           "title": "design.md"
+          }
+        ],
+
+### attach argv: MMR-5 --file <file> --title "Design notes"
+exit 0
+--- stdout
+| [ok] attached artifact MMR-a2
+--- state
+        "MMR-a2",
+        {
++         "content": "# Design\n\nThe body.",
++         "createdAt": "2026-10-01T12:00:00.000Z",
++         "id": "MMR-a2",
++         "links": [
++           "MMR-5"
++         ],
++         "project": "MMR",
++         "tags": [],
++         "title": "Design notes"
+-         "failed": "MMR-a2 doesn't exist"
+        }
+      ]
+...
+            {
+              "annotations": [],
++             "artifacts": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "id": "MMR-a2",
++                 "tags": [],
++                 "title": "Design notes"
++               }
++             ],
+-             "artifacts": [],
+              "blockOwner": null,
+              "branch": null,
+...
+            {
+              "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "links": [
++               "MMR-5"
++             ],
++             "project": "MMR",
++             "tags": [],
++             "title": "Design notes"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
+              "id": "MMR-a1",
+              "links": [
+...
+            }
+          ],
++         "returned": 2,
+-         "returned": 1,
+          "startsAt": 0,
++         "total": 2
+-         "total": 1
+        }
+      ],
+...
+        {
+          "annotations": [],
++         "artifacts": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "tags": [],
++             "title": "Design notes"
++           }
++         ],
+-         "artifacts": [],
+          "blockOwner": null,
+          "branch": null,
+...
+    "projects": [
+      {
++       "artifactCount": 2,
+-       "artifactCount": 1,
+        "artifacts": [
+          {
+...
+            ],
+            "title": "Store notes"
++         },
++         {
++           "createdAt": "2026-10-01T12:00:00.000Z",
++           "id": "MMR-a2",
++           "tags": [],
++           "title": "Design notes"
+          }
+        ],
+
+### attach argv: MMR-5 --file <file> --summary "the design"
+exit 0
+--- stdout
+| [ok] attached artifact MMR-a2
+--- state
+        "MMR-a2",
+        {
++         "content": "# Design\n\nThe body.",
++         "createdAt": "2026-10-01T12:00:00.000Z",
++         "id": "MMR-a2",
++         "links": [
++           "MMR-5"
++         ],
++         "project": "MMR",
++         "summary": "the design",
++         "tags": [],
++         "title": "design.md"
+-         "failed": "MMR-a2 doesn't exist"
+        }
+      ]
+...
+            {
+              "annotations": [],
++             "artifacts": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "id": "MMR-a2",
++                 "summary": "the design",
++                 "tags": [],
++                 "title": "design.md"
++               }
++             ],
+-             "artifacts": [],
+              "blockOwner": null,
+              "branch": null,
+...
+            {
+              "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "links": [
++               "MMR-5"
++             ],
++             "project": "MMR",
++             "summary": "the design",
++             "tags": [],
++             "title": "design.md"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
+              "id": "MMR-a1",
+              "links": [
+...
+            }
+          ],
++         "returned": 2,
+-         "returned": 1,
+          "startsAt": 0,
++         "total": 2
+-         "total": 1
+        }
+      ],
+...
+        {
+          "annotations": [],
++         "artifacts": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "summary": "the design",
++             "tags": [],
++             "title": "design.md"
++           }
++         ],
+-         "artifacts": [],
+          "blockOwner": null,
+          "branch": null,
+...
+    "projects": [
+      {
++       "artifactCount": 2,
+-       "artifactCount": 1,
+        "artifacts": [
+          {
+...
+            ],
+            "title": "Store notes"
++         },
++         {
++           "createdAt": "2026-10-01T12:00:00.000Z",
++           "id": "MMR-a2",
++           "summary": "the design",
++           "tags": [],
++           "title": "design.md"
+          }
+        ],
+
+### attach argv: MMR-5 --file <file> -t design -t review
+exit 0
+--- stdout
+| [ok] attached artifact MMR-a2
+--- state
+        "MMR-a2",
+        {
++         "content": "# Design\n\nThe body.",
++         "createdAt": "2026-10-01T12:00:00.000Z",
++         "id": "MMR-a2",
++         "links": [
++           "MMR-5"
++         ],
++         "project": "MMR",
++         "tags": [
++           "design",
++           "review"
++         ],
++         "title": "design.md"
+-         "failed": "MMR-a2 doesn't exist"
+        }
+      ]
+...
+            {
+              "annotations": [],
++             "artifacts": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "id": "MMR-a2",
++                 "tags": [
++                   "design",
++                   "review"
++                 ],
++                 "title": "design.md"
++               }
++             ],
+-             "artifacts": [],
+              "blockOwner": null,
+              "branch": null,
+...
+            {
+              "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "links": [
++               "MMR-5"
++             ],
++             "project": "MMR",
++             "tags": [
++               "design",
++               "review"
++             ],
++             "title": "design.md"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
+              "id": "MMR-a1",
+              "links": [
+...
+            }
+          ],
++         "returned": 2,
+-         "returned": 1,
+          "startsAt": 0,
++         "total": 2
+-         "total": 1
+        }
+      ],
+...
+        {
+          "annotations": [],
++         "artifacts": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "tags": [
++               "design",
++               "review"
++             ],
++             "title": "design.md"
++           }
++         ],
+-         "artifacts": [],
+          "blockOwner": null,
+          "branch": null,
+...
+    "projects": [
+      {
++       "artifactCount": 2,
+-       "artifactCount": 1,
+        "artifacts": [
+          {
+...
+            ],
+            "title": "Store notes"
++         },
++         {
++           "createdAt": "2026-10-01T12:00:00.000Z",
++           "id": "MMR-a2",
++           "tags": [
++             "design",
++             "review"
++           ],
++           "title": "design.md"
+          }
+        ],
+
+### attach argv: MMR-5 --file <file> --tag design
+exit 0
+--- stdout
+| [ok] attached artifact MMR-a2
+--- state
+        "MMR-a2",
+        {
++         "content": "# Design\n\nThe body.",
++         "createdAt": "2026-10-01T12:00:00.000Z",
++         "id": "MMR-a2",
++         "links": [
++           "MMR-5"
++         ],
++         "project": "MMR",
++         "tags": [
++           "design"
++         ],
++         "title": "design.md"
+-         "failed": "MMR-a2 doesn't exist"
+        }
+      ]
+...
+            {
+              "annotations": [],
++             "artifacts": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "id": "MMR-a2",
++                 "tags": [
++                   "design"
++                 ],
++                 "title": "design.md"
++               }
++             ],
+-             "artifacts": [],
+              "blockOwner": null,
+              "branch": null,
+...
+            {
+              "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "links": [
++               "MMR-5"
++             ],
++             "project": "MMR",
++             "tags": [
++               "design"
++             ],
++             "title": "design.md"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
+              "id": "MMR-a1",
+              "links": [
+...
+            }
+          ],
++         "returned": 2,
+-         "returned": 1,
+          "startsAt": 0,
++         "total": 2
+-         "total": 1
+        }
+      ],
+...
+        {
+          "annotations": [],
++         "artifacts": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "tags": [
++               "design"
++             ],
++             "title": "design.md"
++           }
++         ],
+-         "artifacts": [],
+          "blockOwner": null,
+          "branch": null,
+...
+    "projects": [
+      {
++       "artifactCount": 2,
+-       "artifactCount": 1,
+        "artifacts": [
+          {
+...
+            ],
+            "title": "Store notes"
++         },
++         {
++           "createdAt": "2026-10-01T12:00:00.000Z",
++           "id": "MMR-a2",
++           "tags": [
++             "design"
++           ],
++           "title": "design.md"
+          }
+        ],
+
+### attach argv: MMR-5 --file <file> --link MMR-3,MMR-4
+exit 0
+--- stdout
+| [ok] attached artifact MMR-a2
+--- state
+        "MMR-a2",
+        {
++         "content": "# Design\n\nThe body.",
++         "createdAt": "2026-10-01T12:00:00.000Z",
++         "id": "MMR-a2",
++         "links": [
++           "MMR-3",
++           "MMR-4",
++           "MMR-5"
++         ],
++         "project": "MMR",
++         "tags": [],
++         "title": "design.md"
+-         "failed": "MMR-a2 doesn't exist"
+        }
+      ]
+...
+                  ],
+                  "title": "Store notes"
++               },
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "id": "MMR-a2",
++                 "tags": [],
++                 "title": "design.md"
+                }
+              ],
+...
+            {
+              "annotations": [],
++             "artifacts": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "id": "MMR-a2",
++                 "tags": [],
++                 "title": "design.md"
++               }
++             ],
+-             "artifacts": [],
+              "blockOwner": null,
+              "branch": null,
+...
+            {
+              "annotations": [],
++             "artifacts": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "id": "MMR-a2",
++                 "tags": [],
++                 "title": "design.md"
++               }
++             ],
+-             "artifacts": [],
+              "blockOwner": null,
+              "branch": null,
+...
+            {
+              "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "links": [
++               "MMR-3",
++               "MMR-4",
++               "MMR-5"
++             ],
++             "project": "MMR",
++             "tags": [],
++             "title": "design.md"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
+              "id": "MMR-a1",
+              "links": [
+...
+            }
+          ],
++         "returned": 2,
+-         "returned": 1,
+          "startsAt": 0,
++         "total": 2
+-         "total": 1
+        }
+      ],
+...
+        {
+          "annotations": [],
++         "artifacts": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "tags": [],
++             "title": "design.md"
++           }
++         ],
+-         "artifacts": [],
+          "blockOwner": null,
+          "branch": null,
+...
+              ],
+              "title": "Store notes"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "tags": [],
++             "title": "design.md"
+            }
+          ],
+...
+        {
+          "annotations": [],
++         "artifacts": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "tags": [],
++             "title": "design.md"
++           }
++         ],
+-         "artifacts": [],
+          "blockOwner": null,
+          "branch": null,
+...
+    "projects": [
+      {
++       "artifactCount": 2,
+-       "artifactCount": 1,
+        "artifacts": [
+          {
+...
+            ],
+            "title": "Store notes"
++         },
++         {
++           "createdAt": "2026-10-01T12:00:00.000Z",
++           "id": "MMR-a2",
++           "tags": [],
++           "title": "design.md"
+          }
+        ],
+
+### attach argv: --file <file> --link MMR-3 --link MMR-4
+exit 0
+--- stdout
+| [ok] attached artifact MMR-a2
+--- state
+        "MMR-a2",
+        {
++         "content": "# Design\n\nThe body.",
++         "createdAt": "2026-10-01T12:00:00.000Z",
++         "id": "MMR-a2",
++         "links": [
++           "MMR-3",
++           "MMR-4"
++         ],
++         "project": "MMR",
++         "tags": [],
++         "title": "design.md"
+-         "failed": "MMR-a2 doesn't exist"
+        }
+      ]
+...
+                  ],
+                  "title": "Store notes"
++               },
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "id": "MMR-a2",
++                 "tags": [],
++                 "title": "design.md"
+                }
+              ],
+...
+            {
+              "annotations": [],
++             "artifacts": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "id": "MMR-a2",
++                 "tags": [],
++                 "title": "design.md"
++               }
++             ],
+-             "artifacts": [],
+              "blockOwner": null,
+              "branch": null,
+...
+            {
+              "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "links": [
++               "MMR-3",
++               "MMR-4"
++             ],
++             "project": "MMR",
++             "tags": [],
++             "title": "design.md"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
+              "id": "MMR-a1",
+              "links": [
+...
+            }
+          ],
++         "returned": 2,
+-         "returned": 1,
+          "startsAt": 0,
++         "total": 2
+-         "total": 1
+        }
+      ],
+...
+              ],
+              "title": "Store notes"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "tags": [],
++             "title": "design.md"
+            }
+          ],
+...
+        {
+          "annotations": [],
++         "artifacts": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "tags": [],
++             "title": "design.md"
++           }
++         ],
+-         "artifacts": [],
+          "blockOwner": null,
+          "branch": null,
+...
+    "projects": [
+      {
++       "artifactCount": 2,
+-       "artifactCount": 1,
+        "artifacts": [
+          {
+...
+            ],
+            "title": "Store notes"
++         },
++         {
++           "createdAt": "2026-10-01T12:00:00.000Z",
++           "id": "MMR-a2",
++           "tags": [],
++           "title": "design.md"
+          }
+        ],
+
+### attach argv: MMR-5 --file <file> --link MMR-5
+exit 0
+--- stdout
+| [ok] attached artifact MMR-a2
+--- state
+        "MMR-a2",
+        {
++         "content": "# Design\n\nThe body.",
++         "createdAt": "2026-10-01T12:00:00.000Z",
++         "id": "MMR-a2",
++         "links": [
++           "MMR-5"
++         ],
++         "project": "MMR",
++         "tags": [],
++         "title": "design.md"
+-         "failed": "MMR-a2 doesn't exist"
+        }
+      ]
+...
+            {
+              "annotations": [],
++             "artifacts": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "id": "MMR-a2",
++                 "tags": [],
++                 "title": "design.md"
++               }
++             ],
+-             "artifacts": [],
+              "blockOwner": null,
+              "branch": null,
+...
+            {
+              "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "links": [
++               "MMR-5"
++             ],
++             "project": "MMR",
++             "tags": [],
++             "title": "design.md"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
+              "id": "MMR-a1",
+              "links": [
+...
+            }
+          ],
++         "returned": 2,
+-         "returned": 1,
+          "startsAt": 0,
++         "total": 2
+-         "total": 1
+        }
+      ],
+...
+        {
+          "annotations": [],
++         "artifacts": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "tags": [],
++             "title": "design.md"
++           }
++         ],
+-         "artifacts": [],
+          "blockOwner": null,
+          "branch": null,
+...
+    "projects": [
+      {
++       "artifactCount": 2,
+-       "artifactCount": 1,
+        "artifacts": [
+          {
+...
+            ],
+            "title": "Store notes"
++         },
++         {
++           "createdAt": "2026-10-01T12:00:00.000Z",
++           "id": "MMR-a2",
++           "tags": [],
++           "title": "design.md"
+          }
+        ],
+
+### attach argv: --file <file> --project MMR
+exit 0
+--- stdout
+| [ok] attached artifact MMR-a2
+--- state
+        "MMR-a2",
+        {
++         "content": "# Design\n\nThe body.",
++         "createdAt": "2026-10-01T12:00:00.000Z",
++         "id": "MMR-a2",
++         "links": [],
++         "project": "MMR",
++         "tags": [],
++         "title": "design.md"
+-         "failed": "MMR-a2 doesn't exist"
+        }
+      ]
+...
+            {
+              "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "links": [],
++             "project": "MMR",
++             "tags": [],
++             "title": "design.md"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
+              "id": "MMR-a1",
+              "links": [
+...
+            }
+          ],
++         "returned": 2,
+-         "returned": 1,
+          "startsAt": 0,
++         "total": 2
+-         "total": 1
+        }
+      ],
+...
+    "projects": [
+      {
++       "artifactCount": 2,
+-       "artifactCount": 1,
+        "artifacts": [
+          {
+...
+            ],
+            "title": "Store notes"
++         },
++         {
++           "createdAt": "2026-10-01T12:00:00.000Z",
++           "id": "MMR-a2",
++           "tags": [],
++           "title": "design.md"
+          }
+        ],
+
+### attach argv: --file <file> --project MMR -f json
+exit 0
+--- stdout
+| {"artifact":{"id":"MMR-a2"}}
+--- state
+        "MMR-a2",
+        {
++         "content": "# Design\n\nThe body.",
++         "createdAt": "2026-10-01T12:00:00.000Z",
++         "id": "MMR-a2",
++         "links": [],
++         "project": "MMR",
++         "tags": [],
++         "title": "design.md"
+-         "failed": "MMR-a2 doesn't exist"
+        }
+      ]
+...
+            {
+              "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "links": [],
++             "project": "MMR",
++             "tags": [],
++             "title": "design.md"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
+              "id": "MMR-a1",
+              "links": [
+...
+            }
+          ],
++         "returned": 2,
+-         "returned": 1,
+          "startsAt": 0,
++         "total": 2
+-         "total": 1
+        }
+      ],
+...
+    "projects": [
+      {
++       "artifactCount": 2,
+-       "artifactCount": 1,
+        "artifacts": [
+          {
+...
+            ],
+            "title": "Store notes"
++         },
++         {
++           "createdAt": "2026-10-01T12:00:00.000Z",
++           "id": "MMR-a2",
++           "tags": [],
++           "title": "design.md"
+          }
+        ],
+
+### attach argv: MMR-5 --file <file> --project MMR
+exit 0
+--- stdout
+| [ok] attached artifact MMR-a2
+--- state
+        "MMR-a2",
+        {
++         "content": "# Design\n\nThe body.",
++         "createdAt": "2026-10-01T12:00:00.000Z",
++         "id": "MMR-a2",
++         "links": [
++           "MMR-5"
++         ],
++         "project": "MMR",
++         "tags": [],
++         "title": "design.md"
+-         "failed": "MMR-a2 doesn't exist"
+        }
+      ]
+...
+            {
+              "annotations": [],
++             "artifacts": [
++               {
++                 "createdAt": "2026-10-01T12:00:00.000Z",
++                 "id": "MMR-a2",
++                 "tags": [],
++                 "title": "design.md"
++               }
++             ],
+-             "artifacts": [],
+              "blockOwner": null,
+              "branch": null,
+...
+            {
+              "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "links": [
++               "MMR-5"
++             ],
++             "project": "MMR",
++             "tags": [],
++             "title": "design.md"
++           },
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
+              "id": "MMR-a1",
+              "links": [
+...
+            }
+          ],
++         "returned": 2,
+-         "returned": 1,
+          "startsAt": 0,
++         "total": 2
+-         "total": 1
+        }
+      ],
+...
+        {
+          "annotations": [],
++         "artifacts": [
++           {
++             "createdAt": "2026-10-01T12:00:00.000Z",
++             "id": "MMR-a2",
++             "tags": [],
++             "title": "design.md"
++           }
++         ],
+-         "artifacts": [],
+          "blockOwner": null,
+          "branch": null,
+...
+    "projects": [
+      {
++       "artifactCount": 2,
+-       "artifactCount": 1,
+        "artifacts": [
+          {
+...
+            ],
+            "title": "Store notes"
++         },
++         {
++           "createdAt": "2026-10-01T12:00:00.000Z",
++           "id": "MMR-a2",
++           "tags": [],
++           "title": "design.md"
+          }
+        ],
+
+### attach argv: MMR-99 --file <file>
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### attach argv: MMR-99 --file <file> -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "MMR-99 doesn't exist"
+| }
+--- state
+unchanged
+
+### attach argv: MMR --file <file>
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "MMR is a project, not a task, phase, or initiative"
+| }
+--- state
+unchanged
+
+### attach argv: MMR-a1 --file <file>
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "MMR-a1 is an artifact, not a task, phase, or initiative"
+| }
+--- state
+unchanged
+
+### attach argv: MMR-s1 --file <file>
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "act on a seed with promote / reject / resolve"
+|   ],
+|   "message": "MMR-s1 is a seed, not a task, phase, or initiative"
+| }
+--- state
+unchanged
+
+### attach argv: nope --file <file>
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "see what exists: mimir list -f ids"
+|   ],
+|   "message": "nope doesn't exist"
+| }
+--- state
+unchanged
+
+### attach argv: --file <file>
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "attach requires a link (KEY-seq) or --project <KEY>"
+| }
+--- state
+unchanged
+
+### attach argv: --file <file> --project NOPE
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key NOPE -y"
+|   ],
+|   "message": "NOPE doesn't exist"
+| }
+--- state
+unchanged
+
+### attach argv: --file <file> --project nope
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key nope -y"
+|   ],
+|   "message": "nope doesn't exist"
+| }
+--- state
+unchanged
+
+### attach argv: MMR-5 --file <file> --project XX
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "the project disagrees with the links' project"
+| }
+--- state
+unchanged
+
+### attach argv: MMR-5 --file <empty>
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "attach requires content (--content <text>, --file <path>, or piped stdin)"
+| }
+--- state
+unchanged
+
+### attach argv: MMR-5 --file <file> --title " "
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "attach from --content or stdin requires --title <text>"
+| }
+--- state
+unchanged
+
+### attach argv: MMR-5 --file <file> --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"--bogus\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+
+### attach argv: MMR-5 --file <file> --file <file>
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"--file\" can be supplied only once. Remove the repeated option."
+| }
+--- state
+unchanged
+
+### attach argv: MMR-5 MMR-6 --file <file>
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"attach\" accepts 1 argument. Remove the extra values."
+| }
+--- state
+unchanged
+
+### attach argv: MMR-5 --file notes.md --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
+|   ],
+|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+

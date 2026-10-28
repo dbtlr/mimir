@@ -1,0 +1,1102 @@
+### tree MMR
+exit 0
+--- stdout
+| MMR · > in_progress · mimir
+|   MMR-1 · > in_progress · Platform
+|     MMR-2 · > in_progress · Skeleton
+|       MMR-3 · * ready · Wire the store
+|       MMR-4 · ~ awaiting · Render views
+|       MMR-5 · > in_progress · Ship it
+|       MMR-8 · * ready · Tidy docs
+|       MMR-6 · x blocked · Wait on review
+|       MMR-7 · v done · Spike
+
+### tree MMR -f records
+exit 0
+--- stdout
+| MMR · > in_progress · mimir
+|   MMR-1 · > in_progress · Platform
+|     MMR-2 · > in_progress · Skeleton
+|       MMR-3 · * ready · Wire the store
+|       MMR-4 · ~ awaiting · Render views
+|       MMR-5 · > in_progress · Ship it
+|       MMR-8 · * ready · Tidy docs
+|       MMR-6 · x blocked · Wait on review
+|       MMR-7 · v done · Spike
+
+### tree MMR -f table
+exit 0
+--- stdout
+| MMR · > in_progress · mimir
+|   MMR-1 · > in_progress · Platform
+|     MMR-2 · > in_progress · Skeleton
+|       MMR-3 · * ready · Wire the store
+|       MMR-4 · ~ awaiting · Render views
+|       MMR-5 · > in_progress · Ship it
+|       MMR-8 · * ready · Tidy docs
+|       MMR-6 · x blocked · Wait on review
+|       MMR-7 · v done · Spike
+
+### tree MMR -f ids
+exit 0
+--- stdout
+| MMR
+
+### tree MMR -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR",
+|   "parent": null,
+|   "status": "in_progress",
+|   "title": "mimir",
+|   "type": "project",
+|   "description": "The work-state store.",
+|   "pinned": false,
+|   "remote": "github.com/dbtlr/mimir",
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "last_activity_at": "2026-10-01T12:00:00.000Z",
+|   "distribution": {
+|     "in_progress": 1
+|   },
+|   "tags": [],
+|   "children": [
+|     {
+|       "id": "MMR-1",
+|       "parent": null,
+|       "status": "in_progress",
+|       "title": "Platform",
+|       "type": "initiative",
+|       "summary": null,
+|       "open_ended": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "deps": {
+|         "awaiting_on": [],
+|         "blocking": [],
+|         "depends_on": []
+|       },
+|       "distribution": {
+|         "in_progress": 1
+|       },
+|       "tags": [],
+|       "verdicts": {
+|         "blocking": false,
+|         "orphaned": false,
+|         "stale": false
+|       },
+|       "children": [
+|         {
+|           "id": "MMR-2",
+|           "parent": "MMR-1",
+|           "status": "in_progress",
+|           "title": "Skeleton",
+|           "type": "phase",
+|           "summary": null,
+|           "target": "2026-11",
+|           "open_ended": null,
+|           "created_at": "2026-10-01T12:00:00.000Z",
+|           "updated_at": "2026-10-01T12:00:00.000Z",
+|           "deps": {
+|             "awaiting_on": [],
+|             "blocking": [],
+|             "depends_on": []
+|           },
+|           "distribution": {
+|             "ready": 2,
+|             "awaiting": 1,
+|             "in_progress": 1,
+|             "blocked": 1,
+|             "done": 1
+|           },
+|           "tags": [],
+|           "verdicts": {
+|             "blocking": false,
+|             "orphaned": false,
+|             "stale": false
+|           },
+|           "children": [
+|             {
+|               "id": "MMR-3",
+|               "parent": "MMR-2",
+|               "status": "ready",
+|               "title": "Wire the store",
+|               "type": "task",
+|               "summary": "one store per run",
+|               "priority": "p1",
+|               "size": "small",
+|               "lifecycle": "todo",
+|               "grooming": "groomed",
+|               "hold": "none",
+|               "hold_reason": null,
+|               "block_owner": null,
+|               "external_ref": null,
+|               "upstream": null,
+|               "host": null,
+|               "harness": null,
+|               "session": null,
+|               "worker_harness": null,
+|               "worker_session": null,
+|               "branch": null,
+|               "completed_at": null,
+|               "created_at": "2026-10-01T12:00:00.000Z",
+|               "updated_at": "2026-10-01T12:00:00.000Z",
+|               "deps": {
+|                 "awaiting_on": [],
+|                 "blocking": [
+|                   {
+|                     "id": "MMR-4",
+|                     "status": "awaiting",
+|                     "title": "Render views"
+|                   }
+|                 ],
+|                 "depends_on": []
+|               },
+|               "tags": [
+|                 {
+|                   "created_at": "2026-10-01T12:00:00.000Z",
+|                   "tag": "alpha"
+|                 }
+|               ],
+|               "verdicts": {
+|                 "blocking": true,
+|                 "orphaned": false,
+|                 "stale": false
+|               },
+|               "children": []
+|             },
+|             {
+|               "id": "MMR-4",
+|               "parent": "MMR-2",
+|               "status": "awaiting",
+|               "title": "Render views",
+|               "type": "task",
+|               "summary": null,
+|               "priority": null,
+|               "size": null,
+|               "lifecycle": "todo",
+|               "grooming": "not_groomed",
+|               "hold": "none",
+|               "hold_reason": null,
+|               "block_owner": null,
+|               "external_ref": null,
+|               "upstream": null,
+|               "host": null,
+|               "harness": null,
+|               "session": null,
+|               "worker_harness": null,
+|               "worker_session": null,
+|               "branch": null,
+|               "completed_at": null,
+|               "created_at": "2026-10-01T12:00:00.000Z",
+|               "updated_at": "2026-10-01T12:00:00.000Z",
+|               "deps": {
+|                 "awaiting_on": [
+|                   {
+|                     "id": "MMR-3",
+|                     "status": "ready",
+|                     "title": "Wire the store"
+|                   }
+|                 ],
+|                 "blocking": [],
+|                 "depends_on": [
+|                   {
+|                     "id": "MMR-3",
+|                     "status": "ready",
+|                     "title": "Wire the store"
+|                   }
+|                 ]
+|               },
+|               "tags": [
+|                 {
+|                   "created_at": "2026-10-01T12:00:00.000Z",
+|                   "tag": "alpha"
+|                 }
+|               ],
+|               "verdicts": {
+|                 "blocking": false,
+|                 "orphaned": false,
+|                 "stale": false
+|               },
+|               "children": []
+|             },
+|             {
+|               "id": "MMR-5",
+|               "parent": "MMR-2",
+|               "status": "in_progress",
+|               "title": "Ship it",
+|               "type": "task",
+|               "summary": null,
+|               "priority": "p0",
+|               "size": null,
+|               "lifecycle": "in_progress",
+|               "grooming": "not_groomed",
+|               "hold": "none",
+|               "hold_reason": null,
+|               "block_owner": null,
+|               "external_ref": null,
+|               "upstream": null,
+|               "host": null,
+|               "harness": "codex",
+|               "session": "main-session",
+|               "worker_harness": "claude",
+|               "worker_session": "task-worker-session",
+|               "branch": null,
+|               "completed_at": null,
+|               "created_at": "2026-10-01T12:00:00.000Z",
+|               "updated_at": "2026-10-01T12:00:00.000Z",
+|               "deps": {
+|                 "awaiting_on": [],
+|                 "blocking": [],
+|                 "depends_on": []
+|               },
+|               "tags": [],
+|               "verdicts": {
+|                 "blocking": false,
+|                 "orphaned": false,
+|                 "stale": false
+|               },
+|               "children": []
+|             },
+|             {
+|               "id": "MMR-8",
+|               "parent": "MMR-2",
+|               "status": "ready",
+|               "title": "Tidy docs",
+|               "type": "task",
+|               "summary": null,
+|               "priority": "p2",
+|               "size": null,
+|               "lifecycle": "todo",
+|               "grooming": "not_groomed",
+|               "hold": "none",
+|               "hold_reason": null,
+|               "block_owner": null,
+|               "external_ref": null,
+|               "upstream": null,
+|               "host": null,
+|               "harness": null,
+|               "session": null,
+|               "worker_harness": null,
+|               "worker_session": null,
+|               "branch": null,
+|               "completed_at": null,
+|               "created_at": "2026-10-01T12:00:00.000Z",
+|               "updated_at": "2026-10-01T12:00:00.000Z",
+|               "deps": {
+|                 "awaiting_on": [],
+|                 "blocking": [],
+|                 "depends_on": []
+|               },
+|               "tags": [],
+|               "verdicts": {
+|                 "blocking": false,
+|                 "orphaned": false,
+|                 "stale": false
+|               },
+|               "children": []
+|             },
+|             {
+|               "id": "MMR-6",
+|               "parent": "MMR-2",
+|               "status": "blocked",
+|               "title": "Wait on review",
+|               "type": "task",
+|               "summary": null,
+|               "priority": null,
+|               "size": null,
+|               "lifecycle": "todo",
+|               "grooming": "not_groomed",
+|               "hold": "blocked",
+|               "hold_reason": "needs a reviewer",
+|               "block_owner": "you",
+|               "external_ref": null,
+|               "upstream": null,
+|               "host": null,
+|               "harness": null,
+|               "session": null,
+|               "worker_harness": null,
+|               "worker_session": null,
+|               "branch": null,
+|               "completed_at": null,
+|               "created_at": "2026-10-01T12:00:00.000Z",
+|               "updated_at": "2026-10-01T12:00:00.000Z",
+|               "deps": {
+|                 "awaiting_on": [],
+|                 "blocking": [],
+|                 "depends_on": []
+|               },
+|               "tags": [],
+|               "verdicts": {
+|                 "blocking": false,
+|                 "orphaned": false,
+|                 "stale": false
+|               },
+|               "children": []
+|             },
+|             {
+|               "id": "MMR-7",
+|               "parent": "MMR-2",
+|               "status": "done",
+|               "title": "Spike",
+|               "type": "task",
+|               "summary": null,
+|               "priority": null,
+|               "size": null,
+|               "lifecycle": "done",
+|               "grooming": "not_groomed",
+|               "hold": "none",
+|               "hold_reason": null,
+|               "block_owner": null,
+|               "external_ref": null,
+|               "upstream": null,
+|               "host": null,
+|               "harness": null,
+|               "session": null,
+|               "worker_harness": null,
+|               "worker_session": null,
+|               "branch": null,
+|               "completed_at": "2026-10-01T12:00:00.000Z",
+|               "created_at": "2026-10-01T12:00:00.000Z",
+|               "updated_at": "2026-10-01T12:00:00.000Z",
+|               "deps": {
+|                 "awaiting_on": [],
+|                 "blocking": [],
+|                 "depends_on": []
+|               },
+|               "tags": [],
+|               "verdicts": {
+|                 "blocking": false,
+|                 "orphaned": false,
+|                 "stale": false
+|               },
+|               "children": []
+|             }
+|           ]
+|         }
+|       ]
+|     }
+|   ]
+| }
+
+### tree MMR -f jsonl
+exit 0
+--- stdout
+| {"id":"MMR","parent":null,"status":"in_progress","title":"mimir","type":"project","description":"The work-state store.","pinned":false,"remote":"github.com/dbtlr/mimir","created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","last_activity_at":"2026-10-01T12:00:00.000Z","distribution":{"in_progress":1},"tags":[],"children":[{"id":"MMR-1","parent":null,"status":"in_progress","title":"Platform","type":"initiative","summary":null,"open_ended":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","deps":{"awaiting_on":[],"blocking":[],"depends_on":[]},"distribution":{"in_progress":1},"tags":[],"verdicts":{"blocking":false,"orphaned":false,"stale":false},"children":[{"id":"MMR-2","parent":"MMR-1","status":"in_progress","title":"Skeleton","type":"phase","summary":null,"target":"2026-11","open_ended":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","deps":{"awaiting_on":[],"blocking":[],"depends_on":[]},"distribution":{"ready":2,"awaiting":1,"in_progress":1,"blocked":1,"done":1},"tags":[],"verdicts":{"blocking":false,"orphaned":false,"stale":false},"children":[{"id":"MMR-3","parent":"MMR-2","status":"ready","title":"Wire the store","type":"task","summary":"one store per run","priority":"p1","size":"small","lifecycle":"todo","grooming":"groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","deps":{"awaiting_on":[],"blocking":[{"id":"MMR-4","status":"awaiting","title":"Render views"}],"depends_on":[]},"tags":[{"created_at":"2026-10-01T12:00:00.000Z","tag":"alpha"}],"verdicts":{"blocking":true,"orphaned":false,"stale":false},"children":[]},{"id":"MMR-4","parent":"MMR-2","status":"awaiting","title":"Render views","type":"task","summary":null,"priority":null,"size":null,"lifecycle":"todo","grooming":"not_groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","deps":{"awaiting_on":[{"id":"MMR-3","status":"ready","title":"Wire the store"}],"blocking":[],"depends_on":[{"id":"MMR-3","status":"ready","title":"Wire the store"}]},"tags":[{"created_at":"2026-10-01T12:00:00.000Z","tag":"alpha"}],"verdicts":{"blocking":false,"orphaned":false,"stale":false},"children":[]},{"id":"MMR-5","parent":"MMR-2","status":"in_progress","title":"Ship it","type":"task","summary":null,"priority":"p0","size":null,"lifecycle":"in_progress","grooming":"not_groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"upstream":null,"host":null,"harness":"codex","session":"main-session","worker_harness":"claude","worker_session":"task-worker-session","branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","deps":{"awaiting_on":[],"blocking":[],"depends_on":[]},"tags":[],"verdicts":{"blocking":false,"orphaned":false,"stale":false},"children":[]},{"id":"MMR-8","parent":"MMR-2","status":"ready","title":"Tidy docs","type":"task","summary":null,"priority":"p2","size":null,"lifecycle":"todo","grooming":"not_groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","deps":{"awaiting_on":[],"blocking":[],"depends_on":[]},"tags":[],"verdicts":{"blocking":false,"orphaned":false,"stale":false},"children":[]},{"id":"MMR-6","parent":"MMR-2","status":"blocked","title":"Wait on review","type":"task","summary":null,"priority":null,"size":null,"lifecycle":"todo","grooming":"not_groomed","hold":"blocked","hold_reason":"needs a reviewer","block_owner":"you","external_ref":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","deps":{"awaiting_on":[],"blocking":[],"depends_on":[]},"tags":[],"verdicts":{"blocking":false,"orphaned":false,"stale":false},"children":[]},{"id":"MMR-7","parent":"MMR-2","status":"done","title":"Spike","type":"task","summary":null,"priority":null,"size":null,"lifecycle":"done","grooming":"not_groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":"2026-10-01T12:00:00.000Z","created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","deps":{"awaiting_on":[],"blocking":[],"depends_on":[]},"tags":[],"verdicts":{"blocking":false,"orphaned":false,"stale":false},"children":[]}]}]}]}
+
+### tree MMR --ascii
+exit 0
+--- stdout
+| MMR · > in_progress · mimir
+|   MMR-1 · > in_progress · Platform
+|     MMR-2 · > in_progress · Skeleton
+|       MMR-3 · * ready · Wire the store
+|       MMR-4 · ~ awaiting · Render views
+|       MMR-5 · > in_progress · Ship it
+|       MMR-8 · * ready · Tidy docs
+|       MMR-6 · x blocked · Wait on review
+|       MMR-7 · v done · Spike
+
+### tree MMR-2
+exit 0
+--- stdout
+| MMR-2 · > in_progress · Skeleton
+|   MMR-3 · * ready · Wire the store
+|   MMR-4 · ~ awaiting · Render views
+|   MMR-5 · > in_progress · Ship it
+|   MMR-8 · * ready · Tidy docs
+|   MMR-6 · x blocked · Wait on review
+|   MMR-7 · v done · Spike
+
+### tree MMR-2 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-2",
+|   "parent": "MMR-1",
+|   "status": "in_progress",
+|   "title": "Skeleton",
+|   "type": "phase",
+|   "summary": null,
+|   "target": "2026-11",
+|   "open_ended": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "deps": {
+|     "awaiting_on": [],
+|     "blocking": [],
+|     "depends_on": []
+|   },
+|   "distribution": {
+|     "ready": 2,
+|     "awaiting": 1,
+|     "in_progress": 1,
+|     "blocked": 1,
+|     "done": 1
+|   },
+|   "tags": [],
+|   "verdicts": {
+|     "blocking": false,
+|     "orphaned": false,
+|     "stale": false
+|   },
+|   "children": [
+|     {
+|       "id": "MMR-3",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Wire the store",
+|       "type": "task",
+|       "summary": "one store per run",
+|       "priority": "p1",
+|       "size": "small",
+|       "lifecycle": "todo",
+|       "grooming": "groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "deps": {
+|         "awaiting_on": [],
+|         "blocking": [
+|           {
+|             "id": "MMR-4",
+|             "status": "awaiting",
+|             "title": "Render views"
+|           }
+|         ],
+|         "depends_on": []
+|       },
+|       "tags": [
+|         {
+|           "created_at": "2026-10-01T12:00:00.000Z",
+|           "tag": "alpha"
+|         }
+|       ],
+|       "verdicts": {
+|         "blocking": true,
+|         "orphaned": false,
+|         "stale": false
+|       },
+|       "children": []
+|     },
+|     {
+|       "id": "MMR-4",
+|       "parent": "MMR-2",
+|       "status": "awaiting",
+|       "title": "Render views",
+|       "type": "task",
+|       "summary": null,
+|       "priority": null,
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "deps": {
+|         "awaiting_on": [
+|           {
+|             "id": "MMR-3",
+|             "status": "ready",
+|             "title": "Wire the store"
+|           }
+|         ],
+|         "blocking": [],
+|         "depends_on": [
+|           {
+|             "id": "MMR-3",
+|             "status": "ready",
+|             "title": "Wire the store"
+|           }
+|         ]
+|       },
+|       "tags": [
+|         {
+|           "created_at": "2026-10-01T12:00:00.000Z",
+|           "tag": "alpha"
+|         }
+|       ],
+|       "verdicts": {
+|         "blocking": false,
+|         "orphaned": false,
+|         "stale": false
+|       },
+|       "children": []
+|     },
+|     {
+|       "id": "MMR-5",
+|       "parent": "MMR-2",
+|       "status": "in_progress",
+|       "title": "Ship it",
+|       "type": "task",
+|       "summary": null,
+|       "priority": "p0",
+|       "size": null,
+|       "lifecycle": "in_progress",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": "codex",
+|       "session": "main-session",
+|       "worker_harness": "claude",
+|       "worker_session": "task-worker-session",
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "deps": {
+|         "awaiting_on": [],
+|         "blocking": [],
+|         "depends_on": []
+|       },
+|       "tags": [],
+|       "verdicts": {
+|         "blocking": false,
+|         "orphaned": false,
+|         "stale": false
+|       },
+|       "children": []
+|     },
+|     {
+|       "id": "MMR-8",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "summary": null,
+|       "priority": "p2",
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "deps": {
+|         "awaiting_on": [],
+|         "blocking": [],
+|         "depends_on": []
+|       },
+|       "tags": [],
+|       "verdicts": {
+|         "blocking": false,
+|         "orphaned": false,
+|         "stale": false
+|       },
+|       "children": []
+|     },
+|     {
+|       "id": "MMR-6",
+|       "parent": "MMR-2",
+|       "status": "blocked",
+|       "title": "Wait on review",
+|       "type": "task",
+|       "summary": null,
+|       "priority": null,
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "blocked",
+|       "hold_reason": "needs a reviewer",
+|       "block_owner": "you",
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "deps": {
+|         "awaiting_on": [],
+|         "blocking": [],
+|         "depends_on": []
+|       },
+|       "tags": [],
+|       "verdicts": {
+|         "blocking": false,
+|         "orphaned": false,
+|         "stale": false
+|       },
+|       "children": []
+|     },
+|     {
+|       "id": "MMR-7",
+|       "parent": "MMR-2",
+|       "status": "done",
+|       "title": "Spike",
+|       "type": "task",
+|       "summary": null,
+|       "priority": null,
+|       "size": null,
+|       "lifecycle": "done",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": "2026-10-01T12:00:00.000Z",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "deps": {
+|         "awaiting_on": [],
+|         "blocking": [],
+|         "depends_on": []
+|       },
+|       "tags": [],
+|       "verdicts": {
+|         "blocking": false,
+|         "orphaned": false,
+|         "stale": false
+|       },
+|       "children": []
+|     }
+|   ]
+| }
+
+### tree MMR-3 -f jsonl
+exit 0
+--- stdout
+| {"id":"MMR-3","parent":"MMR-2","status":"ready","title":"Wire the store","type":"task","summary":"one store per run","priority":"p1","size":"small","lifecycle":"todo","grooming":"groomed","hold":"none","hold_reason":null,"block_owner":null,"external_ref":null,"upstream":null,"host":null,"harness":null,"session":null,"worker_harness":null,"worker_session":null,"branch":null,"completed_at":null,"created_at":"2026-10-01T12:00:00.000Z","updated_at":"2026-10-01T12:00:00.000Z","deps":{"awaiting_on":[],"blocking":[{"id":"MMR-4","status":"awaiting","title":"Render views"}],"depends_on":[]},"tags":[{"created_at":"2026-10-01T12:00:00.000Z","tag":"alpha"}],"verdicts":{"blocking":true,"orphaned":false,"stale":false},"children":[]}
+
+### tree MMR-4 -f ids
+exit 0
+--- stdout
+| MMR-4
+
+### tree XX
+exit 0
+--- stdout
+| XX · * ready · other
+|   XX-1 · * ready · Elsewhere
+|     XX-2 · * ready · Far
+|       XX-3 · * ready · Not ours
+
+### tree MMR-99
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-99 doesn't exist"
+| }
+
+### tree NOPE
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [
+|     "create it: mimir create project \"Name\" --key NOPE -y"
+|   ],
+|   "message": "NOPE doesn't exist"
+| }
+
+### tree (no id)
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Argument \"id\" requires a value. Supply a value for \"id\"."
+| }
+
+### tree argv: MMR
+exit 0
+--- stdout
+| MMR · > in_progress · mimir
+|   MMR-1 · > in_progress · Platform
+|     MMR-2 · > in_progress · Skeleton
+|       MMR-3 · * ready · Wire the store
+|       MMR-4 · ~ awaiting · Render views
+|       MMR-5 · > in_progress · Ship it
+|       MMR-8 · * ready · Tidy docs
+|       MMR-6 · x blocked · Wait on review
+|       MMR-7 · v done · Spike
+
+### tree argv: MMR-2 -f json
+exit 0
+--- stdout
+| {
+|   "id": "MMR-2",
+|   "parent": "MMR-1",
+|   "status": "in_progress",
+|   "title": "Skeleton",
+|   "type": "phase",
+|   "summary": null,
+|   "target": "2026-11",
+|   "open_ended": null,
+|   "created_at": "2026-10-01T12:00:00.000Z",
+|   "updated_at": "2026-10-01T12:00:00.000Z",
+|   "deps": {
+|     "awaiting_on": [],
+|     "blocking": [],
+|     "depends_on": []
+|   },
+|   "distribution": {
+|     "ready": 2,
+|     "awaiting": 1,
+|     "in_progress": 1,
+|     "blocked": 1,
+|     "done": 1
+|   },
+|   "tags": [],
+|   "verdicts": {
+|     "blocking": false,
+|     "orphaned": false,
+|     "stale": false
+|   },
+|   "children": [
+|     {
+|       "id": "MMR-3",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Wire the store",
+|       "type": "task",
+|       "summary": "one store per run",
+|       "priority": "p1",
+|       "size": "small",
+|       "lifecycle": "todo",
+|       "grooming": "groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "deps": {
+|         "awaiting_on": [],
+|         "blocking": [
+|           {
+|             "id": "MMR-4",
+|             "status": "awaiting",
+|             "title": "Render views"
+|           }
+|         ],
+|         "depends_on": []
+|       },
+|       "tags": [
+|         {
+|           "created_at": "2026-10-01T12:00:00.000Z",
+|           "tag": "alpha"
+|         }
+|       ],
+|       "verdicts": {
+|         "blocking": true,
+|         "orphaned": false,
+|         "stale": false
+|       },
+|       "children": []
+|     },
+|     {
+|       "id": "MMR-4",
+|       "parent": "MMR-2",
+|       "status": "awaiting",
+|       "title": "Render views",
+|       "type": "task",
+|       "summary": null,
+|       "priority": null,
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "deps": {
+|         "awaiting_on": [
+|           {
+|             "id": "MMR-3",
+|             "status": "ready",
+|             "title": "Wire the store"
+|           }
+|         ],
+|         "blocking": [],
+|         "depends_on": [
+|           {
+|             "id": "MMR-3",
+|             "status": "ready",
+|             "title": "Wire the store"
+|           }
+|         ]
+|       },
+|       "tags": [
+|         {
+|           "created_at": "2026-10-01T12:00:00.000Z",
+|           "tag": "alpha"
+|         }
+|       ],
+|       "verdicts": {
+|         "blocking": false,
+|         "orphaned": false,
+|         "stale": false
+|       },
+|       "children": []
+|     },
+|     {
+|       "id": "MMR-5",
+|       "parent": "MMR-2",
+|       "status": "in_progress",
+|       "title": "Ship it",
+|       "type": "task",
+|       "summary": null,
+|       "priority": "p0",
+|       "size": null,
+|       "lifecycle": "in_progress",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": "codex",
+|       "session": "main-session",
+|       "worker_harness": "claude",
+|       "worker_session": "task-worker-session",
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "deps": {
+|         "awaiting_on": [],
+|         "blocking": [],
+|         "depends_on": []
+|       },
+|       "tags": [],
+|       "verdicts": {
+|         "blocking": false,
+|         "orphaned": false,
+|         "stale": false
+|       },
+|       "children": []
+|     },
+|     {
+|       "id": "MMR-8",
+|       "parent": "MMR-2",
+|       "status": "ready",
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "summary": null,
+|       "priority": "p2",
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "deps": {
+|         "awaiting_on": [],
+|         "blocking": [],
+|         "depends_on": []
+|       },
+|       "tags": [],
+|       "verdicts": {
+|         "blocking": false,
+|         "orphaned": false,
+|         "stale": false
+|       },
+|       "children": []
+|     },
+|     {
+|       "id": "MMR-6",
+|       "parent": "MMR-2",
+|       "status": "blocked",
+|       "title": "Wait on review",
+|       "type": "task",
+|       "summary": null,
+|       "priority": null,
+|       "size": null,
+|       "lifecycle": "todo",
+|       "grooming": "not_groomed",
+|       "hold": "blocked",
+|       "hold_reason": "needs a reviewer",
+|       "block_owner": "you",
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "deps": {
+|         "awaiting_on": [],
+|         "blocking": [],
+|         "depends_on": []
+|       },
+|       "tags": [],
+|       "verdicts": {
+|         "blocking": false,
+|         "orphaned": false,
+|         "stale": false
+|       },
+|       "children": []
+|     },
+|     {
+|       "id": "MMR-7",
+|       "parent": "MMR-2",
+|       "status": "done",
+|       "title": "Spike",
+|       "type": "task",
+|       "summary": null,
+|       "priority": null,
+|       "size": null,
+|       "lifecycle": "done",
+|       "grooming": "not_groomed",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "block_owner": null,
+|       "external_ref": null,
+|       "upstream": null,
+|       "host": null,
+|       "harness": null,
+|       "session": null,
+|       "worker_harness": null,
+|       "worker_session": null,
+|       "branch": null,
+|       "completed_at": "2026-10-01T12:00:00.000Z",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "deps": {
+|         "awaiting_on": [],
+|         "blocking": [],
+|         "depends_on": []
+|       },
+|       "tags": [],
+|       "verdicts": {
+|         "blocking": false,
+|         "orphaned": false,
+|         "stale": false
+|       },
+|       "children": []
+|     }
+|   ]
+| }
+
+### tree argv: MMR-99 -f json
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "not-found",
+|   "hints": [],
+|   "message": "MMR-99 doesn't exist"
+| }
+
+### tree argv: MMR extra
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"tree\" accepts 1 argument. Remove the extra values."
+| }
+
+### tree argv: MMR (terminal)
+exit 0
+--- stdout
+| MMR · ␛[36m▶ in_progress␛[39m · mimir
+|   MMR-1 · ␛[36m▶ in_progress␛[39m · Platform
+|     MMR-2 · ␛[36m▶ in_progress␛[39m · Skeleton
+|       MMR-3 · ␛[32m● ready␛[39m · Wire the store
+|       MMR-4 · ␛[33m◔ awaiting␛[39m · Render views
+|       MMR-5 · ␛[36m▶ in_progress␛[39m · Ship it
+|       MMR-8 · ␛[32m● ready␛[39m · Tidy docs
+|       MMR-6 · ␛[31m■ blocked␛[39m · Wait on review
+|       MMR-7 · ␛[32m✓ done␛[39m · Spike
+
+### tree argv: MMR-2 -f records (terminal)
+exit 0
+--- stdout
+| MMR-2 · ␛[36m▶ in_progress␛[39m · Skeleton
+|   MMR-3 · ␛[32m● ready␛[39m · Wire the store
+|   MMR-4 · ␛[33m◔ awaiting␛[39m · Render views
+|   MMR-5 · ␛[36m▶ in_progress␛[39m · Ship it
+|   MMR-8 · ␛[32m● ready␛[39m · Tidy docs
+|   MMR-6 · ␛[31m■ blocked␛[39m · Wait on review
+|   MMR-7 · ␛[32m✓ done␛[39m · Spike
+

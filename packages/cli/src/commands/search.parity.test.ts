@@ -75,4 +75,4 @@ const CASES: ParityCase[] = [
   argvCase(['search', 'zzzz', '-s', 'MMR'], true),
 ];
 
-parityCases(/^search /, CASES);
+parityCases(import.meta.url, CASES);

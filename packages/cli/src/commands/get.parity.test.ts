@@ -1,7 +1,7 @@
-import { GET_REDIRECTS } from '../parity/differences';
 import { argvCase, argvLine } from '../testing/argv-case';
 import { parityCases } from '../testing/parity';
 import type { ParityCase } from '../testing/parity';
+import { GET_REDIRECTS } from '../testing/redirects';
 
 const get = (name: string, id: string | undefined, options: ParityCase['options'] = {}) => ({
   ...(id === undefined ? {} : { args: { id } }),
@@ -85,4 +85,4 @@ const CASES: ParityCase[] = [
   argvCase(['get', 'MMR-a1'], true),
 ];
 
-parityCases(/^get /, CASES);
+parityCases(import.meta.url, CASES);

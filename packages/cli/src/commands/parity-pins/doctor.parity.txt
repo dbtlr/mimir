@@ -1,0 +1,316 @@
+### doctor -s MMR
+exit 0
+--- stdout
+| []
+--- state
+unchanged
+
+### doctor -s MMR -f records
+exit 0
+--- stdout
+| [ok] doctor: no problems found
+--- state
+unchanged
+
+### doctor -s MMR -f table
+exit 0
+--- stdout
+| [ok] doctor: no problems found
+--- state
+unchanged
+
+### doctor -s MMR -f ids
+exit 0
+--- stdout
+| [ok] doctor: no problems found
+--- state
+unchanged
+
+### doctor -s MMR -f json
+exit 0
+--- stdout
+| []
+--- state
+unchanged
+
+### doctor -s MMR -f jsonl
+exit 0
+--- stdout
+|
+--- state
+unchanged
+
+### doctor (bound to MMR) -f json
+exit 0
+--- stdout
+| []
+--- state
+unchanged
+
+### doctor (bound to XX) -s all -f json
+exit 0
+--- stdout
+| []
+--- state
+unchanged
+
+### doctor (unbound) -f json
+exit 0
+--- stdout
+| []
+--- state
+unchanged
+
+### doctor -s XX -f json
+exit 0
+--- stdout
+| []
+--- state
+unchanged
+
+### doctor -s ""
+exit 0
+--- stdout
+| []
+--- state
+unchanged
+
+### doctor -s NOPE
+exit 0
+--- stdout
+| []
+--- state
+unchanged
+
+### doctor -s NOPE -f json
+exit 0
+--- stdout
+| []
+--- state
+unchanged
+
+### doctor -s MMR (findings)
+exit 0
+--- stdout
+| [
+|   {
+|     "check": "dangling-parent",
+|     "code": "dangling-parent",
+|     "evidence": {
+|       "parent_id": "MMR-404",
+|       "value": "MMR-404"
+|     },
+|     "locator": "node/MMR-1",
+|     "message": "MMR-1 names parent MMR-404, which no node row holds",
+|     "node": "MMR-1",
+|     "remedy": "set parent_id to an existing node",
+|     "scopeKey": "MMR",
+|     "severity": "error",
+|     "stem": "MMR-1",
+|     "where": "node · parent_id"
+|   },
+|   {
+|     "check": "orphan-edge",
+|     "code": "orphan-edge",
+|     "evidence": {},
+|     "locator": "edge/7",
+|     "message": "MMR-2 depends on a node that is gone",
+|     "node": "MMR-2",
+|     "scopeKey": "MMR",
+|     "severity": "warn",
+|     "stem": "MMR-2",
+|     "where": "edge · to_id"
+|   }
+| ]
+--- state
+unchanged
+
+### doctor -s MMR -f records (findings)
+exit 0
+--- stdout
+--- state
+unchanged
+
+### doctor -s MMR -f ids (findings)
+exit 0
+--- stdout
+--- state
+unchanged
+
+### doctor -s MMR -f json (findings)
+exit 0
+--- stdout
+| [
+|   {
+|     "check": "dangling-parent",
+|     "code": "dangling-parent",
+|     "evidence": {
+|       "parent_id": "MMR-404",
+|       "value": "MMR-404"
+|     },
+|     "locator": "node/MMR-1",
+|     "message": "MMR-1 names parent MMR-404, which no node row holds",
+|     "node": "MMR-1",
+|     "remedy": "set parent_id to an existing node",
+|     "scopeKey": "MMR",
+|     "severity": "error",
+|     "stem": "MMR-1",
+|     "where": "node · parent_id"
+|   },
+|   {
+|     "check": "orphan-edge",
+|     "code": "orphan-edge",
+|     "evidence": {},
+|     "locator": "edge/7",
+|     "message": "MMR-2 depends on a node that is gone",
+|     "node": "MMR-2",
+|     "scopeKey": "MMR",
+|     "severity": "warn",
+|     "stem": "MMR-2",
+|     "where": "edge · to_id"
+|   }
+| ]
+--- state
+unchanged
+
+### doctor -s MMR -f jsonl (findings)
+exit 0
+--- stdout
+| {"check":"dangling-parent","code":"dangling-parent","evidence":{"parent_id":"MMR-404","value":"MMR-404"},"locator":"node/MMR-1","message":"MMR-1 names parent MMR-404, which no node row holds","node":"MMR-1","remedy":"set parent_id to an existing node","scopeKey":"MMR","severity":"error","stem":"MMR-1","where":"node · parent_id"}
+| {"check":"orphan-edge","code":"orphan-edge","evidence":{},"locator":"edge/7","message":"MMR-2 depends on a node that is gone","node":"MMR-2","scopeKey":"MMR","severity":"warn","stem":"MMR-2","where":"edge · to_id"}
+--- state
+unchanged
+
+### doctor -s MMR -f yaml
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "invalid-input",
+|   "hints": [],
+|   "message": "Option \"format\": Supply one of ids, json, jsonl, records, table."
+| }
+--- state
+unchanged
+
+### doctor -s MMR --bogus
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [],
+|   "message": "Unknown option \"bogus\". Supply the name of a declared option."
+| }
+--- state
+unchanged
+
+### doctor argv: -s MMR
+exit 0
+--- stdout
+| []
+--- state
+unchanged
+
+### doctor argv: --scope MMR --format json
+exit 0
+--- stdout
+| []
+--- state
+unchanged
+
+### doctor argv: -s all -f jsonl (findings)
+exit 0
+--- stdout
+| {"check":"dangling-parent","code":"dangling-parent","evidence":{"parent_id":"MMR-404","value":"MMR-404"},"locator":"node/MMR-1","message":"MMR-1 names parent MMR-404, which no node row holds","node":"MMR-1","remedy":"set parent_id to an existing node","scopeKey":"MMR","severity":"error","stem":"MMR-1","where":"node · parent_id"}
+| {"check":"orphan-edge","code":"orphan-edge","evidence":{},"locator":"edge/7","message":"MMR-2 depends on a node that is gone","node":"MMR-2","scopeKey":"MMR","severity":"warn","stem":"MMR-2","where":"edge · to_id"}
+--- state
+unchanged
+
+### doctor argv: -s MMR -s XX
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "repeated-option",
+|   "hints": [],
+|   "message": "Option \"-s\" can be supplied only once. Remove the repeated option."
+| }
+--- state
+unchanged
+
+### doctor argv: extra
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unexpected-argument",
+|   "hints": [],
+|   "message": "Command \"doctor\" accepts no arguments. Remove the supplied values."
+| }
+--- state
+unchanged
+
+### doctor argv: -s MMR (findings)
+exit 0
+--- stdout
+| [
+|   {
+|     "check": "dangling-parent",
+|     "code": "dangling-parent",
+|     "evidence": {
+|       "parent_id": "MMR-404",
+|       "value": "MMR-404"
+|     },
+|     "locator": "node/MMR-1",
+|     "message": "MMR-1 names parent MMR-404, which no node row holds",
+|     "node": "MMR-1",
+|     "remedy": "set parent_id to an existing node",
+|     "scopeKey": "MMR",
+|     "severity": "error",
+|     "stem": "MMR-1",
+|     "where": "node · parent_id"
+|   },
+|   {
+|     "check": "orphan-edge",
+|     "code": "orphan-edge",
+|     "evidence": {},
+|     "locator": "edge/7",
+|     "message": "MMR-2 depends on a node that is gone",
+|     "node": "MMR-2",
+|     "scopeKey": "MMR",
+|     "severity": "warn",
+|     "stem": "MMR-2",
+|     "where": "edge · to_id"
+|   }
+| ]
+--- state
+unchanged
+
+### doctor argv: -s MMR (terminal)
+exit 0
+--- stdout
+| ␛[32m✓␛[39m doctor: no problems found
+--- state
+unchanged
+
+### doctor argv: -s MMR (terminal) (findings)
+exit 0
+--- stdout
+--- state
+unchanged
+
+### doctor argv: -s MMR --parent MMR-2
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "unknown-option",
+|   "hints": [
+|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
+|   ],
+|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
+| }
+--- state
+unchanged
+

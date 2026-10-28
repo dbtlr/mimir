@@ -1,6 +1,6 @@
 /**
  * The MCP capability map (ADR 0037): every tool the old MCP server in
- * `packages/bin` registers, and the Loom tool that covers it. Loom names a
+ * registered (frozen in `retired-mcp-tools.ts`), and the Loom tool that covers it. Loom names a
  * tool by its command path joined with `_`, and an input by its declared
  * option or argument name, so a covered tool may keep its capability and
  * change its spelling. The test fails when the old server gains a tool the
