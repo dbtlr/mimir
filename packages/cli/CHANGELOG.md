@@ -4,18 +4,16 @@ description: Released Mimir changes and upgrade guidance, compiled from pending 
 
 # Changelog
 
-All notable changes to this project are documented here.
+All notable changes to this project are documented here. Mimir is
+**pre-release** (`0.x`): a minor release may include breaking changes, and a
+patch release holds only features and fixes.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
-once it ships v1.0. Mimir is **pre-release** (`0.x`) and will be for a while;
-minor releases may include breaking changes.
-
-This file holds released sections only — there is no `[Unreleased]` section.
-Pending entries accrue as per-PR fragments in [`.changes/`](.changes/README.md)
-and are compiled into a new release section at each cut
-([ADR 0022](../../docs/decisions/0022-changelog-fragments-compiled-at-cut.md));
-`bun run changelog:compile` previews the pending section.
+This file holds released sections only. Pending entries accrue as per-PR
+fragments in [`.changes/`](.changes/README.md), and `loom changelog write`
+cuts them into a new release section at each release
+([ADR 0039](../../docs/decisions/0039-changelog-and-versioning-on-loom.md)).
+Sections before v0.26.0 follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
+later sections group entries as Breaking Changes, Features, and Fixes.
 
 ## v0.25.0 - 2026-10-14
 

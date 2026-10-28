@@ -1,6 +1,5 @@
 {
   "name": "@mimir/core",
-  "version": "0.26.0-next",
   "private": true,
   "description": "Mimir's transport-agnostic core: domain logic, the SQLite and Postgres store backends, the doctor, the installation record, and runtime config. The binary's transports build on this package's entry and nothing else.",
   "type": "module",

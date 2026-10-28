@@ -10,7 +10,6 @@
   "scripts": {
     "mimir": "bun run packages/cli/src/main.ts",
     "contract:snapshot": "bun packages/contract/scripts/engine-schema-snapshot.ts && vp fmt packages/contract/engine-schemas.json",
-    "changelog:compile": "bun packages/cli/scripts/compile-changelog.ts",
     "fixtures:docs": "bun packages/cli/scripts/generate-docs-fixture.ts",
     "build:ui": "bun run --cwd packages/host build",
     "dev:ui": "bun run --cwd packages/host dev",

@@ -1,6 +1,7 @@
 ---
 title: 'ADR 0022: Changelog fragments, compiled at the cut'
-status: accepted
+status: superseded
+superseded_by: ADR 0039
 date: 2026-07-13
 ---
 
@@ -111,3 +112,9 @@ same commit (`bun run changelog:compile --write --version X.Y.Z`). There is no
 - A changelog entry can no longer be edited without a commit once merged —
   accepted deliberately; pre-cut fixes are a normal (skip-labeled) PR touching
   the fragment.
+
+## Changelog
+
+- 2026-10-28: Superseded by [ADR 0039](0039-changelog-and-versioning-on-loom.md).
+  Fragments now use Loom's grammar in `packages/cli/.changes/`, their kinds
+  decide the version, and `loom changelog write` replaces the compiler.

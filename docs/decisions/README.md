@@ -61,6 +61,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0036](0036-project-binding-through-git-config.md)               | A clone binds to its project through git config and the project remote |
 | [0037](0037-the-cli-and-mcp-on-loom.md)                         | The CLI and MCP on Loom                                            |
 | [0038](0038-device-pairing-and-the-version-window.md)            | Device pairing and the version window                              |
+| [0039](0039-changelog-and-versioning-on-loom.md)                 | Changelog and versioning on Loom (supersedes 0022)                 |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model
