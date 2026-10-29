@@ -1,2 +1,0 @@
-- **Remote doctor checks with remedies** (MMR-588). The Loom CLI checks host configuration, credential permissions and origin, health, version compatibility, and token acceptance in order. It stops at the first error, reports a remedy with exit 0, and points to `mimir-host doctor` for record health. Terminal output includes passed checks; JSON and JSONL remain findings only.
-- Doctor findings can carry a separate `remedy` field, rendered as an indented `fix:` line. Config-permission findings use this field for their existing fixes.

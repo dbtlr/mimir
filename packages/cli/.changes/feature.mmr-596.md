@@ -1,1 +1,0 @@
-- **`mimir-host tokens` leads with the device and drops the empty revoked column** (MMR-596). Columns are now DEVICE, USER, LAST USED as an age (`19m ago`, or `never`), and PAIRED as a date. REVOKED appears only under `--all`, as a date or `-`. JSON output is unchanged.

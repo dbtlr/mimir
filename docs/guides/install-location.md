@@ -4,31 +4,27 @@ description: Choose an installation path, and how the first run binds an install
 
 # Install location
 
-Two installers exist while the Loom CLI rolls out:
+The installer, `install.sh` at the repository root, installs releases built
+from the Loom CLI: 0.26.0 and later, and the 0.26.0-next prereleases from the
+cutover on. Pointing it at an older version installs a binary that does not
+understand its post-install step; to install 0.25.0 or earlier, fetch the
+installer from that release's tag, such as
+`https://raw.githubusercontent.com/dbtlr/mimir/v0.25.0/install.sh`.
 
-- **`install.sh` at the repository root** installs releases built from the old
-  CLI (0.25.0 and earlier). It reads `MIMIR_INSTALL_DIR`, `MIMIR_VERSION`, and
-  `MIMIR_NEXT`. It is what the README fetches until the first stable release
-  built from the Loom CLI, and what you need to install an older version.
-- **`packages/cli/install.sh`** installs Loom-built releases: the
-  0.26.0-next prereleases from this cutover on, and 0.26.0 and later. Pointing it
-  at an older version installs a binary that does not understand its
-  post-install step, so use the root installer for those.
-
-The rest of this guide describes the Loom installer, which places the binary in
-`~/.local/bin` by default. Choose another absolute directory with `--dir`, and
-pin a release with a version argument (it never picks a prerelease on its own):
+The installer places the binary in `~/.local/bin` by default. Choose another
+absolute directory with `--dir`, and pin a release with a version argument (it
+never picks a prerelease on its own):
 
 ```sh
-curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/packages/cli/install.sh | sh -s -- --dir /opt/mimir/bin 0.26.0-next.5
+curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh -s -- --dir /opt/mimir/bin 0.26.0
 ```
 
 Keep the binary on a local disk, not on a network volume.
 
-The Loom installer takes no environment variables. These variables of the root
+The installer takes no environment variables. These variables of the earlier
 installer map to arguments:
 
-| Root installer | Loom installer |
+| Earlier installer | Loom installer |
 | --- | --- |
 | `MIMIR_INSTALL_DIR=<dir>` | `--dir <dir>` |
 | `MIMIR_VERSION=<tag>` | the version argument, such as `0.26.0` (a leading `v` is fine) |
@@ -56,7 +52,7 @@ default: `$HOME/.config`, `$HOME/.local/share`, and `$HOME/.cache`, and outside
 macOS `$HOME/.local/state`, where Loom's record lives. It prints one line naming
 the directories it bound. When any XDG variable points elsewhere, the run adopts
 nothing, names each variable, and uses the development directories beside the
-binary. To adopt the defaults, unset the variables, rerun the Loom installer so
+binary. To adopt the defaults, unset the variables, rerun the installer so
 its record moves under the default state root, and then run `mimir` once.
 
 An installation that keeps its directories under custom XDG roots has no way to
@@ -67,19 +63,19 @@ instead, and the existing board stays where it is.
 
 ## Upgrade an earlier installation
 
-An installation made by the root installer keeps its configuration, data, and
-cache directories through the upgrade. Self-update from an old binary replaces it
-with a Loom-built release and refreshes the receipt, but writes no Loom
-installation record, so the new binary's own `self-update` refuses ("installed
-some other way"). Run the Loom installer once, with the install's directory and
-a Loom-built version:
+An installation made by the earlier installer (0.25.0 and before) keeps its
+configuration, data, and cache directories through the upgrade. Self-update from
+an old binary replaces it with a Loom-built release and refreshes the receipt,
+but writes no Loom installation record, so the new binary's own `self-update`
+refuses ("installed some other way"). Run the installer once, with the install's
+directory and a Loom-built version:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/packages/cli/install.sh | sh -s -- --dir <dir> <version>
+curl -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh -s -- --dir <dir> <version>
 ```
 
 `<dir>` is the directory that holds `mimir` (`dirname "$(command -v mimir)"`),
-and `<version>` is a Loom-built release such as `0.26.0-next.5`. The installer
+and `<version>` is a Loom-built release such as `0.26.0`. The installer
 writes `install.json`; the next run sees that Loom's record names the new digest
 and re-records the receipt with the same directories. Different ambient XDG values
 do not redirect it. [Self-update](self-update.md) preserves the same bindings.
@@ -87,7 +83,7 @@ do not redirect it. [Self-update](self-update.md) preserves the same bindings.
 An installation whose old self-update replaced the binary without registering it
 has no receipt, and the new binary uses isolated development directories instead
 of the existing board. If the board lives under the `$HOME` defaults, run the
-Loom installer and then `mimir` once, from an environment with no XDG variables
+installer and then `mimir` once, from an environment with no XDG variables
 set. Otherwise it cannot be adopted; see the custom-roots caveat above.
 
 Verify with `mimir overview` from a bound repository.

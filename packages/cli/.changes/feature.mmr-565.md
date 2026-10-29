@@ -1,1 +1,0 @@
-- **Harness handle fallback** (MMR-565). CLI `start` and `queue` fill omitted harness and session flags from Claude Code, Codex, or OpenCode shell environments. Explicit flags, including blanks, take precedence. Nested harness signals leave omitted handles unchanged and print a note asking for explicit flags.

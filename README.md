@@ -48,11 +48,11 @@ Install the standalone binary:
 curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
 ```
 
-The installer verifies the release and records the installation. The Loom
-installer, `packages/cli/install.sh`, also registers the MCP server with Claude
-Code (Codex cannot connect to the server's MCP protocol revision yet). See
-[Install location](docs/guides/install-location.md) for which installer to use,
-the first-run binding, and upgrading an earlier installation. `mimir version`
+The installer verifies the release, records the installation, and registers
+the MCP server with Claude Code (Codex cannot connect to the server's MCP
+protocol revision yet). See [Install location](docs/guides/install-location.md)
+for choosing a directory or version, the first-run binding, and upgrading an
+earlier installation. `mimir version`
 prints the installed version, and `mimir self-update` replaces the binary.
 
 Choose the store before first use:

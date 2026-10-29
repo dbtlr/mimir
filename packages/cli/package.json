@@ -1,6 +1,6 @@
 {
   "name": "@mimir/cli",
-  "version": "0.25.0",
+  "version": "0.26.0",
   "private": true,
   "description": "The mimir CLI on Loom: command declarations over the Engine. Only the composition root, src/app.ts, imports @mimir/core.",
   "repository": "github:dbtlr/mimir",

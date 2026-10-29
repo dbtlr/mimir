@@ -1,1 +1,0 @@
-- Every Engine procedure under `/trpc` requires an active bearer device token after the version check. Console server functions remain tokenless.

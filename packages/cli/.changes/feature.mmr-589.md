@@ -1,1 +1,0 @@
-- **`mimir-host` output fits the terminal** (MMR-589). The host's admin CLI moves to Loom 0.14, so its help, tables, and records wrap to the terminal's width, and a table too wide to fit shrinks its widest columns. Piped output keeps its layout.

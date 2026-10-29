@@ -38,20 +38,10 @@ On a branch:
   fragments. It needs full git history; a shallow clone fails it.
 - Refresh the lockfile: `bun install`, which rewrites the `"version"` line under
   `bun.lock`'s `"packages/cli"` entry.
-- **If a root `install.sh` still exists** (true until the first stable release built
-  from the Loom CLI, v0.26.0): `releases/latest` was an old-CLI release that cannot run
-  the Loom installer's post-install step, so the README kept the root installer. This
-  cut retires it: delete the root `install.sh`, switch the install URL in `README.md`,
-  `docs/user/getting-started.md`, and `skills/mimir/references/setup.md` from
-  `main/install.sh` to `main/packages/cli/install.sh`, drop the root-installer
-  paragraph from `docs/guides/install-location.md`, and remove `install.sh` from the
-  path filters in `release.yml`, `prerelease.yml`, and `changelog-guard.yml`. With no
-  root `install.sh`, skip this step.
 - Stage and commit together: `packages/cli/package.json`, `bun.lock`,
   `packages/cli/CHANGELOG.md`, and the deleted `packages/cli/.changes/` fragments
-  (the fragment deletions are what satisfy `changelog-guard` on this PR), plus,
-  when the root-installer step above ran, the deleted `install.sh` and the seven
-  files it edited. No `git add -A`.
+  (the fragment deletions are what satisfy `changelog-guard` on this PR). No
+  `git add -A`.
 - _Optional, only when the release warrants it:_ refresh the README (status
   callout, screenshots). Not a gate — skip it for a routine cut.
 
@@ -99,7 +89,7 @@ gh release view vX.Y.Z --json isPrerelease,tagName,assets \
   `mimir-linux-arm64` — plus `SHA256SUMS`. (Keep this list in sync with
   `release.yml`'s build matrix.)
 - Download one binary and confirm its checksum matches `SHA256SUMS`.
-- A binary installed by `packages/cli/install.sh` (not a bare download, which `self-update`
+- A binary installed by `install.sh` (not a bare download, which `self-update`
   refuses as "installed some other way") reports `mimir version` = `X.Y.Z`, and
   `mimir self-update --check` does not refuse it.
 - Prune ran lag-by-one: the just-shipped cycle's `vX.Y.Z-next.*` trail **and the

@@ -13,11 +13,16 @@ import { runArgv } from './testing/run';
 /**
  * The installer is `loom init`'s managed `install.sh` (MMR-554), rendered for
  * this package's `bin` name, GitHub repository, and the Application's
- * `postInstall`. It installs Loom-built releases; the root `install.sh` stays for
- * older versions until the first stable Loom-built release. Re-render it with `bun run --cwd packages/cli loom init
+ * `postInstall`. It installs Loom-built releases. Re-render it with `bun run --cwd packages/cli loom init
  * --only install`; an edit by hand reads as drift.
  */
 const script = new URL('../install.sh', import.meta.url);
+
+/**
+ * The install URL serves the repository root's `install.sh`, a copy of the managed
+ * installer, because `loom init` renders it only inside the package (LM-s40).
+ */
+const rootScript = new URL('../../../install.sh', import.meta.url);
 
 test('install.sh is the installer loom init manages, undrifted', () => {
   const text = readFileSync(script, 'utf8');
@@ -28,6 +33,11 @@ test('install.sh is the installer loom init manages, undrifted', () => {
   expect(checksum).toBe(createHash('sha256').update(content).digest('hex'));
   expect(text).toContain("  app='mimir'\n  repository='dbtlr/mimir'\n");
   expect(statSync(script).mode & 0o111).toBe(0o111);
+});
+
+test('the root install.sh is the managed installer, byte for byte', () => {
+  expect(readFileSync(rootScript, 'utf8')).toBe(readFileSync(script, 'utf8'));
+  expect(statSync(rootScript).mode & 0o111).toBe(0o111);
 });
 
 test('the installer registers the MCP server with Claude Code once it has installed the binary', () => {

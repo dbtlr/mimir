@@ -98,7 +98,9 @@ build` compiles the binary into `dist/mimir` with `loom build`; the skill's
 `mimir …` invocations are checked against the command graph by the drift guard
 in `src/testing/skill-invocations.test.ts`. `packages/cli/install.sh` is the installer
 `loom init --only install` renders, and `src/installer.test.ts` fails when it
-drifts.
+drifts. The root `install.sh`, which the install URL serves, is a byte-for-byte
+copy of it until Loom can render the installer at the root (LM-s40); after a
+re-render, copy it to the root, and the same test fails while the two differ.
 
 `packages/host` (`@mimir/host`) contains the operator console and the TanStack
 Start host. Start runs in SPA mode on Nitro's Bun preset. The client routes
@@ -277,7 +279,7 @@ reports the next minor's development version (`0.25.0` reports `0.26.0-next`).
 a `vX.Y.Z-next.N` prerelease, where `X.Y.Z` is the version the pending
 fragments decide (`loom changelog write --dry-run`) and `N` counts up per
 version. Docs-only merges, and merges while no fragment is pending, produce
-nothing. Install one with `packages/cli/install.sh 0.26.0-next.5` (a version
+nothing. Install one with `./install.sh 0.26.0-next.5` (a version
 argument), update to the newest with `mimir self-update --channel next`, or pin
 a build with `mimir self-update 0.26.0-next.5`.
 
