@@ -317,7 +317,8 @@ The root `install.sh` stays in place, unchanged, until the first stable release
 built from the Loom CLI: until then `releases/latest` is an old-CLI release that
 treats `mcp install` as a request to serve MCP, which would hang the Loom
 installer. The cut commit of that release deletes it and moves the README to
-`packages/cli/install.sh`.
+`packages/cli/install.sh` (superseded by the MMR-603 refinement below: the cut
+keeps the root URL and replaces the file with a copy of the managed installer).
 
 ## Refinement (2026-10-29, MMR-603): the install URL stays at the root
 

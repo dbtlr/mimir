@@ -279,7 +279,7 @@ reports the next minor's development version (`0.25.0` reports `0.26.0-next`).
 a `vX.Y.Z-next.N` prerelease, where `X.Y.Z` is the version the pending
 fragments decide (`loom changelog write --dry-run`) and `N` counts up per
 version. Docs-only merges, and merges while no fragment is pending, produce
-nothing. Install one with `install.sh 0.26.0-next.5` (a version
+nothing. Install one with `./install.sh 0.26.0-next.5` (a version
 argument), update to the newest with `mimir self-update --channel next`, or pin
 a build with `mimir self-update 0.26.0-next.5`.
 

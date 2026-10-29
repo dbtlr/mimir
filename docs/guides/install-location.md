@@ -52,7 +52,7 @@ default: `$HOME/.config`, `$HOME/.local/share`, and `$HOME/.cache`, and outside
 macOS `$HOME/.local/state`, where Loom's record lives. It prints one line naming
 the directories it bound. When any XDG variable points elsewhere, the run adopts
 nothing, names each variable, and uses the development directories beside the
-binary. To adopt the defaults, unset the variables, rerun the Loom installer so
+binary. To adopt the defaults, unset the variables, rerun the installer so
 its record moves under the default state root, and then run `mimir` once.
 
 An installation that keeps its directories under custom XDG roots has no way to
@@ -67,8 +67,8 @@ An installation made by the earlier installer (0.25.0 and before) keeps its
 configuration, data, and cache directories through the upgrade. Self-update from
 an old binary replaces it with a Loom-built release and refreshes the receipt,
 but writes no Loom installation record, so the new binary's own `self-update`
-refuses ("installed some other way"). Run the Loom installer once, with the install's directory and
-a Loom-built version:
+refuses ("installed some other way"). Run the installer once, with the install's
+directory and a Loom-built version:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh -s -- --dir <dir> <version>
@@ -83,7 +83,7 @@ do not redirect it. [Self-update](self-update.md) preserves the same bindings.
 An installation whose old self-update replaced the binary without registering it
 has no receipt, and the new binary uses isolated development directories instead
 of the existing board. If the board lives under the `$HOME` defaults, run the
-Loom installer and then `mimir` once, from an environment with no XDG variables
+installer and then `mimir` once, from an environment with no XDG variables
 set. Otherwise it cannot be adopted; see the custom-roots caveat above.
 
 Verify with `mimir overview` from a bound repository.

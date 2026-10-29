@@ -89,7 +89,7 @@ gh release view vX.Y.Z --json isPrerelease,tagName,assets \
   `mimir-linux-arm64` — plus `SHA256SUMS`. (Keep this list in sync with
   `release.yml`'s build matrix.)
 - Download one binary and confirm its checksum matches `SHA256SUMS`.
-- A binary installed by `packages/cli/install.sh` (not a bare download, which `self-update`
+- A binary installed by `install.sh` (not a bare download, which `self-update`
   refuses as "installed some other way") reports `mimir version` = `X.Y.Z`, and
   `mimir self-update --check` does not refuse it.
 - Prune ran lag-by-one: the just-shipped cycle's `vX.Y.Z-next.*` trail **and the

@@ -77,9 +77,10 @@ mimir skills install
 ```
 
 The installer registers `mimir mcp` with Claude Code. If you passed
-`--skip-post-install`, run
-`mimir mcp install --agent claude` to register it, or `mimir mcp config`
-to print a client configuration for another agent. Codex cannot connect to the
+`--skip-post-install`, or the installer reported that its post-install command
+failed, run `mimir mcp install --agent claude` to register it (add `--force`
+when you added a `mimir` server by hand), or `mimir mcp config` to print a
+client configuration for another agent. Codex cannot connect to the
 server's MCP protocol revision yet. The skill
 teaches the workflow and lifecycle contract; MCP exposes the same core reads and
 writes as tools. See [Work with agents](working-with-agents.md) for the division
