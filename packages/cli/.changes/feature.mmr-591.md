@@ -1,1 +1,0 @@
-- **`create project` asks with the same prompt as `mimir pair`** (MMR-591). The Loom CLI's immutable-key confirmation now goes through `@loomcli/prompts`, so it renders like every other question and Ctrl-C cancels it with exit 130, writing nothing. The hand-rolled readline prompt is gone, leaving the CLI one way to ask.

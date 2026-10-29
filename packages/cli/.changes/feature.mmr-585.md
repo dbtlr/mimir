@@ -1,1 +1,0 @@
-- **Console pairing and unpairing of devices** (MMR-585). The console's `/pair` page checks a pairing code and approves or denies the waiting request, and `/devices` lists waiting requests and paired devices with a confirmed Unpair, beside `mimir-host approve`, `deny`, and `unpair`. See [ADR 0038](../../docs/decisions/0038-device-pairing-and-the-version-window.md).

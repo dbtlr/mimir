@@ -225,6 +225,7 @@ This refinement does not authorize a live cutover or remove `serve`.
 - 2026-10-15: Defined the container host's environment configuration and image authority (ADR 0035).
 - 2026-10-17: Retired supervised units and the named serve store (MMR-536).
 - 2026-10-19: Let Loom's installer record vouch for a script-installed binary, so its receipt is adopted or re-recorded with its bindings kept (MMR-554).
+- 2026-10-29: Kept the install URL at the repository root, serving a copy of Loom's managed installer (MMR-603).
 
 ## Refinement (2026-10-17, MMR-536): no supervised units, no named store
 
@@ -317,3 +318,17 @@ built from the Loom CLI: until then `releases/latest` is an old-CLI release that
 treats `mcp install` as a request to serve MCP, which would hang the Loom
 installer. The cut commit of that release deletes it and moves the README to
 `packages/cli/install.sh`.
+
+## Refinement (2026-10-29, MMR-603): the install URL stays at the root
+
+The v0.26.0 cut keeps the install URL at the repository root rather than moving
+it to `packages/cli/install.sh`. The URL is a published contract, copied into
+the README, the user docs, the Mimir skill, and users' own scripts, so it must
+not follow the monorepo's package layout. The cut replaces the root `install.sh`
+with a byte-for-byte copy of the installer `loom init` manages, and
+`packages/cli/src/installer.test.ts` fails while the two differ.
+`packages/cli/install.sh` remains the rendered source. The copy goes when Loom
+can render the managed installer at a chosen path (LM-s40); a symlink cannot
+replace it, because `raw.githubusercontent.com` serves a symlink's target path
+as text. Releases before 0.26.0 install with the installer at their own tag,
+such as `v0.25.0/install.sh`.

@@ -1,1 +1,0 @@
-- **Releases include a multi-architecture host image** (MMR-533). `ghcr.io/dbtlr/mimir-host` follows the CLI's release version. `next` and `latest` retain the highest verified prerelease and official version, respectively. GitHub Releases publish only after the image supports anonymous pulls for Linux amd64 and arm64. Pull requests build both architectures without pushing.

@@ -1,2 +1,0 @@
-- Reserve tasks for autonomous runs with `queue --session`, start queued tasks with worker handles, and release reservations with `unqueue <id> "reason"`. Queued tasks stay ranked, appear in status lists and the console, and surface when stale. Existing stores upgrade to support the new lifecycle.
-- Container rollups prefer `awaiting` over `ready`: a container with both dependency-gated and ready children now reads `awaiting`, following the queued lifecycle precedence.

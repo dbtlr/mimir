@@ -9,9 +9,9 @@ without reconstructing work state from chat history.
 curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh
 ```
 
-[Install location](../guides/install-location.md) explains the two installers,
-the Loom installer's `--dir` and version arguments and its Claude Code MCP
-registration, and how the first run binds the installation.
+[Install location](../guides/install-location.md) explains the installer's `--dir` and
+version arguments, its Claude Code MCP registration, and how the first run
+binds the installation.
 
 The standalone binary does not require Bun or any other program. By default
 Mimir keeps work state in one SQLite file, `store.sqlite`, in its data
@@ -76,8 +76,8 @@ the skill with the current repository instead:
 mimir skills install
 ```
 
-The Loom installer (`packages/cli/install.sh`) registers `mimir mcp` with
-Claude Code. If you installed with the root `install.sh`, run
+The installer registers `mimir mcp` with Claude Code. If you passed
+`--skip-post-install`, run
 `mimir mcp install --agent claude` to register it, or `mimir mcp config`
 to print a client configuration for another agent. Codex cannot connect to the
 server's MCP protocol revision yet. The skill

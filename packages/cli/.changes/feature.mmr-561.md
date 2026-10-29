@@ -1,1 +1,0 @@
-- **The Engine's `archive` lists the tasks it released** (MMR-561). `archive`, local and over the host's `/trpc`, now answers with the project record plus `released`, the ids of the out-of-project tasks the archive freed. The CLI names them from that answer instead of reading the store, so its archive output is unchanged.

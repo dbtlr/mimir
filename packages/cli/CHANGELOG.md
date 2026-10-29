@@ -15,6 +15,356 @@ cuts them into a new release section at each release
 Sections before v0.26.0 follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 later sections group entries as Breaking Changes, Features, and Fixes.
 
+## v0.26.0 - 2026-10-29
+
+### Breaking Changes
+
+- **`mimir serve`, `mimir service`, and the embedded console** (MMR-536). The `mimir` binary is now the CLI and the MCP server only. The console and the transitional `/api` are served by the host container `ghcr.io/dbtlr/mimir-host`; [`docs/guides/host.md`](../../docs/guides/host.md) covers running it. `serve` and `service` now fail as unknown commands with a hint to that guide, and the `--port`, `--no-hunt`, and `--store` flags go with them.
+- **`mimir setup`** (MMR-536). It only installed the service and wrote `[serve] port`, and it now fails as an unknown command with a hint to the getting-started guide. The SQLite store is created on first use, and Postgres is configured in the `[store]` section.
+- **The `[serve]` config section and `MIMIR_PORT` for the CLI** (MMR-536). A leftover `[serve]` section in a CLI config is ignored. The host keeps `MIMIR_PORT`, `MIMIR_URL`, and `MIMIR_HOSTS`.
+- **Sandbox `service-verify` and `service-destroy`** (MMR-536). They exercised the service lifecycle, which no longer exists. The `service-verify` workflow and the `bun run assets` build step are gone with them.
+- **`mimir self-update` no longer restarts a service** (MMR-536). It replaces the binary in place and keeps the installation receipt. Its JSON report drops the `restarted` and `restart_failed` fields, and it no longer writes the service event log.
+
+### Migration
+
+**Affected surface.** Scripts and habits that run `mimir serve`, `mimir service`, or `mimir setup`, pass `--port`, `--no-hunt`, or `--store`, set `[serve]` or `MIMIR_PORT` for the CLI, use the sandbox `service-verify` or `service-destroy` commands, or read `restarted` and `restart_failed` from the `self-update` JSON report.
+
+**Why.** The console and the transitional `/api` now run in the host container `ghcr.io/dbtlr/mimir-host`, so the `mimir` binary no longer manages a service.
+
+**Before and after.**
+
+```sh
+mimir serve
+docker run ghcr.io/dbtlr/mimir-host
+```
+
+**Steps.**
+
+1. Run the console from the `ghcr.io/dbtlr/mimir-host` container as [`docs/guides/host.md`](../../docs/guides/host.md) describes.
+2. Drop `mimir setup`; the SQLite store is created on first use, and Postgres is configured in the `[store]` section.
+3. Stop reading `restarted` and `restart_failed` from the `self-update` JSON report.
+
+**Validation.** Run each script and check that no command fails as unknown; check that the host container serves the console.
+
+- **The `/api` HTTP envelope** (MMR-541). The host no longer serves the resource-shaped `/api` routes, and the `@mimir/api` package, the console's `/api` client, and the `/api` entries in the PWA navigation denylist are gone. The console runs on server functions over the Engine, and remote clients use `/trpc`; every method on `/api` now answers `410` with a JSON `gone` refusal that names `/trpc`, so a stale probe fails instead of passing on the console's HTML. A store-backed health probe reads the Engine instead: `curl --fail --get <host>/trpc/projects --data-urlencode 'input={"json":{}}'` answers `200` with the project list. `/health` is unchanged and still does not query the store. See the [host guide](../../docs/guides/host.md#check-health) and the [refinement to ADR 0012](../../docs/decisions/0012-http-api-true-resource-envelope.md).
+
+### Migration
+
+**Affected surface.** Clients, scripts, and health probes that call the host's `/api` routes.
+
+**Why.** The console runs on server functions over the Engine, and remote clients use `/trpc`.
+
+**Before and after.**
+
+```sh
+curl --fail <host>/api/projects
+curl --fail --get <host>/trpc/projects --data-urlencode 'input={"json":{}}'
+```
+
+**Steps.**
+
+1. Point remote clients at `/trpc`.
+2. Replace a store-backed `/api` probe with the `/trpc/projects` call above; `/health` is unchanged and does not query the store.
+
+**Validation.** The `/trpc/projects` probe answers `200` with the project list, and a stale `/api` call answers `410` naming `/trpc`.
+
+- **Clones bind through git config** (MMR-544). A command that needs a default project now reads `mimir.project` from the clone's git config; an unbound clone matches its `origin` remote against project remotes and, on exactly one match, writes the binding to git config and prints one line naming the key and source. Several matches leave the clone unbound and say to run `mimir bind KEY`. Linked worktrees share the binding, and the MCP server resolves it from the directory it starts in. `mimir bind KEY` writes git config and records the clone's origin on a project with no remote; a bare `mimir bind` prints the bound key or exits non-zero with `unbound: run mimir bind KEY`. `.mimir.toml` is no longer read; `bind` notes when one is present and ignored. See [ADR 0036](../../docs/decisions/0036-project-binding-through-git-config.md).
+
+### Migration
+
+**Affected surface.** Clones that bind to a project through `.mimir.toml`.
+
+**Why.** Binding through git config lets linked worktrees share one binding and lets an unbound clone bind itself from its `origin` remote.
+
+**Before and after.**
+
+```sh
+# .mimir.toml names the project
+mimir bind KEY
+```
+
+**Steps.**
+
+1. Run `mimir bind KEY` in each clone; it writes `mimir.project` to git config and records the clone's origin on a project with no remote.
+2. Remove the ignored `.mimir.toml`.
+
+**Validation.** A bare `mimir bind` prints the bound key instead of exiting non-zero with `unbound: run mimir bind KEY`.
+
+- **Failures print Loom's envelope** (MMR-555). With `-f json` or `-f jsonl`, a
+  failure is `{"error":{"code","exitCode","message","hints"}}`, where `hints` is
+  an array and `code` is kebab case (`not-found`, `usage`, `unknown-option`).
+  Human formats print `mimir: <message>` and then each hint. Usage errors exit 2
+  and domain refusals exit 1, as before.
+- **`mimir version` replaces `--version`** (MMR-555). It prints the bare version.
+- **`mimir skills install` replaces `mimir skill install`** (MMR-555). It installs
+  into your home folder for every supported agent; `--agent claude|agents`
+  chooses one and `--project` installs into the current repository.
+  `--global`, `--local`, and `--agent codex` are gone.
+- **A stricter parser** (MMR-555). Options go after the verb: `mimir -s MMR list`
+  now fails, so write `mimir list -s MMR`. A single-value option given twice
+  (`list -s A -s B`) and an extra positional (`get A-1 B-2`) now fail with exit 2
+  instead of being ignored. Board reads name exactly one project, so `-s all` and
+  `-p all` are retired; loop over `mimir projects -f ids`. Under `-f jsonl`,
+  `status` and `overview` print one compact JSON document, not rows.
+
+### Migration
+
+**Affected surface.** Scripts that parse `-f json` or `-f jsonl` failures, pass options before the verb, repeat a single-value option, pass an extra positional, use `-s all` or `-p all`, read `status` or `overview` rows under `-f jsonl`, call `mimir --version`, or call `mimir skill install`.
+
+**Why.** The CLI is now built on Loom, which fixes the parser, the error envelope, and the command names.
+
+**Before and after.**
+
+```sh
+mimir -s MMR list
+mimir --version
+mimir skill install
+mimir list -s MMR
+mimir version
+mimir skills install
+```
+
+**Steps.**
+
+1. Move options after the verb, and remove repeated single-value options and extra positionals.
+2. Replace `-s all` and `-p all` with a loop over `mimir projects -f ids`.
+3. Read a failure as `{"error":{"code","exitCode","message","hints"}}`, with `hints` as an array and `code` in kebab case.
+4. Read `status` and `overview` under `-f jsonl` as one compact JSON document.
+5. Use `mimir version`, and `mimir skills install` with `--agent claude|agents` or `--project` in place of `--global`, `--local`, and `--agent codex`.
+
+**Validation.** Run each script and check that no command exits 2 for a usage error.
+
+- **Self-update uses channels and a version argument** (MMR-555). `mimir
+  self-update --channel next` replaces `--next` and `MIMIR_NEXT=1`, and `mimir
+  self-update <version>` replaces `--tag <tag>`; both old spellings are refused
+  with the replacement named. It replaces only a binary that `install.sh` placed
+  and that nothing has changed since, and `--check` reports without replacing.
+- **The old `install.sh` environment variables on the Loom installer** (MMR-555).
+  `MIMIR_INSTALL_DIR`, `MIMIR_VERSION`, and `MIMIR_NEXT` do nothing there; use
+  `--dir`, the version argument, and `self-update --channel next`. The
+  installer at the v0.25.0 tag keeps them for older versions.
+
+### Migration
+
+**Affected surface.** Scripts and installs that call `mimir self-update --next` or `--tag <tag>`, or that set `MIMIR_NEXT`, `MIMIR_INSTALL_DIR`, or `MIMIR_VERSION` for the Loom installer.
+
+**Why.** Loom's installer and updater take channels, a version argument, and flags in place of environment variables.
+
+**Before and after.**
+
+```sh
+mimir self-update --next
+mimir self-update --tag 0.26.0-next.5
+mimir self-update --channel next
+mimir self-update 0.26.0-next.5
+```
+
+**Steps.**
+
+1. Replace `--next` and `MIMIR_NEXT=1` with `--channel next`, and `--tag <tag>` with a version argument.
+2. Pass `--dir <directory>` and a version argument to the Loom installer in place of `MIMIR_INSTALL_DIR`, `MIMIR_VERSION`, and `MIMIR_NEXT`; the installer at the v0.25.0 tag keeps them for older versions.
+3. Run the Loom installer once on an existing install, as the "One reinstall after upgrading" entry describes, so `self-update` accepts it.
+
+**Validation.** `mimir self-update --check` reports without replacing.
+
+- **The CLI and MCP server run on Loom** (MMR-555). The `mimir` binary is now
+  built from `packages/cli` with `loom build --release`, and the old hand-rolled
+  CLI and MCP SDK server are gone. Commands, flags, and exit codes change in the
+  ways the entries below list. `mimir mcp` serves MCP protocol revision
+  2026-07-28 only, so older MCP clients cannot connect, and an existing Codex
+  registration of mimir stops working until Codex supports that protocol
+  (tracked upstream as LM-s39).
+- **MCP tool names and inputs follow the commands** (MMR-555). A tool is named for
+  its command path joined with `_` (`create_task`, `scratch_checkpoint`), and its
+  inputs are the command's arguments and options by their kebab-case names
+  (`worker-session`, `at-or-before`). A board read takes `scope` or the project
+  the server's directory is bound to, and has no `all`. The `mimir` skill lists
+  the verbs and flags; install it again with `mimir skills install`.
+
+### Migration
+
+**Affected surface.** MCP clients that connect to `mimir mcp`, the Codex registration of mimir, and callers of the old tool names and inputs.
+
+**Why.** The MCP server now runs on Loom's MCP plugin, which serves MCP protocol revision 2026-07-28 only and names each tool for its command.
+
+**Before and after.**
+
+```sh
+mimir skill install
+mimir skills install
+```
+
+**Steps.**
+
+1. Use an MCP client that supports protocol revision 2026-07-28; Codex stops working until it does (LM-s39).
+2. Rename tool calls to the command path joined with `_` (`create_task`, `scratch_checkpoint`) and pass the command's kebab-case arguments and options (`worker-session`, `at-or-before`).
+3. Pass `scope`, or run the server from a bound directory, for a board read; `all` is gone.
+4. Install the `mimir` skill again with `mimir skills install`.
+
+**Validation.** The client connects to `mimir mcp`, and a tool call such as `create_task` succeeds.
+
+### Features
+
+- A shared Engine contract with local and tRPC implementations of `getNode` and
+  `done`. Engine timestamps are `Date` values; existing CLI and HTTP output keeps
+  its current string timestamps.
+
+- **Every read is an Engine method, local and remote** (MMR-516). The Engine and the host's `/trpc` now carry `next`, `list`, `projects`, `getArtifact`, `getSeed`, `status`, `tree`, `overview`, `artifacts`, `search`, `seeds`, `scratchList`, and `scratchGet` beside `getNode`. Every timestamp they return is a `Date`. Board reads require a project; only `projects` lists across projects. The CLI, MCP, and `/api` keep their current paths.
+
+- **Every node write and uniform verb is an Engine method, local and remote** (MMR-517). The Engine and the host's `/trpc` now carry `create`, `update`, `updateProject`, `annotate`, `attach`, `depend`, `undepend`, `move`, `reorder`, `groom`, `tag`, and `untag`, plus the twelve uniform verbs (`start`, `submit`, `return`, `done`, `abandon`, `reopen`, `park`, `unpark`, `block`, `unblock`, `archive`, `unarchive`), which are derived from the operation facts. Each write answers with the written record (`tag` and `untag` with the ids and tags) and `Date` timestamps. The CLI, MCP, and `/api` keep their current paths.
+
+- **Seed and Scratchpad writes are Engine methods, local and remote** (MMR-518). The Engine and the host's `/trpc` now carry `seedCreate`, `seedPromote`, `seedResolve`, `seedReject`, `seedPark`, `seedUnpark`, `seedUpdate`, `triage`, `scratchCreate`, `scratchUpdate`, `scratchCheckpoint`, `scratchAgendaAdd`, `scratchAgendaComplete`, `scratchAgendaSupersede`, `scratchFreeze`, and `scratchDiscard`. Scratchpad writes take their concurrency guard as a `Date`, and every timestamp they return is a `Date`. The CLI, MCP, and `/api` keep their current paths.
+
+- **The console's composite views are Engine methods** (MMR-519). The Engine and the host's `/trpc` now carry a `console` namespace with `review`, `projectWork`, `nodeWork`, and `overview`, local and remote, with `Date` instants. `review` spans every active project; the others take a project key or container id. The HTTP routes and the Engine share one core assembly, and the host supplies the review page's finding counts through a findings provider on `LocalEngine`. The CLI and MCP register nothing for them, and `/api` keeps its current paths.
+
+- **Container host integration slice** (MMR-529). The console runs as a TanStack Start SPA on Bun with a local SQLite store and the existing `/api` contract. A root Dockerfile builds the host runtime.
+
+- The container host validates environment configuration, accepts Postgres connection URLs directly or from secret files, and migrates its store before serving. Image builds grant Postgres authority; development hosts use isolated SQLite or `bun run sandbox host <id>` for owned Postgres.
+
+- The container host serves `/health` without querying the store, and Docker probes it with Bun using the configured port. The doctor endpoint reports the host store's record findings without CLI configuration diagnostics.
+
+- **The host serves the Engine at `/trpc`** (MMR-532). Remote clients can read and complete work through the host's shared `LocalEngine` and store. The route inherits the host's Host allowlist and cross-origin write checks; device pairing and version gates remain pending.
+
+- **Releases include a multi-architecture host image** (MMR-533). `ghcr.io/dbtlr/mimir-host` follows the CLI's release version. `next` and `latest` retain the highest verified prerelease and official version, respectively. GitHub Releases publish only after the image supports anonymous pulls for Linux amd64 and arm64. Pull requests build both architectures without pushing.
+
+- **A guide and Compose example for the host container** (MMR-534). `docs/guides/host.md` covers running `ghcr.io/dbtlr/mimir-host` on Docker Desktop over SQLite and on a server against Postgres with the URL in a secret file, reaching it through `tailscale serve` or a reverse proxy, health, the host-first upgrade order for CLIs that share Postgres, and backups. `deploy/compose.yaml` runs the host on a loopback port, and `deploy/compose.postgres.yaml` adds a Postgres service.
+
+- **The console's browsers, seed and artifact pages, and record health read the Engine** (MMR-540). The task, seed, and artifact browsers, the seed and artifact pages, the seed writes, and the record-health panel now run on the host's server functions instead of `/api`. A seed's page finds the tasks that name it as upstream on every board through the new `console.upstreamTasks` Engine method, and the dependency picker finds open tasks on every board through the new `console.openTasks`. The CLI and MCP expose neither.
+
+- **Projects store a Git remote** (MMR-543). `create project --remote` and `update KEY --remote` (and the MCP `create` and `update` tools) set a project's Git remote, stored normalized so the ssh and https forms of one repository compare equal; a blank value clears it on update. `get KEY` shows it, store export and import carry it (transfer document version 5, with a store migration), and the Engine gains `projectsByRemote`, which finds projects by remote locally and over tRPC. Remotes are not unique, and nothing binds from them yet. [ADR 0036](../../docs/decisions/0036-project-binding-through-git-config.md) supersedes ADR 0011.
+
+- **The Mimir skill checks the binding with `mimir bind`** (MMR-545). Orientation runs a bare `mimir bind` to find the clone's project instead of looking for `.mimir.toml`, and the setup reference binds a clone through git config, with the first bind recording the origin so other clones bind themselves. See [ADR 0036](../../docs/decisions/0036-project-binding-through-git-config.md).
+
+- **A new installer at the same URL** (MMR-555). The root `install.sh` is now
+  Loom's installer, a copy of `packages/cli/install.sh`, and installs Loom-built
+  releases, 0.26.0-next prereleases and later. To install 0.25.0 or earlier, fetch
+  the installer from the v0.25.0 tag:
+  `https://raw.githubusercontent.com/dbtlr/mimir/v0.25.0/install.sh`. It verifies
+  the download against the release's `SHA256SUMS`, records the installation in
+  Loom's `install.json`, and then runs `mimir mcp install --agent claude` to
+  register the MCP server with Claude Code. Flags replace the environment
+  variables: `--dir <directory>` replaces `MIMIR_INSTALL_DIR`, and a version
+  argument such as `0.26.0` or `0.26.0-next.5` replaces `MIMIR_VERSION` and
+  `MIMIR_NEXT`. `--skip-post-install` skips the registration. Codex is not
+  registered, because it cannot connect to this MCP revision yet. A `mimir` server
+  you added to Claude Code by hand makes the registration fail; run `mimir mcp
+  install --agent claude --force` once.
+- **One reinstall after upgrading** (MMR-555). An old binary's `self-update`
+  replaces the binary but writes no Loom installation record, so the new binary's
+  `self-update` refuses it as installed some other way. Run the Loom installer once
+  with the install's directory and a Loom-built version: `curl -fsSL
+  https://raw.githubusercontent.com/dbtlr/mimir/main/install.sh | sh -s --
+  --dir <dir> <version>`. It writes the record and keeps the receipt's directories.
+- **First run binds the installation** (MMR-555). The installer records the
+  binary, and its first run registers the receipt that binds the configuration,
+  data, and cache directories, only when every XDG root is HOME's default. A
+  machine whose directories sit under custom XDG roots can keep them only through
+  a receipt the earlier installer already wrote; a fresh install there adopts
+  nothing, prints the variables to unset, and uses the development directories
+  beside the binary. The first run is the installer's own post-install command,
+  so the adoption line appears during the install.
+
+- **The changelog moves to `packages/cli/CHANGELOG.md`** (MMR-556). Release
+  sections from v0.26.0 group entries as Breaking Changes, Features, and Fixes,
+  and each breaking change carries its migration steps. The pending changes
+  decide each release's version, and prereleases are tagged for the version
+  the next release will carry
+  ([ADR 0039](../../docs/decisions/0039-changelog-and-versioning-on-loom.md)).
+
+- **The Engine's `archive` lists the tasks it released** (MMR-561). `archive`, local and over the host's `/trpc`, now answers with the project record plus `released`, the ids of the out-of-project tasks the archive freed. The CLI names them from that answer instead of reading the store, so its archive output is unchanged.
+
+- **The All projects sidebar lists your pinned projects** (MMR-562, MMR-567). On `/` and `/doctor` the sidebar now has a Projects section under Work: the pinned projects as links with their decision counts, or the five most recently active projects when none is pinned. A pinned project now opens with one click from the home page; the switcher above still finds every other project.
+
+- **The Engine edits an artifact** (MMR-563). `updateArtifact` retitles an artifact or changes its summary and answers with the artifact, local and remote. The Loom CLI's `update` uses it for `KEY-aN`, and edits a seed (`KEY-sN`) with `--title`, `--kind`, and `--desc`.
+
+- Reserve tasks for autonomous runs with `queue --session`, start queued tasks with worker handles, and release reservations with `unqueue <id> "reason"`. Queued tasks stay ranked, appear in status lists and the console, and surface when stale. Existing stores upgrade to support the new lifecycle.
+- Container rollups prefer `awaiting` over `ready`: a container with both dependency-gated and ready children now reads `awaiting`, following the queued lifecycle precedence.
+
+- **Harness handle fallback** (MMR-565). CLI `start` and `queue` fill omitted harness and session flags from Claude Code, Codex, or OpenCode shell environments. Explicit flags, including blanks, take precedence. Nested harness signals leave omitted handles unchanged and print a note asking for explicit flags.
+
+- **The Mimir skill teaches run reservations and explicit agent identity** (MMR-566). Orchestrators queue tasks with their run handles, workers start with their own, and cancelled runs release outstanding reservations with a reason. A sandbox skill-eval scenario checks the transitions, handle succession, and explicit flags.
+
+- Remote Engine clients send their build version on every tRPC call. Hosts refuse missing, invalid, too-old, and newer-minor clients with the CLI or host update remedy. `/health` advertises the minimum supported client.
+- Engine schema changes require a regenerated JSON Schema snapshot for compatibility review.
+
+- Host credential storage for revocable device tokens on SQLite and Postgres. Tokens are hashed at rest and excluded from work-state transfers.
+
+- Every Engine procedure under `/trpc` requires an active bearer device token after the version check. Console server functions remain tokenless.
+
+- **`mimir-host` administers the host from inside its container** (MMR-577). `pending`, `approve`, and `deny` decide pairing requests by the code the device shows; `unpair` revokes a device; `tokens` lists device tokens; `doctor` reports record health; and `store export` and `store import` carry the transfer document, including through standard streams. It opens the host's store without creating or migrating it and refuses a schema other than the image's. See [Run the Mimir host](../../docs/guides/host.md#administer-the-host-with-mimir-host).
+- **The host guide backs up both backends with `mimir-host store export`** (MMR-577). A SQLite volume copy remains the backup that keeps device tokens.
+
+- **The Loom CLI reaches a host in remote mode** (MMR-578). When `config.toml` names a host with `[host] url`, the Loom CLI sends every work-state command through `RemoteEngine` to that host's `/trpc`, using the device token from `credentials.toml` beside the config, and opens no store of its own. It refuses with the fix when the config holds both `[host]` and `[store]`, when the credentials are missing, not private to their owner, or recorded for another host, and when the host rejects the token, redirects, fails inside, answers without a Mimir response, or cannot be reached. In remote mode `mimir store` refuses (export and import point to `mimir-host`; `store upgrade` points to updating the host), and `mimir doctor` refuses and points to `mimir-host doctor` until its remote checks arrive with pairing. Pairing with a host follows in MMR-579.
+- **A config that names a host opens no local store** (MMR-578). Each store has one owner ([ADR 0038](../../docs/decisions/0038-device-pairing-and-the-version-window.md)), so a CLI without remote mode refuses a `config.toml` with a `[host]` section instead of opening a local SQLite store in the host's place.
+
+- **`mimir pair` connects the Loom CLI to a host** (MMR-579). `mimir pair <url>` files a pairing request, prints the code to approve with `mimir-host approve` or at the console's `/pair` page, waits for the operator, and then saves the device credentials and `[host] url`. It asks questions only in a terminal (`--yes` and the new global `--no-input` answer them), refuses a config that declares `[store]` with the migration steps, and writes nothing when the request is denied, expires, or is cancelled.
+
+- **A guide for moving a CLI-only install to a host** (MMR-580).
+  `docs/guides/move-to-a-host.md` walks through exporting the board, importing
+  it into the host with `mimir-host store import`, removing `[store]`,
+  `mimir pair`, and `mimir doctor`, and `bun run test:host` runs the same
+  commands against the built image. Getting started now covers working through
+  a host, and the bundled skill's setup reference covers remote installs.
+
+- **The console's first load parses about 30% less JavaScript** (MMR-583). Each console page now loads as its own chunk, and the New task and New project sheets load the first time they open, so the initial script drops from 1,187 kB (355 kB gzip) to 831 kB (264 kB gzip) and the build no longer warns about a chunk over 500 kB. Once the console is idle it loads every remaining chunk, so a tab still holds its whole build when another tab applies an update.
+
+- **Clients request pairing and the host approves it** (MMR-584). `POST /auth/pairing/requests` files a pairing request for a named device and returns a display code and a private poll secret. The operator approves or denies the code on the host, and `POST /auth/pairing/poll` collects the device token once. New requests are limited host-wide to ten in a rolling ten minutes, and a request cannot displace an approval its client has not collected. Unknown `/auth` paths answer a JSON `404`. See [ADR 0038](../../docs/decisions/0038-device-pairing-and-the-version-window.md).
+- **Store schema 10 adds `pairing_requests`** (MMR-584). Prerelease hosts on schema 9 drop the `pairing_codes` table and any pending code when they upgrade.
+
+- **Console pairing and unpairing of devices** (MMR-585). The console's `/pair` page checks a pairing code and approves or denies the waiting request, and `/devices` lists waiting requests and paired devices with a confirmed Unpair, beside `mimir-host approve`, `deny`, and `unpair`. See [ADR 0038](../../docs/decisions/0038-device-pairing-and-the-version-window.md).
+
+- **Remote doctor checks with remedies** (MMR-588). The Loom CLI checks host configuration, credential permissions and origin, health, version compatibility, and token acceptance in order. It stops at the first error, reports a remedy with exit 0, and points to `mimir-host doctor` for record health. Terminal output includes passed checks; JSON and JSONL remain findings only.
+- Doctor findings can carry a separate `remedy` field, rendered as an indented `fix:` line. Config-permission findings use this field for their existing fixes.
+
+- **`mimir-host` output fits the terminal** (MMR-589). The host's admin CLI moves to Loom 0.14, so its help, tables, and records wrap to the terminal's width, and a table too wide to fit shrinks its widest columns. Piped output keeps its layout.
+
+- **`create project` asks with the same prompt as `mimir pair`** (MMR-591). The Loom CLI's immutable-key confirmation now goes through `@loomcli/prompts`, so it renders like every other question and Ctrl-C cancels it with exit 130, writing nothing. The hand-rolled readline prompt is gone, leaving the CLI one way to ask.
+
+- **`mimir pair` refuses while the local SQLite board holds work** (MMR-592). A default install keeps its board in `store.sqlite` with no `[store]`, so pairing used to leave that board behind without a word. It now refuses, before any request is filed, when `store.sqlite` holds a project (archived ones included) or cannot be read, and names the file with the export and import steps. `--leave-local-board` pairs anyway and leaves the old store unchanged. An absent or empty `store.sqlite` needs no flag, an install that already names a host re-pairs without the check, `--yes` does not imply the flag, and the flag does not lift the `[store]` refusal.
+
+- **Updated dependencies to their current releases** (MMR-593). The binary and
+  the host image now build on Bun 1.4.4. The CLI and MCP server move to MCP SDK
+  1.32.2, kysely 0.29.7, and zod 4.6.7. The console moves to React 19.3.1 and
+  the current TanStack Query, Router, and Start patch releases. The build and
+  test toolchains move to vite-plus 1.4, which runs oxlint 1.89 and Vitest
+  5.0.5, plus Vite 8.3.5, Playwright 1.64.1, and PGlite 0.5.11. Loom stays on
+  0.14 until its 0.15 migration lands.
+
+- **Loom 0.15 across the CLI, host admin CLI, and sandbox** (MMR-594). Migrate default views while preserving format order, and check application assembly and Loom declarations in the ordinary verification gate. The Loom-based `mimir-host` and sandbox commands now end silently with exit 141 when their stdout pipe closes.
+
+- **`json` and `jsonl` print through Loom's own views** (MMR-595). The Loom CLI and `mimir-host` hand Loom the data each format prints rather than pre-serialized text, so encoding and control escaping are Loom's. Output bytes stay as they were, including the one empty line an empty `jsonl` list prints and the one-line `json` documents of scratchpad, bind, notice, and store commands.
+
+- **`mimir-host tokens` leads with the device and drops the empty revoked column** (MMR-596). Columns are now DEVICE, USER, LAST USED as an age (`19m ago`, or `never`), and PAIRED as a date. REVOKED appears only under `--all`, as a date or `-`. JSON output is unchanged.
+
+### Fixes
+
+- **`update` refuses `--name` on anything but a project** (MMR-499). `mimir update <task> --name x` used to exit 0 and drop the flag. A task, container, seed, or artifact now refuses `--name` with an error naming the flag, as `--pinned` already does, and the MCP `update` tool refuses `name` the same way.
+
+- **A long unbroken title no longer widens the console on a phone** (MMR-524). A path or URL in a title used to push the task, seed, and artifact lists and the record pages past the screen's width, so the page scrolled sideways. Titles, breadcrumbs, and row meta now break mid-word, and every page stays at the screen's width.
+
+- The container host applies the shared Host allowlist and cross-origin write checks before dispatching console pages, static assets, API routes, server functions, and tRPC. Host filtering remains opt-in through `MIMIR_HOSTS`; `MIMIR_URL` adds its hostname only when filtering is enabled.
+
+- **Unexpected Engine faults keep diagnostic details on the server** (MMR-532). tRPC logs structured request diagnostics and returns a generic internal failure with a doctor hint. Responses omit stack traces; domain error codes, messages, and hints are preserved.
+
+- **Internal-fault logs keep messages that stacks omit** (MMR-546). The `/api` and `/trpc` fault records now carry the error's `message` and `stack` as separate fields in place of a single `detail`, so a validation failure whose stack reads only `ZodError` still names the failing fields. Client replies are unchanged and expose neither.
+
+- **Tagging a nonexistent artifact reported success** (MMR-547). `tag` and `untag` on an artifact id that does not exist, such as `KEY-a999`, now fail with `not_found` on the CLI, over MCP, and through the Engine, matching a missing task or project. Nothing is written when any target in the call is missing.
+
+- **Tasks preserve the main conversation when a distinct agent takes ownership** (MMR-568). Main harness and session identify the user conversation or workflow; optional worker harness and session identify a separate agent responsible for the whole task lifecycle. Helpers leave task identity alone. Queueing reserves the main identity, starting preserves it and any explicitly assigned worker, worker flags record handoffs without ambient identity inference, and holds, cancellation, and completion clear all live handles while retaining ownership history. CLI starts reject concurrent main-identity or lifecycle changes between reading and claiming a task. CLI, MCP, query, overview, and console surfaces expose both identities; the Mimir skill and isolated evaluation scenarios teach and verify solo and delegated ownership.
+
+- `queue` and `start` fill an omitted harness or session from the shell only when every handle you passed, blanks included, matches the shell's own value. `--harness codex` in a Claude shell no longer stores the Claude session, and `--session ""` no longer stores the Claude harness.
+
+- **Pairing refuses device names that could pass for another device** (MMR-586). A pairing request whose device name holds an invisible or text-reordering character (zero-width, bidi override, filler, variation selector, private-use, unassigned, or line separator) is now refused with the existing device-name error. Accepted names are stored in NFC with each run of spaces folded to one ASCII space, so names that differ only in composition or spacing match, and `mimir-host unpair` matches a typed name the same way. Such a name used to look identical to an already paired device on `/pair` and in `mimir-host pending`, so approving it raised no "already paired" warning and minted a second token. Emoji that need a joiner or variation selector are refused along with them.
+
+- **`bun run sandbox` refusals print one line** (MMR-590). An unknown sandbox
+  or snapshot, a failed subprocess, or a refused ownership check prints its
+  sentence and exits 1, and a malformed option or ID exits 2, instead of an
+  unhandled-exception report with a stack trace.
+
+- **`store export -` keeps terminal controls in the document intact** (MMR-595). The `records`, `ids`, and `table` formats of the Loom CLI and `mimir-host` dropped DEL and C1 controls from the streamed transfer document, and a CSI or control-string character swallowed the text after it, so a piped backup could be truncated. Every format now writes them as `\uXXXX` escapes, which parse to the same characters.
+
+- **`mimir-host tokens` and `pending` align wide-character device names** (MMR-596). Columns align by terminal cell, so a wide-character device name no longer pushes its row out of line. Cells wrap to the terminal's width, and a terminal too narrow for the columns prints one `LABEL value` block per row.
+
 ## v0.25.0 - 2026-10-14
 
 ### Added

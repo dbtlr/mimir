@@ -1,1 +1,0 @@
-- **The Engine edits an artifact** (MMR-563). `updateArtifact` retitles an artifact or changes its summary and answers with the artifact, local and remote. The Loom CLI's `update` uses it for `KEY-aN`, and edits a seed (`KEY-sN`) with `--title`, `--kind`, and `--desc`.
