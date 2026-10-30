@@ -56,4 +56,4 @@ Source invocations through a `bun`-prefixed executable and development builds
 refuse self-update, because they are not release binaries.
 
 Self-update replaces the CLI binary only. The host container updates by image
-tag: see [Upgrade the host](host.md#upgrade-the-host-and-the-clis-that-share-its-postgres).
+tag: see [Upgrade the host and its paired CLIs](host.md#upgrade-the-host-and-its-paired-clis).

@@ -38,7 +38,7 @@ test('a fresh database carries no schema version and refuses every read', async 
     expect(await readSchemaVersion(db)).toBeNull();
     const refusal = await refusalOf(assertSchemaCurrent(db));
     expect(refusal.message).toBe('the Postgres store has no schema');
-    expect(refusal.hint).toBe("run 'mimir store upgrade' to create it");
+    expect(refusal.hint).toBe('start the host once; it creates the store when it starts');
   } finally {
     await db.destroy();
   }
@@ -387,7 +387,7 @@ test('a schema older than the binary is refused, and points at the explicit upgr
       .execute();
     const refusal = await refusalOf(assertSchemaCurrent(db));
     expect(refusal.message).toContain(`this binary needs version ${String(SCHEMA_VERSION)}`);
-    expect(refusal.hint).toContain('mimir store upgrade');
+    expect(refusal.hint).toContain('restart the host');
   } finally {
     await db.destroy();
   }

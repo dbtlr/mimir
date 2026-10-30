@@ -6,7 +6,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { LocalEngine, openSqlite } from '@mimir/core';
+import { LocalEngine } from '@mimir/core';
 import type { DoctorBackend, DoctorFinding, GitPort, Store } from '@mimir/core';
 import { createTestStore } from '@mimir/core/testing';
 
@@ -69,10 +69,7 @@ export function boundClone(bound: string | undefined) {
   };
 }
 
-/** Edges a case may replace: the global config and the Postgres connection. */
-export type BoardEdges = Partial<Pick<MachineSource, 'openPostgres' | 'readConfig'>>;
-
-export async function parityBoard(replaced: BoardEdges = {}): Promise<ParityBoard> {
+export async function parityBoard(): Promise<ParityBoard> {
   const { close, doctor: real, store: unpinned } = await createTestStore();
   // The board is healthy; a doctor case adds findings the real checks cannot produce here.
   const findings: DoctorFinding[] = [];
@@ -156,13 +153,7 @@ export async function parityBoard(replaced: BoardEdges = {}): Promise<ParityBoar
   const stdin = { text: '' };
   const edges = {
     cwd: dir,
-    openPostgres: () => {
-      throw new Error('the fixture is sqlite');
-    },
-    openSqlite: () => openSqlite(':memory:'),
-    readConfig: () => ({ store: {} }),
     readStdin: () => Promise.resolve(stdin.text),
-    ...replaced,
   };
   const machine: MachineSource = {
     ...edges,

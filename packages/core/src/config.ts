@@ -39,7 +39,8 @@ export const DEFAULT_STORE_BACKEND: StoreBackend = 'sqlite';
 export type StoreConfig = {
   backend?: StoreBackend;
   /** The Postgres connection URL (`postgres://user:pass@host/db`) — required by
-   * the `postgres` backend, ignored by the others. The secret lives in this file on
+   * the `postgres` backend. The CLI opens no Postgres: a `url` (or the `postgres`
+   * backend) refuses there, and only the host reads it. The secret lives in this file on
    * purpose (ADR 0030): one install, one database, no env indirection. */
   url?: string;
   /** Set when a config file exists but contributed nothing — callers may warn. */

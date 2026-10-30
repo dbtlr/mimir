@@ -1,5 +1,4 @@
 import type { GlobalConfig } from './config';
-import { configPath } from './config';
 import { createSqlDoctorBackend } from './doctor/sql/backend';
 import type { BuiltStore, StoreOverride } from './store-backend';
 /**
@@ -25,14 +24,12 @@ import { OWNER_SCHEMA_REMEDY } from './store-sql/migrator';
 import { createTokenStore } from './tokens';
 
 /**
- * The refusal for a Postgres install with no connection URL. It names the key,
- * the file it belongs in, and the guide, because the operator who sees it has
- * set exactly one of the two keys the backend needs. Shared with `store
- * upgrade`, which needs the same URL and must refuse in the same words.
+ * The refusal for a Postgres store with no connection URL. Only the host opens
+ * Postgres, so it names the host's two URL settings and the host guide.
  */
-export function postgresUrlMissing(): Error {
+function postgresUrlMissing(): Error {
   return new Error(
-    `[store] backend = "postgres" needs [store] url in ${configPath()} — the Postgres connection URL. See docs/guides/postgres-store.md`,
+    'the postgres backend needs a connection URL: set MIMIR_DATABASE_URL_FILE or MIMIR_DATABASE_URL on the host. See docs/guides/host.md',
   );
 }
 

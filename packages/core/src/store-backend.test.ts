@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { configPath } from './config';
 import { MimirError } from './errors';
 import { sandboxPostgresUrlFromEnvironment } from './sandbox-authority';
-import { buildStore } from './store-backend';
+import { buildLocalStore, buildStore } from './store-backend';
 import { openPostgres, upgradeSchema } from './store-postgres/index';
 import { createThrowawaySchema } from './store-postgres/testing';
 import { buildSqliteStore } from './store-sqlite-backend';
@@ -27,16 +27,15 @@ afterEach(() => {
 // The per-install backend fence (ADR 0030 Decision 1). A Postgres install needs
 // a connection URL: the fence alone names no database, and falling back to the
 // local store would silently open the wrong one.
-test('the postgres backend refuses without [store] url', async () => {
+test('the postgres backend refuses without a connection URL', async () => {
   let threw = false;
   try {
     await buildStore({ store: { backend: 'postgres' } });
   } catch (error) {
     threw = true;
     const message = (error as Error).message;
-    expect(message).toContain('[store] url');
-    expect(message).toContain(configPath());
-    expect(message).toContain('docs/guides/postgres-store.md');
+    expect(message).toContain('MIMIR_DATABASE_URL');
+    expect(message).toContain('docs/guides/host.md');
   }
   expect(threw).toBe(true);
 });
@@ -50,7 +49,7 @@ test('the postgres backend refuses without [store] url', async () => {
 const POSTGRES_URL = sandboxPostgresUrlFromEnvironment();
 
 test.skipIf(POSTGRES_URL === undefined)(
-  'a postgres build refuses an unmigrated store, then builds once store upgrade has run',
+  'a postgres build refuses an unmigrated store, then builds once the schema is upgraded',
   async () => {
     const schema = await createThrowawaySchema(POSTGRES_URL ?? '');
     const config = {
@@ -137,18 +136,17 @@ test('an existing-only sqlite build refuses a missing store and creates nothing'
 });
 
 test('an unusable [store] section is fatal, never a fallback to another store', async () => {
-  // The fence selects which store gets WRITTEN: a typo in a Postgres install
-  // must not create and write a local store instead.
+  // The fence selects which store gets WRITTEN: a typo in [store] must not
+  // create and write a local store instead. Each remedy leads to SQLite or a
+  // host, never to a Postgres setting the CLI then refuses.
   for (const [problem, remedy] of [
-    ['invalid-backend', 'set backend to one of: sqlite, postgres'],
-    ['malformed', 'set backend to one of: sqlite, postgres'],
-    // A bad url is a different fault and gets a different remedy: re-reading
-    // the list of backends does not fix a connection string.
-    ['invalid-url', 'set url to a Postgres connection URL'],
+    ['invalid-backend', 'set backend to sqlite, or remove [store] and pair with a host'],
+    ['malformed', 'set backend to sqlite, or remove [store] and pair with a host'],
+    ['invalid-url', 'remove url: the CLI opens only a SQLite store'],
   ] as const) {
     let threw = false;
     try {
-      await buildStore({ store: { problem } });
+      await buildLocalStore({ store: { problem } });
     } catch (error) {
       threw = true;
       // A MimirError, so every transport renders the summary and the remedy as
@@ -165,7 +163,7 @@ test('an unusable [store] section is fatal, never a fallback to another store', 
 // Each store has one owner (ADR 0038): an install that names a host keeps no
 // local store, so a CLI that cannot reach the host opens none in its place.
 test('a config with a usable [host] builds no local store', async () => {
-  const refusal: unknown = await buildStore({
+  const refusal: unknown = await buildLocalStore({
     host: { url: 'https://mimir.example.test' },
     store: {},
   }).catch((error: unknown) => error);
@@ -182,7 +180,9 @@ test('a config with a broken [host] builds no local store and names the fix', as
     [{ problem: 'invalid-url' }, "set [host] url to the host's http or https URL"],
     [{ problem: 'with-store' }, 'keep one: remove [store] to use the host'],
   ] as const) {
-    const refusal: unknown = await buildStore({ host, store: {} }).catch((error: unknown) => error);
+    const refusal: unknown = await buildLocalStore({ host, store: {} }).catch(
+      (error: unknown) => error,
+    );
     expect(refusal).toBeInstanceOf(MimirError);
     expect((refusal as MimirError).hint).toStartWith(hint);
   }
@@ -191,7 +191,7 @@ test('a config with a broken [host] builds no local store and names the fix', as
 test('a removed norn backend names the removal and the export path to migrate', async () => {
   let message = '';
   try {
-    await buildStore({ store: { problem: 'removed-backend' } });
+    await buildLocalStore({ store: { problem: 'removed-backend' } });
   } catch (error) {
     message = error instanceof MimirError ? `${error.message} — ${error.hint ?? ''}` : '';
   }
@@ -199,4 +199,62 @@ test('a removed norn backend names the removal and the export path to migrate', 
   expect(message).toContain('the norn backend was removed');
   expect(message).toContain('store export');
   expect(message).toContain(configPath());
+});
+
+// The CLI opens no Postgres: the host is the only Mimir program that does. A CLI
+// whose [store] names Postgres refuses and says how to move to a host, while the
+// host's explicit-config path (`buildStore`) keeps reaching the Postgres arm.
+test('the CLI store refuses a [store] that names Postgres and names the move to a host', async () => {
+  for (const store of [
+    { backend: 'postgres' as const },
+    { backend: 'postgres' as const, url: 'postgres://user:secret@db.invalid/mimir' },
+    { url: 'postgres://user:secret@db.invalid/mimir' },
+    { backend: 'sqlite' as const, url: 'postgres://user:secret@db.invalid/mimir' },
+  ]) {
+    const refusal: unknown = await buildLocalStore({ store }).catch((error: unknown) => error);
+    expect(refusal).toBeInstanceOf(MimirError);
+    const { hint, message } = refusal as MimirError;
+    expect(message).toContain(`[store] names Postgres in ${configPath()}`);
+    expect(message).toContain('the CLI opens only a SQLite store');
+    expect(hint).toContain('mimir pair');
+    expect(hint).toContain('docs/guides/move-to-a-host.md');
+  }
+});
+
+test('the CLI store still reports an unusable [store] before the Postgres refusal', async () => {
+  const refusal: unknown = await buildLocalStore({ store: { problem: 'invalid-url' } }).catch(
+    (error: unknown) => error,
+  );
+  expect((refusal as MimirError).message).toContain('[store] is unusable (invalid-url)');
+});
+
+test('the CLI store builds SQLite for an empty or sqlite [store]', async () => {
+  for (const store of [{}, { backend: 'sqlite' as const }]) {
+    const built = await buildLocalStore({ store }, { sqliteFile: join(dir, 'cli.sqlite') });
+    try {
+      expect((await built.store.loadWorkingSet()).nodes).toEqual([]);
+    } finally {
+      await built.close();
+    }
+  }
+});
+
+test('the explicit-config path still reaches the Postgres arm the CLI refuses', async () => {
+  // Without a url the Postgres arm refuses with its own missing-url message,
+  // not the CLI's move-to-a-host refusal.
+  const refusal: unknown = await buildStore({ store: { backend: 'postgres' } }).catch(
+    (error: unknown) => error,
+  );
+  expect((refusal as MimirError).message).toContain('needs a connection URL');
+  expect((refusal as MimirError).message).not.toContain('mimir pair');
+});
+
+// The CLI's refusals belong to the CLI's builder: the host assembles its config
+// from its environment and never sets `[host]` or a store `problem`.
+test('the explicit-config builder applies none of the CLI config refusals', async () => {
+  const built = await buildStore(
+    { host: { url: 'https://mimir.example.test' }, store: { problem: 'malformed' } },
+    { sqliteFile: join(dir, 'explicit.sqlite') },
+  );
+  await built.close();
 });

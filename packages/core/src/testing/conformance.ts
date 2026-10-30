@@ -151,8 +151,7 @@ export async function seedWorkingSet(store: Store): Promise<void> {
   });
 
   // Grooming states (ADR 0033) ride the existing tasks, so the fixture keeps
-  // its shape (the sandbox rehearsal pins two projects and four nodes):
-  // `prereq` is born `groomed`, `dependent` is set `needs_answers`.
+  // its shape: `prereq` is born `groomed`, `dependent` is set `needs_answers`.
   await groomTasks(store, [dependent.id], 'needs_answers', 'which backend owns the retry?');
 
   // The block owner (ADR 0001, MMR-438) rides `dependent` too: blocked with the

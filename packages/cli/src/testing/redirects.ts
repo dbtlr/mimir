@@ -91,7 +91,6 @@ export const NODE_REDIRECTS: readonly string[] = [
 export const MACHINE_REDIRECTS: readonly string[] = [
   'bind MMR --parent MMR-2',
   'doctor -s MMR --parent MMR-2',
-  'store upgrade --parent MMR-2',
   'store export - --parent MMR-2',
   'store import x.json --parent MMR-2',
 ];

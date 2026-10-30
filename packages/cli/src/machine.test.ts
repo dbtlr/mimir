@@ -14,7 +14,7 @@ const bare = () =>
 test.each([
   [['doctor'], 'doctor is unavailable in this context'],
   [['bind', 'MMR'], 'bind is unavailable in this context'],
-  [['store', 'upgrade'], 'store is unavailable in this context'],
+  [['store', 'export', '-'], 'store is unavailable in this context'],
 ])('%p refuses where the context supplies no machine services', async (argv, message) => {
   const run = await runArgv(bare(), [...argv, '-f', 'json']);
   expect(run.exitCode).toBe(2);

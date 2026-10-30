@@ -181,10 +181,7 @@ const pairEdges = (): PairSource => ({
 const machineEdges = () => ({
   cwd: dir,
   doctor: opensStore,
-  openPostgres: opensStore,
-  openSqlite: opensStore,
   pair: pairEdges(),
-  readConfig: () => readConfig(configFile),
   readStdin: () => Promise.resolve(''),
 });
 
@@ -364,6 +361,8 @@ test('a config that declares [store] refuses with the migration steps and writes
   expect(run.stderr).toContain('mimir-host store import');
   expect(run.stderr).toContain('remove [store]');
   expect(run.stderr).toContain(`mimir pair ${ORIGIN}`);
+  // A Postgres [store] cannot export through the CLI, so the hint also names the host route.
+  expect(run.stderr).toContain('if [store] names Postgres, run the host against that database');
   expect(host.paths).toEqual([]);
   expectUntouched(STORE_CONFIG);
 });
@@ -377,6 +376,10 @@ test('a local SQLite board that holds work refuses with the migration steps and 
   expect(run.stderr).toContain('mimir store export');
   expect(run.stderr).toContain('mimir-host store import');
   expect(run.stderr).toContain(`mimir pair ${ORIGIN} --leave-local-board`);
+  // A former Postgres or host install keeps a stale file: importing it would merge old projects.
+  expect(run.stderr).toContain(
+    `if this install's board already moved to Postgres or a host, ${sqliteFile} is stale: run mimir pair ${ORIGIN} --leave-local-board`,
+  );
   expect(host.paths).toEqual([]);
   expectUntouched();
 });

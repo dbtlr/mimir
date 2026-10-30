@@ -226,6 +226,7 @@ This refinement does not authorize a live cutover or remove `serve`.
 - 2026-10-17: Retired supervised units and the named serve store (MMR-536).
 - 2026-10-19: Let Loom's installer record vouch for a script-installed binary, so its receipt is adopted or re-recorded with its bindings kept (MMR-554).
 - 2026-10-29: Kept the install URL at the repository root, serving a copy of Loom's managed installer (MMR-603).
+- 2026-10-29: Dropped the sandbox's Postgres snapshot and rehearsal commands; disposable Postgres serves the development host and `test:postgres` (MMR-582).
 
 ## Refinement (2026-10-17, MMR-536): no supervised units, no named store
 
@@ -333,3 +334,14 @@ can render the managed installer at a chosen path (LM-s40); a symlink cannot
 replace it, because `raw.githubusercontent.com` serves a symlink's target path
 as text. Releases before 0.26.0 install with the installer at their own tag,
 such as `v0.25.0/install.sh`.
+
+## Refinement (2026-10-29, MMR-582): no Postgres rehearsals in the sandbox
+
+The CLI no longer opens Postgres (ADR 0030's 2026-10-29 addendum), so the
+sandbox no longer installs a candidate CLI against a restored Postgres
+snapshot, and the `snapshot-schema`, `restore`, `verify`, `upgrade`, `rehearse`, and
+`run` commands are removed. The sandbox keeps disposable Postgres for the development host and
+for `bun run test:postgres`, which runs the real-Postgres conformance and
+concurrency cases. The host migrates its store at startup, so a schema change
+is proven by those cases rather than by a rehearsal against a copy of a live
+database.

@@ -43,10 +43,10 @@ function builtOver(handle: SqliteHandle): BuiltStore {
 
 /**
  * Open the installation's SQLite store — the one opener the composition root
- * and `store upgrade` share. A fresh installation's data directory may not
+ * and the CLI's machine services share. A fresh installation's data directory may not
  * exist until this first open.
  */
-export function openInstallationSqlite(
+function openInstallationSqlite(
   path: string = sqliteStorePath(),
   onMigration?: (name: string) => void,
 ): Promise<SqliteHandle> {

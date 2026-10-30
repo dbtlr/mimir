@@ -17,8 +17,8 @@ import type { DB, Executor } from './schema';
  * misread columns it does not know about) and an older one (it would write
  * columns the other binaries cannot read). `upgradeSchema` is the one act that
  * moves the schema. WHEN it runs is the backend's posture, not this module's:
- * direct Postgres CLIs use the explicit `mimir store upgrade` gate. The
- * designated container host migrates before serving (ADR 0035).
+ * SQLite migrates on open, and the designated container host migrates before
+ * serving (ADR 0035).
  */
 
 /** The schema version this binary reads and writes. */

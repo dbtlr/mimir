@@ -207,3 +207,10 @@ which is what satisfies the loner rule. `vault` keeps the operations that are
 about the markdown vault specifically (`snapshot`); it is the Norn backend's
 noun, not the store's. `doctor` stays top-level under its existing exception
 and asks the configured backend for its diagnosis.
+
+## Refinement (2026-10-29, MMR-582): `store upgrade` is removed
+
+The CLI opens only a SQLite store, which migrates when it opens, and the host
+migrates its own store at startup ([ADR 0030](0030-postgres-store-backend-shared-store-bridge.md)'s
+2026-10-29 addendum). `store` keeps `export` and `import`, which satisfy the
+loner rule on their own.

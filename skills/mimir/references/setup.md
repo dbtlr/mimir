@@ -11,10 +11,9 @@ curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mi
 (or `bun add -g mimir` from source). Work state lives in one local SQLite file,
 `store.sqlite` in the installation's data directory (default
 `$XDG_DATA_HOME/mimir`, i.e. `~/.local/share/mimir`). Mimir creates and migrates
-it on first use, so there is no preflight beyond the binary. An install on the
-shared Postgres backend (`[store] backend = "postgres"` plus `url`) has one
-preflight: `mimir store upgrade` creates or upgrades the schema and must run
-before any other command (every other verb refuses on a mismatched schema).
+it on first use, so there is no preflight beyond the binary. The CLI never opens
+Postgres: a `[store]` with `backend = "postgres"` or a `url` is a config error
+that says to pair with a host (`mimir pair`).
 `[store] backend = "norn"` is a fatal config error, and a v0.20 config with no
 `backend` line (Norn was its default) opens an empty store. Export the old vault
 with mimir v0.20 (`mimir store export <file>`), remove any `backend = "norn"`
@@ -40,14 +39,18 @@ install has no local store. `[store]` and `[host]` exclude each other. The
   Never approve on their behalf.
 - **Pairing an install that has a board moves the board first.** `mimir pair`
   refuses while `[store]` is present. Do not delete `[store]` or the local
-  store to get past the refusal: that strands the board. Move it in order:
-  `mimir store export board.json`; on the host's machine,
+  store to get past the refusal: that strands the board. When `[store]` names
+  Postgres, the CLI refuses to open it, so nothing is exported: run the host
+  against that database, remove `[store]`, then `mimir pair <url>`. Otherwise
+  move the board in order: `mimir store export board.json`; on the host's machine,
   `docker compose -f deploy/compose.yaml exec -T mimir mimir-host store import - < board.json`
   (a preview), then the same with `--apply`; remove `[store]`;
   `mimir pair <url>`; `mimir doctor`. Confirm the
   move with the user before the import, because it writes to the host. A
-  default SQLite install has no `[store]` and is not refused, so export its
-  board before pairing it too.
+  default SQLite install has no `[store]`, but `mimir pair` refuses while its
+  `store.sqlite` holds a project. Move that board the same way first, or pass
+  `--leave-local-board` when the file is stale because its board already
+  moved.
 
 ## Case 1 — the project exists, this working copy isn't bound
 

@@ -1,33 +1,3 @@
-### store upgrade
-exit 0
---- stdout
-| {"applied":["0001_init","0002_grooming","0003_block_owner","0004_seed_parked","0005_project_pinned","0006_project_remote","0007_task_queued","0008_main_worker","0009_device_tokens","0010_pairing_requests"],"from":0,"to":10}
-
-### store upgrade -f records
-exit 0
---- stdout
-| [ok] store: schema upgraded from 0 to 10 (0001_init, 0002_grooming, 0003_block_owner, 0004_seed_parked, 0005_project_pinned, 0006_project_remote, 0007_task_queued, 0008_main_worker, 0009_device_tokens, 0010_pairing_requests)
-
-### store upgrade -f table
-exit 0
---- stdout
-| [ok] store: schema upgraded from 0 to 10 (0001_init, 0002_grooming, 0003_block_owner, 0004_seed_parked, 0005_project_pinned, 0006_project_remote, 0007_task_queued, 0008_main_worker, 0009_device_tokens, 0010_pairing_requests)
-
-### store upgrade -f ids
-exit 0
---- stdout
-| [ok] store: schema upgraded from 0 to 10 (0001_init, 0002_grooming, 0003_block_owner, 0004_seed_parked, 0005_project_pinned, 0006_project_remote, 0007_task_queued, 0008_main_worker, 0009_device_tokens, 0010_pairing_requests)
-
-### store upgrade -f json
-exit 0
---- stdout
-| {"applied":["0001_init","0002_grooming","0003_block_owner","0004_seed_parked","0005_project_pinned","0006_project_remote","0007_task_queued","0008_main_worker","0009_device_tokens","0010_pairing_requests"],"from":0,"to":10}
-
-### store upgrade -f jsonl
-exit 0
---- stdout
-| {"applied":["0001_init","0002_grooming","0003_block_owner","0004_seed_parked","0005_project_pinned","0006_project_remote","0007_task_queued","0008_main_worker","0009_device_tokens","0010_pairing_requests"],"from":0,"to":10}
-
 ### store export -
 exit 0
 --- stdout
@@ -5850,7 +5820,7 @@ exit 2
 |   "message": "Argument \"file\" requires a value. Supply a value for \"file\"."
 | }
 
-### store upgrade -f yaml
+### store export - -f yaml
 exit 2
 --- stdout
 --- failure
@@ -5860,7 +5830,7 @@ exit 2
 |   "message": "Option \"format\": Supply one of ids, json, jsonl, records, table."
 | }
 
-### store upgrade --bogus
+### store export - --bogus
 exit 2
 --- stdout
 --- failure
@@ -5868,16 +5838,6 @@ exit 2
 |   "code": "unknown-option",
 |   "hints": [],
 |   "message": "Unknown option \"bogus\". Supply the name of a declared option."
-| }
-
-### store upgrade --apply
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [],
-|   "message": "Unknown option \"apply\". Supply the name of a declared option."
 | }
 
 ### store export <file> --apply
@@ -5907,7 +5867,7 @@ exit 2
 | {
 |   "code": "missing-subcommand",
 |   "hints": [],
-|   "message": "Command \"store\" requires a subcommand. Use one of: upgrade, export, import."
+|   "message": "Command \"store\" requires a subcommand. Use one of: export, import."
 | }
 
 ### store frobnicate
@@ -5917,13 +5877,18 @@ exit 2
 | {
 |   "code": "unknown-command",
 |   "hints": [],
-|   "message": "Unknown command \"frobnicate\". Use one of: upgrade, export, import."
+|   "message": "Unknown command \"frobnicate\". Use one of: export, import."
 | }
 
 ### store argv: upgrade -f json
-exit 0
+exit 2
 --- stdout
-| {"applied":["0001_init","0002_grooming","0003_block_owner","0004_seed_parked","0005_project_pinned","0006_project_remote","0007_task_queued","0008_main_worker","0009_device_tokens","0010_pairing_requests"],"from":0,"to":10}
+--- failure
+| {
+|   "code": "parser",
+|   "hints": [],
+|   "message": "Unknown command \"upgrade\". Use one of: export, import."
+| }
 
 ### store argv: export - --format json
 exit 0
@@ -6447,16 +6412,6 @@ exit 0
 --- stdout
 | {"applied":true,"created":0,"mode":"resume","skipped":15}
 
-### store argv: upgrade extra
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unexpected-argument",
-|   "hints": [],
-|   "message": "Command \"upgrade\" accepts no arguments. Remove the supplied values."
-| }
-
 ### store argv: export - extra
 exit 2
 --- stdout
@@ -6477,7 +6432,7 @@ exit 2
 |   "message": "Command \"import\" accepts 1 argument. Remove the extra values."
 | }
 
-### store argv: upgrade -f json -f ids
+### store argv: export - -f json -f ids
 exit 2
 --- stdout
 --- failure
@@ -6487,10 +6442,510 @@ exit 2
 |   "message": "Option \"-f\" can be supplied only once. Remove the repeated option."
 | }
 
-### store argv: upgrade (terminal)
+### store argv: export - (terminal)
 exit 0
 --- stdout
-| ␛[32m✓␛[39m store: schema upgraded from 0 to 10 (0001_init, 0002_grooming, 0003_block_owner, 0004_seed_parked, 0005_project_pinned, 0006_project_remote, 0007_task_queued, 0008_main_worker, 0009_device_tokens, 0010_pairing_requests)
+| {
+|   "annotations": [
+|     {
+|       "content": "First pass.\nSecond line.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     },
+|     {
+|       "content": "Settled; one; store.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "node_id": "MMR-3"
+|     }
+|   ],
+|   "artifacts": [
+|     {
+|       "content": "# Notes\n\nThe body.",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "key": "MMR",
+|       "links": [
+|         "MMR-3"
+|       ],
+|       "seq": 1,
+|       "source_scratch": null,
+|       "summary": "design notes",
+|       "tags": [
+|         "design"
+|       ],
+|       "title": "Store notes",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "bodySections": [
+|     {
+|       "description": "Open the store once.\n\nKeep it open.",
+|       "next": {
+|         "present": false,
+|         "text": null
+|       },
+|       "stem": "MMR-3"
+|     }
+|   ],
+|   "edges": [
+|     {
+|       "depends_on_node_id": "MMR-3",
+|       "node_id": "MMR-4"
+|     }
+|   ],
+|   "exported_at": "2026-01-01T00:00:00.000Z",
+|   "nodes": [
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Platform",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "MMR-1",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": "2026-11",
+|       "title": "Skeleton",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p1",
+|       "project_id": "MMR",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": "small",
+|       "summary": "one store per run",
+|       "target": null,
+|       "title": "Wire the store",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-4",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": 131072,
+|       "seq": 4,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Render views",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": "codex",
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-5",
+|       "lifecycle": "in_progress",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p0",
+|       "project_id": "MMR",
+|       "rank": 196608,
+|       "seq": 5,
+|       "session": "main-session",
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Ship it",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": "claude",
+|       "worker_session": "task-worker-session"
+|     },
+|     {
+|       "block_owner": "you",
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "blocked",
+|       "hold_reason": "needs a reviewer",
+|       "host": null,
+|       "id": "MMR-6",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 6,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Wait on review",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": "2026-10-01T12:00:00.000Z",
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-7",
+|       "lifecycle": "done",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": null,
+|       "project_id": "MMR",
+|       "rank": null,
+|       "seq": 7,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Spike",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "MMR-8",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "MMR-2",
+|       "priority": "p2",
+|       "project_id": "MMR",
+|       "rank": 393216,
+|       "seq": 8,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Tidy docs",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-1",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": null,
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 1,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Elsewhere",
+|       "type": "initiative",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": null,
+|       "harness": null,
+|       "hold": null,
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-2",
+|       "lifecycle": null,
+|       "open_ended": null,
+|       "parent_id": "XX-1",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": null,
+|       "seq": 2,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Far",
+|       "type": "phase",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     },
+|     {
+|       "block_owner": null,
+|       "branch": null,
+|       "completed_at": null,
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "external_ref": null,
+|       "grooming": "not_groomed",
+|       "harness": null,
+|       "hold": "none",
+|       "hold_reason": null,
+|       "host": null,
+|       "id": "XX-3",
+|       "lifecycle": "todo",
+|       "open_ended": null,
+|       "parent_id": "XX-2",
+|       "priority": null,
+|       "project_id": "XX",
+|       "rank": 65536,
+|       "seq": 3,
+|       "session": null,
+|       "size": null,
+|       "summary": null,
+|       "target": null,
+|       "title": "Not ours",
+|       "type": "task",
+|       "updated_at": "2026-10-01T12:00:00.000Z",
+|       "upstream": null,
+|       "worker_harness": null,
+|       "worker_session": null
+|     }
+|   ],
+|   "projects": [
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 1,
+|         "node": 8,
+|         "seed": 1
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "The work-state store.",
+|       "key": "MMR",
+|       "name": "mimir",
+|       "pinned": false,
+|       "remote": "github.com/dbtlr/mimir",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     },
+|     {
+|       "archived_at": null,
+|       "counters": {
+|         "artifact": 0,
+|         "node": 3,
+|         "seed": 0
+|       },
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": null,
+|       "key": "XX",
+|       "name": "other",
+|       "pinned": false,
+|       "remote": null,
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "schema_version": 7,
+|   "scratchpads": [],
+|   "seeds": [
+|     {
+|       "created_at": "2026-10-01T12:00:00.000Z",
+|       "description": "Ask the other board for a hook.",
+|       "history": [],
+|       "key": "MMR",
+|       "kind": "feature",
+|       "lifecycle": "new",
+|       "requester": "XX",
+|       "seq": 1,
+|       "spawned": [],
+|       "title": "A hook",
+|       "updated_at": "2026-10-01T12:00:00.000Z"
+|     }
+|   ],
+|   "tags": [
+|     {
+|       "entity_id": "MMR-3",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     },
+|     {
+|       "entity_id": "MMR-4",
+|       "entity_type": "node",
+|       "tag": "alpha"
+|     }
+|   ],
+|   "transitions": [
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": null,
+|       "kind": "dependency",
+|       "node_id": "MMR-4",
+|       "reason": null,
+|       "to_value": "MMR-3"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "handles": {
+|         "harness": "codex",
+|         "session": "main-session",
+|         "worker_harness": "claude",
+|         "worker_session": "task-worker-session"
+|       },
+|       "kind": "lifecycle",
+|       "node_id": "MMR-5",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "none",
+|       "kind": "hold",
+|       "node_id": "MMR-6",
+|       "reason": "needs a reviewer",
+|       "to_value": "blocked"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "todo",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "in_progress"
+|     },
+|     {
+|       "at": "2026-10-01T12:00:00.000Z",
+|       "from_value": "in_progress",
+|       "kind": "lifecycle",
+|       "node_id": "MMR-7",
+|       "reason": null,
+|       "to_value": "done"
+|     }
+|   ]
+| }
 
 ### store argv: import <dir>/doc.json (terminal)
 exit 1
@@ -6514,18 +6969,6 @@ exit 1
 |     "a fresh import owns the identities it brings — import into an empty store, or resume to finish a partial import"
 |   ],
 |   "message": "the target already holds an imported project: MMR, XX"
-| }
-
-### store argv: upgrade --parent MMR-2
-exit 2
---- stdout
---- failure
-| {
-|   "code": "unknown-option",
-|   "hints": [
-|     "'--parent' sets the owner at creation; list/next filter with '--eq parent:KEY'"
-|   ],
-|   "message": "Unknown option \"--parent\". Supply a declared option; prefix a hyphenated path with \"./\"."
 | }
 
 ### store argv: export - --parent MMR-2

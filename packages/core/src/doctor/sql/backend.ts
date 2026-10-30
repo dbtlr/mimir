@@ -84,7 +84,7 @@ function finding(input: {
  * Unreachable through the composition root — the Postgres arm's
  * `assertSchemaCurrent` refuses the connection before a store exists, and the
  * SQLite arm migrates on open — but reported all the same, because a
- * caller that holds a handle directly (the upgrade command's, a test's) is
+ * caller that holds a handle directly (a test's) is
  * owed the answer rather than an empty diagnosis.
  */
 async function checkSchemaVersion(db: Kysely<DB>, dialect: StoreDialect): Promise<DoctorFinding[]> {

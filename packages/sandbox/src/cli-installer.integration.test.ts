@@ -203,8 +203,8 @@ test.skipIf(!enabled)(
     });
 
     // A first run whose XDG roots are not HOME's defaults adopts nothing. Its
-    // development config names Postgres, whose access check reads the
-    // installation again, and the refusal still prints once.
+    // development config names Postgres, which the CLI refuses to open, and the
+    // adoption refusal still prints once.
     const development = join(box.bin, '.dev', 'config', 'mimir');
     await mkdir(development, { recursive: true });
     await writeFile(

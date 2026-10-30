@@ -129,7 +129,7 @@ test('placeholders stand in for a verb, subcommand, or flag value without false 
     '`mimir scratch <operation>`',
     '`mimir list -f <fmt> --priority <p>`',
     '`mimir --help`',
-    '`mimir store upgrade`',
+    '`mimir store export -`',
     '`mimir version`',
   ].join(' and ');
   const problems = await Promise.all(extractInvocations('doc.md', md).map(invocationProblems));

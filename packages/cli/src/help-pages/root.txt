@@ -37,7 +37,7 @@ COMMANDS
   bind               Bind this clone to a project: write git config mimir.project, the default --scope from then on. Bare, print the clone's bound project and fail when it is unbound.
   doctor             Run read-only diagnostics: local store health, or remote config, credentials, host reachability, version, and token checks. Remote record health is checked with mimir-host doctor. Non-gating: findings exit 0. Prints prose on a terminal and json when piped.
   pair               Pair this machine with a host: request approval, wait for the operator to approve it on the host, then save the device credentials and [host] url. Asks questions only in a terminal.
-  store <command>    Operate on the store itself: upgrade its schema, export it, or import a document.
+  store <command>    Operate on the store itself: export it or import a document.
   version            Print the version of this build.
   queue              Reserve a task for an autonomous run (todo → queued).
   unqueue            Cancel a reservation and return the task to todo (queued → todo).

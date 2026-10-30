@@ -4,11 +4,15 @@ description: Move a CLI-only install's board into a Mimir host, pair the CLI wit
 
 # Move a CLI-only install to a host
 
-A CLI-only install keeps its board in a store it opens itself: the SQLite file
-`store.sqlite` in its data directory, or the Postgres database that `[store]`
-names in `config.toml`. After the move, the [host](host.md) owns the board. The
-CLI reads and writes it through the host with a device token, and it holds no
-store and no database credentials.
+A CLI-only install keeps its board in the SQLite file `store.sqlite` in its
+data directory. After the move, the [host](host.md) owns the board. The CLI
+reads and writes it through the host with a device token, and it holds no store
+and no database credentials.
+
+A board that already lives in a Postgres database does not move through the
+CLI. Run the host against that database instead, as
+[Run it on a server against Postgres](host.md#run-it-on-a-server-against-postgres)
+describes, and continue from step 4.
 
 The steps use two machines: the one with the CLI and the one that runs the
 host. They can be the same machine. The host commands use
@@ -33,7 +37,7 @@ mimir store export board.json
 
 The export is one transfer document that keeps every id, sequence, and
 timestamp. It refuses to overwrite an existing file. See
-[Postgres store](postgres-store.md) for what the document holds.
+[Store transfer](store-transfer.md) for what the document holds.
 
 ## 2. Start the host
 
@@ -63,7 +67,8 @@ document's bytes off a terminal.
 ## 4. Remove `[store]` from the CLI's config
 
 Delete the `[store]` section, with every key under it, from the CLI's
-`config.toml`. A default SQLite install has no `[store]` to remove.
+`config.toml`. A default SQLite install has no `[store]` to remove. A CLI that
+still sets `backend = "postgres"` or a `url` refuses to run and points here.
 
 `mimir pair` refuses while `[store]` is present. Its message names the config
 file, and the line after it lists the steps of this guide:

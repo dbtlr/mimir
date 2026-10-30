@@ -202,9 +202,27 @@ SQLite migration-on-open behavior is unchanged. Existing direct Postgres
 installations keep the bridge until their ownership cutover; accepting the
 host design does not migrate them or change their opening behavior.
 
+## Addendum (2026-10-29, MMR-582): the bridge retires for clients
+
+The host owns Postgres now ([ADR 0035](0035-tanstack-start-container-host.md),
+[ADR 0038](0038-device-pairing-and-the-version-window.md)), so the bridge ends
+for clients. The `mimir` CLI no longer opens Postgres. A `[store]` that sets
+`backend = "postgres"` or a `url` is a config error that tells the user to pair
+with a host (`mimir pair`) and points to the
+[move-to-a-host guide](../guides/move-to-a-host.md). There is no deprecation
+window. `mimir store upgrade` is removed: a local SQLite store migrates when it
+opens, and the host migrates its own store at startup. `store export` and
+`store import` remain for SQLite installs.
+
+The host is the only Mimir program that opens Postgres. The database stays
+reachable to operator tooling outside Mimir, such as a `pg_dump` backup job.
+Decision 5's explicit-upgrade gate and the per-install fence no longer apply to
+any client. The decisions above stand as the record of the bridge.
+
 ## Changelog
 
 - 2026-09-17: Clarified shared import validation and its compatibility boundaries.
 - 2026-10-03: Accepted Norn's automatic vault schema upgrade.
 - 2026-10-03: Named Postgres the hosted tier beside SQLite (ADR 0032).
 - 2026-10-15: Granted the container host boot-time schema authority while retaining the direct Postgres CLI gate (ADR 0035).
+- 2026-10-29: Retired the bridge for clients: the CLI refuses a Postgres `[store]` and `store upgrade` is removed (MMR-582).

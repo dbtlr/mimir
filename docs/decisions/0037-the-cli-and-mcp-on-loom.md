@@ -223,7 +223,18 @@ contract. Passed checks and host guidance appear in human output; JSON and
 JSONL retain their findings-only shapes. Record health remains the host's
 responsibility, through `mimir-host doctor` and the console.
 
+## Refinement (2026-10-29, MMR-582): `store upgrade` is gone in every mode
+
+The CLI no longer opens Postgres, and a SQLite store migrates whenever the CLI
+opens it, so `store upgrade` has nothing left to do and is removed in local and
+remote mode alike. The 2026-10-20 text above, where remote `store upgrade`
+points to updating the host, no longer applies: in remote mode the machine-local
+`store` commands refuse export and import only, pointing to `mimir-host`, and
+`store upgrade` is an unknown command. The host migrates its own store when it
+starts.
+
 ## Changelog
 
 - 2026-10-21: Added the remote-doctor refinement. MMR-588 implements the client checks separately from MMR-579's pairing command.
 - 2026-10-27: Noted that the parity cases run as snapshots of the Loom CLI and the old CLI is no longer the oracle (MMR-600).
+- 2026-10-29: `store upgrade` is removed in every mode; in remote mode `store` refuses export and import only (MMR-582).

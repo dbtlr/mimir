@@ -1,9 +1,9 @@
 /**
  * The `store` command family (ADR 0030, ADR 0032): the machinery noun for the
- * store itself. `upgrade` moves a database schema, and `export` and `import`
- * carry the store's stored facts across a backend or a machine (MMR-380) as a
- * transfer document. All three act through the machine port, never the Engine:
- * `upgrade` must run before a schema gate would let a store exist.
+ * store itself. `export` and `import` carry the store's stored facts across a
+ * backend or a machine (MMR-380) as a transfer document, such as a CLI's SQLite
+ * export imported into a host on Postgres. Both act through the machine port,
+ * never the Engine.
  */
 import { Command } from '@loomcli/core';
 import type { View } from '@loomcli/core';
@@ -12,7 +12,7 @@ import { helpCommand } from '@loomcli/plugins/help/extension';
 import { defaultFormat } from '../default-format';
 import { MimirUsageError } from '../failures';
 import { STREAM } from '../machine';
-import type { ExportedStore, ImportReport, StoreTransfer, UpgradeReport } from '../machine';
+import type { ExportedStore, ImportReport, StoreTransfer } from '../machine';
 import type { Ports } from '../ports';
 import { proseViews } from '../render/machine';
 import { countLine, okLine, presentationOf } from '../render/presentation';
@@ -21,43 +21,6 @@ import { documentView } from '../render/views';
 
 /** The value every `store` verb reports: its prose is built from the invocation's styling. */
 type Reported<Report> = { presentation: Presentation; report: Report };
-
-// ---------------------------------------------------------------------------
-// upgrade
-// ---------------------------------------------------------------------------
-
-/** A one-line human summary of an upgrade run. */
-function describeUpgrade(report: UpgradeReport): string {
-  if (report.applied.length === 0) {
-    return `store: schema at version ${String(report.to)} (already current)`;
-  }
-  return `store: schema upgraded from ${String(report.from)} to ${String(report.to)} (${report.applied.join(', ')})`;
-}
-
-const upgradeViews = proseViews(
-  ({ presentation, report }: Readonly<Reported<UpgradeReport>>) =>
-    okLine(presentation, describeUpgrade(report)),
-  { compact: true, json: ({ report }) => report },
-);
-
-function upgradeCommand(ports: Ports) {
-  return new Command('upgrade', {
-    description:
-      "Move the configured database's schema to this build's. A shared Postgres store moves only when an operator runs this once. Prints prose on a terminal and json when piped.",
-    extensions: [
-      defaultFormat({ piped: 'json', terminal: 'records' }),
-      helpCommand({
-        examples: [{ command: 'store upgrade', note: 'run once after every binary is new enough' }],
-      }),
-    ],
-  })
-    .result<Reported<UpgradeReport>>({ views: upgradeViews })
-    .views({ records: upgradeViews.records }, { default: 'records' })
-    .action(async ({ host, out }) => {
-      const report = await ports.machine.store.upgrade();
-      await out.results({ presentation: presentationOf(host, false), report });
-    });
-}
 
 // ---------------------------------------------------------------------------
 // export
@@ -274,10 +237,8 @@ export function importCommand(transfer: StoreTransfer, program = 'mimir') {
 
 export function storeCommand(ports: Ports) {
   return new Command('store', {
-    description:
-      'Operate on the store itself: upgrade its schema, export it, or import a document.',
+    description: 'Operate on the store itself: export it or import a document.',
   })
-    .command(upgradeCommand(ports))
     .command(exportCommand(ports.machine.store))
     .command(importCommand(ports.machine.store));
 }

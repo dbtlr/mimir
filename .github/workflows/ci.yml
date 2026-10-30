@@ -36,7 +36,7 @@ jobs:
       - name: Test disposable Postgres
         run: bun run test:postgres
 
-      - name: Test sandbox snapshot rehearsal
+      - name: Test sandbox installer lifecycle
         run: bun run test:sandbox
 
       - name: Install host browser

@@ -145,7 +145,6 @@ const SAMPLES: Readonly<Record<string, Sample>> = {
     relation: 'same',
     words: ['store', 'import', '{dir}/doc.json', '--resume'],
   },
-  'store upgrade': { relation: 'same', words: ['store', 'upgrade'] },
   submit: { relation: 'same', words: ['submit', 'MMR-5'] },
   tag: { relation: 'same', words: ['tag', 'MMR-5', 'design'] },
   tree: { relation: 'compact', words: ['tree', 'MMR'] },

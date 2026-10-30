@@ -1,7 +1,6 @@
 /**
  * What the machine-local commands need from the composition root (MMR-553):
- * the clone binding, the store backend's diagnosis, and the store's own
- * upgrade and transfer. These act on the machine, not on the board, so they
+ * the clone binding, the store's diagnosis, and the store's own transfer. These act on the machine, not on the board, so they
  * are not Engine reads; `src/app.ts` supplies them over core and commands see
  * only these shapes. They mirror core's types structurally, so no command
  * imports `@mimir/core`.
@@ -25,9 +24,6 @@ export type Diagnosis = {
   /** The scope's match count; null when the run is unscoped. */
   scope: { key: string; matched_records: number } | null;
 };
-
-/** What a schema upgrade did. */
-export type UpgradeReport = { from: number; to: number; applied: string[] };
 
 /** The store as a transfer document, ready to write, with its summary. */
 export type ExportedStore = {
@@ -159,8 +155,6 @@ export type Machine = {
   };
   pair: Pairing;
   store: {
-    /** Move the configured database's schema to this build's. */
-    upgrade: () => Promise<UpgradeReport>;
     export: () => Promise<ExportedStore>;
     /** Hand a transfer document to the store; a preview unless `apply`. */
     import: (
@@ -176,5 +170,5 @@ export type Machine = {
   };
 };
 
-/** What `store export` and `store import` act through: the store's transfer, without its upgrade. */
-export type StoreTransfer = Omit<Machine['store'], 'upgrade'>;
+/** What `store export` and `store import` act through. */
+export type StoreTransfer = Machine['store'];

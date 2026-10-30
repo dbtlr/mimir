@@ -109,6 +109,19 @@ migrator, the DDL, and the deferred-constraint switch during import.
 - The 2026-10-03 refinement in ADR 0030, which accepted Norn's automatic schema
   upgrade, becomes history once Norn is removed.
 
+## Addendum (2026-10-29, MMR-582): Postgres is a host backend only
+
+Decision 1's `[store] backend = "postgres"` selection and Decision 3's explicit
+`mimir store upgrade` gate are superseded for clients by the 2026-10-29
+addendum to [ADR 0030](0030-postgres-store-backend-shared-store-bridge.md). The
+CLI opens only its local SQLite store, which migrates when it opens, and it
+refuses a Postgres `[store]` with a config error that says to pair with a host.
+Postgres remains the hosted tier, opened only by the host, which migrates its
+own store at startup. The database stays reachable to operator tooling outside
+Mimir. Decision 6 stands: `store export` is the backup for a SQLite install, and
+the host exports with `mimir-host store export`.
+
 ## Changelog
 
 - 2026-10-03: Clarified that each backend opens its own connection and the dialect seam carries column encodings and error codes (MMR-416).
+- 2026-10-29: Postgres is a host backend only; the CLI no longer selects it or runs `store upgrade` (MMR-582).

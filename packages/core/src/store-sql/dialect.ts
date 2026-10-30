@@ -62,8 +62,8 @@ export type StoreDialect = {
 
   /**
    * What the schema gate tells the operator to do about a store with no
-   * schema, or one behind this binary — the explicit upgrade a shared store
-   * needs, or nothing more than reopening a store that migrates on open.
+   * schema, or one behind this binary — restarting the host that owns a shared
+   * store, or reopening a local store that migrates on open.
    */
   schemaRemedy: { missing: string; behind: string };
 

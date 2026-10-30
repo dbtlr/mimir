@@ -18,7 +18,7 @@ picks it up), then:
 bun install
 bun run verify         # format, lint, types, binary tests, and UI tests
 bun run test:postgres  # disposable real-Postgres integration lane
-bun run test:sandbox   # build and native snapshot rehearsal
+bun run test:sandbox   # build, then the installer and MCP-binding lifecycle tests
 ```
 
 `verify` is `bun run check` (oxfmt + oxlint + type-aware typecheck, zero-warning)
@@ -26,7 +26,8 @@ plus binary and UI tests. SQLite-backed suites use in-memory databases (a tempor
 where the file itself is under test) and need nothing installed. Postgres unit tests use PGlite.
 The Postgres and sandbox lanes need Docker; CI runs both alongside `verify`.
 See the [sandbox guide](docs/guides/development-sandboxes.md)
-for fixtures, snapshots, and candidate migration tests.
+for the test lanes, the development host against disposable Postgres, the
+installer lifecycle, and skill evaluation.
 
 The CLI, host admin CLI, and sandbox use Loom 0.16. Keep every `@loomcli`
 dependency, the `@loomcli/loom` toolchain in `packages/cli` included, pinned to the
@@ -93,7 +94,7 @@ entry. The layering `contract ← core ← cli` is enforced by an oxlint rule:
 its two entries. The parity cases pin each command's output as snapshots in
 `src/parity-pins`; re-record them with `bun run pins:update`. Help pages are
 pinned in `src/help-pages`. `scripts/` holds the release and developer tooling
-(changelog compiler, release publisher, sandbox store, docs fixture). `bun run
+(changelog compiler, release publisher, docs fixture). `bun run
 build` compiles the binary into `dist/mimir` with `loom build`; the skill's
 `mimir …` invocations are checked against the command graph by the drift guard
 in `src/testing/skill-invocations.test.ts`. `packages/cli/install.sh` is the installer

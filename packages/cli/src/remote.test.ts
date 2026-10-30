@@ -99,9 +99,6 @@ function remoteApp(
     machine: {
       cwd: dir,
       doctor: opensStore,
-      openPostgres: opensStore,
-      openSqlite: opensStore,
-      readConfig: () => config,
       readStdin: () => Promise.resolve(''),
     },
     remote: remoteSource({ config, configFile: join(dir, 'config.toml'), credentialsFile, fetch }),
@@ -340,16 +337,7 @@ test.each([['store export -'], ['store import board.json --apply']])(
   },
 );
 
-// mimir-host never migrates: the host migrates its store when it starts (ADR 0038).
-test('store upgrade in remote mode points to updating the host', async () => {
-  const run = await runArgv(remoteApp(), ['store', 'upgrade']);
-  expect(run.exitCode).toBe(1);
-  expect(run.stderr).toContain('which migrates it when it starts');
-  expect(run.stderr).toContain('update the host to upgrade its store');
-  expect(run.stderr).not.toContain('mimir-host');
-});
-
-test.each([['store export -'], ['store upgrade']])(
+test.each([['store export -']])(
   '%s under a broken [host] refuses with the config fix',
   async (line) => {
     const run = await runArgv(

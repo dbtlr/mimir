@@ -87,6 +87,6 @@ export type Ports = {
   wire: Wire;
   /** The hidden installer commands' edges. */
   installation: Installation;
-  /** The machine-local services (MMR-553): the binding, doctor, and the store's own upgrade and transfer. */
+  /** The machine-local services (MMR-553): the binding, doctor, and the store's own transfer. */
   machine: Machine;
 };

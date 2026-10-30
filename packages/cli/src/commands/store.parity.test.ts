@@ -51,8 +51,6 @@ const store = (
   extra: Partial<StoreCase> = {},
 ): StoreCase => ({ name, options, path: ['store', ...path], ...extra });
 
-const upgrade = (name: string, options: ParityCase['options'] = {}) =>
-  store(name, ['upgrade'], options);
 const exported = (name: string, file: string, options: ParityCase['options'] = {}) =>
   store(name, ['export'], options, { args: { file }, output: file });
 const imported = (
@@ -74,13 +72,6 @@ const argv = (line: string, extra: Partial<StoreCase> = {}): StoreCase => ({
 const out = (name: string) => join(DIR, name);
 
 const CASES: StoreCase[] = [
-  // upgrade: a fresh in-memory SQLite store applies every migration.
-  upgrade('store upgrade'),
-  upgrade('store upgrade -f records', { format: 'records' }),
-  upgrade('store upgrade -f table', { format: 'table' }),
-  upgrade('store upgrade -f ids', { format: 'ids' }),
-  upgrade('store upgrade -f json', { format: 'json' }),
-  upgrade('store upgrade -f jsonl', { format: 'jsonl' }),
   // export to the standard stream: the document is the output, in any format.
   exported('store export -', '-'),
   exported('store export - -f records', '-', { format: 'records' }),
@@ -135,26 +126,25 @@ const CASES: StoreCase[] = [
   // Faults Loom's parser raises.
   store('store export (no file)', ['export']),
   store('store import (no file)', ['import']),
-  store('store upgrade -f yaml', ['upgrade'], { format: 'yaml' }),
-  store('store upgrade --bogus', ['upgrade'], { bogus: true }),
-  store('store upgrade --apply', ['upgrade'], { apply: true }),
+  exported('store export - -f yaml', '-', { format: 'yaml' }),
+  exported('store export - --bogus', '-', { bogus: true }),
   { ...exported('store export <file> --apply', out('g.json'), { apply: true }) },
   { ...exported('store export <file> --resume', out('h.json'), { resume: true }) },
   // The group alone, and a verb it does not have.
   store('store', []),
   store('store frobnicate', ['frobnicate']),
   // Through Loom's parser, as a shell spells them.
+  // The retired `upgrade` verb is an unknown command.
   argv('store upgrade -f json'),
   argv('store export - --format json'),
   argv('store import <dir>/doc.json'),
   argv('store import <dir>/doc.json --apply --resume -f json'),
   // Invocations the old CLI accepted and Loom's parser refuses.
-  argv('store upgrade extra'),
   argv('store export - extra'),
   argv('store import <dir>/doc.json extra'),
-  argv('store upgrade -f json -f ids'),
+  argv('store export - -f json -f ids'),
   // The piped default is json and the terminal default is prose.
-  argv('store upgrade', { tty: true }),
+  argv('store export -', { tty: true }),
   argv('store import <dir>/doc.json', { tty: true }),
   argv('store import <dir>/doc.json -f json'),
   // Misplaced flags, redirected as the old CLI redirected them.

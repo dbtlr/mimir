@@ -9,7 +9,7 @@ binary should live. Each page is self-contained — read the one you need.
 | [Move to a host](move-to-a-host.md)         | Moving a CLI-only install's board into a host and pairing the CLI with it |
 | [Self-update](self-update.md)               | `mimir self-update`'s channels, verification, and failure behavior   |
 | [Install location](install-location.md)     | Where the binary belongs, and registering a legacy installation      |
-| [Postgres store](postgres-store.md)         | Sharing one board across machines: `[store]`, `store upgrade`, export/import, doctor |
+| [Store transfer](store-transfer.md)         | `store export` and `store import`: backups, the transfer document, and moving a Norn vault |
 | [Development sandboxes](development-sandboxes.md) | Isolated installations for testing the CLI and installer         |
 
 A recipe worth keeping lands as a direct edit to one of these pages in the PR

@@ -23,17 +23,15 @@ import {
   artifactSummaryToWire,
   artifactToWire,
   assertDateFilters,
-  assertUsableStoreConfig,
   assertWritable,
   BINDING_CONFIG_KEY,
   bindClone,
   bindingScope,
-  buildStore,
+  buildLocalStore,
   configDeclaresStore,
   configPath,
   credentialsPath,
   CredentialsOriginError,
-  DEFAULT_STORE_BACKEND,
   exportedDocument,
   dateFilterWindows,
   findingLine,
@@ -43,15 +41,12 @@ import {
   LocalEngine,
   MAX_SEARCH_LIMIT,
   nodeToWire,
-  openInstallationSqlite,
-  openPostgres,
   overviewScratchpadToWire,
   overviewToWire,
   parseDateFilterTokens,
   parseFilterToken,
   parseIdentity,
   planHostUrl,
-  postgresUrlMissing,
   promoteToWire,
   readConfig,
   readCredentials,
@@ -69,7 +64,6 @@ import {
   sqliteStorePath,
   treeToWire,
   triageToWire,
-  upgradeSchema,
   urlOrigin,
   warnConfigPermissions,
   withConfigDoctor,
@@ -82,8 +76,6 @@ import type {
   DoctorFinding,
   GitPort,
   GlobalConfig,
-  PostgresHandle,
-  SqliteHandle,
   Store,
 } from '@mimir/core';
 import { RemoteEngine } from '@mimir/wire/client';
@@ -180,12 +172,6 @@ type CliSourceEdges = {
 export type MachineSource = {
   /** The store backend's doctor, built on first ask. */
   doctor: () => Promise<Pick<DoctorBackend, 'diagnose'>>;
-  /** The global config: the backend fence and the connection URL. */
-  readConfig: () => GlobalConfig;
-  /** Open the Postgres connection `[store] url` names. */
-  openPostgres: (url: string) => PostgresHandle;
-  /** Open, and so migrate, the installation's SQLite store. */
-  openSqlite: () => Promise<SqliteHandle>;
   /** The whole standard input, for `store import -`. */
   readStdin: () => Promise<string>;
   /** The directory the retired binding file is looked for in. */
@@ -213,8 +199,8 @@ export type PairSource = {
 };
 
 /**
- * Run an open of the store. A plain Error from opening it (a config fault, an
- * unregistered Postgres install) would reach the user as Loom's generic
+ * Run an open of the store. A plain Error from opening it (a config fault, a
+ * [store] that names Postgres, an unreadable store file) would reach the user as Loom's generic
  * internal failure, so it becomes a FatalError that carries its message.
  */
 async function fatalOnOpen<T>(open: () => Promise<T>): Promise<T> {
@@ -253,13 +239,6 @@ function remoteMachineWork(remote: RemoteSource): Pick<Machine, 'doctor' | 'stor
       export: refuseStore,
       import: refuseStore,
       readDocument: refuseStore,
-      upgrade: () => {
-        throw new MimirError(
-          'invariant',
-          `this install's store lives on the host at ${remote.origin()}, which migrates it when it starts`,
-          'update the host to upgrade its store',
-        );
-      },
       writeDocument: refuseStore,
     },
   };
@@ -561,7 +540,6 @@ function unavailableMachine(): Machine {
       export: refuse('store'),
       import: refuse('store'),
       readDocument: refuse('store'),
-      upgrade: refuse('store'),
       writeDocument: refuse('store'),
     },
     version: VERSION,
@@ -653,36 +631,6 @@ function pairingOver(source: PairSource): Machine['pair'] {
   };
 }
 
-/**
- * Move the configured database's schema. A SQLite store migrates whenever it
- * is opened, so opening it is the upgrade; a Postgres store moves only here.
- */
-async function upgradeStore(source: MachineSource) {
-  const config = source.readConfig();
-  assertUsableStoreConfig(config);
-  if ((config.store.backend ?? DEFAULT_STORE_BACKEND) === 'sqlite') {
-    const handle = await fatalOnOpen(() => source.openSqlite());
-    try {
-      return handle.upgrade;
-    } finally {
-      await handle.close();
-    }
-  }
-  const url = config.store.url;
-  if (url === undefined) {
-    throw postgresUrlMissing();
-  }
-  const handle = await fatalOnOpen(() => Promise.resolve(source.openPostgres(url)));
-  try {
-    // A stored schema newer than this binary is the migrator's own refusal; it
-    // is not caught here, since an upgrade that swallowed it could pretend a
-    // downgrade happened.
-    return await upgradeSchema(handle.db);
-  } finally {
-    await handle.close();
-  }
-}
-
 /** The machine services over one source, the clone, and the doctor and store services. */
 function machineOver(
   source: MachineSource,
@@ -740,7 +688,6 @@ function localMachineWork(
         }),
       readDocument: async (file) =>
         file === STREAM ? { kind: 'text', text: await source.readStdin() } : readDocumentFile(file),
-      upgrade: () => upgradeStore(source),
       writeDocument: writeDocumentFile,
     },
   };
@@ -919,7 +866,7 @@ export async function runMimir(): Promise<number> {
   const config = readRuntimeConfig();
   let built: BuiltStore | undefined;
   const getBuilt = async (): Promise<BuiltStore> => {
-    built ??= await buildStore();
+    built ??= await buildLocalStore();
     return built;
   };
   const app = createApp({
@@ -945,10 +892,7 @@ export async function runMimir(): Promise<number> {
             }
           },
         }),
-      openPostgres,
-      openSqlite: () => openInstallationSqlite(),
       pair: { configFile: configPath(), credentialsFile: credentialsPath() },
-      readConfig: readRuntimeConfig,
       readStdin: () => Bun.stdin.text(),
     },
     ...workStateSource(config, async () => (await getBuilt()).store, {
