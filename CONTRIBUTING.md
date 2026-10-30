@@ -72,6 +72,17 @@ ports, then removes its containers, network, volume, and image. `test:pwa` is a 
 browser lane outside `verify` and CI. Browser checks need Chromium:
 `bun run --cwd packages/host playwright install chromium`.
 
+## Tests that time out
+
+When a test times out under load, find and fix what makes it slow. Do not raise
+Testing Library's `asyncUtilTimeout`, a per-call timeout, or the Vitest test
+timeout, even as a backstop: a longer timeout hides the cost until the next load
+spike fails the test again. Time the queries and the render separately. A
+role query with a name walks the accessibility tree, so over a large DOM use a
+text query or mount a narrower fixture instead (MMR-500 traced one timeout to a
+named-role query over more than 100 links). Confirm the fix with a stress run
+under the default timeouts.
+
 ## Project shape
 
 One core, thin transports, in a Bun workspace. `packages/contract`
@@ -297,6 +308,33 @@ keeping the previous official's cycle trail one release longer.
 
 The full operational runbook — exact commands and the post-publish verify gate —
 lives in the `release-cut` skill (`.claude/skills/release-cut/`).
+
+## The live deployment
+
+This section is for maintainers and their agents. Mimir has one live
+deployment: the maintainers' installed CLI and the host container that owns its
+store. The maintainers' infrastructure repository, Fleet, deploys the host and
+its proxy route, and Fleet's own sessions make those changes.
+
+- **Deployment changes go to Fleet.** When a Mimir change needs the host
+  deployed differently (its service, proxy route, or container settings), file
+  a seed on Fleet's board (`FLT`) that states the facts the deployment must
+  meet, even when the Mimir task spells out the steps. Do not edit the
+  infrastructure repository or run its commands from a Mimir session. Set the
+  Mimir task's upstream to the seed, block the task, and check the live host
+  when Fleet resolves the seed.
+- **Leave the live install alone.** Do not upgrade the live CLI or move the host
+  to a prerelease because a task's done criteria say the live install runs the
+  new build. The host updates before its clients (ADR 0038), and Fleet deploys
+  it. Split the live upgrade into its own parked task tied to the next stable
+  release, close the code task when its code merges, and ask before running
+  anything against the live install.
+- **Prefer the clean change.** Mimir has no known users outside the live
+  deployment. A breaking change still carries its fragment and migration
+  section, but it needs no deprecation aliases or compatibility shims for a
+  release nobody installed, and its migration section need not describe what
+  installs of such a release lose. Keep the live install's own upgrade path
+  working, and revisit this when Mimir gains outside users.
 
 ## Code of conduct
 

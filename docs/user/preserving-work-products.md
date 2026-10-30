@@ -24,7 +24,7 @@ Tags classify Artifacts without imposing one global type system:
 
 ```sh
 mimir artifacts -t plan
-mimir artifacts -s all -t session_summary
+mimir artifacts -s AUR -t session_summary
 mimir artifacts -q recovery
 mimir get AUR-a3 --col content
 ```

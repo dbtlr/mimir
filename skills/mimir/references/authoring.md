@@ -159,8 +159,29 @@ mimir update KEY-4 --direction ""      # clear it
   it refuses: **re-read and merge** against the current text, then write again.
 - Re-writing identical text writes nothing, so an idempotent re-author doesn't
   move `updated_at` (and doesn't fake activity).
+- **Guard a scripted write.** Mimir keeps no earlier version, so a command
+  substitution that reads a missing or empty file clears the narrative, and so
+  does text of only whitespace. In a fresh temporary directory, save the
+  current text, write the new text to a file, and update only when that text
+  holds more than whitespace. Read the result back and
+  compare it before you delete the directory; if it is wrong, restore with
+  `--direction "$(cat "$dir/old.md")"`.
+
+  ```sh
+  dir=$(mktemp -d)
+  mimir get KEY-4 -f json | jq -r '.next // empty' > "$dir/old.md"
+  # Write the new narrative to "$dir/new.md", then:
+  new=$(cat "$dir/new.md") &&
+    test -n "$(printf %s "$new" | tr -d '[:space:]')" &&
+    mimir update KEY-4 --direction "$new" &&
+    mimir get KEY-4 -f json | jq -r '.next // empty' | diff "$dir/new.md" - &&
+    rm -r "$dir"
+  ```
+
 - The flag is `--direction`, not `--next` (`self-update` selects a channel with `--channel next`).
-  The `update` tool takes `direction` too, and `--col next` reads it.
+  The `update` tool takes `direction` too. Reads name it `next`: `--col next`
+  and the `next` key of `get -f json`. `overview -f json` carries it under
+  `direction`, because its own `next` key is the ready queue.
 - It is an `update` flag only — set the narrative after the container exists;
   `create --direction` is refused rather than silently dropped.
 
