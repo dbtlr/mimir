@@ -37,6 +37,36 @@ MCP binding against it. Tests do not use the live installation or its database.
 State lives under `.dev/sandboxes/<sandbox-id>`. Each Postgres sandbox has its own
 authority file, directories, and run records. Treat these files as generated state.
 
+## Smoke-test a CLI build
+
+The installed `mimir` is the live installation, and it reaches the live board
+through the host. Do not run its write verbs outside an authorized operation.
+Smoke a build instead.
+
+A build takes its runtime paths from the first of these that applies:
+
+1. the installation receipt beside the binary (`<binary>.installation.json`);
+2. a sandbox authority;
+3. a `.dev` directory: the repository's for `bun run mimir`, and one beside the
+   binary for a compiled build, such as `dist/.dev` for `dist/mimir`.
+
+XDG variables are read only when a live installation is first adopted. Setting
+them does not isolate a run of the installed binary from its registered paths.
+
+Copy the build into a fresh directory and run the copy there, so its `.dev` is
+disposable:
+
+```sh
+bun run build
+smoke=$(mktemp -d)
+cp dist/mimir "$smoke/mimir"
+"$smoke/mimir" create project "Smoke" --key SMK -y
+```
+
+To refresh the copy, remove the old binary before copying the new one. macOS
+kills a signed binary that was overwritten in place, and the next run exits
+with status 137.
+
 ## Evaluate the agent skill
 
 ```sh

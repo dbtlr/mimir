@@ -37,7 +37,8 @@ no task finished:
    the ready queue, statuses, or dependency rollups.
 3. Replace the complete owned section with
    `mimir update <KEY|container> --direction "…"`; pass `""` when no editorial
-   direction remains.
+   direction remains. Write from a file only behind the guard in
+   `references/authoring.md`, because an empty value clears the section.
 4. Read it back. If the CAS guard refuses because another write landed, discard
    the stale draft, re-read the board and current prose, merge the new facts,
    and re-author. Never replay the old command unchanged.
