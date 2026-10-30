@@ -18,10 +18,9 @@ Mimir keeps work state in one SQLite file, `store.sqlite`, in its data
 directory. Mimir creates the file on first use, so no setup step follows the
 install.
 
-A team that shares one board across machines can use a PostgreSQL database
-instead by setting the `[store]` section of the configuration. See the
-[Postgres store guide](../guides/postgres-store.md). Back up either store with
-`mimir store export <file>`.
+To share one board across machines, run a [host](../guides/host.md) and pair
+each CLI with it using `mimir pair`. The host can use SQLite or PostgreSQL, and
+the CLIs hold no store. Back up a local store with `mimir store export <file>`.
 
 ## Create a project
 

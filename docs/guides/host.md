@@ -95,13 +95,35 @@ the `depends_on` entry from `compose.postgres.yaml`. Then write that server's
 URL to `deploy/secrets/database-url`. The host creates or migrates the schema
 on start.
 
-The bundled service also listens on `127.0.0.1:5433` of the server, so a CLI
-on the same machine can open the database directly. Its `[store] url` names
-that address with the same password, such as
-`postgres://mimir:<password>@127.0.0.1:5433/mimir`
-([Configure](postgres-store.md#configure)). Set `MIMIR_POSTGRES_PORT` in
-`deploy/.env` to use another port. A CLI on another machine needs a Postgres
-server that it can reach, so use a server you already run.
+The bundled service also listens on `127.0.0.1:5433` of the server, so
+operator tooling on the same machine, such as a `pg_dump` backup job, can reach
+the database. Mimir clients do not use it: the host is the only Mimir program
+that opens Postgres, and a CLI reaches the board by
+[pairing with the host](#pair-the-cli-with-a-host). Set `MIMIR_POSTGRES_PORT` in
+`deploy/.env` to use another port.
+
+The database must exist and its user must own it. The host creates every
+table itself. Keep the database on a private network: Mimir adds no
+authentication beyond Postgres's own and no transport encryption of its own.
+When the network is not trusted, set `sslmode` in the URL. The host hands the
+URL to node-postgres unchanged, which reads it in pg-connection-string's
+default mode:
+
+- `verify-full` is the recommendation: the connection is TLS and the
+  certificate is fully validated, CA and hostname. Add `sslrootcert=<path>`
+  when the server uses a private CA.
+- `verify-ca`, `require`, and `prefer` behave the same as `verify-full` in
+  this mode, and node-postgres prints a deprecation warning for each of them.
+- `no-verify` encrypts the connection but skips certificate validation.
+- `disable` turns TLS off entirely.
+
+The libpq distinctions between those modes (`verify-ca` skipping the hostname
+check, `require` validating only with `sslrootcert`) apply only with
+`uselibpqcompat=true` in the URL, which this guide does not recommend.
+
+If the board already lives in a Postgres database, run the host against that
+database. Write its URL to `deploy/secrets/database-url` as above; no export is
+needed.
 
 `MIMIR_DATABASE_URL` takes the URL directly, for a platform that injects it
 as a variable. Setting both `MIMIR_DATABASE_URL` and
@@ -472,7 +494,7 @@ repairing the store. A `400` is an ordinary refusal of a malformed request.
 `internal` carries `mimirError: null`: the response says only `the request did
 not complete` and hints `run 'mimir-host doctor' inside the host container`, and the host log carries the detail.
 
-## Upgrade the host and the CLIs that share its Postgres
+## Upgrade the host and its paired CLIs
 
 Each image version matches a CLI release. `next` follows the newest
 prerelease, and `latest` follows the newest official release. For a
@@ -486,9 +508,8 @@ MIMIR_VERSION=0.26.0
 To pin the exact build, append its digest:
 `MIMIR_VERSION=0.26.0@sha256:<digest>`.
 
-CLIs that open the same Postgres directly
-([Postgres store](postgres-store.md)) need an order. To upgrade, update the
-host first:
+Paired CLIs reach the board through the host, so the host and its CLIs need an
+order. To upgrade, update the host first:
 
 1. Set the new `MIMIR_VERSION`, then pull and restart:
 
@@ -500,11 +521,11 @@ host first:
    The host applies the release's migrations before it serves. Its log lists
    each one.
 
-2. Update every CLI that shares the database with `mimir self-update`.
+2. Update every CLI paired with the host with `mimir self-update`.
 
-A CLI older than the schema refuses the store until you update it. You do not
-need `mimir store upgrade`: the host already ran the migrations. The host
-never downgrades. An image older than the schema refuses startup and asks you
+A CLI outside the host's version window is refused until you update it
+([ADR 0038](../decisions/0038-device-pairing-and-the-version-window.md)).
+The host migrates its own store at startup. The host never downgrades. An image older than the schema refuses startup and asks you
 to update the image.
 
 ## Back up the store

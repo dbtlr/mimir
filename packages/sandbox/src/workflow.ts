@@ -1,28 +1,15 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { realpathSync } from 'node:fs';
-import {
-  chmod,
-  copyFile,
-  lstat,
-  mkdir,
-  open,
-  readFile,
-  readdir,
-  realpath,
-  rm,
-  writeFile,
-} from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { mkdir, readFile, readdir, realpath, rm } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 
 import { z } from 'zod';
 
-import { installBinary, readInstallationAt } from '../../core/src/installation/index';
 import { readDatabaseAuthority } from '../../core/src/sandbox-authority';
 import type { DatabaseSandboxAuthority } from '../../core/src/sandbox-authority';
 import { SandboxError, SandboxUsageError } from './failures';
 import { hostPort, launchHost } from './host';
-import { InterruptedError, command, hashFile, isolatedEnvironment, privateJson } from './process';
-import { latestSnapshot, snapshotSchema } from './snapshot';
+import { InterruptedError, command, isolatedEnvironment, privateJson } from './process';
 
 export const POSTGRES_IMAGE =
   'postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2';
@@ -33,18 +20,6 @@ const daemonChanged = (id: string): string =>
   `Docker daemon changed since sandbox ${id} was created; switch back to that daemon. Sandbox resources and records were retained.`;
 const containerNotOwned = (id: string): string =>
   `Container for sandbox ${id} is not labelled as its own; refusing to touch it.`;
-
-/** `operation`'s result, or a `SandboxError` carrying `message` when its path is absent. */
-async function required<T>(operation: Promise<T>, message: string): Promise<T> {
-  try {
-    return await operation;
-  } catch (error) {
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-      throw new SandboxError(message, { cause: error });
-    }
-    throw error;
-  }
-}
 
 /** Owns disposable resources beneath one checkout. No caller supplies a database URL. */
 export class Sandbox {
@@ -134,12 +109,6 @@ export class Sandbox {
     hostPort(port);
     const authority = await this.load(id);
     await launchHost(this.repository, authority, { port });
-  }
-  private async worker(authority: Authority, operation: 'seed' | 'verify'): Promise<string> {
-    return command([process.execPath, 'run', 'packages/cli/scripts/sandbox-store.ts', operation], {
-      cwd: this.repository,
-      env: this.env(authority),
-    });
   }
   private async record(
     id: string,
@@ -246,11 +215,6 @@ export class Sandbox {
         version: 1,
       };
       await privateJson(join(root, 'authority.json'), authority);
-      await writeFile(
-        join(paths.config, 'config.toml'),
-        `[store]\nbackend = "postgres"\nurl = ${JSON.stringify(authority.postgresUrl)}\n`,
-        { mode: 0o600 },
-      );
       try {
         let ready = false;
         for (let attempt = 0; attempt < 60; attempt++) {
@@ -311,352 +275,9 @@ export class Sandbox {
       `Sandbox ${authority.id} retained. Cleanup: bun run sandbox destroy ${authority.id}\n`,
     );
   }
-  private async binary(authority: Authority, allowMissing = false): Promise<string> {
-    const binary = join(authority.root, 'bin', 'mimir');
-    await mkdir(dirname(binary), { mode: 0o700, recursive: true });
-    if ((await realpath(dirname(binary))) !== dirname(binary)) {
-      throw new SandboxError('Sandbox binary directory must not be a symlink.');
-    }
-    const stat = await lstat(binary).catch((error: unknown) => {
-      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-        return undefined;
-      }
-      throw error;
-    });
-    if (!stat) {
-      if (allowMissing) {
-        return binary;
-      }
-      throw new SandboxError('Sandbox has no installed candidate. Run sandbox upgrade first.');
-    }
-    if (!stat.isFile() || stat.isSymbolicLink()) {
-      throw new SandboxError('Sandbox executable must be a regular file, not a symlink.');
-    }
-    const receipt = readInstallationAt(binary);
-    if (
-      receipt?.mode !== 'sandbox' ||
-      receipt.executable !== binary ||
-      receipt.sandboxAuthority !== join(authority.root, 'authority.json') ||
-      (['config', 'data', 'cache'] as const).some(
-        (kind) => receipt.paths[kind] !== authority.paths[kind],
-      )
-    ) {
-      throw new SandboxError(
-        'Candidate is not registered to this sandbox. Run sandbox upgrade to reinstall it.',
-      );
-    }
-    return binary;
-  }
-  private async install(authority: Authority, binary?: string): Promise<string> {
-    if (!binary) {
-      await command([process.execPath, 'run', 'build'], { cwd: this.repository, timeout: 600_000 });
-    }
-    const source = resolve(this.repository, binary ?? 'dist/mimir');
-    const target = await this.binary(authority, true);
-    installBinary({
-      registration: {
-        mode: 'sandbox',
-        paths: authority.paths,
-        sandboxAuthority: join(authority.root, 'authority.json'),
-      },
-      source,
-      target,
-    });
-    const sha256 = await hashFile(target);
-    await privateJson(join(authority.root, 'binary.json'), { sha256, source });
-    await this.record(authority.id, 'install', 'ready', { sha256, source });
-    return target;
-  }
-  async create(binary?: string): Promise<string> {
-    const authority = await this.provision();
-    try {
-      const target = await this.install(authority, binary);
-      await command([target, 'store', 'upgrade'], {
-        cwd: authority.root,
-        env: this.env(authority),
-      });
-      const fixture = await this.worker(authority, 'seed');
-      const fixtureInput = {
-        fixtureVersion: 1,
-        result: fixture,
-        runtime: Bun.version,
-        sourceSha256: await hashFile(
-          join(this.repository, 'packages/core/src/testing/conformance.ts'),
-        ),
-        workerSha256: await hashFile(
-          join(this.repository, 'packages/cli/scripts/sandbox-store.ts'),
-        ),
-      };
-      await privateJson(join(authority.root, 'fixture.json'), fixtureInput);
-      await this.record(authority.id, 'seed', 'ready', fixtureInput);
-      await this.verify(authority.id);
-      return authority.id;
-    } catch (error) {
-      await this.failure(authority, error);
-      throw error;
-    }
-  }
-  async verify(id: string): Promise<void> {
-    const owner = { id, root: this.directory(id) };
-    await this.record(id, 'verify', 'verifying');
-    await rm(join(owner.root, 'verification.json'), { force: true });
-    try {
-      const authority = await this.load(id);
-      const binary = await this.binary(authority);
-      const doctor = JSON.parse(
-        await command([binary, 'doctor', '-s', 'all', '--format', 'json'], {
-          cwd: authority.root,
-          env: this.env(authority),
-        }),
-      );
-      if (!Array.isArray(doctor) || doctor.length !== 0) {
-        throw new SandboxError(
-          `Installed candidate doctor reported findings; see them with bun run sandbox run ${id} -- doctor`,
-        );
-      }
-      const exported = join(authority.root, `verify-${randomUUID()}.json`);
-      await command([binary, 'store', 'export', exported], {
-        cwd: authority.root,
-        env: this.env(authority),
-      });
-      await rm(exported);
-      const result = await this.worker(authority, 'verify');
-      await privateJson(join(authority.root, 'verification.json'), {
-        doctor,
-        exported: true,
-        result,
-        verifiedAt: new Date().toISOString(),
-      });
-      await this.record(id, 'verify', 'verified', { doctor, exported: true, result });
-    } catch (error) {
-      await this.failure(owner, error);
-      throw error;
-    }
-  }
-  async run(id: string, args: readonly string[]): Promise<string> {
-    const owner = { id, root: this.directory(id) };
-    if (args.length === 0) {
-      throw new SandboxUsageError('Supply Mimir arguments after --.');
-    }
-    const verb = args[0];
-    if (
-      !verb ||
-      verb.startsWith('-') ||
-      // skills and mcp install into the real home and agent configs; bare mcp never returns.
-      new Set([
-        'installation-install',
-        'installation-protocol',
-        'mcp',
-        'self-update',
-        'skill',
-        'skills',
-      ]).has(verb)
-    ) {
-      throw new SandboxUsageError(
-        'Sandbox run accepts finite work and store commands; installation machinery is disabled. Put the command before options.',
-      );
-    }
-    await this.record(id, 'run', 'running', { args });
-    try {
-      const authority = await this.load(id);
-      const binary = await this.binary(authority);
-      const result = await command([binary, ...args], {
-        cwd: authority.root,
-        env: this.env(authority),
-        timeout: 600_000,
-      });
-      await this.record(id, 'run', 'ready', { args, succeeded: true });
-      return result;
-    } catch (error) {
-      await this.failure(owner, error);
-      throw error;
-    }
-  }
-  async upgrade(id: string, binary: string): Promise<void> {
-    const owner = { id, root: this.directory(id) };
-    await this.record(id, 'upgrade', 'upgrading');
-    await rm(join(owner.root, 'verification.json'), { force: true });
-    try {
-      const authority = await this.load(id);
-      const previous = (await Bun.file(join(authority.root, 'binary.json')).exists())
-        ? JSON.parse(await readFile(join(authority.root, 'binary.json'), 'utf8'))
-        : null;
-      const target = await this.install(authority, binary);
-      const result = await command([target, 'store', 'upgrade'], {
-        cwd: authority.root,
-        env: this.env(authority),
-      });
-      await this.verify(id);
-      await privateJson(join(authority.root, 'upgrade.json'), {
-        candidate: JSON.parse(await readFile(join(authority.root, 'binary.json'), 'utf8')),
-        completedAt: new Date().toISOString(),
-        previous,
-        result,
-      });
-      await this.record(
-        id,
-        'upgrade',
-        'verified',
-        JSON.parse(await readFile(join(authority.root, 'upgrade.json'), 'utf8')),
-      );
-    } catch (error) {
-      await this.failure(owner, error);
-      throw error;
-    }
-  }
-  async restore(selection: string): Promise<string> {
-    const config = z
-      .object({ snapshots: z.object({ directory: z.string().min(1) }) })
-      .parse(
-        JSON.parse(
-          await required(
-            readFile(join(this.repository, '.dev', 'sandbox.json'), 'utf8'),
-            'No snapshot directory is configured; create .dev/sandbox.json as docs/guides/development-sandboxes.md describes.',
-          ),
-        ),
-      );
-    const directory = resolve(this.repository, config.snapshots.directory);
-    if (selection === 'latest') {
-      const snapshots = await Promise.all(
-        (
-          await required(
-            readdir(directory, { withFileTypes: true }),
-            `Snapshot directory ${directory} doesn't exist.`,
-          )
-        )
-          .filter((entry) => entry.isDirectory() && /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(entry.name))
-          .map(async (entry) =>
-            snapshotSchema.parse(
-              JSON.parse(await readFile(join(directory, entry.name, 'snapshot.json'), 'utf8')),
-            ),
-          ),
-      );
-      const selected = latestSnapshot(snapshots);
-      selection = selected.id;
-    }
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(selection)) {
-      throw new SandboxUsageError(`Invalid snapshot ID "${selection}".`);
-    }
-    const snapshot = snapshotSchema.parse(
-      JSON.parse(
-        await required(
-          readFile(join(directory, selection, 'snapshot.json'), 'utf8'),
-          `Snapshot ${selection} doesn't exist in ${directory}.`,
-        ),
-      ),
-    );
-    if (snapshot.id !== selection) {
-      throw new SandboxError(
-        `Snapshot ${selection} manifest names another snapshot, ${snapshot.id}.`,
-      );
-    }
-    if (
-      !/^18(?:\.|$)/.test(snapshot.postgresVersion) ||
-      !/^18(?:\.|$)/.test(snapshot.pgDumpVersion)
-    ) {
-      throw new SandboxError('Snapshot requires PostgreSQL and pg_dump major version 18.');
-    }
-    const archive = join(directory, selection, 'database.dump');
-    if ((await hashFile(archive)) !== snapshot.sha256) {
-      throw new SandboxError(`Snapshot ${selection} archive does not match its checksum.`);
-    }
-    const header = await open(archive, 'r');
-    try {
-      const bytes = Buffer.alloc(5);
-      await header.read(bytes, 0, 5, 0);
-      if (bytes.toString() !== 'PGDMP') {
-        throw new SandboxError(`Snapshot ${selection} is not a PostgreSQL custom archive.`);
-      }
-    } finally {
-      await header.close();
-    }
-    const authority = await this.provision();
-    try {
-      await privateJson(join(authority.root, 'snapshot.json'), snapshot);
-      const staged = join(authority.root, 'restore.dump');
-      await copyFile(archive, staged);
-      await chmod(staged, 0o600);
-      if ((await hashFile(staged)) !== snapshot.sha256) {
-        throw new SandboxError(`Snapshot ${selection} changed while staging.`);
-      }
-      await command(
-        [
-          'docker',
-          'exec',
-          '-i',
-          authority.containerId,
-          'pg_restore',
-          '--exit-on-error',
-          '--single-transaction',
-          '--no-owner',
-          '--no-privileges',
-          '--username',
-          'mimir_sandbox',
-          '--dbname',
-          'mimir_sandbox',
-        ],
-        { cwd: this.repository, inputFile: staged, timeout: 600_000 },
-      );
-      await rm(staged);
-      const schema = await command(
-        [
-          'docker',
-          'exec',
-          authority.containerId,
-          'psql',
-          '-X',
-          '--set',
-          'ON_ERROR_STOP=1',
-          '--username',
-          'mimir_sandbox',
-          '--dbname',
-          'mimir_sandbox',
-          '--tuples-only',
-          '--no-align',
-          '--command',
-          'SELECT max(version) FROM public.schema_version',
-        ],
-        { cwd: this.repository },
-      );
-      if (!/^[1-9][0-9]*$/.test(schema)) {
-        throw new SandboxError('Snapshot does not contain a versioned Mimir schema.');
-      }
-      await this.record(authority.id, 'restore', 'restored', {
-        schemaVersion: Number(schema),
-        snapshot,
-      });
-      await privateJson(join(authority.root, 'restored-schema.json'), { version: Number(schema) });
-      return authority.id;
-    } catch (error) {
-      await this.failure(authority, error);
-      throw error;
-    }
-  }
-  async rehearse(snapshot: string, binary: string): Promise<string> {
-    const id = await this.restore(snapshot);
-    await this.upgrade(id, binary);
-    const authority = await this.load(id);
-    const report = join(this.repository, '.dev', 'sandbox-results', `${id}.json`);
-    await mkdir(dirname(report), { mode: 0o700, recursive: true });
-    await privateJson(report, {
-      binary: JSON.parse(await readFile(join(authority.root, 'binary.json'), 'utf8')),
-      events: await Promise.all(
-        (await readdir(join(authority.root, 'events')))
-          .toSorted()
-          .map(async (name) =>
-            JSON.parse(await readFile(join(authority.root, 'events', name), 'utf8')),
-          ),
-      ),
-      id,
-      image: POSTGRES_IMAGE,
-      runtime: Bun.version,
-      schema: JSON.parse(await readFile(join(authority.root, 'restored-schema.json'), 'utf8')),
-      snapshot: JSON.parse(await readFile(join(authority.root, 'snapshot.json'), 'utf8')),
-      upgrade: JSON.parse(await readFile(join(authority.root, 'upgrade.json'), 'utf8')),
-      verification: JSON.parse(await readFile(join(authority.root, 'verification.json'), 'utf8')),
-    });
-    await this.destroy(id);
-    return report;
+  /** Provision an owned Postgres sandbox; the development host migrates it on start. */
+  async create(): Promise<string> {
+    return (await this.provision()).id;
   }
   async test(): Promise<void> {
     const authority = await this.provision();

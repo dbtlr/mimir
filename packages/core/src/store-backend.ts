@@ -35,8 +35,7 @@ export type BuiltStore = {
  * store. The remedy names the key that actually went wrong — a bad URL is not
  * fixed by re-reading the list of backends.
  *
- * Shared with `store upgrade`, which reads the same section for the same
- * fence; `file` names the config the section came from.
+ * `file` names the config the section came from.
  */
 export function assertUsableStoreConfig(config: GlobalConfig, file: string = configPath()): void {
   if (config.host !== undefined) {
@@ -100,4 +99,28 @@ export async function buildStore(
         existing: override.existing,
         onMigration: override.onMigration,
       });
+}
+
+/**
+ * Build the store the CLI opens for itself: SQLite only. The host is the only
+ * Mimir program that opens Postgres, so a CLI whose `[store]` names Postgres
+ * (a `backend = "postgres"` or a `url`) refuses with the way to a host instead
+ * of connecting. The host builds through {@link buildStore} with its own explicit
+ * config and is unaffected.
+ */
+export async function buildLocalStore(
+  config: GlobalConfig = readRuntimeConfig(),
+  override: StoreOverride = {},
+): Promise<BuiltStore> {
+  assertUsableStoreConfig(config);
+  if (config.store.backend === 'postgres' || config.store.url !== undefined) {
+    throw invariant(
+      `[store] names Postgres in ${configPath()}, and the CLI opens only a SQLite store`,
+      'pair the CLI with a host (`mimir pair`) and remove [store]; the host is the only program that opens Postgres. See docs/guides/move-to-a-host.md',
+    );
+  }
+  return await buildSqliteStore(override.sqliteFile, {
+    existing: override.existing,
+    onMigration: override.onMigration,
+  });
 }

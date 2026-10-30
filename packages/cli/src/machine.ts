@@ -26,9 +26,6 @@ export type Diagnosis = {
   scope: { key: string; matched_records: number } | null;
 };
 
-/** What a schema upgrade did. */
-export type UpgradeReport = { from: number; to: number; applied: string[] };
-
 /** The store as a transfer document, ready to write, with its summary. */
 export type ExportedStore = {
   /** Canonical JSON with a trailing newline. */
@@ -159,8 +156,6 @@ export type Machine = {
   };
   pair: Pairing;
   store: {
-    /** Move the configured database's schema to this build's. */
-    upgrade: () => Promise<UpgradeReport>;
     export: () => Promise<ExportedStore>;
     /** Hand a transfer document to the store; a preview unless `apply`. */
     import: (
@@ -176,5 +171,5 @@ export type Machine = {
   };
 };
 
-/** What `store export` and `store import` act through: the store's transfer, without its upgrade. */
-export type StoreTransfer = Omit<Machine['store'], 'upgrade'>;
+/** What `store export` and `store import` act through. */
+export type StoreTransfer = Machine['store'];

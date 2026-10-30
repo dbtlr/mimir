@@ -105,11 +105,11 @@ export const postgresDialect: StoreDialect = {
     '0009_device_tokens': deviceTokens,
     '0010_pairing_requests': pairingRequests,
   },
-  // A shared store upgrades by one explicit act, never as a side effect of a
-  // binary opening it (ADR 0030).
+  // A shared store is migrated by the host that owns it when it starts, never as
+  // a side effect of another binary opening it (ADR 0030, ADR 0035).
   schemaRemedy: {
-    behind: `run 'mimir store upgrade' on one machine; every binary must be at least version ${String(SCHEMA_VERSION)}`,
-    missing: "run 'mimir store upgrade' to create it",
+    behind: `restart the host with a build at schema version ${String(SCHEMA_VERSION)} or newer; it migrates the store when it starts`,
+    missing: 'start the host once; it creates the store when it starts',
   },
   snapshot: snapshotRead,
   upgrade: (db, fn) =>
@@ -141,7 +141,7 @@ export function assertSchemaCurrent(db: Kysely<DB>, remedy?: SchemaRemedy): Prom
   return assertSqlSchemaCurrent(db, postgresDialect, remedy);
 }
 
-/** Apply every pending migration — `mimir store upgrade`, the one explicit act. */
+/** Apply every pending migration — the host runs it before serving. */
 export function upgradeSchema(
   db: Kysely<DB>,
   onMigration?: (name: string) => void,

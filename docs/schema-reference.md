@@ -329,13 +329,13 @@ Migrations are a static, ordered list carried in the binary (`core/store-sql/mig
 
 - **Newer schema than the binary.** Every normal command refuses it, on both backends. A newer schema is never downgraded; update the binary.
 - **SQLite migrates on open.** The store is one file, `store.sqlite`, in the installation's data directory. Opening creates it when absent, runs it in WAL mode with foreign keys enforced, and applies every pending migration. A file that holds tables but no schema version is refused as not a Mimir store, and the file is left as found.
-- **PostgreSQL migrates only on `mimir store upgrade`.** A fresh database has no schema, and every other command refuses until the version matches the binary exactly, in either direction. The upgrade runs under a lock so two machines upgrading at once serialize, and it re-reads the version inside the lock so the loser applies nothing. See the [Postgres store guide](guides/postgres-store.md).
+- **The host migrates its own store at startup,** on SQLite or PostgreSQL. A failed migration prevents serving, and a schema newer than the host supports refuses startup. The upgrade runs under a lock so two hosts upgrading at once serialize, and it re-reads the version inside the lock so the loser applies nothing. The CLI never opens Postgres, and `mimir store upgrade` no longer exists. See [Upgrade the host](guides/host.md#upgrade-the-host-and-its-paired-clis).
 
-The host's `/health` reports `schema` as the schema version it expects. `mimir doctor` reports a `schema-version` finding when the database's version differs. On Postgres that is a normal rollout state — one machine has run `store upgrade` and another has not — not a hand edit.
+The host's `/health` reports `schema` as the schema version it expects. `mimir doctor` reports a `schema-version` finding when the database's version differs. Against a host on Postgres that is a normal rollout state, not a hand edit.
 
 ## Transfer document
 
-`mimir store export <file>` writes the whole store as one JSON document, and `mimir store import <file>` reads it. It is the **portable form** of the store: backend-neutral, so it moves facts between SQLite and PostgreSQL, and it is the backup for either ([ADR 0030](decisions/0030-postgres-store-backend-shared-store-bridge.md) Decision 4, [ADR 0032](decisions/0032-sqlite-local-tier-shared-sql-store.md) Decisions 5 and 6). A store from a Norn vault enters the same way: export it with mimir v0.20, then import the document (see [Moving from a Norn vault](guides/postgres-store.md#moving-from-a-norn-vault)).
+`mimir store export <file>` writes the whole store as one JSON document, and `mimir store import <file>` reads it. It is the **portable form** of the store: backend-neutral, so it moves facts between SQLite and PostgreSQL, and it is the backup for either ([ADR 0030](decisions/0030-postgres-store-backend-shared-store-bridge.md) Decision 4, [ADR 0032](decisions/0032-sqlite-local-tier-shared-sql-store.md) Decisions 5 and 6). A store from a Norn vault enters the same way: export it with mimir v0.20, then import the document (see [Moving from a Norn vault](guides/store-transfer.md#moving-from-a-norn-vault)).
 
 The document carries every **stored fact** and nothing derived. Its top level holds `schema_version` (the document's own version, separate from the database schema version: `7` since worker identity; import also reads `1` through `6`, defaulting each task to `not_groomed`, each blocked task's owner by its `upstream`, each project to unpinned, and each project's remote to none, and absent worker identity to none, and refuses any other), `exported_at` (the only field a re-export may differ in), and these collections:
 
@@ -354,7 +354,7 @@ The document carries every **stored fact** and nothing derived. Its top level ho
 
 Identity is preserved: every `KEY`, `KEY-seq`, `KEY-aN`, and `KEY-sN`, every timestamp, and the counters. Set-valued fields (tags, links) are written in one canonical order, and transitions in one canonical order, so two stores holding the same facts export byte-identical documents (apart from `exported_at`).
 
-Export is **fail-closed**: it refuses, and names the records, when the store holds something the document cannot carry, so a backup is never quietly narrower than the store. Import validates the whole document before it touches the target. The preview and the apply run the same transaction, and the preview rolls it back. See the [Postgres store guide](guides/postgres-store.md#back-up) for the operator workflow.
+Export is **fail-closed**: it refuses, and names the records, when the store holds something the document cannot carry, so a backup is never quietly narrower than the store. Import validates the whole document before it touches the target. The preview and the apply run the same transaction, and the preview rolls it back. See the [store transfer guide](guides/store-transfer.md#back-up) for the operator workflow.
 
 ## Constraints and diagnostics
 

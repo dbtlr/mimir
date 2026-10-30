@@ -55,17 +55,13 @@ for choosing a directory or version, the first-run binding, and upgrading an
 earlier installation. `mimir version`
 prints the installed version, and `mimir self-update` replaces the binary.
 
-Choose the store before first use:
+The CLI keeps its board in SQLite: nothing to install or configure, and Mimir
+creates `store.sqlite` in its data directory on first use. To share a board
+across machines, run a [host](docs/guides/host.md) over SQLite or PostgreSQL and
+pair each CLI with it using `mimir pair`.
 
-- **SQLite (default):** Nothing to install or configure. Mimir creates
-  `store.sqlite` in its data directory on first use.
-- **PostgreSQL:** Follow the
-  [Postgres store guide](docs/guides/postgres-store.md) to set `[store] backend`
-  to `"postgres"` and `url` in the installation's bound `config.toml`, then run
-  `mimir store upgrade`.
-
-To move a Norn vault from an earlier release into SQLite or PostgreSQL, see
-[Moving from a Norn vault](docs/guides/postgres-store.md#moving-from-a-norn-vault).
+To move a Norn vault from an earlier release into SQLite, see
+[Moving from a Norn vault](docs/guides/store-transfer.md#moving-from-a-norn-vault).
 
 Then create a project and bind a repository to it:
 
@@ -124,10 +120,10 @@ bun install
 bun run verify
 ```
 
-For Postgres development, run `bun run sandbox create`. Use
-`bun run test:postgres` for the disposable server lane and `bun run test:sandbox`
-for the native upgrade rehearsal. See the [sandbox guide](docs/guides/development-sandboxes.md)
-for fixture, restore, upgrade, and cleanup commands.
+Use `bun run test:postgres` for the disposable Postgres server lane and
+`bun run test:sandbox` for the native installer lifecycle. To run the development
+host against Postgres, run `bun run sandbox create`. See the
+[sandbox guide](docs/guides/development-sandboxes.md).
 
 For documentation screenshots, `bun run fixtures:docs` generates a demo
 workspace that the development host serves.

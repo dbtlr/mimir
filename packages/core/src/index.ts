@@ -55,7 +55,7 @@ export {
 export type { Credentials } from './credentials';
 export { acceptedHosts, hostnameOf, isHostName, normalizeServeUrl } from './address';
 export type { ServeConfig } from './address';
-export { assertUsableStoreConfig, buildStore } from './store-backend';
+export { assertUsableStoreConfig, buildLocalStore, buildStore } from './store-backend';
 export type { BuiltStore, StoreOverride } from './store-backend';
 export {
   buildSqliteStore,

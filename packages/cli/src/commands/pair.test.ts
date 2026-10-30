@@ -181,10 +181,8 @@ const pairEdges = (): PairSource => ({
 const machineEdges = () => ({
   cwd: dir,
   doctor: opensStore,
-  openPostgres: opensStore,
   openSqlite: opensStore,
   pair: pairEdges(),
-  readConfig: () => readConfig(configFile),
   readStdin: () => Promise.resolve(''),
 });
 

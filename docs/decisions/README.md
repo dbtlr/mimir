@@ -52,7 +52,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0027](0027-scratchpads-are-temporary-episode-state.md)           | Scratchpads are temporary episode state                            |
 | [0028](0028-scratchpads-use-a-work-noun-group.md)                 | Scratchpads use a work-plane noun group                            |
 | [0029](0029-caller-zoned-date-semantics.md)                       | Date queries use caller timezone context                           |
-| [0030](0030-postgres-store-backend-shared-store-bridge.md)        | A Postgres store backend, per install, bridges to multi-machine work |
+| [0030](0030-postgres-store-backend-shared-store-bridge.md)        | A Postgres store backend, per install, bridges to multi-machine work (retired for clients 2026-10-29) |
 | [0031](0031-installation-authority-and-disposable-development.md) | Installation authority and scripted disposable development |
 | [0032](0032-sqlite-local-tier-shared-sql-store.md)                | SQLite is the local tier, beside Postgres, on one shared SQL store |
 | [0033](0033-task-grooming-state.md)                               | Tasks carry a stored grooming state                                |

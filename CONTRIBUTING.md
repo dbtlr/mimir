@@ -93,7 +93,7 @@ entry. The layering `contract ← core ← cli` is enforced by an oxlint rule:
 its two entries. The parity cases pin each command's output as snapshots in
 `src/parity-pins`; re-record them with `bun run pins:update`. Help pages are
 pinned in `src/help-pages`. `scripts/` holds the release and developer tooling
-(changelog compiler, release publisher, sandbox store, docs fixture). `bun run
+(changelog compiler, release publisher, docs fixture). `bun run
 build` compiles the binary into `dist/mimir` with `loom build`; the skill's
 `mimir …` invocations are checked against the command graph by the drift guard
 in `src/testing/skill-invocations.test.ts`. `packages/cli/install.sh` is the installer

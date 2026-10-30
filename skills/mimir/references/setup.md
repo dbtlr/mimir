@@ -11,10 +11,9 @@ curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mi
 (or `bun add -g mimir` from source). Work state lives in one local SQLite file,
 `store.sqlite` in the installation's data directory (default
 `$XDG_DATA_HOME/mimir`, i.e. `~/.local/share/mimir`). Mimir creates and migrates
-it on first use, so there is no preflight beyond the binary. An install on the
-shared Postgres backend (`[store] backend = "postgres"` plus `url`) has one
-preflight: `mimir store upgrade` creates or upgrades the schema and must run
-before any other command (every other verb refuses on a mismatched schema).
+it on first use, so there is no preflight beyond the binary. The CLI never opens
+Postgres: a `[store]` with `backend = "postgres"` or a `url` is a config error
+that says to pair with a host (`mimir pair`).
 `[store] backend = "norn"` is a fatal config error, and a v0.20 config with no
 `backend` line (Norn was its default) opens an empty store. Export the old vault
 with mimir v0.20 (`mimir store export <file>`), remove any `backend = "norn"`

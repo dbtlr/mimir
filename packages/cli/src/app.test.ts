@@ -31,7 +31,7 @@ test('a store that fails to open reports its message, not a generic internal err
 const unregistered = 'Postgres requires a registered live installation.';
 
 // The machine commands open the store outside the Engine getter; each open must translate too.
-test.each([['store export -'], ['store upgrade'], ['doctor']])(
+test.each([['store export -'], ['doctor']])(
   '%s reports a failing open by its message',
   async (line) => {
     const app = createApp({
@@ -39,11 +39,7 @@ test.each([['store export -'], ['store upgrade'], ['doctor']])(
       machine: {
         cwd: '/nowhere',
         doctor: () => Promise.reject(new Error(unregistered)),
-        openPostgres: () => {
-          throw new Error(unregistered);
-        },
         openSqlite: () => Promise.reject(new Error(unregistered)),
-        readConfig: () => ({ store: {} }),
         readStdin: () => Promise.resolve(''),
       },
       store: () => Promise.reject(new Error(unregistered)),
