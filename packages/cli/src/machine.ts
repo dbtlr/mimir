@@ -1,7 +1,6 @@
 /**
  * What the machine-local commands need from the composition root (MMR-553):
- * the clone binding, the store backend's diagnosis, and the store's own
- * upgrade and transfer. These act on the machine, not on the board, so they
+ * the clone binding, the store's diagnosis, and the store's own transfer. These act on the machine, not on the board, so they
  * are not Engine reads; `src/app.ts` supplies them over core and commands see
  * only these shapes. They mirror core's types structurally, so no command
  * imports `@mimir/core`.

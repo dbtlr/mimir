@@ -1,6 +1,6 @@
 - **`mimir store upgrade`** (MMR-582). The command is removed and now fails as an unknown command. A SQLite store migrates whenever the CLI opens it, so `store upgrade` had nothing left to do. `store export` and `store import` stay.
 - **A CLI whose `[store]` names Postgres** (MMR-582). A `backend = "postgres"` or a `url` in the CLI's `[store]` now makes every command that opens the local store fail with a config error that points to `mimir pair` and `docs/guides/move-to-a-host.md`. The host is the only Mimir program that opens Postgres; the CLI opens a SQLite store, or reaches a host.
-- **Sandbox `snapshot-schema`, `restore`, `verify`, `upgrade`, `rehearse`, and `run`** (MMR-582). They installed a candidate CLI against a restored Postgres snapshot, which the CLI no longer opens, and they fail as unknown commands. The sandbox keeps disposable Postgres for the development host and `bun run test:postgres`.
+- **Sandbox `snapshot-schema`, `restore`, `verify`, `upgrade`, `rehearse`, and `run`** (MMR-582). They served the Postgres snapshot rehearsal, which installed a candidate CLI against a restored snapshot that the CLI no longer opens, and they fail as unknown commands. The sandbox keeps disposable Postgres for the development host and `bun run test:postgres`.
 
 ### Migration
 

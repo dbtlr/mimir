@@ -41,7 +41,8 @@ function sandboxWithConfig(config: string): { env: Record<string, string>; close
 }
 
 test('the CLI entry refuses a [store] that names Postgres instead of connecting', () => {
-  // Port 1 refuses connections, so a builder that does connect fails differently.
+  // A builder that tried Postgres would fail differently: the sandbox authority
+  // refuses the URL, and port 1 refuses connections.
   const sandbox = sandboxWithConfig(
     '[store]\nbackend = "postgres"\nurl = "postgres://u:p@127.0.0.1:1/db"\n',
   );
