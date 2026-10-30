@@ -39,14 +39,18 @@ install has no local store. `[store]` and `[host]` exclude each other. The
   Never approve on their behalf.
 - **Pairing an install that has a board moves the board first.** `mimir pair`
   refuses while `[store]` is present. Do not delete `[store]` or the local
-  store to get past the refusal: that strands the board. Move it in order:
-  `mimir store export board.json`; on the host's machine,
+  store to get past the refusal: that strands the board. When `[store]` names
+  Postgres, the CLI refuses to open it, so nothing is exported: run the host
+  against that database, remove `[store]`, then `mimir pair <url>`. Otherwise
+  move the board in order: `mimir store export board.json`; on the host's machine,
   `docker compose -f deploy/compose.yaml exec -T mimir mimir-host store import - < board.json`
   (a preview), then the same with `--apply`; remove `[store]`;
   `mimir pair <url>`; `mimir doctor`. Confirm the
   move with the user before the import, because it writes to the host. A
-  default SQLite install has no `[store]` and is not refused, so export its
-  board before pairing it too.
+  default SQLite install has no `[store]`, but `mimir pair` refuses while its
+  `store.sqlite` holds a project. Move that board the same way first, or pass
+  `--leave-local-board` when the file is stale because its board already
+  moved.
 
 ## Case 1 — the project exists, this working copy isn't bound
 

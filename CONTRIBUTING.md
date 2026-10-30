@@ -26,7 +26,8 @@ plus binary and UI tests. SQLite-backed suites use in-memory databases (a tempor
 where the file itself is under test) and need nothing installed. Postgres unit tests use PGlite.
 The Postgres and sandbox lanes need Docker; CI runs both alongside `verify`.
 See the [sandbox guide](docs/guides/development-sandboxes.md)
-for fixtures, snapshots, and candidate migration tests.
+for the test lanes, the development host against disposable Postgres, the
+installer lifecycle, and skill evaluation.
 
 The CLI, host admin CLI, and sandbox use Loom 0.16. Keep every `@loomcli`
 dependency, the `@loomcli/loom` toolchain in `packages/cli` included, pinned to the

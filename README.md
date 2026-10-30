@@ -23,9 +23,10 @@ there is no second cache of project status to keep in sync.
   sessions.
 - **Operator control.** The console spans projects, tasks, Artifacts, Seeds, and
   record health. It supports daily authoring and lifecycle actions.
-- **Store ownership.** Choose a local SQLite file or a shared PostgreSQL
-  database. Both keep work state in one SQL store with transactional writes, and
-  `mimir store export` backs up either.
+- **Store ownership.** The CLI keeps a local SQLite file, or pairs with a host
+  that owns a SQLite or PostgreSQL store. Both keep work state in one SQL store
+  with transactional writes. `mimir store export` backs up a local store, and
+  `mimir-host store export` backs up the host's.
 - **Derived state.** Rank, dependencies, lifecycle, and holds determine what is
   ready, awaiting, blocked, stale, or complete.
 
