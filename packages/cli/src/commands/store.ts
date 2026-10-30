@@ -1,7 +1,8 @@
 /**
  * The `store` command family (ADR 0030, ADR 0032): the machinery noun for the
  * store itself. `export` and `import` carry the store's stored facts across a
- * machine (MMR-380) as a transfer document. Both act through the machine port,
+ * backend or a machine (MMR-380) as a transfer document, such as a CLI's SQLite
+ * export imported into a host on Postgres. Both act through the machine port,
  * never the Engine.
  */
 import { Command } from '@loomcli/core';

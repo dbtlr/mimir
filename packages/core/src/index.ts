@@ -55,15 +55,10 @@ export {
 export type { Credentials } from './credentials';
 export { acceptedHosts, hostnameOf, isHostName, normalizeServeUrl } from './address';
 export type { ServeConfig } from './address';
-export { assertUsableStoreConfig, buildLocalStore, buildStore } from './store-backend';
+export { buildLocalStore, buildStore } from './store-backend';
 export type { BuiltStore, StoreOverride } from './store-backend';
-export {
-  buildSqliteStore,
-  openInstallationSqlite,
-  sqliteStoreHoldsProjects,
-} from './store-sqlite-backend';
+export { buildSqliteStore, sqliteStoreHoldsProjects } from './store-sqlite-backend';
 export { assertPostgresAccess } from './postgres-access';
-export { postgresUrlMissing } from './store-postgres-backend';
 export { findingLine, isUnscoped } from './doctor/contract';
 export type {
   DoctorBackend,
@@ -76,9 +71,6 @@ export type { DoctorFacet } from './doctor/facet';
 export { warnConfigPermissions, withConfigDoctor } from './doctor/config-permissions';
 export { SQLITE_FILE } from './store-sqlite/client';
 export { openSqlite } from './store-sqlite/index';
-export type { SqliteHandle } from './store-sqlite/index';
-export { openPostgres, upgradeSchema } from './store-postgres/index';
-export type { DB, PostgresHandle, UpgradeReport } from './store-postgres/index';
 export { SCHEMA_VERSION } from './store-sql/migrator';
 export { readInstallationAt, registerInstallation } from './installation';
 export { runInstallationCommand } from './installation/command';

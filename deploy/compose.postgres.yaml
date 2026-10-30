@@ -25,7 +25,9 @@ services:
     secrets:
       - postgres-password
     ports:
-      # Loopback only, for a CLI on this machine that shares the database.
+      # Loopback only, for operator tooling on this machine (psql, backups). No
+      # Mimir client connects here: the host reaches the database over the compose
+      # network, and a CLI pairs with the host.
       - 127.0.0.1:${MIMIR_POSTGRES_PORT:-5433}:5432
     volumes:
       - postgres:/var/lib/postgresql

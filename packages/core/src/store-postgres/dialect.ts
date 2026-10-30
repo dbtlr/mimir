@@ -6,8 +6,8 @@ import type { StoreDialect, ValueCodecs } from '../store-sql/dialect';
 import type { SchemaRemedy, UpgradeReport } from '../store-sql/migrator';
 import {
   assertSchemaCurrent as assertSqlSchemaCurrent,
+  OWNER_SCHEMA_REMEDY,
   readSchemaVersion as readSqlSchemaVersion,
-  SCHEMA_VERSION,
   upgradeSchema as upgradeSqlSchema,
 } from '../store-sql/migrator';
 import type { DB, Executor } from '../store-sql/schema';
@@ -107,10 +107,7 @@ export const postgresDialect: StoreDialect = {
   },
   // A shared store is migrated by the host that owns it when it starts, never as
   // a side effect of another binary opening it (ADR 0030, ADR 0035).
-  schemaRemedy: {
-    behind: `restart the host with a build at schema version ${String(SCHEMA_VERSION)} or newer; it migrates the store when it starts`,
-    missing: 'start the host once; it creates the store when it starts',
-  },
+  schemaRemedy: { behind: OWNER_SCHEMA_REMEDY.behind, missing: OWNER_SCHEMA_REMEDY.missing },
   snapshot: snapshotRead,
   upgrade: (db, fn) =>
     db.transaction().execute(async (tx) => {

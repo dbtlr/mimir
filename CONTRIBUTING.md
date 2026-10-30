@@ -18,7 +18,7 @@ picks it up), then:
 bun install
 bun run verify         # format, lint, types, binary tests, and UI tests
 bun run test:postgres  # disposable real-Postgres integration lane
-bun run test:sandbox   # build and native snapshot rehearsal
+bun run test:sandbox   # build, then the installer and MCP-binding lifecycle tests
 ```
 
 `verify` is `bun run check` (oxfmt + oxlint + type-aware typecheck, zero-warning)

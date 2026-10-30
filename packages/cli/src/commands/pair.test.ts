@@ -376,6 +376,10 @@ test('a local SQLite board that holds work refuses with the migration steps and 
   expect(run.stderr).toContain('mimir store export');
   expect(run.stderr).toContain('mimir-host store import');
   expect(run.stderr).toContain(`mimir pair ${ORIGIN} --leave-local-board`);
+  // A former Postgres or host install keeps a stale file: importing it would merge old projects.
+  expect(run.stderr).toContain(
+    `if this install's board already moved to Postgres or a host, ${sqliteFile} is stale: run mimir pair ${ORIGIN} --leave-local-board`,
+  );
   expect(host.paths).toEqual([]);
   expectUntouched();
 });

@@ -27,7 +27,7 @@ import { createTokenStore } from './tokens';
  * The refusal for a Postgres store with no connection URL. Only the host opens
  * Postgres, so it names the host's two URL settings and the host guide.
  */
-export function postgresUrlMissing(): Error {
+function postgresUrlMissing(): Error {
   return new Error(
     'the postgres backend needs a connection URL: set MIMIR_DATABASE_URL_FILE or MIMIR_DATABASE_URL on the host. See docs/guides/host.md',
   );

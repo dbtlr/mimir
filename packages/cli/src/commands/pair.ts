@@ -143,7 +143,7 @@ function localBoardRefusal(sqliteFile: string, board: LocalBoard, origin: string
   return new MimirError(
     'invariant',
     `${holds}, and pairing would leave it behind`,
-    `export the board (mimir store export board.json), import it on the host (mimir-host store import - --apply < board.json, inside the host container), then run mimir pair ${origin} --leave-local-board`,
+    `if this install's board already moved to Postgres or a host, ${sqliteFile} is stale: run mimir pair ${origin} --leave-local-board. Otherwise export the board (mimir store export board.json), import it on the host (mimir-host store import - --apply < board.json, inside the host container), then run mimir pair ${origin} --leave-local-board`,
   );
 }
 

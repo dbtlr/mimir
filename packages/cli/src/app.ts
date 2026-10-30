@@ -199,8 +199,8 @@ export type PairSource = {
 };
 
 /**
- * Run an open of the store. A plain Error from opening it (a config fault, an
- * unregistered Postgres install) would reach the user as Loom's generic
+ * Run an open of the store. A plain Error from opening it (a config fault, a
+ * [store] that names Postgres, an unreadable store file) would reach the user as Loom's generic
  * internal failure, so it becomes a FatalError that carries its message.
  */
 async function fatalOnOpen<T>(open: () => Promise<T>): Promise<T> {

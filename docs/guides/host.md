@@ -398,11 +398,14 @@ The command never prints the device token.
 - **`--no-input`.** Asks no questions, so a script never blocks. `-y` or
   `--yes` answers the replacement question.
 - **A local store.** A `config.toml` with `[store]` makes `mimir pair` refuse and
-  write nothing. Pairing would leave that board behind. Export it with
-  `mimir store export board.json`, import it on the host as described in
-  [Back up the store](#back-up-the-store) with `mimir-host store import - --apply`,
-  remove `[store]` from `config.toml`, and run `mimir pair` again. The command
-  never removes `[store]` itself. [Move a CLI-only install to a host](move-to-a-host.md)
+  write nothing. Pairing would leave that board behind. If `[store]` names
+  Postgres, the CLI cannot export it: run the host against that database (see
+  [Run it on a server against Postgres](#run-it-on-a-server-against-postgres)),
+  remove `[store]` from `config.toml`, and run `mimir pair`. If `[store]` names
+  SQLite, export it with `mimir store export board.json`, import it on the host
+  as described in [Back up the store](#back-up-the-store) with
+  `mimir-host store import - --apply`, remove `[store]`, and run `mimir pair`
+  again. The command never removes `[store]` itself. [Move a CLI-only install to a host](move-to-a-host.md)
   walks through each step.
 - **`--leave-local-board`.** A default install keeps its board in `store.sqlite`
   in the data directory, with no `[store]`. `mimir pair` refuses while that file

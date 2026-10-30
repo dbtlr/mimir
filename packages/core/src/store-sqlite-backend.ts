@@ -46,7 +46,7 @@ function builtOver(handle: SqliteHandle): BuiltStore {
  * and the CLI's machine services share. A fresh installation's data directory may not
  * exist until this first open.
  */
-export function openInstallationSqlite(
+function openInstallationSqlite(
   path: string = sqliteStorePath(),
   onMigration?: (name: string) => void,
 ): Promise<SqliteHandle> {

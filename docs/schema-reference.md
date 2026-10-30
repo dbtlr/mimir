@@ -329,9 +329,9 @@ Migrations are a static, ordered list carried in the binary (`core/store-sql/mig
 
 - **Newer schema than the binary.** Every normal command refuses it, on both backends. A newer schema is never downgraded; update the binary.
 - **SQLite migrates on open.** The store is one file, `store.sqlite`, in the installation's data directory. Opening creates it when absent, runs it in WAL mode with foreign keys enforced, and applies every pending migration. A file that holds tables but no schema version is refused as not a Mimir store, and the file is left as found.
-- **The host migrates its own store at startup,** on SQLite or PostgreSQL. A failed migration prevents serving, and a schema newer than the host supports refuses startup. The upgrade runs under a lock so two hosts upgrading at once serialize, and it re-reads the version inside the lock so the loser applies nothing. The CLI never opens Postgres, and `mimir store upgrade` no longer exists. See [Upgrade the host](guides/host.md#upgrade-the-host-and-its-paired-clis).
+- **The host migrates its own store at startup,** on SQLite or PostgreSQL. A failed migration prevents serving, and a schema newer than the host supports refuses startup. The upgrade runs under a lock so two host processes (an overlapping restart) serialize, and it re-reads the version inside the lock so the loser applies nothing. The CLI never opens Postgres, and `mimir store upgrade` no longer exists. See [Upgrade the host](guides/host.md#upgrade-the-host-and-its-paired-clis).
 
-The host's `/health` reports `schema` as the schema version it expects. `mimir doctor` reports a `schema-version` finding when the database's version differs. Against a host on Postgres that is a normal rollout state, not a hand edit.
+The host's `/health` reports `schema` as the schema version it expects. A local `mimir doctor` reports a `schema-version` finding when the SQLite file's version differs from the binary's, and `mimir-host doctor` does the same for the host's store. A paired CLI's `mimir doctor` never reads the host's database: it checks the host configuration, credentials, `/health`, the version window, and the device token, and points record health to `mimir-host doctor`. The host migrates its store when it starts, so a schema behind the host's build resolves with a host restart.
 
 ## Transfer document
 

@@ -146,7 +146,7 @@ test('an unusable [store] section is fatal, never a fallback to another store', 
   ] as const) {
     let threw = false;
     try {
-      await buildStore({ store: { problem } });
+      await buildLocalStore({ store: { problem } });
     } catch (error) {
       threw = true;
       // A MimirError, so every transport renders the summary and the remedy as
@@ -163,7 +163,7 @@ test('an unusable [store] section is fatal, never a fallback to another store', 
 // Each store has one owner (ADR 0038): an install that names a host keeps no
 // local store, so a CLI that cannot reach the host opens none in its place.
 test('a config with a usable [host] builds no local store', async () => {
-  const refusal: unknown = await buildStore({
+  const refusal: unknown = await buildLocalStore({
     host: { url: 'https://mimir.example.test' },
     store: {},
   }).catch((error: unknown) => error);
@@ -180,7 +180,9 @@ test('a config with a broken [host] builds no local store and names the fix', as
     [{ problem: 'invalid-url' }, "set [host] url to the host's http or https URL"],
     [{ problem: 'with-store' }, 'keep one: remove [store] to use the host'],
   ] as const) {
-    const refusal: unknown = await buildStore({ host, store: {} }).catch((error: unknown) => error);
+    const refusal: unknown = await buildLocalStore({ host, store: {} }).catch(
+      (error: unknown) => error,
+    );
     expect(refusal).toBeInstanceOf(MimirError);
     expect((refusal as MimirError).hint).toStartWith(hint);
   }
@@ -189,7 +191,7 @@ test('a config with a broken [host] builds no local store and names the fix', as
 test('a removed norn backend names the removal and the export path to migrate', async () => {
   let message = '';
   try {
-    await buildStore({ store: { problem: 'removed-backend' } });
+    await buildLocalStore({ store: { problem: 'removed-backend' } });
   } catch (error) {
     message = error instanceof MimirError ? `${error.message} — ${error.hint ?? ''}` : '';
   }
@@ -245,4 +247,14 @@ test('the explicit-config path still reaches the Postgres arm the CLI refuses', 
   );
   expect((refusal as MimirError).message).toContain('needs a connection URL');
   expect((refusal as MimirError).message).not.toContain('mimir pair');
+});
+
+// The CLI's refusals belong to the CLI's builder: the host assembles its config
+// from its environment and never sets `[host]` or a store `problem`.
+test('the explicit-config builder applies none of the CLI config refusals', async () => {
+  const built = await buildStore(
+    { host: { url: 'https://mimir.example.test' }, store: { problem: 'malformed' } },
+    { sqliteFile: join(dir, 'explicit.sqlite') },
+  );
+  await built.close();
 });

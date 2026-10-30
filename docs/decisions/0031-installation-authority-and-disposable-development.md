@@ -339,8 +339,8 @@ such as `v0.25.0/install.sh`.
 
 The CLI no longer opens Postgres (ADR 0030's 2026-10-29 addendum), so the
 sandbox no longer installs a candidate CLI against a restored Postgres
-snapshot, and the snapshot, restore, verify, upgrade, and rehearse commands are
-removed. The sandbox keeps disposable Postgres for the development host and
+snapshot, and the `snapshot-schema`, `restore`, `verify`, `upgrade`, `rehearse`, and
+`run` commands are removed. The sandbox keeps disposable Postgres for the development host and
 for `bun run test:postgres`, which runs the real-Postgres conformance and
 concurrency cases. The host migrates its store at startup, so a schema change
 is proven by those cases rather than by a rehearsal against a copy of a live
