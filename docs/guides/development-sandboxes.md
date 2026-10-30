@@ -46,12 +46,14 @@ Smoke a build instead.
 A build takes its runtime paths from the first of these that applies:
 
 1. the installation receipt beside the binary (`<binary>.installation.json`);
-2. a sandbox authority;
+2. a sandbox authority, named by a sandbox receipt or by
+   `MIMIR_SANDBOX_AUTHORITY`;
 3. a `.dev` directory: the repository's for `bun run mimir`, and one beside the
    binary for a compiled build, such as `dist/.dev` for `dist/mimir`.
 
-XDG variables are read only when a live installation is first adopted. Setting
-them does not isolate a run of the installed binary from its registered paths.
+XDG variables choose a live installation's directories only when it is first
+adopted, and the receipt keeps them after that. Setting them does not isolate a
+run of the installed binary from its registered paths.
 
 Copy the build into a fresh directory and run the copy there, so its `.dev` is
 disposable:

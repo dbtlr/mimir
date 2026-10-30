@@ -311,10 +311,10 @@ lives in the `release-cut` skill (`.claude/skills/release-cut/`).
 
 ## The live deployment
 
-Mimir has one live deployment: the maintainer's installed CLI and the host
-container that owns its store. A separate infrastructure repository, Fleet,
-deploys the host and its proxy route, and Fleet's own sessions make those
-changes.
+This section is for maintainers and their agents. Mimir has one live
+deployment: the maintainers' installed CLI and the host container that owns its
+store. The maintainers' infrastructure repository, Fleet, deploys the host and
+its proxy route, and Fleet's own sessions make those changes.
 
 - **Deployment changes go to Fleet.** When a Mimir change needs the host
   deployed differently (its service, proxy route, or container settings), file
@@ -329,11 +329,12 @@ changes.
   it. Split the live upgrade into its own parked task tied to the next stable
   release, close the code task when its code merges, and ask before running
   anything against the live install.
-- **Prefer the clean change.** The live deployment has no other users. A
-  breaking change still carries its fragment and migration section, but a
-  release nobody installed needs no deprecation aliases, compatibility shims,
-  or notes about what its installs lose. Keep the live install's own upgrade
-  path working, and revisit this when Mimir gains outside users.
+- **Prefer the clean change.** Mimir has no known users outside the live
+  deployment. A breaking change still carries its fragment and migration
+  section, but it needs no deprecation aliases or compatibility shims for a
+  release nobody installed, and its migration section need not describe what
+  installs of such a release lose. Keep the live install's own upgrade path
+  working, and revisit this when Mimir gains outside users.
 
 ## Code of conduct
 
