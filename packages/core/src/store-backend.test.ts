@@ -136,14 +136,13 @@ test('an existing-only sqlite build refuses a missing store and creates nothing'
 });
 
 test('an unusable [store] section is fatal, never a fallback to another store', async () => {
-  // The fence selects which store gets WRITTEN: a typo in a Postgres install
-  // must not create and write a local store instead.
+  // The fence selects which store gets WRITTEN: a typo in [store] must not
+  // create and write a local store instead. Each remedy leads to SQLite or a
+  // host, never to a Postgres setting the CLI then refuses.
   for (const [problem, remedy] of [
-    ['invalid-backend', 'set backend to one of: sqlite, postgres'],
-    ['malformed', 'set backend to one of: sqlite, postgres'],
-    // A bad url is a different fault and gets a different remedy: re-reading
-    // the list of backends does not fix a connection string.
-    ['invalid-url', 'set url to a Postgres connection URL'],
+    ['invalid-backend', 'set backend to sqlite, or remove [store] and pair with a host'],
+    ['malformed', 'set backend to sqlite, or remove [store] and pair with a host'],
+    ['invalid-url', 'remove url: the CLI opens only a SQLite store'],
   ] as const) {
     let threw = false;
     try {

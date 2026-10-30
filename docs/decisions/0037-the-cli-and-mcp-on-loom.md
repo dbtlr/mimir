@@ -227,3 +227,4 @@ responsibility, through `mimir-host doctor` and the console.
 
 - 2026-10-21: Added the remote-doctor refinement. MMR-588 implements the client checks separately from MMR-579's pairing command.
 - 2026-10-27: Noted that the parity cases run as snapshots of the Loom CLI and the old CLI is no longer the oracle (MMR-600).
+- 2026-10-29: `store upgrade` is removed in every mode; in remote mode `store` refuses export and import only (MMR-582).

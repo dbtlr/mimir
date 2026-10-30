@@ -201,3 +201,10 @@ remote CLI sends a bearer device token on every Engine procedure under
 `/trpc`. The console's server functions still take no token, so the
 unauthenticated posture and the tailnet boundary above remain in force.
 Pairing names and revokes devices but is not a security boundary.
+
+## Addendum (2026-10-29, MMR-582): CLIs no longer open Postgres
+
+CLIs no longer share the host's Postgres or keep a `mimir store upgrade` gate.
+The host is the only Mimir program that opens Postgres, and it migrates its
+store at startup. See [ADR 0030](0030-postgres-store-backend-shared-store-bridge.md)'s
+2026-10-29 addendum.

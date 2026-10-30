@@ -12,7 +12,7 @@ and no database credentials.
 A board that already lives in a Postgres database does not move through the
 CLI. Run the host against that database instead, as
 [Run it on a server against Postgres](host.md#run-it-on-a-server-against-postgres)
-describes, and pair the CLI from step 5.
+describes, and continue from step 4.
 
 The steps use two machines: the one with the CLI and the one that runs the
 host. They can be the same machine. The host commands use

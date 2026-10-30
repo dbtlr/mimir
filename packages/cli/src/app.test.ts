@@ -39,7 +39,6 @@ test.each([['store export -'], ['doctor']])(
       machine: {
         cwd: '/nowhere',
         doctor: () => Promise.reject(new Error(unregistered)),
-        openSqlite: () => Promise.reject(new Error(unregistered)),
         readStdin: () => Promise.resolve(''),
       },
       store: () => Promise.reject(new Error(unregistered)),

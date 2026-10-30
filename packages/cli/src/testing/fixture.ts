@@ -6,7 +6,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { LocalEngine, openSqlite } from '@mimir/core';
+import { LocalEngine } from '@mimir/core';
 import type { DoctorBackend, DoctorFinding, GitPort, Store } from '@mimir/core';
 import { createTestStore } from '@mimir/core/testing';
 
@@ -153,7 +153,6 @@ export async function parityBoard(): Promise<ParityBoard> {
   const stdin = { text: '' };
   const edges = {
     cwd: dir,
-    openSqlite: () => openSqlite(':memory:'),
     readStdin: () => Promise.resolve(stdin.text),
   };
   const machine: MachineSource = {

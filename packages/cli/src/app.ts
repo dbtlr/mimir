@@ -41,7 +41,6 @@ import {
   LocalEngine,
   MAX_SEARCH_LIMIT,
   nodeToWire,
-  openInstallationSqlite,
   overviewScratchpadToWire,
   overviewToWire,
   parseDateFilterTokens,
@@ -77,7 +76,6 @@ import type {
   DoctorFinding,
   GitPort,
   GlobalConfig,
-  SqliteHandle,
   Store,
 } from '@mimir/core';
 import { RemoteEngine } from '@mimir/wire/client';
@@ -174,8 +172,6 @@ type CliSourceEdges = {
 export type MachineSource = {
   /** The store backend's doctor, built on first ask. */
   doctor: () => Promise<Pick<DoctorBackend, 'diagnose'>>;
-  /** Open, and so migrate, the installation's SQLite store. */
-  openSqlite: () => Promise<SqliteHandle>;
   /** The whole standard input, for `store import -`. */
   readStdin: () => Promise<string>;
   /** The directory the retired binding file is looked for in. */
@@ -896,7 +892,6 @@ export async function runMimir(): Promise<number> {
             }
           },
         }),
-      openSqlite: () => openInstallationSqlite(),
       pair: { configFile: configPath(), credentialsFile: credentialsPath() },
       readStdin: () => Bun.stdin.text(),
     },

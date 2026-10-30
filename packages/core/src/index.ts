@@ -64,7 +64,6 @@ export {
 } from './store-sqlite-backend';
 export { assertPostgresAccess } from './postgres-access';
 export { postgresUrlMissing } from './store-postgres-backend';
-export { sandboxAuthorityFromEnvironment } from './sandbox-authority';
 export { findingLine, isUnscoped } from './doctor/contract';
 export type {
   DoctorBackend,

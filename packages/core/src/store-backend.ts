@@ -57,9 +57,10 @@ export function assertUsableStoreConfig(config: GlobalConfig, file: string = con
 
 /** What fixes each unusable `[store]` — named per key, not one generic list. */
 const STORE_REMEDIES: Record<NonNullable<GlobalConfig['store']['problem']>, string> = {
-  'invalid-backend': 'set backend to one of: sqlite, postgres',
-  'invalid-url': 'set url to a Postgres connection URL (a non-empty string)',
-  malformed: 'set backend to one of: sqlite, postgres',
+  'invalid-backend': 'set backend to sqlite, or remove [store] and pair with a host (`mimir pair`)',
+  'invalid-url':
+    'remove url: the CLI opens only a SQLite store, and a shared board runs on a host (`mimir pair`)',
+  malformed: 'set backend to sqlite, or remove [store] and pair with a host (`mimir pair`)',
   'removed-backend':
     'the norn backend was removed (ADR 0032); export the vault with mimir v0.20 (`mimir store export <file>`), then remove the backend line and run `mimir store import <file> --apply`',
 };
@@ -68,7 +69,7 @@ const STORE_REMEDIES: Record<NonNullable<GlobalConfig['store']['problem']>, stri
 export type StoreOverride = {
   /** Explicit SQLite location for a store owner, creating and migrating on open. */
   sqliteFile?: string;
-  /** Designated store owners may upgrade before serving; CLI defaults remain gated. */
+  /** Designated store owners, such as the host, may upgrade a Postgres store before serving. */
   upgrade?: boolean;
   /**
    * Open the store as its owner left it: refuse a missing SQLite file or any
@@ -116,7 +117,7 @@ export async function buildLocalStore(
   if (config.store.backend === 'postgres' || config.store.url !== undefined) {
     throw invariant(
       `[store] names Postgres in ${configPath()}, and the CLI opens only a SQLite store`,
-      'pair the CLI with a host (`mimir pair`) and remove [store]; the host is the only program that opens Postgres. See docs/guides/move-to-a-host.md',
+      'run the host against that database (docs/guides/host.md), remove [store], then pair the CLI with the host (`mimir pair <host-url>`); the host is the only program that opens Postgres. See docs/guides/move-to-a-host.md',
     );
   }
   return await buildSqliteStore(override.sqliteFile, {

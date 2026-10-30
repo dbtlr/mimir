@@ -130,7 +130,7 @@ function storeRefusal(configFile: string, origin: string): MimirError {
   return new MimirError(
     'invariant',
     `${configFile} declares [store]: this install owns a local board, and pairing would leave it behind`,
-    `export the board (mimir store export board.json), import it on the host (mimir-host store import - --apply < board.json, inside the host container), remove [store] from ${configFile}, then run mimir pair ${origin}`,
+    `move the board first: if [store] names Postgres, run the host against that database (docs/guides/host.md); otherwise export the board (mimir store export board.json) and import it on the host (mimir-host store import - --apply < board.json, inside the host container). Then remove [store] from ${configFile} and run mimir pair ${origin}`,
   );
 }
 

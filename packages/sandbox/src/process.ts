@@ -54,7 +54,6 @@ export type Captured = { stdout: string; stderr: string; exit: number };
 type SpawnOptions = {
   cwd: string;
   env?: NodeJS.ProcessEnv;
-  inputFile?: string;
   timeout?: number;
   /** Kill the child when this aborts; the call then rejects as interrupted. */
   signal?: AbortSignal;
@@ -70,7 +69,7 @@ export async function capture(args: string[], options: SpawnOptions): Promise<Ca
     detached: options.group === true,
     env: options.env ?? isolatedEnvironment(),
     stderr: 'pipe',
-    stdin: options.inputFile ? Bun.file(options.inputFile) : 'ignore',
+    stdin: 'ignore',
     stdout: 'pipe',
   });
   const kill = (): void => {

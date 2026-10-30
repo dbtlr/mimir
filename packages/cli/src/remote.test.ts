@@ -99,7 +99,6 @@ function remoteApp(
     machine: {
       cwd: dir,
       doctor: opensStore,
-      openSqlite: opensStore,
       readStdin: () => Promise.resolve(''),
     },
     remote: remoteSource({ config, configFile: join(dir, 'config.toml'), credentialsFile, fetch }),

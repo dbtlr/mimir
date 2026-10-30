@@ -29,9 +29,7 @@ export class Sandbox {
   }
   private directory(id: string): string {
     if (!z.uuid().safeParse(id).success) {
-      throw new SandboxUsageError(
-        `Invalid sandbox ID "${id}"; use the UUID that create or restore printed.`,
-      );
+      throw new SandboxUsageError(`Invalid sandbox ID "${id}"; use the UUID that create printed.`);
     }
     return join(this.repository, '.dev', 'sandboxes', id);
   }
@@ -266,7 +264,6 @@ export class Sandbox {
   private async failure(authority: Pick<Authority, 'id' | 'root'>, error: unknown): Promise<void> {
     const message = error instanceof Error ? error.message : String(error);
     await this.record(authority.id, 'failure', 'failed', { message });
-    await rm(join(authority.root, 'verification.json'), { force: true });
     await privateJson(join(authority.root, 'failure.json'), {
       cleanup: `bun run sandbox destroy ${authority.id}`,
       message,

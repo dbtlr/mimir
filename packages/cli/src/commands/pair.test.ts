@@ -181,7 +181,6 @@ const pairEdges = (): PairSource => ({
 const machineEdges = () => ({
   cwd: dir,
   doctor: opensStore,
-  openSqlite: opensStore,
   pair: pairEdges(),
   readStdin: () => Promise.resolve(''),
 });
@@ -362,6 +361,8 @@ test('a config that declares [store] refuses with the migration steps and writes
   expect(run.stderr).toContain('mimir-host store import');
   expect(run.stderr).toContain('remove [store]');
   expect(run.stderr).toContain(`mimir pair ${ORIGIN}`);
+  // A Postgres [store] cannot export through the CLI, so the hint also names the host route.
+  expect(run.stderr).toContain('if [store] names Postgres, run the host against that database');
   expect(host.paths).toEqual([]);
   expectUntouched(STORE_CONFIG);
 });

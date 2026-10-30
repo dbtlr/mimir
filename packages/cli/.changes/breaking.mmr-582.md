@@ -23,7 +23,7 @@ url = "https://mimir.example.test"
 **Steps.**
 
 1. Run a host against the database that `[store] url` names; the host migrates it when it starts. `docs/guides/host.md` covers a host on Postgres.
-2. Run `mimir pair` against that host. `docs/guides/move-to-a-host.md` walks through pairing.
-3. Remove the `[store]` section from the CLI's `config.toml`, and delete any script line that runs `mimir store upgrade`; the host migrates its store when it starts.
+2. Remove the `[store]` section from the CLI's `config.toml`, and delete any script line that runs `mimir store upgrade`.
+3. Run `mimir pair` against that host. `docs/guides/move-to-a-host.md` walks through pairing.
 
 **Validation.** Run `mimir doctor` and `mimir overview`. Both answer from the host.
