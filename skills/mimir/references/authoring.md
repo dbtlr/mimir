@@ -160,9 +160,10 @@ mimir update KEY-4 --direction ""      # clear it
 - Re-writing identical text writes nothing, so an idempotent re-author doesn't
   move `updated_at` (and doesn't fake activity).
 - **Guard a scripted write.** Mimir keeps no earlier version, so a command
-  substitution that reads a missing or empty file clears the narrative. In a
-  fresh temporary directory, save the current text, write the new text to a
-  file, and update only when that text is not empty. Read the result back and
+  substitution that reads a missing or empty file clears the narrative, and so
+  does text of only whitespace. In a fresh temporary directory, save the
+  current text, write the new text to a file, and update only when that text
+  holds more than whitespace. Read the result back and
   compare it before you delete the directory; if it is wrong, restore with
   `--direction "$(cat "$dir/old.md")"`.
 
@@ -170,7 +171,8 @@ mimir update KEY-4 --direction ""      # clear it
   dir=$(mktemp -d)
   mimir get KEY-4 -f json | jq -r '.next // empty' > "$dir/old.md"
   # Write the new narrative to "$dir/new.md", then:
-  new=$(cat "$dir/new.md") && test -n "$new" &&
+  new=$(cat "$dir/new.md") &&
+    test -n "$(printf %s "$new" | tr -d '[:space:]')" &&
     mimir update KEY-4 --direction "$new" &&
     mimir get KEY-4 -f json | jq -r '.next // empty' | diff "$dir/new.md" - &&
     rm -r "$dir"
