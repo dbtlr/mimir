@@ -90,6 +90,48 @@ describe('directionPanel (MMR-450)', () => {
     });
   });
 
+  it('saving an emptied project direction clears it with null', async () => {
+    render(
+      <DirectionPanel
+        subject={{ key: 'MMR', kind: 'project' }}
+        title="Mimir"
+        next={PROSE}
+        offline={false}
+      />,
+      { wrapper },
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit direction' }));
+    await userEvent.clear(screen.getByRole('textbox', { name: 'Direction text' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(updateProject).toHaveBeenCalledWith({ data: { id: 'MMR', next: null } });
+    });
+  });
+
+  it('saving a whitespace-only node direction clears it with null', async () => {
+    render(
+      <DirectionPanel
+        subject={{ id: 'MMR-12', kind: 'node' }}
+        title="Console"
+        next="Old plan."
+        offline={false}
+      />,
+      { wrapper },
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit direction' }));
+    const box = screen.getByRole('textbox', { name: 'Direction text' });
+    await userEvent.clear(box);
+    await userEvent.type(box, '  \n ');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(update).toHaveBeenCalledWith({ data: { id: 'MMR-12', next: null } });
+    });
+  });
+
   it('offline disables Edit', () => {
     render(
       <DirectionPanel

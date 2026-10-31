@@ -659,6 +659,20 @@ describe('task page edit (MMR-453)', () => {
     expect(screen.getByLabelText(/tags/i)).toBeInTheDocument();
   });
 
+  it('sends null when the person empties a description that had text', async () => {
+    await openEdit(
+      engineTask({ description: 'Old prose.', id: 'MMR-66', status: 'ready', tags: [] }),
+    );
+    await userEvent.clear(screen.getByLabelText(/description/i));
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => {
+      expect(update).toHaveBeenCalledWith({
+        data: expect.objectContaining({ description: null, id: 'MMR-66' }),
+      });
+    });
+  });
+
   it('omits empty optional fields from the PATCH instead of sending nulls', async () => {
     await openEdit(
       engineTask({ description: null, externalRef: null, id: 'MMR-65', status: 'ready' }),

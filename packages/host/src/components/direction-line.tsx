@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { useUpdateDirection } from '../api/node-mutations';
 import type { DirectionTarget } from '../api/node-mutations';
 import { cn } from '../lib/cn';
+import { proseOrNull } from '../lib/prose';
 import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
 import { MarkdownBody } from './markdown-body';
 import type { ClampMeasure } from './markdown-body';
@@ -59,7 +60,7 @@ function DirectionDialog({
   // returns to the refetched prose rather than flashing the replaced text.
   const handleSave = async (text: string) => {
     try {
-      await update.mutateAsync(text);
+      await update.mutateAsync(proseOrNull(text));
       leaveEditor();
     } catch {
       // The hook toasts the cause; the draft stays put so it isn't lost.

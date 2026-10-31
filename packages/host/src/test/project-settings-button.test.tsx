@@ -94,6 +94,20 @@ describe('projectSettingsButton', () => {
       });
     });
   });
+
+  it.each(['', '   '])('an emptied description %j clears it with null', async (blank) => {
+    wrap(<ProjectSettingsButton project={baseProject} />);
+    fireEvent.click(screen.getByRole('button', { name: /project settings/i }));
+
+    fireEvent.change(screen.getByLabelText(/description/i), { target: { value: blank } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await vi.waitFor(() => {
+      expect(updateProject).toHaveBeenCalledWith({
+        data: { description: null, id: 'MMR', name: 'My Project' },
+      });
+    });
+  });
 });
 
 function openSheet() {
