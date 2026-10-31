@@ -356,3 +356,36 @@ on every Engine procedure under `/trpc`, and it runs after the host guard and
 the version window. The pairing rate limit guards the redeem endpoint, a host
 route outside the Engine and outside the bearer check, like `/health`. Codes
 and tokens stay off the Engine.
+
+## Refinement (2026-10-30 — clearing prose is explicit)
+
+The node-writes refinement makes `null` the value that clears a field. For the
+two long prose fields, `null` is now the only way to clear. `update` and
+`updateProject` refuse a `description` or `next` that is empty or only
+whitespace, and `seedUpdate` refuses such a `description`. The refusal is a
+`validation` error, and the stored text is unchanged. A `null` clears the
+field. As before, clearing a `## Next` that is absent writes nothing, and
+clearing one that is present but empty removes it.
+
+Neither field keeps its earlier text, so a blank that clears loses the prose
+for good. The blank usually comes from a script whose input file is missing or
+empty, not from a person choosing to clear. Refusing blank text in the Engine
+covers every client, local or remote. A client that offers a clear exposes it
+as its own explicit act:
+
+- The CLI has `--clear-direction` and `--clear-desc`, and MCP has the matching
+  `clear-direction` and `clear-desc` inputs. Each is refused wherever its text
+  flag is, and passing a clear flag with its text flag is a usage error.
+- The console sends `null` when a person saves a direction or description
+  editor whose text is empty or only whitespace.
+
+`MIN_CLIENT` does not rise, and the change ships in a minor release (ADR 0038).
+A client from before this refinement that sends a blank to clear is refused,
+and the text survives; it cannot clear these fields until it is updated.
+
+Every other field keeps its current behavior. Creates keep their current
+handling of a blank `description`, because nothing exists yet to lose.
+`summary`, `remote`, and the resume handles still treat a blank as a clear;
+they are one line long and cheap to rewrite.
+Store import is outside the rule: a transfer document restores the prose it
+carries, a present-but-empty `## Next` included.

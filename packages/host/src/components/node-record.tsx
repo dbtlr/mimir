@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { useTag, useTransition, useUntag, useUpdateNode } from '../api/node-mutations';
 import { cn } from '../lib/cn';
 import { isBareUrl } from '../lib/links';
+import { proseEdit } from '../lib/prose';
 import { artifactLink, nodeLink } from '../lib/record-url';
 import type { TaskFormValues } from '../lib/schemas';
 import type { NodeAnnotation } from '../lib/timeline';
@@ -320,7 +321,7 @@ export function useNodeEdit(nodeId: string) {
     try {
       await Promise.all([
         update.mutateAsync({
-          description: values.description ?? undefined,
+          description: proseEdit(values.description, baseline?.description),
           externalRef: values.external_ref ?? undefined,
           priority: values.priority ?? undefined,
           size: values.size ?? undefined,

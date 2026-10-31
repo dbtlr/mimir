@@ -3,7 +3,7 @@ import type { Priority, Size } from '@mimir/contract';
 import type { ArtifactMetadataPatch, ArtifactRecord } from '../artifacts/store';
 import { deriveSet } from '../derive';
 import type { DerivationSet } from '../derive';
-import { invariant, notFound, validation } from '../errors';
+import { blankProse, invariant, notFound, validation } from '../errors';
 import { SPEC_UPDATE_KEYS, updateKeysForTypes } from '../field-spec';
 import type { SpecUpdateKey } from '../field-spec';
 import { toCanonicalLf } from '../history-codec';
@@ -62,8 +62,9 @@ export function normalizeSummary(value: string | null): string | null {
 /**
  * Normalize a `## Next` narrative (MMR-321): line endings fold to the codec's
  * canonical LF and the prose is trimmed, so what is compared for a no-op is
- * exactly what the section round-trips to. A blank (or whitespace-only) value
- * is the CLEAR — it stores as `null`, which removes the section outright.
+ * exactly what the section round-trips to. `null` is the CLEAR, which removes
+ * the section outright; blank text never reaches here, because
+ * {@link refuseBlankProse} refuses it first.
  *
  * Deliberately uncapped, exactly like `description`: this is body prose, not a
  * short lede, and the codebase caps only the short `summary` field.
@@ -72,8 +73,32 @@ export function normalizeNext(value: string | null): string | null {
   if (value === null) {
     return null;
   }
-  const text = toCanonicalLf(value).trim();
-  return text === '' ? null : text;
+  return toCanonicalLf(value).trim();
+}
+
+/**
+ * Refuse a `description` or `next` that is empty or only whitespace. Neither
+ * keeps an earlier version, so a clear must be explicit: `null` clears, and a
+ * blank (usually an empty script input) leaves the stored text alone. Runs in
+ * the Engine's domain layer, so every transport gets the same refusal. Callers
+ * run it AFTER their existence and applicability checks, so those errors win,
+ * and BEFORE any patch or write is built.
+ */
+export function refuseBlankProse(fields: ProseFields): void {
+  const field = blankProseField(fields);
+  if (field !== undefined) {
+    throw blankProse(field);
+  }
+}
+
+type ProseFields = { description?: string | null; next?: string | null };
+
+/** The first of `description`/`next` that is a blank string, if any. */
+export function blankProseField(fields: ProseFields): 'description' | 'next' | undefined {
+  return (['description', 'next'] as const).find((field) => {
+    const value = fields[field];
+    return typeof value === 'string' && value.trim() === '';
+  });
 }
 
 /**
@@ -82,7 +107,7 @@ export function normalizeNext(value: string | null): string | null {
  * the current section is read through the WRITER (MMR-379), so the read runs on
  * the open transaction itself — it sees anything this same transact wrote, and
  * it takes no second pooled connection while this one holds the transaction
- * open. The new prose replaces the section whole, and a blank clears it.
+ * open. The new prose replaces the section whole, and `null` clears it.
  * Returns whether anything was queued, so the caller co-writes the
  * `updated_at` stamp — the section ops carry no precondition of their own —
  * and so a rewrite with the identical text writes NOTHING at all, leaving the
@@ -115,8 +140,8 @@ export type UpdateFields = {
   /**
    * The owned direction narrative — the `## Next` body section (MMR-321).
    * Container-only on a node (phase/initiative) and also a project's, never a
-   * task's. Replace semantics: the value is the whole section, and a blank
-   * clears it.
+   * task's. Replace semantics: the value is the whole section, and `null`
+   * clears it. Blank text is refused.
    */
   next?: string | null;
   /** The short list lede (MMR-162) — all-node, never type-gated. */
@@ -247,6 +272,7 @@ export async function updateNode(store: Store, id: string, fields: UpdateFields)
     if (fields.next !== undefined && node.type === 'task') {
       throw validation('next applies only to phases and initiatives');
     }
+    refuseBlankProse(fields);
 
     const patch: NodePatch = {};
     if (fields.title !== undefined) {
@@ -315,7 +341,7 @@ export type UpdateProjectFields = {
   name?: string;
   description?: string | null;
   /** The owned `## Next` direction narrative (MMR-321) — body prose, not a
-   * scalar field; blank clears the section. */
+   * scalar field; `null` clears the section. Blank text is refused. */
   next?: string | null;
   /** Pin or unpin the project (MMR-493) — the operator's "keep at hand" mark. */
   pinned?: boolean;
@@ -344,6 +370,7 @@ export async function updateProject(
     if (fields.name !== undefined && fields.name.trim() === '') {
       throw validation('project name cannot be blank');
     }
+    refuseBlankProse(fields);
     const patch: ProjectPatch = {};
     if (fields.name !== undefined) {
       patch.name = fields.name;

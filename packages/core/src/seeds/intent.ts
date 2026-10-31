@@ -17,6 +17,7 @@ import { deriveSet, findNodeInSet, findProjectInSet, isNodeSettled } from '../de
 import { conflict, notFound, projectNotFound, validation } from '../errors';
 import { parseId, parseSeedRef, renderId, renderSeedRef } from '../ids';
 import type { Node, Project } from '../model';
+import { blankProseField, refuseBlankProse } from '../mutations/data';
 import type { Store } from '../store';
 import { assertTitleWithinCap, splitCapture } from './capture';
 import { deriveLede } from './lede';
@@ -610,7 +611,7 @@ async function moveSeed(
 export type UpdateSeedFields = {
   title?: string;
   kind?: SeedKind;
-  /** The `## Seed Description` prose; `null` clears it. */
+  /** The `## Seed Description` prose; `null` clears it, blank text is refused. */
   description?: string | null;
 };
 
@@ -636,6 +637,32 @@ export async function updateSeed(
   // One projects read serves the board-active guard AND the echo (MMR-251).
   const projects = await store.loadProjects();
   assertSeedBoardActive(buildResolver(projects, []).set, ref.key);
+  await refuseBlankProseOnLiveSeed(store, ref, fields);
   await store.seeds.patch(ref.key, ref.seq, fields);
   return echoSeed(store, ref, projects, { content: true });
+}
+
+/**
+ * Refuse blank prose, but let an absent or terminal seed keep its own refusal.
+ * An absent seed is refused here with the store's not-found error, so a seed
+ * created between this read and the patch never takes the blank. A terminal
+ * seed falls through to `patch`'s frozen refusal, which raises before it writes
+ * anything; a terminal seed never turns live again. The seed is read only when
+ * the fields carry a blank, so an ordinary update costs no extra read.
+ */
+async function refuseBlankProseOnLiveSeed(
+  store: Store,
+  ref: { key: string; seq: number },
+  fields: UpdateSeedFields,
+): Promise<void> {
+  if (blankProseField(fields) === undefined) {
+    return;
+  }
+  const seed = await store.seeds.load(ref.key, ref.seq);
+  if (seed === undefined) {
+    throw notFound(`${renderSeedRef(ref)} doesn't exist`);
+  }
+  if (!isTerminalSeed(seed.lifecycle)) {
+    refuseBlankProse(fields);
+  }
 }

@@ -13,7 +13,7 @@ import { MimirError } from '@mimir/contract';
 
 export type { ErrorCode } from '@mimir/contract';
 export { MimirError };
-export { projectNotFound } from '@mimir/contract';
+export { blankProse, projectNotFound } from '@mimir/contract';
 
 export const notFound = (message: string, hint?: string): MimirError =>
   new MimirError('not_found', message, hint);

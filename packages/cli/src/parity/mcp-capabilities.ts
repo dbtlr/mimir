@@ -204,7 +204,7 @@ export const TOOL_COVERAGE: Readonly<Record<string, ToolCoverage>> = {
   unqueue: { change: REASON_CHANGE, inputs: REASON, loom: ['unqueue'] },
   untag: { change: IDS_CHANGE, inputs: { ids: 'ids' }, loom: ['untag'] },
   update: {
-    change: `${KEBAB}; \`description\` is \`desc\`, \`externalRef\` is \`ref\`, \`next\` is \`direction\`, \`openEnded\` is \`open-ended\` with \`not-open-ended\` to clear; \`pinned: false\` unpins, as does \`not-pinned: true\``,
+    change: `${KEBAB}; \`description\` is \`desc\`, \`externalRef\` is \`ref\`, \`next\` is \`direction\`, \`openEnded\` is \`open-ended\` with \`not-open-ended\` to clear; \`pinned: false\` unpins, as does \`not-pinned: true\`; a blank \`description\` or \`next\` is refused, and \`clear-desc: true\` or \`clear-direction: true\` clears it`,
     inputs: {
       description: 'desc',
       externalRef: 'ref',

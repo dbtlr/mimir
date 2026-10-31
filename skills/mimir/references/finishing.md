@@ -36,9 +36,10 @@ no task finished:
 2. Decide what non-derivable sequencing rationale is still true. Do not restate
    the ready queue, statuses, or dependency rollups.
 3. Replace the complete owned section with
-   `mimir update <KEY|container> --direction "…"`; pass `""` when no editorial
-   direction remains. Write from a file only behind the guard in
-   `references/authoring.md`, because an empty value clears the section.
+   `mimir update <KEY|container> --direction "…"`; run
+   `mimir update <KEY|container> --clear-direction` when no editorial direction
+   remains. An empty `--direction` value is refused, so a script that reads a
+   missing file cannot clear the section.
 4. Read it back. If the CAS guard refuses because another write landed, discard
    the stale draft, re-read the board and current prose, merge the new facts,
    and re-author. Never replay the old command unchanged.

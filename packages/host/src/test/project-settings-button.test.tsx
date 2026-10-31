@@ -94,6 +94,36 @@ describe('projectSettingsButton', () => {
       });
     });
   });
+
+  it('a description that was blank and still is leaves it alone', async () => {
+    wrap(<ProjectSettingsButton project={{ ...baseProject, description: null }} />);
+    fireEvent.click(screen.getByRole('button', { name: /project settings/i }));
+
+    fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Renamed' } });
+    fireEvent.change(screen.getByLabelText(/description/i), { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await vi.waitFor(() => {
+      expect(updateProject).toHaveBeenCalled();
+    });
+    const { data } = vi.mocked(updateProject).mock.calls[0]![0];
+    expect(data.name).toBe('Renamed');
+    expect(data.description).toBeUndefined();
+  });
+
+  it.each(['', '   '])('an emptied description %j clears it with null', async (blank) => {
+    wrap(<ProjectSettingsButton project={baseProject} />);
+    fireEvent.click(screen.getByRole('button', { name: /project settings/i }));
+
+    fireEvent.change(screen.getByLabelText(/description/i), { target: { value: blank } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await vi.waitFor(() => {
+      expect(updateProject).toHaveBeenCalledWith({
+        data: { description: null, id: 'MMR', name: 'My Project' },
+      });
+    });
+  });
 });
 
 function openSheet() {

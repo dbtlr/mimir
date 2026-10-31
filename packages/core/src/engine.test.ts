@@ -183,3 +183,121 @@ test('archive echoes the project and only the out-of-project tasks it freed', as
   expect(archived.archivedAt).toBeInstanceOf(Date);
   expect(archived.released).toEqual([freed.id]);
 });
+
+// Clearing long prose is explicit (ADR 0034 refinement): a blank is a refusal, `null` is the clear.
+const BLANKS = ['', '   ', '\n\t '] as const;
+
+test.each(BLANKS)('update refuses a blank direction %j and keeps the narrative', async (blank) => {
+  const phase = await engine.create({ parent: 'ENG-1', title: 'Phase', type: 'phase' });
+  await engine.update({ id: phase.id, next: 'Ship the store.' });
+  const refusal = await errorOf(engine.update({ id: phase.id, next: blank }));
+  expect(refusal.code).toBe('validation');
+  expect((await engine.getNode({ facets: ['next'], id: phase.id })).next).toBe('Ship the store.');
+});
+
+test.each(BLANKS)('update refuses a blank description %j and keeps it', async (blank) => {
+  await engine.update({ description: 'Open the store once.', id });
+  const refusal = await errorOf(engine.update({ description: blank, id }));
+  expect(refusal.code).toBe('validation');
+  expect((await engine.getNode({ facets: ['description'], id })).description).toBe(
+    'Open the store once.',
+  );
+});
+
+test.each(BLANKS)('updateProject refuses a blank direction %j and description', async (blank) => {
+  await engine.updateProject({ description: 'About.', id: 'ENG', next: 'Direction' });
+  expect((await errorOf(engine.updateProject({ id: 'ENG', next: blank }))).code).toBe('validation');
+  expect((await errorOf(engine.updateProject({ description: blank, id: 'ENG' }))).code).toBe(
+    'validation',
+  );
+  const project = await engine.getNode({ facets: ['description', 'next'], id: 'ENG' });
+  expect(project.next).toBe('Direction');
+  expect(project.description).toBe('About.');
+});
+
+test.each(BLANKS)('seedUpdate refuses a blank description %j and keeps it', async (blank) => {
+  const seed = await engine.seedCreate({
+    description: 'Why it matters.',
+    kind: 'idea',
+    project: 'ENG',
+    title: 'S',
+  });
+  const refusal = await errorOf(engine.seedUpdate({ description: blank, id: seed.id }));
+  expect(refusal.code).toBe('validation');
+  expect((await engine.getSeed({ content: true, id: seed.id })).description).toBe(
+    'Why it matters.',
+  );
+});
+
+test('null clears a container direction, a project direction, and every description', async () => {
+  const phase = await engine.create({ parent: 'ENG-1', title: 'Phase', type: 'phase' });
+  await engine.update({ description: 'Phase prose.', id: phase.id, next: 'Go.' });
+  await engine.update({ description: null, id: phase.id, next: null });
+  const cleared = await engine.getNode({ facets: ['description', 'next'], id: phase.id });
+  expect(cleared.description).toBeNull();
+  expect(cleared.next).toBeUndefined();
+
+  await engine.updateProject({ description: 'About.', id: 'ENG', next: 'Direction' });
+  await engine.updateProject({ description: null, id: 'ENG', next: null });
+  const project = await engine.getNode({ facets: ['description', 'next'], id: 'ENG' });
+  expect(project.description).toBeNull();
+  expect(project.next).toBeUndefined();
+
+  const seed = await engine.seedCreate({
+    description: 'Why.',
+    kind: 'idea',
+    project: 'ENG',
+    title: 'S',
+  });
+  expect((await engine.seedUpdate({ description: null, id: seed.id })).description).toBeNull();
+});
+
+test('clearing a direction that is absent writes nothing', async () => {
+  const phase = await engine.create({ parent: 'ENG-1', title: 'Phase', type: 'phase' });
+  const before = (await engine.getNode({ id: phase.id })).updatedAt;
+  await Bun.sleep(20);
+  await engine.update({ id: phase.id, next: null });
+  expect((await engine.getNode({ id: phase.id })).updatedAt).toEqual(before);
+});
+
+test('a task refuses a direction clear as it refuses direction text', async () => {
+  expect((await errorOf(engine.update({ id, next: null }))).code).toBe('validation');
+});
+
+test('a blank direction on a task gets the applicability error, not the blank refusal', async () => {
+  const refusal = await errorOf(engine.update({ id, next: '  ' }));
+  expect(refusal.code).toBe('validation');
+  expect(refusal.message).toContain('next applies only to phases and initiatives');
+});
+
+test('a blank description on a missing node, project, or seed is not found', async () => {
+  expect((await errorOf(engine.update({ description: '', id: 'ENG-999' }))).code).toBe('not_found');
+  expect((await errorOf(engine.updateProject({ description: ' ', id: 'NOPE' }))).code).toBe(
+    'not_found',
+  );
+  const seed = await errorOf(engine.seedUpdate({ description: '', id: 'ENG-s99' }));
+  expect([seed.code, seed.message]).toEqual(['not_found', "ENG-s99 doesn't exist"]);
+});
+
+test('a blank description on a terminal seed gets the frozen error, not the blank refusal', async () => {
+  const seed = await engine.seedCreate({ kind: 'idea', project: 'ENG', title: 'S' });
+  await engine.seedReject({ id: seed.id, reason: 'no' });
+  const refusal = await errorOf(engine.seedUpdate({ description: '', id: seed.id }));
+  expect(refusal.message).toContain('frozen');
+});
+
+test('clearing a present-but-empty direction removes the section and stamps updated_at', async () => {
+  const phase = await engine.create({ parent: 'ENG-1', title: 'Phase', type: 'phase' });
+  await fixture.store.transact(async (w) => {
+    await w.setNextSection('node', phase.id, { text: '' });
+    await w.updateNode(phase.id, { updated_at: '2026-09-02T12:00:00.000Z' });
+  });
+  await fixture.store.transact(async (w) => {
+    expect((await w.readNextSection('node', phase.id)).present).toBe(true);
+  });
+  const cleared = await engine.update({ id: phase.id, next: null });
+  expect(cleared.updatedAt.getTime()).toBeGreaterThan(Date.parse('2026-09-02T12:00:00.000Z'));
+  await fixture.store.transact(async (w) => {
+    expect((await w.readNextSection('node', phase.id)).present).toBe(false);
+  });
+});

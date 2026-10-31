@@ -294,6 +294,44 @@ describe('seed page (MMR-451)', () => {
       );
     });
 
+    it.each(['', '   '])(
+      'clears the description with null when it is emptied to %j',
+      async (blank) => {
+        serve(crossBoardBug);
+        await renderRoute(consoleRoutes, '/p/NRN/s30', quietClient());
+
+        const rail = await screen.findByRole('complementary', { name: 'Record details' });
+        await userEvent.click(within(rail).getByRole('button', { name: 'Edit' }));
+        const description = screen.getByRole('textbox', { name: 'Description' });
+        await userEvent.clear(description);
+        if (blank !== '') {
+          await userEvent.type(description, blank);
+        }
+        await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(() =>
+          expect(seedUpdate).toHaveBeenCalledWith({ data: { description: null, id: 'NRN-s30' } }),
+        );
+      },
+    );
+
+    it('leaves a description that was blank and still is out of the edit', async () => {
+      serve({ ...crossBoardBug, description: null });
+      await renderRoute(consoleRoutes, '/p/NRN/s30', quietClient());
+
+      const rail = await screen.findByRole('complementary', { name: 'Record details' });
+      await userEvent.click(within(rail).getByRole('button', { name: 'Edit' }));
+      await userEvent.type(screen.getByRole('textbox', { name: 'Description' }), '   ');
+      const title = screen.getByRole('textbox', { name: 'Title' });
+      await userEvent.clear(title);
+      await userEvent.type(title, 'A new title');
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() =>
+        expect(seedUpdate).toHaveBeenCalledWith({ data: { id: 'NRN-s30', title: 'A new title' } }),
+      );
+    });
+
     it('sends only what changed, so an over-cap older title never blocks an edit', async () => {
       const longTitle = 'x'.repeat(150);
       serve({ ...crossBoardBug, title: longTitle });
