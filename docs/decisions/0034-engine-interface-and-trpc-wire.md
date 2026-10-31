@@ -383,9 +383,9 @@ as its own explicit act:
 A client from before this refinement that sends a blank to clear is refused,
 and the text survives; it cannot clear these fields until it is updated.
 
-Every other field keeps its current behavior. A blank `description` on
-`create`, `seedCreate`, or `seedPromote` still projects as no description,
-because nothing exists yet to lose. `summary`, `remote`, and the resume handles
-still treat a blank as a clear; they are one line long and cheap to rewrite.
+Every other field keeps its current behavior. Creates keep their current
+handling of a blank `description`, because nothing exists yet to lose.
+`summary`, `remote`, and the resume handles still treat a blank as a clear;
+they are one line long and cheap to rewrite.
 Store import is outside the rule: a transfer document restores the prose it
 carries, a present-but-empty `## Next` included.

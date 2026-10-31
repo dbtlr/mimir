@@ -164,10 +164,13 @@ mimir update KEY-4 --clear-direction   # clear it
   it refuses: **re-read and merge** against the current text, then write again.
 - Re-writing identical text writes nothing, so an idempotent re-author doesn't
   move `updated_at` (and doesn't fake activity).
-- **Read the result back.** After a scripted write, run
-  `mimir get KEY-4 -f json | jq -r '.next // empty'` and compare it with the
-  text you meant to write. A missing or empty input file is refused rather than
-  written, so the comparison catches a wrong value, not a lost narrative.
+- **Save, then read back.** Mimir keeps no earlier version of a direction. Before
+  you replace a long narrative from a file, save the current text:
+  `mimir get KEY-4 -f json | jq -r '.next // empty' > old.md`. If the new value
+  is wrong, restore it with `--direction "$(cat old.md)"`. After the write, run
+  the same `get` and compare it with the text you meant to write. A missing or
+  empty input file is refused rather than written, but a wrong non-blank value
+  still replaces the text.
 
 - The flag is `--direction`, not `--next` (`self-update` selects a channel with `--channel next`).
   The `update` tool takes `direction` too. Reads name it `next`: `--col next`
