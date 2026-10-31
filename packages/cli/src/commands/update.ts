@@ -11,7 +11,15 @@ import { mcpCommand } from '@loomcli/plugins/mcp/extension';
 import { intentEncoders, MimirError, SEED_KIND_VALUES } from '@mimir/contract';
 
 import { MimirUsageError } from '../failures';
-import { flagPair, nodeToken, parseUpstream, withListHint, withProjectHint } from '../node-input';
+import {
+  flagPair,
+  nodeToken,
+  parseUpstream,
+  proseOrClear,
+  withClearHint,
+  withListHint,
+  withProjectHint,
+} from '../node-input';
 import { asciiOption, text, writeHints } from '../options';
 import { parsePriority, parseSeedKind, parseSize } from '../parse';
 import type { Ports } from '../ports';
@@ -29,7 +37,9 @@ import type { NodeEcho } from '../render/writes';
 type UpdateOptions = {
   title?: string;
   desc?: string;
+  'clear-desc'?: boolean;
   direction?: string;
+  'clear-direction'?: boolean;
   summary?: string;
   priority?: string;
   size?: string;
@@ -81,10 +91,12 @@ type Owner = 'artifact' | 'project' | 'seed';
 const FIELD_FLAGS: readonly (readonly [flag: keyof UpdateOptions, owners: readonly Owner[]])[] = [
   ['branch', []],
   ['desc', ['project', 'seed']],
+  ['clear-desc', ['project', 'seed']],
   ['ref', []],
   ['harness', []],
   ['host', []],
   ['direction', ['project']],
+  ['clear-direction', ['project']],
   ['open-ended', []],
   ['not-open-ended', []],
   ['priority', []],
@@ -164,8 +176,8 @@ function refuseNodeOnlyFlags(options: UpdateOptions): void {
 function changedLabels(options: UpdateOptions): string[] {
   const labels: [string, unknown][] = [
     ['title', options.title],
-    ['description', options.desc],
-    ['next', options.direction],
+    ['description', options.desc ?? options['clear-desc']],
+    ['next', options.direction ?? options['clear-direction']],
     ['branch', options.branch],
     ['ref', options.ref],
     ['harness', options.harness],
@@ -189,11 +201,25 @@ function changedLabels(options: UpdateOptions): string[] {
 function seedLabels(options: UpdateOptions): string[] {
   const labels: [string, unknown][] = [
     ['title', options.title],
-    ['description', options.desc],
+    ['description', options.desc ?? options['clear-desc']],
     ['kind', options.kind],
   ];
-  return labels.filter(([, value]) => value !== undefined).map(([label]) => label);
+  return labels
+    .filter(([, value]) => value !== undefined && value !== false)
+    .map(([label]) => label);
 }
+
+/** The description `--desc` or `--clear-desc` asks for: text, `null` to clear, or `undefined`. */
+const descriptionOf = (options: UpdateOptions) =>
+  proseOrClear(options.desc, options['clear-desc'], 'at most one of --desc | --clear-desc');
+
+/** The direction `--direction` or `--clear-direction` asks for: text, `null` to clear, or `undefined`. */
+const directionOf = (options: UpdateOptions) =>
+  proseOrClear(
+    options.direction,
+    options['clear-direction'],
+    'at most one of --direction | --clear-direction',
+  );
 
 /** A project's `--remote`: absent leaves it, blank clears it. */
 function remoteOf(remote: string | undefined): string | null | undefined {
@@ -240,17 +266,21 @@ export function updateCommand(ports: Ports) {
       options['not-pinned'] === true || options.pinned === false ? true : undefined,
       'at most one of --pinned | --not-pinned',
     );
+    const description = descriptionOf(options);
+    const next = directionOf(options);
     const engine = await ports.engine();
     return withProjectHint(id, () =>
-      engine.updateProject({
-        description: options.desc,
-        id,
-        name: options.name,
-        next: options.direction,
-        pinned,
-        // A blank --remote clears it, like a blank --direction clears the narrative.
-        remote: remoteOf(options.remote),
-      }),
+      withClearHint(() =>
+        engine.updateProject({
+          description,
+          id,
+          name: options.name,
+          next,
+          pinned,
+          // A blank --remote clears it; --direction and --desc clear only with their clear flags.
+          remote: remoteOf(options.remote),
+        }),
+      ),
     );
   }
 
@@ -263,27 +293,31 @@ export function updateCommand(ports: Ports) {
     const priority = parsePriority(options.priority);
     const size = parseSize(options.size);
     const upstream = parseUpstream(ports.grammar, options.upstream);
+    const description = descriptionOf(options);
+    const next = directionOf(options);
     const engine = await ports.engine();
     return withListHint([id], () =>
-      engine.update({
-        branch: options.branch,
-        description: options.desc,
-        externalRef: options.ref,
-        harness: options.harness,
-        host: options.host,
-        id,
-        next: options.direction,
-        openEnded,
-        priority,
-        session: options.session,
-        size,
-        summary: options.summary,
-        target: options.target,
-        title: options.title,
-        upstream,
-        workerHarness: options['worker-harness'],
-        workerSession: options['worker-session'],
-      }),
+      withClearHint(() =>
+        engine.update({
+          branch: options.branch,
+          description,
+          externalRef: options.ref,
+          harness: options.harness,
+          host: options.host,
+          id,
+          next,
+          openEnded,
+          priority,
+          session: options.session,
+          size,
+          summary: options.summary,
+          target: options.target,
+          title: options.title,
+          upstream,
+          workerHarness: options['worker-harness'],
+          workerSession: options['worker-session'],
+        }),
+      ),
     );
   }
 
@@ -303,9 +337,10 @@ export function updateCommand(ports: Ports) {
 
   async function updateSeed(id: string, options: UpdateOptions, presentation: Presentation) {
     const kind = parseSeedKind(options.kind);
+    const description = descriptionOf(options);
     const engine = await ports.engine();
     const seed = intentEncoders.seed.parse(
-      await engine.seedUpdate({ description: options.desc, id, kind, title: options.title }),
+      await withClearHint(() => engine.seedUpdate({ description, id, kind, title: options.title })),
     );
     const labels = seedLabels(options);
     const suffix = labels.length > 0 ? ` (${labels.join(', ')})` : '';
@@ -330,6 +365,8 @@ export function updateCommand(ports: Ports) {
             command: 'update MMR-4 --direction "Next: …"',
             note: "a container's ## Next narrative",
           },
+          { command: 'update MMR-4 --clear-direction', note: "clear a container's narrative" },
+          { command: 'update MMR-3 --clear-desc', note: 'clear a description' },
           { command: 'update MMR --pinned', note: 'pin a project' },
           { command: 'update MMR-a1 --title "…"', note: 'retitle an artifact' },
           { command: 'update MMR-s1 --kind bug', note: "change a seed's kind" },
@@ -347,7 +384,15 @@ export function updateCommand(ports: Ports) {
     .argument('id', { description: 'KEY-seq, KEY, KEY-aN, or KEY-sN.', required: true })
     .option('title', text('The new title.'))
     .option('desc', text('The new description.'))
+    .option('clear-desc', {
+      description: 'Clear the description. Blank --desc text is refused.',
+      type: 'boolean',
+    })
     .option('direction', text("A container's ## Next narrative."))
+    .option('clear-direction', {
+      description: 'Clear the ## Next narrative. Blank --direction text is refused.',
+      type: 'boolean',
+    })
     .option('summary', text('A one-line summary.'))
     .option('priority', { ...text('p0, p1, p2, or p3.', 'p0..p3'), short: 'p' })
     .option('size', text('s, m, or l.', 's|m|l'))

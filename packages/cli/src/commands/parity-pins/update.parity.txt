@@ -241,6 +241,25 @@ exit 0
 ~ board.MMR.nodes.items[MMR-3].description: "Open the store once.\n\nKeep it open." -> "A new description."
 ~ nodes[MMR-3].description: "Open the store once.\n\nKeep it open." -> "A new description."
 
+### update argv: MMR-3 --clear-desc
+exit 0
+--- stdout
+| [ok] updated MMR-3 (description)
+| MMR-3
+|   type       task
+|   status     * ready
+|   title      Wire the store
+|   parent     MMR-2
+|   summary    one store per run
+|   priority   p1
+|   size       small
+|   lifecycle  todo
+|   grooming   groomed
+|   hold       none
+--- state
+~ board.MMR.nodes.items[MMR-3].description: "Open the store once.\n\nKeep it open." -> null
+~ nodes[MMR-3].description: "Open the store once.\n\nKeep it open." -> null
+
 ### update argv: MMR-3 --summary "one store"
 exit 0
 --- stdout
@@ -801,6 +820,21 @@ exit 0
 --- state
 + nodes[MMR-2].next: "Next: wire it."
 
+### update argv: MMR-2 --clear-direction
+exit 0
+--- stdout
+| [ok] updated MMR-2 (next)
+| MMR-2
+|   type          phase
+|   status        > in_progress (rollup over 7 direct children)
+|   title         Skeleton
+|   parent        MMR-1
+|   target        2026-11
+|   children      MMR-3 · Wire the store (ready), MMR-4 · Render views (awaiting), MMR-5 · Ship it (in_progress), MMR-6 · Wait on review (blocked), MMR-7 · Spike (done), MMR-8 · Tidy docs (ready), MMR-9 · Export (done)
+|   distribution  ready:2, awaiting:1, in_progress:1, blocked:1, done:2
+--- state
+unchanged
+
 ### update argv: MMR-2 --open-ended
 exit 0
 --- stdout
@@ -1047,6 +1081,35 @@ exit 0
 |   distribution   in_progress:1
 --- state
 + projects[MMR].next: "Next: ship it."
+
+### update argv: MMR --clear-direction
+exit 0
+--- stdout
+| MMR
+|   type           project
+|   status         > in_progress (rollup over 1 direct child)
+|   title          mimir
+|   description    The work-state store.
+|   remote         github.com/dbtlr/mimir
+|   last activity  2026-10-01 12:00 UTC
+|   children       MMR-1 · Platform (in_progress)
+|   distribution   in_progress:1
+--- state
+unchanged
+
+### update argv: MMR --clear-desc
+exit 0
+--- stdout
+| MMR
+|   type           project
+|   status         > in_progress (rollup over 1 direct child)
+|   title          mimir
+|   remote         github.com/dbtlr/mimir
+|   last activity  2026-10-01 12:00 UTC
+|   children       MMR-1 · Platform (in_progress)
+|   distribution   in_progress:1
+--- state
+~ projects[MMR].description: "The work-state store." -> null
 
 ### update argv: MMR --pinned
 exit 0
@@ -1480,6 +1543,20 @@ exit 0
 --- state
 ~ seeds.MMR[MMR-s1].lede: "Ask the other board for a hook." -> "x"
 
+### update argv: MMR-s1 --clear-desc
+exit 0
+--- stdout
+| [ok] updated MMR-s1 (description)
+| MMR-s1
+|   project    MMR
+|   title      A hook
+|   kind       feature
+|   lifecycle  new
+|   requester  XX
+|   created    2026-10-01 12:00 UTC
+--- state
+~ seeds.MMR[MMR-s1].lede: "Ask the other board for a hook." -> null
+
 ### update argv: MMR-s1
 exit 0
 --- stdout
@@ -1843,6 +1920,150 @@ exit 1
 |   "code": "validation",
 |   "hints": [],
 |   "message": "next applies only to phases and initiatives"
+| }
+--- state
+unchanged
+
+### update argv: MMR-3 --clear-direction
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "next applies only to phases and initiatives"
+| }
+--- state
+unchanged
+
+### update argv: MMR-2 --direction ""
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "to clear it, use --clear-direction"
+|   ],
+|   "message": "next cannot be blank"
+| }
+--- state
+unchanged
+
+### update argv: MMR-2 --direction "   "
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "to clear it, use --clear-direction"
+|   ],
+|   "message": "next cannot be blank"
+| }
+--- state
+unchanged
+
+### update argv: MMR-2 --desc ""
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "to clear it, use --clear-desc"
+|   ],
+|   "message": "description cannot be blank"
+| }
+--- state
+unchanged
+
+### update argv: MMR --direction ""
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "to clear it, use --clear-direction"
+|   ],
+|   "message": "next cannot be blank"
+| }
+--- state
+unchanged
+
+### update argv: MMR --desc "  "
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "to clear it, use --clear-desc"
+|   ],
+|   "message": "description cannot be blank"
+| }
+--- state
+unchanged
+
+### update argv: MMR-s1 --desc ""
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [
+|     "to clear it, use --clear-desc"
+|   ],
+|   "message": "description cannot be blank"
+| }
+--- state
+unchanged
+
+### update argv: MMR-2 --direction x --clear-direction
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "at most one of --direction | --clear-direction"
+| }
+--- state
+unchanged
+
+### update argv: MMR --desc x --clear-desc
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "at most one of --desc | --clear-desc"
+| }
+--- state
+unchanged
+
+### update argv: MMR-s1 --clear-direction
+exit 2
+--- stdout
+--- failure
+| {
+|   "code": "usage",
+|   "hints": [],
+|   "message": "--clear-direction doesn't apply to a seed — patch --title, --kind, or --desc"
+| }
+--- state
+unchanged
+
+### update argv: MMR-a1 --clear-desc
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "--clear-desc doesn't apply to an artifact — title and summary are its mutable fields"
 | }
 --- state
 unchanged

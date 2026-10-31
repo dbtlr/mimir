@@ -6,7 +6,8 @@
  * old CLI's words.
  */
 import type { Content } from '@loomcli/core';
-import { MimirError, projectNotFound } from '@mimir/contract';
+import { blankProse, MimirError, projectNotFound } from '@mimir/contract';
+import type { ClearOnlyProse } from '@mimir/contract';
 
 import { MimirUsageError } from './failures';
 import type { Grammar } from './ports';
@@ -98,6 +99,54 @@ export async function withProjectHint<T>(key: string, run: () => Promise<T>): Pr
     }
     throw error;
   }
+}
+
+/** The flag that clears each long prose field, which blank text may not. */
+const CLEAR_FLAGS: readonly (readonly [field: ClearOnlyProse, flag: string])[] = [
+  ['description', '--clear-desc'],
+  ['next', '--clear-direction'],
+];
+
+/**
+ * Run an Engine write whose `--direction` or `--desc` text may be blank. The
+ * Engine refuses blank text and says only that `null` clears; a refusal gains
+ * the flag that clears here.
+ */
+export async function withClearHint<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    for (const [field, flag] of CLEAR_FLAGS) {
+      const refusal = blankProse(field);
+      if (
+        error instanceof MimirError &&
+        error.code === refusal.code &&
+        error.message === refusal.message
+      ) {
+        throw new MimirError(refusal.code, refusal.message, `to clear it, use ${flag}`);
+      }
+    }
+    throw error;
+  }
+}
+
+/**
+ * A prose flag and its clear flag as the Engine takes them: the text, `null`
+ * for the clear, or `undefined` to leave it alone. Both at once is a usage
+ * error; `--clear-x=false` reads as not given.
+ */
+export function proseOrClear(
+  text: string | undefined,
+  clear: boolean | undefined,
+  usage: string,
+): string | null | undefined {
+  if (clear !== true) {
+    return text;
+  }
+  if (text !== undefined) {
+    throw new MimirUsageError(usage);
+  }
+  return null;
 }
 
 /** The clear sentinel `--upstream` takes. */
