@@ -64,9 +64,9 @@ mimir block KEY-9 "waiting on the vendor's fix"                    # no --on: th
   that is already held, and `unblock` clears the owner. `get` shows a `block owner`
   line while a task is blocked; `--eq block_owner:you` filters.
 - **Hygiene is unchanged.** `stale` chases blocks of either owner: an old `others`
-  block is the nudge to chase the other party. In the console, only blocks owned by
-  `you` count as needing the operator; `under_review` tasks and unheld
-  `needs_answers` tasks count too.
+  block is the nudge to chase the other party. In the console, blocks owned by `you`,
+  `under_review` tasks, and unheld `needs_answers` tasks count as needing the
+  operator; blocks owned by `others` do not.
 - `--on` belongs to `block` (and `depend`/`undepend` and the date filters); other
   verbs refuse it.
 

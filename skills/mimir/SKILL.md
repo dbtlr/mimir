@@ -145,10 +145,10 @@ from the `groom` verb), and a `session_summary` artifact.
 - `mimir get <id>` reads any record by id.
 - Use the verbs and flags the references show. The surface is exact, and a
   guessed flag can write the wrong field without an error. Before your first
-  create, update, or restructure, open the matching reference below. `mimir <cmd> --help` reminds you of a verb's flags; the reference
-  teaches the workflow around it.
-  Renamed verbs keep no alias; the unknown-command error names the replacement
-  when there is one.
+  create, update, or restructure, open the matching reference below.
+  `mimir <cmd> --help` reminds you of a verb's flags; the reference teaches
+  the workflow around it. Renamed verbs keep no alias; the unknown-command
+  error names the replacement when there is one.
 
 ## Routing
 
