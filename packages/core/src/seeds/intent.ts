@@ -643,9 +643,11 @@ export async function updateSeed(
 }
 
 /**
- * Refuse blank prose, but only for a seed the patch could otherwise write: an
- * absent or terminal seed keeps the store's own not-found or frozen refusal,
- * which `patch` raises before it writes anything. The seed is read only when
+ * Refuse blank prose, but let an absent or terminal seed keep its own refusal.
+ * An absent seed is refused here with the store's not-found error, so a seed
+ * created between this read and the patch never takes the blank. A terminal
+ * seed falls through to `patch`'s frozen refusal, which raises before it writes
+ * anything; a terminal seed never turns live again. The seed is read only when
  * the fields carry a blank, so an ordinary update costs no extra read.
  */
 async function refuseBlankProseOnLiveSeed(
@@ -657,7 +659,10 @@ async function refuseBlankProseOnLiveSeed(
     return;
   }
   const seed = await store.seeds.load(ref.key, ref.seq);
-  if (seed !== undefined && !isTerminalSeed(seed.lifecycle)) {
+  if (seed === undefined) {
+    throw notFound(`${renderSeedRef(ref)} doesn't exist`);
+  }
+  if (!isTerminalSeed(seed.lifecycle)) {
     refuseBlankProse(fields);
   }
 }

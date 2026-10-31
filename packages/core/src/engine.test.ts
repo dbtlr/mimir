@@ -275,9 +275,8 @@ test('a blank description on a missing node, project, or seed is not found', asy
   expect((await errorOf(engine.updateProject({ description: ' ', id: 'NOPE' }))).code).toBe(
     'not_found',
   );
-  expect((await errorOf(engine.seedUpdate({ description: '', id: 'ENG-s99' }))).code).toBe(
-    'not_found',
-  );
+  const seed = await errorOf(engine.seedUpdate({ description: '', id: 'ENG-s99' }));
+  expect([seed.code, seed.message]).toEqual(['not_found', "ENG-s99 doesn't exist"]);
 });
 
 test('a blank description on a terminal seed gets the frozen error, not the blank refusal', async () => {
