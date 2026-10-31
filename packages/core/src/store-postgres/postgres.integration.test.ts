@@ -118,12 +118,11 @@ lane('two concurrent upgrades from empty apply each migration exactly once', asy
     const second = openPostgres(url);
     try {
       const reports = await Promise.all([upgradeSchema(first.db), upgradeSchema(second.db)]);
-      // The advisory lock serializes them and the loser re-reads the version
-      // inside the lock, so exactly one run applies every migration from empty.
-      expect(reports.map((report) => report.applied.length).toSorted((x, y) => x - y)).toEqual([
-        0,
-        SCHEMA_VERSION,
-      ]);
+      // Each migration takes the advisory lock in its own transaction and
+      // re-reads the version inside it, so the two runs may split the
+      // migrations between them, but together they apply each one exactly once.
+      const applied = reports.flatMap((report) => report.applied);
+      expect(applied.toSorted()).toEqual(Object.keys(postgresDialect.migrations).toSorted());
       expect(reports.map((report) => report.to)).toEqual([SCHEMA_VERSION, SCHEMA_VERSION]);
       // `count(*)` is a bigint: node-postgres hands it back as a string.
       const rows = await sql<{ count: string }>`
