@@ -4,15 +4,15 @@ import { useNavigate } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 
 import { useArchiveProject, useUnarchiveProject, useUpdateProject } from '../api/shell-mutations';
-import { proseOrNull } from '../lib/prose';
+import { proseEdit } from '../lib/prose';
 import { archivedUndoToast } from './archive-undo-toast';
 import { ActionButton } from './ui/action-button';
 import { Sheet, SheetContent, SheetTitle } from './ui/sheet';
 
 export type ProjectFormValues = {
   title: string;
-  /** `null` clears the description. */
-  description: string | null;
+  /** `null` clears the description; `undefined` leaves it. */
+  description?: string | null;
 };
 
 /** What the settings read off a project: the fields its form edits. */
@@ -138,7 +138,7 @@ function ProjectSettingsForm({
         return;
       }
       onSubmit({
-        description: proseOrNull(value.description.trim()),
+        description: proseEdit(value.description.trim(), project.description),
         title,
       });
     },

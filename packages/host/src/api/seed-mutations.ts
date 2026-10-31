@@ -143,7 +143,7 @@ export function usePromoteSeed(id: string) {
 export type UpdateSeedInput = {
   title?: string;
   kind?: SeedKind;
-  /** Clears with `null`; blank text is refused (see `proseOrNull`). */
+  /** Clears with `null`; blank text is refused (see `proseEdit`). */
   description?: string | null;
 };
 

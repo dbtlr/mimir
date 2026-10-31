@@ -46,7 +46,7 @@ export function useArchiveProject(key: string) {
 
 export type UpdateProjectInput = {
   title?: string;
-  /** Long prose clears with `null`; blank text is refused (see `proseOrNull`). */
+  /** Long prose clears with `null`; blank text is refused (see `proseEdit`). */
   description?: string | null;
   /** Owned direction prose (ADR 0026) — replace-whole, re-authored per session. */
   next?: string | null;

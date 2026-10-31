@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { useTag, useTransition, useUntag, useUpdateNode } from '../api/node-mutations';
 import { cn } from '../lib/cn';
 import { isBareUrl } from '../lib/links';
+import { proseEdit } from '../lib/prose';
 import { artifactLink, nodeLink } from '../lib/record-url';
 import type { TaskFormValues } from '../lib/schemas';
 import type { NodeAnnotation } from '../lib/timeline';
@@ -296,18 +297,6 @@ function fromNode(n: EngineNode): TaskFormValues {
 }
 
 /**
- * The description an edit form sends: the new text, `null` when the person
- * emptied a description that had text (the explicit clear), and `undefined`
- * (leave it) when it was blank before and still is.
- */
-function descriptionEdit(next: string | null, before: string): string | null | undefined {
-  if (next !== null) {
-    return next;
-  }
-  return before.trim() === '' ? undefined : null;
-}
-
-/**
  * The edit form's state for one node. `baseline` snapshots the form's initial
  * values when editing begins; non-null means editing. It is also the tag-diff
  * baseline: diffing against live node data would misread a tag added
@@ -332,7 +321,7 @@ export function useNodeEdit(nodeId: string) {
     try {
       await Promise.all([
         update.mutateAsync({
-          description: descriptionEdit(values.description, baseline?.description ?? ''),
+          description: proseEdit(values.description, baseline?.description),
           externalRef: values.external_ref ?? undefined,
           priority: values.priority ?? undefined,
           size: values.size ?? undefined,

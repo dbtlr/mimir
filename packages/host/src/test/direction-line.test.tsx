@@ -132,6 +132,27 @@ describe('directionPanel (MMR-450)', () => {
     });
   });
 
+  it('saving a blank direction that was already blank leaves it alone', async () => {
+    render(
+      <DirectionPanel
+        subject={{ id: 'MMR-12', kind: 'node' }}
+        title="Console"
+        next={undefined}
+        offline={false}
+      />,
+      { wrapper },
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit direction' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Direction text' }), '  ');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(update).toHaveBeenCalled();
+    });
+    expect(vi.mocked(update).mock.calls[0]![0].data.next).toBeUndefined();
+  });
+
   it('offline disables Edit', () => {
     render(
       <DirectionPanel

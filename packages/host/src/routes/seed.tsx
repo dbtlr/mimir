@@ -25,7 +25,7 @@ import { copyText } from '../lib/clipboard';
 import { cn } from '../lib/cn';
 import { connectivity } from '../lib/connectivity';
 import { projectKeyOf } from '../lib/project-key';
-import { proseOrNull } from '../lib/prose';
+import { proseEdit } from '../lib/prose';
 import { useRememberRecord } from '../lib/recent-records';
 import { nodeLink, seedIdOf, seedPath } from '../lib/record-url';
 import { laneOf } from '../lib/seed-lanes';
@@ -247,7 +247,10 @@ function changedFields(
     fields.kind = next.kind;
   }
   if (next.description !== (seed.description ?? '')) {
-    fields.description = proseOrNull(next.description);
+    const description = proseEdit(next.description, seed.description);
+    if (description !== undefined) {
+      fields.description = description;
+    }
   }
   return fields;
 }

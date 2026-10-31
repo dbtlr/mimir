@@ -196,7 +196,7 @@ export function useUndepend() {
 
 export type UpdateNodeInput = {
   title?: string;
-  /** Long prose clears with `null`; blank text is refused (see `proseOrNull`). */
+  /** Long prose clears with `null`; blank text is refused (see `proseEdit`). */
   description?: string | null;
   /** Owned direction prose (ADR 0026) — containers only; tasks never carry it. */
   next?: string | null;
@@ -246,7 +246,7 @@ export type DirectionTarget = { kind: 'project'; key: string } | { kind: 'node';
 export function useUpdateDirection(target: DirectionTarget) {
   const invalidate = useInvalidateOnWrite();
   return useMutation({
-    mutationFn: (next: string | null) =>
+    mutationFn: (next: string | null | undefined) =>
       target.kind === 'project'
         ? updateProject({ data: { id: target.key, next } })
         : update({ data: { id: target.id, next } }),
