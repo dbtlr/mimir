@@ -65,7 +65,8 @@ mimir block KEY-9 "waiting on the vendor's fix"                    # no --on: th
   line while a task is blocked; `--eq block_owner:you` filters.
 - **Hygiene is unchanged.** `stale` chases blocks of either owner: an old `others`
   block is the nudge to chase the other party. In the console, only blocks owned by
-  `you` count as needing the operator.
+  `you` count as needing the operator; `under_review` tasks and unheld
+  `needs_answers` tasks count too.
 - `--on` belongs to `block` (and `depend`/`undepend` and the date filters); other
   verbs refuse it.
 
@@ -83,7 +84,8 @@ or a merge, before it counts as done:
 
 It is **optional** — `in_progress → done` directly is legal when no gate applies. An
 `under_review` task leaves the rankable set, so `next` won't surface it — but `stale`
-_will_ chase it if the review sits too long.
+_will_ chase it if the review sits too long. The console lists every `under_review`
+task as a verdict the operator owes.
 
 ### Reopening a terminal task
 

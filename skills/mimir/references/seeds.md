@@ -28,7 +28,7 @@ design is still open.
 ```sh
 mimir seed "append collapses the boundary
 repro: empty target section; found while building MMR-156" -k bug -p NRN   # first line title, rest body
-mimir seed "should capture parse a title from the first line?" -k idea   # own board: no statable fix yet
+mimir seed "should capture parse a title from the first line?" -k idea   # own board: whether to do it is still open
 ```
 
 - Target board **and** requester default from the bound board. Filing onto

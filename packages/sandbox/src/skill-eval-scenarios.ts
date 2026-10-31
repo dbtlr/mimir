@@ -308,7 +308,7 @@ export const SCENARIOS: readonly Scenario[] = [
   {
     bind: 'QEV',
     checks: [
-      { name: 'orients from overview', test: (e) => called(e, 'overview') },
+      { name: 'answers from overview', test: (e) => called(e, 'overview') },
       { name: 'writes nothing', test: (e) => !e.storeChanged },
       {
         name: 'reports the in-flight work',
@@ -356,7 +356,8 @@ export const SCENARIOS: readonly Scenario[] = [
     ],
     files: GREETING_FILES,
     name: 'start-done',
-    prompt: (ids) => `Fix the greeting typo in greet.js. It's tracked as ${ids.task}.`,
+    prompt: (ids) =>
+      `Fix the greeting typo in greet.js. It's tracked as ${ids.task}; record its start and completion in the tracker.`,
     setup: async (mimir) => ({
       task: await createTask(mimir, await evalBoard(mimir), 'Fix the greeting typo in greet.js'),
     }),
@@ -381,7 +382,7 @@ export const SCENARIOS: readonly Scenario[] = [
     files: { ...GREETING_FILES, 'farewell.js': "export const farewell = 'Goodby';\n" },
     name: 'discovered-work',
     prompt: (ids) =>
-      `Fix the greeting typo in greet.js (${ids.task}). I also noticed farewell.js says 'Goodby'. Don't fix that one now; keep this change to the greeting, and track the farewell typo as its own task.`,
+      `Fix the greeting typo in greet.js (${ids.task}). I also noticed farewell.js says 'Goodby'. Don't fix that one now; keep this change to the greeting, track the farewell typo as its own task, and record ${ids.task}'s completion in the tracker.`,
     setup: async (mimir) => ({
       task: await createTask(mimir, await evalBoard(mimir), 'Fix the greeting typo in greet.js'),
     }),

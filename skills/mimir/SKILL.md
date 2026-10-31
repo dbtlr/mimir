@@ -25,12 +25,13 @@ project's own process.
    up tracking is the user's call (`references/setup.md`).
 3. `mimir overview` shows a bound project's rollup, direction, in-flight work,
    active Scratchpads, the ready queue, recent sessions, and hygiene
-   (`references/querying.md`). An overview already in the session's opening
-   context is current for that project. An active Scratchpad is a live
-   episode's memory (`references/scratchpad.md`).
+   (`references/querying.md`). An overview is a snapshot of the board when it
+   ran. An active Scratchpad is a live episode's memory
+   (`references/scratchpad.md`).
 4. `mimir triage` reports a board's untriaged seeds and seeds ready to resolve,
-   and annotates the board's tasks whose upstream seeds resolved. It changes no
-   status and is safe to repeat (`references/seeds.md`).
+   and annotates the board's unsettled tasks whose upstream seed went terminal
+   (resolved or rejected). It changes no status and is safe to repeat
+   (`references/seeds.md`).
 
 ## Statuses and verbs
 
@@ -82,12 +83,14 @@ identity on `queue` or an initial `start`; worker identity, `update`, and MCP
 calls take explicit values. `references/authoring.md` covers finding a
 session id and recording a handoff.
 
-Holds (`park`, `block`) and terminal verbs clear every handle and keep the
-former owners in history. To find what a session holds:
+Holds (`park`, `block`), terminal verbs, and `unqueue` clear every handle and
+keep the former owners in history; `submit` and `return` keep them. To find
+what a session holds:
 
 ```sh
 mimir list --status in_progress --eq session:<main-session> --missing worker_session
 mimir list --status in_progress --eq worker_session:<worker-session>
+mimir list --status under_review --eq session:<main-session>
 mimir list --status queued --eq session:<main-session>
 ```
 
@@ -110,7 +113,7 @@ commits to no work; the owning board's triage promotes it into tasks, resolves
 it, rejects it, or parks it.
 
 A seed is how one board asks another for work: `mimir seed "title" -k <kind>
--p KEY` files it on the other board and records your board as the requester.
+-p KEY` files it on the other board and records the bound board as the requester.
 When a task waits on that seed, `mimir update <id> --upstream KEY-sN` records
 the edge, and a later `block` defaults to `others`; triage annotates the task
 when the seed settles. `references/seeds.md` covers filing, triage, and
@@ -142,8 +145,7 @@ from the `groom` verb), and a `session_summary` artifact.
 - `mimir get <id>` reads any record by id.
 - Use the verbs and flags the references show. The surface is exact, and a
   guessed flag can write the wrong field without an error. Before your first
-  create, update, or restructure in a session, open the matching reference
-  below. `mimir <cmd> --help` reminds you of a verb's flags; the reference
+  create, update, or restructure, open the matching reference below. `mimir <cmd> --help` reminds you of a verb's flags; the reference
   teaches the workflow around it.
   Renamed verbs keep no alias; the unknown-command error names the replacement
   when there is one.
