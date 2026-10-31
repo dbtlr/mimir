@@ -1,9 +1,9 @@
 # Finishing: settle, re-orient, remember
 
-Finishing has three independently invocable pieces. Run only the piece a work
-boundary needs; when completing a task, compose all three in this order:
+Three records describe finished work. Each is independent, and the session's
+process decides which ones a boundary gets:
 
-1. **Transition** — make the task state true.
+1. **Transition** — the task's state.
 2. **Groom-next** — re-author owned `## Next` prose against the now-current board.
    This is the direction rewrite, not the `groom` verb, which sets a task's
    grooming state (`references/status-model.md`).
@@ -15,21 +15,20 @@ Use the lifecycle or hold verb at the moment its claim becomes true:
 
 ```sh
 mimir unqueue KEY-9 "Run cancelled before dispatch"  # release an unstarted reservation
-mimir submit KEY-9                 # shippable; awaiting human review
+mimir submit KEY-9                 # ready for its review gate
 mimir done KEY-9                   # verified complete; no review gate remains
 mimir park KEY-9 "reason"          # deliberately deferred
 mimir block KEY-9 --on you "reason"          # obstructed; --on you or --on others names who can clear it
 ```
 
 This piece stands alone: a state change does not wait for prose grooming or a
-retrospective. Follow the transition contract in `SKILL.md`; in a repository
-with its own completion gate, that gate decides whether the truthful terminal
-action is `submit` or `done`.
+retrospective. In a repository with its own completion gate, that gate decides
+whether the truthful action is `submit` or `done`.
 
 ## Groom-next
 
-Groom after a transition or discovery changes the board's direction, even when
-no task finished:
+Groom-next rewrites a container's direction when a transition or discovery
+changes it, whether or not a task finished:
 
 1. Read `mimir overview -s KEY`, then inspect each project, initiative, or phase
    whose direction may have changed with `mimir get <id>`.
@@ -49,10 +48,8 @@ boundary without transitioning a task or writing a retrospective.
 
 ## Summarize
 
-At task completion, always summarize: completing the task is itself durable
-context worth recovering. At another work boundary, summarize when the session
-produced durable context. Write a short markdown retrospective, then freeze it
-as a `session_summary` artifact:
+A session summary is a short markdown retrospective frozen as a
+`session_summary` artifact. `overview` lists it beside the session it records:
 
 ```sh
 mimir attach KEY-9 --file retro.md --title "Session summary" \
@@ -69,8 +66,6 @@ mimir attach KEY-9 --file retro.md --title "Session summary" \
 - Artifacts cannot span projects. If a session touched several projects, write
   one project-local artifact per project, each with only that project's anchors
   and a lede/body that describes its share of the session.
-- At a standalone non-completion boundary that produced no durable
-  retrospective, omit this piece rather than manufacturing activity.
 - **If the session ran on a Scratchpad, freeze it instead of attaching a
   parallel file** — `mimir scratch freeze <uuid> --summary "…" -t
   session_summary --expected-updated-at <ts>` turns the episode's own Journal

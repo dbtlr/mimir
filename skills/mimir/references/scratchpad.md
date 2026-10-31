@@ -127,9 +127,8 @@ demanded to make the override a deliberate act, not a reflex — it is **not
 recorded anywhere**: discard deletes the document and leaves no trace. An
 episode whose ending deserves a trace freezes instead.
 
-The end-of-session sweep includes Scratchpads: for each one you drove, freeze
-it if it settled, checkpoint it honestly if it continues, and discard it if it
-is dead. Settle the episode at its boundary, while the conversation still holds
-it. Leaving one active is a handoff: its Journal must let a stranger resume. A
-discard refused over open Agenda items calls for completing or superseding
-them first.
+An episode ends three ways: freeze when it settled, checkpoint when it
+continues, and discard when it is dead. A Scratchpad left active is a handoff:
+`overview` shows it to the next session, and its Journal is what that session
+resumes from. A discard refused over open Agenda items calls for completing or
+superseding them first.

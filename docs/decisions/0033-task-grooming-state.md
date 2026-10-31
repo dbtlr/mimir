@@ -119,3 +119,12 @@ _to break down_ when it has no children at all. An open-ended container
 (MMR-204) is a standing home and never reads _to break down_. An open-ended
 child still counts as a child of its parent. The work page lists these
 containers under _To groom_ (ADR 0013, work-page refinement).
+
+## Refinement (2026-10-31, MMR-608): the skill describes the grooming state, not a preference
+
+§7 said the agent skill teaches agents to prefer groomed work. The skill now
+describes Mimir's mechanics only, and which work a session takes belongs to
+the user's or the project's process. The skill states that the grooming state
+gates nothing and that `--eq grooming:groomed` narrows the ready queue; it no
+longer recommends a choice. `next` keeps its membership and order, as §7
+decided.

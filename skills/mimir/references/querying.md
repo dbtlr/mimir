@@ -123,8 +123,7 @@ mimir list -s KEY --is stale      # one board's hygiene sweep; repeat per projec
 `next`, `list`, and `overview` rows show each `todo` task's grooming state
 (`not_groomed`, `needs_answers`, `groomed`) between priority and parent.
 `--eq grooming:groomed` narrows to groomed work. `next` keeps its rank order
-and membership, so prefer groomed tasks when you choose, and read an
-ungroomed task's notes before you start it. `mimir get` shows a task's
+and membership whatever the grooming state. `mimir get` shows a task's
 `grooming` line (`references/status-model.md`).
 
 `-q`/`--query` case-insensitively matches a title substring and AND-composes with
