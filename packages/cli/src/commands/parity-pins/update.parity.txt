@@ -1691,7 +1691,7 @@ exit 2
 | {
 |   "code": "usage",
 |   "hints": [],
-|   "message": "--priority doesn't apply to a seed — patch --title, --kind, or --desc"
+|   "message": "--priority doesn't apply to a seed — patch --title, --kind, --desc, or --clear-desc"
 | }
 --- state
 unchanged
@@ -1703,7 +1703,7 @@ exit 2
 | {
 |   "code": "usage",
 |   "hints": [],
-|   "message": "--summary doesn't apply to a seed — patch --title, --kind, or --desc"
+|   "message": "--summary doesn't apply to a seed — patch --title, --kind, --desc, or --clear-desc"
 | }
 --- state
 unchanged
@@ -1936,6 +1936,18 @@ exit 1
 --- state
 unchanged
 
+### update argv: MMR-3 --direction ""
+exit 1
+--- stdout
+--- failure
+| {
+|   "code": "validation",
+|   "hints": [],
+|   "message": "next applies only to phases and initiatives"
+| }
+--- state
+unchanged
+
 ### update argv: MMR-2 --direction ""
 exit 1
 --- stdout
@@ -2051,7 +2063,7 @@ exit 2
 | {
 |   "code": "usage",
 |   "hints": [],
-|   "message": "--clear-direction doesn't apply to a seed — patch --title, --kind, or --desc"
+|   "message": "--clear-direction doesn't apply to a seed — patch --title, --kind, --desc, or --clear-desc"
 | }
 --- state
 unchanged
@@ -2173,7 +2185,7 @@ exit 2
 | {
 |   "code": "usage",
 |   "hints": [],
-|   "message": "--worker-session doesn't apply to a seed — patch --title, --kind, or --desc"
+|   "message": "--worker-session doesn't apply to a seed — patch --title, --kind, --desc, or --clear-desc"
 | }
 --- state
 unchanged

@@ -109,6 +109,12 @@ describe('update clears direction and description explicitly', () => {
     expect(clear.stderr).toContain('next applies only to phases and initiatives');
   });
 
+  test('a blank --direction on a task gets the applicability error, not the blank refusal', async () => {
+    const blank = await update('MMR-3', '--direction', '');
+    expect(blank.stderr).toContain('next applies only to phases and initiatives');
+    expect(blank.stderr).not.toContain('cannot be blank');
+  });
+
   test('--clear-direction on a seed or an artifact is refused as --direction is', async () => {
     const seed = await update('MMR-s1', '--clear-direction');
     expect(seed.exitCode).toBe((await update('MMR-s1', '--direction', 'x')).exitCode);

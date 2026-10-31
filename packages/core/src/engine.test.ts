@@ -263,3 +263,42 @@ test('clearing a direction that is absent writes nothing', async () => {
 test('a task refuses a direction clear as it refuses direction text', async () => {
   expect((await errorOf(engine.update({ id, next: null }))).code).toBe('validation');
 });
+
+test('a blank direction on a task gets the applicability error, not the blank refusal', async () => {
+  const refusal = await errorOf(engine.update({ id, next: '  ' }));
+  expect(refusal.code).toBe('validation');
+  expect(refusal.message).toContain('next applies only to phases and initiatives');
+});
+
+test('a blank description on a missing node, project, or seed is not found', async () => {
+  expect((await errorOf(engine.update({ description: '', id: 'ENG-999' }))).code).toBe('not_found');
+  expect((await errorOf(engine.updateProject({ description: ' ', id: 'NOPE' }))).code).toBe(
+    'not_found',
+  );
+  expect((await errorOf(engine.seedUpdate({ description: '', id: 'ENG-s99' }))).code).toBe(
+    'not_found',
+  );
+});
+
+test('a blank description on a terminal seed gets the frozen error, not the blank refusal', async () => {
+  const seed = await engine.seedCreate({ kind: 'idea', project: 'ENG', title: 'S' });
+  await engine.seedReject({ id: seed.id, reason: 'no' });
+  const refusal = await errorOf(engine.seedUpdate({ description: '', id: seed.id }));
+  expect(refusal.message).toContain('frozen');
+});
+
+test('clearing a present-but-empty direction removes the section and stamps updated_at', async () => {
+  const phase = await engine.create({ parent: 'ENG-1', title: 'Phase', type: 'phase' });
+  await fixture.store.transact(async (w) => {
+    await w.setNextSection('node', phase.id, { text: '' });
+    await w.updateNode(phase.id, { updated_at: '2026-09-02T12:00:00.000Z' });
+  });
+  await fixture.store.transact(async (w) => {
+    expect((await w.readNextSection('node', phase.id)).present).toBe(true);
+  });
+  const cleared = await engine.update({ id: phase.id, next: null });
+  expect(cleared.updatedAt.getTime()).toBeGreaterThan(Date.parse('2026-09-02T12:00:00.000Z'));
+  await fixture.store.transact(async (w) => {
+    expect((await w.readNextSection('node', phase.id)).present).toBe(false);
+  });
+});

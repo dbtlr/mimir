@@ -80,18 +80,25 @@ export function normalizeNext(value: string | null): string | null {
  * Refuse a `description` or `next` that is empty or only whitespace. Neither
  * keeps an earlier version, so a clear must be explicit: `null` clears, and a
  * blank (usually an empty script input) leaves the stored text alone. Runs in
- * the Engine's domain layer, so every transport gets the same refusal.
+ * the Engine's domain layer, so every transport gets the same refusal. Callers
+ * run it AFTER their existence and applicability checks, so those errors win,
+ * and BEFORE any patch or write is built.
  */
-export function refuseBlankProse(fields: {
-  description?: string | null;
-  next?: string | null;
-}): void {
-  for (const field of ['description', 'next'] as const) {
-    const value = fields[field];
-    if (typeof value === 'string' && value.trim() === '') {
-      throw blankProse(field);
-    }
+export function refuseBlankProse(fields: ProseFields): void {
+  const field = blankProseField(fields);
+  if (field !== undefined) {
+    throw blankProse(field);
   }
+}
+
+type ProseFields = { description?: string | null; next?: string | null };
+
+/** The first of `description`/`next` that is a blank string, if any. */
+export function blankProseField(fields: ProseFields): 'description' | 'next' | undefined {
+  return (['description', 'next'] as const).find((field) => {
+    const value = fields[field];
+    return typeof value === 'string' && value.trim() === '';
+  });
 }
 
 /**
@@ -241,7 +248,6 @@ export function inapplicableUpdateFields(kind: NarrowUpdateKind): readonly Updat
 }
 
 export async function updateNode(store: Store, id: string, fields: UpdateFields): Promise<Node> {
-  refuseBlankProse(fields);
   return store.transact(async (w) => {
     const node = await requireNode(w, id);
 
@@ -266,6 +272,7 @@ export async function updateNode(store: Store, id: string, fields: UpdateFields)
     if (fields.next !== undefined && node.type === 'task') {
       throw validation('next applies only to phases and initiatives');
     }
+    refuseBlankProse(fields);
 
     const patch: NodePatch = {};
     if (fields.title !== undefined) {
@@ -354,7 +361,6 @@ export async function updateProject(
   id: string,
   fields: UpdateProjectFields,
 ): Promise<Project> {
-  refuseBlankProse(fields);
   return store.transact(async (w) => {
     const project = await w.loadProject(id);
     if (project === undefined) {
@@ -364,6 +370,7 @@ export async function updateProject(
     if (fields.name !== undefined && fields.name.trim() === '') {
       throw validation('project name cannot be blank');
     }
+    refuseBlankProse(fields);
     const patch: ProjectPatch = {};
     if (fields.name !== undefined) {
       patch.name = fields.name;

@@ -128,6 +128,7 @@ const CASES: SetupCase[] = [
   argv(['update', 'MMR-3', '--open-ended']),
   argv(['update', 'MMR-3', '--direction', 'Next: nothing.']),
   argv(['update', 'MMR-3', '--clear-direction']),
+  argv(['update', 'MMR-3', '--direction', '']),
   argv(['update', 'MMR-2', '--direction', '']),
   argv(['update', 'MMR-2', '--direction', '   ']),
   argv(['update', 'MMR-2', '--desc', '']),

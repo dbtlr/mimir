@@ -17,7 +17,7 @@ import { deriveSet, findNodeInSet, findProjectInSet, isNodeSettled } from '../de
 import { conflict, notFound, projectNotFound, validation } from '../errors';
 import { parseId, parseSeedRef, renderId, renderSeedRef } from '../ids';
 import type { Node, Project } from '../model';
-import { refuseBlankProse } from '../mutations/data';
+import { blankProseField, refuseBlankProse } from '../mutations/data';
 import type { Store } from '../store';
 import { assertTitleWithinCap, splitCapture } from './capture';
 import { deriveLede } from './lede';
@@ -626,7 +626,6 @@ export async function updateSeed(
   fields: UpdateSeedFields,
 ): Promise<SeedView> {
   const ref = requireSeedRef(id);
-  refuseBlankProse(fields);
   // `update --title` inherits the capture title cap (MMR-263) — the same forcing
   // function, so a title can never grow past the cap after the fact.
   if (fields.title !== undefined) {
@@ -638,6 +637,27 @@ export async function updateSeed(
   // One projects read serves the board-active guard AND the echo (MMR-251).
   const projects = await store.loadProjects();
   assertSeedBoardActive(buildResolver(projects, []).set, ref.key);
+  await refuseBlankProseOnLiveSeed(store, ref, fields);
   await store.seeds.patch(ref.key, ref.seq, fields);
   return echoSeed(store, ref, projects, { content: true });
+}
+
+/**
+ * Refuse blank prose, but only for a seed the patch could otherwise write: an
+ * absent or terminal seed keeps the store's own not-found or frozen refusal,
+ * which `patch` raises before it writes anything. The seed is read only when
+ * the fields carry a blank, so an ordinary update costs no extra read.
+ */
+async function refuseBlankProseOnLiveSeed(
+  store: Store,
+  ref: { key: string; seq: number },
+  fields: UpdateSeedFields,
+): Promise<void> {
+  if (blankProseField(fields) === undefined) {
+    return;
+  }
+  const seed = await store.seeds.load(ref.key, ref.seq);
+  if (seed !== undefined && !isTerminalSeed(seed.lifecycle)) {
+    refuseBlankProse(fields);
+  }
 }

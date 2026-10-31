@@ -138,7 +138,7 @@ function refuseInapplicableFields(options: UpdateOptions, kind: 'artifact' | 'se
   }
   if (kind === 'seed') {
     throw new MimirUsageError(
-      `--${flag} doesn't apply to a seed — patch --title, --kind, or --desc`,
+      `--${flag} doesn't apply to a seed — patch --title, --kind, --desc, or --clear-desc`,
     );
   }
   throw new MimirError(
