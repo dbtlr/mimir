@@ -141,7 +141,7 @@ mimir annotate KEY-9 "Realized the parser must be rewritten; filed KEY-12."
 
 ```sh
 mimir update KEY --direction "Read path first; caching waits on the benchmark."
-mimir update KEY-4 --direction ""      # clear it
+mimir update KEY-4 --clear-direction   # clear it
 ```
 
 - Projects, initiatives, and phases carry an owned `## Next` body section — the
@@ -153,30 +153,21 @@ mimir update KEY-4 --direction ""      # clear it
   _above_ that: sequencing rationale, what is deliberately deferred, the bet
   being made.
 - **Replace, not append.** Each write re-authors the whole section against the
-  current board; there is no append mode, and a blank value clears the section.
-  Read it, decide what is still true, and write the new whole.
+  current board; there is no append mode. Read it, decide what is still true,
+  and write the new whole.
+- **Clearing is explicit.** `--clear-direction` removes the section; the
+  `update` tool takes `clear-direction: true`. Mimir keeps no earlier version,
+  so `--direction` text that is empty or only whitespace is refused and the
+  stored text stays. `--desc` and `--clear-desc` follow the same rule for a
+  description. Passing a text flag with its clear flag is a usage error.
 - The write is CAS-guarded like every other. If a concurrent write landed first,
   it refuses: **re-read and merge** against the current text, then write again.
 - Re-writing identical text writes nothing, so an idempotent re-author doesn't
   move `updated_at` (and doesn't fake activity).
-- **Guard a scripted write.** Mimir keeps no earlier version, so a command
-  substitution that reads a missing or empty file clears the narrative, and so
-  does text of only whitespace. In a fresh temporary directory, save the
-  current text, write the new text to a file, and update only when that text
-  holds more than whitespace. Read the result back and
-  compare it before you delete the directory; if it is wrong, restore with
-  `--direction "$(cat "$dir/old.md")"`.
-
-  ```sh
-  dir=$(mktemp -d)
-  mimir get KEY-4 -f json | jq -r '.next // empty' > "$dir/old.md"
-  # Write the new narrative to "$dir/new.md", then:
-  new=$(cat "$dir/new.md") &&
-    test -n "$(printf %s "$new" | tr -d '[:space:]')" &&
-    mimir update KEY-4 --direction "$new" &&
-    mimir get KEY-4 -f json | jq -r '.next // empty' | diff "$dir/new.md" - &&
-    rm -r "$dir"
-  ```
+- **Read the result back.** After a scripted write, run
+  `mimir get KEY-4 -f json | jq -r '.next // empty'` and compare it with the
+  text you meant to write. A missing or empty input file is refused rather than
+  written, so the comparison catches a wrong value, not a lost narrative.
 
 - The flag is `--direction`, not `--next` (`self-update` selects a channel with `--channel next`).
   The `update` tool takes `direction` too. Reads name it `next`: `--col next`
