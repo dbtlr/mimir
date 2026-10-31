@@ -317,7 +317,7 @@ export const SCENARIOS: readonly Scenario[] = [
     ],
     files: {},
     name: 'orient',
-    prompt: () => 'What should I work on next?',
+    prompt: () => "Show me the board's overview: what's in flight and what's ready next?",
     setup: async (mimir) => {
       const core = await evalBoard(mimir);
       const inFlight = await createTask(mimir, core, 'Wire the health endpoint');

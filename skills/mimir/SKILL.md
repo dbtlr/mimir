@@ -21,16 +21,19 @@ project's own process.
    installed (`references/setup.md`).
 2. `mimir bind` prints the project this clone is bound to, which is the default
    scope. A clone with no binding binds itself when its `origin` matches exactly
-   one project's remote. A non-zero exit means the repo is not tracked; setting
-   up tracking is the user's call (`references/setup.md`).
+   one project's remote. A non-zero exit means this clone is unbound: the
+   project may already exist (`mimir projects` lists them, and `mimir bind
+   KEY` binds one), or the repo may be untracked. Setting up tracking is the
+   user's call (`references/setup.md`).
 3. `mimir overview` shows a bound project's rollup, direction, in-flight work,
    active Scratchpads, the ready queue, recent sessions, and hygiene
    (`references/querying.md`). An overview is a snapshot of the board when it
    ran. An active Scratchpad is a live episode's memory
    (`references/scratchpad.md`).
-4. `mimir triage` reports a board's untriaged seeds and seeds ready to resolve,
-   and annotates the board's unsettled tasks whose upstream seed went terminal
-   (resolved or rejected). It changes no status and is safe to repeat
+4. `mimir triage` reports a board's untriaged seeds and seeds ready to resolve.
+   It also writes: it annotates the board's unsettled tasks whose upstream seed
+   went terminal (resolved or rejected). It changes no status and is safe to
+   repeat; `mimir triage --dry-run` reports the same and writes nothing
    (`references/seeds.md`).
 
 ## Statuses and verbs
@@ -91,6 +94,7 @@ what a session holds:
 mimir list --status in_progress --eq session:<main-session> --missing worker_session
 mimir list --status in_progress --eq worker_session:<worker-session>
 mimir list --status under_review --eq session:<main-session>
+mimir list --status under_review --eq worker_session:<worker-session>
 mimir list --status queued --eq session:<main-session>
 ```
 
