@@ -356,3 +356,26 @@ on every Engine procedure under `/trpc`, and it runs after the host guard and
 the version window. The pairing rate limit guards the redeem endpoint, a host
 route outside the Engine and outside the bearer check, like `/health`. Codes
 and tokens stay off the Engine.
+
+## Refinement (2026-10-30 — clearing prose is explicit)
+
+The node-writes refinement makes `null` the value that clears a field. For the
+two long prose fields, `null` is now the only way to clear. `update` and
+`updateProject` refuse a `description` or `next` that is empty or only
+whitespace, and `seedUpdate` refuses such a `description`. The refusal is a
+`validation` error, and the stored text is unchanged. A `null` clears the
+field, and clearing a field that is already unset writes nothing.
+
+Neither field keeps its earlier text, so a blank that clears loses the prose
+for good. The blank usually comes from a script whose input file is missing or
+empty, not from a person choosing to clear. Refusing blank text in the Engine
+covers every client, local or remote. A client that offers a clear exposes it as
+its own explicit act: the CLI has `--clear-direction` and `--clear-desc`, and
+the console sends `null` when a person saves an emptied editor. A client from
+before this refinement that sends a blank to clear is refused, and the text
+survives.
+
+Creates are unchanged. A blank `description` on `create`, `seedCreate`, or
+`seedPromote` still stores no description, because nothing exists yet to lose.
+The short fields (`summary`, `remote`, and the resume handles) still treat a
+blank as a clear. They are one line long and cheap to rewrite.
