@@ -7,9 +7,9 @@ description: The ordered gates a change clears before it's done in the mimir rep
 
 `done` is the **last** gate, not the first thing you reach for. A change clears
 these gates in order; the work isn't finished until every one is green. This
-specializes the mimir skill's rule (`done` after verification, with the
-project's own completion gate taking precedence) with what verification means
-_in this repo_.
+is this repo's process for the mimir skill's `done` claim (complete and
+verified): what verification means _in this repo_, and the completion gate
+that holds a task in `under_review` until merge.
 
 ## The gates
 
