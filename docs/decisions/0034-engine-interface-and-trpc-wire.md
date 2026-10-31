@@ -381,9 +381,7 @@ as its own explicit act:
 
 `MIN_CLIENT` does not rise, and the change ships in a minor release (ADR 0038).
 A client from before this refinement that sends a blank to clear is refused,
-and the text survives; it cannot clear these fields until it is updated. A
-client from after it sends `null`, which an older host already reads as a
-clear.
+and the text survives; it cannot clear these fields until it is updated.
 
 Every other field keeps its current behavior. A blank `description` on
 `create`, `seedCreate`, or `seedPromote` still projects as no description,
