@@ -70,3 +70,30 @@ test('scratch_checkpoint naming a file is refused', async () => {
   expect(refused.isError).toBe(true);
   expect(refused.text).toContain('file');
 });
+
+const directionOf = async (id: string): Promise<string | undefined> =>
+  (await board.engine.getNode({ facets: ['next'], id })).next;
+
+test('update with clear-direction true clears a container direction', async () => {
+  expect((await server.call('update', { direction: 'Keep going.', id: 'MMR-2' })).isError).toBe(
+    false,
+  );
+  expect(await directionOf('MMR-2')).toBe('Keep going.');
+  const cleared = await server.call('update', { 'clear-direction': true, id: 'MMR-2' });
+  expect(cleared.isError, cleared.text).toBe(false);
+  expect(await directionOf('MMR-2')).toBeUndefined();
+});
+
+test('update with a blank direction is refused and leaves the text', async () => {
+  await server.call('update', { direction: 'Hold this.', id: 'MMR-2' });
+  const refused = await server.call('update', { direction: '', id: 'MMR-2' });
+  expect(refused.isError).toBe(true);
+  expect(refused.text).toContain('clear-direction');
+  expect(await directionOf('MMR-2')).toBe('Hold this.');
+});
+
+test('update with desc and clear-desc together is a usage error', async () => {
+  const refused = await server.call('update', { 'clear-desc': true, desc: 'x', id: 'MMR-3' });
+  expect(refused.isError).toBe(true);
+  expect(refused.text).toContain('at most one of');
+});
