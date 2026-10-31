@@ -17,6 +17,7 @@ import { deriveSet, findNodeInSet, findProjectInSet, isNodeSettled } from '../de
 import { conflict, notFound, projectNotFound, validation } from '../errors';
 import { parseId, parseSeedRef, renderId, renderSeedRef } from '../ids';
 import type { Node, Project } from '../model';
+import { refuseBlankProse } from '../mutations/data';
 import type { Store } from '../store';
 import { assertTitleWithinCap, splitCapture } from './capture';
 import { deriveLede } from './lede';
@@ -610,7 +611,7 @@ async function moveSeed(
 export type UpdateSeedFields = {
   title?: string;
   kind?: SeedKind;
-  /** The `## Seed Description` prose; `null` clears it. */
+  /** The `## Seed Description` prose; `null` clears it, blank text is refused. */
   description?: string | null;
 };
 
@@ -625,6 +626,7 @@ export async function updateSeed(
   fields: UpdateSeedFields,
 ): Promise<SeedView> {
   const ref = requireSeedRef(id);
+  refuseBlankProse(fields);
   // `update --title` inherits the capture title cap (MMR-263) — the same forcing
   // function, so a title can never grow past the cap after the fact.
   if (fields.title !== undefined) {

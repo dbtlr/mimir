@@ -24,8 +24,9 @@ export type BodySectionFacets = {
  * The `## Next` facet as a read yields it: the parsed prose PLUS whether the
  * section is set at all.
  *
- * Presence is a stored fact the prose cannot carry: a section re-authored to
- * whitespace is present with null text. The write path reads it to detect a
+ * Presence is a stored fact the prose cannot carry: a section can be present
+ * with null text, and only a store import produces that state (a write refuses
+ * blank text and clears with `null`). The write path reads it to detect a
  * no-op rewrite (MMR-321), and the store export carries it, so presence
  * survives a round trip (ADR 0030 Decision 4).
  */
