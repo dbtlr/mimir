@@ -308,16 +308,16 @@ export const SCENARIOS: readonly Scenario[] = [
   {
     bind: 'QEV',
     checks: [
-      { name: 'orients from overview', test: (e) => called(e, 'overview') },
+      { name: 'answers from overview', test: (e) => called(e, 'overview') },
       { name: 'writes nothing', test: (e) => !e.storeChanged },
       {
-        name: 'leads with in-flight work',
+        name: 'reports the in-flight work',
         test: (e) => e.transcript.finalText.includes(e.ids.inFlight ?? '?'),
       },
     ],
     files: {},
     name: 'orient',
-    prompt: () => 'What should I work on next?',
+    prompt: () => "Show me the board's overview: what's in flight and what's ready next?",
     setup: async (mimir) => {
       const core = await evalBoard(mimir);
       const inFlight = await createTask(mimir, core, 'Wire the health endpoint');
@@ -356,7 +356,8 @@ export const SCENARIOS: readonly Scenario[] = [
     ],
     files: GREETING_FILES,
     name: 'start-done',
-    prompt: (ids) => `Fix the greeting typo in greet.js. It's tracked as ${ids.task}.`,
+    prompt: (ids) =>
+      `Fix the greeting typo in greet.js. It's tracked as ${ids.task}; record its start and completion in the tracker.`,
     setup: async (mimir) => ({
       task: await createTask(mimir, await evalBoard(mimir), 'Fix the greeting typo in greet.js'),
     }),
@@ -366,7 +367,7 @@ export const SCENARIOS: readonly Scenario[] = [
     checks: [
       { name: 'keeps scope', test: (e) => file(e, 'farewell.js').includes("'Goodby'") },
       {
-        name: 'records the deferral as a task',
+        name: 'tracks the follow-up as a task',
         test: async (e) =>
           (await newTasks(e, 'QEV')).some((t) =>
             /farewell|goodby/i.test(`${t.title} ${t.description ?? ''}`),
@@ -381,7 +382,7 @@ export const SCENARIOS: readonly Scenario[] = [
     files: { ...GREETING_FILES, 'farewell.js': "export const farewell = 'Goodby';\n" },
     name: 'discovered-work',
     prompt: (ids) =>
-      `Fix the greeting typo in greet.js (${ids.task}). I also noticed farewell.js says 'Goodby'. Don't fix that one now; keep this change to the greeting.`,
+      `Fix the greeting typo in greet.js (${ids.task}). I also noticed farewell.js says 'Goodby'. Don't fix that one now; keep this change to the greeting, track the farewell typo as its own task, and record ${ids.task}'s completion in the tracker.`,
     setup: async (mimir) => ({
       task: await createTask(mimir, await evalBoard(mimir), 'Fix the greeting typo in greet.js'),
     }),

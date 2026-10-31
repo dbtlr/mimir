@@ -25,13 +25,13 @@ Contents: [When a Scratchpad](#when-a-scratchpad--and-when-not) ·
 | ---------------------------------------------------------------- | ------------------------------- |
 | An unsettled episode that must survive compaction                | **Scratchpad**                  |
 | A decision/surprise on an existing task or seed                  | `annotate <id>`                 |
-| Work your board commits to (fix is statable)                     | `create task`                   |
-| Intake for another board, or an own-board idea with no fix       | `mimir seed`                    |
+| Work your board commits to                                       | `create task`                   |
+| Intake for another board, or own-board work still undecided      | `mimir seed`                    |
 | Settled, self-contained content worth keeping                    | artifact (`attach` or `freeze`) |
 
 The gap Scratchpads fill: an episode may start **before any task or seed
 exists** and may span several pieces of linked work. Notes stay in the
-Scratchpad, and commitments go on the board: the moment work is statable, it
+Scratchpad, and commitments go on the board: work the board commits to
 becomes a task, and the Scratchpad records that the episode produced it.
 
 ## The lifecycle
@@ -127,9 +127,8 @@ demanded to make the override a deliberate act, not a reflex — it is **not
 recorded anywhere**: discard deletes the document and leaves no trace. An
 episode whose ending deserves a trace freezes instead.
 
-The end-of-session sweep includes Scratchpads: for each one you drove, freeze
-it if it settled, checkpoint it honestly if it continues, and discard it if it
-is dead. Settle the episode at its boundary, while the conversation still holds
-it. Leaving one active is a handoff: its Journal must let a stranger resume. A
-discard refused over open Agenda items calls for completing or superseding
-them first.
+An episode ends in freeze when it settled or discard when it is dead; a
+checkpoint keeps it going. A Scratchpad left active is a handoff:
+`overview` shows it to the next session, and its Journal is what that session
+resumes from. A discard refused over open Agenda items calls for completing or
+superseding them first.

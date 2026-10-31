@@ -184,3 +184,14 @@ uses `unqueue`.
 to todo, and clears its handles. Queued tasks can finish or be abandoned, but
 must be unqueued before parking or blocking. Queued tasks leave `next` and
 remain eligible for the stale predicate, so orphaned reservations surface.
+
+## Refinement (2026-10-31, MMR-608): `submit` means ready for a review gate
+
+The `under_review` refinement said the doer asserts the work is shippable and a
+reviewer requests changes through `return`. A review gate can also be a merge
+with automated reviewers, where the doer keeps fixing findings while the work
+waits. `submit` claims the work is ready for its review gate. Fixes made in
+response to that review need no status change, and `return` records a review
+that sent the work back for rework. The console still lists every
+`under_review` task as a verdict the operator owes (ADR 0019). The transitions,
+rank, and hygiene rules are unchanged.

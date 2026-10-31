@@ -1,162 +1,134 @@
 ---
 name: mimir
-description: Drives Mimir, the work-state store for tasks, their hierarchy, statuses, artifacts, and scratchpads, through the `mimir` CLI. Use at the start of every session in a repo where `mimir bind` prints a project key, when a request names a Mimir task id such as `MMR-12`, and when the user asks to track work, check the task queue, set up a project, or keep a scratchpad.
+description: Drives Mimir, the work-state store for tasks, their hierarchy, statuses, seeds, artifacts, and scratchpads, through the `mimir` CLI. Use when a request names a Mimir id such as `MMR-12` or `MMR-s3`, or when work reads or changes the board - tracking tasks, checking the queue, setting up a project, or keeping a scratchpad.
 ---
 
 # Mimir
 
 Mimir holds a project's work state: the task board, the project → initiative →
-phase → task hierarchy, statuses, and frozen artifacts. The board is the record
-that outlives this conversation, so read it before you plan and keep it true as
-you work. You drive it with the `mimir` CLI. Every example in this skill is a
-real invocation.
+phase → task hierarchy, statuses, seeds, and frozen artifacts. The board is the
+record that outlives a conversation. You drive it with the `mimir` CLI. Every
+example in this skill is a real invocation.
 
-## Orient first
+This skill describes how Mimir works: its records, what each status and verb
+means, and the exact command surface. When to consult the board, which work to
+take, and how a session routes and finishes its work belong to the user and the
+project's own process.
 
-The board changes between sessions. An agent that plans from memory redoes or
-contradicts work already in flight, and orientation costs one command, so
-orient before other work, quick questions included:
+## Reading the board
 
-1. Run `command -v mimir`. If it is missing, Mimir is not installed. Mention
-   that only when the user wants work tracking (`references/setup.md`).
-2. Run `mimir bind`. It prints the project this clone is bound to, which is
-   the default scope. A clone with no binding binds itself when its `origin`
-   matches exactly one project's remote.
-   - **Unbound** (`mimir bind` exits non-zero): this repo is not tracked.
-     Carry on with the user's request without Mimir, and set it up only when
-     the user asks (`references/setup.md`).
-   - **Bound:** orient from `mimir overview`. It shows the project rollup,
-     direction, in-flight work, active Scratchpads, the ready queue, recent
-     sessions, and hygiene (`references/querying.md`). If the session's
-     opening context (a session primer) already includes `mimir overview` for
-     this project, reuse it and do not run the command again. Read any active
-     Scratchpad before planning: it is a live episode's memory and may already
-     cover the work in front of you (`references/scratchpad.md`). On a board
-     you own, follow with `mimir triage`. It reports untriaged seeds and seeds
-     ready to resolve, annotates your tasks whose upstream seeds resolved, and
-     is safe to repeat (`references/seeds.md`).
+1. `command -v mimir` finds the binary. When it is missing, Mimir is not
+   installed (`references/setup.md`).
+2. `mimir bind` prints the project this clone is bound to, which is the default
+   scope. A clone with no binding binds itself when its `origin` matches exactly
+   one project's remote. A non-zero exit means this clone is unbound: the
+   project may already exist (`mimir projects` lists them, and `mimir bind
+   KEY` binds one), or the repo may be untracked. Setting up tracking is the
+   user's call (`references/setup.md`).
+3. `mimir overview` shows a bound project's rollup, direction, in-flight work,
+   active Scratchpads, the ready queue, recent sessions, and hygiene
+   (`references/querying.md`). An overview is a snapshot of the board when it
+   ran. An active Scratchpad is a live episode's memory
+   (`references/scratchpad.md`).
+4. `mimir triage` reports a board's untriaged seeds and seeds ready to resolve.
+   It also writes: it annotates the board's unsettled tasks whose upstream seed
+   went terminal (resolved or rejected). It changes no status and is safe to
+   repeat; `mimir triage --dry-run` reports the same and writes nothing
+   (`references/seeds.md`).
 
-## The working contract
+## Statuses and verbs
 
-These rules hold unless the user or the project's own instructions say
-otherwise. The references add detail and never relax them.
+Statuses move only through verbs: `queue`, `unqueue`, `start`, `submit`,
+`return`, `done`, `abandon`, `reopen`, `park`/`unpark`, and `block`/`unblock`.
+`update` patches fields and leaves status alone. Seeds move through `promote`,
+`reject`, `resolve`, and `park`/`unpark`.
 
-**Statuses move through verbs.** `queue`, `unqueue`, `start`, `submit`, `return`, `done`,
-`abandon`, `reopen`, `park`/`unpark`, and `block`/`unblock` are the only way to
-change a task's status. `update` patches fields and leaves status alone. Seeds
-move through `promote`, `reject`, `resolve`, and `park`/`unpark`.
+Each transition records a claim and its time. Run it at the moment the claim
+becomes true: a transition recorded later is a guess about the past that the
+next reader takes as fact.
 
-**Transition at the moment the claim becomes true.** A transition recorded
-later is a guess about the past, and the next agent reads it as fact.
+- `queue <id> --harness <h> --session <s>` reserves a task for a run (`todo →
+  queued`) and keeps it out of `next`. `unqueue <id> "reason"` releases the
+  reservation before a worker starts.
+- `start <id>` claims the work has begun (`todo` or `queued` → `in_progress`).
+  A session may hold any number of `in_progress` tasks; each carries its own
+  handles.
+- `submit <id>` claims the work is ready for its review gate (`in_progress →
+  under_review`). The task leaves `next` and keeps its handles, and work done
+  in response to that review needs no status change. `return <id> "what to
+  change"` sends it back to `in_progress`.
+- `done <id>` claims the work is complete and verified. A project that gates
+  completion, for example on merge, holds the task in `under_review` until the
+  gate clears.
+- `block <id> "reason"` records an external obstruction and `park <id>
+  "reason"` a deliberate deferral; `unblock` and `unpark` lift them. The reason
+  is the next reader's context. `block --on you|others` names who can clear
+  it: `you` when the operator must act, `others` when someone outside the
+  board must. Without `--on`, a task with an `upstream` seed is `others` and
+  any other task is `you`. To change an owner, `unblock` and `block` again.
+- `abandon <id> "reason"` ends a task that will not be done; it stays on the
+  record with its reason. `reopen <id> "reason"` corrects a terminal call that
+  was wrong, such as a `done` that verification later falsified.
+- `annotate <id> "note"` appends a decision, a surprise, or a scope change to
+  a task's notes.
 
-- `queue <id> --harness <main-harness> --session <main-session>` when a
-  workflow reserves a task, using the main user conversation's identity.
-  Queue every task the run takes before dispatching task owners; `queued`
-  keeps it out of `next`.
-- `start <id> --harness <main-harness> --session <main-session>` when that
-  main agent begins the task, before the first edit. A distinct agent owning
-  the **whole task lifecycle** instead uses `start <id> --worker-session
-  <worker-session>`, adding `--worker-harness <worker-harness>` when known and
-  preserving the main identity. Helper agents handling pieces of a task leave
-  its identity alone.
-  Direct solo starts use the main flags, with worker fields unset. Keep one
-  task `in_progress` per task-owning session.
-- `unqueue <id> "reason"` when a run is cancelled before a worker starts.
-  Release every remaining reservation with the cancellation reason.
-- `done <id>` after verification and before you tell the user the work is
-  finished. Verification is evidence that the change does what the task
-  asked: a test that exercises it passes, or you ran the behavior and observed
-  it. For a change with no runtime behavior, read the result back. When the
-  project has its own completion gate (for example, done only after merge),
-  follow it and use `submit` until the gate clears.
-- `submit <id>` in place of `done` when a human must review the work before it
-  counts as finished. The reviewer runs `done` to approve, or
-  `return <id> "what to change"` to send it back to you.
-- `block <id> "reason"` when something external stops you, and
-  `park <id> "reason"` when you defer the task on purpose. The reason is the
-  next agent's context. `unblock` or `unpark` when you resume.
-- `block --on you|others` says who can clear the block: `you` when the
-  operator must answer or act, `others` when someone outside the board must
-  (another team, another board, a vendor). Without `--on`, a task that has an
-  `upstream` seed is `others` and any other task is `you`. To change an owner,
-  `unblock` and `block` again. Only blocks owned by `you` count as needing the
-  operator in the console.
-- `abandon <id> "reason"` when a task or an approach dies. Abandoned tasks stay
-  on the record with their reason.
-- `reopen <id> "reason"` when a terminal call was wrong: a `done` that later
-  verification falsified, or an abandoned approach that is back on. More work
-  found after a genuine `done` is a new task.
-- `annotate <id> "note"` when a decision, a surprise, or a scope change lands
-  mid-task.
+`references/status-model.md` defines every status word, rollup, and the
+derived `ready`, `awaiting`, and `stale` states.
 
-**Identify task owners explicitly.** Main flags identify the user conversation
-or workflow; worker flags identify a distinct whole-task owner. The same agent
-uses main flags and leaves worker fields unset. Read `references/authoring.md`
-for finding identities and recording a handoff. Always supply `--worker-session`
-for a handoff; `--worker-harness` is optional. Shell auto-fill can supply main
-identity on queue or an initial solo start; worker identity, updates, and MCP
-calls stay explicit.
+## Task owners
 
-**Prefer groomed work.** A task carries a grooming state beside its status:
-`not_groomed`, `needs_answers`, or `groomed`. Choose groomed tasks from `next`
-(`mimir next --eq grooming:groomed`). When grooming a task finds gaps, record
-them with `mimir groom <id> needs_answers "the questions"`. A task you already
-started that hits a question is blocked with `mimir block <id> --on you
-"the question"`, not re-groomed (`references/status-model.md`).
+`--harness` and `--session` identify the main user conversation or workflow
+that holds a task. `--worker-session`, with `--worker-harness` when known,
+identifies a distinct agent that owns the whole task lifecycle; a main agent
+working its own task leaves the worker fields unset. A helper handling a piece
+of a task does not change its identity. Shell auto-fill can supply main
+identity on `queue` or an initial `start`; worker identity, `update`, and MCP
+calls take explicit values. `references/authoring.md` covers finding a
+session id and recording a handoff.
 
-**Route new work by whose board it is** (`references/seeds.md`):
+Holds (`park`, `block`), terminal verbs, and `unqueue` clear every handle and
+keep the former owners in history; `submit` and `return` keep them. To find
+what a session holds:
 
-- Work for **your own board** that you find or defer is a new task, not an
-  expansion of the current one: `create task`, plus `depend` when it gates
-  something. `annotate` the current task with the finding. This holds when the
-  fix, or a decision inside it, is still open; put the open question in the
-  task description. Review findings and test follow-ups end as fixed,
-  dismissed with a reason, or a deferred task.
-- Anything for **another board** is a seed on that board, however well you
-  can state the fix: `mimir seed "title" -k <kind> -p KEY`. The owning board
-  decides what work to commit, so you create tasks only on boards you own.
-  When that seed blocks your task, record the edge with
-  `mimir update <id> --upstream KEY-sN` first and then `block` the task: the
-  upstream makes the block `others` by default, and triage can tell you when the
-  seed resolves.
-- An own-board idea that is not a follow-up of your current task and has no
-  statable fix ("should we…?") is a seed too. Work you set aside to keep the
-  current task in scope is a task, even when the user says "park that".
+```sh
+mimir list --status in_progress --eq session:<main-session> --missing worker_session
+mimir list --status in_progress --eq worker_session:<worker-session>
+mimir list --status under_review --eq session:<main-session>
+mimir list --status under_review --eq worker_session:<worker-session>
+mimir list --status queued --eq session:<main-session>
+```
 
-**Sweep before the session ends.** Run
-`mimir list --status in_progress --eq session:<main-session> --missing worker_session`
-for tasks you handle as the main agent. Tasks with a worker session remain
-that worker's responsibility. When you own tasks as a distinct worker, run
-`mimir list --status in_progress --eq worker_session:<worker-session>`.
-Settle every task you own: finish it, hand it forward with an `annotate`, or
-`park`, `block`, or `abandon` it. Also run
-`mimir list --status queued --eq session:<main-session>` and settle every
-reservation: hand it to a continuing run or `unqueue` it with a reason. A queued
-task must be unqueued before `park` or `block`. Holds clear all live handles;
-after release the next owner re-states the main and any distinct worker
-identity with `update`. Settle the Scratchpads you drove the same way: freeze,
-checkpoint, or discard.
+A queued task must be unqueued before `park` or `block`.
 
-**Finish in three pieces.** A work boundary may need a transition, a
-groom-next (rewrite the `## Next` direction; it is not the `groom` verb), or a
-session summary. Completing a task
-takes all three, in that order. Run each when its trigger fires, rather than
-saving them for the end: transition when state changes, groom-next when the
-board's direction changes, and summarize while the session is fresh. Read
-`references/finishing.md` before running any of them.
+## Grooming state
 
-**Report board changes with the outcome.** Tell the user what moved on the
-board in the sentence that reports the work ("Fixed the typo; QEV-2 is done."),
-rather than narrating each command.
+A task carries a grooming state beside its status: `not_groomed`,
+`needs_answers`, or `groomed`. It gates nothing. `mimir groom <id> <state>
+"note"` sets it, and `needs_answers` requires a note naming the open
+questions. `mimir next --eq grooming:groomed` narrows the ready queue to
+groomed work. A question that stops a started task is recorded with `block`
+(`references/authoring.md`).
 
-**User and project instructions take precedence.** When the user asks you to
-skip tracking for a change, skip it and say that the change went untracked.
+## Tasks and seeds
 
-**The controller owns the board.** Any agent may read it. If you were
-dispatched as a subagent, run mutation verbs (status changes, creates,
-updates, annotations, seeds) only when your dispatch prompt delegates them;
-otherwise report back and let the controller act. A solo agent is its own
-controller.
+A **task** is committed work in the tree (`create task`, plus `depend` when it
+gates other work). A **seed** is a record on a board's grooming queue that
+commits to no work; the owning board's triage promotes it into tasks, resolves
+it, rejects it, or parks it.
+
+A seed is how one board asks another for work: `mimir seed "title" -k <kind>
+-p KEY` files it on the other board and records the bound board as the requester.
+When a task waits on that seed, `mimir update <id> --upstream KEY-sN` records
+the edge, and a later `block` defaults to `others`; triage annotates the task
+when the seed settles. `references/seeds.md` covers filing, triage, and
+`upstream`.
+
+## Finishing records
+
+Three records describe a finished piece of work, and each stands alone: the
+task's transition, a container's `## Next` direction (groom-next, distinct
+from the `groom` verb), and a `session_summary` artifact.
+`references/finishing.md` covers how to write each one.
 
 ## Ids and commands
 
@@ -177,11 +149,10 @@ controller.
 - `mimir get <id>` reads any record by id.
 - Use the verbs and flags the references show. The surface is exact, and a
   guessed flag can write the wrong field without an error. Before your first
-  create, update, or restructure in a session, open the matching reference
-  below. `mimir <cmd> --help` reminds you of a verb's flags; the reference
-  teaches the workflow around it.
-  Renamed verbs keep no alias; the unknown-command error names the replacement
-  when there is one.
+  create, update, or restructure, open the matching reference below.
+  `mimir <cmd> --help` reminds you of a verb's flags; the reference teaches
+  the workflow around it. Renamed verbs keep no alias; the unknown-command
+  error names the replacement when there is one.
 
 ## Routing
 
@@ -193,7 +164,7 @@ Read the matching reference before you act in its area.
 | Add or restructure work: tasks, phases, deps, artifacts, annotations    | `references/authoring.md`    |
 | Ask the board questions: queues, triage, drill-down, reports, scripting | `references/querying.md`     |
 | Keep an unsettled episode across compaction: Journal, Agenda, freeze    | `references/scratchpad.md`   |
-| Finish a task or session: transition, groom-next, summarize             | `references/finishing.md`    |
+| Record finished work: transition, groom-next, summarize                 | `references/finishing.md`    |
 | Understand a status word, group, or rollup                              | `references/status-model.md` |
 | Classify with tags                                                      | `references/tags.md`         |
 | File or triage grooming-queue records: ideas, bugs, cross-board asks    | `references/seeds.md`        |

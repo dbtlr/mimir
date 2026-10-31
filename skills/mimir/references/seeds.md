@@ -10,36 +10,25 @@ germinates into work or it doesn't; the **owning board's** triage decides what
 gets cultivated. Seeds are project-anchored records (artifact-model siblings),
 never tree nodes — they have their own lifecycle, verbs, and queue.
 
-Exactly two things are seeds:
+Seeds carry two kinds of record:
 
-1. **An ask against ANOTHER board** (~90% of seeds): a bug report, feature ask,
-   or capability need you hit in a surface you don't own. Only the owning board
-   creates its tasks: however fully shaped the fix is, it crosses boards as a
-   seed, and the owning board decides what work to commit.
-2. **An own-board idea or observation with no statable fix**:
-   decision-shaped — "should X?", "decide the policy", "prove it or delete
-   it" — it may or may not germinate into work. It is not a follow-up of your
-   current task: even if the operator says "park that", work you defer to
-   keep scope is a task (see below).
+1. **An ask against another board**: a bug report, feature ask, or capability
+   need in a surface that board owns. The owning board's triage decides what
+   work it commits, so the ask arrives as a seed however fully shaped the fix
+   is.
+2. **Own-board work not yet committed**: an idea or observation whose
+   existence is still a decision ("should X?", "prove it or delete it"). It
+   may or may not germinate into tasks.
 
-**Not a seed: work discovered on your own board.** Two tests, either one makes
-it a task — `create task`:
-
-- **Fix test:** you can state the fix, so you already triaged it.
-- **Motive test:** you are deferring it to keep the current task's scope. It is
-  a task even when the fix, or a decision inside it, is still open; put the
-  open question in the task description.
-
-Review findings, test follow-ups, and build discoveries terminate in fixed,
-dismissed-with-reason, or deferred to a **task**; routing them through your own
-grooming queue is pure indirection.
+Committed own-board work is a task (`create task`), including work whose
+design is still open.
 
 ## Filing
 
 ```sh
 mimir seed "append collapses the boundary
 repro: empty target section; found while building MMR-156" -k bug -p NRN   # first line title, rest body
-mimir seed "should capture parse a title from the first line?" -k idea   # own board: no statable fix yet
+mimir seed "should capture parse a title from the first line?" -k idea   # own board: whether to do it is still open
 ```
 
 - Target board **and** requester default from the bound board. Filing onto
@@ -52,9 +41,7 @@ mimir seed "should capture parse a title from the first line?" -k idea   # own b
   a hard **120-char cap** that **errors** (put the body on the next line).
   `--desc` still works and **wins** over the blob split; `update --title`
   inherits the cap.
-- Filing is low-ceremony **by design**: prefer a seed over a mental note or a
-  prose TODO that decays. (Low ceremony is not a routing rule — own-board
-  statable work still goes straight to `create task`.)
+- Filing is low-ceremony **by design**: one line is a complete seed.
 
 ## Reading the queue
 
@@ -94,8 +81,7 @@ mimir update  NRN-s2 --title "…" --kind idea      # patch a LIVE seed; termina
   now. A parked seed leaves the untriaged count in `overview` and `triage`,
   which report only how many are parked. `unpark` returns it to `new`; a
   parked seed can also be promoted, resolved, or rejected directly. Parking is
-  the owner's triage call, not a way to defer your own follow-up work: that is
-  still a task.
+  a triage call on the seed; a deferred task is parked with `park <task-id>`.
 - `promote` is **repeatable** while promoted — further germination appends
   `spawned` links. `--link` records work that already exists.
 - **Terminal states are set only by these explicit verbs.** All spawned work
@@ -146,7 +132,7 @@ went terminal, appends the resolution annotation
 - It **writes the check-(c) annotations by default** — running triage is the
   intent — and **never transitions any status**; resolve/unblock stay yours.
 - Idempotent across serial re-runs (the annotation marker is
-  machine-recognized), so it is safe at every orientation.
+  machine-recognized), so it is safe to repeat.
 - A task the pass cannot reconcile (a flaky read, a refused write) lands in a
   `failures` section instead of aborting the pass. Always a report, never a
   gate — exit 0.
