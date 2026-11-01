@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 import type { Expression, Insertable, Kysely, Transaction } from 'kysely';
 
+import type { NextFacet } from '../body-sections/store';
 import { validation } from '../errors';
 import type {
   ExportedBodySections,
@@ -310,7 +311,7 @@ function bundlesOf(document: StoreExport): Bundles {
     const { counters: _counters, ...record } = project;
     bundles.projects.set(project.key, {
       history: (history.get(project.key) ?? []).map(comparableTransition),
-      next: owned.get(project.key)?.next ?? null,
+      next: comparableNext(owned.get(project.key)?.next),
       // Compared as the target reads it back (MMR-607): trimmed, blank as none.
       record: { ...record, description: storedProse(record.description) },
       tags: tagsFor(tags, 'project', project.key),
@@ -322,9 +323,9 @@ function bundlesOf(document: StoreExport): Bundles {
         content: row.content,
         created_at: row.created_at,
       })),
-      description: owned.get(node.id)?.description ?? null,
+      description: storedProse(owned.get(node.id)?.description),
       history: (history.get(node.id) ?? []).map(comparableTransition),
-      next: owned.get(node.id)?.next ?? null,
+      next: comparableNext(owned.get(node.id)?.next),
       prereqs: canonicalSetOrder(
         (prereqs.get(node.id) ?? []).map((edge) => edge.depends_on_node_id),
       ),
@@ -342,6 +343,15 @@ function bundlesOf(document: StoreExport): Bundles {
     bundles.scratchpads.set(pad.id, pad);
   }
   return bundles;
+}
+
+/**
+ * A `## Next` facet as the target reads it back (MMR-609): the text trimmed and
+ * blank as none, while presence stays its own fact (ADR 0034). An absent facet
+ * is a not-present one, because the export omits a stem with no prose at all.
+ */
+function comparableNext(facet: NextFacet | undefined): NextFacet {
+  return { present: facet?.present ?? false, text: storedProse(facet?.text) };
 }
 
 /**
