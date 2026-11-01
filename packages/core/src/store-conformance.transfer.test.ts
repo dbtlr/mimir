@@ -1,7 +1,7 @@
 import { describe, expect, setDefaultTimeout, test } from 'bun:test';
 
 import { createProject } from './create';
-import type { StoreExport } from './export';
+import type { ExportedBodySections, StoreExport } from './export';
 import { backends, refusalOf, seedWorkingSet, withoutStamp } from './testing/conformance';
 
 setDefaultTimeout(60_000);
@@ -641,10 +641,10 @@ describe.each(backends)('$name', (backend) => {
       await source.close();
     }
   });
-  // A project description reads trimmed, blank as none (MMR-607), so a resume
-  // must compare the document's description by that same read, or a document
-  // carrying a blank or padded one refuses to resume onto its own fresh import.
-  test('a resume accepts its own fresh import when a project description is blank or padded', async () => {
+  // A project description reads trimmed, blank as none (MMR-607), and a remote
+  // is stored normalized (MMR-609), so a resume must compare both by that same
+  // read, or a document carrying them as written refuses its own fresh import.
+  test('a resume accepts its own fresh import when a project description or remote is not in stored form', async () => {
     const source = await backend.make();
     try {
       await seedWorkingSet(source.store);
@@ -654,17 +654,168 @@ describe.each(backends)('$name', (backend) => {
         throw new Error('the fixture seeds two projects');
       }
       first.description = ' \n\t ';
+      first.remote = '  git@github.com:dbtlr/mimir.git  ';
       second.description = '  The ops board.\n';
+      second.remote = '   ';
 
       const target = await backend.make();
       try {
         await target.store.import(document, { dryRun: false, mode: 'fresh' });
         const resumed = await target.store.import(document, { dryRun: false, mode: 'resume' });
         expect(resumed.created).toBe(0);
-        expect((await target.store.export()).projects.map((p) => p.description)).toEqual([
-          null,
-          'The ops board.',
-        ]);
+        const projects = (await target.store.export()).projects;
+        expect(projects.map((p) => p.description)).toEqual([null, 'The ops board.']);
+        expect(projects.map((p) => p.remote)).toEqual(['github.com/dbtlr/mimir', null]);
+
+        // A resume compares the target's remotes as stored, so whatever form a
+        // write stored stays comparable, even on a project the document does not
+        // carry: a path with a space, or a host the stored form never admits.
+        await createProject(target.store, {
+          description: null,
+          key: 'OTH',
+          name: 'Other',
+          remote: 'https://github.com/org/my repo',
+        });
+        await createProject(target.store, {
+          description: null,
+          key: 'ODD',
+          name: 'Odd',
+          remote: 'https://a@b@c.com/x',
+        });
+        const again = await target.store.import(document, { dryRun: false, mode: 'resume' });
+        expect(again.created).toBe(0);
+      } finally {
+        await target.close();
+      }
+    } finally {
+      await source.close();
+    }
+  });
+
+  // `## Next` text and a node description read trimmed, blank as none, too, so
+  // a resume compares them by that read (MMR-609). Presence is its own stored
+  // fact (ADR 0034): a present `## Next` whose text is blank stays present.
+  test('a resume accepts its own fresh import when ## Next or a node description is blank or padded', async () => {
+    const source = await backend.make();
+    try {
+      await seedWorkingSet(source.store);
+      const exported = await source.store.export();
+      const [project] = exported.projects;
+      const [padded, blank, bare] = exported.nodes;
+      if (
+        project === undefined ||
+        padded === undefined ||
+        blank === undefined ||
+        bare === undefined
+      ) {
+        throw new Error('the fixture seeds a project and three nodes');
+      }
+      // `bare` has a blank description and no `## Next`, so it reads as no
+      // prose at all and its re-export omits the stem.
+      const prose: ExportedBodySections[] = [
+        { description: '  ', next: { present: false, text: null }, stem: bare.id },
+        { description: ' \n\t ', next: { present: true, text: ' \n' }, stem: blank.id },
+        {
+          description: '  Fix the import.\n',
+          next: { present: true, text: '\tThen ship.  ' },
+          stem: padded.id,
+        },
+        { next: { present: true, text: 'Go.\n' }, stem: project.key },
+      ];
+      const replaced = new Set(prose.map((sections) => sections.stem));
+      const document: StoreExport = {
+        ...exported,
+        bodySections: [
+          ...exported.bodySections.filter((sections) => !replaced.has(sections.stem)),
+          ...prose,
+        ],
+      };
+
+      const target = await backend.make();
+      try {
+        await target.store.import(document, { dryRun: false, mode: 'fresh' });
+        const resumed = await target.store.import(document, { dryRun: false, mode: 'resume' });
+        expect(resumed.created).toBe(0);
+        const read = new Map(
+          (await target.store.export()).bodySections.map((sections) => [sections.stem, sections]),
+        );
+        expect(read.get(project.key)?.next).toEqual({ present: true, text: 'Go.' });
+        expect(read.get(padded.id)).toMatchObject({
+          description: 'Fix the import.',
+          next: { present: true, text: 'Then ship.' },
+        });
+        expect(read.get(blank.id)).toMatchObject({
+          description: null,
+          next: { present: true, text: null },
+        });
+        expect(read.has(bare.id)).toBe(false);
+      } finally {
+        await target.close();
+      }
+    } finally {
+      await source.close();
+    }
+  });
+
+  // The other half of MMR-609: comparing prose as the target reads it must not
+  // accept prose the target does not hold. A present `## Next` with blank text
+  // is not an absent one (ADR 0034).
+  test('a resume refuses a document whose ## Next or node description differs from the target', async () => {
+    const source = await backend.make();
+    try {
+      await seedWorkingSet(source.store);
+      const exported = await source.store.export();
+      const [project] = exported.projects;
+      const [described, headed] = exported.nodes;
+      if (project === undefined || described === undefined || headed === undefined) {
+        throw new Error('the fixture seeds a project and two nodes');
+      }
+      const prose: ExportedBodySections[] = [
+        { description: 'A', next: { present: true, text: null }, stem: described.id },
+        { next: { present: true, text: null }, stem: headed.id },
+        { next: { present: true, text: null }, stem: project.key },
+      ];
+      const withProse = (sections: readonly ExportedBodySections[]): StoreExport => {
+        const replaced = new Set(prose.map((row) => row.stem));
+        return {
+          ...exported,
+          bodySections: [
+            ...exported.bodySections.filter((row) => !replaced.has(row.stem)),
+            ...sections,
+          ],
+        };
+      };
+      const without = (stem: string) => prose.filter((row) => row.stem !== stem);
+      const variants: Record<string, ExportedBodySections[]> = {
+        'a different node description': [
+          { description: 'B', next: { present: true, text: null }, stem: described.id },
+          ...without(described.id),
+        ],
+        'a node ## Next absent beside its description': [
+          { description: 'A', next: { present: false, text: null }, stem: described.id },
+          ...without(described.id),
+        ],
+        'a node ## Next absent with no other prose': without(headed.id),
+        'a node ## Next with text': [
+          { next: { present: true, text: 'Go.' }, stem: headed.id },
+          ...without(headed.id),
+        ],
+        'a project ## Next absent': without(project.key),
+        'a project ## Next with text': [
+          { next: { present: true, text: 'Go.' }, stem: project.key },
+          ...without(project.key),
+        ],
+      };
+
+      const target = await backend.make();
+      try {
+        await target.store.import(withProse(prose), { dryRun: false, mode: 'fresh' });
+        for (const [name, sections] of Object.entries(variants)) {
+          const refusal = await refusalOf(
+            target.store.import(withProse(sections), { dryRun: false, mode: 'resume' }),
+          );
+          expect(`${name}: ${refusal}`).toContain('already exists and differs');
+        }
       } finally {
         await target.close();
       }

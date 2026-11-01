@@ -53,8 +53,12 @@ export function tryNormalizeRemote(raw: string): string | undefined {
   }
 }
 
-/** The `host/path` form `normalizeRemote` produces, with no scheme, credentials, or port. */
-const STORED_FORM = /^[^\s:@/?#\\]+\/[^\s?#]*[^\s?#/]$/;
+/**
+ * The `host/path` form `normalizeRemote` produces, with no scheme, credentials,
+ * or port. The path may hold inner whitespace, as a written one may, but no
+ * line break, which a written one never holds (MMR-609).
+ */
+const STORED_FORM = /^[^\s:@/?#\\]+\/[^\r\n\u2028\u2029?#]*[^\s?#/]$/;
 
 /**
  * Normalize a remote read back from an export: an already-normalized `host/path`

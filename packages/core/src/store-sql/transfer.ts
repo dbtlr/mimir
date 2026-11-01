@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 import type { Expression, Insertable, Kysely, Transaction } from 'kysely';
 
+import type { NextFacet } from '../body-sections/store';
 import { validation } from '../errors';
 import type {
   ExportedBodySections,
@@ -293,7 +294,15 @@ function tagsFor(tags: TagIndex, entityType: 'node' | 'project', id: string): st
   return tags.get(tagIndexKey(entityType, id)) ?? [];
 }
 
-function bundlesOf(document: StoreExport): Bundles {
+/**
+ * `storedRemote` reads a project remote as the target would hold it: the
+ * incoming document's is normalized as the import writes it (MMR-609), and the
+ * target's own export is already stored, so it is taken as is.
+ */
+function bundlesOf(
+  document: StoreExport,
+  storedRemote: (remote: string | null) => string | null,
+): Bundles {
   const owned = new Map(document.bodySections.map((sections) => [sections.stem, sections]));
   const tags = indexTags(document);
   const annotations = groupBy(document.annotations, (row) => row.node_id);
@@ -310,9 +319,14 @@ function bundlesOf(document: StoreExport): Bundles {
     const { counters: _counters, ...record } = project;
     bundles.projects.set(project.key, {
       history: (history.get(project.key) ?? []).map(comparableTransition),
-      next: owned.get(project.key)?.next ?? null,
-      // Compared as the target reads it back (MMR-607): trimmed, blank as none.
-      record: { ...record, description: storedProse(record.description) },
+      next: comparableNext(owned.get(project.key)?.next),
+      // Compared as the target stores them: a description trimmed and blank as
+      // none (MMR-607), a remote as `storedRemote` reads it (MMR-609).
+      record: {
+        ...record,
+        description: storedProse(record.description),
+        remote: storedRemote(record.remote),
+      },
       tags: tagsFor(tags, 'project', project.key),
     });
   }
@@ -322,9 +336,9 @@ function bundlesOf(document: StoreExport): Bundles {
         content: row.content,
         created_at: row.created_at,
       })),
-      description: owned.get(node.id)?.description ?? null,
+      description: storedProse(owned.get(node.id)?.description),
       history: (history.get(node.id) ?? []).map(comparableTransition),
-      next: owned.get(node.id)?.next ?? null,
+      next: comparableNext(owned.get(node.id)?.next),
       prereqs: canonicalSetOrder(
         (prereqs.get(node.id) ?? []).map((edge) => edge.depends_on_node_id),
       ),
@@ -342,6 +356,15 @@ function bundlesOf(document: StoreExport): Bundles {
     bundles.scratchpads.set(pad.id, pad);
   }
   return bundles;
+}
+
+/**
+ * A `## Next` facet as the target reads it back (MMR-609): the text trimmed and
+ * blank as none, while presence stays its own fact (ADR 0034). An absent facet
+ * is a not-present one, because the export omits a stem with no prose at all.
+ */
+function comparableNext(facet: NextFacet | undefined): NextFacet {
+  return { present: facet?.present ?? false, text: storedProse(facet?.text) };
 }
 
 /**
@@ -393,7 +416,7 @@ export async function importSqlStore(
   opts: ImportOptions,
 ): Promise<ImportReport> {
   const document = parseTransferDocument(input);
-  const incoming = bundlesOf(document);
+  const incoming = bundlesOf(document, importedRemote);
 
   try {
     return await dialect.write(db, async (tx) => {
@@ -440,8 +463,8 @@ async function applyImport(
   }
   const present =
     opts.mode === 'resume'
-      ? bundlesOf(await exportSqlStore(tx, dialect))
-      : bundlesOf({ ...document, ...EMPTY_COLLECTIONS });
+      ? bundlesOf(await exportSqlStore(tx, dialect), (remote) => remote)
+      : bundlesOf({ ...document, ...EMPTY_COLLECTIONS }, (remote) => remote);
 
   let created = 0;
   let skipped = 0;
