@@ -2,6 +2,7 @@ import { readBlockOwner } from '../block-owner';
 import type { Dependency, Node, Project } from '../model';
 import type { NodeTag, WorkingSet } from '../store';
 import type { StoreDialect } from './dialect';
+import { storedProse } from './prose';
 import type { Executor, NodeRow, ProjectRow } from './schema';
 
 /**
@@ -61,7 +62,7 @@ export function toProject(row: ProjectRow, dialect: StoreDialect): Project {
   return {
     archived_at: row.archived_at,
     created_at: row.created_at,
-    description: row.description,
+    description: storedProse(row.description),
     key: row.key,
     name: row.name,
     pinned: dialect.codecs.bool.decode(row.pinned),

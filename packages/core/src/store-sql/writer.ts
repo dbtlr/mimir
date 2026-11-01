@@ -6,6 +6,7 @@ import type { Artifact, Node, Project } from '../model';
 import type { NewNodeRecord, NewProjectRecord, NewTransitionRecord, StoreWriter } from '../store';
 import { now } from '../time';
 import type { StoreDialect } from './dialect';
+import { storedProse } from './prose';
 import type { DB, NodeUpdate, ProjectUpdate } from './schema';
 import { loadWorkingSet, toNode, toProject } from './working-set';
 
@@ -181,7 +182,7 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
       const project: Project = {
         archived_at: null,
         created_at: timestamp,
-        description: row.description,
+        description: storedProse(row.description),
         key: row.key,
         name: row.name,
         pinned: false,
@@ -304,10 +305,9 @@ export function createSqlWriter(tx: Transaction<DB>, dialect: StoreDialect): Sto
             .select(['next_present', 'next_text'])
             .where('key', '=', entityId)
             .executeTakeFirst());
-      const text = (row?.next_text ?? '').trim();
       return {
         present: row === undefined ? false : bool.decode(row.next_present),
-        text: text === '' ? null : text,
+        text: storedProse(row?.next_text),
       };
     },
 
