@@ -27,6 +27,7 @@ import { exportArtifacts, insertExportedArtifacts } from './artifacts';
 import { insertBatched, pairKey } from './batch';
 import { createSqlBodySectionStore } from './body-sections';
 import type { StoreDialect } from './dialect';
+import { storedProse } from './prose';
 import type {
   AnnotationTable,
   DB,
@@ -310,7 +311,8 @@ function bundlesOf(document: StoreExport): Bundles {
     bundles.projects.set(project.key, {
       history: (history.get(project.key) ?? []).map(comparableTransition),
       next: owned.get(project.key)?.next ?? null,
-      record,
+      // Compared as the target reads it back (MMR-607): trimmed, blank as none.
+      record: { ...record, description: storedProse(record.description) },
       tags: tagsFor(tags, 'project', project.key),
     });
   }

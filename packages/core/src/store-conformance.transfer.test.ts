@@ -641,6 +641,38 @@ describe.each(backends)('$name', (backend) => {
       await source.close();
     }
   });
+  // A project description reads trimmed, blank as none (MMR-607), so a resume
+  // must compare the document's description by that same read, or a document
+  // carrying a blank or padded one refuses to resume onto its own fresh import.
+  test('a resume accepts its own fresh import when a project description is blank or padded', async () => {
+    const source = await backend.make();
+    try {
+      await seedWorkingSet(source.store);
+      const document = await source.store.export();
+      const [first, second] = document.projects;
+      if (first === undefined || second === undefined) {
+        throw new Error('the fixture seeds two projects');
+      }
+      first.description = ' \n\t ';
+      second.description = '  The ops board.\n';
+
+      const target = await backend.make();
+      try {
+        await target.store.import(document, { dryRun: false, mode: 'fresh' });
+        const resumed = await target.store.import(document, { dryRun: false, mode: 'resume' });
+        expect(resumed.created).toBe(0);
+        expect((await target.store.export()).projects.map((p) => p.description)).toEqual([
+          null,
+          'The ops board.',
+        ]);
+      } finally {
+        await target.close();
+      }
+    } finally {
+      await source.close();
+    }
+  });
+
   test('imports cross-project dependencies and preserves legacy facts', async () => {
     const source = await backend.make();
     try {
