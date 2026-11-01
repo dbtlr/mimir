@@ -229,6 +229,39 @@ test.each(BLANKS)('seedUpdate refuses a blank description %j and keeps it', asyn
   );
 });
 
+// A create still accepts a blank description (nothing exists to lose), but a
+// project projects it as none, as a task and a seed already do (MMR-607).
+test.each(BLANKS)('a project created with a blank description %j has none', async (blank) => {
+  const created = await engine.create({
+    description: blank,
+    key: 'BLK',
+    name: 'Blank',
+    type: 'project',
+  });
+  expect(created.description).toBeNull();
+  expect((await engine.getNode({ facets: ['description'], id: 'BLK' })).description).toBeNull();
+});
+
+test('a project already stored with a blank description reads as none everywhere', async () => {
+  await fixture.store.transact(async (w) => w.updateProject('ENG', { description: ' \n\t ' }));
+  expect((await engine.getNode({ facets: ['description'], id: 'ENG' })).description).toBeNull();
+  const listed = await engine.projects({});
+  expect(listed.find((project) => project.id === 'ENG')?.description).toBeNull();
+});
+
+test('a project description reads back trimmed, as a task description does', async () => {
+  const created = await engine.create({
+    description: '  The work-state store.\n',
+    key: 'TRM',
+    name: 'Trimmed',
+    type: 'project',
+  });
+  expect(created.description).toBe('The work-state store.');
+  expect((await engine.getNode({ facets: ['description'], id: 'TRM' })).description).toBe(
+    'The work-state store.',
+  );
+});
+
 test('null clears a container direction, a project direction, and every description', async () => {
   const phase = await engine.create({ parent: 'ENG-1', title: 'Phase', type: 'phase' });
   await engine.update({ description: 'Phase prose.', id: phase.id, next: 'Go.' });

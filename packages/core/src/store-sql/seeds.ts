@@ -9,6 +9,7 @@ import { assertLiveSeed, canTransitionSeed, seedEdgesHint } from '../seeds/store
 import { now } from '../time';
 import { inLists, insertBatched } from './batch';
 import type { StoreDialect } from './dialect';
+import { storedProse } from './prose';
 import type { DB, Executor, SeedRow } from './schema';
 
 /**
@@ -22,16 +23,6 @@ import type { DB, Executor, SeedRow } from './schema';
  */
 
 const stemOf = (key: string, seq: number): string => renderSeedRef({ key, seq });
-
-/**
- * Normalize description prose to the READ-BACK semantics: a create echo must
- * equal what a subsequent load returns (trim; blank reads as none). Storing
- * the normalized form is what makes the two answer identically.
- */
-function normalizeDescription(description: string | null | undefined): string | null {
-  const trimmed = (description ?? '').trim();
-  return trimmed === '' ? null : trimmed;
-}
 
 function toRecord(row: SeedRow, dialect: StoreDialect): SeedRecord {
   return {
@@ -178,7 +169,7 @@ export function createSqlSeedStore(db: Kysely<DB>, dialect: StoreDialect): SeedS
         }
         const seq = allocated.last_seed_seq;
         const timestamp = now();
-        const description = normalizeDescription(input.description);
+        const description = storedProse(input.description);
         await tx
           .insertInto('seed')
           .values({
@@ -320,7 +311,7 @@ export function createSqlSeedStore(db: Kysely<DB>, dialect: StoreDialect): SeedS
           ...(patch.kind === undefined ? {} : { kind: patch.kind }),
           ...(patch.description === undefined
             ? {}
-            : { description: normalizeDescription(patch.description) }),
+            : { description: storedProse(patch.description) }),
         };
         // An empty patch writes nothing — no columns, no stamp.
         if (Object.keys(changes).length === 0) {

@@ -3,6 +3,7 @@ import type { AnnotationView, HistoryEntry } from '@mimir/contract';
 import type { BodySections, BodySectionStore, NextFacet } from '../body-sections/store';
 import { inLists } from './batch';
 import type { StoreDialect } from './dialect';
+import { storedProse } from './prose';
 import type { Executor, Stored } from './schema';
 
 /**
@@ -16,12 +17,6 @@ import type { Executor, Stored } from './schema';
  * would be N queries where one `WHERE id IN (...)` does.
  */
 
-/** A stored prose column as the seam yields it: trimmed, blank reads as none. */
-function prose(value: string | null): string | null {
-  const text = (value ?? '').trim();
-  return text === '' ? null : text;
-}
-
 /** The prose columns a node and a project share. */
 type OwnerRow = {
   description: string | null;
@@ -31,7 +26,10 @@ type OwnerRow = {
 
 /** The `## Next` facet from its two columns — presence is its own stored fact. */
 function nextFacet(row: OwnerRow, dialect: StoreDialect): NextFacet {
-  return { present: dialect.codecs.bool.decode(row.next_present), text: prose(row.next_text) };
+  return {
+    present: dialect.codecs.bool.decode(row.next_present),
+    text: storedProse(row.next_text),
+  };
 }
 
 /** Which of the requested stems name a node, and which a project. */
@@ -178,7 +176,7 @@ export function createSqlBodySectionStore(ex: Executor, dialect: StoreDialect): 
       }
       const sections: BodySections = {};
       if (want.description === true) {
-        sections.description = prose(row.description);
+        sections.description = storedProse(row.description);
       }
       if (want.next === true) {
         sections.next = nextFacet(row, dialect);
