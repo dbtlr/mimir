@@ -666,6 +666,17 @@ describe.each(backends)('$name', (backend) => {
         const projects = (await target.store.export()).projects;
         expect(projects.map((p) => p.description)).toEqual([null, 'The ops board.']);
         expect(projects.map((p) => p.remote)).toEqual(['github.com/dbtlr/mimir', null]);
+
+        // A stored remote may hold a space, and reading the target back for the
+        // compare must keep it, even on a project the document does not carry.
+        await createProject(target.store, {
+          description: null,
+          key: 'OTH',
+          name: 'Other',
+          remote: 'https://github.com/org/my repo',
+        });
+        const again = await target.store.import(document, { dryRun: false, mode: 'resume' });
+        expect(again.created).toBe(0);
       } finally {
         await target.close();
       }
@@ -778,6 +789,10 @@ describe.each(backends)('$name', (backend) => {
           ...without(described.id),
         ],
         'a node ## Next absent with no other prose': without(headed.id),
+        'a node ## Next with text': [
+          { next: { present: true, text: 'Go.' }, stem: headed.id },
+          ...without(headed.id),
+        ],
         'a project ## Next absent': without(project.key),
         'a project ## Next with text': [
           { next: { present: true, text: 'Go.' }, stem: project.key },

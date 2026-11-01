@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 
-import { normalizeRemote, tryNormalizeRemote } from './remote';
+import { normalizeRemote, normalizeStoredRemote, tryNormalizeRemote } from './remote';
 
 test.each([
   ['git@github.com:dbtlr/mimir.git', 'github.com/dbtlr/mimir'],
@@ -57,3 +57,20 @@ test.each(['', '   ', 'not a url', 'https://github.com', 'github.com', 'git@gith
     expect(() => normalizeRemote(raw)).toThrow(/git remote/i);
   },
 );
+
+// An export carries remotes as they were stored, so reading one back must keep
+// every form `normalizeRemote` writes — or a store refuses its own export (MMR-609).
+test.each([
+  'git@github.com:dbtlr/mimir.git',
+  '  git@GitLab.example.org:group/sub/repo.git\n',
+  'https://github.com/org/my repo',
+  'git@github.com:org/a\tb.git',
+])('the stored form of %j reads back unchanged', (raw) => {
+  const stored = normalizeRemote(raw);
+  expect(normalizeStoredRemote(stored)).toBe(stored);
+});
+
+test('a remote read back in written form is normalized as a written one', () => {
+  expect(normalizeStoredRemote('  git@github.com:dbtlr/mimir.git ')).toBe('github.com/dbtlr/mimir');
+  expect(() => normalizeStoredRemote('not a remote')).toThrow(/git remote/i);
+});
