@@ -312,8 +312,13 @@ function bundlesOf(document: StoreExport): Bundles {
     bundles.projects.set(project.key, {
       history: (history.get(project.key) ?? []).map(comparableTransition),
       next: comparableNext(owned.get(project.key)?.next),
-      // Compared as the target reads it back (MMR-607): trimmed, blank as none.
-      record: { ...record, description: storedProse(record.description) },
+      // Compared as the target stores them: a description trimmed and blank as
+      // none (MMR-607), a remote normalized as the import writes it (MMR-609).
+      record: {
+        ...record,
+        description: storedProse(record.description),
+        remote: importedRemote(record.remote),
+      },
       tags: tagsFor(tags, 'project', project.key),
     });
   }
