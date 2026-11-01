@@ -59,7 +59,7 @@ test.each(['', '   ', 'not a url', 'https://github.com', 'github.com', 'git@gith
 );
 
 // An export carries remotes as they were stored, so reading one back must keep
-// every form `normalizeRemote` writes — or a store refuses its own export (MMR-609).
+// what `normalizeRemote` wrote — or a store refuses its own export (MMR-609).
 test.each([
   'git@github.com:dbtlr/mimir.git',
   '  git@GitLab.example.org:group/sub/repo.git\n',
@@ -74,3 +74,10 @@ test('a remote read back in written form is normalized as a written one', () => 
   expect(normalizeStoredRemote('  git@github.com:dbtlr/mimir.git ')).toBe('github.com/dbtlr/mimir');
   expect(() => normalizeStoredRemote('not a remote')).toThrow(/git remote/i);
 });
+
+test.each(['github.com/org/a\nb', 'github.com/org/a\rb', 'github.com/org/a\u2028b'])(
+  'a stored remote %j with a line break is refused, as no write produces one',
+  (raw) => {
+    expect(() => normalizeStoredRemote(raw)).toThrow(/git remote/i);
+  },
+);

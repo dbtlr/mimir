@@ -667,13 +667,20 @@ describe.each(backends)('$name', (backend) => {
         expect(projects.map((p) => p.description)).toEqual([null, 'The ops board.']);
         expect(projects.map((p) => p.remote)).toEqual(['github.com/dbtlr/mimir', null]);
 
-        // A stored remote may hold a space, and reading the target back for the
-        // compare must keep it, even on a project the document does not carry.
+        // A resume compares the target's remotes as stored, so whatever form a
+        // write stored stays comparable, even on a project the document does not
+        // carry: a path with a space, or a host the stored form never admits.
         await createProject(target.store, {
           description: null,
           key: 'OTH',
           name: 'Other',
           remote: 'https://github.com/org/my repo',
+        });
+        await createProject(target.store, {
+          description: null,
+          key: 'ODD',
+          name: 'Odd',
+          remote: 'https://a@b@c.com/x',
         });
         const again = await target.store.import(document, { dryRun: false, mode: 'resume' });
         expect(again.created).toBe(0);
