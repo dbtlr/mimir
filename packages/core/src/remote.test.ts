@@ -104,6 +104,11 @@ test.each([
   String.raw`https://a\b.com/x`,
   'git@a?b.com:x',
   'git@a#b.com:x',
+  // A `?`, `#`, or backslash ends a URL's authority, so none belongs in its userinfo.
+  'https://a?b@c@d.com/x',
+  'https://a?b@c.com/x',
+  'https://a#b@c.com/x',
+  String.raw`https://a\b@c.com/x`,
   // An empty host, once the user part takes every `@`.
   'git@@:o/r',
   'a@@:x',

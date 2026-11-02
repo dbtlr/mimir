@@ -10,10 +10,11 @@ import { validation } from './errors';
  */
 const SCP_LIKE = /^(?:([^/\s:]+)@)?([^:/\s\\@?#]+):(?!\/\/)(.+)$/;
 /**
- * `scheme://[userinfo@]host[:port]/path`. The userinfo ends at the last `@`, and
- * the host follows the same rule as the scp form (MMR-612).
+ * `scheme://[userinfo@]host[:port]/path`. The userinfo ends at the last `@` and
+ * holds no `?`, `#`, or backslash, which end a URL's authority; the host follows
+ * the same rule as the scp form (MMR-612).
  */
-const URL_LIKE = /^[a-z][a-z0-9+.-]*:\/\/(?:[^/\s]*@)?([^:/\s\\@?#]+)(?::\d+)?\/(.+)$/i;
+const URL_LIKE = /^[a-z][a-z0-9+.-]*:\/\/(?:[^/\s\\?#]*@)?([^:/\s\\@?#]+)(?::\d+)?\/(.+)$/i;
 
 /**
  * Drop trailing slashes, whitespace, and a `.git` suffix (any case) until none
