@@ -1,7 +1,8 @@
 # Finishing: settle, re-orient, remember
 
 Three records describe finished work. Each is independent, and the session's
-process decides which ones a boundary gets:
+process decides which ones a boundary gets. When a boundary gets all three,
+they go in this order, because each reads the one before it:
 
 1. **Transition** — the task's state.
 2. **Groom-next** — re-author owned `## Next` prose against the now-current board.
@@ -49,7 +50,9 @@ boundary without transitioning a task or writing a retrospective.
 ## Summarize
 
 A session summary is a short markdown retrospective frozen as a
-`session_summary` artifact. `overview` lists it beside the session it records:
+`session_summary` artifact. It records context worth getting back: when a
+boundary produced none, skip it rather than invent one. `overview` lists it
+beside the session it records:
 
 ```sh
 mimir attach KEY-9 --file retro.md --title "Session summary" \

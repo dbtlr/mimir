@@ -124,7 +124,9 @@ containers under _To groom_ (ADR 0013, work-page refinement).
 
 §7 said the agent skill teaches agents to prefer groomed work. The skill now
 describes Mimir's mechanics only, and which work a session takes belongs to
-the user's or the project's process. The skill states that the grooming state
-gates nothing and that `--eq grooming:groomed` narrows the ready queue; it no
-longer recommends a choice. `next` keeps its membership and order, as §7
+the user's or the project's process. The skill states what each state means
+(a `groomed` task can be worked without more questions, and an ungroomed task
+should be expected to need some), that the state gates nothing, and that
+`--eq grooming:groomed` narrows the ready queue. Preferring groomed work is
+the session's choice, and the skill no longer recommends it. `next` keeps its membership and order, as §7
 decided.

@@ -11,9 +11,9 @@ record that outlives a conversation. Every example in this skill is a real
 `mimir` CLI invocation.
 
 This skill describes how Mimir works: its records, what each status and verb
-means, and the exact command surface. When to consult the board, which work to
-take, and how a session routes and finishes its work belong to the user and the
-project's own process.
+claims, and the exact command surface. Which work to take, how follow-ups are
+routed, and how a session is organized belong to the user's and the project's
+own process.
 
 ## MCP tools or the CLI
 
@@ -45,7 +45,9 @@ The machine-local commands have no tool and always run through the CLI:
 3. `mimir overview` shows a bound project's rollup, direction, in-flight work,
    active Scratchpads, the ready queue, recent sessions, and hygiene
    (`references/querying.md`). An overview is a snapshot of the board when it
-   ran. An active Scratchpad is a live episode's memory
+   ran. An active Scratchpad is a live episode's memory, kept so the next
+   session can resume from it: read it before planning work it may already
+   cover, and settle it while the conversation still remembers the episode
    (`references/scratchpad.md`).
 4. `mimir triage` reports a board's untriaged seeds and seeds ready to resolve.
    It also writes: it annotates the board's unsettled tasks whose upstream seed
@@ -64,19 +66,25 @@ Each transition records a claim and its time. Run it at the moment the claim
 becomes true: a transition recorded later is a guess about the past that the
 next reader takes as fact.
 
-- `queue <id> --harness <h> --session <s>` reserves a task for a run (`todo →
-  queued`) and keeps it out of `next`. `unqueue <id> "reason"` releases the
-  reservation before a worker starts.
+- `queue <id> --harness <h> --session <s>` reserves a task before work is
+  dispatched (`todo → queued`) and keeps it out of `next`. `unqueue <id>
+  "reason"` releases the reservation when the run is cancelled before a worker
+  starts. A reservation nobody releases is false: it tells the board a run will
+  take the task.
 - `start <id>` claims the work has begun (`todo` or `queued` → `in_progress`).
-  A session may hold any number of `in_progress` tasks; each carries its own
+  Run it before the first edit: work done before `start` was never claimed. A
+  session may hold any number of `in_progress` tasks; each carries its own
   handles.
 - `submit <id>` claims the work is ready for its review gate (`in_progress →
   under_review`). The task leaves `next` and keeps its handles, and work done
   in response to that review needs no status change. `return <id> "what to
   change"` sends it back to `in_progress`.
-- `done <id>` claims the work is complete and verified. A project that gates
-  completion, for example on merge, holds the task in `under_review` until the
-  gate clears.
+- `done <id>` claims the work is complete and verified. Verified means a test
+  that exercises the change passes, you ran the behavior and saw it work, or,
+  for a change with no runtime behavior, you read the result back. Record the
+  transition before the user hears the work is finished, so the board is never
+  behind the report. A project that gates completion, for example on merge,
+  holds the task in `under_review` until the gate clears.
 - `block <id> "reason"` records an external obstruction and `park <id>
   "reason"` a deliberate deferral; `unblock` and `unpark` lift them. The reason
   is the next reader's context. `block --on you|others` names who can clear
@@ -84,8 +92,10 @@ next reader takes as fact.
   board must. Without `--on`, a task with an `upstream` seed is `others` and
   any other task is `you`. To change an owner, `unblock` and `block` again.
 - `abandon <id> "reason"` ends a task that will not be done; it stays on the
-  record with its reason. `reopen <id> "reason"` corrects a terminal call that
-  was wrong, such as a `done` that verification later falsified.
+  record with its reason. `reopen <id> "reason"` only corrects a terminal call
+  that was wrong: a `done` that verification later falsified, or an abandoned
+  approach that is back on. New work found after a genuine `done` is a new
+  task.
 - `annotate <id> "note"` appends a decision, a surprise, or a scope change to
   a task's notes.
 
@@ -103,9 +113,13 @@ identity on `queue` or an initial `start`; worker identity, `update`, and MCP
 calls take explicit values. `references/authoring.md` covers finding a
 session id and recording a handoff.
 
-Holds (`park`, `block`), terminal verbs, and `unqueue` clear every handle and
-keep the former owners in history; `submit` and `return` keep them. To find
-what a session holds:
+Holding a task means owning its status: whoever holds its handles makes its
+transitions, and a helper working on part of it does not. A held task tells
+everyone that someone is working on it, so a session that stops working a task
+releases it (`park`, `block`, `unqueue`, or a terminal verb) or hands it off
+(`update` with the new owner's identity, plus an `annotate`). Holds, terminal
+verbs, and `unqueue` clear every handle and keep the former owners in history;
+`submit` and `return` keep them. These queries find what a session holds:
 
 ```sh
 mimir list --status in_progress --eq session:<main-session> --missing worker_session
@@ -120,7 +134,9 @@ A queued task must be unqueued before `park` or `block`.
 ## Grooming state
 
 A task carries a grooming state beside its status: `not_groomed`,
-`needs_answers`, or `groomed`. It gates nothing. `mimir groom <id> <state>
+`needs_answers`, or `groomed`. `groomed` means the task can be worked without
+more questions; expect a `not_groomed` or `needs_answers` task to need some.
+The state gates nothing. `mimir groom <id> <state>
 "note"` sets it, and `needs_answers` requires a note naming the open
 questions. `mimir next --eq grooming:groomed` narrows the ready queue to
 groomed work. A question that stops a started task is recorded with `block`
@@ -133,7 +149,9 @@ gates other work). A **seed** is a record on a board's grooming queue that
 commits to no work; the owning board's triage promotes it into tasks, resolves
 it, rejects it, or parks it.
 
-A seed is how one board asks another for work: `mimir seed "title" -k <kind>
+Only a board's owners create tasks on it. Another board's work reaches it as a
+seed, however fully shaped the fix, and that board's triage decides what it
+commits. A seed is how one board asks another for work: `mimir seed "title" -k <kind>
 -p KEY` files it on the other board and records the bound board as the requester.
 When a task waits on that seed, `mimir update <id> --upstream KEY-sN` records
 the edge, and a later `block` defaults to `others`; triage annotates the task
@@ -144,7 +162,11 @@ when the seed settles. `references/seeds.md` covers filing, triage, and
 
 Three records describe a finished piece of work, and each stands alone: the
 task's transition, a container's `## Next` direction (groom-next, distinct
-from the `groom` verb), and a `session_summary` artifact.
+from the `groom` verb), and a `session_summary` artifact. When a boundary gets
+all three, they go in that order, because each reads the one before it:
+groom-next reads the board after the transition, and the summary describes
+where things ended up. A summary records context worth getting back; a
+boundary that produced none skips it rather than inventing one.
 `references/finishing.md` covers how to write each one.
 
 ## Ids and commands

@@ -128,7 +128,8 @@ recorded anywhere**: discard deletes the document and leaves no trace. An
 episode whose ending deserves a trace freezes instead.
 
 An episode ends in freeze when it settled or discard when it is dead; a
-checkpoint keeps it going. A Scratchpad left active is a handoff:
+checkpoint keeps it going. Settle it at its boundary, while the conversation
+still remembers the episode. A Scratchpad left active is a handoff:
 `overview` shows it to the next session, and its Journal is what that session
 resumes from. A discard refused over open Agenda items calls for completing or
 superseding them first.
