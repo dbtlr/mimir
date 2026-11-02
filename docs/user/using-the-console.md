@@ -58,8 +58,8 @@ main column.
 The top-bar **Needs you** alert shows how many decisions wait on you. It opens
 a popover (a bottom sheet on a phone) that lists them grouped by project, in
 the same order as this page, so you can decide without leaving the page you are
-on. Each row has the same buttons as here (**Answer…**), and the decision for the record you are viewing is marked _This
-page_. A row leaves the list when its change lands, and the popover stays open
+on. Each row has the same buttons as here (**Answer…**), and the decision for
+the record you are viewing is marked _This page_. A row leaves the list when its change lands, and the popover stays open
 until you press Escape, choose a link, or move to another page. It links to
 **Open review page** and to **Work through these**, the one-at-a-time queue.
 The alert is hidden when there are no decisions. Seeds, findings, and tasks
@@ -76,13 +76,13 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
 - **A project, initiative, or phase opens as its work page.** The main column
   answers five questions in order: _Now_ (what is queued, running, or in
   review, with when it started, where, and its latest note), _Needs you_
-  (blocks you can clear and tasks that need answers, each with its reason), _Frontier_ (what
-  is runnable now, what is next to unlock, what is left to groom, and what is
-  waiting on others, folded), _Shipped_ (the last seven days, grouped by day),
-  and _Going cold_ (stale work). Every row opens its record page. Some rows
-  also act in place: Start on a runnable task, and Answer… on a task that
-  needs answers, which saves your
-  answer as a note and sets the task's grooming state. The row then moves to
+  (blocks you can clear and tasks that need answers, each with its reason),
+  _Frontier_ (what is runnable now, what is next to unlock, what is left to
+  groom, and what is waiting on others, folded), _Shipped_ (the last seven
+  days, grouped by day), and _Going cold_ (stale work). Every row opens its
+  record page. Some rows also act in place: Start on a runnable task, and
+  Answer… on a task that needs answers, which saves your answer as a note and
+  sets the task's grooming state. The row then moves to
   the section it now belongs in. Offline, these buttons are disabled. The rail
   holds the direction (clamped to a few lines, with Read more for the rest),
   About (the description and details), and Artifacts (a project's five newest,

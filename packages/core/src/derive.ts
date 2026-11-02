@@ -172,6 +172,15 @@ export function isTerminalWord(word: StatusWord): boolean {
   return word === 'done' || word === 'abandoned';
 }
 
+/**
+ * In flight = reserved, under way, or at its review gate (ADR 0013, MMR-615
+ * refinement). The overview's in-flight list and the work page's Now share
+ * this one rule, so their counts agree.
+ */
+export function isInFlightWord(word: StatusWord): boolean {
+  return word === 'queued' || word === 'in_progress' || word === 'under_review';
+}
+
 /** Idle = no live work under the node: an all-terminal rollup, or empty (`new`). */
 function isIdleWord(word: StatusWord): boolean {
   return isTerminalWord(word) || word === 'new';

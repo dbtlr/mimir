@@ -58,7 +58,7 @@ export type StaleOptions = {
  * `under_review`, or `queued` and whose `updated_at` is older than the threshold (glossary).
  * Mutes `parked` and `awaiting` (auto-clearing / deliberately set aside — don't
  * nag); chases `blocked` (untouched-for-weeks is exactly the nudge) and
- * `under_review` (a submission the human never got to is the same rot).
+ * `under_review` (a review gate nobody cleared is the same rot).
  */
 export function isStale(set: DerivationSet, task: Node, options: StaleOptions = {}): boolean {
   if (task.type !== 'task') {

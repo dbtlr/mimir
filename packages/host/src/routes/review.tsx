@@ -83,7 +83,7 @@ function AllClear({ inFlight, last }: { inFlight: number; last: ReviewReport['la
       <strong className="font-semibold text-ink-dim">No blocks or questions are waiting.</strong>{' '}
       {inFlight > 0
         ? `Agents are working on ${counted(inFlight, 'task')}.`
-        : 'No task is in progress or in review.'}
+        : 'No task is queued, in progress, or in review.'}
       {last !== null && (
         <>
           {' '}

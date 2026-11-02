@@ -144,7 +144,7 @@ What `list`/`get` show as `status` is computed:
 ## Verdicts (`--is` / `--not-is`) — judgments, not statuses
 
 - `stale` — `ready`/`queued`/`in_progress`/`under_review` but untouched past the threshold
-  (14 days). Chases `blocked` and `under_review` (a review the human never got to)
+  (14 days). Chases `blocked` and `under_review` (a review gate nobody cleared)
   too; queued reservations from a crashed run are chased by the same rule.
   **Mutes `parked`** (deliberately shelved — don't nag).
 - `blocking` — has live dependents; finishing it unlocks work.

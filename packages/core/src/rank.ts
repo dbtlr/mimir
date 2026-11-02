@@ -22,8 +22,8 @@ export type RankPosition = 'top' | 'bottom' | 'before' | 'after';
 
 /**
  * A task is in the rankable set iff it is non-terminal, un-held, and actionable.
- * `under_review` is non-terminal but *not* actionable (the verdict is the human's,
- * not the agent's), so it is excluded. Tolerates `null` (a container) → false.
+ * `under_review` is non-terminal but *not* actionable (it waits on its review
+ * gate, not on the next pick), so it is excluded. Tolerates `null` (a container) → false.
  */
 export function isRankable(lifecycle: Lifecycle | null, hold: Hold | null): boolean {
   return (

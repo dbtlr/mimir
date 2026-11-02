@@ -753,8 +753,8 @@ in-flight count) are revised:
   `blocked` or `parked` and has the hold's home.
 - **_Needs you_ no longer includes reviews,** on a work page or on `/`. Its
   rows act in place with _Answer…_ on a question; a block on you has no
-  action, as before. The focus queue shows each decision's question and the
-  same actions as its row.
+  action, as before. The focus queue shows each decision's question, or what
+  its block waits on, and the same actions as its row.
 - **_Approve_ and _Send back…_ are on the task page only,** in its verdict
   block.
 - **The review page's project in-flight count includes reviews,** because it

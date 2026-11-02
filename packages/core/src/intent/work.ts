@@ -17,7 +17,13 @@ import type {
 import type { InstantWindow } from '../dates';
 import { recentDaysWindow, withinWindow } from '../dates';
 import type { DerivationSet } from '../derive';
-import { deriveSet, findNodeInSet, hasUnsettledPrereq, nodeStatusWord } from '../derive';
+import {
+  deriveSet,
+  findNodeInSet,
+  hasUnsettledPrereq,
+  isInFlightWord,
+  nodeStatusWord,
+} from '../derive';
 import { notFound, projectNotFound, validation } from '../errors';
 import { parseIdentity } from '../ids';
 import type { Node } from '../model';
@@ -346,7 +352,7 @@ export function classifyWork(
   for (const node of tasks.toSorted(byRankOrder(set))) {
     const word = nodeStatusWord(set, node);
     const needsYouReason = needsYouReasonOf(node, word);
-    if (word === 'in_progress' || word === 'queued' || word === 'under_review') {
+    if (isInFlightWord(word)) {
       buckets.now.push(node);
     } else if (needsYouReason !== undefined) {
       buckets.needsYou.push({ node, reason: needsYouReason });

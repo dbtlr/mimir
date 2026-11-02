@@ -846,7 +846,7 @@ export type ReviewProject = ReviewProjectRef & {
   decisions: number;
   /** Untriaged seeds, plus tasks going cold, plus `doctor` findings. */
   triage: number;
-  /** Tasks whose status word is `queued` or `in_progress`. */
+  /** Tasks whose status word is `queued`, `in_progress`, or `under_review`: the `now` rows. */
   inFlight: number;
   /**
    * Open tasks: the `--status live` group, every task whose status word is not

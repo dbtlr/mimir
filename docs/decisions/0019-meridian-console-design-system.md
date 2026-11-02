@@ -333,13 +333,15 @@ and the rejected red badge:
 - **The order loses its verdict tier.** A project's urgency is its leading
   decision kind, a block on you and then a question. The focus queue walks
   every block on you, then every question, newest first within each.
-- **Violet marks the decisions set only.** The task page keeps its verdict
-  block for a task under review, with _Approve_ and _Send back…_, but the
-  block no longer takes the attention hue or reads _Needs your verdict_.
-  §1's "verdict blocks, under-review emphasis" is superseded. The attention
-  hue stays violet, not red: the set is still work waiting on the operator,
-  not work that is broken, and red stays the `blocked` status hue (§2). The
-  `under_review` status hue is a status hue (§3) and is unchanged.
+- **The attention role marks the decisions set only.** The task page keeps
+  its verdict block for a task under review, with _Approve_ and _Send
+  back…_, but the block no longer takes the attention hue or reads _Needs
+  your verdict_. §1's "verdict blocks, under-review emphasis" is superseded.
+  The attention hue stays violet, not red: the set is still work waiting on
+  the operator, not work that is broken, and red stays the `blocked` status
+  hue (§2). The `under_review` status hue is a status hue (§3) and is
+  unchanged, though it shares the attention hue's violet, so a review's
+  status dot in _Now_ is violet while its row takes no attention rule.
 - **Verdict verbs leave the lists.** Rows on the work page, the review page,
   the popover, and the focus queue no longer carry _Approve_ or _Send back…_;
   §4's verdict-first rule now holds on the task page only.

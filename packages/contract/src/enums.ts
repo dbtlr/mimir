@@ -16,8 +16,8 @@ export type NodeType = (typeof NODE_TYPE_VALUES)[number];
 /**
  * Lifecycle axis (ADR 0001) — pure progress, mutually exclusive, verb-driven.
  * `under_review` is an optional ship-readiness gate between `in_progress` and
- * `done` (MMR-84): the doer submits, a human approves (→done) or returns
- * (→in_progress). Optional — `in_progress → done` directly stays legal.
+ * `done` (MMR-84): the doer submits, and the review gate clears (→done)
+ * or sends the work back (→in_progress). Optional — `in_progress → done` directly stays legal.
  */
 export const LIFECYCLE_VALUES = [
   'todo',

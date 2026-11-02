@@ -15,7 +15,7 @@ import { clearHandles } from './handles';
  * re-enters → appends to the bottom (no remembered position; a re-entry is a
  * natural re-triage point) — but only if the underlying lifecycle is rankable.
  * A held `under_review` task stays non-rankable on release (it's not actionable
- * until the human verdict lands), so it gets no rank back.
+ * until its review gate clears), so it gets no rank back.
  *
  * A `blocked` hold also records its **owner** (ADR 0001, MMR-438): who can clear
  * it. `block` sets it (stated, else derived from the task's `upstream`), and
@@ -80,7 +80,7 @@ async function releaseHold(store: Store, id: string, from: Exclude<Hold, 'none'>
     }
     // Re-enter the rankable set at the bottom — but only if the lifecycle is
     // rankable once un-held (todo/in_progress). A held `under_review` task
-    // stays non-rankable on release (not actionable until the verdict lands).
+    // stays non-rankable on release (not actionable until its review gate clears).
     const rank = isRankable(task.lifecycle, 'none') ? await appendRank(w, task.project_id) : null;
     await w.updateNode(id, { block_owner: null, hold: 'none', hold_reason: null, rank });
     await logTransition(w, { from_value: from, kind: 'hold', node_id: id, to_value: 'none' });
