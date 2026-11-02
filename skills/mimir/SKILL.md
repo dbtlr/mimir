@@ -17,18 +17,19 @@ own process.
 
 ## MCP tools or the CLI
 
-When the host has the Mimir MCP server configured (Claude Code lists its tools
-as `mcp__mimir__*`), drive the board through those tools instead of shell
-calls; the CLI is the path when no server is configured. A tool is named for
-its command path joined with `_` (`create_task`, `scratch_checkpoint`), and its
-inputs are the command's arguments and options by their declared names
-(`worker-session`, `at-or-before`), so every CLI example here maps to one tool
-call. Options that read a file or stdin have no tool input; pass the text
+When the Mimir MCP tools are available (Claude Code lists them as
+`mcp__mimir__*`), drive the board through them instead of shell calls. When
+they are not, because no server is configured or the server has disconnected,
+use the CLI: the two reach the same board with the same verbs. A tool is
+named for its command path joined with `_` (`create_task`,
+`scratch_checkpoint`), and its inputs are the command's arguments and options
+by their declared names (`worker-session`, `at-or-before`), so every CLI
+example here maps to one tool call. Options that read a file or stdin have no tool input; pass the text
 instead: `content` (with `title`) for `attach`, and `text` for
 `scratch_checkpoint`. A tool call returns the affected record, so its result
-carries the id the CLI would echo. A board read takes its project from `scope` or from the clone
-the server started in (`seeds` also takes `project`, which wins); there is no
-`all`.
+carries the id the CLI would echo. A board read takes its project from
+`scope` or from the clone the server started in (`seeds` also takes
+`project`, which wins); there is no `all`.
 
 The machine-local commands have no tool and always run through the CLI:
 `bind`, `pair`, `doctor`, `store`, `version`, `skills`, `self-update`, and

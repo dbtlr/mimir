@@ -103,8 +103,8 @@ tombstone only. Decision 1's HTTP surface is now the Engine endpoint.
 
 The 2026-06-10 refinement made the CLI the default rendering for agents and kept
 MCP for hosts that cannot run shell commands. The agent skill now directs an
-agent to the Mimir MCP tools whenever its host has the server configured, and
-to the CLI otherwise. The installer registers the server with Claude Code
+agent to the Mimir MCP tools whenever they are available, and to the CLI when
+they are not: no server is configured, or the server has disconnected. The installer registers the server with Claude Code
 (ADR 0037's Loom `mcp` plugin), so a host that carries the server's tool schemas
 has already paid their context cost. The machine-local commands (`bind`,
 `pair`, `doctor`, `store`, `version`, `skills`, `self-update`, and `mcp`) have
