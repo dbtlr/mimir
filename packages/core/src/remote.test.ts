@@ -104,9 +104,24 @@ test.each([
   String.raw`https://a\b.com/x`,
   'git@a?b.com:x',
   'git@a#b.com:x',
+  // An empty host, once the user part takes every `@`.
+  'git@@:o/r',
+  'a@@:x',
+  'https://u@@/o/r',
+  'ssh://@@/1',
 ])('%j is refused for a host that cannot be stored', (raw) => {
   expect(() => normalizeRemote(raw)).toThrow(/git remote/i);
 });
+
+// Git reads the scp form's host as everything before the first `:`, so
+// `u:p@host.com:o/r` names host `u`, not `host.com`; it is refused rather than
+// given an identity Git would not use (MMR-612).
+test.each(['u:p@host.com:o/r', 'user:pw@host:o/r'])(
+  '%j is refused for a scp user part holding a colon',
+  (raw) => {
+    expect(() => normalizeRemote(raw)).toThrow(/git remote/i);
+  },
+);
 
 test.each([
   ['https://github.com/org/repo /', 'github.com/org/repo'],
@@ -135,7 +150,16 @@ const REMOTE_FORMS: ((host: string, path: string) => string)[] = [
 ];
 
 test('every accepted remote reads back unchanged from its stored form', () => {
-  const hosts = ['github.com', 'GitHub.COM', 'a@b.com', 'a?b.com', 'a#b.com', String.raw`a\b.com`];
+  const hosts = [
+    'github.com',
+    'GitHub.COM',
+    'a@b.com',
+    'a?b.com',
+    'a#b.com',
+    String.raw`a\b.com`,
+    '',
+    '@',
+  ];
   const paths = ['org/repo', 'a/b/c', 'org/my repo', 'org/a\tb', 'org/repo '];
   const suffixes = [
     '',

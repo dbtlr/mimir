@@ -4,8 +4,9 @@ import { validation } from './errors';
  * `git@host:path` — the scp-like form Git accepts for ssh remotes. The host must
  * carry a dot or a `user@`, so `foo:bar` and a Windows `C:\\path` are not remotes.
  * The user part ends at the last `@`, as OpenSSH reads it, so a username that is
- * an email address works. A host holding `?`, `#`, or a backslash is refused,
- * since the stored form cannot hold one (MMR-612).
+ * an email address works. A user part holding `:` is refused, since Git reads
+ * the host as everything before the first `:`. A host holding `?`, `#`, or a
+ * backslash is refused, since the stored form cannot hold one (MMR-612).
  */
 const SCP_LIKE = /^(?:([^/\s:]+)@)?([^:/\s\\@?#]+):(?!\/\/)(.+)$/;
 /**

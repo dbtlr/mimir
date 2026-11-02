@@ -669,8 +669,8 @@ describe.each(backends)('$name', (backend) => {
 
         // A resume compares the target's remotes as stored, so whatever form a
         // write stored stays comparable, even on a project the document does not
-        // carry: a path with a space. (A host the stored form never admits is now
-        // refused on write, MMR-612.)
+        // carry: a path with a space. (A write can no longer store a host the
+        // stored form refuses, MMR-612; store-sql/transfer.test.ts plants one.)
         await createProject(target.store, {
           description: null,
           key: 'OTH',
