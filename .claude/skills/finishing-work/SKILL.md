@@ -19,9 +19,9 @@ that holds a task in `under_review` until merge.
    surface you touched: CLI through a pseudo-TTY, HTTP via `curl` against the
    development host (`bun run dev:ui`), UI via Playwright. Smoke against a
    throwaway store, never the live one. A source-run CLI (`bun run mimir`)
-   with no sandbox authority uses the checkout's `.dev/store.sqlite`, whatever
-   `HOME` and `XDG_*` say; resetting it, a copied build, and the project
-   binding are in `docs/guides/development-sandboxes.md` ("Smoke-test a CLI
+   with no sandbox authority and no `[host]` in its configuration uses the
+   checkout's `.dev/store.sqlite`, whatever `HOME` and `XDG_*` say; resetting
+   it, a copied build, and the project binding are in `docs/guides/development-sandboxes.md` ("Smoke-test a CLI
    build"). The
    development host uses `packages/host/.dev/host`, or a scratch
    `MIMIR_DATA_DIR`. Tests are necessary, not sufficient — smoke is where

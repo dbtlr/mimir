@@ -57,17 +57,19 @@ run of the installed binary from its registered paths.
 
 A source run (`bun run mimir`) with no sandbox authority uses the checkout's
 `.dev/store.sqlite`, and each worktree has its own. Setting `HOME` or `XDG_*`
-does not move it. Its configuration is `.dev/config/mimir`, so it reaches a
-host only when that configuration has been paired with one. Reset the store by
-deleting its files:
+does not move it. Its configuration file is `.dev/config/mimir/config.toml`.
+When pairing has written a `[host]` section there, the run goes to that host and
+opens no local store. Reset the store by deleting its files:
 
 ```sh
 rm -f .dev/store.sqlite*
 ```
 
 One checkout holds one source-run store. A smoke that needs two stores, such as
-an export imported into a fresh store, can export, reset, and import. It can
-also use a copied build, which has a `.dev` of its own.
+an export imported into a fresh store, can run `mimir store export <file>`,
+reset, and then run `mimir store import <file> --apply`; without `--apply`,
+import only previews. It can also use a copied build, which has a `.dev` of its
+own.
 
 A run inside a bound clone takes this repository's project as its default
 scope, and a seed filed on another project records this one as its requester.
