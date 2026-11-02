@@ -70,7 +70,8 @@
   --color-action: #4fc4d6;
   --color-action-foreground: #08222a;
 
-  /* attention — the violet "needs you" hue (what waits on the operator: decisions, pairing requests) */
+  /* attention — the violet "needs you" hue (what waits on the operator: decisions, ready-to-resolve
+     seeds, pairing requests). No status hue borrows it (ADR 0019, MMR-617). */
   --color-attention: #af8de6;
   --color-attention-foreground: #c9aef0;
   --color-attention-solid: #af8de6;

@@ -363,24 +363,39 @@ operator. The `under_review` status hue is now chartreuse.
   circle, between in-progress amber and done green, so amber, then
   chartreuse, then green reads as the path to done. Its OKLab distance (ΔE
   ×100) is 9.5 to `in_progress` and 9.9 to `done` in the dark theme, 8.5 to
-  `done` and 11.9 to `in_progress` in the light theme, and 26 to 30 from
-  the attention tokens. The closest existing status pair, `queued` and
-  `ready`, sits at 5.2 dark and 4.5 light.
+  `done` and 11.9 to `in_progress` in the light theme. It sits at least 21
+  from every attention token in the dark theme and at least 23 in the light
+  theme, base and foreground alike. The closest status pairs before this
+  change were `queued` and `ready` at 5.2 in the dark theme, and `awaiting`
+  and `abandoned` at 4.0 in the light theme.
 - **Contrast.** The foreground measures 11.73:1 against the dark page and
   11.12:1 against the dark panel, and 6.22:1 against the light page and
   7.21:1 against the light panel. The base, used for dots and borders,
-  measures 9.00:1 and 8.54:1 dark, and 3.71:1 and 4.30:1 light.
+  measures 9.00:1 and 8.54:1 dark, and 3.71:1 and 4.30:1 light. On a
+  status chip's 12% wash, the foreground measures 9.56:1 and 8.95:1 dark,
+  and 5.44:1 and 6.24:1 light, all above AA's 4.5:1.
 - **Considered and rejected.** Periwinkle (`#a09cf0` dark, `#605ac4`
   light) kept the cool family but sat ΔE 4.1 from the attention violet.
   Coral (`#ef945f` dark, `#c16229` light) cleared violet but sat about 6
   from `in_progress` and `blocked`, so a review could read as a warning.
-- **What violet means now.** The attention violet marks what waits on the
-  operator: the decisions set (blocks owned by `you`, then questions), the
-  seed queue's ready-to-resolve lane, device pairing requests, and
-  needs-you counts. No status hue uses it, and
-  `packages/host/src/test/role-hues.test.ts` fails if a status token shares
-  a hex with an accent, action, attention, or code token. This supersedes
-  the MMR-615 refinement's note that the `under_review` status hue is
-  unchanged.
+- **What violet means now.** The attention role marks what waits on the
+  operator: the decisions set (blocks owned by `you`, then questions) and
+  its counts, the seed queue's ready-to-resolve lane, including a ready
+  seed's spawned-work reference, and device pairing requests with their
+  _Approve_ action. This widens §1's "the 'needs you' set only" and the
+  MMR-615 refinement's "the attention role marks the decisions set only":
+  a ready seed and a pairing request wait on the operator without being
+  decisions. It narrows nothing else. A seed's spawned-work reference
+  while its work is still in flight is plain ink, and seeds outside the
+  ready lane keep MMR-476's rule that they never take the attention hue.
+- **No status hue uses violet.**
+  `packages/host/src/test/role-hues.test.ts` fails if a status token is
+  not a plain hex, shares a hex with an accent, action, attention, or code
+  token, or sits within ΔE 6 of an attention token, in either theme.
+  This supersedes the MMR-615 refinement's note that the `under_review`
+  status hue is unchanged.
+- **The vocabulary is ten.** ADR 0008's MMR-564 refinement added `queued`,
+  so §3's status vocabulary is closed at ten words, not nine, and each takes
+  one status hue.
 - The CLI's ANSI status colors are out of scope. The terminal has no
   attention role, so `under_review` stays magenta there.
