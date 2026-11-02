@@ -61,7 +61,7 @@ async function task(key: string, title: string): Promise<string> {
   return `${key}-${String(node.seq)}`;
 }
 
-/** A task awaiting the operator's verdict. */
+/** A task under review: submitted to its review gate. */
 async function underReview(key: string, title = 'review'): Promise<string> {
   const id = await task(key, title);
   await startTask(store, id);
@@ -93,19 +93,17 @@ const review = (
 const rowIds = (group: { rows: readonly { task: { id: string } }[] }): string[] =>
   group.rows.map((r) => r.task.id);
 
-test('decisions are under-review, you-blocked, and needs-answers tasks, each with its reason', async () => {
+test('decisions are you-blocked and needs-answers tasks, each with its reason', async () => {
   await project('MMR');
-  const verdict = await underReview('MMR');
   const block = await blockedOnYou('MMR');
   const ask = await question('MMR');
   const [group] = (await review()).decisions;
   expect(group?.project).toEqual({ key: 'MMR', name: 'MMR' });
   expect(group?.rows.map((r) => [r.task.id, r.reason])).toEqual([
-    [verdict, 'under_review'],
     [block, 'blocked'],
     [ask, 'needs_answers'],
   ]);
-  expect(group?.rows[2]?.question).toBe('which database?');
+  expect(group?.rows[1]?.question).toBe('which database?');
   expect(group?.rows[0]?.question).toBeNull();
 });
 
@@ -118,9 +116,11 @@ test('work nobody is waiting on the operator for is not a decision', async () =>
   await task('MMR', 'plain');
   const working = await task('MMR', 'working');
   await startTask(store, working);
+  const inReview = await underReview('MMR');
   const report = await review();
   expect(report.decisions).toEqual([]);
   expect(report.queue).toEqual([]);
+  expect(report.now.map((r) => r.task.id)).toContain(inReview);
 });
 
 test('an archived project contributes nothing and is not listed', async () => {
@@ -137,15 +137,14 @@ test('an archived project contributes nothing and is not listed', async () => {
 
 test('rows within a project follow the work page', async () => {
   await project('MMR');
-  const olderReview = await underReview('MMR', 'older');
-  const newerReview = await underReview('MMR', 'newer');
-  await blockedOnYou('MMR');
+  const olderBlock = await blockedOnYou('MMR', 'older');
+  const newerBlock = await blockedOnYou('MMR', 'newer');
   await question('MMR');
-  await at(olderReview, '2026-01-01T00:00:00.000Z');
+  await at(olderBlock, '2026-01-01T00:00:00.000Z');
   const [group] = (await review()).decisions;
   const page = await workPageOf(store, 'MMR', { timeZone: 'UTC' });
   expect(rowIds(group ?? { rows: [] })).toEqual(page.needsYou.map((r) => r.task.id));
-  expect(rowIds(group ?? { rows: [] }).slice(0, 2)).toEqual([newerReview, olderReview]);
+  expect(rowIds(group ?? { rows: [] }).slice(0, 2)).toEqual([newerBlock, olderBlock]);
   expect(group?.rows.map((r) => r.stale)).toEqual(page.needsYou.map((r) => r.stale));
 });
 
@@ -153,17 +152,18 @@ test('projects with decisions order by their leading reason, then recency, then 
   for (const key of ['AAA', 'BBB', 'CCC', 'DDD', 'EEE']) {
     await project(key);
   }
-  // DDD leads with a verdict; BBB and CCC tie on a block (CCC newer); EEE has only a question.
-  const ddd = await underReview('DDD');
+  // BBB and CCC tie on a block (CCC newer); EEE has only a question, newer than both blocks.
   const bbb = await blockedOnYou('BBB');
   const ccc = await blockedOnYou('CCC');
-  await question('EEE');
+  const eee = await question('EEE');
   await at(bbb, '2026-01-01T00:00:00.000Z');
   await at(ccc, '2026-02-01T00:00:00.000Z');
-  // AAA has no decisions.
+  await at(eee, '2026-03-01T00:00:00.000Z');
+  // AAA has no decisions, and DDD only a review, which is work in flight.
+  await underReview('DDD');
   const report = await review();
-  expect(report.decisions.map((g) => g.project.key)).toEqual(['DDD', 'CCC', 'BBB', 'EEE']);
-  expect(report.decisions[0]?.rows[0]?.task.id).toBe(ddd);
+  expect(report.decisions.map((g) => g.project.key)).toEqual(['CCC', 'BBB', 'EEE']);
+  expect(report.decisions[0]?.rows[0]?.task.id).toBe(ccc);
 });
 
 test('a tie on leading reason and recency falls to the key', async () => {
@@ -210,15 +210,15 @@ test('triage lists projects most first, then by key, and a decision-less project
     ['AAA', 0, 0],
     ['BBB', 0, 1],
     ['CCC', 0, 2],
-    ['DDD', 1, 0],
+    ['DDD', 0, 0],
   ]);
 });
 
-test('the queue walks every verdict, then every block, then every question, newest first', async () => {
+test('the queue walks every block, then every question, newest first, and skips reviews', async () => {
   await project('AAA');
   await project('BBB');
   const aReview = await underReview('AAA');
-  const bReview = await underReview('BBB');
+  await underReview('BBB');
   const aBlock = await blockedOnYou('AAA');
   const bBlock = await blockedOnYou('BBB');
   const aAsk = await question('AAA');
@@ -228,7 +228,7 @@ test('the queue walks every verdict, then every block, then every question, newe
   await at(aBlock, '2026-01-03T00:00:00.000Z');
   await at(aAsk, '2026-01-04T00:00:00.000Z');
   await at(bAsk, '2026-01-05T00:00:00.000Z');
-  expect((await review()).queue).toEqual([bReview, aReview, aBlock, bBlock, bAsk, aAsk]);
+  expect((await review()).queue).toEqual([aBlock, bBlock, bAsk, aAsk]);
 });
 
 test('triage lists untriaged seeds oldest first, never a parked seed', async () => {
@@ -317,7 +317,7 @@ test('triage orders by count descending, then key, and omits projects with nothi
   ]);
 });
 
-test('inFlight counts the in-progress tasks of each project', async () => {
+test('inFlight counts the in-progress and under-review tasks of each project', async () => {
   await project('AAA');
   await project('BBB');
   const a = await task('AAA', 'one');
@@ -330,7 +330,7 @@ test('inFlight counts the in-progress tasks of each project', async () => {
     report.projects.toSorted((x, y) => cmpStr(x.key, y.key)).map((p) => [p.key, p.inFlight]),
   ).toEqual([
     ['AAA', 2],
-    ['BBB', 0],
+    ['BBB', 1],
   ]);
 });
 

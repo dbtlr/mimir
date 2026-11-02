@@ -206,16 +206,18 @@ export function HoldCallout({ node }: { node: EngineNode }) {
   );
 }
 
-/** A task awaiting its reviewer's verdict; a container's rollup never does. */
+/** A task in review, awaiting its reviewer's verdict; a container's rollup never is. */
 export function awaitsVerdict(node: EngineNode): boolean {
   return node.type === 'task' && node.status === 'under_review';
 }
 
 /**
- * The verdict block — shown only while a task's review is pending. Approve fires
- * `done` immediately; Return opens the reason dialog. The submitted-summary
- * line comes from `verdictSummary` (MMR-262), the same derivation the quick
- * view uses; the external ref is the real `externalRef` field.
+ * The verdict block — shown only while a task's review is pending. A task in
+ * review is work in flight, not a decision the operator owes (ADR 0019), so
+ * the block is neutral, not attention-styled. Approve fires `done`
+ * immediately; Return opens the reason dialog. The submitted-summary line
+ * comes from `verdictSummary` (MMR-262); the external ref is the real
+ * `externalRef` field.
  */
 export function VerdictBlock({
   node,
@@ -228,7 +230,7 @@ export function VerdictBlock({
   annotations: readonly NodeAnnotation[] | undefined;
   offline?: boolean;
   onVerb: (v: VerbSpec) => void;
-  /** Label the block "Needs your verdict", as the record page does. */
+  /** Label the block "In review", as the record page does. */
   heading?: boolean;
 }) {
   const verbs = availableTransitions(node.status);
@@ -237,18 +239,13 @@ export function VerdictBlock({
   const summary = verdictSummary(node.history, annotations);
 
   return (
-    <div className="flex flex-col gap-2.5 rounded-xl bg-gradient-to-br from-attention/10 to-attention/[0.03] p-3.5 inset-ring inset-ring-attention/35">
-      {heading && <p className="microlabel text-attention-foreground">Needs your verdict</p>}
+    <div className="flex flex-col gap-2.5 rounded-lg border border-line bg-well-850 p-3.5">
+      {heading && <p className="microlabel text-ink-faint">In review</p>}
       {summary !== undefined && <p className="text-xs leading-relaxed text-ink">{summary}</p>}
       {node.externalRef != null && <ExternalRef value={node.externalRef} />}
       <div className="flex gap-2">
         {doneSpec !== undefined && (
-          <ActionButton
-            size="sm"
-            variant="attention"
-            disabled={offline}
-            onClick={() => onVerb(doneSpec)}
-          >
+          <ActionButton size="sm" disabled={offline} onClick={() => onVerb(doneSpec)}>
             Approve
           </ActionButton>
         )}

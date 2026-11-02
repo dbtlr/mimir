@@ -11,7 +11,7 @@ function consoleViewSchemas<T extends z.ZodType>(instant: T) {
   const seed = seedSchema(instant);
   const stale = z.boolean();
   const project = z.object({ key: z.string(), name: z.string() });
-  const reason = z.enum(['under_review', 'blocked', 'needs_answers']);
+  const reason = z.enum(['blocked', 'needs_answers']);
   const nowRow = z.object({
     latestNote: z.object({ content: z.string(), createdAt: instant }).nullable(),
     scratchpads: z.array(z.object({ id: z.string(), title: z.string() })),

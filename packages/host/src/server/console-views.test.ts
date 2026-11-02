@@ -32,7 +32,7 @@ let fixture: TestStore;
 let authorization: string;
 let local: LocalEngine;
 let remote: RemoteEngine;
-let ids: { initiative: string; phase: string; submitted: string };
+let ids: { blocked: string; initiative: string; phase: string; submitted: string };
 
 const doctor = async (): Promise<DoctorFacet> => ({
   ...emptyDoctorFacet(),
@@ -74,7 +74,12 @@ beforeAll(async () => {
   });
   await startTask(store, settled.id);
   await completeTask(store, settled.id);
-  ids = { initiative: initiative.id, phase: phase.id, submitted: submitted.id };
+  ids = {
+    blocked: blocked.id,
+    initiative: initiative.id,
+    phase: phase.id,
+    submitted: submitted.id,
+  };
   local = new LocalEngine(store, { findings: findingsProviderOf(doctor) });
   const handle = createEngineHandler(local, {
     verifyToken: fixture.tokens.verify,
@@ -139,7 +144,8 @@ test.each(cases)('console.$name answers the same locally and remotely', async (c
 test('the fixture reaches every section the pages show', async () => {
   const review = await remote.console.review({ timeZone: 'UTC' });
   expect(review.decisions.map((group) => group.project.key)).toEqual(['ENG']);
-  expect(review.queue).toContain(ids.submitted);
+  expect(review.queue).toEqual([ids.blocked]);
+  expect(review.now.map((row) => row.task.id)).toContain(ids.submitted);
   expect(review.now[0]?.startedAt).toBeInstanceOf(Date);
   expect(review.shipped[0]?.finishedAt).toBeInstanceOf(Date);
   expect(review.triage.map((group) => group.project.key).toSorted()).toEqual(['ENG', 'OTH']);

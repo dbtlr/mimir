@@ -1,5 +1,5 @@
 import type { EngineNode, Grooming } from '@mimir/contract';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useTransition } from '../api/node-mutations';
@@ -8,13 +8,11 @@ import { visibleGrooming } from '../lib/grooming';
 import type { Groomable } from '../lib/grooming';
 import { nodeLink } from '../lib/record-url';
 import { PHONE_TOUCH_TARGET } from '../lib/touch-target';
-import { transitionLabel } from '../lib/transitions';
 import { useDisarmWhenSettled } from '../lib/use-row-focus-handoff';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
 import { BrowserRow } from './browser-list';
 import { GroomingBadge } from './grooming-chip';
 import { GroomingDialog } from './grooming-dialog';
-import { ReasonDialog } from './reason-dialog';
 import { SizeBadge, StaleBadge } from './signal-badges';
 import { StatusDot } from './status-dot';
 import { ActionButton } from './ui/action-button';
@@ -22,10 +20,10 @@ import { ActionButton } from './ui/action-button';
 /*
  * Task rows and their in-place actions, shared by the work page and the review
  * page at `/`, so a task that needs the operator reads and acts the same on
- * both: Start on a runnable task, Approve and Send back… on one in review, and
- * Answer… on one that needs answers. Each action's write refetches the page,
- * so the row moves to where it now belongs, and keyboard focus moves on to the
- * next row in its list (MMR-474). Offline disables them (ADR 0013 §5).
+ * both: Start on a runnable task and Answer… on one that needs answers. Each
+ * action's write refetches the page, so the row moves to where it now belongs,
+ * and keyboard focus moves on to the next row in its list (MMR-474). Offline
+ * disables them (ADR 0013 §5).
  */
 
 /** The attention violet belongs to the rows that need the operator (ADR 0019). */
@@ -48,12 +46,11 @@ export function RowTail({
   );
 }
 
-/** Why a row needs the operator: in review, a block they can clear, or a question to answer. */
+/** Why a row needs the operator: a block they can clear, or a question to answer. */
 function NeedsYouReason({ row }: { row: NeedsYouTask }) {
   const label = {
     blocked: 'Blocked · yours',
     needs_answers: undefined,
-    under_review: 'In review',
   }[row.reason];
   return label === undefined ? null : (
     <span className="microlabel text-attention-foreground">{label}</span>
@@ -145,52 +142,6 @@ export function StartAction({ id, offline, handoff }: RowActionProps) {
   );
 }
 
-/** Approve (`done`) and Send back… (`return`, with an optional reason), as on the task page. */
-function VerdictActions({ id, offline, handoff }: RowActionProps) {
-  const { mutate, isPending, submittedAt } = useTransition(id);
-  const [sendingBack, setSendingBack] = useState(false);
-  // The dialog is not this button's popup, so it is told where focus goes back to.
-  const sendBackRef = useRef<HTMLButtonElement>(null);
-  useDisarmWhenSettled(handoff, id, isPending ? null : submittedAt);
-  return (
-    <>
-      <ActionButton
-        size="sm"
-        variant="attention"
-        className={PHONE_TOUCH_TARGET}
-        disabled={offline || isPending}
-        onClick={() => {
-          handoff.arm(id);
-          mutate({ verb: 'done' });
-        }}
-      >
-        Approve
-      </ActionButton>
-      <ActionButton
-        ref={sendBackRef}
-        size="sm"
-        variant="outline"
-        className={PHONE_TOUCH_TARGET}
-        disabled={offline || isPending}
-        onClick={() => setSendingBack(true)}
-      >
-        {transitionLabel('return')}…
-      </ActionButton>
-      <ReasonDialog
-        verb="return"
-        finalFocus={sendBackRef}
-        open={sendingBack}
-        onClose={() => setSendingBack(false)}
-        onConfirm={(reason) => {
-          handoff.arm(id);
-          mutate(reason === '' ? { verb: 'return' } : { reason, verb: 'return' });
-          setSendingBack(false);
-        }}
-      />
-    </>
-  );
-}
-
 /** Answer… writes the answer as a note and sets the grooming state the operator picks. */
 function AnswerAction({
   id,
@@ -231,15 +182,12 @@ function AnswerAction({
   );
 }
 
-/** What a needs-you row offers: a verdict, an answer, or nothing for a block. */
+/** What a needs-you row offers: an answer on a question, or nothing for a block. */
 export function needsYouActions(
   row: NeedsYouTask,
   offline: boolean,
   handoff: RowFocusHandoff,
 ): ReactNode {
-  if (row.reason === 'under_review') {
-    return <VerdictActions id={row.task.id} offline={offline} handoff={handoff} />;
-  }
   if (row.reason === 'needs_answers') {
     return (
       <AnswerAction id={row.task.id} question={row.question} offline={offline} handoff={handoff} />

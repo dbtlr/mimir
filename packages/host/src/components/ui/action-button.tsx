@@ -7,8 +7,8 @@ import { cn } from '../../lib/cn';
 /*
  * The one-solid-button-per-surface primitive (radius 8). `action` is THE teal
  * fill (slate on light, where teal reads wrong); `attention` is the violet
- * Approve verdict; `attentionOutline` is its hairline sibling for the other
- * asks of the operator (a work page's Answer…); `outline` is the quiet hairline
+ * fill for an ask only the operator can settle (approving a pairing request);
+ * `attentionOutline` is its hairline sibling (a decision row's Answer…); `outline` is the quiet hairline
  * alternate. Solid fills carry `text-well-950`, which flips near-black in dark
  * and near-white in light so the label stays legible on either theme's fill.
  */

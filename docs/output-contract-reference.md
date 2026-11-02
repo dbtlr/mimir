@@ -238,14 +238,14 @@ never stale, so it is always false on `shipped` rows). `type` on each row
 tells a task from a container.
 
 - `scope`: `{ kind, id, title }`, where `kind` is `project`, `initiative`, or `phase`.
-- `now`: queued or in-progress tasks. Adds `started_at` (the latest queue, start, or reopen),
+- `now`: queued, in-progress, and under-review tasks. Adds `started_at` (the latest queue, start, or reopen),
   `latest_note` (`{ content, created_at }` or `null`), and `scratchpads`
   (`[{ id, title }]`, the active Scratchpads anchored to the task). The agent
   context (`harness`, `session`, optional `worker_harness`/`worker_session`, `branch`, `host`, `external_ref`) is on the
   task object.
-- `needs_you`: under review, then blocks owned by `you`, then todo tasks whose
-  grooming is `needs_answers`; newest first within each. Adds `reason`
-  (`under_review`, `blocked`, or `needs_answers`) and `question` (the task's
+- `needs_you`: blocks owned by `you`, then todo tasks whose grooming is
+  `needs_answers`; newest first within each. A task under review is in `now`,
+  not here. Adds `reason` (`blocked` or `needs_answers`) and `question` (the task's
   latest note for `needs_answers`, otherwise `null`).
 - `frontier`: todo, un-held tasks that are ready or await only prerequisites
   that are in progress, under review, or ready, plus the blocked-on-others list.
@@ -283,8 +283,8 @@ refusal. Field names follow the work page's convention above.
 
 - `decisions`: per project with any, the work page's `needs_you` rows, projects
   in urgency order (leading reason, then newest, then key).
-- `queue`: every decision's task id, verdicts then blocks then questions, newest
-  first within each.
+- `queue`: every decision's task id, blocks on you then questions, newest first
+  within each.
 - `triage`: per project with anything to triage, `{ project, seeds, going_cold,
   findings }`, most first, then key.
 - `last_finished`: the newest done or abandoned task, or `null`.
@@ -299,7 +299,7 @@ refusal. Field names follow the work page's convention above.
 - `projects`: every active project, pinned first, then newest `last_activity_at`
   first, then key. Each carries `key`, `name`, and counts: `decisions`, `triage`
   (untriaged seeds + going cold + `doctor` findings), `in_flight` (status
-  `queued` or `in_progress`), `live` (the `--status live` group: every status other than
+  `queued`, `in_progress`, or `under_review`, the `now` rows), `live` (the `--status live` group: every status other than
   `done` and `abandoned`, so parked work counts), and `going_cold` (tasks past the stale threshold).
 
 ## Doctor diagnostics

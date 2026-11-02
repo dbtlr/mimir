@@ -70,7 +70,7 @@
   --color-action: #4fc4d6;
   --color-action-foreground: #08222a;
 
-  /* attention — the violet "needs you" hue (badge, verdict, Approve) */
+  /* attention — the violet "needs you" hue (what waits on the operator: decisions, pairing requests) */
   --color-attention: #af8de6;
   --color-attention-foreground: #c9aef0;
   --color-attention-solid: #af8de6;

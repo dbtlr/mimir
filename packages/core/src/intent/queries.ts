@@ -30,6 +30,7 @@ import type { DerivationSet } from '../derive';
 import {
   deriveSet,
   findNodeInSet,
+  isInFlightWord,
   isTerminalWord,
   nodeStatusWord,
   statusOf,
@@ -843,10 +844,7 @@ export async function overviewOf(
 
   // in flight — the tasks under active hand (queued + in_progress + under_review), uncapped.
   const inFlightNodes = tasks
-    .filter((n) => {
-      const word = nodeStatusWord(set, n);
-      return word === 'in_progress' || word === 'under_review' || word === 'queued';
-    })
+    .filter((n) => isInFlightWord(nodeStatusWord(set, n)))
     .toSorted(byRankOrder(set));
 
   // next — the ready-queue head (matches `next`: todo, un-held, ranked, every

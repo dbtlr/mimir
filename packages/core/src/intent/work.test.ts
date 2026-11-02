@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, expect, setSystemTime, test } from 'bun:test';
 
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import {
@@ -138,23 +138,42 @@ test('now has no note when the task has none', async () => {
   expect((await page('MMR')).now[0]?.latestNote).toBeNull();
 });
 
-test('needs_you orders under_review, then you-blocks, then needs-answers', async () => {
+test('needs_you orders you-blocks, then needs-answers', async () => {
   const q = await task(phaseA, 'question');
   await groomTasks(store, [q], 'needs_answers', 'which database?');
   const blocked = await task(phaseA, 'blocked-you');
   await blockTask(store, blocked, 'need a key', 'you');
-  const review = await task(phaseA, 'review');
-  await startTask(store, review);
-  await submitTask(store, review);
 
   const report = await page('MMR');
   expect(report.needsYou.map((r) => [r.task.id, r.reason])).toEqual([
-    [review, 'under_review'],
     [blocked, 'blocked'],
     [q, 'needs_answers'],
   ]);
-  expect(report.needsYou[2]?.question).toBe('which database?');
+  expect(report.needsYou[1]?.question).toBe('which database?');
   expect(report.needsYou[0]?.question).toBeNull();
+});
+
+test('a task under review is work in flight in now, not a decision in needs_you', async () => {
+  const review = await task(phaseA, 'review');
+  await startTask(store, review, { harness: 'claude' });
+  await submitTask(store, review);
+
+  const report = await page('MMR');
+  expect(report.needsYou).toEqual([]);
+  expect(ids(report.now)).toEqual([review]);
+  expect(report.now[0]?.task.status).toBe('under_review');
+  expect(report.now[0]?.task.harness).toBe('claude');
+});
+
+test('a task under review blocked on you is in needs_you as a block, not in now', async () => {
+  const review = await task(phaseA, 'review needs the operator');
+  await startTask(store, review);
+  await submitTask(store, review);
+  await blockTask(store, review, 'which release should this ship in?', 'you');
+
+  const report = await page('MMR');
+  expect(report.needsYou.map((r) => [r.task.id, r.reason])).toEqual([[review, 'blocked']]);
+  expect(report.now).toEqual([]);
 });
 
 test('needs_you is most recent first within each reason', async () => {
@@ -617,6 +636,20 @@ test('started_at is the latest start or reopen, not a return from review', async
   await returnTask(store, r, 'more work');
   const row = (await page('MMR')).now.find((n) => n.task.id === r);
   expect(row?.startedAt).toBe(startedAt ?? 'missing');
+});
+
+test('a review in now keeps the time it was started, not the time it was submitted', async () => {
+  const r = await task(phaseA, 'submitted later');
+  try {
+    setSystemTime(new Date('2026-10-01T09:00:00Z'));
+    await startTask(store, r);
+    setSystemTime(new Date('2026-10-03T17:00:00Z'));
+    await submitTask(store, r);
+  } finally {
+    setSystemTime();
+  }
+  const row = (await page('MMR')).now.find((n) => n.task.id === r);
+  expect(row?.startedAt).toBe('2026-10-01T09:00:00.000Z');
 });
 
 test('runnable requires a rank, as next does', async () => {

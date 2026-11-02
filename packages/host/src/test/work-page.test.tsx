@@ -5,7 +5,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HostFaultError } from '../api/errors';
-import { done, groom as setGrooming, returnTask, start } from '../api/fns/nodes';
+import { groom as setGrooming, start } from '../api/fns/nodes';
 import { nodeWork, projectWork } from '../api/fns/views';
 import type { NeedsYouTask, WorkReport } from '../api/view-queries';
 import type { RecordArtifact } from '../lib/work-page';
@@ -162,10 +162,7 @@ function serve(scope: Scope, report: WorkReport | Error = engineWork(), tree = T
 
 /** How many row writes (verbs and grooming) the page has issued. */
 const writeCalls = () =>
-  [start, done, returnTask, setGrooming].reduce(
-    (sum, fn) => sum + vi.mocked(fn).mock.calls.length,
-    0,
-  );
+  [start, setGrooming].reduce((sum, fn) => sum + vi.mocked(fn).mock.calls.length, 0);
 
 const routes = [nodeRoute, projectRoute];
 
@@ -195,9 +192,10 @@ const nowRow = makeNowRow(
   },
 );
 
-const reviewRow = needsYouRow(
+/** A task in review is work in flight: it reads in Now, never in Needs you. */
+const reviewRow = makeNowRow(
   { id: 'MMR-12', status: 'under_review', title: 'Extract the seam' },
-  'under_review',
+  { startedAt: minutesAgo(180) },
 );
 
 const blockedRow = needsYouRow(
@@ -261,6 +259,18 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
     expect(now).not.toHaveTextContent('Started');
   });
 
+  it('shows a task in review in Now as work in flight, with nothing to approve', async () => {
+    await open(scope, engineWork({ now: [reviewRow] }));
+
+    const now = await section('Now · 1');
+    expect(hrefOf(now, 'Extract the seam')).toBe('/p/MMR/12');
+    expect(now).toHaveTextContent(/In review\s*·\s*started 3h ago/);
+    expect(now).not.toHaveTextContent('Started');
+    expect(within(now).queryByRole('button', { name: 'Approve' })).toBeNull();
+    expect(within(now).queryByRole('button', { name: 'Send back…' })).toBeNull();
+    expect(within(now).queryByRole('group', { name: 'Actions for MMR-12' })).toBeNull();
+  });
+
   it('identifies each whole-task worker by session, even when they share a harness', async () => {
     await open(
       scope,
@@ -280,11 +290,9 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
   });
 
   it('lists what needs you with why, and the question a needs-answers task asks', async () => {
-    await open(scope, engineWork({ needsYou: [reviewRow, blockedRow, answersRow] }));
+    await open(scope, engineWork({ needsYou: [blockedRow, answersRow] }));
 
-    const needs = await section('Needs you · 3');
-    expect(hrefOf(needs, 'Extract the seam')).toBe('/p/MMR/12');
-    expect(needs).toHaveTextContent('In review');
+    const needs = await section('Needs you · 2');
     expect(hrefOf(needs, 'Record health copy')).toBe('/p/MMR/13');
     expect(needs).toHaveTextContent('Blocked · yours');
     expect(needs).toHaveTextContent('Waiting on your sign-off');
@@ -453,10 +461,10 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
     await open(scope);
 
     await expect(section('Now')).resolves.toHaveTextContent(
-      'Nothing running. No task is queued or in progress.',
+      'Nothing running. No task is queued, in progress, or in review.',
     );
     await expect(section('Needs you')).resolves.toHaveTextContent(
-      'Nothing needs you. No reviews, blocks, or questions are waiting.',
+      'Nothing needs you. No blocks or questions are waiting.',
     );
     await expect(section('Frontier')).resolves.toHaveTextContent(
       'The frontier is empty. No task is ready or one step from ready.',
@@ -634,7 +642,7 @@ async function openForWrite(before: WorkReport, after: WorkReport) {
   serve(PROJECT_SCOPE);
   const views = serveViews({ projects: { MMR: before } });
   // Any row write lands: the next work read answers `after`.
-  for (const write of [start, done, returnTask, setGrooming]) {
+  for (const write of [start, setGrooming]) {
     const echoed = vi.mocked(write).getMockImplementation();
     vi.mocked(write).mockImplementation(async (options) => {
       views.projects.MMR = after;
@@ -671,45 +679,6 @@ describe('work page row actions', () => {
     const now = await section('Now · 1');
     expect(hrefOf(now, 'Add the SQLite dialect')).toBe('/p/MMR/20');
     expect(screen.queryByRole('region', { name: 'Runnable now' })).toBeNull();
-  });
-
-  it('approves a task in review, which then shows under Shipped', async () => {
-    await openForWrite(
-      engineWork({ needsYou: [reviewRow] }),
-      engineWork({ shipped: [shippedRow('MMR-12', minutesAgo(1), { title: 'Extract the seam' })] }),
-    );
-
-    fireEvent.click(within(await actionsOf('MMR-12')).getByRole('button', { name: 'Approve' }));
-
-    await waitFor(() => {
-      expect(done).toHaveBeenCalledWith({ data: { id: 'MMR-12' } });
-    });
-    const shipped = await section('Shipped · 1');
-    expect(hrefOf(shipped, 'Extract the seam')).toBe('/p/MMR/12');
-    await expect(section('Needs you')).resolves.toHaveTextContent('Nothing needs you.');
-  });
-
-  it('sends a task in review back with a reason, and it returns to Now', async () => {
-    await openForWrite(
-      engineWork({ needsYou: [reviewRow] }),
-      engineWork({ now: [runningAs(reviewRow)] }),
-    );
-
-    fireEvent.click(within(await actionsOf('MMR-12')).getByRole('button', { name: 'Send back…' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Send back' });
-    fireEvent.change(within(dialog).getByRole('textbox'), {
-      target: { value: 'Cover the empty case' },
-    });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }));
-
-    await waitFor(() => {
-      expect(returnTask).toHaveBeenCalledWith({
-        data: { id: 'MMR-12', reason: 'Cover the empty case' },
-      });
-    });
-    const now = await section('Now · 1');
-    expect(hrefOf(now, 'Extract the seam')).toBe('/p/MMR/12');
-    await expect(section('Needs you')).resolves.toHaveTextContent('Nothing needs you.');
   });
 
   it('answers a question and sets the grooming state, and the task moves to the frontier', async () => {
@@ -749,38 +718,31 @@ describe('work page row actions', () => {
     await expect(section('Needs you')).resolves.toHaveTextContent('Nothing needs you.');
   });
 
-  it('sends a task back with no reason when none is given', async () => {
-    await openForWrite(
-      engineWork({ needsYou: [reviewRow] }),
-      engineWork({ now: [runningAs(reviewRow)] }),
+  it('keeps a row’s button off until the sections have refreshed, so one tap writes once', async () => {
+    await open(
+      PROJECT_SCOPE,
+      engineWork({
+        frontier: {
+          ...engineWork().frontier,
+          runnable: [frontierRow('MMR-20', 'Add the SQLite dialect')],
+        },
+      }),
     );
-
-    fireEvent.click(within(await actionsOf('MMR-12')).getByRole('button', { name: 'Send back…' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Send back' });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }));
-
-    await waitFor(() => {
-      expect(returnTask).toHaveBeenCalledWith({ data: { id: 'MMR-12' } });
-    });
-  });
-
-  it('keeps a row’s buttons off until the sections have refreshed, so one tap writes once', async () => {
-    await open(PROJECT_SCOPE, engineWork({ needsYou: [reviewRow] }));
     // The write lands, but the refreshed sections are still on their way.
     const refresh = holdRefresh();
 
-    const approve = within(await actionsOf('MMR-12')).getByRole('button', { name: 'Approve' });
-    fireEvent.click(approve);
+    const startButton = within(await actionsOf('MMR-20')).getByRole('button', { name: 'Start' });
+    fireEvent.click(startButton);
     await waitFor(() => {
       expect(writeCalls()).toBe(1);
     });
-    expect(approve).toBeDisabled();
-    expect(
-      within(await actionsOf('MMR-12')).getByRole('button', { name: 'Send back…' }),
-    ).toBeDisabled();
+    expect(startButton).toBeDisabled();
 
-    refresh.resolve(engineWork());
-    await expect(section('Needs you')).resolves.toHaveTextContent('Nothing needs you.');
+    refresh.resolve(
+      engineWork({ now: [runningAs(frontierRow('MMR-20', 'Add the SQLite dialect'))] }),
+    );
+    await section('Now · 1');
+    expect(screen.queryByRole('group', { name: 'Actions for MMR-20' })).toBeNull();
   });
 
   it('keeps the answer dialog open until the sections have refreshed', async () => {
@@ -843,9 +805,10 @@ describe('work page row actions', () => {
   });
 });
 
-const secondReview = needsYouRow(
-  { id: 'MMR-15', status: 'under_review', title: 'Name the seam' },
-  'under_review',
+const secondAnswers = needsYouRow(
+  { grooming: 'needs_answers', id: 'MMR-15', status: 'ready', title: 'Name the seam' },
+  'needs_answers',
+  { question: 'Which name?' },
 );
 /** Press a row's button the way a keyboard does: focused first, then activated. */
 const press = async (id: string, name: string) => {
@@ -853,31 +816,52 @@ const press = async (id: string, name: string) => {
   button.focus();
   fireEvent.click(button);
 };
+/** Open a needs-answers row's Answer… dialog and fill in an answer and a state. */
+const pressAnswer = async (id: string) => {
+  await press(id, 'Answer…');
+  const dialog = await screen.findByRole('dialog', { name: 'Answer' });
+  fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
+    target: { value: 'Refuse.' },
+  });
+  fireEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
+  return dialog;
+};
+/** Answer a needs-answers row: open its dialog, fill it, and submit. */
+const answer = async (id: string) => {
+  const dialog = await pressAnswer(id);
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
+};
+const answerButtonOf = (id: string) =>
+  within(screen.getByRole('group', { name: `Actions for ${id}` })).getByRole('button', {
+    name: 'Answer…',
+  });
+const startButtonOf = (id: string) =>
+  within(screen.getByRole('group', { name: `Actions for ${id}` })).getByRole('button', {
+    name: 'Start',
+  });
 
 describe('work page focus after an acted-on row moves away', () => {
-  it('lands on the next row’s actions after Approve moves a row out of Needs you', async () => {
+  it('lands on the next row’s actions after Answer… moves a row out of Needs you', async () => {
     await openForWrite(
-      engineWork({ needsYou: [reviewRow, secondReview] }),
-      engineWork({ needsYou: [secondReview] }),
+      engineWork({ needsYou: [answersRow, secondAnswers] }),
+      engineWork({ needsYou: [secondAnswers] }),
     );
 
-    await press('MMR-12', 'Approve');
+    await answer('MMR-14');
 
     await waitFor(() => {
-      expect(screen.queryByRole('group', { name: 'Actions for MMR-12' })).toBeNull();
+      expect(screen.queryByRole('group', { name: 'Actions for MMR-14' })).toBeNull();
     });
-    expect(
-      within(await actionsOf('MMR-15')).getByRole('button', { name: 'Approve' }),
-    ).toHaveFocus();
+    expect(answerButtonOf('MMR-15')).toHaveFocus();
   });
 
   it('lands on the section heading when the moved row had no row after it', async () => {
     await openForWrite(
-      engineWork({ needsYou: [secondReview, reviewRow] }),
-      engineWork({ needsYou: [secondReview] }),
+      engineWork({ needsYou: [secondAnswers, answersRow] }),
+      engineWork({ needsYou: [secondAnswers] }),
     );
 
-    await press('MMR-12', 'Approve');
+    await answer('MMR-14');
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 2, name: /^Needs you · 1/ })).toHaveFocus();
@@ -896,51 +880,42 @@ describe('work page focus after an acted-on row moves away', () => {
     await press('MMR-20', 'Start');
 
     await waitFor(() => {
-      expect(
-        within(screen.getByRole('group', { name: 'Actions for MMR-21' })).getByRole('button', {
-          name: 'Start',
-        }),
-      ).toHaveFocus();
+      expect(startButtonOf('MMR-21')).toHaveFocus();
     });
   });
 
-  it('lands on the next row after Send back… closes its dialog and the row moves', async () => {
+  it('lands on the next row after the answer dialog closes and the row moves to the frontier', async () => {
     await openForWrite(
-      engineWork({ needsYou: [reviewRow, secondReview] }),
-      engineWork({ needsYou: [secondReview], now: [runningAs(reviewRow)] }),
+      engineWork({ needsYou: [answersRow, secondAnswers] }),
+      engineWork({
+        frontier: {
+          ...engineWork().frontier,
+          runnable: [frontierRow('MMR-14', 'Refuse to open unmigrated stores')],
+        },
+        needsYou: [secondAnswers],
+      }),
     );
 
-    await press('MMR-12', 'Send back…');
-    const dialog = await screen.findByRole('dialog', { name: 'Send back' });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }));
+    await answer('MMR-14');
 
     await waitFor(() => {
-      expect(
-        within(screen.getByRole('group', { name: 'Actions for MMR-15' })).getByRole('button', {
-          name: 'Approve',
-        }),
-      ).toHaveFocus();
+      expect(answerButtonOf('MMR-15')).toHaveFocus();
     });
+    expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
   });
 
-  it('lands on the next row after an answer moves its row out of Needs you', async () => {
+  it('lands on the next row’s link when that row offers no action', async () => {
     await openForWrite(
-      engineWork({ needsYou: [answersRow, secondReview] }),
-      engineWork({ needsYou: [secondReview] }),
+      engineWork({ needsYou: [answersRow, blockedRow] }),
+      engineWork({ needsYou: [blockedRow] }),
     );
 
-    await press('MMR-14', 'Answer…');
-    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
-    fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
-      target: { value: 'Refuse.' },
-    });
-    fireEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
+    await answer('MMR-14');
 
     await waitFor(() => {
       expect(
-        within(screen.getByRole('group', { name: 'Actions for MMR-15' })).getByRole('button', {
-          name: 'Approve',
+        within(screen.getByRole('region', { name: 'Needs you · 1' })).getByRole('link', {
+          name: 'Record health copy',
         }),
       ).toHaveFocus();
     });
@@ -951,11 +926,11 @@ describe('work page focus after an acted-on row moves away', () => {
     const second = frontierRow('MMR-21', 'Add the Postgres dialect');
     const runnable = (rows: (typeof first)[]) => ({ ...engineWork().frontier, runnable: rows });
     await openForWrite(
-      engineWork({ frontier: runnable([first, second]), needsYou: [answersRow, secondReview] }),
+      engineWork({ frontier: runnable([first, second]), needsYou: [answersRow, secondAnswers] }),
       // MMR-14 was answered elsewhere meanwhile, so Start's refresh drops it too.
       engineWork({
         frontier: runnable([second]),
-        needsYou: [secondReview],
+        needsYou: [secondAnswers],
         now: [runningAs(first)],
       }),
     );
@@ -969,53 +944,46 @@ describe('work page focus after an acted-on row moves away', () => {
     await press('MMR-20', 'Start');
 
     await waitFor(() => {
-      expect(
-        within(screen.getByRole('group', { name: 'Actions for MMR-21' })).getByRole('button', {
-          name: 'Start',
-        }),
-      ).toHaveFocus();
+      expect(startButtonOf('MMR-21')).toHaveFocus();
     });
   });
 
-  it('moves nothing for a failed approval’s row when it leaves later', async () => {
+  it('moves nothing for a failed answer’s row when it leaves later', async () => {
     const first = frontierRow('MMR-20', 'Add the SQLite dialect');
     const second = frontierRow('MMR-21', 'Add the Postgres dialect');
     const runnable = (rows: (typeof first)[]) => ({ ...engineWork().frontier, runnable: rows });
-    const before = engineWork({
-      frontier: runnable([first, second]),
-      needsYou: [reviewRow, secondReview],
-    });
-    await open(PROJECT_SCOPE, before);
+    await open(
+      PROJECT_SCOPE,
+      engineWork({ frontier: runnable([first, second]), needsYou: [answersRow, secondAnswers] }),
+    );
 
-    const failedRefresh = holdRefresh();
-    vi.mocked(done).mockRejectedValueOnce(new Error('conflict'));
-    await press('MMR-12', 'Approve');
-    const approve = within(await actionsOf('MMR-12')).getByRole('button', { name: 'Approve' });
+    vi.mocked(setGrooming).mockRejectedValueOnce(new Error('conflict'));
+    const dialog = await pressAnswer('MMR-14');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
     await waitFor(() => {
-      expect(approve).toBeDisabled();
+      expect(setGrooming).toHaveBeenCalledTimes(1);
     });
-    failedRefresh.resolve(before);
     await waitFor(() => {
-      expect(approve).toBeEnabled();
+      expect(within(dialog).getByRole('button', { name: 'Answer' })).toBeEnabled();
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
     });
 
     const startRefresh = holdRefresh();
     await press('MMR-20', 'Start');
-    // MMR-12 was approved elsewhere meanwhile, so Start's refresh drops it too.
+    // MMR-14 was answered elsewhere meanwhile, so Start's refresh drops it too.
     startRefresh.resolve(
       engineWork({
         frontier: runnable([second]),
-        needsYou: [secondReview],
+        needsYou: [secondAnswers],
         now: [runningAs(first)],
       }),
     );
 
     await waitFor(() => {
-      expect(
-        within(screen.getByRole('group', { name: 'Actions for MMR-21' })).getByRole('button', {
-          name: 'Start',
-        }),
-      ).toHaveFocus();
+      expect(startButtonOf('MMR-21')).toHaveFocus();
     });
   });
 
@@ -1025,21 +993,21 @@ describe('work page focus after an acted-on row moves away', () => {
     const runnable = (rows: (typeof first)[]) => ({ ...engineWork().frontier, runnable: rows });
     await open(
       PROJECT_SCOPE,
-      engineWork({ frontier: runnable([first, second]), needsYou: [reviewRow, secondReview] }),
+      engineWork({ frontier: runnable([first, second]), needsYou: [answersRow, secondAnswers] }),
     );
 
-    // MMR-12 is blocked elsewhere as it is approved, so it stays with no action.
+    // MMR-14 is blocked elsewhere as it is answered, so it stays with no action.
     const blockedRefresh = holdRefresh();
-    await press('MMR-12', 'Approve');
+    await answer('MMR-14');
     const blockedAs: NeedsYouTask = {
       ...blockedRow,
-      task: { ...blockedRow.task, id: 'MMR-12', title: reviewRow.task.title },
+      task: { ...blockedRow.task, id: 'MMR-14', title: answersRow.task.title },
     };
     blockedRefresh.resolve(
-      engineWork({ frontier: runnable([first, second]), needsYou: [blockedAs, secondReview] }),
+      engineWork({ frontier: runnable([first, second]), needsYou: [blockedAs, secondAnswers] }),
     );
     await waitFor(() => {
-      expect(screen.queryByRole('group', { name: 'Actions for MMR-12' })).toBeNull();
+      expect(screen.queryByRole('group', { name: 'Actions for MMR-14' })).toBeNull();
     });
 
     const startRefresh = holdRefresh();
@@ -1047,34 +1015,33 @@ describe('work page focus after an acted-on row moves away', () => {
     startRefresh.resolve(
       engineWork({
         frontier: runnable([second]),
-        needsYou: [secondReview],
+        needsYou: [secondAnswers],
         now: [runningAs(first)],
       }),
     );
 
     await waitFor(() => {
-      expect(
-        within(screen.getByRole('group', { name: 'Actions for MMR-21' })).getByRole('button', {
-          name: 'Start',
-        }),
-      ).toHaveFocus();
+      expect(startButtonOf('MMR-21')).toHaveFocus();
     });
   });
 
   it('leaves focus alone when the operator has moved on before the row leaves', async () => {
-    await open(PROJECT_SCOPE, engineWork({ needsYou: [reviewRow, secondReview] }));
+    const first = frontierRow('MMR-20', 'Add the SQLite dialect');
+    const second = frontierRow('MMR-21', 'Add the Postgres dialect');
+    const runnable = (rows: (typeof first)[]) => ({ ...engineWork().frontier, runnable: rows });
+    await open(PROJECT_SCOPE, engineWork({ frontier: runnable([first, second]) }));
     const refresh = holdRefresh();
 
-    await press('MMR-12', 'Approve');
+    await press('MMR-20', 'Start');
     await waitFor(() => {
       expect(writeCalls()).toBe(1);
     });
     const elsewhere = within(getRail()).getAllByRole('link')[0];
     elsewhere?.focus();
-    refresh.resolve(engineWork({ needsYou: [secondReview] }));
+    refresh.resolve(engineWork({ frontier: runnable([second]), now: [runningAs(first)] }));
 
     await waitFor(() => {
-      expect(screen.queryByRole('group', { name: 'Actions for MMR-12' })).toBeNull();
+      expect(screen.queryByRole('group', { name: 'Actions for MMR-20' })).toBeNull();
     });
     expect(elsewhere).toHaveFocus();
   });
@@ -1098,13 +1065,13 @@ describe('work page offline', () => {
       PHASE_SCOPE,
       engineWork({
         frontier: { ...engineWork().frontier, runnable: [frontierRow('MMR-20', 'Runnable')] },
-        needsYou: [reviewRow, answersRow],
+        needsYou: [answersRow, blockedRow],
       }),
     );
     failNotes();
     await renderRoute(routes, '/p/MMR/105', quietClient());
 
-    const actions = await Promise.all(['MMR-12', 'MMR-14', 'MMR-20'].map(actionsOf));
+    const actions = await Promise.all(['MMR-14', 'MMR-20'].map(actionsOf));
     await waitFor(() => {
       for (const group of actions) {
         for (const button of within(group).getAllByRole('button')) {

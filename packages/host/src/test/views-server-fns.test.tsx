@@ -25,7 +25,7 @@ beforeEach(() => {
   serveViews({
     nodes: {
       'MMR-105': engineWork({
-        needsYou: [needsYouRow({ id: 'MMR-12', status: 'under_review' }, 'under_review')],
+        needsYou: [needsYouRow({ id: 'MMR-12', status: 'ready' }, 'needs_answers')],
         scope: { id: 'MMR-105', kind: 'phase', title: 'Work page' },
       }),
     },
@@ -36,7 +36,7 @@ beforeEach(() => {
       decisions: [
         {
           project: { key: 'MMR', name: 'Mimir' },
-          rows: [needsYouRow({ id: 'MMR-12', status: 'under_review' }, 'under_review')],
+          rows: [needsYouRow({ id: 'MMR-12', status: 'ready' }, 'needs_answers')],
         },
       ],
       projects: [stripRow({ key: 'MMR', name: 'Mimir' }, { decisions: 1 })],

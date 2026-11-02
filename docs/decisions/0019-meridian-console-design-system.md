@@ -317,3 +317,32 @@ refinement):
   order, the same one the project switcher uses.
 - **Decision groups keep the urgency order.** The MMR-476 rules still govern
   `decisions` and the focus queue, and `triage` keeps its count order.
+
+## Refinement (2026-11-02, MMR-615): a review is not a decision
+
+`under_review` is work in flight (ADR 0001, MMR-615 refinement), so a task
+under review leaves the decisions set. This ADR's §9 member list and its own
+MMR-467, MMR-476, and MMR-492 refinements are revised, and so is the premise
+that the attention set leads with `under_review`, in §2, the _Why_ section,
+and the rejected red badge:
+
+- **Decisions are blocks owned by `you`, then `todo` tasks with no hold whose
+  grooming state is _needs answers_.** That one set is a work page's _Needs
+  you_ within its scope, the review page's decisions, the top-bar alert's
+  count and popover, and the project health strip's decision count.
+- **The order loses its verdict tier.** A project's urgency is its leading
+  decision kind, a block on you and then a question. The focus queue walks
+  every block on you, then every question, newest first within each.
+- **The attention role marks the decisions set only.** The task page keeps
+  its verdict block for a task under review, with _Approve_ and _Send
+  back…_, but the block no longer takes the attention hue or reads _Needs
+  your verdict_. §1's "verdict blocks, under-review emphasis" is superseded.
+  The attention hue stays violet, not red: the set is still work waiting on
+  the operator, not work that is broken, and red stays the `blocked` status
+  hue (§2). The `under_review` status hue is a status hue (§3) and is
+  unchanged, though it is the same violet family (the identical hex in the
+  dark theme), so a review's status dot in _Now_ reads violet while its row
+  takes no attention rule.
+- **Verdict verbs leave the lists.** Rows on the work page, the review page,
+  the popover, and the focus queue no longer carry _Approve_ or _Send back…_;
+  §4's verdict-first rule now holds on the task page only.

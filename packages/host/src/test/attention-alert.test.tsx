@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { done } from '../api/fns/nodes';
+import { groom } from '../api/fns/nodes';
 import { review } from '../api/fns/views';
 import type { NeedsYouTask, ReviewReport } from '../api/view-queries';
 import { routeTree } from '../router';
@@ -82,21 +82,24 @@ function decision(
   reason: NeedsYouTask['reason'],
   extra: { title?: string; holdReason?: string; question?: string } = {},
 ): NeedsYouTask {
-  const status = { blocked: 'blocked', needs_answers: 'ready', under_review: 'under_review' }[
+  const status = { blocked: 'blocked', needs_answers: 'ready' }[
     reason
   ] as NeedsYouTask['task']['status'];
   const { question = null, ...node } = extra;
   return needsYouRow({ id, status, ...node }, reason, { question });
 }
 
-const verdict = decision('LM-196', 'under_review', { title: 'Ship the plugin' });
+const loomQuestion = decision('LM-196', 'needs_answers', {
+  question: 'Which name?',
+  title: 'Ship the plugin',
+});
 const block = decision('MMR-52', 'blocked', { holdReason: 'Needs an API token' });
 const question = decision('MMR-480', 'needs_answers', { question: 'Skip, or drop it?' });
 
-/** A report with decisions in two project groups: LM's verdict, then MMR's block and question. */
+/** A report with decisions in two project groups: LM's question, then MMR's block and question. */
 function twoProjects(
   rows: { lm?: NeedsYouTask[]; mmr?: NeedsYouTask[] } = {
-    lm: [verdict],
+    lm: [loomQuestion],
     mmr: [block, question],
   },
 ): ReviewReport {
@@ -123,6 +126,17 @@ const rowOf = (panel: HTMLElement, id: string): HTMLElement => {
   return row;
 };
 
+/** Answer the one decision `scope` holds: open its dialog, fill it in, and submit. */
+async function answerFrom(scope: ReturnType<typeof within>) {
+  fireEvent.click(scope.getByRole('button', { name: 'Answer…' }));
+  const dialog = await screen.findByRole('dialog', { name: 'Answer' });
+  fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
+    target: { value: 'Call it loom.' },
+  });
+  fireEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
+}
+
 /** Open the alert and return the panel it opens. */
 async function openAlert(name: string) {
   await userEvent.click(await screen.findByRole('button', { name }));
@@ -138,7 +152,7 @@ describe('the attention alert trigger', () => {
   });
 
   it('reads in the singular for one decision', async () => {
-    renderAt('/p/MMR/tasks', twoProjects({ lm: [verdict] }));
+    renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
     await expect(
       screen.findByRole('button', { name: '1 decision needs you' }),
     ).resolves.toBeDefined();
@@ -183,8 +197,7 @@ describe('the Needs you popover', () => {
     const groups = within(panel).getAllByRole('region');
     expect(groups.map((g) => g.getAttribute('aria-label'))).toEqual(['Loom CLI', 'Mimir']);
     expect(within(groups[0]!).getByRole('link', { name: 'Ship the plugin' })).toBeDefined();
-    expect(within(groups[0]!).getByRole('button', { name: 'Approve' })).toBeDefined();
-    expect(within(groups[0]!).getByRole('button', { name: 'Send back…' })).toBeDefined();
+    expect(within(groups[0]!).getByRole('button', { name: 'Answer…' })).toBeDefined();
     expect(within(groups[1]!).getByText('Needs an API token')).toBeDefined();
     expect(within(groups[1]!).getByRole('button', { name: 'Answer…' })).toBeDefined();
     expect(within(groups[1]!).getByRole('link', { name: /Mimir/ }).getAttribute('href')).toBe(
@@ -273,37 +286,37 @@ describe('the Needs you popover', () => {
     expect(within(panel).queryByRole('contentinfo')).toBeNull();
   });
 
-  it('returns focus to Send back… when its dialog is cancelled or escaped', async () => {
-    renderAt('/p/MMR/tasks', twoProjects({ lm: [verdict] }));
+  it('returns focus to Answer… when its dialog is cancelled or escaped', async () => {
+    renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
     const panel = await openAlert('1 decision needs you');
-    const sendBack = within(panel).getByRole('button', { name: 'Send back…' });
+    const answerButton = within(panel).getByRole('button', { name: 'Answer…' });
 
-    await userEvent.click(sendBack);
-    const dialog = await screen.findByRole('dialog', { name: 'Send back' });
+    await userEvent.click(answerButton);
+    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Send back' })).toBeNull();
+      expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
     });
-    expect(sendBack).toHaveFocus();
+    expect(answerButton).toHaveFocus();
 
-    await userEvent.click(sendBack);
-    await screen.findByRole('dialog', { name: 'Send back' });
+    await userEvent.click(answerButton);
+    await screen.findByRole('dialog', { name: 'Answer' });
     await userEvent.keyboard('{Escape}');
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Send back' })).toBeNull();
+      expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
     });
-    expect(sendBack).toHaveFocus();
+    expect(answerButton).toHaveFocus();
     // Escape closed only the dialog; the popover is still there.
     expect(screen.getByRole('dialog', { name: 'Needs you' })).toBeDefined();
   });
 
   it('closes, with a row’s open dialog, when the viewport crosses the breakpoint', async () => {
     const setViewport = stubViewport('desktop');
-    renderAt('/p/MMR/tasks', twoProjects({ lm: [verdict] }));
+    renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
     const panel = await openAlert('1 decision needs you');
-    await userEvent.click(within(panel).getByRole('button', { name: 'Send back…' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Send back' });
-    await userEvent.type(within(dialog).getByRole('textbox'), 'Cover errors');
+    await userEvent.click(within(panel).getByRole('button', { name: 'Answer…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
+    await userEvent.type(within(dialog).getByRole('textbox', { name: /answer/i }), 'Call it loom');
 
     setViewport('phone');
 
@@ -313,23 +326,25 @@ describe('the Needs you popover', () => {
     // The alert itself stays, closed, and opens afresh as the sheet.
     const sheet = await openAlert('1 decision needs you');
     expect(within(sheet).getByRole('button', { name: 'Close' })).toBeDefined();
-    expect(screen.queryByRole('dialog', { name: 'Send back' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
   });
 
   it('stays open while a row is acted on, and the row leaves when the write lands', async () => {
     let report = twoProjects();
     serve(() => report);
-    vi.mocked(done).mockImplementation(async () => {
+    vi.mocked(groom).mockImplementation(async () => {
       report = twoProjects({ mmr: [block, question] });
-      return engineTask({ id: 'LM-196', status: 'done' });
+      return [engineTask({ id: 'LM-196', status: 'ready' })];
     });
     renderServed('/p/MMR/tasks');
     const panel = await openAlert('3 decisions need you');
 
-    fireEvent.click(within(panel).getByRole('button', { name: 'Approve' }));
+    await answerFrom(within(rowOf(panel, 'LM-196')));
 
     await waitFor(() => {
-      expect(done).toHaveBeenCalledWith({ data: { id: 'LM-196' } });
+      expect(groom).toHaveBeenCalledWith({
+        data: { ids: ['LM-196'], note: 'Call it loom.', state: 'groomed' },
+      });
     });
     await waitFor(() => {
       expect(within(panel).queryByRole('link', { name: 'Ship the plugin' })).toBeNull();
@@ -342,29 +357,28 @@ describe('the Needs you popover', () => {
   });
 
   it('keeps the popover open behind a row’s own dialog', async () => {
-    renderAt('/p/MMR/tasks', twoProjects({ lm: [verdict] }));
+    renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
     const panel = await openAlert('1 decision needs you');
 
-    await userEvent.click(within(panel).getByRole('button', { name: 'Send back…' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Send back' });
-    await userEvent.click(within(dialog).getByRole('textbox'));
+    await userEvent.click(within(panel).getByRole('button', { name: 'Answer…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
+    await userEvent.click(within(dialog).getByRole('textbox', { name: /answer/i }));
 
     // The row's own dialog is modal, so the popover behind it is hidden from the tree, not gone.
     expect(screen.getByRole('dialog', { hidden: true, name: 'Needs you' })).toBeDefined();
   });
 
   it('stays to say so, with focus on its heading, when the last decision leaves', async () => {
-    let report = twoProjects({ lm: [verdict] });
+    let report = twoProjects({ lm: [loomQuestion] });
     serve(() => report);
-    vi.mocked(done).mockImplementation(async () => {
+    vi.mocked(groom).mockImplementation(async () => {
       report = twoProjects({});
-      return engineTask({ id: 'LM-196', status: 'done' });
+      return [engineTask({ id: 'LM-196', status: 'ready' })];
     });
     renderServed('/p/MMR/tasks');
     const panel = await openAlert('1 decision needs you');
-    const approve = within(panel).getByRole('button', { name: 'Approve' });
-    approve.focus();
-    fireEvent.click(approve);
+    within(panel).getByRole('button', { name: 'Answer…' }).focus();
+    await answerFrom(within(panel));
 
     await waitFor(() => {
       expect(within(panel).queryByRole('link', { name: 'Ship the plugin' })).toBeNull();
@@ -389,7 +403,7 @@ describe('the Needs you sheet on a phone', () => {
 
     // The sheet's own close control is what tells it from the popover.
     expect(within(panel).getByRole('button', { name: 'Close' })).toBeDefined();
-    expect(within(panel).getByRole('button', { name: 'Approve' })).toBeDefined();
+    expect(within(panel).getAllByRole('button', { name: 'Answer…' })).toHaveLength(2);
     expect(
       within(panel).getByRole('link', { name: 'Work through these · 3' }).getAttribute('href'),
     ).toBe('/?mode=focus');
@@ -401,20 +415,20 @@ describe('the Needs you sheet on a phone', () => {
     expect(trigger).toHaveFocus();
   });
 
-  it('returns focus to Send back… when its dialog is escaped', async () => {
+  it('returns focus to Answer… when its dialog is escaped', async () => {
     stubViewport('phone');
-    renderAt('/p/MMR/tasks', twoProjects({ lm: [verdict] }));
+    renderAt('/p/MMR/tasks', twoProjects({ lm: [loomQuestion] }));
     const panel = await openAlert('1 decision needs you');
-    const sendBack = within(panel).getByRole('button', { name: 'Send back…' });
+    const answerButton = within(panel).getByRole('button', { name: 'Answer…' });
 
-    await userEvent.click(sendBack);
-    await screen.findByRole('dialog', { name: 'Send back' });
+    await userEvent.click(answerButton);
+    await screen.findByRole('dialog', { name: 'Answer' });
     await userEvent.keyboard('{Escape}');
 
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Send back' })).toBeNull();
+      expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
     });
-    expect(sendBack).toHaveFocus();
+    expect(answerButton).toHaveFocus();
   });
 
   it('shows the desktop popover without a close control', async () => {

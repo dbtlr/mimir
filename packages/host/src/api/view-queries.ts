@@ -16,7 +16,7 @@ import { browserTimeZone } from './queries';
  * the persister's buster (lib/persist.ts), so a bump drops every snapshot
  * written in the old shape instead of restoring it into the new code.
  */
-export const VIEW_CACHE_VERSION = 2;
+export const VIEW_CACHE_VERSION = 3;
 
 /** The review page's report, as the Engine returns it. */
 export type ReviewReport = ConsoleOutput<'review'>;
@@ -27,7 +27,7 @@ export type WorkReport = ConsoleOutput<'projectWork'>;
 /** One task that needs the operator, on a work page or in a review decision group. */
 export type NeedsYouTask = WorkReport['needsYou'][number];
 
-/** One task in progress. */
+/** One task in flight: queued, in progress, or under review. */
 export type NowTask = WorkReport['now'][number];
 
 /** One task on the frontier (runnable, next to unlock, or to groom). */

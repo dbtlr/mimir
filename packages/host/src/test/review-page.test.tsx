@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getSeed, seedPark, seedPromote, seedReject } from '../api/fns/browse';
-import { done, groom, returnTask, start } from '../api/fns/nodes';
+import { groom, start } from '../api/fns/nodes';
 import { review } from '../api/fns/views';
 import type { PromotedSeed } from '../api/seed-mutations';
 import type { NeedsYouTask, ReviewReport, TriageSeed } from '../api/view-queries';
@@ -57,9 +57,7 @@ function decision(
   reason: NeedsYouTask['reason'],
   extra: { title?: string; holdReason?: string; question?: string } = {},
 ): NeedsYouTask {
-  const status = { blocked: 'blocked', needs_answers: 'ready', under_review: 'under_review' }[
-    reason
-  ] as EngineNode['status'];
+  const status = { blocked: 'blocked', needs_answers: 'ready' }[reason] as EngineNode['status'];
   const { question = null, ...node } = extra;
   return needsYouRow({ id, status, ...node }, reason, { question });
 }
@@ -123,7 +121,15 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
     serve(
       engineReview({
         decisions: [
-          { project: LM, rows: [decision('LM-196', 'under_review', { title: 'Ship the plugin' })] },
+          {
+            project: LM,
+            rows: [
+              decision('LM-196', 'needs_answers', {
+                question: 'Which name?',
+                title: 'Ship the plugin',
+              }),
+            ],
+          },
           {
             project: MMR,
             rows: [
@@ -144,7 +150,8 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
     const groups = within(needs).getAllByRole('region');
     expect(groups.map((g) => g.getAttribute('aria-label'))).toEqual(['Loom CLI', 'Mimir']);
     expect(within(groups[0]!).getByRole('link', { name: 'Ship the plugin' })).toBeDefined();
-    expect(within(groups[0]!).getByText('In review')).toBeDefined();
+    expect(within(groups[0]!).getByText('Which name?')).toBeDefined();
+    expect(needs).not.toHaveTextContent('In review');
     expect(within(groups[1]!).getByText('Needs an API token')).toBeDefined();
     expect(within(groups[1]!).getByText('Skip to the end, or drop it?')).toBeDefined();
     // The group heading names the project and opens its work page.
@@ -159,7 +166,7 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
   it('orders the main column Needs you, Now, then Shipped', async () => {
     serve(
       engineReview({
-        decisions: [{ project: LM, rows: [decision('LM-196', 'under_review')] }],
+        decisions: [{ project: LM, rows: [decision('LM-196', 'needs_answers')] }],
         now: [nowRow('MMR-502')],
         projects: TWO_PROJECTS,
         queue: ['LM-196'],
@@ -271,7 +278,7 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
 
     await screen.findByRole('heading', { level: 1, name: 'Nothing needs you' });
     const needs = screen.getByRole('region', { name: 'Needs you' });
-    expect(needs.textContent).toContain('No task is in progress.');
+    expect(needs.textContent).toContain('No task is queued, in progress, or in review.');
     expect(needs.textContent).not.toContain('Last finished');
   });
 
@@ -596,8 +603,6 @@ async function openForWrite(before: ReviewReport, after: ReviewReport) {
     views.review = after;
     return echo;
   };
-  vi.mocked(done).mockImplementation(async () => land());
-  vi.mocked(returnTask).mockImplementation(async () => land());
   vi.mocked(start).mockImplementation(async () => land());
   vi.mocked(groom).mockImplementation(async () => [land()]);
   const client = new QueryClient();
@@ -606,11 +611,14 @@ async function openForWrite(before: ReviewReport, after: ReviewReport) {
   return serving;
 }
 
-const verdict = decision('LM-196', 'under_review', { title: 'Ship the plugin' });
+const loomQuestion = decision('LM-196', 'needs_answers', {
+  question: 'Which name?',
+  title: 'Name the plugin',
+});
 const block = decision('MMR-52', 'blocked', { holdReason: 'Needs an API token' });
 const question = decision('MMR-480', 'needs_answers', { question: 'Skip, or drop it?' });
 
-/** Decisions in two project groups: LM's verdict, then MMR's block and question. */
+/** Decisions in two project groups: LM's question, then MMR's block and question. */
 function decisionsFor(rows: { lm?: NeedsYouTask[]; mmr?: NeedsYouTask[] }) {
   const decisions = [
     { project: LM, rows: rows.lm ?? [] },
@@ -623,52 +631,54 @@ function decisionsFor(rows: { lm?: NeedsYouTask[]; mmr?: NeedsYouTask[] }) {
   });
 }
 
+/** Answer a needs-answers decision: open its dialog, fill it in, and submit. */
+const answerWith = async (id: string) => {
+  await press(id, 'Answer…');
+  const dialog = await screen.findByRole('dialog', { name: 'Answer' });
+  fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
+    target: { value: 'Drop it.' },
+  });
+  fireEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
+};
+
 describe('review page decisions act in place (MMR-479)', () => {
-  it('approves a verdict, and the row leaves Needs you', async () => {
-    await openForWrite(decisionsFor({ lm: [verdict] }), decisionsFor({}));
+  it('shows a task in review in Now as work in flight, with no Approve or Send back…', async () => {
+    serve(
+      engineReview({
+        ...decisionsFor({ lm: [loomQuestion], mmr: [block, question] }),
+        now: [nowRow('MMR-502', { status: 'under_review' })],
+      }),
+    );
+    await renderRoute(consoleRoutes, '/');
 
-    fireEvent.click(within(await actionsOf('LM-196')).getByRole('button', { name: 'Approve' }));
-
-    await waitFor(() => {
-      expect(done).toHaveBeenCalledWith({ data: { id: 'LM-196' } });
-    });
-    await expect(
-      screen.findByRole('heading', { level: 1, name: 'Nothing needs you' }),
-    ).resolves.toBeDefined();
+    const now = await screen.findByRole('region', { name: 'Now · 1' });
+    expect(now).toHaveTextContent(/In review\s*·\s*started 1h ago/);
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send back…' })).toBeNull();
   });
 
-  it('sends a verdict back with a reason', async () => {
-    await openForWrite(decisionsFor({ lm: [verdict] }), decisionsFor({}));
-
-    fireEvent.click(within(await actionsOf('LM-196')).getByRole('button', { name: 'Send back…' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Send back' });
-    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'Cover errors' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }));
-
-    await waitFor(() => {
-      expect(returnTask).toHaveBeenCalledWith({ data: { id: 'LM-196', reason: 'Cover errors' } });
+  it('returns focus to Answer… when its dialog is escaped or cancelled', async () => {
+    await openForWrite(decisionsFor({ lm: [loomQuestion] }), decisionsFor({}));
+    const answerButton = within(await actionsOf('LM-196')).getByRole('button', {
+      name: 'Answer…',
     });
-  });
 
-  it('returns focus to Send back… when its dialog is escaped or cancelled', async () => {
-    await openForWrite(decisionsFor({ lm: [verdict] }), decisionsFor({}));
-    const sendBack = within(await actionsOf('LM-196')).getByRole('button', { name: 'Send back…' });
-
-    await userEvent.click(sendBack);
-    await screen.findByRole('dialog', { name: 'Send back' });
+    await userEvent.click(answerButton);
+    await screen.findByRole('dialog', { name: 'Answer' });
     await userEvent.keyboard('{Escape}');
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Send back' })).toBeNull();
+      expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
     });
-    expect(sendBack).toHaveFocus();
+    expect(answerButton).toHaveFocus();
 
-    await userEvent.click(sendBack);
-    const dialog = await screen.findByRole('dialog', { name: 'Send back' });
+    await userEvent.click(answerButton);
+    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Send back' })).toBeNull();
+      expect(screen.queryByRole('dialog', { name: 'Answer' })).toBeNull();
     });
-    expect(sendBack).toHaveFocus();
+    expect(answerButton).toHaveFocus();
   });
 
   it('answers a question and sets the grooming state', async () => {
@@ -700,11 +710,11 @@ describe('review page decisions act in place (MMR-479)', () => {
 
   it('lands on the next project’s first action when a group’s last row leaves', async () => {
     await openForWrite(
-      decisionsFor({ lm: [verdict], mmr: [question] }),
+      decisionsFor({ lm: [loomQuestion], mmr: [question] }),
       decisionsFor({ mmr: [question] }),
     );
 
-    await press('LM-196', 'Approve');
+    await answerWith('LM-196');
 
     await waitFor(() => {
       expect(screen.queryByRole('group', { name: 'Actions for LM-196' })).toBeNull();
@@ -716,11 +726,11 @@ describe('review page decisions act in place (MMR-479)', () => {
 
   it('lands on a block’s link when the next decision has no action', async () => {
     await openForWrite(
-      decisionsFor({ lm: [verdict], mmr: [block] }),
+      decisionsFor({ lm: [loomQuestion], mmr: [block] }),
       decisionsFor({ mmr: [block] }),
     );
 
-    await press('LM-196', 'Approve');
+    await answerWith('LM-196');
 
     await waitFor(() => {
       expect(screen.getByRole('link', { name: block.task.title })).toHaveFocus();
@@ -729,8 +739,8 @@ describe('review page decisions act in place (MMR-479)', () => {
 
   it('lands on the Needs you heading when no decision follows the row that left', async () => {
     await openForWrite(
-      decisionsFor({ lm: [verdict], mmr: [question] }),
-      decisionsFor({ lm: [verdict] }),
+      decisionsFor({ lm: [loomQuestion], mmr: [question] }),
+      decisionsFor({ lm: [loomQuestion] }),
     );
 
     await press('MMR-480', 'Answer…');
