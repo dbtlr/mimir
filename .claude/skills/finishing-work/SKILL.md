@@ -19,9 +19,10 @@ that holds a task in `under_review` until merge.
    surface you touched: CLI through a pseudo-TTY, HTTP via `curl` against the
    development host (`bun run dev:ui`), UI via Playwright. Smoke against a
    throwaway store, never the live one. A source-run CLI (`bun run mimir`)
-   uses the checkout's `.dev/store.sqlite`, whatever `HOME` and `XDG_*` say;
-   resetting it, a copied build, and the project binding are in
-   `docs/guides/development-sandboxes.md` ("Smoke-test a CLI build"). The
+   with no sandbox authority uses the checkout's `.dev/store.sqlite`, whatever
+   `HOME` and `XDG_*` say; resetting it, a copied build, and the project
+   binding are in `docs/guides/development-sandboxes.md` ("Smoke-test a CLI
+   build"). The
    development host uses `packages/host/.dev/host`, or a scratch
    `MIMIR_DATA_DIR`. Tests are necessary, not sufficient — smoke is where
    integration bugs surface.
@@ -30,9 +31,10 @@ that holds a task in `under_review` until merge.
    reviewer subagent). Every finding settles before merge, with its evidence
    kept: see [Settling review findings](#settling-review-findings).
 5. **Submit** — `mimir submit <id>` (→ `under_review`) and open the PR. Who
-   merges follows the merge disposition recorded in the task's agreement
-   annotation: the operator, or the agent once checks are green and every
-   finding has settled. When none is recorded, the operator merges.
+   merges follows the merge disposition an annotation on the task records
+   when the work is agreed: the operator, or the agent once checks are green
+   and every finding has settled. When no annotation records one, the
+   operator merges.
 6. **Done** — `mimir done <id>` once the PR has merged, whoever merged it.
 
 ## Settling review findings
@@ -98,9 +100,9 @@ third option.
 
 CI enforces exactly this: `changelog-guard` fails any PR touching build-affecting
 paths (`packages/**`, `skills/**`, `package.json`, `bun.lock`, `Dockerfile`,
-`.dockerignore`, `install.sh`, the release workflows) that touches no `packages/cli/.changes/`
-fragment and has no label, and runs `loom changelog check` on the fragments it
-finds, the validator the cut itself runs. The label is the **only** legitimate
+`.dockerignore`, `install.sh`, the release workflows) that touches no
+`packages/cli/.changes/` fragment and has no label, and runs `loom changelog
+check` on the fragments it finds, the validator the cut itself runs. The label is the **only** legitimate
 way past a missing fragment.
 
 **The escape hatch** — `skip-changelog` — is for a genuinely behavior-preserving

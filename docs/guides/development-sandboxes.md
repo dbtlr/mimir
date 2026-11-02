@@ -73,9 +73,10 @@ A run inside a bound clone takes this repository's project as its default
 scope, and a seed filed on another project records this one as its requester.
 A smoke store does not hold this project. Run from a directory outside a bound
 clone, or name the smoke project where a command would otherwise take the
-binding: `-s <KEY>` on reads and `seed`, and `--project <KEY>` on an `attach`
-with no node. Commands that take a node id, `create` included through its
-`--parent`, already name the project through the id.
+binding: `-s <KEY>` on reads, `-s <KEY>` beside `seed`'s `-p <KEY>` (with
+`-p` alone the bound project becomes the requester), and `--project <KEY>` on
+an `attach` with no node. Commands that take a node id, `create` included
+through its `--parent`, already name the project through the id.
 
 Copy the build into a fresh directory and run the copy there, so its `.dev` is
 disposable:

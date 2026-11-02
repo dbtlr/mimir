@@ -227,7 +227,8 @@ compatibility review.
   `bun run --cwd packages/cli loom changelog check` to validate fragments. The
   `changelog-guard` check enforces this: a PR touching build-affecting paths
   (`packages/**`, `skills/**`, `package.json`, `bun.lock`, `Dockerfile`,
-  `.dockerignore`, `install.sh`, the release workflows) fails CI unless it touches a fragment.
+  `.dockerignore`, `install.sh`, the release workflows) fails CI unless it
+  touches a fragment.
   For a genuinely behavior-preserving change (internal refactor, test- or
   build-meta only), apply the `skip-changelog` label with a one-line reason
   instead.
