@@ -12,7 +12,7 @@ on:
     branches: [main]
     paths:
       - 'packages/**'
-      - 'skills/mimir/**'
+      - 'skills/**'
       - 'package.json'
       - 'bun.lock'
       - 'Dockerfile'

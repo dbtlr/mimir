@@ -227,6 +227,7 @@ This refinement does not authorize a live cutover or remove `serve`.
 - 2026-10-19: Let Loom's installer record vouch for a script-installed binary, so its receipt is adopted or re-recorded with its bindings kept (MMR-554).
 - 2026-10-29: Kept the install URL at the repository root, serving a copy of Loom's managed installer (MMR-603).
 - 2026-10-29: Dropped the sandbox's Postgres snapshot and rehearsal commands; disposable Postgres serves the development host and `test:postgres` (MMR-582).
+- 2026-11-01: Rendered the one managed installer at the repository root and registered the MCP server with Claude Code and Codex (MMR-604).
 
 ## Refinement (2026-10-17, MMR-536): no supervised units, no named store
 
@@ -306,13 +307,15 @@ none.
 ## Refinement (2026-10-28, MMR-555): the Loom installer is the installer
 
 The cutover to the Loom CLI deletes the old binary. `packages/cli/install.sh`
-is the installer for Loom-built releases, and the Loom CLI is the only binary
+is the installer for Loom-built releases (superseded by the MMR-604 refinement
+below: the root `install.sh` is), and the Loom CLI is the only binary
 that reads the receipt. The remedies above that name "the root `install.sh`" are
 gone from the binary's refusal line: a run that refuses to adopt names the
 variables to unset and nothing else, and an installation under custom XDG roots
 is adopted only through a receipt an earlier installer already wrote. The
 installer's `postInstall` registers the MCP server with Claude Code
-(`mcp install --agent claude`), so it runs the installed binary.
+(`mcp install --agent claude`), so it runs the installed binary (superseded
+by the MMR-604 refinement below: it registers with Claude Code and Codex).
 
 The root `install.sh` stays in place, unchanged, until the first stable release
 built from the Loom CLI: until then `releases/latest` is an old-CLI release that
@@ -329,8 +332,10 @@ the README, the user docs, the Mimir skill, and users' own scripts, so it must
 not follow the monorepo's package layout. The cut replaces the root `install.sh`
 with a byte-for-byte copy of the installer `loom init` manages, and
 `packages/cli/src/installer.test.ts` fails while the two differ.
-`packages/cli/install.sh` remains the rendered source. The copy goes when Loom
-can render the managed installer at a chosen path (LM-s40); a symlink cannot
+`packages/cli/install.sh` remains the rendered source (superseded by the
+MMR-604 refinement below: `loom init` renders the installer at the root, and
+the copy is gone). The copy goes when Loom can render the managed installer at
+a chosen path (LM-s40); a symlink cannot
 replace it, because `raw.githubusercontent.com` serves a symlink's target path
 as text. Releases before 0.26.0 install with the installer at their own tag,
 such as `v0.25.0/install.sh`.
@@ -345,3 +350,16 @@ for `bun run test:postgres`, which runs the real-Postgres conformance and
 concurrency cases. The host migrates its store at startup, so a schema change
 is proven by those cases rather than by a rehearsal against a copy of a live
 database.
+
+## Refinement (2026-11-01, MMR-604): one installer, rendered at the root
+
+Loom 0.17.0 places the managed installer through `paths.installer` in
+`packages/cli/loom.config.json`, so `loom init` renders `install.sh` at the
+repository root, where the install URL serves it, and `packages/cli/install.sh`
+and the byte-for-byte copy are gone. The same file holds the installer's
+`postInstall`, which moved out of the Application. Loom 0.17.0's MCP server also
+serves the initialize-era revisions Codex opens with, so the post-install
+command is `mcp install` without `--agent`: it registers with Claude Code and
+Codex, skipping either one that is not installed. This supersedes the
+Claude-only registration of the MMR-555 refinement and the copy of the MMR-603
+refinement.

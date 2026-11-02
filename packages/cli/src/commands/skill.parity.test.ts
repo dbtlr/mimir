@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createApp } from '../app';
-import { MIMIR_SKILL, SKILL_FILES } from '../skill-files';
 import { boundClone } from '../testing/fixture';
 import { runArgv } from '../testing/run';
 
@@ -13,9 +12,9 @@ import { runArgv } from '../testing/run';
  * `skills install` is Loom's skills plugin, so its command line and messages
  * are the plugin's: the group is `skills`, the agents are `claude` and
  * `agents`, and `--project` selects the working copy. What matters to an
- * installed skill is the files: the embedded skill is written to the same paths
- * with the same bytes as the repo's `skills/mimir/` folder, the single source it
- * is embedded from, so it still matches the binary.
+ * installed skill is the files: install writes the same paths with the same
+ * bytes as the repo's `skills/mimir/` folder, the one source a source run reads
+ * and `loom build` carries into the binary.
  */
 let scratch: string;
 beforeEach(() => {
@@ -25,7 +24,7 @@ afterEach(() => {
   rmSync(scratch, { force: true, recursive: true });
 });
 
-/** The repo's skill folder, the source `skill-files.ts` embeds. */
+/** The repo's skill folder, which `skills({ folder })` installs. */
 const SKILL_SOURCE = fileURLToPath(new URL('../../../../skills/mimir', import.meta.url));
 
 const app = () =>
@@ -57,15 +56,6 @@ const skillFolder = (home: string, folder: '.claude' | '.agents') =>
 
 /** What every install must write: the source folder's files. */
 const expected = () => tree(SKILL_SOURCE);
-
-test('the embedded skill is the repo skill folder, file for file', () => {
-  expect(
-    SKILL_FILES.map((file): [string, string] => [file.path, file.content]).toSorted((a, b) =>
-      a[0].localeCompare(b[0]),
-    ),
-  ).toEqual(expected());
-  expect(MIMIR_SKILL.name).toBe('mimir');
-});
 
 test('install writes the skill folder for Claude Code', async () => {
   const home = join(scratch, 'home');

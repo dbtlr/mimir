@@ -2,9 +2,10 @@ name: Release
 
 # Tag-driven releases. A `vX.Y.Z` tag builds standalone binaries (one per
 # platform, each on its native runner so there is no cross-compile) and
-# publishes a GitHub Release with notes pulled from packages/cli/CHANGELOG.md. The build
-# matrix also runs on pull requests (build-only, no publish) so the release
-# path is validated before a tag is ever cut.
+# publishes a GitHub Release with notes from packages/cli/CHANGELOG.md (a
+# prerelease lists its pending fragments). The build matrix also runs on pull
+# requests (build-only, no publish) so the release path is validated before a
+# tag is ever cut.
 #
 # Publication is staged (MMR-387): the release is created as a draft, every
 # asset is uploaded with bounded retries and verified by digest, and only the
@@ -25,7 +26,7 @@ on:
   pull_request:
     paths:
       - 'packages/**'
-      - 'skills/mimir/**'
+      - 'skills/**'
       - 'package.json'
       - 'bun.lock'
       - 'Dockerfile'
@@ -250,7 +251,11 @@ jobs:
     # while guaranteeing a stalled upload never runs indefinitely.
     timeout-minutes: 90
     steps:
+      # Full history: `loom changelog notes` orders a prerelease's pending
+      # fragments by the commits that added them.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -276,15 +281,18 @@ jobs:
       - name: Extract changelog notes
         env:
           IMAGE_VERSION: ${{ needs.host-image.outputs.version }}
+        # `loom changelog notes` prints a release's changelog section, or a
+        # prerelease's pending fragments once the package carries its version,
+        # which this discarded checkout takes from `changelog write --target`.
         # Changelog links are relative to packages/cli/, and GitHub resolves a
         # release body's links from the repository root, so drop the ../../.
         run: |
-          ver="${GITHUB_REF_NAME}"
-          awk -v ver="$ver" '
-            $0 ~ "^## " ver " " { capture = 1; next }
-            capture && /^## / { exit }
-            capture { print }
-          ' packages/cli/CHANGELOG.md \
+          set -euo pipefail
+          ver="${GITHUB_REF_NAME#v}"
+          case "$ver" in
+            *-*) bun run --cwd packages/cli loom changelog write --target "$ver" > /dev/null ;;
+          esac
+          bun run --cwd packages/cli loom changelog notes "$ver" \
             | sed 's#](\.\./\.\./#](#g' > release-notes.md
           # shellcheck disable=SC2016 # Markdown backticks are literal.
           printf '\n### Host image\n\n`ghcr.io/dbtlr/mimir-host:%s` (linux/amd64, linux/arm64).\n' "$IMAGE_VERSION" >> release-notes.md
@@ -306,8 +314,8 @@ jobs:
       # Lag-by-one retention: delete prereleases from cycles OLDER than the
       # previous official (so the just-shipped cycle's trail survives one more
       # release). Gated to official tags and best-effort, so a pruning hiccup
-      # never fails a real release. Enumerates via `gh` because this job's
-      # checkout is shallow and tagless, and the binaries live on the Releases.
+      # never fails a real release. Enumerates via `gh` because the binaries
+      # live on the Releases.
       #
       # LIVE: deletes the prerelease Release + its tag. The dry-run was
       # validated at the v0.7.0 cut (lag-by-one correct, 0 deletions, no

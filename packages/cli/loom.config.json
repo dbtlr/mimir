@@ -1,0 +1,10 @@
+{
+  // The install URL serves the repository root's install.sh, so loom init renders it there.
+  "paths": { "installer": "../../install.sh" },
+  // The installer registers the MCP server with every coding agent it finds,
+  // Claude Code and Codex, once the binary is in place.
+  "postInstall": {
+    "command": ["mcp", "install"],
+    "message": "Bind a repository with mimir bind <KEY>, and your coding agent can use mimir from there."
+  }
+}

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Managed by loom init. sha256:d12c31678c773b152d2c3729cff52649bacb358787ff4a807f051552ae71add9
+# Managed by loom init. sha256:af66a32d3cf4d507b865464eb0f287f4d7d6153c4e3b405f993e94ad7e70216b
 # Installs this application from its GitHub releases: it downloads the binary for this platform,
 # verifies it against the release's SHA256SUMS, moves it into place, and records the installation
 # in install.json, so self-update may later replace the binary. Run it with --help for its usage.
@@ -285,7 +285,7 @@ advise_path() {
 }
 
 with_post_install_words() {
-  "$@" 'mcp' 'install' '--agent' 'claude'
+  "$@" 'mcp' 'install'
 }
 
 quote_word() {
@@ -356,7 +356,7 @@ main() {
   set -e
   app='mimir'
   repository='dbtlr/mimir'
-  message='Bind a repository with mimir bind <KEY>, and Claude Code can use mimir from there.'
+  message='Bind a repository with mimir bind <KEY>, and your coding agent can use mimir from there.'
   download=
   sums=
   staging=

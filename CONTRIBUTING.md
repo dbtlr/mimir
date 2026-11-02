@@ -108,11 +108,11 @@ pinned in `src/help-pages`. `scripts/` holds the release and developer tooling
 (changelog compiler, release publisher, docs fixture). `bun run
 build` compiles the binary into `dist/mimir` with `loom build`; the skill's
 `mimir …` invocations are checked against the command graph by the drift guard
-in `src/testing/skill-invocations.test.ts`. `packages/cli/install.sh` is the installer
-`loom init --only install` renders, and `src/installer.test.ts` fails when it
-drifts. The root `install.sh`, which the install URL serves, is a byte-for-byte
-copy of it until Loom can render the installer at the root (LM-s40); after a
-re-render, copy it to the root, and the same test fails while the two differ.
+in `src/testing/skill-invocations.test.ts`. The root `install.sh`, which the install URL serves, is
+the installer `loom init --only install` renders from `packages/cli`:
+`loom.config.json` places it at the root and holds its post-install step, and
+`src/installer.test.ts` fails when the script drifts. The skill installs from
+the repository's `skills/` folder, which `loom build` carries into the binary.
 
 `packages/host` (`@mimir/host`) contains the operator console and the TanStack
 Start host. Start runs in SPA mode on Nitro's Bun preset. The client routes
@@ -226,7 +226,7 @@ compatibility review.
   release cut, so parallel PRs never conflict on it. Run
   `bun run --cwd packages/cli loom changelog check` to validate fragments. The
   `changelog-guard` check enforces this: a PR touching build-affecting paths
-  (`packages/**`, `skills/mimir/**`, `package.json`, `bun.lock`, `install.sh`,
+  (`packages/**`, `skills/**`, `package.json`, `bun.lock`, `install.sh`,
   the release workflows) fails CI unless it touches a fragment.
   For a genuinely behavior-preserving change (internal refactor, test- or
   build-meta only), apply the `skip-changelog` label with a one-line reason

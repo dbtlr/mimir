@@ -24,13 +24,13 @@ import type { FakeReleases } from './fake-releases';
 
 /**
  * The Loom CLI's installer and self-update in a sandbox installation
- * (MMR-554): `packages/cli/install.sh` installs a release build, Loom's
+ * (MMR-554): the root `install.sh` installs a release build, Loom's
  * self-update replaces it with the next build, and Mimir's receipt follows
  * both, bound to the sandbox's own directories. Releases come from a fake
  * GitHub reached through a proxy, so the script and the binaries run unchanged.
  */
 const repository = fileURLToPath(new URL('../../../', import.meta.url));
-const installer = join(repository, 'packages', 'cli', 'install.sh');
+const installer = join(repository, 'install.sh');
 const enabled = process.env.MIMIR_SANDBOX_LIFECYCLE_TEST === '1';
 
 const asset = `mimir-${process.platform === 'darwin' ? 'darwin' : 'linux'}-${process.arch === 'arm64' ? 'arm64' : 'x64'}`;
@@ -314,40 +314,54 @@ test.skipIf(!enabled)(
 );
 
 test.skipIf(!enabled)(
-  'install.sh registers the MCP server with Claude Code, and the binary is adopted by that run',
+  'install.sh registers the MCP server with Claude Code and Codex, and the binary is adopted by that run',
   async () => {
     const box = await sandbox('post-install');
-    // A stand-in Claude Code: it records its calls and succeeds, so nothing real registers.
+    // Stand-in agents: each records its calls and succeeds, so nothing real registers.
+    // Codex's name check finds no server named mimir, so it exits 1.
     const agents = join(root, 'post-install', 'agents');
-    const log = join(agents, 'claude.log');
     await mkdir(agents, { recursive: true });
-    await writeFile(join(agents, 'claude'), '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$CLAUDE_LOG"\n', {
-      mode: 0o755,
-    });
-    const env = { ...box.env('home'), CLAUDE_LOG: log, PATH: `${agents}:/usr/bin:/bin` };
+    for (const agent of ['claude', 'codex']) {
+      await writeFile(
+        join(agents, agent),
+        `#!/bin/sh\nprintf '%s\\n' "$*" >> "$AGENT_LOGS/${agent}.log"\ncase "$*" in 'mcp get'*) exit 1 ;; esac\n`,
+        { mode: 0o755 },
+      );
+    }
+    const calls = async (agent: string) =>
+      (await readFile(join(agents, `${agent}.log`), 'utf8')).trim().split('\n');
+    const env = { ...box.env('home'), AGENT_LOGS: agents, PATH: `${agents}:/usr/bin:/bin` };
 
     const installed = await run(['sh', installer, '--dir', box.bin, '1.0.0'], env);
     expect(installed.code, installed.out).toBe(0);
     expect(installed.out).toContain('Running the post-install command');
     expect(installed.out).toContain(`Registered mimir with claude to run ${box.target} mcp.`);
+    expect(installed.out).toContain(`Registered mimir with codex to run ${box.target} mcp.`);
     expect(installed.out).toContain('mimir bind');
-    expect((await readFile(log, 'utf8')).trim().split('\n')).toEqual([
+    expect(await calls('claude')).toEqual([
       '--version',
       `mcp add -s user mimir -- ${box.target} mcp`,
+    ]);
+    expect(await calls('codex')).toEqual([
+      '--version',
+      'mcp get mimir --json',
+      `mcp add mimir -- ${box.target} mcp`,
     ]);
     // The post-install run is the binary's first run, so it adopts the $HOME defaults.
     expect(readInstallationAt(box.target)).toMatchObject({ mode: 'live', paths: box.paths });
     expect(await boardTitle(box.target, box.env('redirected'))).toBe('The post-install board');
 
     // Skipping it runs nothing and says how to run it later.
-    await rm(log, { force: true });
+    await rm(join(agents, 'claude.log'), { force: true });
+    await rm(join(agents, 'codex.log'), { force: true });
     const skipped = await run(
       ['sh', installer, '--dir', box.bin, '--skip-post-install', '1.0.0'],
       env,
     );
     expect(skipped.code, skipped.out).toBe(0);
     expect(skipped.out).toContain('Skipped the post-install command');
-    expect(await Bun.file(log).exists()).toBe(false);
+    expect(await Bun.file(join(agents, 'claude.log')).exists()).toBe(false);
+    expect(await Bun.file(join(agents, 'codex.log')).exists()).toBe(false);
   },
   120_000,
 );

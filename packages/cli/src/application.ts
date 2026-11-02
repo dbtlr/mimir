@@ -1,9 +1,8 @@
 /**
- * The Application module Loom's toolchain reads: `loom init` takes the
- * Application's `postInstall` declaration from it to render `install.sh`, and
- * `loom build` carries it beside the entry. The source refuses every ask, so
- * importing the module touches no store, and the entry (`main.ts`) is what
- * runs the real one.
+ * The Application module Loom's toolchain reads: `loom build` loads it before
+ * bundling to find the skills folder `skills()` names. The source refuses every
+ * ask, so loading the module touches no store, and the entry (`main.ts`) is
+ * what runs the real one.
  */
 import { createApp } from './app';
 
