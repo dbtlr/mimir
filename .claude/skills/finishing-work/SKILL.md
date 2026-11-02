@@ -18,19 +18,47 @@ that holds a task in `under_review` until merge.
 2. **Smoke** — run the real artifact against representative data, matched to the
    surface you touched: CLI through a pseudo-TTY, HTTP via `curl` against the
    development host (`bun run dev:ui`), UI via Playwright. Smoke against a
-   throwaway store (a sandbox installation for the CLI, a scratch
-   `MIMIR_DATA_DIR` for the host), never the live one. Tests are
-   necessary, not sufficient — smoke is where integration bugs surface.
+   throwaway store, never the live one. A source-run CLI (`bun run mimir`)
+   always uses the checkout's `.dev/store.sqlite`, whatever `HOME` and `XDG_*`
+   say; resetting it, a copied build, and the project binding are in
+   `docs/guides/development-sandboxes.md` ("Smoke-test a CLI build"). The host
+   uses `.dev/host` or a scratch `MIMIR_DATA_DIR`. Tests are necessary, not
+   sufficient — smoke is where integration bugs surface.
 3. **CHANGELOG** — the gate that gets skipped. See below.
 4. **Review** — an adversarial whole-branch review (`/code-review` or a fresh
-   reviewer subagent); every finding terminates as fixed, consciously dismissed
-   with a reason, or deferred to a **task** (`mimir create task`) — never left
-   open, and never parked as a seed on this board (a finding with a statable fix
-   is already triaged; seeds are for cross-board asks or undecided own-board
-   ideas, and a review finding is neither).
-5. **Submit** — `mimir submit <id>` (→ `under_review`) and open the PR. The work is
-   now Drew's to merge; you do not merge to `main`.
-6. **Done** — `mimir done <id>` **only after Drew merges**, never before.
+   reviewer subagent). Every finding settles before submit, with its evidence
+   kept: see [Settling review findings](#settling-review-findings).
+5. **Submit** — `mimir submit <id>` (→ `under_review`) and open the PR. Who
+   merges follows the task's agreed merge disposition; when none was agreed,
+   the operator merges.
+6. **Done** — `mimir done <id>` once the PR has merged, whoever merged it.
+
+## Settling review findings
+
+A finding settles in one of four ways, and its evidence goes on the record
+whatever the outcome: what was found, the case for acting, and the case
+against. That trail is the handoff: a later session decides, or resumes, from
+it without re-running the review.
+
+- **Fixed** in this change. The diff is the record.
+- **Dismissed.** Annotate the task under review with the finding, its
+  evidence, and the reason it was dismissed.
+- **Deferred to a task** (`mimir create task`), when the work is wanted but
+  falls outside this change. The description carries the evidence that the
+  change is needed, the case against it, and why that case lost.
+- **Filed as a seed** (`mimir seed`), when whether to do the work at all is
+  still open. The description states the open question and the evidence on
+  both sides, unresolved, so the choice can be argued from the record. A
+  finding for another board is a seed on that board.
+
+A defect in the change under review is already decided: fix it, or defer it to
+a task when fixing it would break the change's scope. Seeds hold findings
+beyond the change.
+
+Evidence too long for a description goes in a frozen artifact: for a task,
+`mimir attach <id> --file …`. A seed takes no annotations or linked artifacts,
+so attach a seed's evidence to the project (`mimir attach --project MMR
+--file …`) and cite its `MMR-aN` id in the seed's description.
 
 ## The CHANGELOG gate
 

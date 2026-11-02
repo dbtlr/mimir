@@ -55,6 +55,23 @@ XDG variables choose a live installation's directories only when it is first
 adopted, and the receipt keeps them after that. Setting them does not isolate a
 run of the installed binary from its registered paths.
 
+A source run (`bun run mimir`) uses the checkout's `.dev/store.sqlite`, and
+each worktree has its own. Setting `HOME` or `XDG_*` does not move it, and it
+never reaches the live store. Reset it by deleting the store files:
+
+```sh
+rm -f .dev/store.sqlite*
+```
+
+One checkout holds one source-run store. A smoke that needs two stores, such as
+an export imported into a fresh store, exports, resets, and then imports, or
+uses a copied build.
+
+A run inside a bound clone takes this repository's project as its default
+scope, and a seed takes it as the requester. A smoke store does not hold that
+project, so pass `-s <KEY>` naming a smoke project, or run from a directory
+outside a bound clone.
+
 Copy the build into a fresh directory and run the copy there, so its `.dev` is
 disposable:
 
