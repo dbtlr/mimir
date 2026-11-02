@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 
-import { annotationsQuery, nodeQuery } from '../api/node-queries';
+import { nodeQuery } from '../api/node-queries';
 import { treeQuery } from '../api/shell-queries';
 import { reviewQuery } from '../api/view-queries';
 import type { NeedsYouTask, ReviewReport } from '../api/view-queries';
@@ -10,11 +10,9 @@ import { cn } from '../lib/cn';
 import { projectKeyOf } from '../lib/project-key';
 import { nodeLink } from '../lib/record-url';
 import type { RowFocusHandoff } from '../lib/use-row-focus-handoff';
-import { verdictSummary } from '../lib/verdict';
 import { Crumbs } from './crumbs';
 import { LinkifiedText } from './linkified-text';
 import { MarkdownBody } from './markdown-body';
-import { ExternalRef } from './node-record';
 import { RecordPending } from './record-layout';
 import { ActionButton, actionButtonVariants } from './ui/action-button';
 import { needsYouActions } from './work-rows';
@@ -35,7 +33,6 @@ import { needsYouActions } from './work-rows';
 const REASON: Record<NeedsYouTask['reason'], string> = {
   blocked: 'Blocked · yours',
   needs_answers: 'Needs answers',
-  under_review: 'In review',
 };
 
 /** The card's actions settle the decision itself, so there is no row to hand focus on from. */
@@ -124,8 +121,8 @@ export function FocusQueue({ offline }: { offline: boolean }) {
 
 /**
  * One decision with what the operator needs to settle it: its path and
- * description from the task's own record, then the question, the submitted
- * work, or what the block waits on, then the row's actions, Skip, and a link
+ * description from the task's own record, then the question or what the
+ * block waits on, then the row's actions, Skip, and a link
  * to the task page. The card mounts per decision, so when it takes the place
  * of one that left, focus lands on its first action.
  */
@@ -142,10 +139,6 @@ function FocusCard({
   const actionsRef = useRef<HTMLDivElement>(null);
   const projectKey = projectKeyOf(row.task.id);
   const node = useQuery(nodeQuery(row.task.id));
-  const annotations = useQuery({
-    ...annotationsQuery(row.task.id),
-    enabled: row.reason === 'under_review',
-  });
   const tree = useQuery({ ...treeQuery(projectKey), refetchInterval: false });
 
   useLayoutEffect(() => {
@@ -158,10 +151,6 @@ function FocusCard({
   }, []);
 
   const description = node.data?.description?.trim();
-  const submitted =
-    row.reason === 'under_review'
-      ? verdictSummary(node.data?.history, annotations.data?.items)
-      : undefined;
   const holdReason = row.reason === 'blocked' ? row.task.holdReason?.trim() : undefined;
   return (
     <section
@@ -181,14 +170,6 @@ function FocusCard({
         <Context label="Latest question" className="border-attention">
           <span className="whitespace-pre-line text-attention-foreground">{row.question}</span>
         </Context>
-      )}
-      {submitted !== undefined && (
-        <Context label="Submitted" className="border-attention">
-          <span className="whitespace-pre-line text-ink">{submitted}</span>
-        </Context>
-      )}
-      {node.data?.externalRef != null && row.reason === 'under_review' && (
-        <ExternalRef value={node.data.externalRef} />
       )}
       {holdReason !== undefined && holdReason !== '' && (
         <Context label="Waiting on" className="border-attention">

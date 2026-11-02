@@ -321,9 +321,10 @@ refinement):
 ## Refinement (2026-11-02, MMR-615): a review is not a decision
 
 `under_review` is work in flight (ADR 0001, MMR-615 refinement), so a task
-under review leaves the decisions set. This ADR's §9 member list, §2's and
-the _Why_ section's premise that the attention set leads with `under_review`,
-and its own MMR-467, MMR-476, and MMR-492 refinements are revised:
+under review leaves the decisions set. This ADR's §9 member list and its own
+MMR-467, MMR-476, and MMR-492 refinements are revised, and so is the premise
+that the attention set leads with `under_review`, in §2, the _Why_ section,
+and the rejected red badge:
 
 - **Decisions are blocks owned by `you`, then `todo` tasks with no hold whose
   grooming state is _needs answers_.** That one set is a work page's _Needs

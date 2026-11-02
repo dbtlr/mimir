@@ -31,9 +31,9 @@ import { reviewRoute } from '../router';
  * (`console.review`) feeds all of it, and the top-bar alert reads the same entry,
  * so their counts never disagree.
  *
- * Rows act in place (MMR-479): a decision carries the work page's verdict or
- * answer, a runnable task its Start, and a listed seed its triage verbs. When
- * an acted-on row leaves, keyboard focus moves on to the next row in its
+ * Rows act in place (MMR-479): a decision carries the work page's answer, a
+ * runnable task its Start, and a listed seed its triage verbs. When an
+ * acted-on row leaves, keyboard focus moves on to the next row in its
  * section, or to the section's heading when none follows.
  */
 
@@ -80,12 +80,10 @@ function ReviewHead({ count }: { count: number }) {
 function AllClear({ inFlight, last }: { inFlight: number; last: ReviewReport['lastFinished'] }) {
   return (
     <p className="px-1 py-2 text-xs text-ink-faint">
-      <strong className="font-semibold text-ink-dim">
-        No verdicts, blocks, or questions are waiting.
-      </strong>{' '}
+      <strong className="font-semibold text-ink-dim">No blocks or questions are waiting.</strong>{' '}
       {inFlight > 0
         ? `Agents are working on ${counted(inFlight, 'task')}.`
-        : 'No task is in progress.'}
+        : 'No task is in progress or in review.'}
       {last !== null && (
         <>
           {' '}
@@ -126,7 +124,7 @@ function NeedsYouSection({ report, offline }: { report: ReviewReport; offline: b
   );
 }
 
-/** The tasks in progress across active projects; a row's id leads with its project key. */
+/** The tasks queued, in progress, or in review across active projects; a row's id leads with its project key. */
 function NowSection({ rows }: { rows: ReviewReport['now'] }) {
   return (
     <BrowserGroup
@@ -135,7 +133,7 @@ function NowSection({ rows }: { rows: ReviewReport['now'] }) {
       hint="What’s going on right now?"
     >
       {rows.length === 0 ? (
-        <Empty lead="Nothing running.">No task is in progress.</Empty>
+        <Empty lead="Nothing running.">No task is queued, in progress, or in review.</Empty>
       ) : (
         rows.map((row) => <NowRow key={row.task.id} row={row} />)
       )}

@@ -191,12 +191,14 @@ describe('task page (MMR-449)', () => {
     expect(getNode).not.toHaveBeenCalled();
   });
 
-  it('asks for a verdict while the task is under review', async () => {
+  it('labels the verdict block In review, still offering Approve and Send back…', async () => {
     serve({ ...sqlite, externalRef: 'https://github.com/x/pull/360', status: 'under_review' });
     await renderRoute(consoleRoutes, '/p/MMR/417', quietClient());
 
-    await expect(screen.findByText(/needs your verdict/i)).resolves.toBeDefined();
+    await expect(screen.findByText('In review')).resolves.toBeDefined();
+    expect(screen.queryByText(/needs your verdict/i)).toBeNull();
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Send back…' })).toBeDefined();
   });
 
   it('offers a container no verdict and no task actions, whatever its rollup reads', async () => {

@@ -34,8 +34,8 @@ import { NeedsYouRow, RowTail, StartAction, needsYouActions } from './work-rows'
  * Frontier, Shipped, and Going cold. Every row is a BrowserRow, so each is one
  * real link to its record's page, and a stale row wears the stale chip wherever
  * it appears. A row the operator can move in place carries its action from
- * work-rows: Start in Frontier's runnable rows, and a verdict or an answer in
- * Needs you.
+ * work-rows: Start in Frontier's runnable rows, and an answer in Needs you.
+ * A task in review reads in Now, without actions: its verdict is on its page.
  */
 
 /** An empty section's line: a bold lead and what its emptiness means. */
@@ -69,9 +69,16 @@ export function NowRow({ row }: { row: NowTask }) {
       meta={
         <div className="flex flex-col gap-0.5">
           <p className="flex flex-wrap items-baseline gap-x-1.5">
-            <span>
-              {row.task.status === 'queued' ? 'Queued' : 'Started'} {ago(row.startedAt)}
-            </span>
+            {row.task.status === 'under_review' ? (
+              <>
+                <span>In review</span>
+                <ContextPart>started {ago(row.startedAt)}</ContextPart>
+              </>
+            ) : (
+              <span>
+                {row.task.status === 'queued' ? 'Queued' : 'Started'} {ago(row.startedAt)}
+              </span>
+            )}
             {row.task.harness != null && <ContextPart>{row.task.harness}</ContextPart>}
             {row.task.workerSession != null && (
               <ContextPart>
@@ -101,7 +108,7 @@ function NowSection({ rows }: { rows: readonly NowTask[] }) {
       hint="What’s going on right now?"
     >
       {rows.length === 0 ? (
-        <Empty lead="Nothing running.">No task is queued or in progress.</Empty>
+        <Empty lead="Nothing running.">No task is queued, in progress, or in review.</Empty>
       ) : (
         rows.map((row) => <NowRow key={row.task.id} row={row} />)
       )}
@@ -120,7 +127,7 @@ function NeedsYouSection({ rows, offline }: { rows: readonly NeedsYouTask[]; off
       headingRef={headingRef}
     >
       {rows.length === 0 ? (
-        <Empty lead="Nothing needs you.">No reviews, blocks, or questions are waiting.</Empty>
+        <Empty lead="Nothing needs you.">No blocks or questions are waiting.</Empty>
       ) : (
         rows.map((row) => (
           <NeedsYouRow

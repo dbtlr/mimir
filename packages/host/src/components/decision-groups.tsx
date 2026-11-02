@@ -27,7 +27,7 @@ function ProjectHeading({ project }: { project: { key: string; name: string } })
 
 /**
  * The decisions grouped by project, in the review read's order, each row with
- * its in-place verbs (Approve, Send back…, Answer…). Shared by the review
+ * its in-place verbs (Answer… on a question). Shared by the review
  * page and the top-bar Needs you popover, so a decision reads and acts the
  * same in both. `currentId` marks the decision whose record is on the page.
  */

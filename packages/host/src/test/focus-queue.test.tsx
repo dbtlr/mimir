@@ -3,14 +3,14 @@ import { QueryClient } from '@tanstack/react-query';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { done, getNode } from '../api/fns/nodes';
+import { done, getNode, groom } from '../api/fns/nodes';
 import { tree } from '../api/fns/shell';
 import { review } from '../api/fns/views';
 import { browserTimeZone } from '../api/queries';
 import type { NeedsYouTask, ReviewReport } from '../api/view-queries';
 import { consoleRoutes } from '../router';
 import { engineTree } from './engine-fixtures';
-import { engineNote, engineTask } from './node-fixtures';
+import { engineTask } from './node-fixtures';
 import { serveNodes } from './node-fns';
 import { renderRoute } from './router';
 import { serveShell } from './shell-fns';
@@ -38,7 +38,7 @@ function decision(
   reason: NeedsYouTask['reason'],
   extra: { title?: string; holdReason?: string; question?: string } = {},
 ): NeedsYouTask {
-  const status = { blocked: 'blocked', needs_answers: 'ready', under_review: 'under_review' }[
+  const status = { blocked: 'blocked', needs_answers: 'ready' }[
     reason
   ] as NeedsYouTask['task']['status'];
   const { question = null, ...node } = extra;
@@ -48,7 +48,10 @@ function decision(
 const LM = { key: 'LM', name: 'Loom CLI' };
 const MMR = { key: 'MMR', name: 'Mimir' };
 
-const verdict = decision('LM-196', 'under_review', { title: 'Ship the plugin' });
+const loomQuestion = decision('LM-196', 'needs_answers', {
+  question: 'Which name?',
+  title: 'Name the plugin',
+});
 const block = decision('MMR-52', 'blocked', {
   holdReason: 'Needs an API token',
   title: 'Screenshot a signed-in page',
@@ -70,11 +73,8 @@ function decisions(...rows: NeedsYouTask[]): ReviewReport {
   });
 }
 
-/** Each task's detail record, its notes, and its project's tree, as the focus card reads them. */
-type Details = Record<
-  string,
-  { node?: Partial<EngineNode>; notes?: ReturnType<typeof engineNote>[] }
->;
+/** Each task's detail record and its project's tree, as the focus card reads them. */
+type Details = Record<string, { node?: Partial<EngineNode> }>;
 
 /**
  * Serve `report` as the review read until a write lands, then `after` (when
@@ -95,9 +95,7 @@ function serve(
   vi.mocked(getNode).mockImplementation(async ({ data }) => {
     const detail = details[data.id];
     const node = engineTask({ id: data.id, status: 'ready', ...detail?.node });
-    return data.facets?.length === 1 && data.facets[0] === 'annotations'
-      ? { ...node, annotations: detail?.notes ?? [] }
-      : node;
+    return node;
   });
   vi.mocked(tree).mockImplementation(async ({ data }) => {
     const key = data.id;
@@ -113,11 +111,12 @@ function serve(
       [phase],
     );
   });
-  vi.mocked(done).mockImplementation(async ({ data }) => {
+  const echoed = vi.mocked(groom).getMockImplementation();
+  vi.mocked(groom).mockImplementation(async (options) => {
     if (after !== undefined) {
       current = after;
     }
-    return engineTask({ id: data.id, status: 'done' });
+    return echoed?.(options) as never;
   });
   return {
     /** Serve `next` from the next review read, as a poll would. */
@@ -140,7 +139,7 @@ function reviewClient(cached?: ReviewReport) {
 
 describe('the review page head opens the focus queue (MMR-480)', () => {
   it('offers Work through these, with the decision count, at /?mode=focus', async () => {
-    serve(decisions(verdict, block, question));
+    serve(decisions(loomQuestion, block, question));
     await renderRoute(consoleRoutes, '/', reviewClient());
 
     const open = await screen.findByRole('link', { name: 'Work through these · 3' });
@@ -190,44 +189,39 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     expect(screen.getByRole('link', { name: '← Back to the list' }).getAttribute('href')).toBe('/');
   });
 
-  it('shows a verdict with the work submitted, and approving moves to the next decision', async () => {
-    serve(decisions(verdict, question), {
-      after: decisions(question),
-      details: {
-        'LM-196': {
-          node: {
-            externalRef: 'https://github.com/dbtlr/loom/pull/12',
-            history: [
-              {
-                at: new Date('2026-10-13T10:00:00.000Z'),
-                from: 'in_progress',
-                kind: 'lifecycle',
-                reason: null,
-                to: 'under_review',
-              },
-            ],
-          },
-          notes: [engineNote('Plugin ships with docs.', '2026-10-13T10:01:00.000Z')],
-        },
-      },
-    });
+  it('answers a question in place, and moves to the next decision', async () => {
+    serve(decisions(loomQuestion, block), { after: decisions(block) });
     await renderRoute(consoleRoutes, '/?mode=focus', reviewClient());
 
-    const shown = await cardFor(verdict);
-    await waitFor(() => {
-      expect(shown).toHaveTextContent('Plugin ships with docs.');
+    const shown = await cardFor(loomQuestion);
+    fireEvent.click(within(shown).getByRole('button', { name: 'Answer…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
+      target: { value: 'Call it loom-plugin.' },
     });
-    expect(
-      within(shown).getByRole('link', { name: /github\.com\/dbtlr\/loom\/pull\/12/ }),
-    ).toBeDefined();
-
-    fireEvent.click(within(shown).getByRole('button', { name: 'Approve' }));
+    fireEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
 
     await waitFor(() => {
-      expect(done).toHaveBeenCalledWith({ data: { id: 'LM-196' } });
+      expect(groom).toHaveBeenCalledWith({
+        data: { ids: ['LM-196'], note: 'Call it loom-plugin.', state: 'groomed' },
+      });
     });
-    await expect(cardFor(question)).resolves.toBeDefined();
+    await expect(cardFor(block)).resolves.toBeDefined();
     expect(screen.getByText('2 of 2')).toBeDefined();
+  });
+
+  it('offers no Approve on any decision: a task in review is work in flight, not a decision', async () => {
+    serve(decisions(loomQuestion, block, question));
+    await renderRoute(consoleRoutes, '/?mode=focus', reviewClient());
+
+    for (const row of [loomQuestion, block, question]) {
+      const shown = await cardFor(row);
+      expect(shown).not.toHaveTextContent('In review');
+      expect(within(shown).queryByRole('button', { name: 'Approve' })).toBeNull();
+      expect(within(shown).queryByRole('button', { name: 'Send back…' })).toBeNull();
+      fireEvent.click(within(shown).getByRole('button', { name: 'Skip' }));
+    }
   });
 
   it('links a URL in the hold reason, opening in a new tab, with the text around it', async () => {
@@ -247,12 +241,18 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
   });
 
   it('lands focus on the next decision’s first action after acting', async () => {
-    serve(decisions(verdict, question), { after: decisions(question) });
+    serve(decisions(loomQuestion, question), { after: decisions(question) });
     await renderRoute(consoleRoutes, '/?mode=focus', reviewClient());
 
-    const approve = within(await cardFor(verdict)).getByRole('button', { name: 'Approve' });
-    approve.focus();
-    fireEvent.click(approve);
+    const answer = within(await cardFor(loomQuestion)).getByRole('button', { name: 'Answer…' });
+    answer.focus();
+    fireEvent.click(answer);
+    const dialog = await screen.findByRole('dialog', { name: 'Answer' });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /answer/i }), {
+      target: { value: 'Call it loom-plugin.' },
+    });
+    fireEvent.click(within(dialog).getByRole('radio', { name: /^groomed/ }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Answer' }));
 
     const next = await cardFor(question);
     await waitFor(() => {
@@ -297,12 +297,12 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
       question: 'Which?',
       title: 'Arrived later',
     });
-    const serving = serve(decisions(verdict, block));
+    const serving = serve(decisions(loomQuestion, block));
     const client = reviewClient();
     await renderRoute(consoleRoutes, '/?mode=focus', client);
-    await cardFor(verdict);
+    await cardFor(loomQuestion);
 
-    // The verdict is settled elsewhere and a new question arrives.
+    // The first question is settled elsewhere and a new one arrives.
     serving.poll(decisions(block, later));
     await client.invalidateQueries({ queryKey: ['review'] });
 
@@ -322,32 +322,32 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
   });
 
   it('lands focus on the next decision’s first action after Skip', async () => {
-    serve(decisions(question, verdict));
+    serve(decisions(question, loomQuestion));
     await renderRoute(consoleRoutes, '/?mode=focus', reviewClient());
 
     const skip = within(await cardFor(question)).getByRole('button', { name: 'Skip' });
     skip.focus();
     fireEvent.click(skip);
 
-    const next = await cardFor(verdict);
-    expect(within(next).getByRole('button', { name: 'Approve' })).toHaveFocus();
+    const next = await cardFor(loomQuestion);
+    expect(within(next).getByRole('button', { name: 'Answer…' })).toHaveFocus();
   });
 
   it('keeps a passed decision behind it when the decision returns', async () => {
-    const serving = serve(decisions(verdict, block, question));
+    const serving = serve(decisions(loomQuestion, block, question));
     const client = reviewClient();
     await renderRoute(consoleRoutes, '/?mode=focus', client);
-    await cardFor(verdict);
+    await cardFor(loomQuestion);
 
-    // The verdict is sent back elsewhere, then resubmitted.
+    // The first question is answered elsewhere, then asked again.
     serving.poll(decisions(block, question));
     await client.invalidateQueries({ queryKey: ['review'] });
     await cardFor(block);
-    serving.poll(decisions(verdict, block, question));
+    serving.poll(decisions(loomQuestion, block, question));
     await client.invalidateQueries({ queryKey: ['review'] });
 
     await expect(cardFor(block)).resolves.toBeDefined();
-    expect(screen.queryByRole('region', { name: verdict.task.title })).toBeNull();
+    expect(screen.queryByRole('region', { name: loomQuestion.task.title })).toBeNull();
     expect(screen.getByText('2 of 3')).toBeDefined();
   });
 
@@ -356,11 +356,11 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     const { router: testRouter } = await renderRoute(
       consoleRoutes,
       '/?mode=focus',
-      reviewClient(decisions(verdict)),
+      reviewClient(decisions(loomQuestion)),
     );
 
     await expect(cardFor(question)).resolves.toBeDefined();
-    expect(screen.queryByRole('region', { name: verdict.task.title })).toBeNull();
+    expect(screen.queryByRole('region', { name: loomQuestion.task.title })).toBeNull();
     expect(testRouter.state.location.href).toBe('/?mode=focus');
   });
 });

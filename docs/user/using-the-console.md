@@ -18,10 +18,10 @@ The console opens on the review page at `/`: the work page for every active
 project at once. Its main column has three sections:
 
 - **Needs you** lists the decisions, grouped by project: blocks only you can
-  clear, and tasks that need answers. Decisions hold up
-  agents, so they come first. When nothing waits, the section says so and
-  names how many tasks are in progress and which task finished last. Decisions
-  act in place, as on a work page: Answer… on a task that needs answers. A block has no action here. Clear
+  clear, and tasks that need answers. Decisions hold up agents, so they come
+  first. When nothing waits, the section says so and names how many tasks are
+  in flight and which task finished last. Decisions act in place, as on a work
+  page: Answer… on a task that needs answers. A block has no action here. Clear
   it outside Mimir, then unblock the task from its page.
 - **Now** lists the work in flight across your projects: tasks queued, in
   progress, or in review. A task in review waits on its review gate, such as
