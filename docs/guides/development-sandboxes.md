@@ -55,22 +55,27 @@ XDG variables choose a live installation's directories only when it is first
 adopted, and the receipt keeps them after that. Setting them does not isolate a
 run of the installed binary from its registered paths.
 
-A source run (`bun run mimir`) uses the checkout's `.dev/store.sqlite`, and
-each worktree has its own. Setting `HOME` or `XDG_*` does not move it, and it
-never reaches the live store. Reset it by deleting the store files:
+A source run (`bun run mimir`) with no sandbox authority uses the checkout's
+`.dev/store.sqlite`, and each worktree has its own. Setting `HOME` or `XDG_*`
+does not move it. Its configuration is `.dev/config/mimir`, so it reaches a
+host only when that configuration has been paired with one. Reset the store by
+deleting its files:
 
 ```sh
 rm -f .dev/store.sqlite*
 ```
 
 One checkout holds one source-run store. A smoke that needs two stores, such as
-an export imported into a fresh store, exports, resets, and then imports, or
-uses a copied build.
+an export imported into a fresh store, can export, reset, and import. It can
+also use a copied build, which has a `.dev` of its own.
 
 A run inside a bound clone takes this repository's project as its default
-scope, and a seed takes it as the requester. A smoke store does not hold that
-project, so pass `-s <KEY>` naming a smoke project, or run from a directory
-outside a bound clone.
+scope, and a seed filed on another project records this one as its requester.
+A smoke store does not hold this project. Run from a directory outside a bound
+clone, or name the smoke project where a command would otherwise take the
+binding: `-s <KEY>` on reads and `seed`, and `--project <KEY>` on an `attach`
+with no node. Commands that take a node id, `create` included through its
+`--parent`, already name the project through the id.
 
 Copy the build into a fresh directory and run the copy there, so its `.dev` is
 disposable:
