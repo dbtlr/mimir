@@ -3,6 +3,7 @@ import { expect, setDefaultTimeout, test } from 'bun:test';
 
 import { Kysely } from 'kysely';
 
+import { createProject } from '../create';
 import type { StoreExport } from '../export';
 import { STORE_EXPORT_SCHEMA_VERSION } from '../export';
 import type { Node } from '../model';
@@ -244,6 +245,33 @@ test('a transition that omits its reason resumes as a no-op', async () => {
     expect((await store_.store.export()).transitions.at(0)?.reason).toBeNull();
   } finally {
     await store_.close();
+  }
+});
+
+test('a resume reads a store holding a legacy remote the stored form refuses (MMR-612)', async () => {
+  // Before MMR-612 a host could hold `@`, so a store may carry `b@c.com/x`,
+  // which `normalizeStoredRemote` would now rewrite. A resume compares the
+  // target's own remotes as stored, so a project the document does not carry
+  // must not make the resume refuse or re-create anything.
+  const db = new Kysely<DB>({ dialect: createBunSqliteDialect(new Database(':memory:')) });
+  try {
+    await upgradeSchema(db);
+    const store = createSqlStore(db, sqliteDialect);
+    await createProject(store, { description: null, key: 'AAA', name: 'First' });
+    const exported = await store.export();
+
+    await createProject(store, {
+      description: null,
+      key: 'ODD',
+      name: 'Odd',
+      remote: 'https://github.com/org/odd',
+    });
+    await db.updateTable('project').set({ remote: 'b@c.com/x' }).where('key', '=', 'ODD').execute();
+
+    const resumed = await store.import(exported, { dryRun: false, mode: 'resume' });
+    expect(resumed.created).toBe(0);
+  } finally {
+    await db.destroy();
   }
 });
 

@@ -82,14 +82,26 @@ test.each(['github.com/org/a\nb', 'github.com/org/a\rb', 'github.com/org/a\u2028
   },
 );
 
-// A host holding `@ ? # \` is not one `normalizeStoredRemote` reads back, so it
+// The user part ends at the last `@`, as OpenSSH reads it, so the host never holds one.
+test.each([
+  ['ssh://john.doe@example.com@gerrit.example.com:29418/project', 'gerrit.example.com/project'],
+  ['john.doe@example.com@gerrit.example.com:project', 'gerrit.example.com/project'],
+  ['https://a@b@c.com/x', 'c.com/x'],
+  ['a@b@c.com:x', 'c.com/x'],
+  ['ssh://git@host:2222/path', 'host/path'],
+  ['git@github.com:org/repo.git', 'github.com/org/repo'],
+  ['https://user:pw@github.com/org/repo', 'github.com/org/repo'],
+  ['org@dev.azure.com:v3/org/proj/repo', 'dev.azure.com/v3/org/proj/repo'],
+])('%j normalizes to %s (the user part ends at the last @)', (raw, expected) => {
+  expect(normalizeRemote(raw)).toBe(expected);
+});
+
+// A host holding `? # \` is not one `normalizeStoredRemote` reads back, so it
 // is refused on the way in (MMR-612).
 test.each([
-  'https://a@b@c.com/x',
   'https://a?b.com/x',
   'https://a#b.com/x',
   String.raw`https://a\b.com/x`,
-  'a@b@c.com:x',
   'git@a?b.com:x',
   'git@a#b.com:x',
 ])('%j is refused for a host that cannot be stored', (raw) => {
@@ -100,6 +112,9 @@ test.each([
   ['https://github.com/org/repo /', 'github.com/org/repo'],
   ['https://github.com/x/y .git', 'github.com/x/y'],
   ['https://github.com/x/y / .git /', 'github.com/x/y'],
+  ['https://github.com/org/repo\t/', 'github.com/org/repo'],
+  ['https://github.com/org/repo\u00a0.git', 'github.com/org/repo'],
+  ['https://github.com/org/repo\u3000/', 'github.com/org/repo'],
 ])('%j normalizes to %s with no trailing space', (raw, expected) => {
   expect(normalizeRemote(raw)).toBe(expected);
 });
@@ -122,7 +137,19 @@ const REMOTE_FORMS: ((host: string, path: string) => string)[] = [
 test('every accepted remote reads back unchanged from its stored form', () => {
   const hosts = ['github.com', 'GitHub.COM', 'a@b.com', 'a?b.com', 'a#b.com', String.raw`a\b.com`];
   const paths = ['org/repo', 'a/b/c', 'org/my repo', 'org/a\tb', 'org/repo '];
-  const suffixes = ['', '/', '.git', '.GIT', ' /', ' .git', '/.git/', '.git /'];
+  const suffixes = [
+    '',
+    '/',
+    '.git',
+    '.GIT',
+    ' /',
+    ' .git',
+    '/.git/',
+    '.git /',
+    '\t/',
+    '\u00a0.git',
+    '\u3000/',
+  ];
   let checked = 0;
   for (const form of REMOTE_FORMS) {
     for (const host of hosts) {
