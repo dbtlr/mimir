@@ -143,8 +143,9 @@ A task carries a grooming state beside its status: `not_groomed`,
 `needs_answers`, or `groomed`. `groomed` means the task can be worked without
 more questions; expect a `not_groomed` or `needs_answers` task to need some.
 The state gates nothing. The `groom` verb sets it with an optional note, and
-`needs_answers` requires the note to name the open questions. `mimir next --eq grooming:groomed` narrows the ready queue to
-groomed work. A question that stops a started task is recorded with `block`
+`needs_answers` requires the note to name the open questions.
+`mimir next --eq grooming:groomed` narrows the ready queue to groomed work. A
+question that stops a started task is recorded with `block`
 (`references/authoring.md`).
 
 ## Tasks and seeds
@@ -159,11 +160,10 @@ owners committed to. Mimir does not enforce this. Another board's work reaches
 it as a seed, however fully shaped the fix, and that board's triage decides
 what it commits. A seed is how one board asks another for work: `mimir seed
 "title" -k <kind> -p KEY` files it on the other board and records the bound
-board as the requester.
-When a task waits on that seed, `mimir update <id> --upstream KEY-sN` records
-the edge, and a later `block` defaults to `others`; triage annotates the task
-when the seed settles. `references/seeds.md` covers filing, triage, and
-`upstream`.
+board as the requester. When a task waits on that seed,
+`mimir update <id> --upstream KEY-sN` records the edge, and a later `block`
+defaults to `others`; triage annotates the task when the seed settles.
+`references/seeds.md` covers filing, triage, and `upstream`.
 
 ## Finishing records
 
