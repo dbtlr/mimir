@@ -314,6 +314,13 @@ export const SCENARIOS: readonly Scenario[] = [
         name: 'reports the in-flight work',
         test: (e) => e.transcript.finalText.includes(e.ids.inFlight ?? '?'),
       },
+      {
+        name: 'reports the ready work',
+        test: (e) =>
+          [e.ids.logging, e.ids.docs].every(
+            (id) => id !== undefined && e.transcript.finalText.includes(id),
+          ),
+      },
     ],
     files: {},
     name: 'orient',
@@ -322,9 +329,9 @@ export const SCENARIOS: readonly Scenario[] = [
       const core = await evalBoard(mimir);
       const inFlight = await createTask(mimir, core, 'Wire the health endpoint');
       await mimir(['start', inFlight, '--branch', 'feat/health']);
-      await createTask(mimir, core, 'Add request logging');
-      await createTask(mimir, core, 'Document the public API');
-      return { inFlight };
+      const logging = await createTask(mimir, core, 'Add request logging');
+      const docs = await createTask(mimir, core, 'Document the public API');
+      return { docs, inFlight, logging };
     },
   },
   {

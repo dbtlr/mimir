@@ -23,8 +23,10 @@ calls; the CLI is the path when no server is configured. A tool is named for
 its command path joined with `_` (`create_task`, `scratch_checkpoint`), and its
 inputs are the command's arguments and options by their declared names
 (`worker-session`, `at-or-before`), so every CLI example here maps to one tool
-call. A tool call returns the affected record, so its result carries the id the
-CLI would echo. A board read takes its project from `scope` or from the clone
+call. Options that read a file or stdin have no tool input; pass the text
+instead: `content` (with `title`) for `attach`, and `text` for
+`scratch_checkpoint`. A tool call returns the affected record, so its result
+carries the id the CLI would echo. A board read takes its project from `scope` or from the clone
 the server started in (`seeds` also takes `project`, which wins); there is no
 `all`.
 
@@ -160,7 +162,10 @@ owners committed to. Mimir does not enforce this. Another board's work reaches
 it as a seed, however fully shaped the fix, and that board's triage decides
 what it commits. A seed is how one board asks another for work: `mimir seed
 "title" -k <kind> -p KEY` files it on the other board and records the bound
-board as the requester. When a task waits on that seed,
+board as the requester. Over MCP the requester comes from `scope`, which
+defaults to the clone the server started in; pass the current board as `scope`
+when that may differ, and the target board as `project`. When a task waits on
+that seed,
 `mimir update <id> --upstream KEY-sN` records the edge, and a later `block`
 defaults to `others`; triage annotates the task when the seed settles.
 `references/seeds.md` covers filing, triage, and `upstream`.
