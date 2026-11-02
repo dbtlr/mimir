@@ -346,3 +346,41 @@ and the rejected red badge:
 - **Verdict verbs leave the lists.** Rows on the work page, the review page,
   the popover, and the focus queue no longer carry _Approve_ or _Send back…_;
   §4's verdict-first rule now holds on the task page only.
+
+## Refinement (2026-11-02, MMR-617): `under_review` takes chartreuse
+
+The MMR-615 refinement left the `under_review` status hue on the attention
+violet. That broke §1's rule that roles never borrow each other's hues: a
+review's status dot read as "needs you" on rows that no longer need the
+operator. The `under_review` status hue is now chartreuse.
+
+| Token                                    | Dark      | Light     |
+| ---------------------------------------- | --------- | --------- |
+| `--color-status-under-review`            | `#a7bd58` | `#6b8316` |
+| `--color-status-under-review-foreground` | `#c1d582` | `#4c5e08` |
+
+- **Why chartreuse.** It takes the widest open gap in the palette's hue
+  circle, between in-progress amber and done green, so amber, then
+  chartreuse, then green reads as the path to done. Its OKLab distance (ΔE
+  ×100) is 9.5 to `in_progress` and 9.9 to `done` in the dark theme, 8.5 to
+  `done` and 11.9 to `in_progress` in the light theme, and 26 to 30 from
+  the attention tokens. The closest existing status pair, `queued` and
+  `ready`, sits at 5.2 dark and 4.5 light.
+- **Contrast.** The foreground measures 11.73:1 against the dark page and
+  11.12:1 against the dark panel, and 6.22:1 against the light page and
+  7.21:1 against the light panel. The base, used for dots and borders,
+  measures 9.00:1 and 8.54:1 dark, and 3.71:1 and 4.30:1 light.
+- **Considered and rejected.** Periwinkle (`#a09cf0` dark, `#605ac4`
+  light) kept the cool family but sat ΔE 4.1 from the attention violet.
+  Coral (`#ef945f` dark, `#c16229` light) cleared violet but sat about 6
+  from `in_progress` and `blocked`, so a review could read as a warning.
+- **What violet means now.** The attention violet marks what waits on the
+  operator: the decisions set (blocks owned by `you`, then questions), the
+  seed queue's ready-to-resolve lane, device pairing requests, and
+  needs-you counts. No status hue uses it, and
+  `packages/host/src/test/role-hues.test.ts` fails if a status token shares
+  a hex with an accent, action, attention, or code token. This supersedes
+  the MMR-615 refinement's note that the `under_review` status hue is
+  unchanged.
+- The CLI's ANSI status colors are out of scope. The terminal has no
+  attention role, so `under_review` stays magenta there.
