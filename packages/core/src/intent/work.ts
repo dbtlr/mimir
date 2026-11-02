@@ -115,12 +115,8 @@ export function cmpStr(a: string, b: string): number {
   return a > b ? 1 : 0;
 }
 
-/** The needs-you reasons in page order: a verdict, then a block on the operator, then a question. */
-export const NEEDS_YOU_REASON_ORDER: readonly WorkNeedsYouReason[] = [
-  'under_review',
-  'blocked',
-  'needs_answers',
-];
+/** The needs-you reasons in page order: a block on the operator, then a question. */
+export const NEEDS_YOU_REASON_ORDER: readonly WorkNeedsYouReason[] = ['blocked', 'needs_answers'];
 
 /** Needs-you order, shared by the work page, the review page's groups, and its focus queue: reason, then newest first. */
 export const byNeedsYouOrder = (
@@ -131,9 +127,10 @@ export const byNeedsYouOrder = (
   byRecency(a.node, b.node);
 
 /**
- * Why a task waits on the operator, or `undefined` when it does not: under
- * review, blocked with an owner of `you`, or a `todo` with no hold whose
- * grooming state is needs-answers. The one membership rule the work page's
+ * Why a task waits on the operator, or `undefined` when it does not: blocked
+ * with an owner of `you`, or a `todo` with no hold whose grooming state is
+ * needs-answers. A task under review is work in flight, not a decision (ADR
+ * 0019, MMR-615 refinement). The one membership rule the work page's
  * `needsYou` and the review page's decisions share. `word` is the task's
  * {@link nodeStatusWord}.
  */
@@ -141,9 +138,6 @@ export function needsYouReasonOf(
   node: Node,
   word: ReturnType<typeof nodeStatusWord>,
 ): WorkNeedsYouReason | undefined {
-  if (word === 'under_review') {
-    return 'under_review';
-  }
   if (word === 'blocked' && node.block_owner === 'you') {
     return 'blocked';
   }
@@ -207,10 +201,11 @@ export function abandonedOf(
  * The work page for a project key, or an initiative/phase id (its whole subtree).
  *
  * Sections:
- * - `now`: in-progress tasks, with when they started, the latest note, and any
- *   linked Scratchpads (harness/branch/host/session/externalRef ride the task).
- * - `needsYou`: under review, then blocked with an owner of `you`, then
- *   needs-answers todos (the latest note is the question); newest first within each.
+ * - `now`: queued, in-progress, and under-review tasks, with when they were
+ *   reserved or started, the latest note, and any linked Scratchpads
+ *   (harness/branch/host/session/externalRef ride the task).
+ * - `needsYou`: blocked with an owner of `you`, then needs-answers todos (the
+ *   latest note is the question); newest first within each.
  * - `frontier`: todo tasks at most one step from startable. Groomed and ready are
  *   `runnable` (`next` order); groomed and awaiting are `nextToUnlock`; ungroomed
  *   ones are `toGroom`, followed by the initiatives and phases in scope that read
@@ -313,7 +308,7 @@ type FrontierEntry = { node: Node; awaitingOn: NodeRef[] };
  * same order in both (project key breaks the ties across projects).
  */
 export type WorkBuckets = {
-  /** In progress. */
+  /** Queued, in progress, or under review: the work in flight. */
   now: Node[];
   needsYou: { node: Node; reason: WorkNeedsYouReason }[];
   /** Todo, un-held tasks at most one step from startable. */
@@ -351,7 +346,7 @@ export function classifyWork(
   for (const node of tasks.toSorted(byRankOrder(set))) {
     const word = nodeStatusWord(set, node);
     const needsYouReason = needsYouReasonOf(node, word);
-    if (word === 'in_progress' || word === 'queued') {
+    if (word === 'in_progress' || word === 'queued' || word === 'under_review') {
       buckets.now.push(node);
     } else if (needsYouReason !== undefined) {
       buckets.needsYou.push({ node, reason: needsYouReason });

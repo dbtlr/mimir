@@ -51,7 +51,7 @@ export type ReviewOptions = {
 /** Everything the page derives about one active project before it is ordered. */
 type ProjectFacts = {
   project: Project;
-  /** Decision nodes in the work page's order (verdicts, blocks, questions; newest first). */
+  /** Decision nodes in the work page's order (blocks on you, then questions; newest first). */
   decisions: { node: Node; reason: WorkNeedsYouReason }[];
   seeds: SeedView[];
   goingCold: number;
@@ -160,7 +160,7 @@ const tagged = <T extends { task: { id: string } }>(rows: readonly T[]): ReviewW
  *
  * - `decisions`: per project with any, the work page's `needsYou` rows (the
  *   membership rule is `needsYouReasonOf`), projects in urgency order.
- * - `queue`: every decision's task id, verdicts then blocks then questions,
+ * - `queue`: every decision's task id, blocks on you then questions,
  *   newest first within each reason, ignoring project.
  * - `triage`: per project with anything to triage, the untriaged seeds (oldest
  *   first), the tasks going cold, and the findings; most first, then key.

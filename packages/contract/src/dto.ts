@@ -716,7 +716,7 @@ export type WorkScope = {
 /** A Scratchpad linked to a work-page task (its id and title, for the agent context). */
 export type WorkScratchpad = { id: string; title: string };
 
-/** A task on the work page's "now" list: queued or in progress, with its reservation/start time and last note. */
+/** A task on the work page's "now" list: queued, in progress, or under review, with its reservation/start time and last note. */
 export type WorkNowTask = {
   /** Carries the agent context fields (harness, branch, host, session, externalRef). */
   task: NodeView;
@@ -729,7 +729,7 @@ export type WorkNowTask = {
   stale: boolean;
 };
 
-export type WorkNeedsYouReason = 'under_review' | 'blocked' | 'needs_answers';
+export type WorkNeedsYouReason = 'blocked' | 'needs_answers';
 
 /** A task waiting on the operator, and why. */
 export type WorkNeedsYouTask = {
@@ -875,13 +875,13 @@ export type ReviewColdTask = { project: string; task: NodeView };
 export type ReviewReport = {
   /** Only projects with at least one decision. */
   decisions: ReviewDecisionGroup[];
-  /** Every decision's task id: verdicts, then blocks on you, then questions; newest first within each. */
+  /** Every decision's task id: blocks on you, then questions; newest first within each. */
   queue: string[];
   /** Only projects with something to triage, most first. */
   triage: ReviewTriageGroup[];
   /** Every active project: pinned first, then newest activity first, then key. */
   projects: ReviewProject[];
-  /** In-progress tasks, the work page's `now` rows, most recently started first. */
+  /** In-flight tasks, the work page's `now` rows, most recently started first. */
   now: ReviewWorkRow<WorkNowTask>[];
   /**
    * Done or abandoned in the last 7 caller-local days, newest first. Empty when

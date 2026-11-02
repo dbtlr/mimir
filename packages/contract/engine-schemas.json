@@ -4642,7 +4642,7 @@
           },
           "reason": {
             "type": "string",
-            "enum": ["under_review", "blocked", "needs_answers"]
+            "enum": ["blocked", "needs_answers"]
           },
           "stale": {
             "$ref": "#/$defs/__schema8"
