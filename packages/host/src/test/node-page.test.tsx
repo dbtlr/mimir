@@ -780,7 +780,7 @@ describe('task page verbs (MMR-453)', () => {
     expect(options.data).not.toHaveProperty('reason');
   });
 
-  it('keeps the verdict block neutral: no attention hue on the block or its Approve', async () => {
+  it('keeps the verdict block neutral: no attention hue on the block or anything in it', async () => {
     await openTask(
       engineTask({
         externalRef: 'https://example.test/pr/41',
@@ -793,7 +793,7 @@ describe('task page verbs (MMR-453)', () => {
     const block = approve.parentElement!.parentElement!;
     expect(block).toHaveTextContent('In review');
     expect(block.className).not.toMatch(/attention/);
-    expect(approve.className).not.toMatch(/attention/);
+    expect(block.querySelectorAll('[class*="attention"]')).toHaveLength(0);
   });
 
   it('offline disables Edit, Move…, and the verbs', async () => {

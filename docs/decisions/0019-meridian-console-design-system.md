@@ -340,8 +340,9 @@ and the rejected red badge:
   The attention hue stays violet, not red: the set is still work waiting on
   the operator, not work that is broken, and red stays the `blocked` status
   hue (§2). The `under_review` status hue is a status hue (§3) and is
-  unchanged, though it shares the attention hue's violet, so a review's
-  status dot in _Now_ is violet while its row takes no attention rule.
+  unchanged, though it is the same violet family (the identical hex in the
+  dark theme), so a review's status dot in _Now_ reads violet while its row
+  takes no attention rule.
 - **Verdict verbs leave the lists.** Rows on the work page, the review page,
   the popover, and the focus queue no longer carry _Approve_ or _Send back…_;
   §4's verdict-first rule now holds on the task page only.
