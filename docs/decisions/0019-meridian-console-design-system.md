@@ -390,8 +390,9 @@ operator. The `under_review` status hue is now chartreuse.
   ready lane keep MMR-476's rule that they never take the attention hue.
 - **No status hue uses violet.**
   `packages/host/src/test/role-hues.test.ts` fails if a status token is
-  declared outside the two theme blocks, is not a plain hex, shares a hex with an accent, action, attention, or code
-  token, or sits within ΔE 6 of an attention token, in either theme.
+  declared outside the two theme blocks or more than once in one, is not a
+  plain hex, shares a hex with an accent, action, attention, or code token,
+  or sits within ΔE 6 of an attention token, in either theme.
   This supersedes the MMR-615 refinement's note that the `under_review`
   status hue is unchanged.
 - **The vocabulary is ten.** ADR 0008's MMR-564 refinement added `queued`,

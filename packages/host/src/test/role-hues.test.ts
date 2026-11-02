@@ -77,6 +77,11 @@ const ROLE = /^--color-(accent|action|attention|code)(-|$)/;
 const ATTENTION = /^--color-attention(-|$)/;
 const isStatus = (name: string): boolean => name.startsWith('--color-status-');
 
+/** How many distinct status tokens a block declares; a repeat declaration counts once. */
+function distinctStatuses(block: string): number {
+  return [...colorTokens(block).keys()].filter((name) => isStatus(name)).length;
+}
+
 /** How many status tokens a stretch of CSS declares. */
 function declaredStatuses(text: string): number {
   return [...text.matchAll(/--color-status-[\w-]+\s*:/g)].length;
@@ -94,15 +99,16 @@ const MIN_ATTENTION_DISTANCE = 6;
 /**
  * ADR 0019 §1: every hue owns exactly one job, and roles never borrow each
  * other's hues. The checks compare the values styles.css declares, so every
- * status token must be a plain hex they can read, declared in a theme block.
+ * status token must be a plain hex they can read, declared once in a theme
+ * block, so the value read is the value the browser uses.
  */
 describe('status tokens never borrow a role hue (ADR 0019 §1)', () => {
-  it('declares status tokens only in the two theme blocks the checks read', () => {
-    const inThemes =
-      declaredStatuses(blockAfter('@theme {')) +
-      declaredStatuses(blockAfter(":root[data-theme='light'] {"));
-    expect(inThemes).toBeGreaterThan(0);
-    expect(declaredStatuses(css)).toBe(inThemes);
+  it('declares each status token once per theme block, and nowhere else', () => {
+    const once =
+      distinctStatuses(blockAfter('@theme {')) +
+      distinctStatuses(blockAfter(":root[data-theme='light'] {"));
+    expect(once).toBeGreaterThan(0);
+    expect(declaredStatuses(css)).toBe(once);
   });
 
   it.each(THEMES)('%s: every status token is a plain hex', (_theme, tokens) => {
