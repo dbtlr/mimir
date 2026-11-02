@@ -17,14 +17,16 @@ installable PWA, and a
 The console opens on the review page at `/`: the work page for every active
 project at once. Its main column has three sections:
 
-- **Needs you** lists the decisions, grouped by project: tasks in review,
-  blocks only you can clear, and tasks that need answers. Decisions hold up
+- **Needs you** lists the decisions, grouped by project: blocks only you can
+  clear, and tasks that need answers. Decisions hold up
   agents, so they come first. When nothing waits, the section says so and
   names how many tasks are in progress and which task finished last. Decisions
-  act in place, as on a work page: Approve and Send back… on a task in review,
-  and Answer… on a task that needs answers. A block has no action here. Clear
+  act in place, as on a work page: Answer… on a task that needs answers. A block has no action here. Clear
   it outside Mimir, then unblock the task from its page.
-- **Now** lists the tasks in progress across your projects.
+- **Now** lists the work in flight across your projects: tasks queued, in
+  progress, or in review. A task in review waits on its review gate, such as
+  a pull request, which asks for you when it needs you. Approve and Send
+  back… are on the task's page.
 - **Shipped** lists what finished in the last 7 days, grouped by day, newest
   first.
 
@@ -56,8 +58,7 @@ main column.
 The top-bar **Needs you** alert shows how many decisions wait on you. It opens
 a popover (a bottom sheet on a phone) that lists them grouped by project, in
 the same order as this page, so you can decide without leaving the page you are
-on. Each row has the same buttons as here (**Approve**, **Send back…**,
-**Answer…**), and the decision for the record you are viewing is marked _This
+on. Each row has the same buttons as here (**Answer…**), and the decision for the record you are viewing is marked _This
 page_. A row leaves the list when its change lands, and the popover stays open
 until you press Escape, choose a link, or move to another page. It links to
 **Open review page** and to **Work through these**, the one-at-a-time queue.
@@ -73,14 +74,14 @@ its own address: `/p/MMR` for the project, `/p/MMR/417` for `MMR-417`,
 `/mmr` redirects to its page.
 
 - **A project, initiative, or phase opens as its work page.** The main column
-  answers five questions in order: _Now_ (what is running, with when it
-  started, where, and its latest note), _Needs you_ (reviews, blocks you can
-  clear, and tasks that need answers, each with its reason), _Frontier_ (what
+  answers five questions in order: _Now_ (what is queued, running, or in
+  review, with when it started, where, and its latest note), _Needs you_
+  (blocks you can clear and tasks that need answers, each with its reason), _Frontier_ (what
   is runnable now, what is next to unlock, what is left to groom, and what is
   waiting on others, folded), _Shipped_ (the last seven days, grouped by day),
   and _Going cold_ (stale work). Every row opens its record page. Some rows
-  also act in place: Start on a runnable task, Approve and Send back… on a
-  task in review, and Answer… on a task that needs answers, which saves your
+  also act in place: Start on a runnable task, and Answer… on a task that
+  needs answers, which saves your
   answer as a note and sets the task's grooming state. The row then moves to
   the section it now belongs in. Offline, these buttons are disabled. The rail
   holds the direction (clamped to a few lines, with Read more for the rest),
