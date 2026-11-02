@@ -738,3 +738,15 @@ switcher finds every other project. The MMR-562 changes to the hotkeys, which
 served only the search (`data-inline-listbox` and Shift on bare hotkeys), are
 withdrawn with it. The switcher keeps the shared listbox, row, and pin
 implementation in `components/project-options.tsx`.
+
+## Refinement (2026-11-02, MMR-615): reviews are in Now
+
+A task under review is work in flight, not a decision (ADR 0001 and ADR 0019,
+MMR-615 refinements). The work page's _Now_ lists tasks whose status word is
+`queued`, `in_progress`, or `under_review`, and _Needs you_ no longer includes
+reviews. A review row reads _In review_ and is read-only like every _Now_ row;
+_Approve_ and _Send back…_ are on its task page. The review page inherits the
+same _Now_ bucket, so its project in-flight count includes reviews, matching
+the overview's in-flight list. Its _Needs you_ rows act in place with
+_Answer…_ on a question; a block on you has no action, as before. A blocked
+task under review keeps its block's home.

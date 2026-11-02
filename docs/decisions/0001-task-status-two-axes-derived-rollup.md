@@ -195,3 +195,32 @@ response to that review need no status change, and `return` records a review
 that sent the work back for rework. The console still lists every
 `under_review` task as a verdict the operator owes (ADR 0019). The transitions,
 rank, and hygiene rules are unchanged.
+
+## Refinement (2026-11-02, MMR-615): `under_review` is work in flight
+
+The MMR-608 refinement kept every `under_review` task in the console's set of
+verdicts the operator owes. A review gate is often settled without the
+operator: automated reviewers and required checks, then a merge by the agent
+that owns the task. Counting every review as owed puts work in the operator's
+set that nothing asks them to move. `under_review` is a lifecycle step like
+`in_progress`, and the console counts it as work in flight, not as a decision
+(ADR 0019, MMR-615 refinement).
+
+- **A review that needs the operator is a block.** When a review gate needs
+  the operator's answer or action, the task's owner blocks it with owner `you`
+  (`block --on you "what is needed"`), as for any other question. A held
+  `under_review` task keeps its lifecycle, and `unblock` returns it to its
+  gate.
+- **The verbs are unchanged.** `submit`, `return`, and `done` move the task as
+  before, and the operator can still approve or send back a review from the
+  task's page.
+
+Considered and rejected:
+
+- **A stored review owner.** A `submit --on you|others` field, mirroring the
+  block owner, would split reviews the operator owes from reviews a gate
+  settles. It is a schema change for a distinction the block owner already
+  records when it matters, and it would have Mimir record who merges, which is
+  delivery policy.
+- **Reading the owner from a task's notes.** Mimir interprets no annotation
+  text.
