@@ -64,26 +64,28 @@ mimir block KEY-9 "waiting on the vendor's fix"                    # no --on: th
   that is already held, and `unblock` clears the owner. `get` shows a `block owner`
   line while a task is blocked; `--eq block_owner:you` filters.
 - **Hygiene is unchanged.** `stale` chases blocks of either owner: an old `others`
-  block is the nudge to chase the other party. In the console, only blocks owned by
-  `you` count as needing the operator.
+  block is the nudge to chase the other party. In the console, blocks owned by `you`,
+  `under_review` tasks, and unheld `needs_answers` tasks count as needing the
+  operator; blocks owned by `others` do not.
 - `--on` belongs to `block` (and `depend`/`undepend` and the date filters); other
   verbs refuse it.
 
 ### The `under_review` gate (optional)
 
-When work is finished and shippable but wants a **human review** before it counts as
-done, `submit` it instead of going straight to `done`:
+`under_review` holds work that is ready for a review gate, such as a human review
+or a merge, before it counts as done:
 
-- `submit <id>` — `in_progress → under_review`: "I believe this is shippable; it needs
-  no more work." The ball is now in the reviewer's court.
-- `done <id>` — the reviewer **approves** (`under_review → done`).
-- `return <id> "what to change"` — the reviewer **requests changes**
-  (`under_review → in_progress`); the doer picks it back up.
+- `submit <id>` — `in_progress → under_review`: the work is ready for its review
+  gate. Handles stay on the task, and fixes made in response to the review need no
+  status change.
+- `done <id>` — the gate cleared (`under_review → done`).
+- `return <id> "what to change"` — the review sent the work back
+  (`under_review → in_progress`).
 
-It is **optional** — `in_progress → done` directly is still legal when no review is
-wanted. An `under_review` task is non-actionable (waiting on the human), so it leaves
-the rankable set and `next` won't surface it — but `stale` _will_ chase it if the
-review sits too long.
+It is **optional** — `in_progress → done` directly is legal when no gate applies. An
+`under_review` task leaves the rankable set, so `next` won't surface it — but `stale`
+_will_ chase it if the review sits too long. The console lists every `under_review`
+task as a verdict the operator owes.
 
 ### Reopening a terminal task
 

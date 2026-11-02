@@ -1,6 +1,6 @@
 interface:
   display_name: 'Mimir'
   short_description: 'Track tasks and work state with the mimir CLI'
-  default_prompt: 'Use $mimir to orient from the board and tell me what to work on next.'
+  default_prompt: 'Use $mimir to show me the board: in-flight work and the ready queue.'
 policy:
   allow_implicit_invocation: true

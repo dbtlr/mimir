@@ -96,6 +96,9 @@ function agentCommand(harness: Harness, prompt: string, model: string | undefine
       // operator's user-level skills, CLAUDE.md, or hooks.
       '--setting-sources',
       'project',
+      // No MCP servers: the operator's user-level `mimir` server reaches the
+      // live board, and the skill prefers MCP tools when a server is present.
+      '--strict-mcp-config',
       '--permission-mode',
       'bypassPermissions',
       '--output-format',
