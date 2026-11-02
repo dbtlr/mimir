@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, expect, setSystemTime, test } from 'bun:test';
 
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import {
@@ -636,6 +636,20 @@ test('started_at is the latest start or reopen, not a return from review', async
   await returnTask(store, r, 'more work');
   const row = (await page('MMR')).now.find((n) => n.task.id === r);
   expect(row?.startedAt).toBe(startedAt ?? 'missing');
+});
+
+test('a review in now keeps the time it was started, not the time it was submitted', async () => {
+  const r = await task(phaseA, 'submitted later');
+  try {
+    setSystemTime(new Date('2026-10-01T09:00:00Z'));
+    await startTask(store, r);
+    setSystemTime(new Date('2026-10-03T17:00:00Z'));
+    await submitTask(store, r);
+  } finally {
+    setSystemTime();
+  }
+  const row = (await page('MMR')).now.find((n) => n.task.id === r);
+  expect(row?.startedAt).toBe('2026-10-01T09:00:00.000Z');
 });
 
 test('runnable requires a rank, as next does', async () => {
