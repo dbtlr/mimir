@@ -227,6 +227,7 @@ This refinement does not authorize a live cutover or remove `serve`.
 - 2026-10-19: Let Loom's installer record vouch for a script-installed binary, so its receipt is adopted or re-recorded with its bindings kept (MMR-554).
 - 2026-10-29: Kept the install URL at the repository root, serving a copy of Loom's managed installer (MMR-603).
 - 2026-10-29: Dropped the sandbox's Postgres snapshot and rehearsal commands; disposable Postgres serves the development host and `test:postgres` (MMR-582).
+- 2026-11-01: Rendered the one managed installer at the repository root and registered the MCP server with Claude Code and Codex (MMR-604).
 
 ## Refinement (2026-10-17, MMR-536): no supervised units, no named store
 
@@ -306,7 +307,8 @@ none.
 ## Refinement (2026-10-28, MMR-555): the Loom installer is the installer
 
 The cutover to the Loom CLI deletes the old binary. `packages/cli/install.sh`
-is the installer for Loom-built releases, and the Loom CLI is the only binary
+is the installer for Loom-built releases (superseded by the MMR-604 refinement
+below: the root `install.sh` is), and the Loom CLI is the only binary
 that reads the receipt. The remedies above that name "the root `install.sh`" are
 gone from the binary's refusal line: a run that refuses to adopt names the
 variables to unset and nothing else, and an installation under custom XDG roots
