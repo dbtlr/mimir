@@ -91,8 +91,8 @@ mimir scratch get <uuid>       # the full Journal and Agenda, plus the current t
 ```
 
 Starting a session against a board that shows an active Scratchpad? Read it
-before planning anything — it is the episode's memory, and it may be the very
-work you were about to redo.
+before planning work it may already cover — it is the episode's memory, and it
+may be the very work you were about to redo.
 
 ## Ending the episode
 

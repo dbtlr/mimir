@@ -127,6 +127,6 @@ describes Mimir's mechanics only, and which work a session takes belongs to
 the user's or the project's process. The skill states what each state means
 (a `groomed` task can be worked without more questions, and an ungroomed task
 should be expected to need some), that the state gates nothing, and that
-`--eq grooming:groomed` narrows the ready queue. Preferring groomed work is
-the session's choice, and the skill no longer recommends it. `next` keeps its membership and order, as §7
-decided.
+`--eq grooming:groomed` narrows the ready queue. Whether to prefer groomed
+work belongs to that same process, and the skill no longer recommends it.
+`next` keeps its membership and order, as §7 decided.
