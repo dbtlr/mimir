@@ -824,6 +824,54 @@ describe.each(backends)('$name', (backend) => {
     }
   });
 
+  // A seed write stores its description as `storedProse` does; an import writes
+  // it raw, so every read normalizes it, as for project and node prose (MMR-611).
+  test('an imported seed description reads as a written one does, and resumes onto its own import', async () => {
+    const source = await backend.make();
+    try {
+      await seedWorkingSet(source.store);
+      const exported = await source.store.export();
+      const [seed] = exported.seeds;
+      if (seed === undefined) {
+        throw new Error('the fixture seeds one seed');
+      }
+      const cases: [written: string, read: string | null][] = [
+        ['  ', null],
+        [' \t\n', null],
+        ['  Look at the cutover. \n', 'Look at the cutover.'],
+      ];
+      for (const [written, read] of cases) {
+        const document: StoreExport = {
+          ...exported,
+          seeds: [{ ...seed, description: written }],
+        };
+        const target = await backend.make();
+        try {
+          await target.store.import(document, { dryRun: false, mode: 'fresh' });
+          const label = JSON.stringify(written);
+          const loaded = await target.store.seeds.load(seed.key, seed.seq, { content: true });
+          expect([label, loaded?.description]).toEqual([label, read]);
+          const described = await target.store.seeds.loadDescriptions([seed]);
+          expect([label, described.get(`${seed.key}-s${seed.seq}`)]).toEqual([label, read]);
+          const reexported = (await target.store.export()).seeds.at(0)?.description;
+          expect([label, reexported]).toEqual([label, read]);
+
+          const resumed = await target.store.import(document, { dryRun: false, mode: 'resume' });
+          expect([label, resumed.created]).toEqual([label, 0]);
+          const different = { ...document, seeds: [{ ...seed, description: 'Something else.' }] };
+          const refusal = await refusalOf(
+            target.store.import(different, { dryRun: false, mode: 'resume' }),
+          );
+          expect(`${label}: ${refusal}`).toContain('already exists and differs');
+        } finally {
+          await target.close();
+        }
+      }
+    } finally {
+      await source.close();
+    }
+  });
+
   test('imports cross-project dependencies and preserves legacy facts', async () => {
     const source = await backend.make();
     try {
