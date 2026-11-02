@@ -31,10 +31,12 @@ that holds a task in `under_review` until merge.
    reviewer subagent). Every finding settles before merge, with its evidence
    kept: see [Settling review findings](#settling-review-findings).
 5. **Submit** — `mimir submit <id>` (→ `under_review`) and open the PR. Who
-   merges follows the merge disposition an annotation on the task records
-   when the work is agreed: the operator, or the agent once checks are green
-   and every finding has settled. When no annotation records one, the
-   operator merges.
+   merges follows the task's merge disposition: an annotation line reading
+   `Merge disposition: operator merges` or `Merge disposition: agent merges
+   when green`. The agent writes that line when the work is agreed, and only
+   to record the disposition the operator gave. With `agent merges when
+   green`, the agent merges once required checks pass and every finding has
+   settled. When no such line exists, the operator merges.
 6. **Done** — `mimir done <id>` once the PR has merged, whoever merged it.
 
 ## Settling review findings
