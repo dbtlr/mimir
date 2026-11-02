@@ -19,7 +19,7 @@ function blockAfter(opener: string): string {
 /** Every `--color-*` declaration in a block, keyed by token name, with its raw value. */
 function colorTokens(block: string): Map<string, string> {
   const tokens = new Map<string, string>();
-  for (const [, name, value] of block.matchAll(/(--color-[\w-]+):\s*([^;]+);/g)) {
+  for (const [, name, value] of block.matchAll(/(--color-[\w-]+)\s*:\s*([^;]+);/g)) {
     if (name !== undefined && value !== undefined) {
       tokens.set(name, value.trim());
     }
@@ -77,6 +77,11 @@ const ROLE = /^--color-(accent|action|attention|code)(-|$)/;
 const ATTENTION = /^--color-attention(-|$)/;
 const isStatus = (name: string): boolean => name.startsWith('--color-status-');
 
+/** How many status tokens a stretch of CSS declares. */
+function declaredStatuses(text: string): number {
+  return [...text.matchAll(/--color-status-[\w-]+\s*:/g)].length;
+}
+
 /**
  * The nearest a status token may sit to an attention token, in OKLab ΔE ×100.
  * A status this close to violet reads as "needs you" (MMR-617). The closest
@@ -88,9 +93,17 @@ const MIN_ATTENTION_DISTANCE = 6;
 /**
  * ADR 0019 §1: every hue owns exactly one job, and roles never borrow each
  * other's hues. The checks compare the values styles.css declares, so every
- * status token must be a plain hex they can read.
+ * status token must be a plain hex they can read, declared in a theme block.
  */
 describe('status tokens never borrow a role hue (ADR 0019 §1)', () => {
+  it('declares status tokens only in the two theme blocks the checks read', () => {
+    const inThemes =
+      declaredStatuses(blockAfter('@theme {')) +
+      declaredStatuses(blockAfter(":root[data-theme='light'] {"));
+    expect(inThemes).toBeGreaterThan(0);
+    expect(declaredStatuses(css)).toBe(inThemes);
+  });
+
   it.each(THEMES)('%s: every status token is a plain hex', (_theme, tokens) => {
     const statuses = [...tokens].filter(([name]) => isStatus(name));
     expect(statuses.length).toBeGreaterThan(0);

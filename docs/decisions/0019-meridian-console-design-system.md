@@ -363,9 +363,9 @@ operator. The `under_review` status hue is now chartreuse.
   circle, between in-progress amber and done green, so amber, then
   chartreuse, then green reads as the path to done. Its OKLab distance (ΔE
   ×100) is 9.5 to `in_progress` and 9.9 to `done` in the dark theme, 8.5 to
-  `done` and 11.9 to `in_progress` in the light theme. It sits at least 21
-  from every attention token in the dark theme and at least 23 in the light
-  theme, base and foreground alike. The closest status pairs before this
+  `done` and 11.9 to `in_progress` in the light theme. It sits at least
+  20.9 from every attention token in the dark theme and at least 23.0 in the
+  light theme, base and foreground alike. The closest status pairs before this
   change were `queued` and `ready` at 5.2 in the dark theme, and `awaiting`
   and `abandoned` at 4.0 in the light theme.
 - **Contrast.** The foreground measures 11.73:1 against the dark page and
@@ -390,7 +390,7 @@ operator. The `under_review` status hue is now chartreuse.
   ready lane keep MMR-476's rule that they never take the attention hue.
 - **No status hue uses violet.**
   `packages/host/src/test/role-hues.test.ts` fails if a status token is
-  not a plain hex, shares a hex with an accent, action, attention, or code
+  declared outside the two theme blocks, is not a plain hex, shares a hex with an accent, action, attention, or code
   token, or sits within ΔE 6 of an attention token, in either theme.
   This supersedes the MMR-615 refinement's note that the `under_review`
   status hue is unchanged.
