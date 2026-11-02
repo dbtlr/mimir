@@ -5,10 +5,10 @@ import { fileURLToPath } from 'node:url';
 
 import { extractInvocations, invocationProblems } from './skill-invocations';
 
-/** The shipped skill: the repository's skills/mimir/, which skills() installs. */
-const SKILL_SOURCE = fileURLToPath(new URL('../../../../skills/mimir/', import.meta.url));
+/** The shipped skills: every folder in the repository's skills/, which skills() installs. */
+const SKILL_SOURCE = fileURLToPath(new URL('../../../../skills/', import.meta.url));
 
-/** Every Markdown file of the shipped skill, by its path inside the skill. */
+/** Every Markdown file of the shipped skills, by its path inside skills/. */
 const skillMarkdown = (): { path: string; content: string }[] =>
   readdirSync(SKILL_SOURCE, { encoding: 'utf8', recursive: true })
     .filter((path) => path.endsWith('.md'))

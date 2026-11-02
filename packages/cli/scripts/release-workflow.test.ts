@@ -17,6 +17,7 @@ const stepSchema = executionSchema.extend({
   name: z.string().optional(),
   run: z.string().optional(),
   uses: z.string().optional(),
+  with: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
 const jobSchema = executionSchema.extend({ steps: z.array(stepSchema) });
 const workflowSchema = z.object({
@@ -677,16 +678,21 @@ test('deleting a fragment outside a release cut does not count as one', async ()
   expect(result.stdout).toContain('no changelog fragment');
 });
 
+/** The publish job's steps, as release.yml declares them. */
+async function publishSteps() {
+  const workflow = z
+    .object({ jobs: z.object({ publish: jobSchema }) })
+    .parse(Bun.YAML.parse(await Bun.file(workflowPath).text()));
+  return workflow.jobs.publish.steps;
+}
+
 /**
  * Run the publish job's notes step in a scratch checkout holding `files`,
  * committed, and this package's dependencies, for the tag `ref`, and return the
  * notes it wrote.
  */
 async function releaseNotes(ref: string, files: Record<string, string>): Promise<string> {
-  const workflow = z
-    .object({ jobs: z.object({ publish: jobSchema }) })
-    .parse(Bun.YAML.parse(await Bun.file(workflowPath).text()));
-  const script = workflow.jobs.publish.steps.find(
+  const script = (await publishSteps()).find(
     (step) => step.name === 'Extract changelog notes',
   )?.run;
   if (script === undefined) {
@@ -745,6 +751,12 @@ test('release notes carry only the tag’s section, with docs links that resolve
   expect(notes).not.toContain('../../');
   expect(notes).not.toContain('An older entry');
   expect(notes).toContain('`ghcr.io/dbtlr/mimir-host:0.26.0`');
+});
+
+// `loom changelog notes` refuses a prerelease in a shallow clone, which checkout makes by default.
+test('the publish job checks out full history, which prerelease notes need', async () => {
+  const checkout = (await publishSteps()).find((step) => step.uses?.startsWith('actions/checkout@'));
+  expect(checkout?.with?.['fetch-depth']).toBe(0);
 });
 
 test('prerelease notes carry the pending fragments, with docs links that resolve from the repository root', async () => {

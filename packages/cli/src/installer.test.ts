@@ -50,6 +50,15 @@ test('the installer registers the MCP server with every coding agent once it has
   expect(text).toContain('--skip-post-install');
 });
 
+// The header checksum only proves the script is unedited; this proves it was
+// rendered from the declaration loom.config.json holds now.
+test('install.sh carries the post-install command and message loom.config.json declares', () => {
+  const { command = [], message = '' } = loomConfig.postInstall ?? {};
+  const text = readFileSync(script, 'utf8');
+  expect(text).toContain(`"$@" ${command.map((word) => `'${word}'`).join(' ')}\n`);
+  expect(text).toContain(`  message='${message}'\n`);
+});
+
 test.each<[string, Record<string, string>]>([
   ['darwin', { HOME: '/home/a' }],
   ['linux', { HOME: '/home/a' }],
