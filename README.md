@@ -50,8 +50,7 @@ curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mi
 ```
 
 The installer verifies the release, records the installation, and registers
-the MCP server with Claude Code (Codex cannot connect to the server's MCP
-protocol revision yet). See [Install location](docs/guides/install-location.md)
+the MCP server with Claude Code and Codex, whichever are installed. See [Install location](docs/guides/install-location.md)
 for choosing a directory or version, the first-run binding, and upgrading an
 earlier installation. `mimir version`
 prints the installed version, and `mimir self-update` replaces the binary.

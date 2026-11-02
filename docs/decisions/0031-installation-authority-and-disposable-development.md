@@ -345,3 +345,16 @@ for `bun run test:postgres`, which runs the real-Postgres conformance and
 concurrency cases. The host migrates its store at startup, so a schema change
 is proven by those cases rather than by a rehearsal against a copy of a live
 database.
+
+## Refinement (2026-11-01, MMR-604): one installer, rendered at the root
+
+Loom 0.17.0 places the managed installer through `paths.installer` in
+`packages/cli/loom.config.json`, so `loom init` renders `install.sh` at the
+repository root, where the install URL serves it, and `packages/cli/install.sh`
+and the byte-for-byte copy are gone. The same file holds the installer's
+`postInstall`, which moved out of the Application. Loom 0.17.0's MCP server also
+serves the initialize-era revisions Codex opens with, so the post-install
+command is `mcp install` without `--agent`: it registers with Claude Code and
+Codex, skipping either one that is not installed. This supersedes the
+Claude-only registration of the MMR-555 refinement and the copy of the MMR-603
+refinement.

@@ -6,23 +6,23 @@ import { applicationDirectory } from '@loomcli/core';
 import { scriptRecordDirectory } from '@mimir/core';
 
 import { createApp } from './app';
-import { application } from './application';
 import { boundClone } from './testing/fixture';
 import { runArgv } from './testing/run';
 
 /**
  * The installer is `loom init`'s managed `install.sh` (MMR-554), rendered for
- * this package's `bin` name, GitHub repository, and the Application's
- * `postInstall`. It installs Loom-built releases. Re-render it with `bun run --cwd packages/cli loom init
- * --only install`; an edit by hand reads as drift.
+ * this package's `bin` name and GitHub repository at the repository root, where
+ * the install URL serves it, with the post-install step `loom.config.json`
+ * declares (MMR-604). It installs Loom-built releases. Re-render it with
+ * `bun run --cwd packages/cli loom init --only install`; an edit by hand reads
+ * as drift.
  */
-const script = new URL('../install.sh', import.meta.url);
+const script = new URL('../../../install.sh', import.meta.url);
 
-/**
- * The install URL serves the repository root's `install.sh`, a copy of the managed
- * installer, because `loom init` renders it only inside the package (LM-s40).
- */
-const rootScript = new URL('../../../install.sh', import.meta.url);
+/** The package's Loom toolchain file: where the installer goes and what it runs after. */
+const loomConfig = Bun.JSONC.parse(
+  readFileSync(new URL('../loom.config.json', import.meta.url), 'utf8'),
+) as { paths?: { installer?: string }; postInstall?: { command: string[]; message: string } };
 
 test('install.sh is the installer loom init manages, undrifted', () => {
   const text = readFileSync(script, 'utf8');
@@ -35,18 +35,18 @@ test('install.sh is the installer loom init manages, undrifted', () => {
   expect(statSync(script).mode & 0o111).toBe(0o111);
 });
 
-test('the root install.sh is the managed installer, byte for byte', () => {
-  expect(readFileSync(rootScript, 'utf8')).toBe(readFileSync(script, 'utf8'));
-  expect(statSync(rootScript).mode & 0o111).toBe(0o111);
+test('loom init renders the installer at the repository root', () => {
+  expect(loomConfig.paths?.installer).toBe('../../install.sh');
 });
 
-test('the installer registers the MCP server with Claude Code once it has installed the binary', () => {
-  expect(application.inspect().postInstall).toEqual({
-    command: ['mcp', 'install', '--agent', 'claude'],
+// Every agent that starts: Claude Code and Codex, whose client Loom 0.17.0 serves (LM-s39).
+test('the installer registers the MCP server with every coding agent once it has installed the binary', () => {
+  expect(loomConfig.postInstall).toEqual({
+    command: ['mcp', 'install'],
     message: expect.stringContaining('mimir bind'),
   });
   const text = readFileSync(script, 'utf8');
-  expect(text).toContain("'mcp' 'install' '--agent' 'claude'");
+  expect(text).toContain(`"$@" 'mcp' 'install'\n`);
   expect(text).toContain('--skip-post-install');
 });
 

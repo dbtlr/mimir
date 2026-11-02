@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test';
-import { mkdtemp, readFile, rm, writeFile, mkdir } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { z } from 'zod';
 
@@ -676,7 +677,12 @@ test('deleting a fragment outside a release cut does not count as one', async ()
   expect(result.stdout).toContain('no changelog fragment');
 });
 
-test('release notes carry only the tag’s section, with docs links that resolve from the repository root', async () => {
+/**
+ * Run the publish job's notes step in a scratch checkout holding `files`,
+ * committed, and this package's dependencies, for the tag `ref`, and return the
+ * notes it wrote.
+ */
+async function releaseNotes(ref: string, files: Record<string, string>): Promise<string> {
   const workflow = z
     .object({ jobs: z.object({ publish: jobSchema }) })
     .parse(Bun.YAML.parse(await Bun.file(workflowPath).text()));
@@ -689,35 +695,67 @@ test('release notes carry only the tag’s section, with docs links that resolve
   const directory = await mkdtemp(join(tmpdir(), 'mimir-release-notes-'));
   try {
     await writeFiles(directory, {
-      'packages/cli/CHANGELOG.md': [
-        '# Changelog',
-        '',
-        '## v0.26.0 - 2026-10-28',
-        '',
-        '### Breaking Changes',
-        '',
-        '- **A change** (MMR-1). See [ADR 0039](../../docs/decisions/0039-x.md).',
-        '',
-        '## v0.25.0 - 2026-10-14',
-        '',
-        '- An older entry.',
-        '',
-      ].join('\n'),
+      'packages/cli/package.json': '{ "name": "mimir", "version": "0.26.0" }\n',
+      ...files,
     });
+    // The job checks out full history, which orders a prerelease's fragments.
+    const runGit = (...args: string[]) =>
+      Bun.spawnSync(['git', '-c', 'user.name=t', '-c', 'user.email=t@example.test', ...args], {
+        cwd: directory,
+      });
+    runGit('init', '-q');
+    runGit('add', '-A');
+    runGit('commit', '-qm', 'the tagged commit');
+    await symlink(
+      fileURLToPath(new URL('../node_modules', import.meta.url)),
+      join(directory, 'packages/cli/node_modules'),
+    );
     const child = Bun.spawn(['bash', '-euo', 'pipefail', '-c', script], {
       cwd: directory,
-      env: { ...process.env, GITHUB_REF_NAME: 'v0.26.0', IMAGE_VERSION: '0.26.0' },
+      env: { ...process.env, GITHUB_REF_NAME: ref, IMAGE_VERSION: ref.slice(1) },
       stderr: 'pipe',
       stdout: 'pipe',
     });
     const stderr = await new Response(child.stderr).text();
     expect(await child.exited, stderr).toBe(0);
-    const notes = await readFile(join(directory, 'release-notes.md'), 'utf8');
-    expect(notes).toContain('[ADR 0039](docs/decisions/0039-x.md)');
-    expect(notes).not.toContain('../../');
-    expect(notes).not.toContain('An older entry');
-    expect(notes).toContain('`ghcr.io/dbtlr/mimir-host:0.26.0`');
+    return await readFile(join(directory, 'release-notes.md'), 'utf8');
   } finally {
     await rm(directory, { force: true, recursive: true });
   }
+}
+
+const RELEASED_CHANGELOG = [
+  '# Changelog',
+  '',
+  '## v0.26.0 - 2026-10-28',
+  '',
+  '### Breaking Changes',
+  '',
+  '- **A change** (MMR-1). See [ADR 0039](../../docs/decisions/0039-x.md).',
+  '',
+  '## v0.25.0 - 2026-10-14',
+  '',
+  '- An older entry.',
+  '',
+].join('\n');
+
+test('release notes carry only the tag’s section, with docs links that resolve from the repository root', async () => {
+  const notes = await releaseNotes('v0.26.0', { 'packages/cli/CHANGELOG.md': RELEASED_CHANGELOG });
+  expect(notes).toContain('[ADR 0039](docs/decisions/0039-x.md)');
+  expect(notes).not.toContain('../../');
+  expect(notes).not.toContain('An older entry');
+  expect(notes).toContain('`ghcr.io/dbtlr/mimir-host:0.26.0`');
+});
+
+test('prerelease notes carry the pending fragments, with docs links that resolve from the repository root', async () => {
+  const notes = await releaseNotes('v0.26.1-next.2', {
+    'packages/cli/.changes/mmr-2.md':
+      '- **A fix** (MMR-2). See [the guide](../../docs/guides/x.md).\n',
+    'packages/cli/CHANGELOG.md': RELEASED_CHANGELOG,
+  });
+  expect(notes).toContain('**A fix** (MMR-2)');
+  expect(notes).toContain('[the guide](docs/guides/x.md)');
+  expect(notes).not.toContain('../../');
+  expect(notes).not.toContain('A change');
+  expect(notes).toContain('`ghcr.io/dbtlr/mimir-host:0.26.1-next.2`');
 });

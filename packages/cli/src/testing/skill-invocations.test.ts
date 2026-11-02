@@ -1,7 +1,18 @@
 import { expect, test } from 'bun:test';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { SKILL_FILES } from '../skill-files';
 import { extractInvocations, invocationProblems } from './skill-invocations';
+
+/** The shipped skill: the repository's skills/mimir/, which skills() installs. */
+const SKILL_SOURCE = fileURLToPath(new URL('../../../../skills/mimir/', import.meta.url));
+
+/** Every Markdown file of the shipped skill, by its path inside the skill. */
+const skillMarkdown = (): { path: string; content: string }[] =>
+  readdirSync(SKILL_SOURCE, { encoding: 'utf8', recursive: true })
+    .filter((path) => path.endsWith('.md'))
+    .map((path) => ({ content: readFileSync(join(SKILL_SOURCE, path), 'utf8'), path }));
 
 const fence = (body: string): string => ['```sh', body, '```'].join('\n');
 
@@ -163,7 +174,7 @@ test('a hidden or retired spelling is a problem, and the Loom spellings pass', a
 // The guard: the skill teaches agents exact verbs and flags, and agents drive
 // the CLI from it. A rename that misses the skill would teach a dead command.
 test('every mimir invocation the shipped skill shows is one the CLI accepts', async () => {
-  const invocations = SKILL_FILES.flatMap((f) => extractInvocations(f.path, f.content));
+  const invocations = skillMarkdown().flatMap((f) => extractInvocations(f.path, f.content));
   expect(invocations.length).toBeGreaterThan(80);
   const problems: string[] = [];
   for (const inv of invocations) {

@@ -132,7 +132,6 @@ import { STREAM } from './machine';
 import type { Diagnosis, Machine } from './machine';
 import { documentExists, readDocumentFile, writeDocumentFile } from './machine-files';
 import type { Ports } from './ports';
-import { MIMIR_SKILL } from './skill-files';
 import { abortableSleep } from './sleep';
 import { VERSION } from './version';
 
@@ -783,19 +782,12 @@ export function createApp(source: CliSource) {
         interaction(),
         // `mimir mcp` serves the commands that opt in with mcpCommand (ADR 0037).
         mcp(),
-        // The skill files stay embedded, so the installed skill matches this binary.
-        skills({ skills: [MIMIR_SKILL] }),
+        // The repository's skills/ folder, one subfolder per skill. A source run
+        // reads it from disk; loom build carries it into the bundle or binary, so
+        // the installed skill matches this binary (MMR-24).
+        skills({ folder: new URL('../../../skills/', import.meta.url) }),
         selfUpdate({ notices: false }),
       ],
-      // The installer registers the MCP server with Claude Code once the binary
-      // is in place. Claude Code only: Codex cannot connect to Loom's MCP
-      // revision 2026-07-28 (tracked upstream as LM-s39), so the installer
-      // leaves Codex alone until that lands.
-      postInstall: {
-        command: ['mcp', 'install', '--agent', 'claude'],
-        message:
-          'Bind a repository with mimir bind <KEY>, and Claude Code can use mimir from there.',
-      },
       version: VERSION,
     })
       .command(getCommand(ports))
