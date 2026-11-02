@@ -226,7 +226,7 @@ compatibility review.
   release cut, so parallel PRs never conflict on it. Run
   `bun run --cwd packages/cli loom changelog check` to validate fragments. The
   `changelog-guard` check enforces this: a PR touching build-affecting paths
-  (`packages/**`, `skills/mimir/**`, `package.json`, `bun.lock`, `install.sh`,
+  (`packages/**`, `skills/**`, `package.json`, `bun.lock`, `install.sh`,
   the release workflows) fails CI unless it touches a fragment.
   For a genuinely behavior-preserving change (internal refactor, test- or
   build-meta only), apply the `skip-changelog` label with a one-line reason

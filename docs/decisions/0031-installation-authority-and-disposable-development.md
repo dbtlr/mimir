@@ -312,7 +312,8 @@ gone from the binary's refusal line: a run that refuses to adopt names the
 variables to unset and nothing else, and an installation under custom XDG roots
 is adopted only through a receipt an earlier installer already wrote. The
 installer's `postInstall` registers the MCP server with Claude Code
-(`mcp install --agent claude`), so it runs the installed binary.
+(`mcp install --agent claude`), so it runs the installed binary (superseded
+by the MMR-604 refinement below: it registers with Claude Code and Codex).
 
 The root `install.sh` stays in place, unchanged, until the first stable release
 built from the Loom CLI: until then `releases/latest` is an old-CLI release that
@@ -329,8 +330,10 @@ the README, the user docs, the Mimir skill, and users' own scripts, so it must
 not follow the monorepo's package layout. The cut replaces the root `install.sh`
 with a byte-for-byte copy of the installer `loom init` manages, and
 `packages/cli/src/installer.test.ts` fails while the two differ.
-`packages/cli/install.sh` remains the rendered source. The copy goes when Loom
-can render the managed installer at a chosen path (LM-s40); a symlink cannot
+`packages/cli/install.sh` remains the rendered source (superseded by the
+MMR-604 refinement below: `loom init` renders the installer at the root, and
+the copy is gone). The copy goes when Loom can render the managed installer at
+a chosen path (LM-s40); a symlink cannot
 replace it, because `raw.githubusercontent.com` serves a symlink's target path
 as text. Releases before 0.26.0 install with the installer at their own tag,
 such as `v0.25.0/install.sh`.

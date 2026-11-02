@@ -35,9 +35,12 @@ Loom's installation record (`install.json`, in the platform state directory),
 and then runs `mimir mcp install` to register the MCP server with Claude Code
 and Codex, skipping either one that is not installed. Pass `--skip-post-install`
 to skip the registration. If you added a `mimir` server to either agent by hand,
-the registration fails; run `mimir mcp install --force` once. An installation
-from before 0.27.0 registered Claude Code alone; run `mimir mcp install
---agent codex` once to add Codex.
+the registration fails and registers with neither; run `mimir mcp install
+--force` once. An installation made by an earlier installer registered Claude
+Code alone; run `mimir mcp install --agent codex` once to add Codex, with
+`--force` if Codex already has a `mimir` server. A release before 0.27.0 cannot
+serve Codex, so when you install one, pass `--skip-post-install` and then run
+`mimir mcp install --agent claude`.
 
 ## How the first run binds the installation
 

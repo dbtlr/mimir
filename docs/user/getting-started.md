@@ -10,7 +10,7 @@ curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/dbtlr/mi
 ```
 
 [Install location](../guides/install-location.md) explains the installer's `--dir` and
-version arguments, its Claude Code MCP registration, and how the first run
+version arguments, its MCP registration with Claude Code and Codex, and how the first run
 binds the installation.
 
 The standalone binary does not require Bun or any other program. By default

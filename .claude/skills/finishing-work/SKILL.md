@@ -62,7 +62,7 @@ conflict-free.
 third option.
 
 CI enforces exactly this: `changelog-guard` fails any PR touching build-affecting
-paths (`packages/**`, `skills/mimir/**`, `package.json`, `bun.lock`,
+paths (`packages/**`, `skills/**`, `package.json`, `bun.lock`,
 `install.sh`, the release workflows) that touches no `packages/cli/.changes/`
 fragment and has no label, and runs `loom changelog check` on the fragments it
 finds, the validator the cut itself runs. The label is the **only** legitimate

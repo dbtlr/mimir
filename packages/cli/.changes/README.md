@@ -1,3 +1,5 @@
+<!-- Managed by loom init. sha256:be7d87cd0f008510beafa079704d47a74f4479e8e5354f35f8d379c0c13f6707 -->
+
 # Change fragments
 
 This directory holds the package's pending changelog entries, one fragment per change. `loom changelog write` cuts the next version from them into `CHANGELOG.md`.
@@ -57,10 +59,11 @@ The highest kind present decides the next version.
 | `1.4.7`         | Feature              | `1.5.0`      |
 | `1.4.7`         | Fix                  | `1.4.8`      |
 
-A version that is not `MAJOR.MINOR.PATCH`, a prerelease such as `1.2.0-next.1` included, cannot be cut.
+`loom changelog write --target VERSION` cuts a chosen version, such as `0.11.0` or the prerelease `0.11.0-rc.1`. Its release part, the version without its prerelease part, must meet or exceed the version the table gives from the last release, and a fragment keeps its kind whatever version ships it. A prerelease cut sets the version and keeps every fragment pending. From a prerelease, `loom changelog write` cuts the release part when it meets the table's version. A current version in any other form, such as `v1.2.0`, cannot be cut.
 
 ## Check and cut
 
 - `loom changelog check` validates every fragment, exits 1 for an invalid one, and names it. It needs no git history, so CI can run it.
 - `loom changelog write` prepends the release section to `CHANGELOG.md`, sets `version` in `package.json`, and deletes the consumed fragments. It orders entries by the commit that added each fragment, so it needs full git history. `--date YYYY-MM-DD` dates the release, `--narrative FILE` copies prose above the entries, and `--dry-run` prints the section and the next version and writes nothing.
+- `loom changelog notes VERSION` prints a cut version's section from `CHANGELOG.md`, or the pending fragments for the package's current prerelease.
 - `write` refreshes no lockfile, so run your package manager after a cut.
