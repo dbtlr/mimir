@@ -86,7 +86,7 @@ export async function exportSeeds(ex: Executor, dialect: StoreDialect): Promise<
   for (const row of rows) {
     exported.push({
       ...toRecord(row, dialect),
-      description: row.description,
+      description: storedProse(row.description),
       history: await historyOf(ex, row.id),
     });
   }
@@ -268,7 +268,7 @@ export function createSqlSeedStore(db: Kysely<DB>, dialect: StoreDialect): SeedS
         return undefined;
       }
       return opts?.content === true
-        ? { ...toRecord(row, dialect), description: row.description }
+        ? { ...toRecord(row, dialect), description: storedProse(row.description) }
         : toRecord(row, dialect);
     },
 
@@ -285,7 +285,7 @@ export function createSqlSeedStore(db: Kysely<DB>, dialect: StoreDialect): SeedS
           .where('id', 'in', chunk)
           .execute();
         for (const row of rows) {
-          out.set(row.id, row.description);
+          out.set(row.id, storedProse(row.description));
         }
       }
       return out;

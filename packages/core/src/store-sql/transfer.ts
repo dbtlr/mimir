@@ -350,7 +350,11 @@ function bundlesOf(
     bundles.artifacts.set(renderArtifactRef(artifact), artifact);
   }
   for (const seed of document.seeds) {
-    bundles.seeds.set(renderSeedRef(seed), seed);
+    // The seed description as the target reads it back (MMR-611), like a node's.
+    bundles.seeds.set(renderSeedRef(seed), {
+      ...seed,
+      description: storedProse(seed.description),
+    });
   }
   for (const pad of document.scratchpads) {
     bundles.scratchpads.set(pad.id, pad);
