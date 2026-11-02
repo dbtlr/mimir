@@ -311,3 +311,74 @@ function wideDocument(count: number): StoreExport {
     transitions: [],
   };
 }
+
+/** A document holding project `MMR` and one seed `MMR-s1` with the given description. */
+function seedDocument(description: string | null): StoreExport {
+  return document({
+    seeds: [
+      {
+        created_at: STAMP,
+        description,
+        history: [],
+        key: 'MMR',
+        kind: 'idea',
+        lifecycle: 'new',
+        requester: null,
+        seq: 1,
+        spawned: [],
+        title: 'A seed',
+        updated_at: STAMP,
+      },
+    ],
+  });
+}
+
+const SEED_CASES = [
+  ['blank', '  ', null],
+  ['padded', '  some text \n', 'some text'],
+] as const;
+
+test.each(SEED_CASES)(
+  'an imported seed description that is %s reads as a CLI-written one does (MMR-611)',
+  async (_label, written, read) => {
+    // A seed write runs `storedProse`; an import stores raw, so every read
+    // normalizes (as for project and node descriptions, MMR-607).
+    const store_ = await createPgliteTestStore();
+    try {
+      await store_.store.import(seedDocument(written), { dryRun: false, mode: 'fresh' });
+      expect((await store_.store.seeds.load('MMR', 1, { content: true }))?.description).toBe(read);
+      const described = await store_.store.seeds.loadDescriptions([{ key: 'MMR', seq: 1 }]);
+      expect(described.get('MMR-s1')).toBe(read);
+      expect((await store_.store.export()).seeds.at(0)?.description).toBe(read);
+    } finally {
+      await store_.close();
+    }
+  },
+);
+
+test.each(SEED_CASES)(
+  'a document with a %s seed description resumes onto its own fresh import (MMR-611)',
+  async (_label, written) => {
+    const doc = seedDocument(written);
+    const store_ = await createPgliteTestStore();
+    try {
+      await store_.store.import(doc, { dryRun: false, mode: 'fresh' });
+      const resumed = await store_.store.import(doc, { dryRun: false, mode: 'resume' });
+      expect(resumed.applied).toBe(true);
+      expect(resumed.created).toBe(0);
+    } finally {
+      await store_.close();
+    }
+  },
+);
+
+test('a resume still refuses a seed description that truly differs (MMR-611)', async () => {
+  const store_ = await createPgliteTestStore();
+  try {
+    await store_.store.import(seedDocument('  one '), { dryRun: false, mode: 'fresh' });
+    const refused = store_.store.import(seedDocument('two'), { dryRun: false, mode: 'resume' });
+    expect(await errorText(refused)).toContain('differs');
+  } finally {
+    await store_.close();
+  }
+});
