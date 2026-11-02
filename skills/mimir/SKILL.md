@@ -1,19 +1,36 @@
 ---
 name: mimir
-description: Drives Mimir, the work-state store for tasks, their hierarchy, statuses, seeds, artifacts, and scratchpads, through the `mimir` CLI. Use when a request names a Mimir id such as `MMR-12` or `MMR-s3`, or when work reads or changes the board - tracking tasks, checking the queue, setting up a project, or keeping a scratchpad.
+description: Drives Mimir, the work-state store for tasks, their hierarchy, statuses, seeds, artifacts, and scratchpads, through its MCP tools or the `mimir` CLI. Use when a request names a Mimir id such as `MMR-12` or `MMR-s3`, or when work reads or changes the board - tracking tasks, checking the queue, setting up a project, or keeping a scratchpad.
 ---
 
 # Mimir
 
 Mimir holds a project's work state: the task board, the project → initiative →
 phase → task hierarchy, statuses, seeds, and frozen artifacts. The board is the
-record that outlives a conversation. You drive it with the `mimir` CLI. Every
-example in this skill is a real invocation.
+record that outlives a conversation. Every example in this skill is a real
+`mimir` CLI invocation.
 
 This skill describes how Mimir works: its records, what each status and verb
 means, and the exact command surface. When to consult the board, which work to
 take, and how a session routes and finishes its work belong to the user and the
 project's own process.
+
+## MCP tools or the CLI
+
+When the host has the Mimir MCP server configured (Claude Code lists its tools
+as `mcp__mimir__*`), drive the board through those tools instead of shell
+calls; the CLI is the path when no server is configured. A tool is named for
+its command path joined with `_` (`create_task`, `scratch_checkpoint`), and its
+inputs are the command's arguments and options by their declared names
+(`worker-session`, `at-or-before`), so every CLI example here maps to one tool
+call. A tool call returns the affected record, so its result carries the id the
+CLI would echo. A board read takes its project from `scope` or from the clone
+the server started in (`seeds` also takes `project`, which wins); there is no
+`all`.
+
+The machine-local commands have no tool and always run through the CLI:
+`bind`, `pair`, `doctor`, `store`, `version`, `skills`, `self-update`, and
+`mcp`.
 
 ## Reading the board
 
@@ -168,10 +185,3 @@ Read the matching reference before you act in its area.
 | Understand a status word, group, or rollup                              | `references/status-model.md` |
 | Classify with tags                                                      | `references/tags.md`         |
 | File or triage grooming-queue records: ideas, bugs, cross-board asks    | `references/seeds.md`        |
-
-A host that cannot run shell commands but has the Mimir MCP server configured
-uses the same verbs as tools. A tool is named for its command path joined with
-`_` (`create_task`, `scratch_checkpoint`), and its inputs are the command's
-arguments and options by their declared names (`worker-session`, `at-or-before`).
-A board read takes its project from `scope` or from the clone the server started
-in (`seeds` also takes `project`, which wins); there is no `all`.
