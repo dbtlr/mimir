@@ -669,18 +669,13 @@ describe.each(backends)('$name', (backend) => {
 
         // A resume compares the target's remotes as stored, so whatever form a
         // write stored stays comparable, even on a project the document does not
-        // carry: a path with a space, or a host the stored form never admits.
+        // carry: a path with a space. (A write can no longer store a host the
+        // stored form refuses, MMR-612; store-sql/transfer.test.ts plants one.)
         await createProject(target.store, {
           description: null,
           key: 'OTH',
           name: 'Other',
           remote: 'https://github.com/org/my repo',
-        });
-        await createProject(target.store, {
-          description: null,
-          key: 'ODD',
-          name: 'Odd',
-          remote: 'https://a@b@c.com/x',
         });
         const again = await target.store.import(document, { dryRun: false, mode: 'resume' });
         expect(again.created).toBe(0);
