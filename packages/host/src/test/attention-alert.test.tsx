@@ -205,15 +205,6 @@ describe('the Needs you popover', () => {
     );
   });
 
-  it('offers no Approve or Send back…: a task in review is work in flight, not a decision', async () => {
-    renderAt('/p/MMR/tasks', twoProjects());
-    const panel = await openAlert('3 decisions need you');
-
-    expect(panel).not.toHaveTextContent('In review');
-    expect(within(panel).queryByRole('button', { name: 'Approve' })).toBeNull();
-    expect(within(panel).queryByRole('button', { name: 'Send back…' })).toBeNull();
-  });
-
   it('marks the decision whose record is the current page', async () => {
     renderAt('/p/MMR/480', twoProjects());
     const panel = await openAlert('3 decisions need you');

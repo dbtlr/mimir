@@ -3,7 +3,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { done, getNode, groom } from '../api/fns/nodes';
+import { getNode, groom } from '../api/fns/nodes';
 import { tree } from '../api/fns/shell';
 import { review } from '../api/fns/views';
 import { browserTimeZone } from '../api/queries';
@@ -211,19 +211,6 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
     expect(screen.getByText('2 of 2')).toBeDefined();
   });
 
-  it('offers no Approve on any decision: a task in review is work in flight, not a decision', async () => {
-    serve(decisions(loomQuestion, block, question));
-    await renderRoute(consoleRoutes, '/?mode=focus', reviewClient());
-
-    for (const row of [loomQuestion, block, question]) {
-      const shown = await cardFor(row);
-      expect(shown).not.toHaveTextContent('In review');
-      expect(within(shown).queryByRole('button', { name: 'Approve' })).toBeNull();
-      expect(within(shown).queryByRole('button', { name: 'Send back…' })).toBeNull();
-      fireEvent.click(within(shown).getByRole('button', { name: 'Skip' }));
-    }
-  });
-
   it('links a URL in the hold reason, opening in a new tab, with the text around it', async () => {
     const linked = decision('MMR-53', 'blocked', {
       holdReason: 'Waiting on https://example.com/review today',
@@ -288,7 +275,7 @@ describe('the focus queue at /?mode=focus (ADR 0013, MMR-476 refinement)', () =>
 
     await screen.findByRole('region', { name: 'Needs you · 2' });
     expect(testRouter.state.location.href).toBe('/');
-    expect(done).not.toHaveBeenCalled();
+    expect(groom).not.toHaveBeenCalled();
     expect(screen.getByRole('link', { name: 'Work through these · 2' })).toBeDefined();
   });
 

@@ -5,7 +5,18 @@ import userEvent from '@testing-library/user-event';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { done, getNode, groom, move, park, start, tag, untag, update } from '../api/fns/nodes';
+import {
+  done,
+  getNode,
+  groom,
+  move,
+  park,
+  returnTask,
+  start,
+  tag,
+  untag,
+  update,
+} from '../api/fns/nodes';
 import { nodeWork } from '../api/fns/views';
 import { POLL_MS } from '../api/queries';
 import { createQueryClient } from '../api/query-client';
@@ -724,6 +735,65 @@ describe('task page verbs (MMR-453)', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Approve' }));
 
     expect(done).toHaveBeenCalledWith({ data: { id: 'MMR-70' } });
+  });
+
+  it('Send back… in the verdict block fires return with the reason entered', async () => {
+    await openTask(
+      engineTask({
+        externalRef: 'https://example.test/pr/41',
+        id: 'MMR-70',
+        status: 'under_review',
+      }),
+    );
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Send back…' }));
+    expect(returnTask).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole('dialog', { name: 'Send back' });
+    await userEvent.type(within(dialog).getByRole('textbox'), 'Cover the empty case');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() => {
+      expect(returnTask).toHaveBeenCalledWith({
+        data: { id: 'MMR-70', reason: 'Cover the empty case' },
+      });
+    });
+  });
+
+  it('Send back… with no reason fires return without a reason field', async () => {
+    await openTask(
+      engineTask({
+        externalRef: 'https://example.test/pr/41',
+        id: 'MMR-70',
+        status: 'under_review',
+      }),
+    );
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Send back…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Send back' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }));
+
+    await waitFor(() => {
+      expect(returnTask).toHaveBeenCalledTimes(1);
+    });
+    const [options] = vi.mocked(returnTask).mock.calls[0]!;
+    expect(options.data).toEqual({ id: 'MMR-70' });
+    expect(options.data).not.toHaveProperty('reason');
+  });
+
+  it('keeps the verdict block neutral: no attention hue on the block or its Approve', async () => {
+    await openTask(
+      engineTask({
+        externalRef: 'https://example.test/pr/41',
+        id: 'MMR-70',
+        status: 'under_review',
+      }),
+    );
+
+    const approve = await screen.findByRole('button', { name: 'Approve' });
+    const block = approve.parentElement!.parentElement!;
+    expect(block).toHaveTextContent('In review');
+    expect(block.className).not.toMatch(/attention/);
+    expect(approve.className).not.toMatch(/attention/);
   });
 
   it('offline disables Edit, Move…, and the verbs', async () => {

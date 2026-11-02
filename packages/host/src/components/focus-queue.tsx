@@ -167,12 +167,12 @@ function FocusCard({
       </h2>
       <Crumbs projectKey={projectKey} tree={tree.data} nodeId={row.task.id} />
       {row.question !== null && (
-        <Context label="Latest question" className="border-attention">
+        <Context label="Latest question">
           <span className="whitespace-pre-line text-attention-foreground">{row.question}</span>
         </Context>
       )}
       {holdReason !== undefined && holdReason !== '' && (
-        <Context label="Waiting on" className="border-attention">
+        <Context label="Waiting on">
           <span className="whitespace-pre-line text-ink">
             <LinkifiedText>{holdReason}</LinkifiedText>
           </span>
@@ -208,17 +208,9 @@ function FocusCard({
 }
 
 /** A labelled block of the context a decision turns on. */
-function Context({
-  label,
-  className,
-  children,
-}: {
-  label: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
+function Context({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className={cn('rounded-sm border-l-2 bg-well-800 px-3 py-2 text-meta', className)}>
+    <div className="rounded-sm border-l-2 border-attention bg-well-800 px-3 py-2 text-meta">
       <span className="microlabel block text-ink-faint">{label}</span>
       {children}
     </div>

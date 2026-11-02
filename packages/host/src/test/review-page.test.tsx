@@ -278,7 +278,7 @@ describe('the review page at / (ADR 0013, MMR-503 refinement)', () => {
 
     await screen.findByRole('heading', { level: 1, name: 'Nothing needs you' });
     const needs = screen.getByRole('region', { name: 'Needs you' });
-    expect(needs.textContent).toContain('No task is in progress or in review.');
+    expect(needs.textContent).toContain('No task is queued, in progress, or in review.');
     expect(needs.textContent).not.toContain('Last finished');
   });
 
@@ -643,7 +643,7 @@ const answerWith = async (id: string) => {
 };
 
 describe('review page decisions act in place (MMR-479)', () => {
-  it('offers no Approve or Send back…: a task in review is work in flight, in Now', async () => {
+  it('shows a task in review in Now as work in flight, with no Approve or Send back…', async () => {
     serve(
       engineReview({
         ...decisionsFor({ lm: [loomQuestion], mmr: [block, question] }),
@@ -652,11 +652,7 @@ describe('review page decisions act in place (MMR-479)', () => {
     );
     await renderRoute(consoleRoutes, '/');
 
-    const needs = await screen.findByRole('region', { name: 'Needs you · 3' });
-    expect(needs).not.toHaveTextContent('In review');
-    expect(within(needs).queryByRole('button', { name: 'Approve' })).toBeNull();
-    expect(within(needs).queryByRole('button', { name: 'Send back…' })).toBeNull();
-    const now = screen.getByRole('region', { name: 'Now · 1' });
+    const now = await screen.findByRole('region', { name: 'Now · 1' });
     expect(now).toHaveTextContent(/In review\s*·\s*started 1h ago/);
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Send back…' })).toBeNull();

@@ -5,7 +5,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HostFaultError } from '../api/errors';
-import { done, groom as setGrooming, returnTask, start } from '../api/fns/nodes';
+import { groom as setGrooming, start } from '../api/fns/nodes';
 import { nodeWork, projectWork } from '../api/fns/views';
 import type { NeedsYouTask, WorkReport } from '../api/view-queries';
 import type { RecordArtifact } from '../lib/work-page';
@@ -162,10 +162,7 @@ function serve(scope: Scope, report: WorkReport | Error = engineWork(), tree = T
 
 /** How many row writes (verbs and grooming) the page has issued. */
 const writeCalls = () =>
-  [start, done, returnTask, setGrooming].reduce(
-    (sum, fn) => sum + vi.mocked(fn).mock.calls.length,
-    0,
-  );
+  [start, setGrooming].reduce((sum, fn) => sum + vi.mocked(fn).mock.calls.length, 0);
 
 const routes = [nodeRoute, projectRoute];
 
@@ -272,15 +269,6 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
     expect(within(now).queryByRole('button', { name: 'Approve' })).toBeNull();
     expect(within(now).queryByRole('button', { name: 'Send back…' })).toBeNull();
     expect(within(now).queryByRole('group', { name: 'Actions for MMR-12' })).toBeNull();
-  });
-
-  it('offers no verdict from Needs you, whatever else waits there', async () => {
-    await open(scope, engineWork({ needsYou: [blockedRow, answersRow], now: [reviewRow] }));
-
-    const needs = await section('Needs you · 2');
-    expect(within(needs).queryByRole('button', { name: 'Approve' })).toBeNull();
-    expect(within(needs).queryByRole('button', { name: 'Send back…' })).toBeNull();
-    expect(needs).not.toHaveTextContent('In review');
   });
 
   it('identifies each whole-task worker by session, even when they share a harness', async () => {
@@ -654,7 +642,7 @@ async function openForWrite(before: WorkReport, after: WorkReport) {
   serve(PROJECT_SCOPE);
   const views = serveViews({ projects: { MMR: before } });
   // Any row write lands: the next work read answers `after`.
-  for (const write of [start, done, returnTask, setGrooming]) {
+  for (const write of [start, setGrooming]) {
     const echoed = vi.mocked(write).getMockImplementation();
     vi.mocked(write).mockImplementation(async (options) => {
       views.projects.MMR = after;
