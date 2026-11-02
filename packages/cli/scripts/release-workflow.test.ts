@@ -755,7 +755,9 @@ test('release notes carry only the tag’s section, with docs links that resolve
 
 // `loom changelog notes` refuses a prerelease in a shallow clone, which checkout makes by default.
 test('the publish job checks out full history, which prerelease notes need', async () => {
-  const checkout = (await publishSteps()).find((step) => step.uses?.startsWith('actions/checkout@'));
+  const checkout = (await publishSteps()).find((step) =>
+    step.uses?.startsWith('actions/checkout@'),
+  );
   expect(checkout?.with?.['fetch-depth']).toBe(0);
 });
 
