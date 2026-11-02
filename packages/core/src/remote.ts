@@ -34,8 +34,9 @@ function stripSuffixes(path: string | undefined): string | undefined {
  * Reduce a Git remote URL to the identity of its repository: `host/path`, with
  * the scheme, credentials, and port dropped, the host lowercased, and a trailing
  * `/`, whitespace, or `.git` removed. The user part ends at the last `@`, as
- * OpenSSH reads it. A host holding `?`, `#`, or a backslash is refused, so every accepted result is one `normalizeStoredRemote` keeps
- * unchanged (MMR-612). The ssh and https forms of one repository compare equal.
+ * OpenSSH reads it. A host holding `?`, `#`, or a backslash is refused, so every
+ * accepted result is one `normalizeStoredRemote` keeps unchanged (MMR-612). The
+ * ssh and https forms of one repository compare equal.
  * The path keeps its case, since hosting paths can be case-sensitive. Anything
  * that is not a recognizable remote is refused.
  */
