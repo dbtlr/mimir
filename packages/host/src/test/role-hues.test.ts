@@ -85,8 +85,9 @@ function declaredStatuses(text: string): number {
 /**
  * The nearest a status token may sit to an attention token, in OKLab ΔE ×100.
  * A status this close to violet reads as "needs you" (MMR-617). The closest
- * status today, `queued`'s dark foreground, sits at 7.7; the violet
- * `under_review` replaced sat at 3.7 to 4.7, and the rejected periwinkle at 4.1.
+ * status today, `queued`'s dark foreground, sits at 7.7. The violet
+ * `under_review` replaced copied attention hexes outright (ΔE 0), its light
+ * foreground sat at 3.7, and the rejected periwinkle at 4.1.
  */
 const MIN_ATTENTION_DISTANCE = 6;
 
