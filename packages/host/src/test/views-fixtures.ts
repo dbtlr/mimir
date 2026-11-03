@@ -81,6 +81,7 @@ export function nowRow(
     scratchpads: [],
     stale: false,
     startedAt: FIXTURE_AT,
+    submittedAt: overrides.status === 'under_review' ? FIXTURE_AT : null,
     task: workTask({ status: 'in_progress', ...overrides }),
     ...row,
   };

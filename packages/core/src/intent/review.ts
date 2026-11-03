@@ -7,6 +7,7 @@ import type {
   ReviewWorkRow,
   SeedView,
   WorkNeedsYouReason,
+  WorkNowTask,
   WorkShippedTask,
 } from '@mimir/contract';
 
@@ -63,6 +64,9 @@ type ProjectFacts = {
 const triageCount = (f: ProjectFacts): number => f.seeds.length + f.goingCold + f.findings;
 
 const cmpKey = (a: ProjectFacts, b: ProjectFacts): number => cmpStr(a.project.key, b.project.key);
+
+/** A now row's latest move: a review's submit, otherwise its reservation or start. */
+const lastMoveOf = (row: WorkNowTask): string => row.submittedAt ?? row.startedAt;
 
 /** The reason that decides a project's urgency, and when its newest decision of that reason moved. */
 const leadOf = (f: ProjectFacts): { rank: number; updatedAt: string } | undefined => {
@@ -302,7 +306,7 @@ export async function reviewOf(
     decisions,
     goingCold: coldViews.map((task) => ({ project: projectKeyOf(task.id), task })),
     lastFinished,
-    now: tagged(nowRows).toSorted((a, b) => cmpStr(b.startedAt, a.startedAt)),
+    now: tagged(nowRows).toSorted((a, b) => cmpStr(lastMoveOf(b), lastMoveOf(a))),
     projects: reviewProjects,
     queue,
     // Project order, then the project's own rank: the rows arrive in one global

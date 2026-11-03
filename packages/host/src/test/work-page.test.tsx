@@ -195,7 +195,7 @@ const nowRow = makeNowRow(
 /** A task in review is work in flight: it reads in Now, never in Needs you. */
 const reviewRow = makeNowRow(
   { id: 'MMR-12', status: 'under_review', title: 'Extract the seam' },
-  { startedAt: minutesAgo(180) },
+  { startedAt: minutesAgo(180), submittedAt: minutesAgo(20) },
 );
 
 const blockedRow = needsYouRow(
@@ -264,8 +264,8 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
 
     const now = await section('Now · 1');
     expect(hrefOf(now, 'Extract the seam')).toBe('/p/MMR/12');
-    expect(now).toHaveTextContent(/In review\s*·\s*started 3h ago/);
-    expect(now).not.toHaveTextContent('Started');
+    expect(now).toHaveTextContent(/In review\s*·\s*submitted 20m ago/);
+    expect(now).not.toHaveTextContent(/started/i);
     expect(within(now).queryByRole('button', { name: 'Approve' })).toBeNull();
     expect(within(now).queryByRole('button', { name: 'Send back…' })).toBeNull();
     expect(within(now).queryByRole('group', { name: 'Actions for MMR-12' })).toBeNull();

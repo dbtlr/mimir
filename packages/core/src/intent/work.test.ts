@@ -10,6 +10,7 @@ import {
   depend,
   groomTasks,
   parkTask,
+  queueTask,
   reopenTask,
   returnTask,
   startTask,
@@ -638,7 +639,7 @@ test('started_at is the latest start or reopen, not a return from review', async
   expect(row?.startedAt).toBe(startedAt ?? 'missing');
 });
 
-test('a review in now keeps the time it was started, not the time it was submitted', async () => {
+test('a review in now keeps the time it was started and carries the time it was submitted', async () => {
   const r = await task(phaseA, 'submitted later');
   try {
     setSystemTime(new Date('2026-10-01T09:00:00Z'));
@@ -650,6 +651,57 @@ test('a review in now keeps the time it was started, not the time it was submitt
   }
   const row = (await page('MMR')).now.find((n) => n.task.id === r);
   expect(row?.startedAt).toBe('2026-10-01T09:00:00.000Z');
+  expect(row?.submittedAt).toBe('2026-10-03T17:00:00.000Z');
+});
+
+test('a review sent back and resubmitted carries its latest submit time', async () => {
+  const r = await task(phaseA, 'resubmitted');
+  try {
+    setSystemTime(new Date('2026-10-01T09:00:00Z'));
+    await startTask(store, r);
+    setSystemTime(new Date('2026-10-02T09:00:00Z'));
+    await submitTask(store, r);
+    setSystemTime(new Date('2026-10-03T09:00:00Z'));
+    await returnTask(store, r, 'more work');
+    setSystemTime(new Date('2026-10-04T09:00:00Z'));
+    await submitTask(store, r);
+  } finally {
+    setSystemTime();
+  }
+  const row = (await page('MMR')).now.find((n) => n.task.id === r);
+  expect(row?.submittedAt).toBe('2026-10-04T09:00:00.000Z');
+});
+
+test('a review whose log has no submit falls back to the row stamp', async () => {
+  // A legacy or imported row can be under review with no lifecycle entry into review.
+  const r = await task(phaseA, 'imported review');
+  await rawPatchNode(store, r, {
+    lifecycle: 'under_review',
+    updated_at: '2026-10-05T12:00:00.000Z',
+  });
+  const row = (await page('MMR')).now.find((n) => n.task.id === r);
+  expect(row?.submittedAt).toBe('2026-10-05T12:00:00.000Z');
+});
+
+test('queued and in-progress rows in now carry no submit time', async () => {
+  const working = await task(phaseA, 'working');
+  await startTask(store, working);
+  const reserved = await task(phaseA, 'reserved');
+  await queueTask(store, reserved, { harness: 'claude-code', session: 's1' });
+  // A task sent back from review is in progress again and no longer carries its submit time.
+  const returned = await task(phaseA, 'returned');
+  await startTask(store, returned);
+  await submitTask(store, returned);
+  await returnTask(store, returned, 'more work');
+  const rows = (await page('MMR')).now;
+  expect(rows.map((r) => [r.task.id, r.submittedAt])).toEqual(
+    expect.arrayContaining([
+      [working, null],
+      [reserved, null],
+      [returned, null],
+    ]),
+  );
+  expect(rows).toHaveLength(3);
 });
 
 test('runnable requires a rank, as next does', async () => {

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test';
+import { afterEach, beforeEach, expect, setSystemTime, test } from 'bun:test';
 
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import {
@@ -121,6 +121,23 @@ test('work nobody is waiting on the operator for is not a decision', async () =>
   expect(report.decisions).toEqual([]);
   expect(report.queue).toEqual([]);
   expect(report.now.map((r) => r.task.id)).toContain(inReview);
+});
+
+test('now lists a review by when it was submitted, other rows by when they started', async () => {
+  await project('MMR');
+  const reviewed = await task('MMR', 'started first, submitted last');
+  const working = await task('MMR', 'started second');
+  try {
+    setSystemTime(new Date('2026-10-01T09:00:00Z'));
+    await startTask(store, reviewed);
+    setSystemTime(new Date('2026-10-02T09:00:00Z'));
+    await startTask(store, working);
+    setSystemTime(new Date('2026-10-03T09:00:00Z'));
+    await submitTask(store, reviewed);
+  } finally {
+    setSystemTime();
+  }
+  expect((await review()).now.map((r) => r.task.id)).toEqual([reviewed, working]);
 });
 
 test('an archived project contributes nothing and is not listed', async () => {

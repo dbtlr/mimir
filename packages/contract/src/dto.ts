@@ -716,12 +716,14 @@ export type WorkScope = {
 /** A Scratchpad linked to a work-page task (its id and title, for the agent context). */
 export type WorkScratchpad = { id: string; title: string };
 
-/** A task on the work page's "now" list: queued, in progress, or under review, with its reservation/start time and last note. */
+/** A task on the work page's "now" list: queued, in progress, or under review, with its reservation/start time, submit time, and last note. */
 export type WorkNowTask = {
   /** Carries the agent context fields (harness, branch, host, session, externalRef). */
   task: NodeView;
   /** When the task entered queued, or last entered in-progress after it started. */
   startedAt: string;
+  /** When an under-review task last entered review; null for a queued or in-progress task. */
+  submittedAt: string | null;
   latestNote: AnnotationView | null;
   /** Active Scratchpads anchored to the task. */
   scratchpads: WorkScratchpad[];

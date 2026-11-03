@@ -194,6 +194,18 @@ function startedAtOf(task: Node, history: readonly HistoryEntry[]): string {
   return start?.at ?? task.updated_at;
 }
 
+/**
+ * When an under-review task last entered review, so a resubmit counts from the latest submit;
+ * null for any other status. Falls back to the row's stamp when the log is silent.
+ */
+function submittedAtOf(task: Node, history: readonly HistoryEntry[]): string | null {
+  if (task.lifecycle !== 'under_review') {
+    return null;
+  }
+  const submit = latestOf(history.filter((h) => h.kind === 'lifecycle' && h.to === 'under_review'));
+  return submit?.at ?? task.updated_at;
+}
+
 /** The abandon transition's time and reason; falls back to the row's stamp when the log is silent. */
 export function abandonedOf(
   task: Node,
@@ -439,6 +451,7 @@ export async function nowRowsOf(
           .map((pad) => ({ id: pad.id, title: pad.title })),
         stale: buckets.staleIds.has(node.id),
         startedAt: startedAtOf(node, nodeSections?.history ?? []),
+        submittedAt: submittedAtOf(node, nodeSections?.history ?? []),
         task: await source.viewOf(node),
       };
     }),

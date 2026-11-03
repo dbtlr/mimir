@@ -72,7 +72,7 @@ export function NowRow({ row }: { row: NowTask }) {
             {row.task.status === 'under_review' ? (
               <>
                 <span>In review</span>
-                <ContextPart>started {ago(row.startedAt)}</ContextPart>
+                <ContextPart>submitted {ago(row.submittedAt ?? row.startedAt)}</ContextPart>
               </>
             ) : (
               <span>

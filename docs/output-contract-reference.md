@@ -225,7 +225,7 @@ and refuse a missing or unknown zone with `validation`: it decides where the
 `shipped` days begin and end (ADR 0029), and there is no fallback zone. The page
 has no CLI or MCP form yet. The field names below are the report's snake_case
 specification names; the Engine returns them in camelCase (`needsYou`,
-`goingCold`, `startedAt`) with `Date` instants.
+`goingCold`, `startedAt`, `submittedAt`) with `Date` instants.
 
 The envelope is one composite object. Rows are tasks, plus the initiatives and
 phases that read to break down (in `frontier.to_groom` only), and no section is
@@ -239,6 +239,7 @@ tells a task from a container.
 
 - `scope`: `{ kind, id, title }`, where `kind` is `project`, `initiative`, or `phase`.
 - `now`: queued, in-progress, and under-review tasks. Adds `started_at` (the latest queue, start, or reopen),
+  `submitted_at` (the latest submit for a task under review, otherwise `null`),
   `latest_note` (`{ content, created_at }` or `null`), and `scratchpads`
   (`[{ id, title }]`, the active Scratchpads anchored to the task). The agent
   context (`harness`, `session`, optional `worker_harness`/`worker_session`, `branch`, `host`, `external_ref`) is on the
@@ -291,8 +292,8 @@ refusal. Field names follow the work page's convention above.
 - `now`, `shipped`, `runnable`, `going_cold`: the work page's `now`,
   `shipped`, `frontier.runnable`, and `going_cold` rows across every active
   project. One set of section rules and row builders serves both, so a project's
-  rows here equal its work report's rows. Across projects, `now` lists the most
-  recently started first, `runnable` follows the `projects` order and then each
+  rows here equal its work report's rows. Across projects, `now` lists the latest move
+  first (a review's `submitted_at`, otherwise its `started_at`), `runnable` follows the `projects` order and then each
   project's own rank, `going_cold` lists the longest quiet first, and `shipped`
   lists the newest first. Every row adds `project`, the project key. A
   `going_cold` row is the task object with `stale: true`.
