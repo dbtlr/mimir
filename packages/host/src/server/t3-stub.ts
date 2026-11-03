@@ -40,7 +40,13 @@ export type StubOptions = {
   /** Peers T3 lists, or `absent` when linked environments are off. */
   links?: { environmentId: string; label: string; status: string }[] | 'absent';
   /** Make `t3_environment_links` fail: an `isError` result, or a JSON-RPC error. */
-  linksError?: 'internal' | 'invalid_params' | 'is_error' | 'method_not_found';
+  linksError?:
+    | 'internal'
+    | 'invalid_params'
+    | 'is_error'
+    | 'method_not_found'
+    | 'other_not_found'
+    | 'other_tool_not_found';
   issuer?: string;
   resource?: string;
   authorizationServers?: readonly string[];
@@ -187,6 +193,20 @@ export function stubT3(options: StubOptions) {
       case 'invalid_params': {
         return rpcReply({
           error: { code: -32602, message: 'Invalid arguments' },
+          id,
+          jsonrpc: '2.0',
+        });
+      }
+      case 'other_not_found': {
+        return rpcReply({
+          error: { code: -32602, message: 'Project not found' },
+          id,
+          jsonrpc: '2.0',
+        });
+      }
+      case 'other_tool_not_found': {
+        return rpcReply({
+          error: { code: -32602, message: "Tool 'other_tool' not found" },
           id,
           jsonrpc: '2.0',
         });

@@ -106,7 +106,7 @@ test('the development host serves and renders the kit with an isolated store', a
       const settled = await fetch(callback, { redirect: 'manual' });
       expect(settled.status).toBe(303);
       expect(settled.headers.get('location')).toBe('/devices?t3=misconfigured');
-      for (const method of ['POST', 'PUT', 'DELETE', 'OPTIONS']) {
+      for (const method of ['HEAD', 'POST', 'PUT', 'DELETE', 'OPTIONS']) {
         const unsupported = await fetch(callback, { method, redirect: 'manual' });
         expect(unsupported.status, `${method} /auth/t3/callback`).toBe(405);
         expect(unsupported.headers.get('allow'), `${method} /auth/t3/callback`).toBe('GET');

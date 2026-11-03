@@ -380,9 +380,11 @@ describe('the callback', () => {
   });
 
   test('a grant whose type is not Bearer answers failed and writes nothing', async () => {
-    const h = harness({ stub: { tokenType: 'mac' } });
-    expect(await approvedReason(h)).toBe('/devices?t3=failed');
-    expect(h.secrets.writes).toBe(0);
+    for (const tokenType of ['mac', 'DPoP-bearer', 'bearer2']) {
+      const h = harness({ stub: { tokenType } });
+      expect(await approvedReason(h), tokenType).toBe('/devices?t3=failed');
+      expect(h.secrets.writes, tokenType).toBe(0);
+    }
   });
 
   test('expires_in must be a whole number of seconds, at most ten years', async () => {
@@ -631,7 +633,13 @@ describe('the catalog', () => {
   });
 
   test('a failed links read is a failed read of the configured server, not an absent tool', async () => {
-    for (const linksError of ['is_error', 'internal', 'invalid_params'] as const) {
+    for (const linksError of [
+      'is_error',
+      'internal',
+      'invalid_params',
+      'other_not_found',
+      'other_tool_not_found',
+    ] as const) {
       const h = harness({ stub: { linksError } });
       await connected(h);
       expect(await h.adapter.catalog('MMR')).toEqual({ state: 'unreachable' });

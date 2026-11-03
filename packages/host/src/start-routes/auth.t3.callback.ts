@@ -9,6 +9,8 @@ export const Route = createFileRoute('/auth/t3/callback')({
     handlers: {
       ANY: () => methodNotAllowed('GET'),
       GET: ({ request }) => handleT3Callback(request),
+      // A HEAD (a link prefetcher, say) must not consume the state or redeem the code.
+      HEAD: () => methodNotAllowed('GET'),
     },
   },
 });

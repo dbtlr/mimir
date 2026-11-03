@@ -152,17 +152,15 @@ async function readRpcReply(response: Response, id: number, endpoint: string): P
  * Whether a JSON-RPC error says the tool does not exist. T3 0.1.6's MCP server
  * answers a `tools/call` for a tool it does not expose (as `t3_environment_links`
  * with linked environments off) with InvalidParams, `-32602`, and the message
- * `Tool '<name>' not found`. Since `-32602` also covers bad arguments, it counts
- * only with a "not found" message; `-32601` (no such method) counts too, for a
- * server with no tools at all.
+ * `Tool '<name>' not found`. Since `-32602` also covers bad arguments and other
+ * missing things, it counts only with exactly that message for the tool called;
+ * `-32601` (no such method) counts too, for a server with no tools at all.
  */
-function isUnknownTool(error: unknown): boolean {
+function isUnknownTool(error: unknown, tool: T3Tool | undefined): boolean {
   const record = asRecord(error);
   return (
     record?.code === -32601 ||
-    (record?.code === -32602 &&
-      typeof record.message === 'string' &&
-      /\bnot found\b/i.test(record.message))
+    (tool !== undefined && record?.code === -32602 && record.message === `Tool '${tool}' not found`)
   );
 }
 
@@ -241,7 +239,7 @@ export async function openMcpSession(
         ...(tool === undefined ? { method } : { tool }),
       });
       throw new T3RequestError(
-        isUnknownTool(reply.error) ? 'unknown_tool' : 'unreachable',
+        isUnknownTool(reply.error, tool) ? 'unknown_tool' : 'unreachable',
         endpoint,
       );
     }
