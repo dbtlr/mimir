@@ -128,6 +128,22 @@ test.each(['u:p@host.com:o/r', 'user:pw@host:o/r'])(
   },
 );
 
+// Git reads `[::1]` as one IPv6 host, but the scp form's host stops at the
+// first `:` and the stored form holds no `:` in its host, so a bracketed host
+// is refused in every form rather than given a garbled identity (MMR-613).
+test.each([
+  'git@[::1]:o/r',
+  '[::1]:o/r',
+  'git@[fe80::1]:o/r',
+  'git@[host.com]:o/r',
+  'https://[::1]/o/r',
+  'https://[abc]/o/r',
+  'ssh://git@[::1]:22/o/r',
+  'ssh://git@[host.com]/o/r',
+])('%j is refused for a bracketed host', (raw) => {
+  expect(() => normalizeRemote(raw)).toThrow(/git remote/i);
+});
+
 test.each([
   ['https://github.com/org/repo /', 'github.com/org/repo'],
   ['https://github.com/x/y .git', 'github.com/x/y'],
@@ -162,6 +178,8 @@ test('every accepted remote reads back unchanged from its stored form', () => {
     'a?b.com',
     'a#b.com',
     String.raw`a\b.com`,
+    '[::1]',
+    '[host.com]',
     '',
     '@',
   ];
