@@ -8,6 +8,7 @@ import { join } from 'node:path';
 
 import { VERSION } from '@mimir/cli/src/version';
 import { MIN_CLIENT } from '@mimir/contract';
+import { SCHEMA_VERSION } from '@mimir/core';
 import { RemoteEngine } from '@mimir/wire/client';
 import { z } from 'zod';
 
@@ -152,7 +153,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     const version = clientVersion;
     expect(await getJson(base, '/health')).toEqual({
       minClient: MIN_CLIENT,
-      schema: 11,
+      schema: SCHEMA_VERSION,
       status: 'ok',
       version,
     });
@@ -480,7 +481,10 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     ).toEqual([]);
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0005_project_pinned');
     await docker(['rm', '--force', postgresHost]);
-    await sql('INSERT INTO schema_version (version, applied_at) VALUES (11, now());');
+    // A schema one past this image's, as a newer host would leave it.
+    await sql(
+      `INSERT INTO schema_version (version, applied_at) VALUES (${String(SCHEMA_VERSION + 1)}, now());`,
+    );
     await runPostgresHost();
     expect(await docker(['wait', postgresHost], 10_000)).not.toBe('0');
     expect(await docker(['logs', postgresHost])).toContain('update the image');
