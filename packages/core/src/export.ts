@@ -50,8 +50,8 @@ export const STORE_EXPORT_SCHEMA_VERSION = 7;
  * implies (`others` with one, else `you`); a document older than version 4
  * predates `pinned`, so each project imports unpinned; one older than version 5 predates `remote`, so
  * each project imports without one. At every version, a done or abandoned task
- * that carries a `blocked` or `parked` hold imports unheld (MMR-616): an older
- * binary's terminal verbs left it.
+ * imports unheld (MMR-616): a `blocked` or `parked` hold an older binary's
+ * terminal verbs left is released, as is a stray reason beside no hold.
  */
 export const READABLE_STORE_EXPORT_SCHEMA_VERSIONS: readonly number[] = [
   1,

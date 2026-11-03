@@ -11,6 +11,7 @@ import {
   SIZE_VALUES,
   TRANSITION_KIND_VALUES,
 } from '@mimir/contract';
+import type { Hold } from '@mimir/contract';
 import { z } from 'zod';
 
 import { defaultBlockOwner } from './block-owner';
@@ -45,6 +46,20 @@ const history = z.object({
 });
 
 /** Shape and vocabulary at the import boundary, checked against the Store record type. */
+/**
+ * What an import releases on a terminal task (MMR-616): the whole hold when it
+ * is `blocked` or `parked`, only a stray reason when it is `none`, and nothing
+ * when it is missing, so the validator still refuses that.
+ */
+function terminalRelease(
+  hold: Hold | null,
+): typeof RELEASED_HOLD | { hold_reason: null } | undefined {
+  if (hold === 'blocked' || hold === 'parked') {
+    return RELEASED_HOLD;
+  }
+  return hold === 'none' ? { hold_reason: null } : undefined;
+}
+
 export const transferSchema = z.object({
   annotations: z.array(z.object({ content: text, created_at: text, node_id: text })),
   artifacts: z.array(
@@ -114,13 +129,11 @@ export const transferSchema = z.object({
       // owner is empty unless the hold is `blocked`, which the validator checks.
       // A terminal task imports unheld (MMR-616): a document an older binary
       // wrote can carry the `blocked` or `parked` hold its `done` or `abandon`
-      // left behind. Only that residue is released; a missing hold or a stray
-      // owner on an unheld task still reaches the validator and is refused.
+      // left behind, or a stray reason beside no hold, which migration 0011
+      // also clears. A missing hold or a stray owner on an unheld task is not
+      // residue: it still reaches the validator and is refused.
       .transform((node) => {
-        const released =
-          holdsNoHold(node.lifecycle) && (node.hold === 'blocked' || node.hold === 'parked')
-            ? RELEASED_HOLD
-            : undefined;
+        const released = holdsNoHold(node.lifecycle) ? terminalRelease(node.hold) : undefined;
         return {
           ...node,
           block_owner:

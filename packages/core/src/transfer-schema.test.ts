@@ -61,3 +61,25 @@ test('a live hold parses as it was', () => {
   );
   expect(parsed).toMatchObject({ block_owner: 'others', hold_reason: 'waiting on the vendor' });
 });
+
+test.each(['done', 'abandoned'] as const)(
+  'a %s task with no hold drops a stray reason, as migration 0011 does',
+  (lifecycle) => {
+    const { id, input } = residue(lifecycle, 'blocked');
+    const task = input.nodes.find((node) => node.id === id);
+    Object.assign(task ?? {}, { block_owner: null, hold: 'none', hold_reason: 'stray' });
+    const parsed = parseTransferDocument(input).nodes.find((node) => node.id === id);
+    expect(parsed).toMatchObject({ block_owner: null, hold: 'none', hold_reason: null });
+  },
+);
+
+test('a live unheld task keeps its stored reason: only terminal tasks are normalized', () => {
+  const input = structuredClone(document);
+  const task = input.nodes.find((node) => node.type === 'task' && node.hold === 'none');
+  if (task === undefined) {
+    throw new Error('the fixture has no unheld task');
+  }
+  task.hold_reason = 'stray';
+  const parsed = parseTransferDocument(input).nodes.find((node) => node.id === task.id);
+  expect(parsed?.hold_reason).toBe('stray');
+});
