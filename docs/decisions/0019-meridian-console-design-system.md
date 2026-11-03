@@ -430,7 +430,8 @@ against the page and 2.89:1 against a panel, below AA's 4.5:1.
   before it repeated that.
 - **Scope.** This refinement covers the cold count. The stale chip that
   marks a going-cold row (`⧗ stale`) draws in the `in_progress` amber;
-  whether it keeps that hue is MMR-620. No status token changes.
+  whether it keeps that hue is MMR-620 (settled: it moves to ink; see the
+  MMR-620 refinement). No status token changes.
 - **Considered and rejected.** A frost teal (`#3d908b` dark, `#207773`
   light) cleared every status by ΔE 6 and passed AA. In the light theme it
   sat ΔE 6.3 from the accent teal that colours the project key in the same
@@ -438,3 +439,27 @@ against the page and 2.89:1 against a panel, below AA's 4.5:1.
 - `packages/host/src/test/role-hues.test.ts` fails if either theme declares
   a `--color-cold` token, and the review page's test fails unless the cold
   count draws in `text-ink-dim`.
+
+## Refinement (2026-11-03, MMR-620): the stale chip draws in ink
+
+The `⧗ stale` chip that marks a going-cold row drew in the `in_progress`
+amber wash. `stale` also marks `ready`, `queued`, `under_review`, and
+blocked tasks, and on those rows the amber read as work in flight: the
+status misreading MMR-617 removed for `under_review` and MMR-619 removed for
+the cold count. §3 already draws going cold as a glyph plus demoted ink, so
+the chip had drifted from the decision rather than extended it.
+
+- **The stale chip is a neutral chip.** It takes the badge's default
+  ground (the `well-800` fill under a `line` hairline ring) with `ink-dim`
+  text, the size chip's ground and text colour in the sans face: 6.37:1
+  against its fill in the dark theme and 5.13:1 in the light. The ⧗ glyph and the word carry the
+  modifier; no hue does. This settles the MMR-619 refinement's open scope
+  note.
+- **Considered and rejected.** Keeping the amber as a caution, in the
+  family record damage and needs answers use: it still read as
+  `in_progress` on a `ready` or blocked row, against §3. Bare glyph and text
+  with no chip: closest to §3's words, but in a task page's row of signal
+  chips it read as stray text. An outline chip with no fill: lighter than its
+  neighbours, but not chosen.
+- The work page's test fails unless the chip, on a frontier row and a
+  _Going cold_ row, draws in `text-ink-dim` with no `status-` class.

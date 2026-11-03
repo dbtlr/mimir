@@ -42,13 +42,15 @@ export function OpenEndedBadge() {
   );
 }
 
-/** The stale verdict marker — work sitting in flight too long. */
+/**
+ * The stale verdict marker — an open task nobody has touched in a while. Going
+ * cold is a modifier in glyph plus demoted ink, never a status hue (ADR 0019
+ * §3, MMR-620): it rides ready, queued, and blocked rows too, where an
+ * in_progress hue would misread.
+ */
 export function StaleBadge() {
   return (
-    <Badge
-      className="bg-status-in-progress/12 inset-ring inset-ring-status-in-progress/24 text-status-in-progress-foreground"
-      title="stale — in flight too long"
-    >
+    <Badge className="text-ink-dim" title="stale — untouched in a while">
       ⧗ stale
     </Badge>
   );
