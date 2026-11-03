@@ -6,15 +6,17 @@ import { validation } from './errors';
  * The user part ends at the last `@`, as OpenSSH reads it, so a username that is
  * an email address works. A user part holding `:` is refused, since Git reads
  * the host as everything before the first `:`. A host holding `?`, `#`, or a
- * backslash is refused, since the stored form cannot hold one (MMR-612).
+ * backslash is refused, since the stored form cannot hold one (MMR-612). A
+ * bracketed host such as `[::1]` is refused, since its `:` would split it
+ * (MMR-613).
  */
-const SCP_LIKE = /^(?:([^/\s:]+)@)?([^:/\s\\@?#]+):(?!\/\/)(.+)$/;
+const SCP_LIKE = /^(?:([^/\s:]+)@)?([^:/\s\\@?#[\]]+):(?!\/\/)(.+)$/;
 /**
  * `scheme://[userinfo@]host[:port]/path`. The userinfo ends at the last `@` and
  * holds no `?`, `#`, or backslash, which end a URL's authority; the host follows
- * the same rule as the scp form (MMR-612).
+ * the same rule as the scp form (MMR-612, MMR-613).
  */
-const URL_LIKE = /^[a-z][a-z0-9+.-]*:\/\/(?:[^/\s\\?#]*@)?([^:/\s\\@?#]+)(?::\d+)?\/(.+)$/i;
+const URL_LIKE = /^[a-z][a-z0-9+.-]*:\/\/(?:[^/\s\\?#]*@)?([^:/\s\\@?#[\]]+)(?::\d+)?\/(.+)$/i;
 
 /**
  * Drop trailing slashes, whitespace, and a `.git` suffix (any case) until none
@@ -36,9 +38,10 @@ function stripSuffixes(path: string | undefined): string | undefined {
  * Reduce a Git remote URL to the identity of its repository: `host/path`, with
  * the scheme, credentials, and port dropped, the host lowercased, and a trailing
  * `/`, whitespace, or `.git` removed. The user part ends at the last `@`, as
- * OpenSSH reads it. A host holding `?`, `#`, or a backslash is refused, so every
- * accepted result is one `normalizeStoredRemote` keeps unchanged (MMR-612). The
- * ssh and https forms of one repository compare equal.
+ * OpenSSH reads it. A host holding `?`, `#`, a backslash, or a bracket (an IPv6
+ * literal such as `[::1]`, MMR-613) is refused, so every accepted result is one
+ * `normalizeStoredRemote` keeps unchanged (MMR-612). The ssh and https forms of
+ * one repository compare equal.
  * The path keeps its case, since hosting paths can be case-sensitive. Anything
  * that is not a recognizable remote is refused.
  */
