@@ -415,7 +415,11 @@ describe('the callback', () => {
     const h = harness({ settings: { ...ready, key: forged } });
     expect(await approvedReason(h)).toBe('/devices?t3=failed');
     expect(h.secrets.writes).toBe(0);
-    expect(h.logs.map((line) => JSON.parse(line).event)).toContain('t3_connect_fault');
+    const faults = h.logs
+      .map((line) => JSON.parse(line) as Record<string, unknown>)
+      .filter((entry) => entry.event === 't3_connect_fault');
+    expect(faults).toHaveLength(1);
+    expect(Object.keys(faults[0] ?? {}).toSorted()).toEqual(['event', 'time']);
   });
 
   test('at most 16 pending authorizations are held; a new one evicts the oldest', async () => {

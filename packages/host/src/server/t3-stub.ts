@@ -202,7 +202,16 @@ export function stubT3(options: StubOptions) {
         return rpcReply({
           id,
           jsonrpc: '2.0',
-          result: { content: [{ text: 'links unavailable', type: 'text' }], isError: true },
+          // Well-formed links data, so only the isError flag marks the read failed.
+          result: {
+            content: [
+              {
+                text: JSON.stringify({ environmentId: options.configured, links: [] }),
+                type: 'text',
+              },
+            ],
+            isError: true,
+          },
         });
       }
       default: {
