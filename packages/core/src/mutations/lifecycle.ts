@@ -1,7 +1,8 @@
 import { conflict, validation } from '../errors';
+import { RELEASED_HOLD } from '../hold-release';
 import type { Node } from '../model';
 import { appendRank } from '../rank';
-import type { NodePatch, Store } from '../store';
+import type { NodePatch, Store, StoreWriter } from '../store';
 import { now } from '../time';
 import { logTransition, reloadNode, requireTask, stamp } from './common';
 import { applyHandlePatch, clearHandles, handlesOf, validateAssignment } from './handles';
@@ -15,12 +16,22 @@ import type { HandleFields, MainHandleFields } from './handles';
  * clear handles and rank; submit/return retain handles through human review.
  * Terminal verbs also release any hold (MMR-616): a terminal task has no hold,
  * so a finished task never reads as blocked or parked and a reopen never
- * revives a stale one. The hold's history stays on its own transition-log row;
- * the terminal verb logs only its lifecycle move.
+ * revives a stale one. The release logs its own hold row just before the
+ * lifecycle row, as every hold change does (ADR 0003).
  */
 
-/** The hold fields a terminal verb writes back to unheld, in its own patch. */
-const RELEASED_HOLD = { block_owner: null, hold: 'none', hold_reason: null } as const;
+/** Log the release of a held task's hold, ahead of the terminal move that forces it. */
+async function logTerminalRelease(w: StoreWriter, task: Node): Promise<void> {
+  if (task.hold === 'none' || task.hold === null) {
+    return;
+  }
+  await logTransition(w, {
+    from_value: task.hold,
+    kind: 'hold',
+    node_id: task.id,
+    to_value: 'none',
+  });
+}
 
 /** The exact task state a caller used to decide whether ambient main identity could be filled. */
 export type StartExpectation = Pick<Node, 'lifecycle' | 'harness' | 'session'>;
@@ -190,6 +201,7 @@ export async function completeTask(store: Store, id: string): Promise<Node> {
     };
     const handles = clearHandles(patch, task);
     await w.updateNode(id, patch);
+    await logTerminalRelease(w, task);
     await logTransition(w, {
       from_value: task.lifecycle,
       handles,
@@ -211,6 +223,7 @@ export async function abandonTask(store: Store, id: string, reason?: string): Pr
     const patch: NodePatch = { ...RELEASED_HOLD, lifecycle: 'abandoned', rank: null };
     const handles = clearHandles(patch, task);
     await w.updateNode(id, patch);
+    await logTerminalRelease(w, task);
     await logTransition(w, {
       from_value: task.lifecycle,
       handles,
@@ -243,7 +256,15 @@ export async function reopenTask(store: Store, id: string, reason?: string): Pro
     }
     // re-enter the rankable set at the bottom (a reopen is a natural re-triage point)
     const rank = await appendRank(w, task.project_id);
-    await w.updateNode(id, { completed_at: null, lifecycle: 'in_progress', rank });
+    // A terminal row reads unheld, but a process that started before migration
+    // 0011 ran can still have stored a hold on it; writing the released fields
+    // keeps that residue from reviving here (MMR-616).
+    await w.updateNode(id, {
+      ...RELEASED_HOLD,
+      completed_at: null,
+      lifecycle: 'in_progress',
+      rank,
+    });
     await logTransition(w, {
       from_value: task.lifecycle,
       kind: 'lifecycle',

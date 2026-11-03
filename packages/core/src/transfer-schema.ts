@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { defaultBlockOwner } from './block-owner';
 import type { StoreExport } from './export';
 import { STORE_EXPORT_SCHEMA_VERSION } from './export';
+import { holdsNoHold, RELEASED_HOLD } from './hold-release';
 import { isScratchpadId } from './scratchpads/store';
 
 // Plain text, not the canonical-instant grammar: import copies stored facts as they
@@ -114,10 +115,7 @@ export const transferSchema = z.object({
       // A terminal task imports unheld (MMR-616): a document an older binary
       // wrote can carry the hold its `done` or `abandon` left behind.
       .transform((node) => {
-        const released =
-          node.lifecycle === 'done' || node.lifecycle === 'abandoned'
-            ? { block_owner: null, hold: 'none' as const, hold_reason: null }
-            : undefined;
+        const released = holdsNoHold(node.lifecycle) ? RELEASED_HOLD : undefined;
         return {
           ...node,
           block_owner:

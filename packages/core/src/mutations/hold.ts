@@ -2,6 +2,7 @@ import type { BlockOwner, Hold } from '@mimir/contract';
 
 import { defaultBlockOwner } from '../block-owner';
 import { validation } from '../errors';
+import { RELEASED_HOLD } from '../hold-release';
 import type { Node } from '../model';
 import { appendRank, isRankable } from '../rank';
 import type { NodePatch, Store } from '../store';
@@ -83,7 +84,7 @@ async function releaseHold(store: Store, id: string, from: Exclude<Hold, 'none'>
     // rankable once un-held (todo/in_progress). A held `under_review` task
     // stays non-rankable on release (not actionable until its review gate clears).
     const rank = isRankable(task.lifecycle, 'none') ? await appendRank(w, task.project_id) : null;
-    await w.updateNode(id, { block_owner: null, hold: 'none', hold_reason: null, rank });
+    await w.updateNode(id, { ...RELEASED_HOLD, rank });
     await logTransition(w, { from_value: from, kind: 'hold', node_id: id, to_value: 'none' });
     await stamp(w, id);
     return reloadNode(w, id);
