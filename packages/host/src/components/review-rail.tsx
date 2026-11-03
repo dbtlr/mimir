@@ -61,8 +61,8 @@ const STRIP_COLUMNS =
 /**
  * One row per active project in the report's order (pinned first, then the
  * most recent activity): its decisions in the attention hue, its open tasks
- * ("live"), and the tasks going cold, in demoted ink because going cold is a
- * modifier with no hue (ADR 0019 §3). A row opens the project's work page.
+ * ("live"), and the tasks going cold in ink-dim, since going cold has no hue
+ * of its own (ADR 0019, MMR-619). A row opens the project's work page.
  */
 function HealthStrip({ projects }: { projects: ReviewReport['projects'] }) {
   // With every project archived there is nothing to list, and headers alone mislead.

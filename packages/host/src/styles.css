@@ -77,8 +77,8 @@
   --color-attention-solid: #af8de6;
 
   /* going-cold (MMR-106) is a temperature modifier outside the status
-     vocabulary, so it has no hue of its own: it draws in demoted ink
-     (ADR 0019 §3, MMR-619). */
+     vocabulary. It has no color token of its own: the review page's cold
+     count draws in ink-dim (ADR 0019, MMR-619). */
 
   /* the status vocabulary — the one color system.
      `-foreground` is the text tone; the base is the dot / border / wash hue. */
