@@ -107,7 +107,7 @@ One table absorbs the semi-regular hierarchy (a monorepo sub-project, a phaseles
 | `summary`      | text    | all, optional                 | the short list lede; the write verbs reject over 256 chars                                          |
 | `lifecycle`    | text    | **task**; set by the writer   | `todo` \| `queued` \| `in_progress` \| `under_review` \| `done` \| `abandoned`                                  |
 | `hold`         | text    | **task**, optional            | `none` \| `blocked` \| `parked`; null reads as `none`                                               |
-| `hold_reason`  | text    | **task**, optional            | context for the current hold, null whenever `hold` is `none` (the transition reason itself rides `transition_log`)                  |
+| `hold_reason`  | text    | **task**, optional            | context for the current hold; every verb that releases a hold clears it, and an import refuses an open task that has a reason with no hold (the transition reason itself rides `transition_log`)                  |
 | `grooming`     | text    | **task**; set by the writer | `not_groomed` on create, then `needs_answers` \| `groomed`; null on a container ([ADR 0033](decisions/0033-task-grooming-state.md)) |
 | `block_owner`  | text    | **task**, optional            | `you` \| `others`; who can clear a `blocked` hold, set by `block` and null whenever `hold` is not `blocked` ([ADR 0001](decisions/0001-task-status-two-axes-derived-rollup.md)) |
 | `priority`     | text    | **task**, optional            | `p0` \| `p1` \| `p2` \| `p3`; null = **untriaged**                                                  |
@@ -344,7 +344,7 @@ The document carries every **stored fact** and nothing derived. Its top level ho
 | Collection     | Holds                                                                                     |
 | -------------- | ----------------------------------------------------------------------------------------- |
 | `projects`     | every project, archived included, with its `pinned` flag and its three sequence `counters` and its `remote` (a document written before `pinned` existed imports every project unpinned, and before `remote` without one) |
-| `nodes`        | every node (a document written before `grooming` existed imports its tasks as `not_groomed`; one written before `block_owner` existed gives each blocked task the owner its `upstream` implies; a done or abandoned task imports with no hold, reason, or owner; an open task with no hold and a reason is refused, MMR-621) |
+| `nodes`        | every node (a document written before `grooming` existed imports its tasks as `not_groomed`; one written before `block_owner` existed gives each blocked task the owner its `upstream` implies; a done or abandoned task imports with no hold, reason, or owner; an open task with no hold and a reason is refused, MMR-621, including one an earlier release's import stored) |
 | `edges`        | the dependency edges                                                                      |
 | `tags`         | project and node tag applications (an artifact's tags ride its own record)                |
 | `annotations`  | node annotations                                                                          |
