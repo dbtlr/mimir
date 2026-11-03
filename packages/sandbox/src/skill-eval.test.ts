@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 import { escapes, summarize } from './skill-eval';
 import type { RunResult } from './skill-eval';
-import { agentPath } from './skill-eval-sandbox';
+import { agentPath, isCallerAgentVariable } from './skill-eval-sandbox';
 import { asksToConfirmKey, SCENARIOS, UNIVERSAL_CHECKS } from './skill-eval-scenarios';
 import type { Evidence } from './skill-eval-scenarios';
 import { mimirCalls } from './skill-eval-transcript';
@@ -22,6 +22,15 @@ test('the agent PATH leads with the sandbox and drops every directory holding an
     expect(agentPath('/eval/bin', `${live}:${tools}:/eval/bin`)).toBe(`/eval/bin:${tools}`);
   } finally {
     rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("the eval agent sheds the caller's Claude and T3 identity but keeps its own harness setup", () => {
+  for (const key of ['CLAUDECODE', 'CLAUDE_CODE_SESSION_ID', 'T3CODE_THREAD_ID']) {
+    expect(isCallerAgentVariable(key)).toBe(true);
+  }
+  for (const key of ['PATH', 'CODEX_HOME', 'T3CODE_HOME', 'CLAUDE_CONFIG_DIR']) {
+    expect(isCallerAgentVariable(key)).toBe(false);
   }
 });
 

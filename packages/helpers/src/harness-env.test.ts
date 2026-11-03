@@ -141,6 +141,9 @@ test('T3 settles nested agents that would otherwise conflict', () => {
   expect(
     detectHarness({ ...claudeShell, CODEX_THREAD_ID: 'inner', T3CODE_THREAD_ID: 't3-thread' }),
   ).toEqual({ harness: 't3', kind: 'single', session: 't3-thread' });
+  expect(
+    detectHarness({ OPENCODE: '1', OPENCODE_SESSION_ID: 'oc', T3CODE_THREAD_ID: 't3-thread' }),
+  ).toEqual({ harness: 't3', kind: 'single', session: 't3-thread' });
 });
 
 test('a blank T3 thread leaves detection to the agents', () => {
