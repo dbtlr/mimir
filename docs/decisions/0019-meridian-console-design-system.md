@@ -404,7 +404,7 @@ operator. The `under_review` status hue is now chartreuse.
 ## Refinement (2026-11-02, MMR-619): the cold count draws in ink, and the cold token retires
 
 The review page's per-project cold count drew in `--color-cold`, a token
-nothing else in the product used. That token sat on the `awaiting` status
+only it and the `/kit` swatch used. That token sat on the `awaiting` status
 base: the same hex, `#8a9aa8`, in the light theme, and OKLab ΔE ×100 2.2 away
 in the dark theme. So the one thing the console coloured "cold" wore a status
 hue, against §1. The count is text, and the light value measured 2.49:1
@@ -413,16 +413,18 @@ against the page and 2.89:1 against a panel, below AA's 4.5:1.
 - **The cold count draws in demoted ink.** It uses `ink-dim` (`#8fa0ae`
   dark, `#5a6b77` light): 6.99:1 and 6.62:1 against the dark page and
   panel, and 4.76:1 and 5.52:1 against the light page and panel. The column
-  header names the count. `--color-cold` is retired in both themes, along
-  with its `/kit` swatch. This supersedes the MMR-476 refinement's "going
+  header names the count. `--color-cold` is retired in both themes, and
+  the `/kit` swatch with it. This supersedes the MMR-476 refinement's "going
   cold its cold hue".
-- **Ink is not a hue a status can borrow.** Ink is the console's neutral
+- **§1 governs hues, not ink.** Ink is the console's neutral
   text, shared by every surface, so §1's one-hue-one-job rule and the
   MMR-617 distance floor, which binds a status to the attention role, do
   not apply to it. `ink-dim` shares its hex with the `new` status, and in
   the light theme it sits ΔE 1.0 from `awaiting`'s text tone (`#5f6d7a`)
-  and 3.0 from `parked`'s, as all secondary text already does. A status
-  reads from its dot, border, or chip, and the cold count has none of them.
+  and 3.0 from `parked`'s, as all secondary text already does. Each count in the
+  strip is told apart by its column header. The live count takes the
+  `in_progress` hue because live work is in flight; the cold count has no
+  status to show, so it takes neutral ink.
 - **The count carries no glyph.** §3's glyph marks a node's modifier. The
   count is an aggregate under a header that already says _cold_, and a ◌
   before it repeated that.
