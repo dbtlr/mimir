@@ -147,6 +147,11 @@ function assertReferences(document: StoreExport): void {
     if (node.block_owner !== null && node.hold !== 'blocked') {
       faults.push(`node ${node.id}.block_owner is set only while the hold is blocked`);
     }
+    // The reason is context for the current hold, so an unheld task has none
+    // (MMR-621); the parse has already cleared a terminal task's stray reason.
+    if (node.hold === 'none' && node.hold_reason !== null) {
+      faults.push(`node ${node.id}.hold_reason must be null while the hold is none`);
+    }
     if (node.lifecycle === 'queued' && (node.session === null || node.session.trim() === '')) {
       faults.push(`node ${node.id}.session is required while queued`);
     }
