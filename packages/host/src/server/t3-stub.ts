@@ -25,8 +25,12 @@ export type StubEnvironment = {
   /** The caller's runtime-mode ceiling on this system. */
   runtimeMode?: string;
   providers?: unknown[];
-  /** Every tool call naming this environment fails. */
+  /** Every tool call naming this environment fails as an `isError` result. */
   failing?: boolean;
+  /** Every tool call naming this environment answers `401`. */
+  rejecting?: boolean;
+  /** Every `t3_project_list` page names a next cursor, so the list never ends. */
+  endlessPages?: boolean;
 };
 
 export type StubOptions = {
@@ -35,6 +39,8 @@ export type StubOptions = {
   environments: Record<string, StubEnvironment>;
   /** Peers T3 lists, or `absent` when linked environments are off. */
   links?: { environmentId: string; label: string; status: string }[] | 'absent';
+  /** Make `t3_environment_links` fail: an `isError` result, or a JSON-RPC error. */
+  linksError?: 'internal' | 'invalid_params' | 'is_error' | 'method_not_found';
   issuer?: string;
   resource?: string;
   authorizationServers?: readonly string[];
@@ -46,6 +52,14 @@ export type StubOptions = {
   tokenStatus?: number;
   /** The token response's `scope`; null leaves it out. */
   grantedScope?: string | null;
+  /** The token response's `expires_in`; 30 days unless set. */
+  expiresIn?: unknown;
+  /** The token response's `token_type`; `Bearer` unless set. */
+  tokenType?: string;
+  /** The protocol version T3 answers on initialize. */
+  protocolVersion?: string;
+  /** Answer every JSON-RPC request under another id. */
+  mismatchedReplyId?: boolean;
   sessionId?: string;
   /** Answer JSON-RPC requests as single-event SSE streams. */
   sse?: boolean;
@@ -71,6 +85,12 @@ export type StubRequest = { method: string; url: string; body: string; headers: 
 
 const json = (body: unknown, init: ResponseInit = {}) => Response.json(body, init);
 
+/**
+ * What T3 0.1.6 answers a `tools/call` naming a tool it does not expose (its
+ * Effect MCP server maps `ToolNotFound` to InvalidParams): a JSON-RPC error.
+ */
+const unknownTool = (name: string) => ({ code: -32602, message: `Tool '${name}' not found` });
+
 export function stubT3(options: StubOptions) {
   const requests: StubRequest[] = [];
   const codes = new Map<string, { challenge: string; clientId: string; redirectUri: string }>();
@@ -84,6 +104,9 @@ export function stubT3(options: StubOptions) {
     const environment = options.environments[environmentId];
     if (environment === undefined || environment.failing === true) {
       return { content: [{ text: 'environment unavailable', type: 'text' }], isError: true };
+    }
+    if (environment.rejecting === true) {
+      return 'rejected' as const;
     }
     let payload: unknown;
     if (name === 't3_environment_read') {
@@ -113,7 +136,10 @@ export function stubT3(options: StubOptions) {
       const start = typeof args.cursor === 'number' ? args.cursor : 0;
       const page = environment.projects.slice(start, start + size);
       payload = {
-        nextCursor: start + size < environment.projects.length ? start + size : null,
+        nextCursor:
+          environment.endlessPages === true || start + size < environment.projects.length
+            ? start + size
+            : null,
         projects: page.map((project) => ({
           defaultModelSelection: project.defaultModelSelection ?? null,
           id: project.id,
@@ -143,12 +169,47 @@ export function stubT3(options: StubOptions) {
     return { content: [{ text: JSON.stringify(payload), type: 'text' }] };
   };
 
-  const rpcReply = (message: unknown) =>
-    options.sse === true
+  const rpcReply = (reply: { id?: number } & Record<string, unknown>) => {
+    const message =
+      options.mismatchedReplyId === true ? { ...reply, id: (reply.id ?? 0) + 1000 } : reply;
+    return options.sse === true
       ? new Response(`event: message\ndata: ${JSON.stringify(message)}\n\n`, {
           headers: { 'content-type': 'text/event-stream' },
         })
       : json(message);
+  };
+
+  const linksFailure = (id: number | undefined) => {
+    switch (options.linksError) {
+      case 'internal': {
+        return rpcReply({ error: { code: -32603, message: 'internal error' }, id, jsonrpc: '2.0' });
+      }
+      case 'invalid_params': {
+        return rpcReply({
+          error: { code: -32602, message: 'Invalid arguments' },
+          id,
+          jsonrpc: '2.0',
+        });
+      }
+      case 'method_not_found': {
+        return rpcReply({
+          error: { code: -32601, message: 'Method not found' },
+          id,
+          jsonrpc: '2.0',
+        });
+      }
+      case 'is_error': {
+        return rpcReply({
+          id,
+          jsonrpc: '2.0',
+          result: { content: [{ text: 'links unavailable', type: 'text' }], isError: true },
+        });
+      }
+      default: {
+        return undefined;
+      }
+    }
+  };
 
   const mcp = async (request: Request, body: string) => {
     if (
@@ -164,7 +225,7 @@ export function stubT3(options: StubOptions) {
         jsonrpc: '2.0',
         result: {
           capabilities: { tools: {} },
-          protocolVersion: '2025-06-18',
+          protocolVersion: options.protocolVersion ?? '2025-06-18',
           serverInfo: { name: 't3' },
         },
       });
@@ -183,20 +244,21 @@ export function stubT3(options: StubOptions) {
       return new Response(null, { status: 202 });
     }
     const name = String(message.params?.name);
-    if (name === 't3_environment_links' && options.links === 'absent') {
-      return rpcReply({
-        error: { code: -32602, message: 'Tool not found' },
-        id: message.id,
-        jsonrpc: '2.0',
-      });
+    if (name === 't3_environment_links') {
+      if (options.links === 'absent') {
+        return rpcReply({ error: unknownTool(name), id: message.id, jsonrpc: '2.0' });
+      }
+      const failure = linksFailure(message.id);
+      if (failure !== undefined) {
+        return failure;
+      }
     }
     const result = toolResult(name, message.params?.arguments ?? {});
+    if (result === 'rejected') {
+      return new Response('unauthorized', { status: 401 });
+    }
     return result === undefined
-      ? rpcReply({
-          error: { code: -32602, message: 'Tool not found' },
-          id: message.id,
-          jsonrpc: '2.0',
-        })
+      ? rpcReply({ error: unknownTool(name), id: message.id, jsonrpc: '2.0' })
       : rpcReply({ id: message.id, jsonrpc: '2.0', result });
   };
 
@@ -256,8 +318,8 @@ export function stubT3(options: StubOptions) {
         codes.delete(form.get('code') ?? '');
         return json({
           access_token: STUB_ACCESS_TOKEN,
-          expires_in: 2_592_000,
-          token_type: 'Bearer',
+          expires_in: options.expiresIn ?? 2_592_000,
+          token_type: options.tokenType ?? 'Bearer',
           ...(options.grantedScope === null
             ? {}
             : { scope: options.grantedScope ?? 'orchestration:read orchestration:operate' }),
@@ -315,9 +377,6 @@ export function memorySecrets(): HostSecretStore & { rows: Map<string, string>; 
   const rows = new Map<string, string>();
   const store = {
     read: async (name: string) => rows.get(name),
-    remove: async (name: string) => {
-      rows.delete(name);
-    },
     rows,
     write: async (name: string, sealed: string) => {
       store.writes += 1;

@@ -18,11 +18,12 @@ export type T3Http = {
 };
 
 /**
- * Why a T3 request failed: `rejected` is T3's `401`; `tool` is a JSON-RPC
- * error or a failed tool result; `unreachable` is everything else (no answer,
- * a timeout, a redirect, another status, or a reply that fails its checks).
+ * Why a T3 request failed: `rejected` is T3's `401`; `unknown_tool` is T3
+ * saying it exposes no such tool; `unreachable` is everything else (no answer,
+ * a timeout, a redirect, another status, another JSON-RPC error, a failed tool
+ * result, or a reply that fails its checks).
  */
-export type T3FailureKind = 'rejected' | 'tool' | 'unreachable';
+export type T3FailureKind = 'rejected' | 'unknown_tool' | 'unreachable';
 
 /** A failed T3 request. Its message names the endpoint and status alone. */
 export class T3RequestError extends Error {
@@ -148,9 +149,27 @@ async function readRpcReply(response: Response, id: number, endpoint: string): P
 }
 
 /**
+ * Whether a JSON-RPC error says the tool does not exist. T3 0.1.6's MCP server
+ * answers a `tools/call` for a tool it does not expose (as `t3_environment_links`
+ * with linked environments off) with InvalidParams, `-32602`, and the message
+ * `Tool '<name>' not found`. Since `-32602` also covers bad arguments, it counts
+ * only with a "not found" message; `-32601` (no such method) counts too, for a
+ * server with no tools at all.
+ */
+function isUnknownTool(error: unknown): boolean {
+  const record = asRecord(error);
+  return (
+    record?.code === -32601 ||
+    (record?.code === -32602 &&
+      typeof record.message === 'string' &&
+      /\bnot found\b/i.test(record.message))
+  );
+}
+
+/**
  * A tool result's payload: `structuredContent` when T3 sends an object there,
- * else the JSON in its first text content. A result marked `isError` fails as
- * `tool`.
+ * else the JSON in its first text content. A result marked `isError` is a
+ * failed read, `unreachable`, like any other bad reply.
  */
 function toolPayload(result: unknown, endpoint: string): unknown {
   const record = asRecord(result);
@@ -158,7 +177,7 @@ function toolPayload(result: unknown, endpoint: string): unknown {
     throw new T3RequestError('unreachable', endpoint);
   }
   if (record.isError === true) {
-    throw new T3RequestError('tool', endpoint);
+    throw new T3RequestError('unreachable', endpoint);
   }
   if (asRecord(record.structuredContent) !== undefined) {
     return record.structuredContent;
@@ -221,7 +240,10 @@ export async function openMcpSession(
         endpoint,
         ...(tool === undefined ? { method } : { tool }),
       });
-      throw new T3RequestError('tool', endpoint);
+      throw new T3RequestError(
+        isUnknownTool(reply.error) ? 'unknown_tool' : 'unreachable',
+        endpoint,
+      );
     }
     return reply.result;
   };

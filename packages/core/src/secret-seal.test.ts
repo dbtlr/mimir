@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { randomBytes } from 'node:crypto';
+import { createCipheriv, randomBytes } from 'node:crypto';
 import { inspect } from 'node:util';
 
 import { openSecret, parseSecretKey, sealSecret } from './secret-seal';
@@ -92,6 +92,49 @@ describe('parseSecretKey', () => {
       }
       expect(printed).not.toMatch(/Buffer|Uint8Array/);
     }
+  });
+});
+
+/**
+ * Seal bytes the way the format documents, independently of sealSecret:
+ * AES-256-GCM, AAD `mimir.host_secret.v1\0<name>`, `v1.<nonce>.<ciphertext+tag>`.
+ */
+function sealBytes(key: Buffer, nonce: Buffer, name: string, plaintext: Buffer): string {
+  const cipher = createCipheriv('aes-256-gcm', key, nonce, { authTagLength: 16 });
+  cipher.setAAD(Buffer.from(`mimir.host_secret.v1\0${name}`, 'utf8'));
+  const body = Buffer.concat([cipher.update(plaintext), cipher.final(), cipher.getAuthTag()]);
+  return `v1.${nonce.toString('base64url')}.${body.toString('base64url')}`;
+}
+
+const KNOWN_NONCE = Buffer.from('000102030405060708090a0b', 'hex');
+/** `{"accessToken":"kat"}` sealed as `t3.oauth` under KEY_BYTES with KNOWN_NONCE. */
+const KNOWN_SEALED = 'v1.AAECAwQFBgcICQoL.mpVToQtgSGaCdDp-IIRcity4sz-rQTiQsQvpGeB--NIBbq58HA';
+
+/** The decoded bytes of a sealed value's ciphertext segment. */
+const bodyOf = (sealed: string) => Buffer.from(sealed.split('.')[2] ?? '', 'base64url');
+
+describe('the sealed format', () => {
+  test('a known-answer vector opens to its plaintext', () => {
+    const plaintext = '{"accessToken":"kat"}';
+    expect(sealBytes(KEY_BYTES, KNOWN_NONCE, 't3.oauth', Buffer.from(plaintext))).toBe(
+      KNOWN_SEALED,
+    );
+    expect(openSecret(keyOf(KEY_BYTES), 't3.oauth', KNOWN_SEALED)).toBe(plaintext);
+  });
+
+  test('a segment spelled other than canonical base64url opens to nothing', () => {
+    // The body is 37 bytes, so its last character carries four unused bits.
+    const respelled = `${KNOWN_SEALED.slice(0, -1)}B`;
+    expect(bodyOf(respelled)).toEqual(bodyOf(KNOWN_SEALED));
+    expect(openSecret(keyOf(KEY_BYTES), 't3.oauth', respelled)).toBeUndefined();
+  });
+
+  test('a seal whose plaintext is not UTF-8 opens to nothing', () => {
+    // `{`, a two-byte sequence broken in its second byte, then `}`.
+    const sealed = sealBytes(KEY_BYTES, KNOWN_NONCE, 'n', Buffer.from('7bc3287d', 'hex'));
+    expect(openSecret(keyOf(KEY_BYTES), 'n', sealed)).toBeUndefined();
+    const valid = sealBytes(KEY_BYTES, KNOWN_NONCE, 'n', Buffer.from('{}'));
+    expect(openSecret(keyOf(KEY_BYTES), 'n', valid)).toBe('{}');
   });
 });
 

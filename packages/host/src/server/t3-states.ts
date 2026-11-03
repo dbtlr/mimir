@@ -1,7 +1,8 @@
 /*
  * The T3 Code integration's tagged states (ADR 0040), shared by the console
- * server and the Devices page. Types only: the console's server-function
- * module and the browser both read this file, so it imports nothing at run time.
+ * server and the Devices page: types, and the plain constant lists they are
+ * built from. The console's server-function module and the browser both read
+ * this file, so it imports nothing.
  */
 
 /** A setting the T3 integration depends on. */

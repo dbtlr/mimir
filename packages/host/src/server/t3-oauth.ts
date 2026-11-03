@@ -188,9 +188,12 @@ export function authorizationUrl(
 /** What the token endpoint granted. */
 export type T3Grant = { accessToken: string; expiresAt: number; scopes: string[] };
 
+/** The longest grant the host keeps: ten years, in seconds. */
+const MAX_EXPIRES_IN_S = 10 * 365 * 24 * 60 * 60;
+
 const tokenSchema = z.looseObject({
   access_token: z.string().min(1),
-  expires_in: z.number().positive(),
+  expires_in: z.number().int().positive().max(MAX_EXPIRES_IN_S),
   scope: z.string().optional(),
   token_type: z.string().regex(/^bearer$/i),
 });

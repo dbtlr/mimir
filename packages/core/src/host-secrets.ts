@@ -15,7 +15,6 @@ export type HostSecretStore = {
   read: (name: string) => Promise<string | undefined>;
   /** Insert or replace; sets created_at on insert and updated_at on every write. */
   write: (name: string, sealed: string) => Promise<void>;
-  remove: (name: string) => Promise<void>;
 };
 
 /** The host-secret rows over one store handle. */
@@ -39,10 +38,6 @@ export function createHostSecretStore({
         .executeTakeFirst();
       return row?.ciphertext;
     },
-    remove: (name) =>
-      dialect.write(db, async (tx) => {
-        await tx.deleteFrom('host_secrets').where('name', '=', name).execute();
-      }),
     write: (name, sealed) =>
       dialect.write(db, async (tx) => {
         const at = clockInstant();

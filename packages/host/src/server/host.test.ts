@@ -11,6 +11,7 @@ import { RemoteEngine } from '@mimir/wire/client';
 import { readHostConfig } from './config';
 import { guardEveryRoute, hostGuard } from './guard';
 import { openHost } from './host';
+import { methodNotAllowed } from './pairing';
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -311,8 +312,47 @@ test('a host with T3 misconfigured boots, warns by setting name, and reports the
     );
     expect(callback.status).toBe(303);
     expect(callback.headers.get('location')).toBe('/devices?t3=misconfigured');
-    expect(await host.secrets.read('t3.oauth')).toBeUndefined();
+    const database = new Database(join(root, SQLITE_FILE), { readonly: true });
+    try {
+      expect(database.query('select name from host_secrets').all()).toEqual([]);
+    } finally {
+      database.close();
+    }
   } finally {
+    await host.close();
+  }
+});
+
+test('the T3 callback answers behind the Host guard, with no client version, GET only', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-t3-route-'));
+  roots.push(root);
+  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), '0.26.0', () => {});
+  const log = spyOn(console, 'error').mockReturnValue(undefined);
+  // The route's handlers as auth.t3.callback.ts declares them: GET, and a 405 for any other method.
+  const route = (request: Request) =>
+    request.method === 'GET' ? host.handleT3Callback(request) : methodNotAllowed('GET');
+  const guarded = guardEveryRoute(route, Promise.resolve(hostGuard(['allowed.test'])));
+  const at = (init: RequestInit & { host: string }) =>
+    guarded(
+      new Request('http://allowed.test/auth/t3/callback?state=x&code=y', {
+        ...init,
+        headers: { host: init.host },
+      }),
+    );
+  try {
+    const answered = await at({ host: 'allowed.test' });
+    expect(answered.status).toBe(303);
+    expect(answered.headers.get('location')).toBe('/devices?t3=misconfigured');
+    for (const method of ['POST', 'PUT', 'DELETE']) {
+      const refused = await at({ host: 'allowed.test', method });
+      expect(refused.status, method).toBe(405);
+      expect(refused.headers.get('allow'), method).toBe('GET');
+    }
+    const unlisted = await at({ host: 'unlisted.test' });
+    expect(unlisted.status).toBe(403);
+    expect(await unlisted.json()).toMatchObject({ error: { code: 'forbidden_host' } });
+  } finally {
+    log.mockRestore();
     await host.close();
   }
 });

@@ -3,6 +3,7 @@ import { once } from 'node:events';
 
 import type { Engine } from '@mimir/contract';
 import { openSecret, parseSecretKey, sealSecret } from '@mimir/core';
+import type { SecretKey } from '@mimir/core';
 
 import { createT3Adapter, T3_SECRET_NAME } from './t3';
 import type { T3AdapterOptions } from './t3';
@@ -128,6 +129,13 @@ function harness(
   return { adapter, clock, logs, secrets: secrets as ReturnType<typeof memorySecrets>, stub };
 }
 
+/** Every callback answer is an uncached redirect that sends no referrer onward. */
+function expectCallbackRedirect(response: Response) {
+  expect(response.status).toBe(303);
+  expect(response.headers.get('cache-control')).toBe('no-store');
+  expect(response.headers.get('referrer-policy')).toBe('no-referrer');
+}
+
 /** Run Connect and the callback through to a sealed token. */
 async function connected(h: ReturnType<typeof harness>) {
   const started = await h.adapter.connect(CONSOLE);
@@ -135,15 +143,32 @@ async function connected(h: ReturnType<typeof harness>) {
     throw new Error(`connect answered ${started.state}`);
   }
   const response = await h.adapter.callback(new Request(h.stub.approve(started.url)));
+  expectCallbackRedirect(response);
   expect(response.headers.get('location')).toBe('/devices?t3=connected');
   return started.url;
 }
 
-/** The redirect reason a callback answered, and that it wrote nothing. */
+/** The redirect reason a callback answered. */
 async function callbackReason(h: ReturnType<typeof harness>, url: string) {
   const response = await h.adapter.callback(new Request(url));
-  expect(response.status).toBe(303);
+  expectCallbackRedirect(response);
   return response.headers.get('location');
+}
+
+/** Run Connect and answer the reason its approved callback redirects with. */
+async function approvedReason(h: ReturnType<typeof harness>) {
+  const started = await h.adapter.connect(CONSOLE);
+  if (started.state !== 'authorize') {
+    throw new Error('expected an authorization URL');
+  }
+  return callbackReason(h, h.stub.approve(started.url));
+}
+
+/** The `environmentId` of every tool call the stub received. */
+function calledEnvironments(h: ReturnType<typeof harness>, tool: string) {
+  return h.stub.requests
+    .filter((request) => request.body.includes(`"name":"${tool}"`))
+    .map((request) => JSON.parse(request.body).params.arguments.environmentId);
 }
 
 describe('settings gate the feature', () => {
@@ -354,6 +379,45 @@ describe('the callback', () => {
     expect(h.secrets.writes).toBe(0);
   });
 
+  test('a grant whose type is not Bearer answers failed and writes nothing', async () => {
+    const h = harness({ stub: { tokenType: 'mac' } });
+    expect(await approvedReason(h)).toBe('/devices?t3=failed');
+    expect(h.secrets.writes).toBe(0);
+  });
+
+  test('expires_in must be a whole number of seconds, at most ten years', async () => {
+    const TEN_YEARS = 10 * 365 * 24 * 60 * 60;
+    for (const expiresIn of [1e13, 3e11, TEN_YEARS + 1, 1.5, 0, -60, '3600', true]) {
+      const h = harness({ stub: { expiresIn } });
+      expect(await approvedReason(h)).toBe('/devices?t3=failed');
+      expect(h.secrets.writes).toBe(0);
+    }
+    const longest = harness({ stub: { expiresIn: TEN_YEARS } });
+    expect(await approvedReason(longest)).toBe('/devices?t3=connected');
+    expect(await longest.adapter.status(CONSOLE)).toMatchObject({ state: 'connected' });
+  });
+
+  test('an expiry that is no valid instant answers failed, writes nothing, and never throws', async () => {
+    // The last representable instant: any grant from here expires past it.
+    const h = harness({ stub: { expiresIn: 3600 } });
+    h.clock.now = 8.64e15 - 1000;
+    expect(await approvedReason(h)).toBe('/devices?t3=failed');
+    // One second from the end: a valid instant, but not one the saved row can be read back as.
+    const edge = harness({ stub: { expiresIn: 1 } });
+    edge.clock.now = 8.64e15 - 1001;
+    expect(await approvedReason(edge)).toBe('/devices?t3=failed');
+    expect(h.secrets.writes + edge.secrets.writes).toBe(0);
+  });
+
+  test('a fault inside the callback still answers its redirect, logging no detail', async () => {
+    // A key parseSecretKey never made: sealing it throws.
+    const forged = { toJSON: () => 'x', toString: () => 'x' } as unknown as SecretKey;
+    const h = harness({ settings: { ...ready, key: forged } });
+    expect(await approvedReason(h)).toBe('/devices?t3=failed');
+    expect(h.secrets.writes).toBe(0);
+    expect(h.logs.map((line) => JSON.parse(line).event)).toContain('t3_connect_fault');
+  });
+
   test('at most 16 pending authorizations are held; a new one evicts the oldest', async () => {
     const h = harness();
     const urls: string[] = [];
@@ -385,6 +449,28 @@ describe('the saved connection', () => {
     expect(await h.adapter.status(CONSOLE)).toEqual({ reason: 'expired', state: 'disconnected' });
     expect(await h.adapter.catalog('BRF')).toEqual({ reason: 'expired', state: 'disconnected' });
     expect(h.stub.requests).toHaveLength(sent);
+  });
+
+  test('a token reads expired from the instant of its expiry', async () => {
+    const h = harness();
+    await connected(h);
+    h.clock.now += 30 * DAY - 1;
+    expect(await h.adapter.status(CONSOLE)).toMatchObject({ state: 'connected' });
+    h.clock.now += 1;
+    expect(await h.adapter.status(CONSOLE)).toEqual({ reason: 'expired', state: 'disconnected' });
+  });
+
+  test('a 401 on one peer read rejects the token for the whole catalog', async () => {
+    const h = harness({
+      stub: {
+        environments: {
+          ...world().environments,
+          'env-asgard': { label: 'asgard', projects: [], rejecting: true },
+        },
+      },
+    });
+    await connected(h);
+    expect(await h.adapter.catalog('MMR')).toEqual({ reason: 'rejected', state: 'disconnected' });
   });
 
   test('a 401 from T3 reads disconnected rejected', async () => {
@@ -529,12 +615,94 @@ describe('the catalog', () => {
   });
 
   test('with linked environments off, the configured server is the only system', async () => {
-    const h = harness({ stub: { links: 'absent' } });
+    // T3's unknown-tool answer, or a server with no tools/call method at all.
+    for (const stub of [{ links: 'absent' }, { linksError: 'method_not_found' }] as const) {
+      const h = harness({ stub });
+      await connected(h);
+      const catalog = await h.adapter.catalog('MMR');
+      expect(
+        catalog.state === 'connected' && catalog.systems.map((system) => system.label),
+      ).toEqual(['Valhalla']);
+    }
+  });
+
+  test('a failed links read is a failed read of the configured server, not an absent tool', async () => {
+    for (const linksError of ['is_error', 'internal', 'invalid_params'] as const) {
+      const h = harness({ stub: { linksError } });
+      await connected(h);
+      expect(await h.adapter.catalog('MMR')).toEqual({ state: 'unreachable' });
+    }
+  });
+
+  test('a system linked twice, or a link naming the configured server, is listed once', async () => {
+    const h = harness({
+      stub: {
+        links: [
+          { environmentId: 'env-asgard', label: 'asgard', status: 'reachable' },
+          { environmentId: 'env-valhalla', label: 'Valhalla', status: 'reachable' },
+          { environmentId: 'env-asgard', label: 'asgard (again)', status: 'reachable' },
+          { environmentId: 'env-valhalla', label: 'Valhalla (again)', status: 'unreachable' },
+        ],
+      },
+    });
     await connected(h);
     const catalog = await h.adapter.catalog('MMR');
-    expect(catalog.state === 'connected' && catalog.systems.map((system) => system.label)).toEqual([
-      'Valhalla',
+    expect(
+      catalog.state === 'connected' &&
+        catalog.systems.map((system) => [system.environmentId, system.label, system.status]),
+    ).toEqual([
+      ['env-valhalla', 'Valhalla', 'reachable'],
+      ['env-asgard', 'asgard', 'reachable'],
     ]);
+    expect(
+      calledEnvironments(h, 'orchestrator_capabilities').toSorted((a, b) => a.localeCompare(b)),
+    ).toEqual(['env-asgard', 'env-valhalla']);
+  });
+
+  test('a link T3 reports unreachable is listed unreachable without being read', async () => {
+    const h = harness({
+      stub: {
+        environments: {
+          ...world().environments,
+          'env-mbp': {
+            label: 'DB MBP',
+            projects: [
+              { id: 'p-mbp', remoteUrl: 'https://github.com/dbtlr/mimir', title: 'mimir' },
+            ],
+          },
+        },
+      },
+    });
+    await connected(h);
+    const catalog = await h.adapter.catalog('MMR');
+    expect(catalog.state === 'connected' && catalog.systems).toContainEqual({
+      environmentId: 'env-mbp',
+      label: 'DB MBP',
+      status: 'unreachable',
+    });
+    expect(h.stub.requests.some((request) => request.body.includes('env-mbp'))).toBe(false);
+  });
+
+  test('a project list that never ends reads that system unreachable within the page bound', async () => {
+    const h = harness({
+      stub: {
+        environments: {
+          ...world().environments,
+          'env-asgard': { ...world().environments['env-asgard']!, endlessPages: true },
+        },
+        pageSize: 1,
+      },
+    });
+    await connected(h);
+    const catalog = await h.adapter.catalog('MMR');
+    expect(catalog.state === 'connected' && catalog.systems).toContainEqual({
+      environmentId: 'env-asgard',
+      label: 'asgard',
+      status: 'unreachable',
+    });
+    expect(
+      calledEnvironments(h, 't3_project_list').filter((id) => id === 'env-asgard'),
+    ).toHaveLength(100);
   });
 
   test('a project with no remote answers connected with noRemote, after checking the token', async () => {
@@ -564,6 +732,43 @@ describe('the catalog', () => {
     expect(catalog.state === 'connected' && catalog.systems).toHaveLength(1);
   });
 
+  test('a failed tool result on the configured server reads unreachable', async () => {
+    const h = harness();
+    await connected(h);
+    const failing = harness({
+      secrets: h.secrets,
+      stub: {
+        environments: {
+          ...world().environments,
+          'env-valhalla': { failing: true, label: 'Valhalla', projects: [] },
+        },
+      },
+    });
+    expect(await failing.adapter.status(CONSOLE)).toEqual({ state: 'unreachable' });
+    expect(await failing.adapter.catalog('MMR')).toEqual({ state: 'unreachable' });
+  });
+
+  test('a reply under another JSON-RPC id is refused', async () => {
+    const h = harness();
+    await connected(h);
+    const mismatched = harness({ secrets: h.secrets, stub: { mismatchedReplyId: true } });
+    expect(await mismatched.adapter.status(CONSOLE)).toEqual({ state: 'unreachable' });
+  });
+
+  test('every request after initialize carries the protocol version T3 chose', async () => {
+    const h = harness({ stub: { protocolVersion: '2025-03-26' } });
+    await connected(h);
+    const sent = h.stub.requests.length;
+    await h.adapter.status(CONSOLE);
+    const [initialize, ...later] = h.stub.requests.slice(sent);
+    expect(initialize?.body).toContain('"method":"initialize"');
+    expect(initialize?.headers.get('mcp-protocol-version')).toBeNull();
+    expect(later.map((request) => request.headers.get('mcp-protocol-version'))).toEqual([
+      '2025-03-26',
+      '2025-03-26',
+    ]);
+  });
+
   test('no adapter request follows a redirect, and every one has a timeout', async () => {
     const inits: RequestInit[] = [];
     const stub = stubT3(world());
@@ -582,7 +787,24 @@ describe('the catalog', () => {
   });
 });
 
-test('no secret value ever appears in the logs', async () => {
+/** Each adapter log event and the exact key sets its lines may carry. */
+const LOG_KEYS: Record<string, string[][]> = {
+  host_secret_unopenable: [['cause', 'event', 'name', 'time']],
+  host_secret_unreadable: [['event', 'name', 'time']],
+  host_secret_write_fault: [['event', 'name', 'time']],
+  t3_connect_callback: [['event', 'outcome', 'time']],
+  t3_connect_fault: [['event', 'time']],
+  t3_request_failed: [
+    ['endpoint', 'event', 'time'],
+    ['endpoint', 'event', 'status', 'time'],
+    ['endpoint', 'event', 'method', 'time'],
+    ['endpoint', 'event', 'method', 'status', 'time'],
+    ['endpoint', 'event', 'time', 'tool'],
+    ['endpoint', 'event', 'status', 'time', 'tool'],
+  ],
+};
+
+test('no secret value or T3 reply body ever appears in the logs', async () => {
   const h = harness();
   const url = await connected(h);
   await h.adapter.status(CONSOLE);
@@ -590,32 +812,45 @@ test('no secret value ever appears in the logs', async () => {
   h.stub.revokeToken();
   await h.adapter.status(CONSOLE);
   const failing = harness({ secrets: h.secrets, stub: { tokenStatus: 500 } });
-  const started = await failing.adapter.connect(CONSOLE);
-  if (started.state === 'authorize') {
-    await failing.adapter.callback(new Request(failing.stub.approve(started.url)));
-  }
-  const logs = [...h.logs, ...failing.logs].join('\n');
+  await approvedReason(failing);
+  const unregistered = harness({ stub: { registrationStatus: 400 } });
+  await unregistered.adapter.connect(CONSOLE);
+  const linksFailing = harness({ stub: { linksError: 'internal' } });
+  await connected(linksFailing);
+  await linksFailing.adapter.catalog('MMR');
+  const linksAbsent = harness({ stub: { links: 'absent' } });
+  await connected(linksAbsent);
+  await linksAbsent.adapter.catalog('MMR');
+  const lines = [h, failing, unregistered, linksFailing, linksAbsent].flatMap((run) => run.logs);
+  const logs = lines.join('\n');
   expect(logs).toContain('t3_request_failed');
   const authorize = new URL(url);
   const sealed = h.secrets.rows.get(T3_SECRET_NAME) ?? '';
   const exchange = h.stub.requests.find((request) => request.url.endsWith('/oauth/mcp/token'));
-  const verifier = new URLSearchParams(exchange?.body ?? '').get('code_verifier') ?? '';
+  const exchanged = new URLSearchParams(exchange?.body ?? '');
   for (const secret of [
-    verifier,
+    exchanged.get('code_verifier') ?? '',
+    exchanged.get('code') ?? '',
     STUB_ACCESS_TOKEN,
     KEY_TEXT,
     'stub-code-',
     authorize.searchParams.get('state') ?? '',
     authorize.searchParams.get('code_challenge') ?? '',
     sealed,
+    // The stub's failure bodies: T3's words never reach a log line.
+    'unauthorized',
+    'invalid_grant',
+    'invalid_client_metadata',
+    'internal error',
+    'environment unavailable',
+    'not found',
   ]) {
     expect(secret).not.toBe('');
     expect(logs).not.toContain(secret);
   }
-  // Each failure line names the endpoint and status alone.
-  for (const line of logs.split('\n').filter((entry) => entry.includes('t3_request_failed'))) {
-    expect(Object.keys(JSON.parse(line)).toSorted((a, b) => a.localeCompare(b))).toEqual(
-      expect.arrayContaining(['endpoint', 'event', 'time']),
-    );
+  for (const line of lines) {
+    const entry = JSON.parse(line) as Record<string, unknown>;
+    const keys = Object.keys(entry).toSorted((a, b) => a.localeCompare(b));
+    expect(LOG_KEYS[String(entry.event)] ?? [], line).toContainEqual(keys);
   }
 });

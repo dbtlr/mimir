@@ -95,7 +95,8 @@ The first integration connects the console server to one T3 Code server. A
 environments.
 
 **Settings.** `MIMIR_T3_URL` is the T3 server's origin: HTTPS, or HTTP on a
-loopback host, with no path. It must be the origin T3 itself reports as its
+loopback host, with no path. An empty value counts as set and malformed, as an
+empty `MIMIR_URL` counts as set. It must be the origin T3 itself reports as its
 OAuth issuer, which is the origin it is reached on; on asgard it is
 `https://asgard.tail52fcb9.ts.net`. The same origin is the origin of every
 Open in T3 link.
@@ -126,7 +127,8 @@ that returns the authorization URL; the flow is:
    stateless signed tokens, so nothing about the client is stored. A failed
    registration reads `unreachable`, before the browser is sent anywhere.
 3. Hold a pending authorization in host memory: a random `state`, the PKCE
-   verifier, the client id, and the redirect URI. It lives 10 minutes, is
+   verifier, the client id, the redirect URI, and the token endpoint step 1
+   checked, so the callback exchanges the code without discovering again. It lives 10 minutes, is
    consumed by its first callback, and at most 16 are held; a new one evicts
    the oldest.
 4. Send the browser to the authorization endpoint with `response_type=code`,
@@ -150,7 +152,8 @@ that returns the authorization URL; the flow is:
    `/devices?t3=<reason>`, one of `denied` (the operator declined),
    `stale` (an unknown, used, or expired `state`), `read_only` (the grant
    cannot launch), `issuer` (an `iss` mismatch), `misconfigured`, or `failed`
-   (the code exchange failed). The page words each reason itself and
+   (the code exchange failed, T3 returned another error, or the grant is not
+   a Bearer token with a whole-second lifetime of at most ten years). The page words each reason itself and
    never shows text from T3.
 
 The callback is a host route like the pairing routes (ADR 0038): inside the
@@ -174,8 +177,12 @@ MMR-625 adds `t3_thread_launch`.
 **Catalog.** A read-only server function returns, for one Mimir project, the
 systems it can launch onto. It reads `t3_environment_read` for the configured
 server and `t3_environment_links` for its linked peers, then, for each system,
-every page of `t3_project_list` and `orchestrator_capabilities` with that
-`environmentId`. A T3 project matches when its
+every page of `t3_project_list`, `orchestrator_capabilities`, and, for a peer,
+`t3_environment_read`, each with that `environmentId`. Peers are listed once
+per `environmentId`. When `t3_environment_links` is absent (T3 answers that
+the tool is not found, because linked environments are off), there are no
+peers; any other failure of it reads `unreachable`. A project list that is
+still paging after 100 pages counts as a failed read. A T3 project matches when its
 `repositoryIdentity.locator.remoteUrl`, normalized with `tryNormalizeRemote`,
 equals the Mimir project's stored `remote` (ADR 0036). The remote URL is
 normalized rather than T3's `canonicalKey`, because the key is already in a
@@ -194,7 +201,8 @@ carries:
 - its server's `defaultThreadEnvMode`;
 - its enabled providers (those with no `constraints`), each with its
   `providerInstanceId` and `displayName`, and its models, each with `id`,
-  `label`, and `options` (each option's `id`, `values`, and `default`);
+  `label` (null when T3 gives none), and `options` (each option's `id`,
+  `values`, and `default`);
 - the runtime modes a launch may use, per provider: the provider's
   `runtimeModes`, or all four when T3 lists none, narrowed to those no broader
   than the ceiling. The ceiling is the `runtimeMode` that

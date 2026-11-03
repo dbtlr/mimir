@@ -66,16 +66,14 @@ describe.each([
     ]);
   });
 
-  test('names are independent, and a remove drops only its own row', async () => {
+  test('names are independent, and a write replaces only its own row', async () => {
     const { rows, secrets } = await fixture();
     await secrets.write('t3.oauth', 'v1.a');
     await secrets.write('other.token', 'v1.b');
-    await secrets.remove('t3.oauth');
-    expect(await secrets.read('t3.oauth')).toBeUndefined();
+    await secrets.write('t3.oauth', 'v1.c');
+    expect(await secrets.read('t3.oauth')).toBe('v1.c');
     expect(await secrets.read('other.token')).toBe('v1.b');
-    expect((await rows()).map((row) => row.name)).toEqual(['other.token']);
-    await secrets.remove('t3.oauth');
-    expect(await secrets.read('other.token')).toBe('v1.b');
+    expect((await rows()).map((row) => row.name)).toEqual(['other.token', 't3.oauth']);
   });
 
   test('host secrets stay out of the transfer document, and an import leaves them intact', async () => {

@@ -138,6 +138,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
       '/trpc/done',
       '/auth/pairing/requests',
       '/auth/pairing/poll',
+      '/auth/t3/callback',
       '/_serverFn/missing',
       '/health',
     ]) {

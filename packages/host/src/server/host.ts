@@ -67,8 +67,7 @@ export async function openHost(
       handlePairingRequest: pairing.request,
       handleT3Callback: t3.callback,
       handleTrpc: createEngineHandler(engine, { verifyToken: built.tokens.verify, version }),
-      // Host secrets and the T3 adapter: host concerns beside the Engine (ADR 0040).
-      secrets: built.secrets,
+      // The T3 adapter: a host concern beside the Engine (ADR 0040).
       t3,
       tokens: built.tokens,
     };

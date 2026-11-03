@@ -245,20 +245,33 @@ async function readSystem(
   }
 }
 
-/** The linked peers; with linked environments off the tool is absent, which reads as none. */
-async function readPeers(mcp: McpSession) {
+/**
+ * The linked peers, each once by `environmentId` and never the configured
+ * server itself. With linked environments off the tool is absent, which reads
+ * as none; any other failure is a failed read of the configured server.
+ */
+async function readPeers(mcp: McpSession, configuredId: string) {
+  let links: z.output<typeof linksSchema>['links'];
   try {
-    return parseReply(
+    links = parseReply(
       linksSchema,
       await mcp.call('t3_environment_links', {}),
       't3_environment_links',
     ).links;
   } catch (error) {
-    if (error instanceof T3RequestError && error.kind === 'tool') {
+    if (error instanceof T3RequestError && error.kind === 'unknown_tool') {
       return [];
     }
     throw error;
   }
+  const seen = new Set([configuredId]);
+  return links.filter((link) => {
+    if (seen.has(link.environmentId)) {
+      return false;
+    }
+    seen.add(link.environmentId);
+    return true;
+  });
 }
 
 async function readEnvironment(mcp: McpSession, environmentId?: string) {
@@ -363,6 +376,61 @@ export function createT3Adapter(options: T3AdapterOptions) {
     });
   };
 
+  /** The callback's outcome; `callback` below turns any throw into `failed`. */
+  const settleCallback = async (request: Request): Promise<Response> => {
+    const setup = ready();
+    if ('state' in setup) {
+      return redirectTo('misconfigured');
+    }
+    const query = new URL(request.url).searchParams;
+    const entry = pending.take(query.get('state') ?? '');
+    if (entry === undefined) {
+      return redirectTo('stale');
+    }
+    if (query.get('iss') !== setup.t3) {
+      return redirectTo('issuer');
+    }
+    const error = query.get('error');
+    if (error !== null) {
+      return redirectTo(error === 'access_denied' ? 'denied' : 'failed');
+    }
+    const code = query.get('code');
+    if (code === null || code === '') {
+      return redirectTo('failed');
+    }
+    let grant;
+    try {
+      grant = await exchangeCode(http, setup.t3, entry, code);
+    } catch (failure) {
+      if (failure instanceof T3RequestError) {
+        return redirectTo('failed');
+      }
+      throw failure;
+    }
+    // A grant that cannot launch is discarded, not kept for reads.
+    if (!grant.scopes.includes(T3_OPERATE_SCOPE)) {
+      return redirectTo('read_only');
+    }
+    // An expiry the row could not be read back with fails here, before any write.
+    const expiry = new Date(grant.expiresAt);
+    const saved = sealedSchema.safeParse({
+      accessToken: grant.accessToken,
+      expiresAt: Number.isNaN(expiry.getTime()) ? '' : expiry.toISOString(),
+      issuer: setup.t3,
+    });
+    if (!saved.success) {
+      return redirectTo('failed');
+    }
+    const sealed = sealSecret(setup.key, T3_SECRET_NAME, JSON.stringify(saved.data));
+    try {
+      await secrets.write(T3_SECRET_NAME, sealed);
+    } catch {
+      logEvent(http, 'host_secret_write_fault', { name: T3_SECRET_NAME });
+      return redirectTo('failed');
+    }
+    return redirectTo('connected');
+  };
+
   return {
     /**
      * `GET /auth/t3/callback`: consume the pending authorization `state`
@@ -371,51 +439,13 @@ export function createT3Adapter(options: T3AdapterOptions) {
      * `connected` writes.
      */
     callback: async (request: Request): Promise<Response> => {
-      const setup = ready();
-      if ('state' in setup) {
-        return redirectTo('misconfigured');
-      }
-      const query = new URL(request.url).searchParams;
-      const entry = pending.take(query.get('state') ?? '');
-      if (entry === undefined) {
-        return redirectTo('stale');
-      }
-      if (query.get('iss') !== setup.t3) {
-        return redirectTo('issuer');
-      }
-      const error = query.get('error');
-      if (error !== null) {
-        return redirectTo(error === 'access_denied' ? 'denied' : 'failed');
-      }
-      const code = query.get('code');
-      if (code === null || code === '') {
-        return redirectTo('failed');
-      }
-      let grant;
       try {
-        grant = await exchangeCode(http, setup.t3, entry, code);
-      } catch (failure) {
-        if (failure instanceof T3RequestError) {
-          return redirectTo('failed');
-        }
-        throw failure;
-      }
-      // A grant that cannot launch is discarded, not kept for reads.
-      if (!grant.scopes.includes(T3_OPERATE_SCOPE)) {
-        return redirectTo('read_only');
-      }
-      const plaintext = JSON.stringify({
-        accessToken: grant.accessToken,
-        expiresAt: new Date(grant.expiresAt).toISOString(),
-        issuer: setup.t3,
-      });
-      try {
-        await secrets.write(T3_SECRET_NAME, sealSecret(setup.key, T3_SECRET_NAME, plaintext));
+        return await settleCallback(request);
       } catch {
-        logEvent(http, 'host_secret_write_fault', { name: T3_SECRET_NAME });
+        // Whatever failed, the browser still gets its redirect; the error's text may hold input.
+        logEvent(http, 't3_connect_fault');
         return redirectTo('failed');
       }
-      return redirectTo('connected');
     },
 
     /** One Mimir project's launch catalog: the systems holding a project with its remote. */
@@ -436,9 +466,7 @@ export function createT3Adapter(options: T3AdapterOptions) {
         if (remote === null || remote === undefined) {
           return { ...connected, noRemote: true, systems: [] };
         }
-        const peers = (await readPeers(mcp)).filter(
-          (peer) => peer.environmentId !== configured.environmentId,
-        );
+        const peers = await readPeers(mcp, configured.environmentId);
         const systems = await Promise.all([
           readSystem(
             mcp,
