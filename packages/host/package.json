@@ -22,7 +22,7 @@
     "@mimir/core": "workspace:*",
     "@mimir/helpers": "workspace:*",
     "@mimir/wire": "workspace:*",
-    "@tanstack/query-async-storage-persister": "^5.104.5",
+    "@tanstack/query-async-storage-persister": "^5.105.0",
     "@tanstack/react-form": "^1.33.5",
     "@tanstack/react-query": "^5.104.5",
     "@tanstack/react-query-persist-client": "^5.104.5",
