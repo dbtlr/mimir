@@ -655,13 +655,20 @@ describe('review page decisions act in place (MMR-479)', () => {
     serve(
       engineReview({
         ...decisionsFor({ lm: [loomQuestion], mmr: [block, question] }),
-        now: [nowRow('MMR-502', { status: 'under_review' })],
+        now: [
+          tagged(
+            makeNowRow(
+              { id: 'MMR-502', status: 'under_review', title: 'Running MMR-502' },
+              { startedAt: hoursAgo(3), submittedAt: hoursAgo(1) },
+            ),
+          ),
+        ],
       }),
     );
     await renderRoute(consoleRoutes, '/');
 
     const now = await screen.findByRole('region', { name: 'Now · 1' });
-    expect(now).toHaveTextContent(/In review\s*·\s*started 1h ago/);
+    expect(now).toHaveTextContent(/In review\s*·\s*submitted 1h ago/);
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Send back…' })).toBeNull();
   });

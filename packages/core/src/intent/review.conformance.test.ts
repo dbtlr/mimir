@@ -176,9 +176,11 @@ for (const backend of backends) {
       // The staleness of a task in another section is carried on its row.
       expect(page.now.some((r) => r.stale)).toBe(true);
       expect(page.frontier.runnable.some((r) => r.stale)).toBe(true);
-      // The review lists `now` most recently started first; the page lists it in rank order.
+      // The review lists `now` by latest move first (a review's submit, otherwise its start);
+      // the page lists it in rank order.
+      const lastMove = (r: (typeof page.now)[number]) => r.submittedAt ?? r.startedAt;
       expect(mine(report.now)).toEqual(
-        page.now.toSorted((a, b) => cmpStr(b.startedAt, a.startedAt)),
+        page.now.toSorted((a, b) => cmpStr(lastMove(b), lastMove(a))),
       );
       expect(mine(report.shipped)).toEqual(page.shipped);
       expect(mine(report.runnable)).toEqual(page.frontier.runnable);

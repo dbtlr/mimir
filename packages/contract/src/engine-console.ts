@@ -17,6 +17,7 @@ function consoleViewSchemas<T extends z.ZodType>(instant: T) {
     scratchpads: z.array(z.object({ id: z.string(), title: z.string() })),
     stale,
     startedAt: instant,
+    submittedAt: instant.nullable(),
     task: node,
   });
   const needsYouRow = z.object({
