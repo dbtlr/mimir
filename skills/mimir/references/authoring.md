@@ -210,6 +210,7 @@ variables can describe an outer harness; they do not override that knowledge.
 | Claude Code (`claude`) | `CLAUDE_CODE_SESSION_ID` (`CLAUDECODE=1` identifies the harness) |
 | Codex (`codex`) | `CODEX_THREAD_ID` |
 | opencode (`opencode`) | `OPENCODE_SESSION_ID` (`OPENCODE=1` identifies the harness) |
+| T3 Code (`t3`) | `T3CODE_THREAD_ID`, the T3 thread id (T3 0.1.6 sets it only in its Claude threads) |
 
 If an identity cannot be established, resolve it before recording ownership;
 a made-up session cannot resume the work. For a new direct start, set the main
@@ -226,7 +227,10 @@ included, equals its own value: `--harness codex` in a Claude shell records no
 session, and `--session ""` records no harness.
 Supplying a worker session without a worker harness also clears any previous
 worker harness during a takeover; omitting both fields preserves the assignment.
-Multiple detected harnesses produce a note only when main fallback applies.
+A nonblank `T3CODE_THREAD_ID` identifies T3 and wins over every agent detected
+under it: T3 wraps the agent it launches, so its thread is the conversation the
+user resumes. Without it, multiple detected harnesses fill nothing and produce
+a note, but only when main fallback applies.
 `update` and MCP never infer identity from their environment.
 
 `queue` records the main reservation. Starting queued work preserves its main

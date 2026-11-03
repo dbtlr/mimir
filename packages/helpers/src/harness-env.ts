@@ -1,4 +1,4 @@
-type Harness = 'claude' | 'codex' | 'opencode';
+type Harness = 'claude' | 'codex' | 'opencode' | 't3';
 
 type Detection =
   | { kind: 'none' }
@@ -11,8 +11,15 @@ export type ShellFill =
   | { kind: 'conflict'; harnesses: Harness[] }
   | { kind: 'filled'; harness: PassedHandle; session: PassedHandle };
 
-/** Detect shell harness identity without choosing between inherited nested harnesses. */
+/**
+ * Detect shell harness identity without choosing between inherited nested harnesses.
+ * A T3 thread is the exception: T3 wraps the agent it launches, so its thread is
+ * the outermost conversation and wins over every agent detected under it.
+ */
 export function detectHarness(env: Readonly<Record<string, string | undefined>>): Detection {
+  if (env.T3CODE_THREAD_ID !== undefined && env.T3CODE_THREAD_ID.trim() !== '') {
+    return { harness: 't3', kind: 'single', session: env.T3CODE_THREAD_ID };
+  }
   const detected: { harness: Harness; session: string | undefined }[] = [];
   if (env.CLAUDECODE === '1') {
     detected.push({ harness: 'claude', session: env.CLAUDE_CODE_SESSION_ID });
