@@ -75,8 +75,9 @@ test.each(['done', 'abandoned'] as const)(
 
 // No verb leaves a reason on an unheld open task, and the import refuses one
 // rather than dropping it (MMR-621). Each case first parses the open task
-// without the reason, so the refusal is the reason's alone.
-test.each(['todo', 'in_progress', 'under_review'] as const)(
+// without the reason, so the refusal is the reason's alone; a queued task
+// carries the session a reservation requires.
+test.each(['todo', 'queued', 'in_progress', 'under_review'] as const)(
   'an open %s task with no hold and a reason is refused: only terminal tasks are normalized',
   (lifecycle) => {
     const input = structuredClone(document);
@@ -91,6 +92,9 @@ test.each(['todo', 'in_progress', 'under_review'] as const)(
       throw new Error('the fixture has no open unheld task');
     }
     task.lifecycle = lifecycle;
+    if (lifecycle === 'queued') {
+      task.session = 'smoke-session';
+    }
     expect(() => parseTransferDocument(input)).not.toThrow();
     task.hold_reason = 'stray';
     expect(() => parseTransferDocument(input)).toThrow(
