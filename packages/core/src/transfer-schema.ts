@@ -111,14 +111,23 @@ export const transferSchema = z.object({
       // A document written before `block_owner` existed (or one that left a
       // blocked task's owner null) takes the owner its `upstream` implies; the
       // owner is empty unless the hold is `blocked`, which the validator checks.
-      .transform((node) => ({
-        ...node,
-        block_owner:
-          node.block_owner ?? (node.hold === 'blocked' ? defaultBlockOwner(node.upstream) : null),
-        grooming: node.grooming ?? (node.type === 'task' ? ('not_groomed' as const) : null),
-        worker_harness: node.worker_harness ?? null,
-        worker_session: node.worker_session ?? null,
-      })),
+      // A terminal task imports unheld (MMR-616): a document an older binary
+      // wrote can carry the hold its `done` or `abandon` left behind.
+      .transform((node) => {
+        const released =
+          node.lifecycle === 'done' || node.lifecycle === 'abandoned'
+            ? { block_owner: null, hold: 'none' as const, hold_reason: null }
+            : undefined;
+        return {
+          ...node,
+          block_owner:
+            node.block_owner ?? (node.hold === 'blocked' ? defaultBlockOwner(node.upstream) : null),
+          grooming: node.grooming ?? (node.type === 'task' ? ('not_groomed' as const) : null),
+          worker_harness: node.worker_harness ?? null,
+          worker_session: node.worker_session ?? null,
+          ...released,
+        };
+      }),
   ),
   projects: z.array(
     z

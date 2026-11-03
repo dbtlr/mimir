@@ -19,8 +19,9 @@ import { clearHandles } from './handles';
  *
  * A `blocked` hold also records its **owner** (ADR 0001, MMR-438): who can clear
  * it. `block` sets it (stated, else derived from the task's `upstream`), and
- * every other hold write — `park`, `unpark`, `unblock` — writes it back to NULL,
- * so the column is non-null exactly while the hold is `blocked`. Changing an
+ * every other hold write — `park`, `unpark`, `unblock`, and the terminal verbs
+ * `done` and `abandon`, which release any hold (MMR-616) — writes it back to
+ * NULL, so the column is non-null exactly while the hold is `blocked`. Changing an
  * owner is `unblock` then `block`; `block` still refuses an already-held task.
  *
  * Entering a hold also CLEARS the resume handles (ADR 0026 Decision 3, MMR-320):

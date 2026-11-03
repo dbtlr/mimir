@@ -531,6 +531,46 @@ describe.each(backends)('$name', (backend) => {
       await source.close();
     }
   });
+  test('an import releases the hold an older binary left on a terminal task (MMR-616)', async () => {
+    const source = await backend.make();
+    try {
+      await seedWorkingSet(source.store);
+      const document = await source.store.export();
+      // The fixture's blocked task, closed the way an older binary's `done` left
+      // it: terminal, yet still blocked with its reason and owner.
+      const residue = structuredClone(document);
+      for (const node of residue.nodes) {
+        if (node.type === 'task' && node.hold === 'blocked') {
+          node.completed_at = '2026-09-03T00:00:00.000Z';
+          node.lifecycle = 'done';
+          node.rank = null;
+        }
+      }
+      const closed = residue.nodes.filter((node) => node.lifecycle === 'done');
+      expect(closed.map((node) => [node.hold, node.block_owner])).toEqual([['blocked', 'others']]);
+
+      const target = await backend.make();
+      try {
+        await target.store.import(residue, { dryRun: false, mode: 'fresh' });
+        const imported = await target.store.export();
+        const ids = new Set(closed.map((node) => node.id));
+        for (const node of imported.nodes.filter((n) => ids.has(n.id))) {
+          expect(
+            { block_owner: node.block_owner, hold: node.hold, hold_reason: node.hold_reason },
+            node.id,
+          ).toEqual({
+            block_owner: null,
+            hold: 'none',
+            hold_reason: null,
+          });
+        }
+      } finally {
+        await target.close();
+      }
+    } finally {
+      await source.close();
+    }
+  });
   test('the project pin round-trips through export and import, and a pre-version-4 document imports unpinned', async () => {
     const source = await backend.make();
     try {

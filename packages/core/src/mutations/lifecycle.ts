@@ -13,8 +13,14 @@ import type { HandleFields, MainHandleFields } from './handles';
  * preserves the main conversation while attaching an optional whole-task worker. Both preserve rank.
  * Unqueue clears the reservation handles and preserves rank. Terminal verbs
  * clear handles and rank; submit/return retain handles through human review.
- * Hold is left untouched on terminal transitions, preserving its history.
+ * Terminal verbs also release any hold (MMR-616): a terminal task has no hold,
+ * so a finished task never reads as blocked or parked and a reopen never
+ * revives a stale one. The hold's history stays on its own transition-log row;
+ * the terminal verb logs only its lifecycle move.
  */
+
+/** The hold fields a terminal verb writes back to unheld, in its own patch. */
+const RELEASED_HOLD = { block_owner: null, hold: 'none', hold_reason: null } as const;
 
 /** The exact task state a caller used to decide whether ambient main identity could be filled. */
 export type StartExpectation = Pick<Node, 'lifecycle' | 'harness' | 'session'>;
@@ -176,7 +182,12 @@ export async function completeTask(store: Store, id: string): Promise<Node> {
     if (task.lifecycle === 'done' || task.lifecycle === 'abandoned') {
       throw validation(`task is already ${task.lifecycle}`);
     }
-    const patch: NodePatch = { completed_at: now(), lifecycle: 'done', rank: null };
+    const patch: NodePatch = {
+      ...RELEASED_HOLD,
+      completed_at: now(),
+      lifecycle: 'done',
+      rank: null,
+    };
     const handles = clearHandles(patch, task);
     await w.updateNode(id, patch);
     await logTransition(w, {
@@ -197,7 +208,7 @@ export async function abandonTask(store: Store, id: string, reason?: string): Pr
     if (task.lifecycle === 'done' || task.lifecycle === 'abandoned') {
       throw validation(`task is already ${task.lifecycle}`);
     }
-    const patch: NodePatch = { lifecycle: 'abandoned', rank: null };
+    const patch: NodePatch = { ...RELEASED_HOLD, lifecycle: 'abandoned', rank: null };
     const handles = clearHandles(patch, task);
     await w.updateNode(id, patch);
     await logTransition(w, {

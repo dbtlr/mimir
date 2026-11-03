@@ -5,7 +5,7 @@ import { createSqliteTestStore } from '../store-sqlite/testing';
 import type { SqliteTestStore } from '../store-sqlite/testing';
 import { expectMimirError } from '../testing/errors';
 import { nodeIdOf, projectIdOf } from '../testing/store';
-import { blockTask, completeTask, parkTask, unblockTask, unparkTask, updateNode } from './index';
+import { blockTask, parkTask, unblockTask, unparkTask, updateNode } from './index';
 
 /**
  * A `blocked` hold records who can clear it (ADR 0001, MMR-438): `you` or
@@ -102,14 +102,6 @@ test('park and unpark never carry an owner', async () => {
   expect(parked.block_owner).toBeNull();
   expect(await stored(id)).toBeNull();
   expect((await unparkTask(fixture.store, id)).block_owner).toBeNull();
-});
-
-test('a terminal transition leaves the hold, and so the owner, as it was', async () => {
-  const id = await task();
-  await blockTask(fixture.store, id, undefined, 'others');
-  const done = await completeTask(fixture.store, id);
-  expect(done.hold).toBe('blocked');
-  expect(done.block_owner).toBe('others');
 });
 
 test('a row written by an older binary reads by the rule: blocked with no owner derives it', async () => {

@@ -14,6 +14,7 @@ import { statements as projectRemoteStatements } from './migrations/0006-project
 import { statements as taskQueuedStatements } from './migrations/0007-task-queued';
 import { statements as mainWorkerStatements } from './migrations/0008-main-worker';
 import { statements as deviceTokensStatements } from './migrations/0009-device-tokens';
+import { statements as pairingRequestsStatements } from './migrations/0010-pairing-requests';
 import { createPgliteDialect } from './pglite';
 import { createEmptyPglite } from './testing';
 
@@ -59,6 +60,7 @@ test('an upgrade names the migrations it applied and lands the current version',
         '0008_main_worker',
         '0009_device_tokens',
         '0010_pairing_requests',
+        '0011_terminal_hold',
       ],
       from: 0,
       to: SCHEMA_VERSION,
@@ -107,6 +109,7 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
         '0008_main_worker',
         '0009_device_tokens',
         '0010_pairing_requests',
+        '0011_terminal_hold',
       ],
       from: 1,
       to: SCHEMA_VERSION,
@@ -163,6 +166,7 @@ test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by
         '0008_main_worker',
         '0009_device_tokens',
         '0010_pairing_requests',
+        '0011_terminal_hold',
       ],
       from: 2,
       to: SCHEMA_VERSION,
@@ -224,6 +228,7 @@ test('0004_seed_parked upgrades a version-3 store: seeds keep their lifecycle, p
         '0008_main_worker',
         '0009_device_tokens',
         '0010_pairing_requests',
+        '0011_terminal_hold',
       ],
       from: 3,
       to: SCHEMA_VERSION,
@@ -271,6 +276,7 @@ test('0005_project_pinned upgrades a version-4 store: projects keep their data a
         '0008_main_worker',
         '0009_device_tokens',
         '0010_pairing_requests',
+        '0011_terminal_hold',
       ],
       from: 4,
       to: SCHEMA_VERSION,
@@ -325,6 +331,7 @@ test('0006_project_remote upgrades a version-5 store: projects keep their data a
         '0008_main_worker',
         '0009_device_tokens',
         '0010_pairing_requests',
+        '0011_terminal_hold',
       ],
       from: 5,
       to: SCHEMA_VERSION,
@@ -533,8 +540,19 @@ test.each([6, 7])(
       ).toBe(true);
       expect((await upgradeSchema(db)).applied).toEqual(
         version === 7
-          ? ['0008_main_worker', '0009_device_tokens', '0010_pairing_requests']
-          : ['0007_task_queued', '0008_main_worker', '0009_device_tokens', '0010_pairing_requests'],
+          ? [
+              '0008_main_worker',
+              '0009_device_tokens',
+              '0010_pairing_requests',
+              '0011_terminal_hold',
+            ]
+          : [
+              '0007_task_queued',
+              '0008_main_worker',
+              '0009_device_tokens',
+              '0010_pairing_requests',
+              '0011_terminal_hold',
+            ],
       );
       expect((await sql`SELECT * FROM transition_log ORDER BY id`.execute(db)).rows).toEqual(
         historyBefore.rows,
@@ -598,7 +616,7 @@ test('0010_pairing_requests upgrades a version-9 store: pending codes go and dev
     );
 
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0010_pairing_requests'],
+      applied: ['0010_pairing_requests', '0011_terminal_hold'],
       from: 9,
       to: SCHEMA_VERSION,
     });
@@ -628,6 +646,76 @@ test('0010_pairing_requests upgrades a version-9 store: pending codes go and dev
         (reason: unknown) => String(reason),
       );
     expect(rejection).toContain('check');
+  } finally {
+    await db.destroy();
+  }
+});
+
+test('0011_terminal_hold upgrades a version-10 store: terminal tasks lose their hold, live holds stay', async () => {
+  const db = await freshDb();
+  try {
+    for (const statement of [
+      ...initStatements,
+      ...groomingStatements,
+      ...blockOwnerStatements,
+      ...seedParkedStatements,
+      ...projectPinnedStatements,
+      ...projectRemoteStatements,
+      ...taskQueuedStatements,
+      ...mainWorkerStatements,
+      ...deviceTokensStatements,
+      ...pairingRequestsStatements,
+    ]) {
+      await sql.raw(statement).execute(db);
+    }
+    await sql`insert into schema_version (version, applied_at) values (1, 't'), (2, 't'), (3, 't'), (4, 't'), (5, 't'), (6, 't'), (7, 't'), (8, 't'), (9, 't'), (10, 't')`.execute(
+      db,
+    );
+    await sql`insert into project (key, name, created_at, updated_at) values ('MMR', 'Mimir', 't', 't')`.execute(
+      db,
+    );
+    // The residue the previous binary's done and abandon left behind, beside live holds.
+    const node = async (
+      seq: number,
+      type: string,
+      lifecycle: string | null,
+      hold: string | null,
+      reason: string | null,
+      owner: string | null,
+    ) =>
+      sql`insert into node (id, project_key, type, seq, title, lifecycle, hold, hold_reason, block_owner, created_at, updated_at)
+          values (${`MMR-${String(seq)}`}, 'MMR', ${type}, ${seq}, 't', ${lifecycle}, ${hold}, ${reason}, ${owner}, 't', 'u')`.execute(
+        db,
+      );
+    await node(1, 'initiative', null, null, null, null);
+    await node(2, 'task', 'done', 'blocked', 'vendor', 'others');
+    await node(3, 'task', 'abandoned', 'blocked', 'stuck', 'you');
+    await node(4, 'task', 'abandoned', 'parked', 'later', null);
+    await node(5, 'task', 'in_progress', 'blocked', 'vendor', 'you');
+    await node(6, 'task', 'todo', 'parked', 'later', null);
+    await node(7, 'task', 'done', 'none', null, null);
+
+    expect(await upgradeSchema(db)).toEqual({
+      applied: ['0011_terminal_hold'],
+      from: 10,
+      to: SCHEMA_VERSION,
+    });
+    const rows = await sql<{
+      id: string;
+      hold: string | null;
+      hold_reason: string | null;
+      block_owner: string | null;
+      updated_at: string;
+    }>`select id, hold, hold_reason, block_owner, updated_at from node order by seq`.execute(db);
+    expect(rows.rows).toEqual([
+      { block_owner: null, hold: null, hold_reason: null, id: 'MMR-1', updated_at: 'u' },
+      { block_owner: null, hold: 'none', hold_reason: null, id: 'MMR-2', updated_at: 'u' },
+      { block_owner: null, hold: 'none', hold_reason: null, id: 'MMR-3', updated_at: 'u' },
+      { block_owner: null, hold: 'none', hold_reason: null, id: 'MMR-4', updated_at: 'u' },
+      { block_owner: 'you', hold: 'blocked', hold_reason: 'vendor', id: 'MMR-5', updated_at: 'u' },
+      { block_owner: null, hold: 'parked', hold_reason: 'later', id: 'MMR-6', updated_at: 'u' },
+      { block_owner: null, hold: 'none', hold_reason: null, id: 'MMR-7', updated_at: 'u' },
+    ]);
   } finally {
     await db.destroy();
   }

@@ -152,7 +152,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     const version = clientVersion;
     expect(await getJson(base, '/health')).toEqual({
       minClient: MIN_CLIENT,
-      schema: 10,
+      schema: 11,
       status: 'ok',
       version,
     });

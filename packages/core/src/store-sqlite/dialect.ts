@@ -23,6 +23,7 @@ import { statements as taskQueued } from './migrations/0007-task-queued';
 import { statements as mainWorker } from './migrations/0008-main-worker';
 import { statements as deviceTokens } from './migrations/0009-device-tokens';
 import { statements as pairingRequests } from './migrations/0010-pairing-requests';
+import { statements as terminalHold } from './migrations/0011-terminal-hold';
 
 /**
  * The SQLite dialect of the shared SQL store (ADR 0032) — the local tier's
@@ -111,6 +112,7 @@ export const sqliteDialect: StoreDialect = {
     '0008_main_worker': mainWorker,
     '0009_device_tokens': deviceTokens,
     '0010_pairing_requests': pairingRequests,
+    '0011_terminal_hold': terminalHold,
   },
   // A local store migrates forward whenever it is opened (ADR 0032 Decision
   // 3), so a gap only shows to a reader that skipped the opener.
