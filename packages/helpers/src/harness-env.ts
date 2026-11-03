@@ -13,8 +13,8 @@ export type ShellFill =
 
 /**
  * Detect shell harness identity without choosing between inherited nested harnesses.
- * A T3 thread is the exception: T3 wraps the agent it launches, so its thread is
- * the outermost conversation and wins over every agent detected under it.
+ * A T3 thread is the exception: it is the conversation the user resumes, so it
+ * wins over every agent detected under it, including agents started inside it.
  */
 export function detectHarness(env: Readonly<Record<string, string | undefined>>): Detection {
   if (env.T3CODE_THREAD_ID !== undefined && env.T3CODE_THREAD_ID.trim() !== '') {

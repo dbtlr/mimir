@@ -204,9 +204,9 @@ main flags for the user conversation, `--worker-session` for a distinct task
 owner, and `--worker-harness` when known.
 Use each harness's own knowledge of its resumable session. Inherited shell
 variables can describe an outer harness; they do not override that knowledge.
-T3 Code is the exception: an agent in a T3 thread records the thread as its
-main identity, `--harness t3 --session "$T3CODE_THREAD_ID"`, because the T3
-thread is the conversation the user resumes.
+T3 Code is the exception: when `T3CODE_THREAD_ID` is set, an agent records the
+T3 thread as its main identity, `--harness t3 --session "$T3CODE_THREAD_ID"`,
+because the T3 thread is the conversation the user resumes.
 
 | Harness | Session id in its tool shell |
 | --- | --- |

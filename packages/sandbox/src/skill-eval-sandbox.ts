@@ -52,11 +52,12 @@ export function agentPath(sandboxBin: string, callerPath: string): string {
  * Whether a variable carries the calling session's agent identity: Claude Code's
  * markers, and the T3 thread that would otherwise win harness detection.
  */
-export function isCallerAgentVariable(key: string): boolean {
+function isCallerAgentVariable(key: string): boolean {
   return key === 'CLAUDECODE' || key.startsWith('CLAUDE_CODE_') || key === 'T3CODE_THREAD_ID';
 }
 
-function agentEnvironment(root: string, harness: Harness): NodeJS.ProcessEnv {
+/** The eval agent's environment: the caller's, isolated and without the caller's agent identity. */
+export function agentEnvironment(root: string, harness: Harness): NodeJS.ProcessEnv {
   const env = isolatedEnvironment();
   env.PATH = agentPath(join(root, 'bin'), env.PATH ?? '');
   // A nested harness must not believe it runs inside this session's agent.
