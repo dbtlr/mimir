@@ -24,6 +24,7 @@ import { statements as mainWorker } from './migrations/0008-main-worker';
 import { statements as deviceTokens } from './migrations/0009-device-tokens';
 import { statements as pairingRequests } from './migrations/0010-pairing-requests';
 import { statements as terminalHold } from './migrations/0011-terminal-hold';
+import { statements as hostSecrets } from './migrations/0012-host-secrets';
 import { serializable, snapshotRead } from './tx';
 
 /**
@@ -106,6 +107,7 @@ export const postgresDialect: StoreDialect = {
     '0009_device_tokens': deviceTokens,
     '0010_pairing_requests': pairingRequests,
     '0011_terminal_hold': terminalHold,
+    '0012_host_secrets': hostSecrets,
   },
   // A shared store is migrated by the host that owns it when it starts, never as
   // a side effect of another binary opening it (ADR 0030, ADR 0035).

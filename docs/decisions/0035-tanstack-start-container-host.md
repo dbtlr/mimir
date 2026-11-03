@@ -208,3 +208,25 @@ CLIs no longer share the host's Postgres or keep a `mimir store upgrade` gate.
 The host is the only Mimir program that opens Postgres, and it migrates its
 store at startup. See [ADR 0030](0030-postgres-store-backend-shared-store-bridge.md)'s
 2026-10-29 addendum.
+
+## Addendum (2026-11-03, MMR-624): optional-feature settings degrade
+
+[ADR 0040](0040-outbound-integrations-and-host-secrets.md) adds three host
+settings for the optional T3 Code integration:
+
+| Variable | Meaning |
+| --- | --- |
+| `MIMIR_SECRET_KEY` | The 32-byte key that seals host secrets, as base64 or base64url text. |
+| `MIMIR_SECRET_KEY_FILE` | Read that key from a file, such as a mounted Docker secret. |
+| `MIMIR_T3_URL` | The T3 Code server's origin. Unset, the integration is absent. |
+
+This refines "other invalid configuration refuses startup". The store, port,
+and guard settings above still refuse startup when invalid, and setting both
+`MIMIR_SECRET_KEY` and `MIMIR_SECRET_KEY_FILE` refuses startup like the
+database URL pair. A problem with an optional feature's settings does not:
+with `MIMIR_T3_URL` unset, the key settings are otherwise ignored and
+nothing is logged; with it set, a malformed `MIMIR_T3_URL`, a missing, unreadable, or
+malformed key, an unset `MIMIR_HOSTS`, or an HTTP `MIMIR_URL` on a
+non-loopback host lets the host boot, logs a warning that names the setting,
+and makes the feature report itself misconfigured until the setting is
+fixed.

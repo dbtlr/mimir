@@ -195,6 +195,9 @@ that names an invalid one. It does not read the CLI's `config.toml`.
 | `MIMIR_URL`               | The console's public `http` or `https` origin, with no path.                             |
 | `MIMIR_HOSTS`             | Turn on the Host allowlist: comma-separated bare hostnames. An empty value is allowed.   |
 | `MIMIR_PORT`              | The port inside the container, `64647` by default.                                       |
+| `MIMIR_T3_URL`            | Turn on the T3 Code integration: the T3 server's origin. See [Connect T3 Code](#connect-t3-code). |
+| `MIMIR_SECRET_KEY_FILE`   | Read the 32-byte key that seals host secrets from this file, such as a mounted secret.   |
+| `MIMIR_SECRET_KEY`        | The 32-byte key that seals host secrets, as base64 or base64url text.                    |
 
 By default the host answers any `Host` header. Setting `MIMIR_HOSTS` adds
 optional protection against DNS rebinding: the host then answers only
@@ -212,6 +215,11 @@ browser also browses untrusted sites.
 The host always refuses a browser write from another origin, with the
 `forbidden_origin` error. The CLI and other clients that send no `Origin`
 header pass.
+
+Setting both `MIMIR_SECRET_KEY` and `MIMIR_SECRET_KEY_FILE` refuses startup.
+A problem with the T3 settings does not: the host starts, logs a warning that
+names the setting, and the integration stays off until you fix it. Without
+`MIMIR_T3_URL`, the key settings are ignored.
 
 ## Check health
 
@@ -439,6 +447,40 @@ with when each was last used. A request's code is stored hashed, so the list
 cannot show it. Decide on `/pair` with the code the device displays. Select
 **Unpair** on a paired device and confirm to revoke its token at once. The
 device must pair again to regain access.
+
+## Connect T3 Code
+
+The host can connect to one T3 Code
+server and reach the T3 systems linked to it. The connection's access token is
+stored in the store, encrypted under a secret key that you keep outside it.
+
+1. Generate a secret key and store it where your deployment keeps secrets:
+
+   ```sh
+   openssl rand -base64 32
+   ```
+
+2. Set these variables on the host, then restart it:
+   - `MIMIR_T3_URL`: the T3 server's origin, such as
+     `https://asgard.tail1234.ts.net`. Use HTTPS, or HTTP on a loopback name.
+     It must be the origin T3 reports as its own address.
+   - `MIMIR_SECRET_KEY_FILE`, naming a mounted file that holds the key, or
+     `MIMIR_SECRET_KEY` with the key itself. Prefer the file: container
+     inspection shows environment values.
+   - `MIMIR_HOSTS`, to turn on the Host allowlist. An empty value is allowed.
+   - `MIMIR_URL`, as an HTTPS origin, unless you open the console only on
+     loopback. T3 returns the browser only to an HTTPS or loopback address.
+
+3. Open `/devices` in the console. The **T3 Code** card shows the connection's
+   state. When a setting is wrong, the card names it.
+4. Select **Connect T3**. On T3's screen, approve the connection and pick full
+   access if threads that Mimir launches should run without approval prompts.
+   T3 returns you to `/devices`, which reports the outcome.
+
+A connection lasts 30 days. When it expires, or T3 stops accepting it, the
+card says so: select **Reconnect T3** and approve again. Changing the secret
+key makes the saved connection unreadable, and the card asks you to connect
+again.
 
 ## Administer the host with mimir-host
 

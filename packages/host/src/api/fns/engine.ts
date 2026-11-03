@@ -1,7 +1,9 @@
 import type { Engine } from '@mimir/contract';
+import { getRequest } from '@tanstack/react-start/server';
 
 import type { DeviceTokens } from '../../server/devices';
 import { hostRuntime } from '../../server/runtime';
+import type { T3Adapter } from '../../server/t3';
 import type { WireDoctorFacet } from '../doctor-facet';
 
 /**
@@ -32,4 +34,22 @@ export async function recordHealth(project: string | undefined): Promise<WireDoc
  */
 export async function deviceTokens(): Promise<DeviceTokens> {
   return (await hostRuntime()).tokens;
+}
+
+/**
+ * The T3 Code adapter (ADR 0040): Connect, status, and the launch catalog.
+ * Like {@link deviceTokens}, a host concern beside the Engine; its credential
+ * stays in the host-secret store and never crosses to the browser.
+ */
+export async function t3Integration(): Promise<T3Adapter> {
+  return (await hostRuntime()).t3;
+}
+
+/**
+ * The origin of the request a server function is answering. Connect and the
+ * status read need it when `MIMIR_URL` is unset: only a loopback origin can
+ * receive T3's redirect then.
+ */
+export function requestOrigin(): string {
+  return new URL(getRequest().url).origin;
 }

@@ -26,6 +26,10 @@ export async function handlePairingPoll(request: Request) {
   return (await hostRuntime()).handlePairingPoll(request);
 }
 
+export async function handleT3Callback(request: Request) {
+  return (await hostRuntime()).handleT3Callback(request);
+}
+
 export async function closeHost() {
   await (await globalThis.mimirHostRuntime)?.close();
   globalThis.mimirHostRuntime = undefined;

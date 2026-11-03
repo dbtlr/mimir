@@ -5,6 +5,8 @@ import { isHostName, normalizeServeUrl } from '@mimir/core';
 import type { ServeConfig, StoreConfig } from '@mimir/core';
 import { parse } from 'pg-connection-string';
 
+import { readT3Settings } from './t3-settings';
+
 /** Read and validate host configuration without consulting CLI configuration. */
 export async function readHostConfig(env: NodeJS.ProcessEnv = process.env) {
   if (env.MIMIR_DATABASE_URL !== undefined && env.MIMIR_DATABASE_URL_FILE !== undefined) {
@@ -66,7 +68,9 @@ export async function readHostConfig(env: NodeJS.ProcessEnv = process.env) {
     }
     serve.url = origin;
   }
-  return { dataDirectory, port, serve, store };
+  // The optional T3 integration (ADR 0040) degrades instead of refusing startup.
+  const t3 = await readT3Settings(env, serve);
+  return { dataDirectory, port, serve, store, t3 };
 }
 
 export type HostConfig = Awaited<ReturnType<typeof readHostConfig>>;

@@ -21,6 +21,7 @@ import { serveDevices } from './devices-fns';
 import { engineNode, engineProject, engineTree } from './engine-fixtures';
 import { serveNodes } from './node-fns';
 import { serveShell } from './shell-fns';
+import { serveT3 } from './t3-fns';
 import { stubViewport } from './viewport';
 import { engineReview, stripRow } from './views-fixtures';
 import { serveViews } from './views-fns';
@@ -30,6 +31,7 @@ vi.mock('../api/fns/shell');
 vi.mock('../api/fns/browse');
 vi.mock('../api/fns/views');
 vi.mock('../api/fns/devices');
+vi.mock('../api/fns/t3');
 
 /*
  * The shell's project sidebar (ADR 0013, MMR-492 refinement): the current
@@ -158,6 +160,7 @@ const listedKeys = (area: HTMLElement) =>
 beforeEach(() => {
   serveBrowse();
   serveDevices();
+  serveT3();
   serveViews();
   localStorage.clear();
   stubViewport('desktop');

@@ -51,6 +51,17 @@ describe('shouldPersistQuery', () => {
     }
   });
 
+  it("T3 Code's answers are never persisted (ADR 0040)", () => {
+    for (const key of [
+      ['t3', 'status'],
+      ['t3', 'catalog', 'MMR'],
+    ]) {
+      expect(shouldPersistQuery({ queryKey: key, state: { data: { state: 'connected' } } })).toBe(
+        false,
+      );
+    }
+  });
+
   it('a query that never got data is not persisted', () => {
     expect(shouldPersistQuery({ queryKey: ['projects'], state: { data: undefined } })).toBe(false);
   });

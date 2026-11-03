@@ -70,6 +70,7 @@ lane('upgradeSchema builds the schema from empty, and the gate then passes', asy
           '0009_device_tokens',
           '0010_pairing_requests',
           '0011_terminal_hold',
+          '0012_host_secrets',
         ],
         from: 0,
         to: SCHEMA_VERSION,

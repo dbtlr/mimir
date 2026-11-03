@@ -24,6 +24,7 @@ export const MIGRATIONS = [
   { name: '0009_device_tokens', version: 9 },
   { name: '0010_pairing_requests', version: 10 },
   { name: '0011_terminal_hold', version: 11 },
+  { name: '0012_host_secrets', version: 12 },
 ] as const;
 
 export type Migration = (typeof MIGRATIONS)[number];

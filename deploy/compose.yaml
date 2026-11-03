@@ -16,6 +16,11 @@ services:
       # Optional: the public console origin, and the Host allowlist.
       # MIMIR_URL: https://box.tail1234.ts.net
       # MIMIR_HOSTS: ""
+      # Optional: the T3 Code integration (docs/guides/host.md, Connect T3 Code).
+      # It needs MIMIR_HOSTS, an HTTPS MIMIR_URL, and a secret key.
+      # MIMIR_T3_URL: https://box.tail1234.ts.net
+      # MIMIR_SECRET_KEY_FILE: /run/secrets/mimir_secret_key
+      # MIMIR_SECRET_KEY: <openssl rand -base64 32>
       MIMIR_DATA_DIR: /data
     volumes:
       - data:/data

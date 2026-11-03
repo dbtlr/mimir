@@ -94,6 +94,10 @@ export type {
   PendingPairing,
   TokenStore,
 } from './tokens';
+export { createHostSecretStore } from './host-secrets';
+export type { HostSecretStore } from './host-secrets';
+export { openSecret, parseSecretKey, sealSecret } from './secret-seal';
+export type { SecretKey } from './secret-seal';
 export type { StoreDialect } from './store-sql/dialect';
 export { sqliteDialect } from './store-sqlite/dialect';
 export { postgresDialect } from './store-postgres/dialect';

@@ -130,6 +130,7 @@ test('an existing-only sqlite build refuses a missing store and creates nothing'
   );
   try {
     expect(await built.tokens.list()).toEqual([]);
+    expect(await built.secrets.read('t3.oauth')).toBeUndefined();
   } finally {
     await built.close();
   }

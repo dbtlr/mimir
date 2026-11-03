@@ -62,6 +62,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0037](0037-the-cli-and-mcp-on-loom.md)                         | The CLI and MCP on Loom                                            |
 | [0038](0038-device-pairing-and-the-version-window.md)            | Device pairing and the version window                              |
 | [0039](0039-changelog-and-versioning-on-loom.md)                 | Changelog and versioning on Loom (supersedes 0022)                 |
+| [0040](0040-outbound-integrations-and-host-secrets.md)            | Outbound integrations and host secrets                             |
 
 Two maintained engineering references live beside this directory:
 [`docs/schema-reference.md`](../schema-reference.md) (the concrete model

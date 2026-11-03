@@ -114,11 +114,11 @@ function stringField(input: unknown, key: string): string | null {
   return typeof value === 'string' ? value : null;
 }
 
-/** Pairing routes accept only POST. */
-export function postOnly() {
+/** A host route's answer to any method but the one it serves: a 405 naming that method. */
+export function methodNotAllowed(allow: 'GET' | 'POST') {
   return Response.json(
     { error: 'method not allowed' },
-    { headers: { ...noStore, allow: 'POST' }, status: 405 },
+    { headers: { ...noStore, allow }, status: 405 },
   );
 }
 
