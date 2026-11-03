@@ -2,6 +2,7 @@ import type { BlockOwner, Hold } from '@mimir/contract';
 
 import { defaultBlockOwner } from '../block-owner';
 import { validation } from '../errors';
+import { RELEASED_HOLD } from '../hold-release';
 import type { Node } from '../model';
 import { appendRank, isRankable } from '../rank';
 import type { NodePatch, Store } from '../store';
@@ -19,8 +20,9 @@ import { clearHandles } from './handles';
  *
  * A `blocked` hold also records its **owner** (ADR 0001, MMR-438): who can clear
  * it. `block` sets it (stated, else derived from the task's `upstream`), and
- * every other hold write — `park`, `unpark`, `unblock` — writes it back to NULL,
- * so the column is non-null exactly while the hold is `blocked`. Changing an
+ * every other hold write — `park`, `unpark`, `unblock`, and the terminal verbs
+ * `done` and `abandon`, which release any hold (MMR-616) — writes it back to
+ * NULL, so the column is non-null exactly while the hold is `blocked`. Changing an
  * owner is `unblock` then `block`; `block` still refuses an already-held task.
  *
  * Entering a hold also CLEARS the resume handles (ADR 0026 Decision 3, MMR-320):
@@ -82,7 +84,7 @@ async function releaseHold(store: Store, id: string, from: Exclude<Hold, 'none'>
     // rankable once un-held (todo/in_progress). A held `under_review` task
     // stays non-rankable on release (not actionable until its review gate clears).
     const rank = isRankable(task.lifecycle, 'none') ? await appendRank(w, task.project_id) : null;
-    await w.updateNode(id, { block_owner: null, hold: 'none', hold_reason: null, rank });
+    await w.updateNode(id, { ...RELEASED_HOLD, rank });
     await logTransition(w, { from_value: from, kind: 'hold', node_id: id, to_value: 'none' });
     await stamp(w, id);
     return reloadNode(w, id);

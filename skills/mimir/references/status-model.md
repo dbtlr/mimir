@@ -93,7 +93,8 @@ a pull request's review request, asks for the operator when it needs them.
 `done`/`abandoned` are terminal but not immutable: `reopen <id> "reason"` moves
 either back to `in_progress`, clearing `completed_at` and re-entering the rankable
 set at the bottom — a fresh re-triage point, not a resume-in-place. The original
-terminal transition stays in the log; reopening is append-only, not a rewrite. It's
+terminal transition stays in the log; reopening is append-only, not a rewrite.
+`done` and `abandon` release any hold, so a reopened task comes back unheld. It's
 the deliberate correction path for a call that was wrong (a premature `done`, a
 wrongly-abandoned approach) — never for new scope on genuinely finished work, which
 is a new task.

@@ -1,4 +1,5 @@
 import { readBlockOwner } from '../block-owner';
+import { holdsNoHold, RELEASED_HOLD } from '../hold-release';
 import type { Dependency, Node, Project } from '../model';
 import type { NodeTag, WorkingSet } from '../store';
 import type { StoreDialect } from './dialect';
@@ -16,12 +17,17 @@ import type { Executor, NodeRow, ProjectRow } from './schema';
 
 /** The node columns the working set projects; `description` rides bodySections. */
 export function toNode(row: NodeRow, dialect: StoreDialect): Node {
+  // A terminal task has no hold (MMR-616). A done or abandoned row that still
+  // carries one comes from a process that started before migration 0011 ran
+  // (the schema gate runs once per process), so it reads unheld.
+  const released = holdsNoHold(row.lifecycle);
+  const hold = released ? RELEASED_HOLD.hold : row.hold;
   return {
     // Empty unless the hold is `blocked`. A blocked row with NULL here comes
     // from a process that started before migration 0003 ran (the schema gate
     // runs once per process), so the owner derives by the same rule the
     // migration backfilled with (ADR 0001, MMR-438).
-    block_owner: readBlockOwner(row.hold, row.block_owner, row.upstream),
+    block_owner: readBlockOwner(hold, row.block_owner, row.upstream),
     branch: row.branch,
     completed_at: row.completed_at,
     created_at: row.created_at,
@@ -34,8 +40,8 @@ export function toNode(row: NodeRow, dialect: StoreDialect): Node {
     // `not_groomed`, the same default a new task is born with. Containers stay null.
     grooming: row.grooming ?? (row.type === 'task' ? 'not_groomed' : null),
     harness: row.harness,
-    hold: row.hold,
-    hold_reason: row.hold_reason,
+    hold,
+    hold_reason: released ? RELEASED_HOLD.hold_reason : row.hold_reason,
     host: row.host,
     id: row.id,
     lifecycle: row.lifecycle,

@@ -225,3 +225,22 @@ Considered and rejected:
 - **Blocking a review on `you` to ask for the operator's verdict.** A hold
   clears the handles that ADR 0026 keeps through review, and a held review
   reads `blocked`, so its task page offers no verdict until it is unblocked.
+
+## Refinement (2026-11-02, MMR-616): a terminal task has no hold
+
+A hold is orthogonal to the progress positions, but it sets work aside, and
+terminal work is no longer waiting for anything. `done` and `abandon` release a
+`blocked` or `parked` hold in the same write that ends the task: the hold
+becomes `none`, and its reason and owner are cleared.
+
+- **The release is logged.** It appends a hold row (`blocked` or `parked` to
+  `none`) just before the lifecycle row, as every hold change does (ADR 0003),
+  so the log and the columns agree.
+- **`reopen` returns an unheld task.** A reopened task re-enters at the bottom
+  of the rankable set with no hold. A task that should stay set aside is
+  parked or blocked again after the reopen.
+- **Stored rows are repaired.** Migration `0011_terminal_hold` releases the
+  hold on every done or abandoned row written before this rule, an import
+  applies the rule to an older document, and the read path reads a terminal
+  row as unheld whatever an older process wrote.
+
