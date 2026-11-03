@@ -38,7 +38,6 @@ const HUES = [
   { cls: 'bg-action-foreground', name: 'action-foreground' },
   { cls: 'bg-attention', name: 'attention' },
   { cls: 'bg-attention-solid', name: 'attention-solid' },
-  { cls: 'bg-cold', name: 'cold' },
 ] as const;
 
 const TYPE_SCALE = [

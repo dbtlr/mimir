@@ -153,3 +153,14 @@ describe('status tokens never borrow a role hue (ADR 0019 §1)', () => {
     },
   );
 });
+
+/**
+ * ADR 0019 §3: going cold is a modifier drawn in demoted ink beside a status,
+ * never a hue of its own. A cold hue sat on top of `awaiting` in both themes
+ * (MMR-619), so the console draws the cold count in an ink token instead.
+ */
+describe('going cold has no hue of its own (ADR 0019 §3)', () => {
+  it.each(THEMES)('%s: declares no cold color token', (_theme, tokens) => {
+    expect([...tokens.keys()].filter((name) => /^--color-cold(-|$)/.test(name))).toEqual([]);
+  });
+});

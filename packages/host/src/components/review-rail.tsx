@@ -61,7 +61,8 @@ const STRIP_COLUMNS =
 /**
  * One row per active project in the report's order (pinned first, then the
  * most recent activity): its decisions in the attention hue, its open tasks
- * ("live"), and the tasks going cold. A row opens the project's work page.
+ * ("live"), and the tasks going cold, in demoted ink because going cold is a
+ * modifier with no hue (ADR 0019 §3). A row opens the project's work page.
  */
 function HealthStrip({ projects }: { projects: ReviewReport['projects'] }) {
   // With every project archived there is nothing to list, and headers alone mislead.
@@ -103,7 +104,11 @@ function HealthStrip({ projects }: { projects: ReviewReport['projects'] }) {
                 noun={(n) => `${String(n)} live`}
                 className="text-status-in-progress-foreground"
               />
-              <StripCount n={p.goingCold} noun={(n) => `${String(n)} cold`} className="text-cold" />
+              <StripCount
+                n={p.goingCold}
+                noun={(n) => `${String(n)} cold`}
+                className="text-ink-dim"
+              />
             </Link>
           </li>
         ))}

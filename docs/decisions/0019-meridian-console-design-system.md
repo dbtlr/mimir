@@ -400,3 +400,30 @@ operator. The `under_review` status hue is now chartreuse.
   one status hue.
 - The CLI's ANSI status colors are out of scope. The terminal has no
   attention role, so `under_review` stays magenta there.
+
+## Refinement (2026-11-02, MMR-619): going cold has no hue
+
+§3 makes _going cold_ a modifier drawn in demoted ink, but the console gave
+it a hue of its own, `--color-cold`, which sat on `awaiting`. In the light
+theme the two shared `#8a9aa8`. In the dark theme they sat at OKLab ΔE ×100
+2.2, under the floor of 6 the MMR-617 refinement set between a status and
+the attention role. The cold count is the token's only use, and it is text,
+yet the light value measured 2.49:1 against the page and 2.89:1 against a
+panel, below AA's 4.5:1.
+
+- **Going cold draws in demoted ink.** The review page's per-project cold
+  count uses `ink-dim` (`#8fa0ae` dark, `#5a6b77` light): 6.99:1 and 6.62:1
+  against the dark page and panel, and 4.76:1 and 5.52:1 against the light
+  page and panel. The column header names the count, so it needs no hue.
+  `--color-cold` is retired in both themes. This supersedes the MMR-476
+  refinement's "going cold its cold hue".
+- **No status hue changes.** `awaiting` keeps its values. `ink-dim` shares
+  its hex with the `new` status, the console's neutral text tone. That pairs
+  ink with a status, not a role with a status, so §1's rule is untouched.
+- **Considered and rejected.** A frost teal (`#3d908b` dark, `#207773`
+  light) cleared every status by ΔE 6 and passed AA. In the light theme it sat
+  ΔE 6.1 from the accent teal that colours the project key in the same row,
+  and close to `done` green. A ◌ glyph before each count repeated what the
+  column header already says.
+- `packages/host/src/test/role-hues.test.ts` fails if either theme declares
+  a `--color-cold` token.
