@@ -695,6 +695,7 @@ test('0011_terminal_hold upgrades a version-10 store: terminal tasks lose their 
     await node(6, 'task', 'todo', 'parked', 'later', null);
     await node(7, 'task', 'done', 'none', null, null);
     await node(8, 'task', 'done', 'none', 'stray', 'you');
+    await node(9, 'task', 'done', 'parked', null, null);
 
     expect(await upgradeSchema(db)).toEqual({
       applied: ['0011_terminal_hold'],
@@ -717,6 +718,7 @@ test('0011_terminal_hold upgrades a version-10 store: terminal tasks lose their 
       { block_owner: null, hold: 'parked', hold_reason: 'later', id: 'MMR-6', updated_at: 'u' },
       { block_owner: null, hold: 'none', hold_reason: null, id: 'MMR-7', updated_at: 'u' },
       { block_owner: null, hold: 'none', hold_reason: null, id: 'MMR-8', updated_at: 'u' },
+      { block_owner: null, hold: 'none', hold_reason: null, id: 'MMR-9', updated_at: 'u' },
     ]);
   } finally {
     await db.destroy();
