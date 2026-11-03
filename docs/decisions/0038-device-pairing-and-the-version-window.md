@@ -479,3 +479,11 @@ This refines step 2 of the client behavior above. A default install has no
 - **An install that already names a host skips the check.** When `[host] url`
   names an origin, the board was left behind at the first pairing, so
   re-pairing to repair credentials or to replace the host does not ask again.
+
+## Addendum (2026-11-03, MMR-624): the T3 callback route
+
+[ADR 0040](0040-outbound-integrations-and-host-secrets.md) adds
+`GET /auth/t3/callback`, where T3 Code's OAuth flow returns the browser. It is
+a host route like the pairing routes: inside the host guard, outside the
+version window and the bearer check. The JSON `404` for other paths under
+`/auth` stands.
