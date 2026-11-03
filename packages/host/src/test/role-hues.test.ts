@@ -153,3 +153,14 @@ describe('status tokens never borrow a role hue (ADR 0019 §1)', () => {
     },
   );
 });
+
+/**
+ * ADR 0019 §3: going cold is a modifier, never a status. Its own token sat on
+ * `awaiting`: the same hex in the light theme and ΔE 2.2 away in the dark
+ * (MMR-619). The cold count draws in ink instead, so no theme declares one.
+ */
+describe('going cold has no color token (ADR 0019 §3, MMR-619)', () => {
+  it.each(THEMES)('%s: declares no cold color token', (_theme, tokens) => {
+    expect([...tokens.keys()].filter((name) => /^--color-cold(-|$)/.test(name))).toEqual([]);
+  });
+});

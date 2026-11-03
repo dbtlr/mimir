@@ -76,9 +76,9 @@
   --color-attention-foreground: #c9aef0;
   --color-attention-solid: #af8de6;
 
-  /* going-cold (MMR-106): a temperature modifier, deliberately *outside* the
-     status vocabulary so a stale project never reads as a status word. */
-  --color-cold: #77858f;
+  /* going-cold (MMR-106) is a temperature modifier outside the status
+     vocabulary. It has no color token of its own: the review page's cold
+     count draws in ink-dim (ADR 0019, MMR-619). */
 
   /* the status vocabulary — the one color system.
      `-foreground` is the text tone; the base is the dot / border / wash hue. */
@@ -223,9 +223,6 @@ body {
   --color-attention: #6d4bb8;
   --color-attention-foreground: #54408f;
   --color-attention-solid: #7a55c4;
-
-  /* going-cold (MMR-106) — deepened for a light ground */
-  --color-cold: #8a9aa8;
 
   /* the status vocabulary — deepened for a light ground.
      Amber trap: in-progress foreground #8a5c10 is the only amber allowed as

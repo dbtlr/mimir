@@ -322,6 +322,14 @@ describe('the review rail: the project health strip', () => {
     expect(norn!.textContent).not.toMatch(/decision|live|cold/);
   });
 
+  it('draws the cold count in demoted ink, not a hue a status could share (ADR 0019 §3, MMR-619)', async () => {
+    serve(engineReview({ projects: [stripRow(MMR, { goingCold: 4 })] }));
+    await renderRoute(consoleRoutes, '/');
+
+    const rail = await screen.findByRole('complementary', { name: RAIL });
+    expect(within(rail).getByTitle('4 cold').className).toContain('text-ink-dim');
+  });
+
   it('is the one project listing: no triage table, archived shelf, or New project on the page', async () => {
     serve(engineReview({ projects: TWO_PROJECTS }), [
       engineProject({

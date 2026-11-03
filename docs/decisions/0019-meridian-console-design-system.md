@@ -400,3 +400,41 @@ operator. The `under_review` status hue is now chartreuse.
   one status hue.
 - The CLI's ANSI status colors are out of scope. The terminal has no
   attention role, so `under_review` stays magenta there.
+
+## Refinement (2026-11-02, MMR-619): the cold count draws in ink, and the cold token retires
+
+The review page's per-project cold count drew in `--color-cold`, a token
+only it and the `/kit` swatch used. That token sat on the `awaiting` status
+base: the same hex, `#8a9aa8`, in the light theme, and OKLab ΔE ×100 2.2 away
+in the dark theme. So the one thing the console coloured "cold" wore a status
+hue, against §1. The count is text, and the light value measured 2.49:1
+against the page and 2.89:1 against a panel, below AA's 4.5:1.
+
+- **The cold count draws in demoted ink.** It uses `ink-dim` (`#8fa0ae`
+  dark, `#5a6b77` light): 6.99:1 and 6.62:1 against the dark page and
+  panel, and 4.76:1 and 5.52:1 against the light page and panel. The column
+  header names the count. `--color-cold` is retired in both themes, and
+  the `/kit` swatch with it. This supersedes the MMR-476 refinement's "going
+  cold its cold hue".
+- **§1 governs hues, not ink.** Ink is the console's neutral
+  text, shared by every surface, so §1's one-hue-one-job rule and the
+  MMR-617 distance floor, which binds a status to the attention role, do
+  not apply to it. `ink-dim` shares its hex with the `new` status, and in
+  the light theme it sits ΔE 1.0 from `awaiting`'s text tone (`#5f6d7a`)
+  and 3.0 from `parked`'s, as all secondary text already does. Each count in the
+  strip is told apart by its column header. The live count takes the
+  `in_progress` hue because live work is in flight; the cold count has no
+  status to show, so it takes neutral ink.
+- **The count carries no glyph.** §3's glyph marks a node's modifier. The
+  count is an aggregate under a header that already says _cold_, and a ◌
+  before it repeated that.
+- **Scope.** This refinement covers the cold count. The stale chip that
+  marks a going-cold row (`⧗ stale`) draws in the `in_progress` amber;
+  whether it keeps that hue is MMR-620. No status token changes.
+- **Considered and rejected.** A frost teal (`#3d908b` dark, `#207773`
+  light) cleared every status by ΔE 6 and passed AA. In the light theme it
+  sat ΔE 6.3 from the accent teal that colours the project key in the same
+  row, and 6.1 from `done`'s text green.
+- `packages/host/src/test/role-hues.test.ts` fails if either theme declares
+  a `--color-cold` token, and the review page's test fails unless the cold
+  count draws in `text-ink-dim`.
