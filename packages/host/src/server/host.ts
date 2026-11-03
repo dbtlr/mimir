@@ -7,6 +7,8 @@ import { assertHostVersion, createEngineHandler } from '@mimir/wire/server';
 
 import type { HostConfig } from './config';
 import { createPairingHandlers } from './pairing';
+import { createT3Adapter } from './t3';
+import { t3StartupWarnings } from './t3-settings';
 
 /** Open the host-owned store and finish migrations before exposing handlers. */
 export async function openHost(
@@ -45,6 +47,17 @@ export async function openHost(
       findings: findingsProviderOf(built.doctor.facet),
     });
     const pairing = createPairingHandlers({ log, tokens: built.tokens });
+    // An optional integration's bad setting warns and degrades; it never refuses startup.
+    for (const warning of t3StartupWarnings(config.t3)) {
+      log(warning);
+    }
+    const t3 = createT3Adapter({
+      engine,
+      log,
+      secrets: built.secrets,
+      settings: config.t3,
+      version,
+    });
     return {
       close: built.close,
       // The record-health facet: a host concern, not an Engine method (ADR 0034).
@@ -52,7 +65,11 @@ export async function openHost(
       engine,
       handlePairingPoll: pairing.poll,
       handlePairingRequest: pairing.request,
+      handleT3Callback: t3.callback,
       handleTrpc: createEngineHandler(engine, { verifyToken: built.tokens.verify, version }),
+      // Host secrets and the T3 adapter: host concerns beside the Engine (ADR 0040).
+      secrets: built.secrets,
+      t3,
       tokens: built.tokens,
     };
   } catch (error) {

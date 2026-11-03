@@ -15,6 +15,7 @@ import { statements as taskQueuedStatements } from './migrations/0007-task-queue
 import { statements as mainWorkerStatements } from './migrations/0008-main-worker';
 import { statements as deviceTokensStatements } from './migrations/0009-device-tokens';
 import { statements as pairingRequestsStatements } from './migrations/0010-pairing-requests';
+import { statements as terminalHoldStatements } from './migrations/0011-terminal-hold';
 import { createPgliteDialect } from './pglite';
 import { createEmptyPglite } from './testing';
 
@@ -61,6 +62,7 @@ test('an upgrade names the migrations it applied and lands the current version',
         '0009_device_tokens',
         '0010_pairing_requests',
         '0011_terminal_hold',
+        '0012_host_secrets',
       ],
       from: 0,
       to: SCHEMA_VERSION,
@@ -110,6 +112,7 @@ test('0002_grooming upgrades a version-1 store: tasks not_groomed, containers NU
         '0009_device_tokens',
         '0010_pairing_requests',
         '0011_terminal_hold',
+        '0012_host_secrets',
       ],
       from: 1,
       to: SCHEMA_VERSION,
@@ -167,6 +170,7 @@ test('0003_block_owner upgrades a version-2 store: blocked tasks get an owner by
         '0009_device_tokens',
         '0010_pairing_requests',
         '0011_terminal_hold',
+        '0012_host_secrets',
       ],
       from: 2,
       to: SCHEMA_VERSION,
@@ -229,6 +233,7 @@ test('0004_seed_parked upgrades a version-3 store: seeds keep their lifecycle, p
         '0009_device_tokens',
         '0010_pairing_requests',
         '0011_terminal_hold',
+        '0012_host_secrets',
       ],
       from: 3,
       to: SCHEMA_VERSION,
@@ -277,6 +282,7 @@ test('0005_project_pinned upgrades a version-4 store: projects keep their data a
         '0009_device_tokens',
         '0010_pairing_requests',
         '0011_terminal_hold',
+        '0012_host_secrets',
       ],
       from: 4,
       to: SCHEMA_VERSION,
@@ -332,6 +338,7 @@ test('0006_project_remote upgrades a version-5 store: projects keep their data a
         '0009_device_tokens',
         '0010_pairing_requests',
         '0011_terminal_hold',
+        '0012_host_secrets',
       ],
       from: 5,
       to: SCHEMA_VERSION,
@@ -545,6 +552,7 @@ test.each([6, 7])(
               '0009_device_tokens',
               '0010_pairing_requests',
               '0011_terminal_hold',
+              '0012_host_secrets',
             ]
           : [
               '0007_task_queued',
@@ -552,6 +560,7 @@ test.each([6, 7])(
               '0009_device_tokens',
               '0010_pairing_requests',
               '0011_terminal_hold',
+              '0012_host_secrets',
             ],
       );
       expect((await sql`SELECT * FROM transition_log ORDER BY id`.execute(db)).rows).toEqual(
@@ -616,7 +625,7 @@ test('0010_pairing_requests upgrades a version-9 store: pending codes go and dev
     );
 
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0010_pairing_requests', '0011_terminal_hold'],
+      applied: ['0010_pairing_requests', '0011_terminal_hold', '0012_host_secrets'],
       from: 9,
       to: SCHEMA_VERSION,
     });
@@ -698,7 +707,7 @@ test('0011_terminal_hold upgrades a version-10 store: terminal tasks lose their 
     await node(9, 'task', 'done', 'parked', null, null);
 
     expect(await upgradeSchema(db)).toEqual({
-      applied: ['0011_terminal_hold'],
+      applied: ['0011_terminal_hold', '0012_host_secrets'],
       from: 10,
       to: SCHEMA_VERSION,
     });
@@ -720,6 +729,56 @@ test('0011_terminal_hold upgrades a version-10 store: terminal tasks lose their 
       { block_owner: null, hold: 'none', hold_reason: null, id: 'MMR-8', updated_at: 'u' },
       { block_owner: null, hold: 'none', hold_reason: null, id: 'MMR-9', updated_at: 'u' },
     ]);
+  } finally {
+    await db.destroy();
+  }
+});
+
+test('0012_host_secrets upgrades a version-11 store: an empty host_secrets table, device tokens stay', async () => {
+  const db = await freshDb();
+  try {
+    for (const statement of [
+      ...initStatements,
+      ...groomingStatements,
+      ...blockOwnerStatements,
+      ...seedParkedStatements,
+      ...projectPinnedStatements,
+      ...projectRemoteStatements,
+      ...taskQueuedStatements,
+      ...mainWorkerStatements,
+      ...deviceTokensStatements,
+      ...pairingRequestsStatements,
+      ...terminalHoldStatements,
+    ]) {
+      await sql.raw(statement).execute(db);
+    }
+    await sql`insert into schema_version (version, applied_at) values (1, 't'), (2, 't'), (3, 't'), (4, 't'), (5, 't'), (6, 't'), (7, 't'), (8, 't'), (9, 't'), (10, 't'), (11, 't')`.execute(
+      db,
+    );
+    await sql`insert into device_tokens (id, device, token_hash, created_at) values ('kept', 'laptop', 'token', 'c')`.execute(
+      db,
+    );
+
+    expect(await upgradeSchema(db)).toEqual({
+      applied: ['0012_host_secrets'],
+      from: 11,
+      to: SCHEMA_VERSION,
+    });
+    expect(await db.selectFrom('host_secrets').selectAll().execute()).toEqual([]);
+    expect(await db.selectFrom('device_tokens').select(['id', 'device']).execute()).toEqual([
+      { device: 'laptop', id: 'kept' },
+    ]);
+    const row = { ciphertext: 'v1.a.b', created_at: 'c', name: 't3.oauth', updated_at: 'u' };
+    await db.insertInto('host_secrets').values(row).execute();
+    const duplicate = await db
+      .insertInto('host_secrets')
+      .values(row)
+      .execute()
+      .then(
+        () => 'accepted',
+        (reason: unknown) => String(reason),
+      );
+    expect(duplicate).toContain('duplicate key');
   } finally {
     await db.destroy();
   }

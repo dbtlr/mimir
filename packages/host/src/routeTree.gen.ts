@@ -15,6 +15,7 @@ import { Route as AuthSplatRouteImport } from './start-routes/auth.$'
 import { Route as TrpcSplatRouteImport } from './start-routes/trpc.$'
 import { Route as AuthPairingPollRouteImport } from './start-routes/auth.pairing.poll'
 import { Route as AuthPairingRequestsRouteImport } from './start-routes/auth.pairing.requests'
+import { Route as AuthT3CallbackRouteImport } from './start-routes/auth.t3.callback'
 
 const HealthRoute = HealthRouteImport.update({
   id: '/health',
@@ -46,6 +47,11 @@ const AuthPairingRequestsRoute = AuthPairingRequestsRouteImport.update({
   path: '/auth/pairing/requests',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthT3CallbackRoute = AuthT3CallbackRouteImport.update({
+  id: '/auth/t3/callback',
+  path: '/auth/t3/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/health': typeof HealthRoute
@@ -54,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/trpc/$': typeof TrpcSplatRoute
   '/auth/pairing/poll': typeof AuthPairingPollRoute
   '/auth/pairing/requests': typeof AuthPairingRequestsRoute
+  '/auth/t3/callback': typeof AuthT3CallbackRoute
 }
 export interface FileRoutesByTo {
   '/health': typeof HealthRoute
@@ -62,6 +69,7 @@ export interface FileRoutesByTo {
   '/trpc/$': typeof TrpcSplatRoute
   '/auth/pairing/poll': typeof AuthPairingPollRoute
   '/auth/pairing/requests': typeof AuthPairingRequestsRoute
+  '/auth/t3/callback': typeof AuthT3CallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,6 +79,7 @@ export interface FileRoutesById {
   '/trpc/$': typeof TrpcSplatRoute
   '/auth/pairing/poll': typeof AuthPairingPollRoute
   '/auth/pairing/requests': typeof AuthPairingRequestsRoute
+  '/auth/t3/callback': typeof AuthT3CallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -81,6 +90,7 @@ export interface FileRouteTypes {
     | '/trpc/$'
     | '/auth/pairing/poll'
     | '/auth/pairing/requests'
+    | '/auth/t3/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/health'
@@ -89,6 +99,7 @@ export interface FileRouteTypes {
     | '/trpc/$'
     | '/auth/pairing/poll'
     | '/auth/pairing/requests'
+    | '/auth/t3/callback'
   id:
     | '__root__'
     | '/health'
@@ -97,6 +108,7 @@ export interface FileRouteTypes {
     | '/trpc/$'
     | '/auth/pairing/poll'
     | '/auth/pairing/requests'
+    | '/auth/t3/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -106,6 +118,7 @@ export interface RootRouteChildren {
   TrpcSplatRoute: typeof TrpcSplatRoute
   AuthPairingPollRoute: typeof AuthPairingPollRoute
   AuthPairingRequestsRoute: typeof AuthPairingRequestsRoute
+  AuthT3CallbackRoute: typeof AuthT3CallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -152,6 +165,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthPairingRequestsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/t3/callback': {
+      id: '/auth/t3/callback'
+      path: '/auth/t3/callback'
+      fullPath: '/auth/t3/callback'
+      preLoaderRoute: typeof AuthT3CallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -162,6 +182,7 @@ const rootRouteChildren: RootRouteChildren = {
   TrpcSplatRoute: TrpcSplatRoute,
   AuthPairingPollRoute: AuthPairingPollRoute,
   AuthPairingRequestsRoute: AuthPairingRequestsRoute,
+  AuthT3CallbackRoute: AuthT3CallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

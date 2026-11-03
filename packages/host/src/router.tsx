@@ -21,6 +21,8 @@ import {
 import { isSeedKind } from './lib/seed-lanes';
 import { BrowserRedirect } from './routes/browser-redirect';
 import { Shell } from './routes/shell';
+import { T3_CALLBACK_REASONS } from './server/t3-states';
+import type { T3CallbackReason } from './server/t3-states';
 
 /**
  * Navigation (ADR 0013 §3 and its v0.23 refinement): URLs name scopes, views,
@@ -288,6 +290,11 @@ export const pairRoute = createRoute({
   }),
 });
 
+export type DevicesSearch = {
+  /** The T3 Connect outcome the callback redirected with (ADR 0040); unknown values are dropped. */
+  t3?: T3CallbackReason;
+};
+
 /** `/devices` — the requests waiting on the operator and the paired devices (MMR-585). */
 export const devicesRoute = createRoute({
   component: lazyRouteComponent(
@@ -296,6 +303,10 @@ export const devicesRoute = createRoute({
   ),
   getParentRoute: () => rootRoute,
   path: '/devices',
+  // Named even when absent: the router keeps a raw parameter a validator leaves out.
+  validateSearch: (search: Record<string, unknown>): DevicesSearch => ({
+    t3: T3_CALLBACK_REASONS.find((known) => known === search.t3),
+  }),
 });
 
 export type SeedsSearch = {

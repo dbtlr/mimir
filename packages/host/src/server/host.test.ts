@@ -283,3 +283,53 @@ test('Host guard, version window, and bearer check run in order while local Engi
     await host.close();
   }
 });
+
+test('a host with T3 misconfigured boots, warns by setting name, and reports the problem', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-t3-'));
+  roots.push(root);
+  const lines: string[] = [];
+  const host = await openHost(
+    await readHostConfig({
+      MIMIR_DATA_DIR: root,
+      MIMIR_HOSTS: '',
+      MIMIR_T3_URL: 'https://t3.example',
+    }),
+    '0.26.0',
+    (line) => lines.push(line),
+  );
+  try {
+    expect(lines.filter((line) => line.includes('T3 Code'))).toEqual([
+      expect.stringContaining('MIMIR_SECRET_KEY is missing'),
+    ]);
+    expect(await host.t3.status('http://localhost:64647')).toEqual({
+      problem: 'missing',
+      setting: 'MIMIR_SECRET_KEY',
+      state: 'misconfigured',
+    });
+    const callback = await host.handleT3Callback(
+      new Request('http://localhost:64647/auth/t3/callback?state=x&code=y'),
+    );
+    expect(callback.status).toBe(303);
+    expect(callback.headers.get('location')).toBe('/devices?t3=misconfigured');
+    expect(await host.secrets.read('t3.oauth')).toBeUndefined();
+  } finally {
+    await host.close();
+  }
+});
+
+test('a host without MIMIR_T3_URL logs nothing about T3', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-no-t3-'));
+  roots.push(root);
+  const lines: string[] = [];
+  const host = await openHost(
+    await readHostConfig({ MIMIR_DATA_DIR: root, MIMIR_SECRET_KEY: 'not a key' }),
+    '0.26.0',
+    (line) => lines.push(line),
+  );
+  try {
+    expect(lines.filter((line) => line.includes('T3'))).toEqual([]);
+    expect(await host.t3.status('http://localhost:64647')).toEqual({ state: 'unconfigured' });
+  } finally {
+    await host.close();
+  }
+});

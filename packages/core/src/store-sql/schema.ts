@@ -255,9 +255,17 @@ export type DeviceTokenTable = {
   revoked_at: string | null;
 };
 
+export type HostSecretTable = {
+  name: string;
+  ciphertext: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type DB = {
   pairing_requests: PairingRequestTable;
   device_tokens: DeviceTokenTable;
+  host_secrets: HostSecretTable;
   annotation: AnnotationTable;
   artifact: ArtifactTable;
   artifact_link: ArtifactLinkTable;

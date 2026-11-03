@@ -122,6 +122,14 @@ export function postOnly() {
   );
 }
 
+/** The T3 callback route accepts only GET. */
+export function getOnly() {
+  return Response.json(
+    { error: 'method not allowed' },
+    { headers: { ...noStore, allow: 'GET' }, status: 405 },
+  );
+}
+
 /** Unknown `/auth` paths get a refusal a client can read, not the console's HTML shell with a 200. */
 export function unknownAuthResponse() {
   return Response.json(

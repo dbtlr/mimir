@@ -2,6 +2,7 @@ import type { GlobalConfig } from './config';
 import { configPath, DEFAULT_STORE_BACKEND, hostOrigin, readRuntimeConfig } from './config';
 import type { DoctorBackend } from './doctor/contract';
 import { invariant } from './errors';
+import type { HostSecretStore } from './host-secrets';
 /**
  * Composition root for the work-state store (ADR 0030, ADR 0032). The backend
  * is a fence, never a per-project choice: the working-set load is deliberately
@@ -26,6 +27,8 @@ export type BuiltStore = {
   close: () => Promise<void>;
   /** The backend's read-only doctor facet. */
   doctor: DoctorBackend;
+  /** Sealed host secrets (ADR 0040), outside work state and board transfers. */
+  secrets: HostSecretStore;
   /** Host transport credentials, outside work state and board transfers. */
   tokens: TokenStore;
 };

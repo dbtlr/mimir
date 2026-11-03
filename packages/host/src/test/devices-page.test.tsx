@@ -7,11 +7,13 @@ import { pairedDevices, pendingPairings, unpairDevice } from '../api/fns/devices
 import { consoleRoutes } from '../router';
 import { failDeviceReads, serveDevices } from './devices-fns';
 import { renderRoute } from './router';
+import { serveT3 } from './t3-fns';
 import { serveViews } from './views-fns';
 
 vi.mock('../api/fns/shell');
 vi.mock('../api/fns/views');
 vi.mock('../api/fns/devices');
+vi.mock('../api/fns/t3');
 const { toast } = vi.hoisted(() => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('sonner', () => ({ Toaster: () => null, toast }));
 
@@ -19,6 +21,7 @@ const MINUTE = 60_000;
 
 beforeEach(() => {
   serveViews();
+  serveT3();
 });
 
 afterEach(() => {
