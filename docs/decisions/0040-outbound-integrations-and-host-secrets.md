@@ -62,9 +62,10 @@ name, managed by a host-only core module beside the device-token store
 The value is sealed with AES-256-GCM under the **secret key**, 32 bytes
 supplied as `MIMIR_SECRET_KEY` or `MIMIR_SECRET_KEY_FILE` (preferred, because
 container inspection shows environment values). Setting both refuses startup,
-as with the database URL. The key is base64 or base64url text, decoded
-strictly: after trimming surrounding whitespace it must decode to exactly 32
-bytes and re-encode to the same text in its alphabet.
+as with the database URL. The key is base64 or base64url text, read
+strictly: after trimming surrounding whitespace it must be 43 characters of
+one alphabet, optionally followed by one `=`, so that it decodes to exactly 32
+bytes. An unreadable key file is an unusable key.
 
 The sealed form is `v1.<nonce>.<ciphertext and tag>`, each part base64url,
 with a fresh random 96-bit nonce on every write. The additional authenticated
@@ -77,9 +78,10 @@ directions, and an import leaves the target host's secrets intact. A database
 dump holds only ciphertext, as long as the key's own secret store is kept out
 of the same backup set.
 
-A host without a usable secret key boots and logs a warning that names the
-setting and the problem (missing, or not 32 bytes; setting both still
-refuses startup). A feature that needs a secret reports the same problem, refuses to
+A host without a usable secret key boots normally. When a feature that needs
+a secret is enabled, the host logs a warning at startup that names the
+setting and the problem (missing, unreadable, or malformed; setting both
+still refuses startup), and the feature reports the same problem, refuses to
 start a connection before sending the browser anywhere, and writes nothing to
 `host_secrets`. A row that fails to open reads as absent, so the feature asks
 to connect again, and the host logs that the row failed authentication (the
@@ -102,9 +104,13 @@ The feature also requires Host filtering: `MIMIR_HOSTS` must be set (an empty
 value allows loopback names only). Without it, a page on another site could
 rebind its own name to the console's address and drive the console's server
 functions as a same-origin page; with the T3 feature that reaches agent
-threads, not only the store. A malformed `MIMIR_T3_URL`, an unset
-`MIMIR_HOSTS`, or no usable secret key makes the feature read
-`misconfigured`, naming the setting; none of them refuses startup.
+threads, not only the store.
+
+With `MIMIR_T3_URL` set, the feature reads `misconfigured`, naming the
+setting, when `MIMIR_T3_URL` is malformed, `MIMIR_HOSTS` is unset, no usable
+secret key exists, or `MIMIR_URL` is an HTTP origin on a non-loopback host
+(T3 refuses such a redirect). None of them refuses startup, and the host logs
+each at startup.
 
 **Connect.** T3 serves MCP at `<MIMIR_T3_URL>/mcp` behind standard MCP OAuth.
 Connect T3 is a console server function (a POST, under Start's CSRF check)
@@ -130,12 +136,21 @@ that returns the authorization URL; the flow is:
    without approval prompts.
 5. T3 redirects to `<console origin>/auth/t3/callback`. The console origin is
    `MIMIR_URL`; without it, only a loopback request origin qualifies, because
-   T3 accepts HTTPS or loopback redirects only.
+   T3 accepts HTTPS or loopback redirects only. Connect from any other origin
+   without `MIMIR_URL` returns `misconfigured`, naming `MIMIR_URL`.
 6. The callback consumes the pending authorization named by `state`, requires
-   `iss` to equal `MIMIR_T3_URL`, and exchanges the code with the verifier. It
-   seals the access token, its expiry, and the issuer as the host secret
-   `t3.oauth`, then redirects to `/devices`. A refused or failed callback also
-   redirects to `/devices`, with a reason the page shows and no secret write.
+   `iss` to equal `MIMIR_T3_URL`, and exchanges the code with the verifier.
+   The granted scope is the token response's `scope`, or the requested scopes
+   when it has none (RFC 6749 §5.1). A grant without `orchestration:operate`
+   is refused: the token is discarded. Otherwise the callback seals the access
+   token, its expiry, and the issuer as the host secret `t3.oauth`, and
+   redirects to `/devices?t3=connected`.
+7. A refused or failed callback writes no secret and redirects to
+   `/devices?t3=<reason>`, one of `denied` (the operator declined),
+   `stale` (an unknown, used, or expired `state`), `read_only` (the grant
+   cannot launch), `issuer` (an `iss` mismatch), `misconfigured`, or `failed`
+   (registration or exchange failed). The page words each reason itself and
+   never shows text from T3.
 
 The callback is a host route like the pairing routes (ADR 0038): inside the
 host guard, outside the version window and the bearer check. It is a `GET`, so
@@ -159,9 +174,12 @@ MMR-625 adds `t3_thread_launch`.
 systems it can launch onto. It reads `t3_environment_read` for the configured
 server and `t3_environment_links` for its linked peers, then, for each system,
 every page of `t3_project_list` and `orchestrator_capabilities` with that
-`environmentId`. A T3 project matches when
-`tryNormalizeRemote(repositoryIdentity.canonicalKey)` equals the Mimir
-project's stored `remote` (ADR 0036). A system is listed when it has at least
+`environmentId`. A T3 project matches when its
+`repositoryIdentity.locator.remoteUrl`, normalized with `tryNormalizeRemote`,
+equals the Mimir project's stored `remote` (ADR 0036). The remote URL is
+normalized rather than T3's `canonicalKey`, because the key is already in a
+`host/path` form that Mimir's normalizer does not read, and T3 may fold its
+case. A T3 project without a repository identity never matches. A system is listed when it has at least
 one matching project, or when it could not be read (below). Each listed system
 carries:
 
@@ -181,7 +199,8 @@ carries:
   `approval-required`, `auto-accept-edits`, `auto`, `full-access`.
 
 A Mimir project with no `remote` returns `connected` with no systems and
-`noRemote: true`.
+`noRemote: true`; the token and settings are checked first, as for any
+project.
 
 The result is a tagged state:
 
@@ -189,13 +208,9 @@ The result is a tagged state:
 | --------------- | -------------------------------------------------------------------------- |
 | `unconfigured`  | `MIMIR_T3_URL` is unset; the feature is absent                             |
 | `misconfigured` | A required setting is malformed or missing; names which                    |
-| `disconnected`  | `reason`: `none`, `expired`, `rejected` (a 401 or issuer mismatch), or `read_only` |
+| `disconnected`  | `reason`: `none`, `expired`, or `rejected` (a 401 or an issuer mismatch)   |
 | `unreachable`   | T3 did not answer, or its metadata or replies failed the checks above      |
-| `connected`     | The systems above, with the token's expiry                                 |
-
-A token approved read-only lacks the `orchestration:operate` scope; it reads
-`disconnected` with reason `read_only`, so the console asks for Reconnect with
-a launching access level.
+| `connected`     | The systems above (or `noRemote`), with the token's expiry                 |
 
 The Devices page reads a sibling status function with the same states and no
 project, and holds the Connect and Reconnect controls. Its `connected` state
@@ -262,8 +277,10 @@ records the rule for host settings.
 
 - Migration 0012 adds `host_secrets`; the schema moves to version 12. Rolling
   the host image back past it needs a database restore, as with any migration.
-- Deployments that use the T3 feature set `MIMIR_T3_URL`, `MIMIR_HOSTS`, and a
-  secret key; on asgard the key comes from the deployment's secret store.
+- Deployments that use the T3 feature set `MIMIR_T3_URL`, `MIMIR_HOSTS`, a
+  secret key, and, unless the console is used only on loopback, an HTTPS
+  `MIMIR_URL`. On asgard `MIMIR_URL` and `MIMIR_HOSTS` are already set, and
+  the key comes from the deployment's secret store.
 - Rotating the secret key makes every host secret unreadable; each feature
   asks to connect again. No re-encryption step exists.
 - The console stays unauthenticated on a single-user tailnet (ADR 0035), so a

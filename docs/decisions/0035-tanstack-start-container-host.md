@@ -223,6 +223,10 @@ settings for the optional T3 Code integration:
 This refines "other invalid configuration refuses startup". The store, port,
 and guard settings above still refuse startup when invalid, and setting both
 `MIMIR_SECRET_KEY` and `MIMIR_SECRET_KEY_FILE` refuses startup like the
-database URL pair. A malformed or missing value of an optional-feature setting
-does not: the host boots, logs a warning that names the setting, and the
-feature reports itself misconfigured until the setting is fixed.
+database URL pair. A problem with an optional feature's settings does not:
+with `MIMIR_T3_URL` unset, the key settings are ignored and nothing is
+logged; with it set, a malformed `MIMIR_T3_URL`, a missing, unreadable, or
+malformed key, an unset `MIMIR_HOSTS`, or an HTTP `MIMIR_URL` on a
+non-loopback host lets the host boot, logs a warning that names the setting,
+and makes the feature report itself misconfigured until the setting is
+fixed.
