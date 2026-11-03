@@ -922,6 +922,7 @@ test('0011_terminal_hold upgrades a version-10 store: terminal tasks lose their 
   node(5, 'task', 'in_progress', 'blocked', 'vendor', 'you');
   node(6, 'task', 'todo', 'parked', 'later', null);
   node(7, 'task', 'done', 'none', null, null);
+  node(8, 'task', 'done', 'none', 'stray', 'you');
   old.close();
 
   const handle = await openSqlite(path);
@@ -948,6 +949,7 @@ test('0011_terminal_hold upgrades a version-10 store: terminal tasks lose their 
       { block_owner: 'you', hold: 'blocked', hold_reason: 'vendor', id: 'MMR-5', updated_at: 'u' },
       { block_owner: null, hold: 'parked', hold_reason: 'later', id: 'MMR-6', updated_at: 'u' },
       { block_owner: null, hold: 'none', hold_reason: null, id: 'MMR-7', updated_at: 'u' },
+      { block_owner: null, hold: 'none', hold_reason: null, id: 'MMR-8', updated_at: 'u' },
     ]);
   } finally {
     await handle.close();

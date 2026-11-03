@@ -113,9 +113,14 @@ export const transferSchema = z.object({
       // blocked task's owner null) takes the owner its `upstream` implies; the
       // owner is empty unless the hold is `blocked`, which the validator checks.
       // A terminal task imports unheld (MMR-616): a document an older binary
-      // wrote can carry the hold its `done` or `abandon` left behind.
+      // wrote can carry the `blocked` or `parked` hold its `done` or `abandon`
+      // left behind. Only that residue is released; a missing hold or a stray
+      // owner on an unheld task still reaches the validator and is refused.
       .transform((node) => {
-        const released = holdsNoHold(node.lifecycle) ? RELEASED_HOLD : undefined;
+        const released =
+          holdsNoHold(node.lifecycle) && (node.hold === 'blocked' || node.hold === 'parked')
+            ? RELEASED_HOLD
+            : undefined;
         return {
           ...node,
           block_owner:

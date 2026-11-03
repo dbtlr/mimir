@@ -12,6 +12,23 @@ type InvalidCase = {
   field: string;
 };
 
+/** The fixture's blocked task closed as `done`, with the given fields patched over it. */
+function closeBlockedTask(
+  nodes: StoreExport['nodes'],
+  patch: Record<string, unknown>,
+): StoreExport['nodes'] {
+  return nodes.map((node) =>
+    node.type === 'task' && node.hold === 'blocked'
+      ? Object.assign(structuredClone(node), {
+          completed_at: '2026-09-03T00:00:00.000Z',
+          lifecycle: 'done',
+          rank: null,
+          ...patch,
+        })
+      : node,
+  );
+}
+
 const invalidCases: InvalidCase[] = [
   {
     change: (d) => ({
@@ -73,6 +90,19 @@ const invalidCases: InvalidCase[] = [
     }),
     field: 'lifecycle',
     name: 'missing task lifecycle',
+  },
+  {
+    change: (d) => ({ ...d, nodes: closeBlockedTask(d.nodes, { hold: null }) }),
+    field: 'hold',
+    name: 'missing hold on a done task',
+  },
+  {
+    change: (d) => ({
+      ...d,
+      nodes: closeBlockedTask(d.nodes, { block_owner: 'you', hold: 'none', hold_reason: null }),
+    }),
+    field: 'block_owner',
+    name: 'block owner on an unheld done task',
   },
   {
     change: (d) => ({ ...d, nodes: patchFirst(d.nodes, { grooming: 'groomed' }) }),
@@ -531,46 +561,38 @@ describe.each(backends)('$name', (backend) => {
       await source.close();
     }
   });
-  test('an import releases the hold an older binary left on a terminal task (MMR-616)', async () => {
-    const source = await backend.make();
-    try {
-      await seedWorkingSet(source.store);
-      const document = await source.store.export();
-      // The fixture's blocked task, closed the way an older binary's `done` left
-      // it: terminal, yet still blocked with its reason and owner.
-      const residue = structuredClone(document);
-      for (const node of residue.nodes) {
-        if (node.type === 'task' && node.hold === 'blocked') {
-          node.completed_at = '2026-09-03T00:00:00.000Z';
-          node.lifecycle = 'done';
-          node.rank = null;
-        }
-      }
-      const closed = residue.nodes.filter((node) => node.lifecycle === 'done');
-      expect(closed.map((node) => [node.hold, node.block_owner])).toEqual([['blocked', 'others']]);
-
-      const target = await backend.make();
+  test.each(['done', 'abandoned'] as const)(
+    'an import releases the hold an older binary left on a %s task (MMR-616)',
+    async (lifecycle) => {
+      const source = await backend.make();
       try {
-        await target.store.import(residue, { dryRun: false, mode: 'fresh' });
-        const imported = await target.store.export();
-        const ids = new Set(closed.map((node) => node.id));
-        for (const node of imported.nodes.filter((n) => ids.has(n.id))) {
-          expect(
-            { block_owner: node.block_owner, hold: node.hold, hold_reason: node.hold_reason },
-            node.id,
-          ).toEqual({
-            block_owner: null,
-            hold: 'none',
-            hold_reason: null,
-          });
+        await seedWorkingSet(source.store);
+        const document = await source.store.export();
+        // The fixture's blocked task, closed the way an older binary's terminal
+        // verb left it: terminal, yet still blocked with its reason and owner.
+        const residue = { ...document, nodes: closeBlockedTask(document.nodes, { lifecycle }) };
+        const closed = residue.nodes.filter((node) => node.lifecycle === lifecycle);
+        expect(closed.map((node) => [node.hold, node.block_owner])).toEqual([
+          ['blocked', 'others'],
+        ]);
+
+        const target = await backend.make();
+        try {
+          await target.store.import(residue, { dryRun: false, mode: 'fresh' });
+          const imported = await target.store.export();
+          const ids = new Set(closed.map((node) => node.id));
+          const released = imported.nodes
+            .filter((node) => ids.has(node.id))
+            .map((node) => [node.lifecycle, node.hold, node.hold_reason, node.block_owner]);
+          expect(released).toEqual([[lifecycle, 'none', null, null]]);
+        } finally {
+          await target.close();
         }
       } finally {
-        await target.close();
+        await source.close();
       }
-    } finally {
-      await source.close();
-    }
-  });
+    },
+  );
   test('the project pin round-trips through export and import, and a pre-version-4 document imports unpinned', async () => {
     const source = await backend.make();
     try {
