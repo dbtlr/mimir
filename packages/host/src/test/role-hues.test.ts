@@ -100,9 +100,7 @@ const MIN_ATTENTION_DISTANCE = 6;
  * ADR 0019 §1: every hue owns exactly one job, and roles never borrow each
  * other's hues. The checks compare the values styles.css declares, so every
  * status token must be a plain hex they can read, declared once in a theme
- * block, so the value read is the value the browser uses. Declarations are
- * read by pattern, not parsed: a comment between a token name and its colon
- * escapes these checks, a known limit (MMR-617 review).
+ * block, so the value read is the value the browser uses.
  */
 describe('status tokens never borrow a role hue (ADR 0019 §1)', () => {
   it('declares each status token once per theme block, and nowhere else', () => {
