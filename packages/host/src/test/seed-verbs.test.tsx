@@ -126,3 +126,17 @@ describe('seedVerbs parking (MMR-473)', () => {
     });
   });
 });
+
+describe('the spawned-work reference (MMR-617)', () => {
+  it('takes the attention hue on a ready-to-resolve seed, which waits on the operator', () => {
+    renderVerbs(seedIn('ready', { spawned: ['MMR-90'] }));
+    expect(screen.getByText(/^spawned/)).toHaveClass('text-attention-foreground');
+  });
+
+  it('stays out of the attention hue on a promoted seed whose work is still in flight', () => {
+    renderVerbs(seedIn('promoted', { spawned: ['MMR-90'] }));
+    const ref = screen.getByText(/^spawned/);
+    expect(ref).not.toHaveClass('text-attention-foreground');
+    expect(ref).toHaveClass('text-ink-dim');
+  });
+});

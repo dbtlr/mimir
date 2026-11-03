@@ -63,13 +63,19 @@ function VerbChip({
   );
 }
 
-/** The spawned-work reference line, e.g. "spawned MMR-118 · done" (ready) or bare (promoted). */
+/**
+ * The spawned-work reference line, e.g. "spawned MMR-118 · done" (ready) or bare
+ * (promoted). Only a ready seed waits on the operator, so only it takes the
+ * attention hue (ADR 0019, MMR-617 refinement).
+ */
 export function SpawnedRef({ seed }: { seed: VerbSeed }) {
   if (seed.spawned.length === 0) {
     return null;
   }
   return (
-    <span className="text-tag text-attention-foreground">
+    <span
+      className={cn('text-tag', seed.readyToResolve ? 'text-attention-foreground' : 'text-ink-dim')}
+    >
       spawned <span className="font-mono">{seed.spawned.join(', ')}</span>
       {seed.readyToResolve && ' · done'}
     </span>

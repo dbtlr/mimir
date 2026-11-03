@@ -70,7 +70,8 @@
   --color-action: #4fc4d6;
   --color-action-foreground: #08222a;
 
-  /* attention — the violet "needs you" hue (what waits on the operator: decisions, pairing requests) */
+  /* attention — the violet "needs you" hue (what waits on the operator: decisions, ready-to-resolve
+     seeds, pairing requests). No status hue borrows it (ADR 0019, MMR-617). */
   --color-attention: #af8de6;
   --color-attention-foreground: #c9aef0;
   --color-attention-solid: #af8de6;
@@ -89,8 +90,8 @@
   --color-status-queued-foreground: #9bbce0;
   --color-status-in-progress: #dfa64a;
   --color-status-in-progress-foreground: #e8c286;
-  --color-status-under-review: #af8de6;
-  --color-status-under-review-foreground: #c9aef0;
+  --color-status-under-review: #a7bd58;
+  --color-status-under-review-foreground: #c1d582;
   --color-status-awaiting: #7d8b99;
   --color-status-awaiting-foreground: #7d8b99;
   --color-status-blocked: #e17070;
@@ -237,8 +238,8 @@ body {
   --color-status-queued-foreground: #345e89;
   --color-status-in-progress: #b57c1e;
   --color-status-in-progress-foreground: #8a5c10;
-  --color-status-under-review: #7a55c4;
-  --color-status-under-review-foreground: #63449e;
+  --color-status-under-review: #6b8316;
+  --color-status-under-review-foreground: #4c5e08;
   --color-status-awaiting: #8a9aa8;
   --color-status-awaiting-foreground: #5f6d7a;
   --color-status-blocked: #c74f4f;
