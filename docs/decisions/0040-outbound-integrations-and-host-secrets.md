@@ -123,7 +123,8 @@ that returns the authorization URL; the flow is:
    token, and registration endpoints must share that origin. Anything else
    reads `unreachable`.
 2. Register a public client dynamically, every time; T3's client ids are
-   stateless signed tokens, so nothing about the client is stored.
+   stateless signed tokens, so nothing about the client is stored. A failed
+   registration reads `unreachable`, before the browser is sent anywhere.
 3. Hold a pending authorization in host memory: a random `state`, the PKCE
    verifier, the client id, and the redirect URI. It lives 10 minutes, is
    consumed by its first callback, and at most 16 are held; a new one evicts
@@ -149,7 +150,7 @@ that returns the authorization URL; the flow is:
    `/devices?t3=<reason>`, one of `denied` (the operator declined),
    `stale` (an unknown, used, or expired `state`), `read_only` (the grant
    cannot launch), `issuer` (an `iss` mismatch), `misconfigured`, or `failed`
-   (registration or exchange failed). The page words each reason itself and
+   (the code exchange failed). The page words each reason itself and
    never shows text from T3.
 
 The callback is a host route like the pairing routes (ADR 0038): inside the
@@ -179,8 +180,10 @@ every page of `t3_project_list` and `orchestrator_capabilities` with that
 equals the Mimir project's stored `remote` (ADR 0036). The remote URL is
 normalized rather than T3's `canonicalKey`, because the key is already in a
 `host/path` form that Mimir's normalizer does not read, and T3 may fold its
-case. A T3 project without a repository identity never matches. A system is listed when it has at least
-one matching project, or when it could not be read (below). Each listed system
+case. A T3 project without a repository identity never matches.
+
+A system is listed when it has at least one matching project, or when it
+could not be read (below). Each listed system
 carries:
 
 - its `environmentId`, label, and `status`: `reachable`, or `unreachable` when
@@ -199,8 +202,9 @@ carries:
   `approval-required`, `auto-accept-edits`, `auto`, `full-access`.
 
 A Mimir project with no `remote` returns `connected` with no systems and
-`noRemote: true`; the token and settings are checked first, as for any
-project.
+`noRemote: true`. The catalog always reads `t3_environment_read` first, so
+a missing, expired, or rejected token reads `disconnected` for such a
+project too.
 
 The result is a tagged state:
 
@@ -213,8 +217,12 @@ The result is a tagged state:
 | `connected`     | The systems above (or `noRemote`), with the token's expiry                 |
 
 The Devices page reads a sibling status function with the same states and no
-project, and holds the Connect and Reconnect controls. Its `connected` state
-carries the configured server's label and the token's expiry.
+project, and holds the Connect and Reconnect controls. It reads
+`t3_environment_read` to check the token, and its `connected` state carries
+the configured server's label and the token's expiry. Because Connect depends
+on the request origin when `MIMIR_URL` is unset, the status function also
+reads `misconfigured`, naming `MIMIR_URL`, for a non-loopback request in that
+case.
 
 **Writes.** The launch (MMR-625) queues the task with `harness=t3`,
 `session=<threadId>`, matching what `mimir start` records inside a T3 thread
