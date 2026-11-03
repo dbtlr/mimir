@@ -451,8 +451,8 @@ the chip had drifted from the decision rather than extended it.
 
 - **The stale chip is a neutral chip.** It takes the badge's default
   ground (the `well-800` fill under a `line` hairline ring) with `ink-dim`
-  text, as the size chip beside it draws: 6.37:1 against its fill in the
-  dark theme and 5.13:1 in the light. The ⧗ glyph and the word carry the
+  text, the size chip's ground and text colour in the sans face: 6.37:1
+  against its fill in the dark theme and 5.13:1 in the light. The ⧗ glyph and the word carry the
   modifier; no hue does. This settles the MMR-619 refinement's open scope
   note.
 - **Considered and rejected.** Keeping the amber as a caution, in the

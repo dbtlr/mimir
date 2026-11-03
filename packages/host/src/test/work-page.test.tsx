@@ -439,7 +439,9 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
     expect(shipped).toHaveTextContent('14:05');
   });
 
-  it('marks a stale row in its section and again in going cold', async () => {
+  // Going cold is a modifier in glyph plus demoted ink, never a status hue
+  // (ADR 0019 §3, MMR-620): on a ready row an amber chip would read as in_progress.
+  it('marks a stale row in its section and again in going cold, in neutral ink', async () => {
     const stale = { ...frontierRow('MMR-20', 'Add the SQLite dialect'), stale: true };
     await open(
       scope,
@@ -455,22 +457,7 @@ describe.each(SCOPES)('work page sections, $name', (scope) => {
     expect(hrefOf(cold, 'Add the SQLite dialect')).toBe('/p/MMR/20');
     expect(within(cold).getByText('⧗ stale')).toBeDefined();
     expect(cold).toHaveTextContent('2w quiet');
-  });
-
-  // Going cold is a modifier in glyph plus demoted ink, never a status hue
-  // (ADR 0019 §3, MMR-620): on a ready row an amber chip would read as in_progress.
-  it('draws the stale chip in neutral ink, not a status hue', async () => {
-    const stale = { ...frontierRow('MMR-20', 'Add the SQLite dialect'), stale: true };
-    await open(
-      scope,
-      engineWork({
-        frontier: { nextToUnlock: [], runnable: [stale], toGroom: [], waitingOnOthers: [] },
-        goingCold: [{ ...stale.task, updatedAt: daysAgo(20) }],
-      }),
-    );
-
-    for (const name of ['Frontier', 'Going cold · 1']) {
-      const chip = within(await section(name)).getByText('⧗ stale');
+    for (const chip of [within(frontier).getByText('⧗ stale'), within(cold).getByText('⧗ stale')]) {
       expect(chip.className).toContain('text-ink-dim');
       expect(chip.className).not.toMatch(/status-/);
     }
