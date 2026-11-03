@@ -89,15 +89,16 @@ gh release view vX.Y.Z --json isPrerelease,tagName,assets \
   `mimir-linux-arm64` — plus `SHA256SUMS`. (Keep this list in sync with
   `release.yml`'s build matrix.)
 - Download one binary and confirm its checksum matches `SHA256SUMS`.
-- A binary installed by `install.sh` (not a bare download, which `self-update`
-  refuses as "installed some other way") reports `mimir version` = `X.Y.Z`, and
-  `mimir self-update --check` does not refuse it.
 - Prune ran lag-by-one: the just-shipped cycle's `vX.Y.Z-next.*` trail **and the
   previous official's cycle trail** both remain; only cycles older than the
   previous official are gone (`gh release list`). An early cut with no qualifying
   older cycle deletes nothing — that's correct, not a failure.
 
 A failure here is a release problem — fix forward, do not paper over it.
+
+The gate installs nothing. `install.sh` is the installer `loom init` manages and
+`self-update` is Loom's plugin, so Loom's releases test them; the asset check
+above is the Mimir side of that contract.
 
 ## 4. After the cut
 
