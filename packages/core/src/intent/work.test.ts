@@ -672,6 +672,17 @@ test('a review sent back and resubmitted carries its latest submit time', async 
   expect(row?.submittedAt).toBe('2026-10-04T09:00:00.000Z');
 });
 
+test('a review whose log has no submit falls back to the row stamp', async () => {
+  // A legacy or imported row can be under review with no lifecycle entry into review.
+  const r = await task(phaseA, 'imported review');
+  await rawPatchNode(store, r, {
+    lifecycle: 'under_review',
+    updated_at: '2026-10-05T12:00:00.000Z',
+  });
+  const row = (await page('MMR')).now.find((n) => n.task.id === r);
+  expect(row?.submittedAt).toBe('2026-10-05T12:00:00.000Z');
+});
+
 test('queued and in-progress rows in now carry no submit time', async () => {
   const working = await task(phaseA, 'working');
   await startTask(store, working);
