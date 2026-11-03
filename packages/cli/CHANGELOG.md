@@ -15,6 +15,117 @@ cuts them into a new release section at each release
 Sections before v0.26.0 follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 later sections group entries as Breaking Changes, Features, and Fixes.
 
+## v0.27.0 - 2026-11-03
+
+### Breaking Changes
+
+- **`mimir store upgrade`** (MMR-582). The command is removed and now fails as an unknown command. A SQLite store migrates whenever the CLI opens it, so `store upgrade` had nothing left to do. `store export` and `store import` stay.
+- **A CLI whose `[store]` names Postgres** (MMR-582). A `backend = "postgres"` or a `url` in the CLI's `[store]` now makes every command that opens the local store fail with a config error that points to `mimir pair` and `docs/guides/move-to-a-host.md`. The host is the only Mimir program that opens Postgres; the CLI opens a SQLite store, or reaches a host.
+- **Sandbox `snapshot-schema`, `restore`, `verify`, `upgrade`, `rehearse`, and `run`** (MMR-582). They served the Postgres snapshot rehearsal, which installed a candidate CLI against a restored snapshot that the CLI no longer opens, and they fail as unknown commands. The sandbox keeps disposable Postgres for the development host and `bun run test:postgres`.
+
+### Migration
+
+**Affected surface.** Scripts that run `mimir store upgrade`, CLI installs whose `config.toml` has `[store] backend = "postgres"` or `[store] url`, and sandbox runs of `snapshot-schema`, `restore`, `verify`, `upgrade`, `rehearse`, or `run`.
+
+**Why.** The host owns the board and is the only program that opens Postgres, so the CLI never opens Postgres and has no command that migrates one.
+
+**Before and after.**
+
+```toml
+# before: config.toml of a CLI that opens Postgres itself
+[store]
+backend = "postgres"
+url = "postgres://user:secret@db.example.test/mimir"
+
+# after: config.toml of a CLI paired with a host
+[host]
+url = "https://mimir.example.test"
+```
+
+**Steps.**
+
+1. Run a host against the database that `[store] url` names; the host migrates it when it starts. `docs/guides/host.md` covers a host on Postgres.
+2. Remove the `[store]` section from the CLI's `config.toml`, and delete any script line that runs `mimir store upgrade`.
+3. Run `mimir pair` against that host. `docs/guides/move-to-a-host.md` walks through pairing.
+
+**Validation.** Run `mimir doctor` and `mimir overview`. Both answer from the host.
+
+- **Blank `--direction` and `--desc` text** (MMR-606). `mimir update` and the Engine refuse a `description` or `next` that is empty or only whitespace, and a seed's `description` too. The refusal is a `validation` error that leaves the stored text unchanged. A blank used to clear the field, and a script whose input file was missing or empty cleared a direction or description that Mimir keeps no earlier version of.
+- **`--clear-direction` and `--clear-desc`** (MMR-606). Add the flags that clear a direction or a description. Each is accepted where its text flag is, and passing one with its text flag is a usage error. MCP takes `clear-direction: true` and `clear-desc: true`, and an Engine client sends `null`. The operator console sends `null` when a person saves an emptied editor, and the task edit form can now clear a description.
+
+### Migration
+
+**Affected surface.** Scripts that clear a direction or description with `--direction ""` or `--desc ""`, MCP callers that send a blank `direction` or `desc`, and Engine clients that send a blank `next` or `description`.
+
+**Why.** Clearing prose destroys it for good, and a blank usually comes from an empty script input rather than a decision to clear. Making the clear its own flag turns that mistake into a refusal.
+
+**Before and after.**
+
+```sh
+mimir update MMR-4 --direction ""
+mimir update MMR-4 --clear-direction
+
+mimir update MMR-7 --desc ""
+mimir update MMR-7 --clear-desc
+```
+
+**Steps.**
+
+1. Update the host before the clients. A client from before this change that sends a blank is refused, the text survives, and it cannot clear until it is updated. `MIN_CLIENT` does not change.
+2. Replace `--direction ""` with `--clear-direction` and `--desc ""` with `--clear-desc` in each script.
+3. Change MCP callers to send `clear-direction: true` or `clear-desc: true`. An Engine client sends `null` for `next` or `description`.
+
+**Validation.** Run `mimir update <id> --direction ""` and check that it is refused with a hint that names `--clear-direction`, then run `mimir get <id>` after the clear flag and check that the field is gone.
+
+- **A task under review is work in flight, not a decision** (MMR-615). The console's _Needs you_ no longer lists tasks under review: not on a work page, the review page, the top-bar alert and its popover, the project health strip, or the focus queue. A review shows in _Now_ as _In review_, and the task page keeps _Approve_ and _Send back…_ in its verdict block, without the attention hue. The review gate itself, such as a pull request's review request, asks for the operator when it needs them. The work page and review reports' needs-you `reason` drops `under_review`, and their `now` rows and in-flight counts include tasks under review.
+
+### Migration
+
+**Affected surface.** Engine clients that read the work page or review report and expect a needs-you or decision row with reason `under_review`, and workflows that rely on the console's _Needs you_ to tell the operator a review is waiting.
+
+**Why.** A review gate is often settled without the operator, by automated reviewers and checks and then a merge by the agent that owns the task. Listing every review as a decision filled _Needs you_ with work that nothing asked the operator to move.
+
+**Before and after.**
+
+```text
+Before: mimir submit MMR-9  → Needs you: MMR-9 · In review   (Approve · Send back…)
+After:  mimir submit MMR-9  → Now:       MMR-9 · In review · started 2h ago
+```
+
+**Steps.**
+
+1. Update the host before the clients. `MIN_CLIENT` does not change.
+2. In an Engine client, read tasks under review from the work page or review report's `now` rows, and stop handling a needs-you `reason` of `under_review`.
+3. Where the operator must review or merge, ask through the review gate, for example by requesting their review on the pull request.
+
+**Validation.** Submit a task and check that the console lists it under _Now_ as _In review_ and not under _Needs you_, and that its task page still offers _Approve_ and _Send back…_.
+
+### Features
+
+- **The installer registers Mimir with Codex** (MMR-604). After it installs the binary, `install.sh` now runs `mimir mcp install` without `--agent`, so it registers the MCP server with Claude Code and Codex, skipping either one that is not installed. The server now speaks the protocol revision Codex opens with, so Codex lists and calls Mimir's tools. An installation made by an earlier installer registered Claude Code alone: run `mimir mcp install --agent codex` once to add Codex. When Codex already has a `mimir` server that `mcp install` did not register, the installer registers with neither agent; run `mimir mcp install --force` once to replace it. See [Install location](../../docs/guides/install-location.md).
+
+- **The skill describes Mimir, not a delivery process** (MMR-608). The `mimir` skill states what each record, status, and verb claims and leaves which work to take, how follow-ups are routed, and how a session is organized to the user's and the project's own process. It no longer requires orienting before every request, preferring groomed work, holding one `in_progress` task per session, or filing every deferred follow-up as a task. It keeps what each claim means: `start` before the first edit, `done` only when verified, each transition recorded before the claim it makes is reported, a cancelled run's reservation released, `reopen` only to correct a wrong terminal call, a task's owner making its transitions and releasing or handing off work it stops, the finishing records in the order their data requires, what a Scratchpad and a `groomed` task are for, and that only a board's owners create its tasks. `submit` now means the work is ready for its review gate, and fixes made in response to that review need no status change. The skill loads when a request names a Mimir id or reads or changes the board, rather than at the start of every session.
+- **The skill prefers the MCP tools** (MMR-608). When the Mimir MCP tools are available, the skill directs the agent to them instead of shell calls, and to the CLI when they are not, whether no server is configured or the server has disconnected. It names the machine-local commands that have no tool and stay on the CLI: `bind`, `pair`, `doctor`, `store`, `version`, `skills`, `self-update`, and `mcp`.
+
+### Fixes
+
+- **The skill's direction guidance** (MMR-605). The authoring reference now shows how to replace a container's `## Next` narrative from a file without clearing it when the file is missing or empty, and says where JSON reads carry the narrative: the `next` key of `get -f json`, and `direction` in `overview -f json`.
+
+- **A blank project description reads as none** (MMR-607). `mimir create project --desc "   "` stored the whitespace, and `get`, `projects`, and the console showed a description of spaces. A project now treats a blank description as no description, as a task and a seed already do, and that includes projects already stored with one. A project description also reads back trimmed, like a task's.
+
+- **A resume import accepts padded prose and remotes spelled as clone URLs** (MMR-609). A transfer document whose `## Next` text or task description had leading or trailing whitespace, or whose project remote was not in its stored form (such as `git@github.com:org/repo.git`), imported fresh, then refused to resume onto that same import with "already exists and differs from the transfer document". A resume now compares those fields as the target stores them, so a document always resumes onto its own fresh import. A present `## Next` with blank text still counts as present, and prose that truly differs is still refused. A store holding a project remote with a space in its path, such as `github.com/org/my repo`, can also now import its own export, where before it refused with "not a Git remote".
+
+- **An imported seed's blank description reads as none, and a padded one trimmed** (MMR-611). A transfer document whose seed description was only whitespace, such as `'  '`, imported and read back as those spaces, while a seed written from the CLI stores no description at all. A seed description now reads the same either way: blank as none, and leading or trailing whitespace trimmed. A document with a padded seed description still resumes onto its own fresh import, and a seed description that truly differs is still refused.
+
+- **A project remote that could not be stored is now refused, and the user part of a remote ends at its last `@`** (MMR-612). A remote whose host held `?`, `#`, or a backslash, such as `git@a?b.com:x` was accepted and stored, then refused as "not a Git remote" when the store imported its own export. Such a remote is now refused when it is set. A URL whose user part holds `?`, `#`, or a backslash, such as `https://a?b@c.com/x`, is refused too, since those characters end a URL's authority and the host it named was not the one Git uses. The user part of a remote now ends at its last `@`, as OpenSSH reads it, so a username that is an email address, as in `ssh://john.doe@example.com@gerrit.example.com:29418/project`, works and the host never holds `@`. A scp-style remote whose user part holds a `:`, such as `u:p@host.com:o/r`, is refused, since Git reads its host as `u`. Trailing whitespace of any kind before a stripped `/` or `.git`, as in `https://github.com/org/repo /`, is also dropped, so every stored remote imports from its own export. A store that already holds a remote in the old form keeps it; such a row may also stop matching its clone for binding until you correct it with `mimir update KEY --remote <url>`.
+
+- **A task under review has its own status color in the console** (MMR-617). The `under_review` status dot, card border, chip, bar segment, and timeline marker were the same violet the console uses for decisions waiting on you, so a review in _Now_ looked like something you owed. Review is now chartreuse, between in-progress amber and done green, in both themes. Violet now marks only what waits on the operator.
+- **A promoted seed's spawned-work line no longer reads as waiting on you** (MMR-617). On the seeds pages, "spawned MMR-118" was violet for every seed with spawned work. It is now plain text while that work is in flight, and violet only once the seed is ready to resolve.
+
+- **Fix the faint going-cold count on the review page** (MMR-619). In the light theme, the per-project cold count in the review page's health strip was too faint to read against the page (2.49:1) and used the same gray as the `awaiting` status dot; in the dark theme it used nearly the same gray. It now uses the console's secondary text color in both themes.
+
+- **A done or abandoned task no longer keeps its hold** (MMR-616). `done` and `abandon` on a blocked or parked task left the hold, its reason, and its block owner in place. The task still showed up in `--eq hold:blocked` and `--eq block_owner:you` filters, and `reopen` brought the old hold back. Both verbs now release the hold. The store's migration to schema 11 releases it on every task already closed this way, and `store import` does the same for an export written by an earlier version. The task's history still records the block.
+
 ## v0.26.0 - 2026-10-29
 
 ### Breaking Changes
