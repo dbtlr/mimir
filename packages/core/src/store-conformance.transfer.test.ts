@@ -105,6 +105,21 @@ const invalidCases: InvalidCase[] = [
     name: 'block owner on an unheld done task',
   },
   {
+    change: (d) => ({
+      ...d,
+      nodes: d.nodes.map((n) =>
+        n.type === 'task' &&
+        n.hold === 'none' &&
+        n.lifecycle !== 'done' &&
+        n.lifecycle !== 'abandoned'
+          ? { ...n, hold_reason: 'stray' }
+          : n,
+      ),
+    }),
+    field: 'hold_reason',
+    name: 'hold reason on an unheld open task',
+  },
+  {
     change: (d) => ({ ...d, nodes: patchFirst(d.nodes, { grooming: 'groomed' }) }),
     field: 'grooming',
     name: 'grooming on container',

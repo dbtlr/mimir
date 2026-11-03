@@ -73,13 +73,22 @@ test.each(['done', 'abandoned'] as const)(
   },
 );
 
-test('a live unheld task keeps its stored reason: only terminal tasks are normalized', () => {
+// No verb leaves a reason on an unheld open task, so only a hand-edited
+// document carries one; the import refuses it rather than dropping it (MMR-621).
+test('a live unheld task with a reason is refused: only terminal tasks are normalized', () => {
   const input = structuredClone(document);
-  const task = input.nodes.find((node) => node.type === 'task' && node.hold === 'none');
+  const task = input.nodes.find(
+    (node) =>
+      node.type === 'task' &&
+      node.hold === 'none' &&
+      node.lifecycle !== 'done' &&
+      node.lifecycle !== 'abandoned',
+  );
   if (task === undefined) {
-    throw new Error('the fixture has no unheld task');
+    throw new Error('the fixture has no open unheld task');
   }
   task.hold_reason = 'stray';
-  const parsed = parseTransferDocument(input).nodes.find((node) => node.id === task.id);
-  expect(parsed?.hold_reason).toBe('stray');
+  expect(() => parseTransferDocument(input)).toThrow(
+    `node ${task.id}.hold_reason must be null while the hold is none`,
+  );
 });
