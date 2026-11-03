@@ -204,12 +204,16 @@ main flags for the user conversation, `--worker-session` for a distinct task
 owner, and `--worker-harness` when known.
 Use each harness's own knowledge of its resumable session. Inherited shell
 variables can describe an outer harness; they do not override that knowledge.
+T3 Code is the exception: when `T3CODE_THREAD_ID` is nonblank, an agent records the
+T3 thread as its main identity, `--harness t3 --session "$T3CODE_THREAD_ID"`,
+because the T3 thread is the conversation the user resumes.
 
 | Harness | Session id in its tool shell |
 | --- | --- |
 | Claude Code (`claude`) | `CLAUDE_CODE_SESSION_ID` (`CLAUDECODE=1` identifies the harness) |
 | Codex (`codex`) | `CODEX_THREAD_ID` |
 | opencode (`opencode`) | `OPENCODE_SESSION_ID` (`OPENCODE=1` identifies the harness) |
+| T3 Code (`t3`) | `T3CODE_THREAD_ID`, the T3 thread id (T3 0.1.6 sets it only in its Claude threads) |
 
 If an identity cannot be established, resolve it before recording ownership;
 a made-up session cannot resume the work. For a new direct start, set the main
@@ -226,7 +230,10 @@ included, equals its own value: `--harness codex` in a Claude shell records no
 session, and `--session ""` records no harness.
 Supplying a worker session without a worker harness also clears any previous
 worker harness during a takeover; omitting both fields preserves the assignment.
-Multiple detected harnesses produce a note only when main fallback applies.
+A nonblank `T3CODE_THREAD_ID` identifies T3 and wins over every agent detected
+under it, including agents started from inside the thread, because the thread
+is the conversation the user resumes. Without it, multiple detected harnesses
+fill nothing and produce a note, but only when main fallback applies.
 `update` and MCP never infer identity from their environment.
 
 `queue` records the main reservation. Starting queued work preserves its main

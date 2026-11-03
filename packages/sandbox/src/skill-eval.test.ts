@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 import { escapes, summarize } from './skill-eval';
 import type { RunResult } from './skill-eval';
-import { agentPath } from './skill-eval-sandbox';
+import { agentEnvironment, agentPath } from './skill-eval-sandbox';
 import { asksToConfirmKey, SCENARIOS, UNIVERSAL_CHECKS } from './skill-eval-scenarios';
 import type { Evidence } from './skill-eval-scenarios';
 import { mimirCalls } from './skill-eval-transcript';
@@ -22,6 +22,34 @@ test('the agent PATH leads with the sandbox and drops every directory holding an
     expect(agentPath('/eval/bin', `${live}:${tools}:/eval/bin`)).toBe(`/eval/bin:${tools}`);
   } finally {
     rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("the eval agent sheds the caller's Claude and T3 identity but keeps the rest", () => {
+  const caller = {
+    CLAUDECODE: '1',
+    CLAUDE_CODE_SESSION_ID: 'caller-session',
+    CLAUDE_CONFIG_DIR: '/caller/claude',
+    T3CODE_HOME: '/caller/t3',
+    T3CODE_THREAD_ID: 'caller-thread',
+  };
+  const saved = Object.fromEntries(Object.keys(caller).map((key) => [key, process.env[key]]));
+  Object.assign(process.env, caller);
+  try {
+    const env = agentEnvironment('/eval', 'claude');
+    expect(env.CLAUDECODE).toBeUndefined();
+    expect(env.CLAUDE_CODE_SESSION_ID).toBeUndefined();
+    expect(env.T3CODE_THREAD_ID).toBeUndefined();
+    expect(env.CLAUDE_CONFIG_DIR).toBe('/caller/claude');
+    expect(env.T3CODE_HOME).toBe('/caller/t3');
+  } finally {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
   }
 });
 

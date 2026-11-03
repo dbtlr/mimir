@@ -123,3 +123,50 @@ test('each pair of nested harnesses conflicts even with a missing session id', (
     kind: 'conflict',
   });
 });
+
+test('T3 identifies the thread it runs, over the agent it wraps', () => {
+  expect(detectHarness({ T3CODE_THREAD_ID: 't3-thread' })).toEqual({
+    harness: 't3',
+    kind: 'single',
+    session: 't3-thread',
+  });
+  expect(detectHarness({ ...claudeShell, T3CODE_THREAD_ID: 't3-thread' })).toEqual({
+    harness: 't3',
+    kind: 'single',
+    session: 't3-thread',
+  });
+});
+
+test('T3 settles nested agents that would otherwise conflict', () => {
+  expect(
+    detectHarness({ ...claudeShell, CODEX_THREAD_ID: 'inner', T3CODE_THREAD_ID: 't3-thread' }),
+  ).toEqual({ harness: 't3', kind: 'single', session: 't3-thread' });
+  expect(
+    detectHarness({ OPENCODE: '1', OPENCODE_SESSION_ID: 'oc', T3CODE_THREAD_ID: 't3-thread' }),
+  ).toEqual({ harness: 't3', kind: 'single', session: 't3-thread' });
+});
+
+test('a blank T3 thread leaves detection to the agents', () => {
+  expect(detectHarness({ ...claudeShell, T3CODE_THREAD_ID: '' })).toEqual({
+    harness: 'claude',
+    kind: 'single',
+    session: 'S',
+  });
+  expect(
+    detectHarness({ ...claudeShell, CODEX_THREAD_ID: 'inner', T3CODE_THREAD_ID: '  ' }),
+  ).toEqual({ harnesses: ['claude', 'codex'], kind: 'conflict' });
+});
+
+test('inside T3, a passed agent harness fills nothing and the T3 session fills the harness', () => {
+  const t3Shell = { ...claudeShell, T3CODE_THREAD_ID: 't3-thread' };
+  expect(fillFromShell({ harness: 'claude', session: undefined }, t3Shell)).toEqual({
+    harness: 'claude',
+    kind: 'filled',
+    session: undefined,
+  });
+  expect(fillFromShell({ harness: undefined, session: 't3-thread' }, t3Shell)).toEqual({
+    harness: 't3',
+    kind: 'filled',
+    session: 't3-thread',
+  });
+});

@@ -215,6 +215,11 @@ test.each([
   ['claude', { CLAUDECODE: '1', CLAUDE_CODE_SESSION_ID: 'claude-session' }, 'claude-session'],
   ['codex', { CODEX_THREAD_ID: 'codex-thread' }, 'codex-thread'],
   ['opencode', { OPENCODE: '1', OPENCODE_SESSION_ID: 'opencode-session' }, 'opencode-session'],
+  [
+    't3',
+    { CLAUDECODE: '1', CLAUDE_CODE_SESSION_ID: 'claude-session', T3CODE_THREAD_ID: 't3-thread' },
+    't3-thread',
+  ],
 ] satisfies [string, Record<string, string>, string][])(
   'start with no handle flags records the %s shell identity',
   async (harness, env, session) => {
@@ -232,6 +237,16 @@ test('a harness flag that matches the shell lets it fill the session', async () 
 });
 
 const nestedShell = { CLAUDECODE: '1', CLAUDE_CODE_SESSION_ID: 'outer', CODEX_THREAD_ID: 'inner' };
+
+test('queue inside T3 records the T3 thread even over nested agents', async () => {
+  const run = await onFreshBoard(['queue', 'MMR-3', '-f', 'json'], {
+    ...nestedShell,
+    T3CODE_THREAD_ID: 't3-thread',
+  });
+  expect(run.exitCode, run.stderr).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject({ harness: 't3', session: 't3-thread' });
+  expect(run.stderr).not.toContain('detected multiple harnesses');
+});
 
 test('start in nested harnesses leaves the handles empty and explains the flags on stderr', async () => {
   const run = await onFreshBoard(['start', 'MMR-3', '-f', 'json'], nestedShell);

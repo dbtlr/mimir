@@ -28,6 +28,7 @@ const HARNESS_VARIABLES = [
   'CODEX_THREAD_ID',
   'OPENCODE',
   'OPENCODE_SESSION_ID',
+  'T3CODE_THREAD_ID',
 ];
 const shell: Record<string, string | undefined> = {};
 beforeAll(() => {
