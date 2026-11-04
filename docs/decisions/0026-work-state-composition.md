@@ -141,3 +141,20 @@ The Engine's `start` accepts an optional `startExpectation` containing the
 observed lifecycle, main harness, and main session. The Loom CLI passes this
 snapshot through Engine so the transaction checks the same state used for
 fallback, without reaching around the Engine boundary.
+
+## 2026-11-03 refinement: a queued task's own start keeps its execution context (MMR-625)
+
+This narrows the MMR-568 rule that starting a queued task resets its host and
+branch. A queue reservation can name where the run already lives: the
+console's T3 launch (ADR 0040) queues a task with `host=<environmentId>`
+after creating the thread on that system, and the agent in that thread then
+runs `start`. Resetting the host there erased the one fact the console needs
+to open the thread.
+
+Starting a queued task now keeps its host and branch unless the start names
+worker fields. A start that names a worker hands the task to a distinct agent
+whose execution context is unknown, so it still resets them. Either way, a
+host or branch the start supplies replaces the stored one. Main identity is
+unchanged by this refinement: `start` already preserves it, so a start that
+keeps the reservation's main session is the reserved conversation beginning
+its own work, and the context it reserved under stays true.
