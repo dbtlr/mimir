@@ -234,9 +234,10 @@ Supplying a worker session without a worker harness also clears any previous
 worker harness during a takeover; omitting both fields preserves the assignment.
 A nonblank `T3CODE_THREAD_ID` identifies T3 and wins over every agent detected
 under it, including agents started from inside the thread, because the thread
-is the conversation the user resumes. When the main identity recorded is that
-thread, a nonblank `T3CODE_ENVIRONMENT_ID` fills an omitted host. Without it, multiple detected harnesses
-fill nothing and produce a note, but only when main fallback applies.
+is the conversation the user resumes. Without a nonblank `T3CODE_THREAD_ID`,
+multiple detected harnesses fill nothing and produce a note, but only when main
+fallback applies. When the main identity recorded is the T3 thread, a nonblank
+`T3CODE_ENVIRONMENT_ID` fills an omitted host.
 `update` and MCP never infer identity from their environment.
 
 `queue` records the main reservation. Starting queued work preserves its main

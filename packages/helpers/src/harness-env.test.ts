@@ -204,3 +204,13 @@ test.each([
     expect(t3HostFromShell(passed, t3Thread)).toBeUndefined();
   },
 );
+
+test('padding the store trims away does not hide the T3 thread being recorded', () => {
+  expect(t3HostFromShell({ harness: ' t3', session: 't3-thread ' }, t3Thread)).toBe('env-1');
+  expect(
+    t3HostFromShell(thisThread, {
+      T3CODE_ENVIRONMENT_ID: ' env-1 ',
+      T3CODE_THREAD_ID: ' t3-thread ',
+    }),
+  ).toBe('env-1');
+});

@@ -453,9 +453,10 @@ the environment id.
   or assigns a worker fills nothing, as with harness and session.
 - **A missing or blank variable records no host and raises no error**, so the
   fill rolls out machine by machine with fleet.
-- **MCP calls take the host explicitly.** `update` and MCP never read their
-  environment (ADR 0026), so the skill tells an agent inside T3 to pass
-  `host` as `$T3CODE_ENVIRONMENT_ID` when it is set.
+- **Agents pass the host explicitly.** The skill tells an agent inside T3 to
+  pass `host` as `$T3CODE_ENVIRONMENT_ID` when it is set, as it already passes
+  the harness and session, so the record does not depend on the environment
+  the CLI or the MCP server inherited.
 
 **Considered and rejected.** Reading the id from
 `$T3CODE_HOME/userdata/environment-id`, where T3 0.1.6 keeps it: the file is

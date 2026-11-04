@@ -83,14 +83,10 @@ export function t3HostFromShell(
   if (recorded.host !== undefined) {
     return recorded.host;
   }
-  const thread = env.T3CODE_THREAD_ID;
-  const environment = env.T3CODE_ENVIRONMENT_ID;
+  // The store trims every handle, so compare and fill the values it would keep.
+  const thread = env.T3CODE_THREAD_ID?.trim() ?? '';
+  const environment = env.T3CODE_ENVIRONMENT_ID?.trim() ?? '';
   const isThisThread =
-    thread !== undefined &&
-    thread.trim() !== '' &&
-    recorded.harness === 't3' &&
-    recorded.session === thread;
-  return isThisThread && environment !== undefined && environment.trim() !== ''
-    ? environment
-    : undefined;
+    thread !== '' && recorded.harness?.trim() === 't3' && recorded.session?.trim() === thread;
+  return isThisThread && environment !== '' ? environment : undefined;
 }
