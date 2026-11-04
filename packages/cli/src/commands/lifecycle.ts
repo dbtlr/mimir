@@ -25,7 +25,7 @@ import type {
   UniformArgs,
   UniformVerb,
 } from '@mimir/contract';
-import { fillFromShell } from '@mimir/helpers';
+import { fillFromShell, t3HostFromShell } from '@mimir/helpers';
 
 import { MimirUsageError } from '../failures';
 import { nodeToken, withListHint, withProjectHint } from '../node-input';
@@ -408,28 +408,44 @@ const handleDescription = (verb: UniformVerb, key: HandleFieldKey, summary: stri
     ? `${summary} Required, after the shell environment fills it.`
     : summary;
 
+type Handles = Partial<Record<HandleFieldArg, string>>;
+
 /**
- * Fill a new main identity from one unambiguous shell. An established main
- * or explicit worker input suppresses fallback; worker identity stays explicit.
+ * Fill a new main identity from one unambiguous shell, then the host of a T3
+ * thread from its environment. An established main or explicit worker input
+ * suppresses both; worker identity stays explicit.
  */
 async function runHandles(
-  options: Readonly<Partial<Record<HandleFieldArg, string>>>,
+  options: Readonly<Handles>,
   verb: 'queue' | 'start',
   starting: UniformArgs['startExpectation'],
   env: Readonly<Record<string, string | undefined>>,
   warn: (message: string) => Promise<void>,
-): Promise<Partial<Record<HandleFieldArg, string>>> {
+): Promise<Handles> {
   const handles = { ...options };
   if (
-    (verb === 'start' &&
-      (starting?.harness != null ||
-        starting?.session != null ||
-        handles.workerHarness !== undefined ||
-        handles.workerSession !== undefined)) ||
-    (handles.harness !== undefined && handles.session !== undefined)
+    verb === 'start' &&
+    (starting?.harness != null ||
+      starting?.session != null ||
+      handles.workerHarness !== undefined ||
+      handles.workerSession !== undefined)
   ) {
     return handles;
   }
+  const identity =
+    handles.harness !== undefined && handles.session !== undefined
+      ? handles
+      : await fillIdentity(handles, env, warn);
+  const host = t3HostFromShell(identity, env);
+  return host == null ? identity : { ...identity, host };
+}
+
+/** Fill an omitted main harness or session from the shell, or explain a conflict. */
+async function fillIdentity(
+  handles: Readonly<Handles>,
+  env: Readonly<Record<string, string | undefined>>,
+  warn: (message: string) => Promise<void>,
+): Promise<Handles> {
   const filled = fillFromShell(handles, env);
   if (filled.kind === 'conflict') {
     await warn(

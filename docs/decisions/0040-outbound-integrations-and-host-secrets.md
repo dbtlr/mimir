@@ -304,8 +304,10 @@ anything after it:
    already `<threadId>`, queued or in progress, an earlier try of this
    attempt queued it or the agent in the thread started it first, and the
    launch reads `launched`. A task the agent started first carries no
-   `host`, so it gets no Open in T3 link; that race needs the agent to start
-   before the queue write a few milliseconds later, and is accepted.
+   `host` unless its start filled one from `T3CODE_ENVIRONMENT_ID` (the
+   MMR-627 refinement below); without that variable it gets no Open in T3
+   link. That race needs the agent to start before the queue write a few
+   milliseconds later, and is accepted.
 
 The answer is a tagged state: the unavailable states above; `not_ready`;
 `taken` with the queued `harness`, `session`, and `host`; `refused`; `invalid` with the `field`;
@@ -430,3 +432,33 @@ records the rule for host settings.
   filtering keeps other websites from reaching it through the browser.
 - A later integration follows the same shape: an address setting, an adapter
   in the console server, host secrets for its credentials, and generic writes.
+
+## Refinement (2026-11-03, MMR-627): a thread started by hand records its T3 host
+
+A task an agent queues or starts by hand inside a T3 thread recorded
+`harness=t3` and the thread as its session (MMR-623), but no `host`, so it got
+no Open in T3 link. T3 0.1.6 gives a thread's shell `T3CODE_THREAD_ID` but not
+the environment id.
+
+- **The environment id comes from `T3CODE_ENVIRONMENT_ID`.** Fleet sets it on
+  each T3 server it runs, from that server's environment id (FLT-s11), and
+  every thread's shell inherits it.
+- **`queue` and `start` fill an omitted host from it** when
+  `T3CODE_THREAD_ID` is nonblank and the main identity being recorded is that
+  thread: `harness=t3` and the thread id as the session, whether the shell
+  filled them or the agent passed them. The skill tells agents to pass both,
+  so the fill cannot depend on the shell having filled them. A passed `--host`,
+  blank included, wins. Another harness or session fills no host, because it
+  may run on another machine. A start that keeps an established main identity
+  or assigns a worker fills nothing, as with harness and session.
+- **A missing or blank variable records no host and raises no error**, so the
+  fill rolls out machine by machine with fleet.
+- **Agents pass the host explicitly.** The skill tells an agent inside T3 to
+  pass `host` as `$T3CODE_ENVIRONMENT_ID` when it is set, as it already passes
+  the harness and session, so the record does not depend on the environment
+  the CLI or the MCP server inherited.
+
+**Considered and rejected.** Reading the id from
+`$T3CODE_HOME/userdata/environment-id`, where T3 0.1.6 keeps it: the file is
+T3's private storage, not a contract. Asking T3 where the thread lives when the
+link is clicked: it adds a T3 call and a tool to the adapter for every link.

@@ -248,6 +248,64 @@ test('queue inside T3 records the T3 thread even over nested agents', async () =
   expect(run.stderr).not.toContain('detected multiple harnesses');
 });
 
+const t3Shell = {
+  ...claudeShell,
+  T3CODE_ENVIRONMENT_ID: 't3-env',
+  T3CODE_THREAD_ID: 't3-thread',
+};
+
+test.each([
+  ['queue with no handle flags', ['queue', 'MMR-3']],
+  ['start with no handle flags', ['start', 'MMR-3']],
+  ['start passing the T3 thread', ['start', 'MMR-3', '--harness', 't3', '--session', 't3-thread']],
+])('%s inside T3 records the T3 environment as the host', async (_, argv) => {
+  const run = await onFreshBoard([...argv, '-f', 'json'], t3Shell);
+  expect(run.exitCode, run.stderr).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject({
+    harness: 't3',
+    host: 't3-env',
+    session: 't3-thread',
+  });
+});
+
+test('start inside T3 keeps a passed host', async () => {
+  const run = await onFreshBoard(['start', 'MMR-3', '--host', 'laptop', '-f', 'json'], t3Shell);
+  expect(run.exitCode, run.stderr).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject({ harness: 't3', host: 'laptop' });
+});
+
+test('start inside T3 without an environment id records no host', async () => {
+  const { T3CODE_ENVIRONMENT_ID: _, ...noEnvironment } = t3Shell;
+  const run = await onFreshBoard(['start', 'MMR-3', '-f', 'json'], noEnvironment);
+  expect(run.exitCode, run.stderr).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject({ harness: 't3', host: null, session: 't3-thread' });
+});
+
+test('start inside T3 recording another harness records no T3 host', async () => {
+  const run = await onFreshBoard(
+    ['start', 'MMR-3', '--harness', 'claude', '--session', 'claude-session', '-f', 'json'],
+    t3Shell,
+  );
+  expect(run.exitCode, run.stderr).toBe(0);
+  expect(JSON.parse(run.stdout)).toMatchObject({ harness: 'claude', host: null });
+});
+
+test('starting a task queued elsewhere inside T3 records no T3 host', async () => {
+  const fresh = await parityBoard();
+  try {
+    await fresh.engine.queue({ harness: 'codex', id: 'MMR-3', session: 'main-session' });
+    const run = await runArgv(fresh.app(), ['start', 'MMR-3', '-f', 'json'], { env: t3Shell });
+    expect(run.exitCode, run.stderr).toBe(0);
+    expect(JSON.parse(run.stdout)).toMatchObject({
+      harness: 'codex',
+      host: null,
+      session: 'main-session',
+    });
+  } finally {
+    await fresh.close();
+  }
+});
+
 test('start in nested harnesses leaves the handles empty and explains the flags on stderr', async () => {
   const run = await onFreshBoard(['start', 'MMR-3', '-f', 'json'], nestedShell);
   expect(run.exitCode, run.stderr).toBe(0);

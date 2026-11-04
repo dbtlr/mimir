@@ -68,3 +68,25 @@ export function fillFromShell(
     session: passed.session ?? detected.session,
   };
 }
+
+/**
+ * Fill an omitted host from the T3 environment a T3 thread runs in, so Open in
+ * T3 can link the thread (ADR 0040). Fleet sets `T3CODE_ENVIRONMENT_ID` on each
+ * T3 server. It fills only when the identity being recorded is this shell's
+ * own T3 thread: another harness or session may run on another machine.
+ * A passed host, blank included, always wins.
+ */
+export function t3HostFromShell(
+  recorded: Readonly<{ harness?: PassedHandle; host?: PassedHandle; session?: PassedHandle }>,
+  env: Readonly<Record<string, string | undefined>>,
+): PassedHandle {
+  if (recorded.host !== undefined) {
+    return recorded.host;
+  }
+  // The store trims every handle, so compare and fill the values it would keep.
+  const thread = env.T3CODE_THREAD_ID?.trim() ?? '';
+  const environment = env.T3CODE_ENVIRONMENT_ID?.trim() ?? '';
+  const isThisThread =
+    thread !== '' && recorded.harness?.trim() === 't3' && recorded.session?.trim() === thread;
+  return isThisThread && environment !== '' ? environment : undefined;
+}
