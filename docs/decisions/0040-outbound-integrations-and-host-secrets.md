@@ -256,7 +256,8 @@ like the pending authorizations.
 Before step 1, a known attempt with another task or choice reads `invalid`,
 naming `attempt`. The registry does not survive a host restart: a retry of a
 lost reply after one reads `taken`, naming the operator's own thread, which
-the console then offers to open. One launch per task runs at a time on the host: a second launch of
+the console then offers to open, or `not_ready` once the agent has started
+the task. One launch per task runs at a time on the host: a second launch of
 the same task waits for the first to settle before step 1.
 
 The function runs these steps in order, and each refusal comes before
@@ -294,8 +295,8 @@ anything after it:
    thread. The launch call's timeout is 60 seconds, because creating a
    worktree can be slow. A launch T3 answers with a tool error (`isError`)
    reads `refused`, without T3's text, because T3 refuses some launches on
-   every try (a branch that already exists); the operator changes the choice
-   and launches again as a new attempt. A reply without a `threadId` reads
+   every try (a branch that already exists); the operator launches again as a
+   new attempt, with the same choice or a changed one. A reply without a `threadId` reads
    `unreachable`.
 4. Queue the task with the writes below. When the task's main session is
    already `<threadId>`, queued or in progress, an earlier try of this
@@ -321,10 +322,10 @@ queue does not re-check the project's remote: a remote changed between steps
 (MMR-623), `host=<environmentId>`, and `branch` when the workspace names one.
 The host handle is the environment id, not the label, because the Open in T3
 link is built from it and a label can change. When the launched agent starts
-the task without naming a worker, the start keeps `host` and `branch` (ADR
-0026, MMR-625 refinement), so the link survives it. A start that supplies its
-own `--host` replaces the stored one, and a start that hands the task to a
-worker clears it; either leaves the task with a different link or none, which
+the task and the started task has no worker, the start keeps `host` and
+`branch` (ADR 0026, MMR-625 refinement), so the link survives it. A start
+that supplies its own `--host` replaces the stored one, and a start that
+leaves the task with a worker clears it; either leaves the task with a different link or none, which
 the operator can see and correct with `update`.
 
 **Open in T3.** A task with `harness=t3` and both `host` and `session` set
