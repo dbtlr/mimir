@@ -343,7 +343,8 @@ does. The project is the system's one matching T3 project; with several,
 there is no default project. The model is the T3 project's
 `defaultModelSelection`, or else the last
 choice for this Mimir project saved in the browser, when it is still offered.
-Each option with a `default` takes it, and the rest are left out. The runtime
+Each option whose `default` is one of its `values` takes it, and the rest
+are left out. The runtime
 mode is the last one chosen for this Mimir project when the provider still
 offers it, or else the broadest it may use: the ceiling is the access level
 the operator granted at Connect, and threads meant to run unattended need it.

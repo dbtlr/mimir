@@ -153,7 +153,9 @@ runs `start`. Resetting the host there erased the one fact the console needs
 to open the thread.
 
 Starting a queued task now keeps its host and branch unless the started task
-has a worker, whether the start names one or one was already assigned. A
+has a worker after the start's handles are applied and normalized, whether
+the start names one or one was already assigned. A worker input that
+collapses into the main session leaves no worker, so it keeps them. A
 worker is a distinct agent whose execution context is unknown, so a start
 with one still resets them. Either way, a
 host or branch the start supplies replaces the stored one. Main identity is
