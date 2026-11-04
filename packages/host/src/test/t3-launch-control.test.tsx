@@ -249,7 +249,7 @@ describe('the settings dialog', () => {
     expect(within(dialog).getByRole('radio', { name: 'high' })).toBeChecked();
 
     await userEvent.click(within(dialog).getByRole('radio', { name: 'low' }));
-    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'thinking' }));
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Thinking' }));
     await userEvent.selectOptions(
       within(dialog).getByRole('combobox', { name: 'Runtime mode' }),
       'approval-required',
@@ -277,6 +277,30 @@ describe('the settings dialog', () => {
       runtimeMode: 'approval-required',
       workspace: { type: 'root' },
     });
+  });
+
+  it('labels options in words, and offers Unset only for an option with no usable default', async () => {
+    const system = reachableSystem();
+    const opus = {
+      id: 'opus',
+      label: 'Claude Opus',
+      options: [
+        { default: 'default', id: 'serviceTier', values: ['default', 'priority'] },
+        { default: null, id: 'reasoningEffort', values: ['low', 'high'] },
+      ],
+    };
+    const claude = system.providers[0]!;
+    await show(connectedCatalog([{ ...system, providers: [{ ...claude, models: [opus] }] }]));
+    const dialog = await openSettings();
+    const tier = within(dialog).getByRole('radiogroup', { name: 'Service tier' });
+    expect(
+      within(tier)
+        .getAllByRole('radio')
+        .map((r) => r.textContent),
+    ).toEqual(['default', 'priority']);
+    expect(within(tier).getByRole('radio', { name: 'default' })).toBeChecked();
+    const effort = within(dialog).getByRole('radiogroup', { name: 'Reasoning effort' });
+    expect(within(effort).getByRole('radio', { name: 'Unset' })).toBeChecked();
   });
 
   it('sends a branch only for a worktree', async () => {

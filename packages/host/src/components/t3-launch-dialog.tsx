@@ -53,7 +53,17 @@ function withOption(
   });
 }
 
-/** One model option with values: a checkbox for a boolean one, else a segmented choice. */
+/** A model option's id as words: T3 names options in camelCase (`reasoningEffort` → "Reasoning effort"). */
+export function optionLabel(id: string): string {
+  const words = id.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/**
+ * One model option with values: a checkbox for a boolean one, else a segmented
+ * choice. Only an option with no usable default offers "Unset", which leaves it
+ * out of the launch; an option with one starts on it (ADR 0040, Defaults).
+ */
 function OptionField({
   option,
   chosen,
@@ -65,11 +75,11 @@ function OptionField({
 }) {
   if (option.values.every((value) => typeof value === 'boolean') && option.values.includes(true)) {
     return (
-      <Row label={option.id}>
+      <Row label={optionLabel(option.id)}>
         <label className="flex items-center gap-2 text-xs text-ink">
           <input
             type="checkbox"
-            aria-label={option.id}
+            aria-label={optionLabel(option.id)}
             checked={chosen === true}
             onChange={(e) => {
               const off = option.values.includes(false) ? false : undefined;
@@ -82,16 +92,17 @@ function OptionField({
     );
   }
   const index = chosen === undefined ? -1 : option.values.indexOf(chosen);
+  const hasDefault = option.default !== null && option.values.includes(option.default);
   return (
-    <Row label={option.id}>
+    <Row label={optionLabel(option.id)}>
       <SegmentedControl
-        ariaLabel={option.id}
+        ariaLabel={optionLabel(option.id)}
         value={index === -1 ? '' : String(index)}
         onChange={(next) => {
           onChange(next === '' ? undefined : option.values[Number(next)]);
         }}
         options={[
-          { label: 'Default', value: '' },
+          ...(hasDefault ? [] : [{ label: 'Unset', value: '' }]),
           ...option.values.map((value, i) => ({ label: String(value), value: String(i) })),
         ]}
       />
