@@ -253,8 +253,10 @@ new one only for a new launch or a changed choice. The host remembers each
 attempt it has sent to T3 (the task, the checked choice, and the `threadId`
 once T3 answers) for 24 hours, at most 256, evicting the oldest, in memory
 like the pending authorizations.
-A known attempt with another task or choice reads `invalid`, naming
-`attempt`. One launch per task runs at a time on the host: a second launch of
+Before step 1, a known attempt with another task or choice reads `invalid`,
+naming `attempt`. The registry does not survive a host restart: a retry of a
+lost reply after one reads `taken`, naming the operator's own thread, which
+the console then offers to open. One launch per task runs at a time on the host: a second launch of
 the same task waits for the first to settle before step 1.
 
 The function runs these steps in order, and each refusal comes before
@@ -264,10 +266,9 @@ anything after it:
    a `threadId` and the task's main session is that thread, in any open
    lifecycle, the launch already happened: it reads `launched` without
    reaching T3. Otherwise, a task that `queue` accepts (open, unheld, `todo`)
-   goes on. A task already `queued` goes on only when this attempt is a known
-   one for it, because that is a retry of a launch whose reply was lost; any
-   other queued task reads `taken`, naming its `harness` and `session`.
-   Anything else reads `not_ready`. Neither refusal reaches T3.
+   goes on; any other `queued` task reads `taken`, naming its `harness`,
+   `session`, and `host`; and anything else reads `not_ready`. Neither
+   refusal reaches T3.
 2. Read the chosen system fresh, as the catalog reads one system, and check
    the choice against it. The system must be the configured server or one of
    its listed peers, or the launch reads `invalid`, naming `environmentId`.
@@ -279,8 +280,9 @@ anything after it:
    from that option's values (an option T3 lists with no values cannot be
    set); `runtimeMode` is one the provider may launch with, so no broader
    than the ceiling; a `branch` comes only with `worktree`. A branch is 1 to
-   200 characters of `[A-Za-z0-9._/-]`, starts with neither `-`, `.`, nor `/`,
-   ends with neither `/`, `.`, nor `.lock`, and holds no `..` and no `//`. A
+   200 characters of `[A-Za-z0-9._/-]`, does not start with `-`, and is not
+   `HEAD`; split on `/`, each component is non-empty, starts with no `.`,
+   ends with neither `.` nor `.lock`, and holds no `..`. A
    choice that fails reads `invalid`, naming the field, and nothing is
    launched. Options the input leaves out are left out of the launch, and T3
    applies its own defaults.
@@ -290,7 +292,11 @@ anything after it:
    writer typed; the agent reads the task from Mimir. T3 answers the same
    thread for the same id, so a retry of an attempt never makes a second
    thread. The launch call's timeout is 60 seconds, because creating a
-   worktree can be slow. A reply without a `threadId` reads `unreachable`.
+   worktree can be slow. A launch T3 answers with a tool error (`isError`)
+   reads `refused`, without T3's text, because T3 refuses some launches on
+   every try (a branch that already exists); the operator changes the choice
+   and launches again as a new attempt. A reply without a `threadId` reads
+   `unreachable`.
 4. Queue the task with the writes below. When the task's main session is
    already `<threadId>`, queued or in progress, an earlier try of this
    attempt queued it or the agent in the thread started it first, and the
@@ -299,7 +305,7 @@ anything after it:
    before the queue write a few milliseconds later, and is accepted.
 
 The answer is a tagged state: the unavailable states above; `not_ready`;
-`taken` with the queued `harness` and `session`; `invalid` with the `field`;
+`taken` with the queued `harness`, `session`, and `host`; `refused`; `invalid` with the `field`;
 `launched` with `threadId`, `environmentId`, and the system's `label`; or
 `not_queued` with the same three and the Engine's refusal message, when the
 thread exists but the queue failed. Only `unreachable` and `not_queued` are
@@ -315,8 +321,11 @@ queue does not re-check the project's remote: a remote changed between steps
 (MMR-623), `host=<environmentId>`, and `branch` when the workspace names one.
 The host handle is the environment id, not the label, because the Open in T3
 link is built from it and a label can change. When the launched agent starts
-the task, its start keeps the queued main session, so it keeps `host` and
-`branch` too (ADR 0026, MMR-625 refinement).
+the task without naming a worker, the start keeps `host` and `branch` (ADR
+0026, MMR-625 refinement), so the link survives it. A start that supplies its
+own `--host` replaces the stored one, and a start that hands the task to a
+worker clears it; either leaves the task with a different link or none, which
+the operator can see and correct with `update`.
 
 **Open in T3.** A task with `harness=t3` and both `host` and `session` set
 links to `<MIMIR_T3_URL>/<host>/<session>`, each handle percent-encoded as one
