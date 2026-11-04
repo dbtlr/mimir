@@ -19,11 +19,14 @@ export type T3Http = {
 
 /**
  * Why a T3 request failed: `rejected` is T3's `401`; `unknown_tool` is T3
- * saying it exposes no such tool; `unreachable` is everything else (no answer,
- * a timeout, a redirect, another status, another JSON-RPC error, a failed tool
- * result, or a reply that fails its checks).
+ * saying it exposes no such tool; `refused` is a tool error (`isError`) from
+ * `t3_thread_launch` (the adapter also reads its missing tool so), which T3
+ * answers the same on every try; `unreachable` is
+ * everything else (no answer, a timeout, a redirect, another status, another
+ * JSON-RPC error, another tool's failed result, or a reply that fails its
+ * checks).
  */
-export type T3FailureKind = 'rejected' | 'unknown_tool' | 'unreachable';
+export type T3FailureKind = 'refused' | 'rejected' | 'unknown_tool' | 'unreachable';
 
 /** A failed T3 request. Its message names the endpoint and status alone. */
 export class T3RequestError extends Error {
@@ -94,11 +97,24 @@ export type T3Tool =
   | 'orchestrator_capabilities'
   | 't3_environment_links'
   | 't3_environment_read'
-  | 't3_project_list';
+  | 't3_project_list'
+  | 't3_thread_launch';
 
-/** One MCP session over streamable HTTP: initialized, then reused for each tool call. */
+/** A JSON value the adapter sends as a tool argument. */
+export type T3JsonValue =
+  | boolean
+  | number
+  | string
+  | null
+  | T3JsonValue[]
+  | { [key: string]: T3JsonValue };
+
+/**
+ * One MCP session over streamable HTTP: initialized, then reused for each tool
+ * call. A call may set its own timeout; otherwise it takes the session's.
+ */
 export type McpSession = {
-  call: (tool: T3Tool, args: Record<string, number | string>) => Promise<unknown>;
+  call: (tool: T3Tool, args: Record<string, T3JsonValue>, timeoutMs?: number) => Promise<unknown>;
 };
 
 const MCP_PROTOCOL_VERSION = '2025-06-18';
@@ -167,15 +183,16 @@ function isUnknownTool(error: unknown, tool: T3Tool | undefined): boolean {
 /**
  * A tool result's payload: `structuredContent` when T3 sends an object there,
  * else the JSON in its first text content. A result marked `isError` is a
- * failed read, `unreachable`, like any other bad reply.
+ * failed read, `unreachable`, like any other bad reply, except from
+ * `t3_thread_launch`, where it is T3 refusing the launch: `refused`.
  */
-function toolPayload(result: unknown, endpoint: string): unknown {
+function toolPayload(result: unknown, endpoint: string, tool: T3Tool): unknown {
   const record = asRecord(result);
   if (record === undefined) {
     throw new T3RequestError('unreachable', endpoint);
   }
   if (record.isError === true) {
-    throw new T3RequestError('unreachable', endpoint);
+    throw new T3RequestError(tool === 't3_thread_launch' ? 'refused' : 'unreachable', endpoint);
   }
   if (asRecord(record.structuredContent) !== undefined) {
     return record.structuredContent;
@@ -207,7 +224,7 @@ export async function openMcpSession(
   // What T3 answers on initialize, carried on every later request.
   const negotiated: { sessionId?: string; protocolVersion?: string } = {};
   let nextId = 0;
-  const post = async (message: Record<string, unknown>, tool?: T3Tool) => {
+  const post = async (message: Record<string, unknown>, tool?: T3Tool, timeoutMs?: number) => {
     const headers: Record<string, string> = {
       accept: 'application/json, text/event-stream',
       authorization: `Bearer ${token}`,
@@ -220,7 +237,7 @@ export async function openMcpSession(
       headers['mcp-protocol-version'] = negotiated.protocolVersion;
     }
     const response = await t3Request(
-      http,
+      timeoutMs === undefined ? http : { ...http, timeoutMs },
       mcpUrl,
       { body: JSON.stringify({ jsonrpc: '2.0', ...message }), headers, method: 'POST' },
       endpoint,
@@ -229,10 +246,19 @@ export async function openMcpSession(
     negotiated.sessionId = response.headers.get('mcp-session-id') ?? negotiated.sessionId;
     return response;
   };
-  const request = async (method: string, params: Record<string, unknown>, tool?: T3Tool) => {
+  const request = async (
+    method: string,
+    params: Record<string, unknown>,
+    tool?: T3Tool,
+    timeoutMs?: number,
+  ) => {
     nextId += 1;
     const id = nextId;
-    const reply = await readRpcReply(await post({ id, method, params }, tool), id, endpoint);
+    const reply = await readRpcReply(
+      await post({ id, method, params }, tool, timeoutMs),
+      id,
+      endpoint,
+    );
     if (reply.error !== undefined) {
       logEvent(http, 't3_request_failed', {
         endpoint,
@@ -262,7 +288,11 @@ export async function openMcpSession(
   const notified = await post({ method: 'notifications/initialized' });
   await notified.body?.cancel().catch(() => undefined);
   return {
-    call: async (tool, args) =>
-      toolPayload(await request('tools/call', { arguments: args, name: tool }, tool), endpoint),
+    call: async (tool, args, timeoutMs) =>
+      toolPayload(
+        await request('tools/call', { arguments: args, name: tool }, tool, timeoutMs),
+        endpoint,
+        tool,
+      ),
   };
 }

@@ -132,7 +132,8 @@ without turning helper calls into an agent hierarchy. Existing stored session
 facts remain intact; migration does not guess historical orchestrator identity.
 
 An explicitly assigned worker on a queued task survives plain start; only prior
-execution host and branch reset. CLI start binds its state-dependent fallback
+execution host and branch reset. (Narrowed by the MMR-625 refinement below:
+they reset only when the started task has a worker.) CLI start binds its state-dependent fallback
 decision to the lifecycle and main identity snapshot checked in the write
 transaction. A concurrent release or main takeover causes refusal rather than
 starting under a stale assignment.
@@ -141,3 +142,23 @@ The Engine's `start` accepts an optional `startExpectation` containing the
 observed lifecycle, main harness, and main session. The Loom CLI passes this
 snapshot through Engine so the transaction checks the same state used for
 fallback, without reaching around the Engine boundary.
+
+## 2026-11-03 refinement: a queued task's own start keeps its execution context (MMR-625)
+
+This narrows the MMR-568 rule that starting a queued task resets its host and
+branch. A queue reservation can name where the run already lives: the
+console's T3 launch (ADR 0040) queues a task with `host=<environmentId>`
+after creating the thread on that system, and the agent in that thread then
+runs `start`. Resetting the host there erased the one fact the console needs
+to open the thread.
+
+Starting a queued task now keeps its host and branch unless the started task
+has a worker after the start's handles are applied and normalized, whether
+the start names one or one was already assigned. A worker input that
+collapses into the main session leaves no worker, so it keeps them. A
+worker is a distinct agent whose execution context is unknown, so a start
+with one still resets them. Either way, a
+host or branch the start supplies replaces the stored one. Main identity is
+unchanged by this refinement: `start` already preserves it, so a start that
+keeps the reservation's main session is the reserved conversation beginning
+its own work, and the context it reserved under stays true.

@@ -1,5 +1,7 @@
 // A test double, not a test body: the T3 Code server the adapter tests talk to.
 import { createHash } from 'node:crypto';
+import { once } from 'node:events';
+import { setTimeout as sleep } from 'node:timers/promises';
 
 import type { HostSecretStore } from '@mimir/core';
 import { z } from 'zod';
@@ -71,7 +73,30 @@ export type StubOptions = {
   sse?: boolean;
   /** Projects per `t3_project_list` page. */
   pageSize?: number;
+  /** How `t3_thread_launch` answers at first; `setLaunchReply` changes it. */
+  launchReply?: StubLaunchReply;
+  /** Milliseconds `t3_thread_launch` takes before it answers. */
+  launchDelayMs?: number;
+  /** Tools this T3 does not expose: each answers as T3 0.1.6 answers an unknown tool. */
+  missingTools?: readonly string[];
 };
+
+/**
+ * How `t3_thread_launch` answers: with the thread (`answer`), a tool error
+ * (`is_error`), a reply without a `threadId` (`no_thread`), or, after making
+ * the thread, no reply at all: the connection drops (`drop`) or the request
+ * hangs until its timeout aborts it (`hang`).
+ */
+export type StubLaunchReply =
+  | 'answer'
+  | 'drop'
+  | 'hang'
+  | 'is_error'
+  | 'no_thread'
+  | 'unknown_tool';
+
+/** The text of the stub's launch refusal: T3's words, which never reach a log or the console. */
+export const STUB_LAUNCH_REFUSAL = "Branch 'feature/taken' already exists";
 
 const rpcSchema = z.looseObject({
   id: z.number().optional(),
@@ -100,7 +125,15 @@ const unknownTool = (name: string) => ({ code: -32602, message: `Tool '${name}' 
 export function stubT3(options: StubOptions) {
   const requests: StubRequest[] = [];
   const codes = new Map<string, { challenge: string; clientId: string; redirectUri: string }>();
-  const state = { acceptToken: true, codeCounter: 0 };
+  const state: { acceptToken: boolean; codeCounter: number; launchReply: StubLaunchReply } = {
+    acceptToken: true,
+    codeCounter: 0,
+    launchReply: options.launchReply ?? 'answer',
+  };
+  /** Each `t3_thread_launch` call's arguments, in order. */
+  const launches: Record<string, unknown>[] = [];
+  /** The thread made for each `clientRequestId`: T3 answers the same thread for the same id. */
+  const threads = new Map<string, string>();
   const { origin } = options;
   const endpoints = options.endpointOrigin ?? origin;
 
@@ -240,7 +273,67 @@ export function stubT3(options: StubOptions) {
     }
   };
 
-  const mcp = async (request: Request, body: string) => {
+  /** `t3_thread_launch`: make (or find) the thread for the request id, then answer as set. */
+  const launch = async (
+    id: number | undefined,
+    args: Record<string, unknown>,
+    signal: AbortSignal | null | undefined,
+  ) => {
+    launches.push(args);
+    const environmentId =
+      typeof args.environmentId === 'string' ? args.environmentId : options.configured;
+    const environment = options.environments[environmentId];
+    if (environment?.rejecting === true) {
+      return new Response('unauthorized', { status: 401 });
+    }
+    if (environment === undefined || environment.failing === true) {
+      return rpcReply({
+        id,
+        jsonrpc: '2.0',
+        result: { content: [{ text: 'environment unavailable', type: 'text' }], isError: true },
+      });
+    }
+    if (state.launchReply === 'is_error') {
+      return rpcReply({
+        id,
+        jsonrpc: '2.0',
+        result: { content: [{ text: STUB_LAUNCH_REFUSAL, type: 'text' }], isError: true },
+      });
+    }
+    if (state.launchReply === 'unknown_tool') {
+      return rpcReply({
+        error: { code: -32602, message: "Tool 't3_thread_launch' not found" },
+        id,
+        jsonrpc: '2.0',
+      });
+    }
+    if (options.launchDelayMs !== undefined) {
+      await sleep(options.launchDelayMs);
+    }
+    const key = String(args.clientRequestId);
+    const threadId = threads.get(key) ?? `thread-${String(threads.size + 1)}`;
+    threads.set(key, threadId);
+    if (state.launchReply === 'drop') {
+      throw new TypeError('fetch failed');
+    }
+    if (state.launchReply === 'hang') {
+      await once(signal ?? new EventTarget(), 'abort');
+      throw new Error('aborted');
+    }
+    const payload = {
+      environmentId,
+      link: `t3-thread://${environmentId}/${threadId}`,
+      projectId: args.projectId,
+      ...(state.launchReply === 'no_thread' ? {} : { threadId }),
+    };
+    return rpcReply({
+      id,
+      jsonrpc: '2.0',
+      result: { content: [{ text: JSON.stringify(payload), type: 'text' }] },
+    });
+  };
+
+  const mcp = async (request: Request, body: string, signal: AbortSignal | null | undefined) => {
     if (
       request.headers.get('authorization') !== `Bearer ${STUB_ACCESS_TOKEN}` ||
       !state.acceptToken
@@ -273,6 +366,12 @@ export function stubT3(options: StubOptions) {
       return new Response(null, { status: 202 });
     }
     const name = String(message.params?.name);
+    if (options.missingTools?.includes(name) === true) {
+      return rpcReply({ error: unknownTool(name), id: message.id, jsonrpc: '2.0' });
+    }
+    if (name === 't3_thread_launch') {
+      return launch(message.id, message.params?.arguments ?? {}, signal);
+    }
     if (name === 't3_environment_links') {
       if (options.links === 'absent') {
         return rpcReply({ error: unknownTool(name), id: message.id, jsonrpc: '2.0' });
@@ -355,7 +454,7 @@ export function stubT3(options: StubOptions) {
         });
       }
       case '/mcp': {
-        return mcp(request, body);
+        return mcp(request, body, init.signal);
       }
       default: {
         return new Response('not found', { status: 404 });
@@ -392,12 +491,20 @@ export function stubT3(options: StubOptions) {
       return callback.href;
     },
     fetch,
+    /** Each `t3_thread_launch` call's arguments, in order. */
+    launches,
     /** Every request the adapter sent, in order. */
     requests,
     /** Make T3 refuse the saved token from now on, as after it revokes it. */
     revokeToken() {
       state.acceptToken = false;
     },
+    /** Change how `t3_thread_launch` answers from now on. */
+    setLaunchReply(reply: StubLaunchReply) {
+      state.launchReply = reply;
+    },
+    /** The thread made for each `clientRequestId`. */
+    threads,
   };
 }
 

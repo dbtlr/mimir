@@ -8,6 +8,25 @@ import { refusalOf, withoutStamp } from './testing/conformance';
 import { expectMimirError } from './testing/errors';
 import { createTestStore, rawPatchNode } from './testing/store';
 
+/** A queued task reserved with a host and branch, on a fresh store. */
+async function queuedWithContext(
+  createStore: typeof createTestStore | typeof createPgliteTestStore,
+) {
+  const fixture = await createStore();
+  const engine = new LocalEngine(fixture.store);
+  await engine.create({ key: 'OWN', name: 'Ownership', type: 'project' });
+  const parent = await engine.create({ parent: 'OWN', title: 'i', type: 'initiative' });
+  const task = await engine.create({ parent: parent.id, title: 't', type: 'task' });
+  await engine.queue({
+    branch: 'reservation',
+    harness: 'codex',
+    host: 'queue-host',
+    id: task.id,
+    session: 'main',
+  });
+  return { engine, fixture, id: task.id };
+}
+
 describe.each([
   ['SQLite', createTestStore],
   ['Postgres', createPgliteTestStore],
@@ -553,6 +572,72 @@ describe.each([
     } finally {
       await fixture.close();
     }
+  });
+
+  describe('starting a queued task keeps its execution context unless a worker takes over', () => {
+    test('a plain start with no worker keeps host and branch', async () => {
+      const { engine, fixture, id } = await queuedWithContext(createStore);
+      try {
+        expect(await engine.start({ id })).toMatchObject({
+          branch: 'reservation',
+          host: 'queue-host',
+          workerSession: null,
+        });
+      } finally {
+        await fixture.close();
+      }
+    });
+
+    test('a host or branch the start supplies replaces the stored one', async () => {
+      const { engine, fixture, id } = await queuedWithContext(createStore);
+      try {
+        expect(await engine.start({ branch: 'execution', host: 'run-host', id })).toMatchObject({
+          branch: 'execution',
+          host: 'run-host',
+        });
+      } finally {
+        await fixture.close();
+      }
+    });
+
+    test('a start naming a distinct worker resets host and branch', async () => {
+      const { engine, fixture, id } = await queuedWithContext(createStore);
+      try {
+        expect(
+          await engine.start({ id, workerHarness: 'claude', workerSession: 'worker' }),
+        ).toMatchObject({ branch: null, host: null, workerSession: 'worker' });
+      } finally {
+        await fixture.close();
+      }
+    });
+
+    test('a worker assigned earlier by update resets host and branch on a plain start', async () => {
+      const { engine, fixture, id } = await queuedWithContext(createStore);
+      try {
+        await engine.update({ id, workerHarness: 'claude', workerSession: 'worker' });
+        expect(await engine.start({ id })).toMatchObject({
+          branch: null,
+          host: null,
+          workerSession: 'worker',
+        });
+      } finally {
+        await fixture.close();
+      }
+    });
+
+    test('a worker input that collapses into the main session keeps host and branch', async () => {
+      const { engine, fixture, id } = await queuedWithContext(createStore);
+      try {
+        expect(await engine.start({ id, workerSession: 'main' })).toMatchObject({
+          branch: 'reservation',
+          host: 'queue-host',
+          workerHarness: null,
+          workerSession: null,
+        });
+      } finally {
+        await fixture.close();
+      }
+    });
   });
 
   test('same-session workers collapse when either provider is unknown and remain distinct with conflicting known providers', async () => {

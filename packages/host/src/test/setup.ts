@@ -57,6 +57,17 @@ vi.mock('../api/fns/engine', () => ({
   requestOrigin: vi.fn(),
   t3Integration: vi.fn(),
 }));
+// The Open in T3 origin is read wherever a task's agent context shows, so every
+// file gets the unconfigured T3 integration by default; a T3 test mocks the
+// module itself (`vi.mock('../api/fns/t3')`) and serves its own state.
+// oxlint-disable-next-line vitest/require-hook
+vi.mock('../api/fns/t3', () => ({
+  connectT3: vi.fn(),
+  launchT3: vi.fn(),
+  t3Catalog: vi.fn(),
+  t3Origin: vi.fn(async () => ({ origin: null })),
+  t3Status: vi.fn(),
+}));
 // oxlint-disable-next-line vitest/require-hook
 vi.mock('../api/health', () => ({
   fetchHealth: async () => ({

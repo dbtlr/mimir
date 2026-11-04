@@ -105,7 +105,7 @@ function world(change: Partial<StubOptions> = {}): StubOptions {
 const remotes: Record<string, string | null> = { BRF: null, MMR: 'github.com/dbtlr/mimir' };
 const engine = {
   getNode: async ({ id }: { id: string }) => ({ id, remote: remotes[id] ?? null }),
-} as unknown as Pick<Engine, 'getNode'>;
+} as unknown as Pick<Engine, 'getNode' | 'queue'>;
 
 /** An adapter over a stub T3, with its logs, secrets, requests, and a movable clock. */
 function harness(
@@ -535,6 +535,7 @@ describe('the catalog', () => {
       state: 'connected',
       systems: [
         {
+          configured: true,
           defaultThreadEnvMode: 'worktree',
           environmentId: 'env-valhalla',
           label: 'Valhalla',
@@ -570,8 +571,9 @@ describe('the catalog', () => {
           ],
           status: 'reachable',
         },
-        { environmentId: 'env-mbp', label: 'DB MBP', status: 'unreachable' },
+        { configured: false, environmentId: 'env-mbp', label: 'DB MBP', status: 'unreachable' },
         {
+          configured: false,
           defaultThreadEnvMode: 'worktree',
           environmentId: 'env-asgard',
           label: 'asgard',
@@ -594,7 +596,7 @@ describe('the catalog', () => {
           ],
           status: 'reachable',
         },
-        { environmentId: 'env-broken', label: 'broken', status: 'unreachable' },
+        { configured: false, environmentId: 'env-broken', label: 'broken', status: 'unreachable' },
       ],
     });
     // Every page of the configured server's projects was read, cursor by cursor.
@@ -688,6 +690,7 @@ describe('the catalog', () => {
     await connected(h);
     const catalog = await h.adapter.catalog('MMR');
     expect(catalog.state === 'connected' && catalog.systems).toContainEqual({
+      configured: false,
       environmentId: 'env-mbp',
       label: 'DB MBP',
       status: 'unreachable',
@@ -708,6 +711,7 @@ describe('the catalog', () => {
     await connected(h);
     const catalog = await h.adapter.catalog('MMR');
     expect(catalog.state === 'connected' && catalog.systems).toContainEqual({
+      configured: false,
       environmentId: 'env-asgard',
       label: 'asgard',
       status: 'unreachable',

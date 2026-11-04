@@ -1,7 +1,7 @@
 import type { EngineNode, EngineOutput } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 
 import { isNotFound } from '../api/errors';
 import { annotationsQuery, nodeQuery, scratchpadsQuery } from '../api/node-queries';
@@ -28,10 +28,12 @@ import {
 } from '../components/node-record';
 import { FeedList } from '../components/node-timeline';
 import { OfflineBanner } from '../components/offline-banner';
+import { OpenInT3 } from '../components/open-in-t3';
 import { ParentLink } from '../components/parent-link';
 import { RailSection, RecordLayout, RecordPending } from '../components/record-layout';
 import type { RailChip } from '../components/record-layout';
 import { StatusBadge } from '../components/status-badge';
+import { T3LaunchControl, canLaunchOnT3 } from '../components/t3-launch-control';
 import { TaskForm } from '../components/task-form';
 import { ActionButton } from '../components/ui/action-button';
 import { WorkPage } from '../components/work-page';
@@ -102,16 +104,16 @@ function ActionsPanel({
           </ActionButton>
         )}
         {recordVerbs(node).map((v) => (
-          <ActionButton
-            key={v.verb}
-            size="sm"
-            variant="outline"
-            disabled={offline}
-            onClick={() => onVerb(v)}
-          >
-            {v.label}
-            {v.needsReason && '…'}
-          </ActionButton>
+          <Fragment key={v.verb}>
+            <ActionButton size="sm" variant="outline" disabled={offline} onClick={() => onVerb(v)}>
+              {v.label}
+              {v.needsReason && '…'}
+            </ActionButton>
+            {/* Launch in T3 sits beside Start, where the task can be queued. */}
+            {v.verb === 'start' && canLaunchOnT3(node) && (
+              <T3LaunchControl node={node} offline={offline} />
+            )}
+          </Fragment>
         ))}
       </div>
       {awaitsVerdict(node) && (
@@ -151,6 +153,12 @@ function AgentPanel({
       {node.host != null && (
         <span className="font-mono text-mono-id text-ink-faint">on {node.host}</span>
       )}
+      <OpenInT3
+        harness={node.harness}
+        host={node.host}
+        session={node.session}
+        className="self-start"
+      />
       {node.externalRef != null && <ExternalRef value={node.externalRef} />}
       {scratchpads.map((s) => (
         <span key={s.id} className="text-ink-dim">

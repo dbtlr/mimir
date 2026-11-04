@@ -24,6 +24,7 @@ import {
 } from '../lib/work-page';
 import { BrowserGroup, BrowserRow } from './browser-list';
 import { NewTaskButton } from './new-task-button';
+import { OpenInT3 } from './open-in-t3';
 import { StaleBadge } from './signal-badges';
 import { StatusDot } from './status-dot';
 import { Badge } from './ui/badge';
@@ -88,6 +89,7 @@ export function NowRow({ row }: { row: NowTask }) {
             )}
             {row.task.branch != null && <ContextPart mono>{row.task.branch}</ContextPart>}
             {row.scratchpads.length > 0 && <ContextPart>Scratchpad open</ContextPart>}
+            <OpenInT3 harness={row.task.harness} host={row.task.host} session={row.task.session} />
           </p>
           {row.latestNote !== null && (
             <p className="line-clamp-2 text-meta text-ink-dim">

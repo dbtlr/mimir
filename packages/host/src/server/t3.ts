@@ -3,8 +3,11 @@ import { openSecret, sealSecret, tryNormalizeRemote } from '@mimir/core';
 import type { HostSecretStore, SecretKey } from '@mimir/core';
 import { z } from 'zod';
 
+import { isEngineRefusal } from '../api/errors';
 import { logEvent, openMcpSession, T3RequestError } from './t3-http';
 import type { McpSession, T3Fetch, T3Http } from './t3-http';
+import type { T3LaunchRequest } from './t3-input';
+import { choiceKey, createAttemptRegistry, createTaskLocks, invalidField } from './t3-launch';
 import {
   authorizationUrl,
   createPendingAuthorizations,
@@ -22,6 +25,9 @@ import type {
   T3CallbackReason,
   T3Catalog,
   T3ConnectResult,
+  T3LaunchedThread,
+  T3LaunchResult,
+  T3Origin,
   T3Provider,
   T3RuntimeMode,
   T3Status,
@@ -31,9 +37,10 @@ import type {
 
 /*
  * The T3 Code adapter (ADR 0040): Connect, its callback, the Devices page's
- * status, and one project's launch catalog. It reaches work state only through
- * the Engine and its credential only through the host-secret store, and it
- * re-reads T3 on every call instead of mirroring it. Every T3 failure becomes
+ * status, one project's launch catalog, a task's launch, and the Open in T3
+ * origin. It reaches work state only through the Engine and its credential
+ * only through the host-secret store, and it re-reads T3 on every call
+ * instead of mirroring it. Every T3 failure becomes
  * a tagged state here, before the fault boundary.
  */
 
@@ -44,6 +51,8 @@ export const T3_SECRET_NAME = 't3.oauth';
 export const T3_CALLBACK_PATH = '/auth/t3/callback';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
+/** The launch call's timeout: creating a worktree can be slow. */
+export const T3_LAUNCH_TIMEOUT_MS = 60_000;
 const PROJECT_PAGE_LIMIT = 100;
 /** A bound on `t3_project_list` pages, so a cursor that never ends cannot loop forever. */
 const MAX_PROJECT_PAGES = 100;
@@ -51,14 +60,16 @@ const MAX_PROJECT_PAGES = 100;
 export type T3AdapterOptions = {
   settings: T3Settings;
   secrets: HostSecretStore;
-  /** The Engine read the catalog uses to find a project's stored remote. */
-  engine: Pick<Engine, 'getNode'>;
+  /** The Engine reads the catalog and launch use, and the queue write a launch ends with. */
+  engine: Pick<Engine, 'getNode' | 'queue'>;
   /** The host build, sent as the MCP client version. */
   version: string;
   fetch?: T3Fetch;
   log?: (line: string) => void;
   clock?: () => number;
   timeoutMs?: number;
+  /** The launch call's timeout; {@link T3_LAUNCH_TIMEOUT_MS} unless set. */
+  launchTimeoutMs?: number;
 };
 
 const sealedSchema = z.strictObject({
@@ -205,6 +216,7 @@ async function matchingProjects(mcp: McpSession, environmentId: string, remote: 
 async function readSystem(
   mcp: McpSession,
   system: { environmentId: string; label: string },
+  configured: boolean,
   remote: string,
   defaultThreadEnvMode: () => Promise<string | null>,
 ): Promise<T3System | undefined> {
@@ -220,6 +232,7 @@ async function readSystem(
       return undefined;
     }
     return {
+      configured,
       defaultThreadEnvMode: envMode,
       environmentId: system.environmentId,
       label: system.label,
@@ -239,7 +252,12 @@ async function readSystem(
     };
   } catch (error) {
     if (error instanceof T3RequestError && error.kind !== 'rejected') {
-      return { environmentId: system.environmentId, label: system.label, status: 'unreachable' };
+      return {
+        configured,
+        environmentId: system.environmentId,
+        label: system.label,
+        status: 'unreachable',
+      };
     }
     throw error;
   }
@@ -273,6 +291,112 @@ async function readPeers(mcp: McpSession, configuredId: string) {
     return true;
   });
 }
+
+type Environment = z.output<typeof environmentSchema>;
+type Peer = z.output<typeof linksSchema>['links'][number];
+
+/** The configured server's catalog entry: its preferences came with its environment read. */
+const readConfigured = (mcp: McpSession, configured: Environment, remote: string) =>
+  readSystem(
+    mcp,
+    configured,
+    true,
+    remote,
+    async () => configured.preferences?.defaultThreadEnvMode ?? null,
+  );
+
+/** A peer's catalog entry: read when T3 reports it reachable, else listed unreachable unread. */
+const readPeer = async (
+  mcp: McpSession,
+  peer: Peer,
+  remote: string,
+): Promise<T3System | undefined> =>
+  peer.status === 'reachable'
+    ? readSystem(
+        mcp,
+        peer,
+        false,
+        remote,
+        async () =>
+          (await readEnvironment(mcp, peer.environmentId)).preferences?.defaultThreadEnvMode ??
+          null,
+      )
+    : {
+        configured: false,
+        environmentId: peer.environmentId,
+        label: peer.label,
+        status: 'unreachable',
+      };
+
+const launchSchema = z.looseObject({ threadId: z.string().min(1) });
+
+/** The `t3_thread_launch` arguments for a checked choice (ADR 0040, Launch step 3). */
+function launchArguments(input: T3LaunchRequest, title: string) {
+  const { branch, type } = input.workspace;
+  return {
+    clientRequestId: `mimir:${input.task}:${input.attempt}`,
+    environmentId: input.environmentId,
+    interactionMode: input.interactionMode,
+    message: `Work ${input.task}.`,
+    modelSelection: {
+      instanceId: input.model.instanceId,
+      model: input.model.model,
+      options: input.model.options.map((option) => ({ id: option.id, value: option.value })),
+    },
+    projectId: input.projectId,
+    runtimeMode: input.runtimeMode,
+    title: `${input.task} ${title}`,
+    workspaceStrategy:
+      type === 'root' ? { type } : { type, ...(branch === undefined ? {} : { branch }) },
+  };
+}
+
+/**
+ * Step 2: read the chosen system as the catalog reads one, and check the
+ * choice against it. Answers the system's label when every field passes.
+ */
+async function checkChoice(
+  mcp: McpSession,
+  input: T3LaunchRequest,
+  remote: string | null | undefined,
+): Promise<{ label: string } | T3LaunchResult> {
+  const configured = await readEnvironment(mcp);
+  let system: T3System | undefined;
+  let label: string;
+  if (input.environmentId === configured.environmentId) {
+    label = configured.label;
+    system =
+      remote === null || remote === undefined
+        ? undefined
+        : await readConfigured(mcp, configured, remote);
+  } else {
+    const peer = (await readPeers(mcp, configured.environmentId)).find(
+      (listed) => listed.environmentId === input.environmentId,
+    );
+    if (peer === undefined) {
+      return { field: 'environmentId', state: 'invalid' };
+    }
+    label = peer.label;
+    if (peer.status !== 'reachable') {
+      return { state: 'unreachable' };
+    }
+    system =
+      remote === null || remote === undefined ? undefined : await readPeer(mcp, peer, remote);
+  }
+  if (system?.status === 'unreachable') {
+    return { state: 'unreachable' };
+  }
+  const field = invalidField(input, system);
+  return field === undefined ? { label } : { field, state: 'invalid' };
+}
+
+/** Lifecycles a task's main session stays its own in: anything not terminal. */
+const OPEN_LIFECYCLES: ReadonlySet<string> = new Set([
+  'todo',
+  'queued',
+  'in_progress',
+  'under_review',
+]);
 
 async function readEnvironment(mcp: McpSession, environmentId?: string) {
   return parseReply(
@@ -310,6 +434,9 @@ export function createT3Adapter(options: T3AdapterOptions) {
     timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
   };
   const pending = createPendingAuthorizations(http.clock);
+  const attempts = createAttemptRegistry(http.clock);
+  const oneLaunchPerTask = createTaskLocks();
+  const launchTimeoutMs = options.launchTimeoutMs ?? T3_LAUNCH_TIMEOUT_MS;
 
   type Ready = { t3: string; key: SecretKey; consoleUrl: string | undefined };
 
@@ -431,6 +558,140 @@ export function createT3Adapter(options: T3AdapterOptions) {
     return redirectTo('connected');
   };
 
+  type Task = Awaited<ReturnType<typeof engine.getNode>>;
+
+  /**
+   * Step 1: whether this attempt already launched (its thread is the task's
+   * main session), or the task may be queued; otherwise `taken` or `not_ready`.
+   */
+  const checkTask = (input: T3LaunchRequest, task: Task): 'go' | T3LaunchResult => {
+    const thread = attempts.thread(input.attempt);
+    const open = task.lifecycle !== undefined && OPEN_LIFECYCLES.has(task.lifecycle);
+    if (task.type === 'task' && open && thread !== undefined && task.session === thread.threadId) {
+      return { state: 'launched', ...thread };
+    }
+    if (task.type === 'task' && task.lifecycle === 'todo' && task.hold === 'none') {
+      return 'go';
+    }
+    if (task.type === 'task' && task.lifecycle === 'queued') {
+      return {
+        harness: task.harness ?? null,
+        host: task.host ?? null,
+        session: task.session ?? null,
+        state: 'taken',
+      };
+    }
+    return { state: 'not_ready' };
+  };
+
+  /**
+   * Step 3: create the thread, or find the one this attempt already made. A T3
+   * build without the launch tool fails on every try, so it reads `refused`.
+   */
+  const launchThread = async (
+    mcp: McpSession,
+    input: T3LaunchRequest,
+    title: string,
+  ): Promise<string> => {
+    try {
+      return parseReply(
+        launchSchema,
+        await mcp.call('t3_thread_launch', launchArguments(input, title), launchTimeoutMs),
+        't3_thread_launch',
+      ).threadId;
+    } catch (error) {
+      if (error instanceof T3RequestError && error.kind === 'unknown_tool') {
+        throw new T3RequestError('refused', '/mcp t3_thread_launch');
+      }
+      throw error;
+    }
+  };
+
+  /**
+   * Step 4: queue the task for the thread. A task whose main session is
+   * already the thread (an earlier try queued it, or the agent started it
+   * first) is launched; another Engine refusal is `not_queued`.
+   */
+  const queueTask = async (
+    input: T3LaunchRequest,
+    thread: T3LaunchedThread,
+  ): Promise<T3LaunchResult> => {
+    const { branch } = input.workspace;
+    try {
+      await engine.queue({
+        harness: 't3',
+        host: thread.environmentId,
+        id: input.task,
+        session: thread.threadId,
+        ...(branch === undefined ? {} : { branch }),
+      });
+      return { state: 'launched', ...thread };
+    } catch (error) {
+      if (!isEngineRefusal(error)) {
+        throw error;
+      }
+      const task = await engine.getNode({ id: input.task }).catch((reread: unknown) => {
+        if (isEngineRefusal(reread)) {
+          return undefined;
+        }
+        throw reread;
+      });
+      const holds =
+        task?.session === thread.threadId &&
+        (task.lifecycle === 'queued' || task.lifecycle === 'in_progress');
+      return holds
+        ? { state: 'launched', ...thread }
+        : { message: error.message, state: 'not_queued', ...thread };
+    }
+  };
+
+  /** Steps 1 to 4, run while this task's launch holds the task. */
+  const launchTask = async (
+    setup: Ready,
+    connection: Connection,
+    input: T3LaunchRequest,
+  ): Promise<T3LaunchResult> => {
+    const choice = choiceKey(input);
+    if (attempts.conflicts(input.attempt, input.task, choice)) {
+      return { field: 'attempt', state: 'invalid' };
+    }
+    const task = await engine.getNode({ facets: ['home'], id: input.task });
+    const step1 = checkTask(input, task);
+    if (step1 !== 'go') {
+      return step1;
+    }
+    const project = task.home?.projectKey;
+    if (project === undefined) {
+      throw new Error(`the Engine read ${input.task} without its project`);
+    }
+    const { remote } = await engine.getNode({ id: project });
+    let thread: T3LaunchedThread;
+    try {
+      const mcp = await session(setup, connection);
+      const step2 = await checkChoice(mcp, input, remote);
+      if ('state' in step2) {
+        return step2;
+      }
+      // Remembered as sent before the call: a lost reply is retried under the same request id.
+      if (attempts.conflicts(input.attempt, input.task, choice)) {
+        return { field: 'attempt', state: 'invalid' };
+      }
+      attempts.remember(input.attempt, input.task, choice);
+      thread = {
+        environmentId: input.environmentId,
+        label: step2.label,
+        threadId: await launchThread(mcp, input, task.title),
+      };
+    } catch (error) {
+      if (error instanceof T3RequestError && error.kind === 'refused') {
+        return { state: 'refused' };
+      }
+      return failureState(error);
+    }
+    attempts.settle(input.attempt, thread);
+    return queueTask(input, thread);
+  };
+
   return {
     /**
      * `GET /auth/t3/callback`: consume the pending authorization `state`
@@ -468,24 +729,8 @@ export function createT3Adapter(options: T3AdapterOptions) {
         }
         const peers = await readPeers(mcp, configured.environmentId);
         const systems = await Promise.all([
-          readSystem(
-            mcp,
-            configured,
-            remote,
-            async () => configured.preferences?.defaultThreadEnvMode ?? null,
-          ),
-          ...peers.map(async (peer): Promise<T3System | undefined> =>
-            peer.status === 'reachable'
-              ? readSystem(
-                  mcp,
-                  peer,
-                  remote,
-                  async () =>
-                    (await readEnvironment(mcp, peer.environmentId)).preferences
-                      ?.defaultThreadEnvMode ?? null,
-                )
-              : { environmentId: peer.environmentId, label: peer.label, status: 'unreachable' },
-          ),
+          readConfigured(mcp, configured, remote),
+          ...peers.map(async (peer) => readPeer(mcp, peer, remote)),
         ]);
         return {
           ...connected,
@@ -533,6 +778,29 @@ export function createT3Adapter(options: T3AdapterOptions) {
         throw error;
       }
     },
+
+    /**
+     * Launch a task in a new T3 thread and queue it there (ADR 0040, Launch):
+     * check the task, then the choice against the system read fresh, then
+     * create the thread under `mimir:<task>:<attempt>`, then queue. One launch
+     * per task runs at a time; each refusal comes before anything after it.
+     */
+    launch: async (input: T3LaunchRequest): Promise<T3LaunchResult> => {
+      const setup = ready();
+      if ('state' in setup) {
+        return setup;
+      }
+      const connection = await readConnection(setup);
+      if ('state' in connection) {
+        return connection;
+      }
+      return oneLaunchPerTask(input.task, async () => launchTask(setup, connection, input));
+    },
+
+    /** The Open in T3 origin: `MIMIR_T3_URL` when configured; it reads no secret and calls nothing. */
+    origin: (): T3Origin => ({
+      origin: settings.enabled && settings.url !== undefined ? settings.url : null,
+    }),
 
     /** The Devices page's read: the configured server's label and the token's expiry. */
     status: async (requestOrigin: string): Promise<T3Status> => {

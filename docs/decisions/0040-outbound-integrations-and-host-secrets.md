@@ -98,8 +98,7 @@ environments.
 loopback host, with no path. An empty value counts as set and malformed, as an
 empty `MIMIR_URL` counts as set. It must be the origin T3 itself reports as its
 OAuth issuer, which is the origin it is reached on; on asgard it is
-`https://asgard.tail52fcb9.ts.net`. The same origin is the origin of every
-Open in T3 link.
+`https://asgard.tail52fcb9.ts.net`.
 
 The feature also requires Host filtering: `MIMIR_HOSTS` must be set (an empty
 value allows loopback names only). Without it, a page on another site could
@@ -194,8 +193,9 @@ could not be read (below). Each listed system
 carries:
 
 - its `environmentId`, label, and `status`: `reachable`, or `unreachable` when
-  T3 reports the link unreachable or one of its reads failed; an unreachable
-  system carries nothing else;
+  T3 reports the link unreachable or one of its reads failed, and whether it
+  is the configured server (`configured`); an unreachable system carries
+  nothing else;
 - every matching T3 project, each with its `id`, `title`, and
   `defaultModelSelection` (`instanceId`, `model`, or null);
 - its server's `defaultThreadEnvMode`;
@@ -232,11 +232,135 @@ on the request origin when `MIMIR_URL` is unset, the status function also
 reads `misconfigured`, naming `MIMIR_URL`, for a non-loopback request in that
 case.
 
-**Writes.** The launch (MMR-625) queues the task with `harness=t3`,
+**Launch.** Launching a task (MMR-625) is a console server function, a POST
+under Start's CSRF check, that creates a thread and then queues the task for
+it. Its input names a choice, never a T3 operation:
+
+| Field             | Meaning                                                                        |
+| ----------------- | ------------------------------------------------------------------------------ |
+| `task`            | The Mimir task id                                                              |
+| `environmentId`   | The system to launch on                                                        |
+| `projectId`       | The matching T3 project on that system                                         |
+| `model`           | `instanceId`, `model`, and `options`, a list of `{ id, value }`                |
+| `runtimeMode`     | One of the four runtime modes                                                  |
+| `interactionMode` | `default`, or `plan` to plan before acting                                     |
+| `workspace`       | `root` (the project checkout) or `worktree`, with an optional new `branch`     |
+| `attempt`         | A random id the browser makes for one launch, 16 to 64 of `[A-Za-z0-9_-]`      |
+
+An **attempt** is one launch of one task with one choice. The browser keeps
+its attempt while it retries after `unreachable` or `not_queued`, and makes a
+new one only for a new launch or a changed choice. The host remembers each
+attempt it has sent to T3 (the task, the checked choice, and the `threadId`
+once T3 answers) for 24 hours, at most 256, evicting the oldest, in memory
+like the pending authorizations.
+Before step 1, a known attempt with another task or choice reads `invalid`,
+naming `attempt`. The registry does not survive a host restart: a retry of a
+lost reply after one reads `taken`, naming the operator's own thread, which
+the console then offers to open, or `not_ready` once the agent has started
+the task. One launch per task runs at a time on the host: a second launch of
+the same task waits for the first to settle before step 1.
+
+The function runs these steps in order, and each refusal comes before
+anything after it:
+
+1. Read the task through the Engine. When this attempt is a known one with
+   a `threadId` and the task's main session is that thread, in any open
+   lifecycle, the launch already happened: it reads `launched` without
+   reaching T3. Otherwise, a task that `queue` accepts (open, unheld, `todo`)
+   goes on; any other `queued` task reads `taken`, naming its `harness`,
+   `session`, and `host`; and anything else reads `not_ready`. Neither
+   refusal reaches T3.
+2. Read the chosen system fresh, as the catalog reads one system, and check
+   the choice against it. The system must be the configured server or one of
+   its listed peers, or the launch reads `invalid`, naming `environmentId`.
+   A peer T3 reports unreachable, or a system whose reads fail, reads
+   `unreachable`; the disconnected states read as they do for the catalog.
+   Then: `projectId` is one of its matching projects; `instanceId` is an
+   enabled provider there and `model` one of its models; each option `id`
+   appears at most once and is one of the model's options, with a `value`
+   from that option's values (an option T3 lists with no values cannot be
+   set); `runtimeMode` is one the provider may launch with, so no broader
+   than the ceiling; a `branch` comes only with `worktree`. A branch is 1 to
+   200 characters of `[A-Za-z0-9._/-]`, does not start with `-`, and is not
+   `HEAD`; split on `/`, each component is non-empty, starts with no `.`,
+   ends with neither `.` nor `.lock`, and holds no `..`. A
+   choice that fails reads `invalid`, naming the field, and nothing is
+   launched. Options the input leaves out are left out of the launch, and T3
+   applies its own defaults.
+3. Call `t3_thread_launch` with the checked choice, the thread title
+   `<id> <title>`, the first message `Work <id>.`, and the `clientRequestId`
+   `mimir:<task>:<attempt>`. The message carries the id and nothing a task
+   writer typed; the agent reads the task from Mimir. T3 answers the same
+   thread for the same id, so a retry of an attempt never makes a second
+   thread. The launch call's timeout is 60 seconds, because creating a
+   worktree can be slow. A launch that T3 answers with a tool error
+   (`isError`), or that fails because T3 has no launch tool, reads `refused`,
+   without T3's text, because T3 refuses some launches on every try (a branch
+   that already exists); the operator launches again as a new attempt, with
+   the same choice or a changed one. A missing read tool still reads
+   `unreachable`, as in step 2. A reply without a `threadId` reads
+   `unreachable`.
+4. Queue the task with the writes below. When the task's main session is
+   already `<threadId>`, queued or in progress, an earlier try of this
+   attempt queued it or the agent in the thread started it first, and the
+   launch reads `launched`. A task the agent started first carries no
+   `host`, so it gets no Open in T3 link; that race needs the agent to start
+   before the queue write a few milliseconds later, and is accepted.
+
+The answer is a tagged state: the unavailable states above; `not_ready`;
+`taken` with the queued `harness`, `session`, and `host`; `refused`; `invalid` with the `field`;
+`launched` with `threadId`, `environmentId`, and the system's `label`; or
+`not_queued` with the same three and the Engine's refusal message, when the
+thread exists but the queue failed. Only `unreachable` and `not_queued` are
+worth a retry of the same attempt; a `not_queued` retry whose task another
+session has since queued or started reads `taken` or `not_ready` and ends.
+A thread whose task ends up `taken` is left in T3 for the operator to close. The
+queue does not re-check the project's remote: a remote changed between steps
+2 and 4 leaves the task queued for a thread in the old repository, which
+`unqueue` undoes.
+
+**Writes.** The launch queues the task with `harness=t3`,
 `session=<threadId>`, matching what `mimir start` records inside a T3 thread
-(MMR-623), and `host=<environmentId>`. The host handle is the environment id,
-not the label, because the Open in T3 link is built as
-`<MIMIR_T3_URL>/<environmentId>/<threadId>` and a label can change.
+(MMR-623), `host=<environmentId>`, and `branch` when the workspace names one.
+The host handle is the environment id, not the label, because the Open in T3
+link is built from it and a label can change. When the launched agent starts
+the task and the started task has no worker, the start keeps `host` and
+`branch` (ADR 0026, MMR-625 refinement), so the link survives it. A start
+that supplies its own `--host` replaces the stored one, and a start that
+leaves the task with a worker clears it; either leaves the task with a different link or none, which
+the operator can see and correct with `update`.
+
+**Open in T3.** A task with `harness=t3` and both `host` and `session` set
+links to T3's app link, `t3code://threads/<host>/<session>`, each handle
+percent-encoded as one path segment; a handle that is empty, `.`, or `..` gets
+no link. T3's desktop and mobile apps open that link on the thread, through
+any linked system, and the link opens in place because it hands off to the
+app. The web UI's `<MIMIR_T3_URL>/<host>/<session>` is not used: it needs a
+browser paired with T3's web UI, and operators work in the app. T3's own
+`link` is not used either: its `t3-thread://` form opens only inside T3's
+chat. The console reads the configured origin from a server function that
+answers `MIMIR_T3_URL` when the feature is configured and `null` otherwise,
+and shows the link only with one; it reads no secret and calls nothing. A
+thread an agent started by hand records no `host` (MMR-623) and gets no link.
+
+**Defaults.** The browser picks the launch's defaults from the catalog, and
+the server keeps none (shaping principle 5). The system is the configured
+server when it has a matching project, or else the only reachable system that
+does. The project is the system's one matching T3 project; with several,
+there is no default project. The model is the T3 project's
+`defaultModelSelection`, or else the last
+choice for this Mimir project saved in the browser, when it is still offered.
+Each option whose `default` is one of its `values` takes it, and the rest
+are left out. The runtime
+mode is the last one chosen for this Mimir project when the provider still
+offers it, or else the broadest it may use: the ceiling is the access level
+the operator granted at Connect, and threads meant to run unattended need it.
+The workspace follows the system's `defaultThreadEnvMode` (`worktree`, or
+else the project checkout), and plan mode is off. When the Mimir project has
+no remote, or no reachable system has a matching T3 project, the launch control
+shows that state, disabled. When reachable systems exist but no system,
+project, or model can be picked this way, the control opens the settings
+instead of launching.
 
 ## Why
 
