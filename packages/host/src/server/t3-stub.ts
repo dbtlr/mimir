@@ -77,6 +77,8 @@ export type StubOptions = {
   launchReply?: StubLaunchReply;
   /** Milliseconds `t3_thread_launch` takes before it answers. */
   launchDelayMs?: number;
+  /** Tools this T3 does not expose: each answers as T3 0.1.6 answers an unknown tool. */
+  missingTools?: readonly string[];
 };
 
 /**
@@ -364,6 +366,9 @@ export function stubT3(options: StubOptions) {
       return new Response(null, { status: 202 });
     }
     const name = String(message.params?.name);
+    if (options.missingTools?.includes(name) === true) {
+      return rpcReply({ error: unknownTool(name), id: message.id, jsonrpc: '2.0' });
+    }
     if (name === 't3_thread_launch') {
       return launch(message.id, message.params?.arguments ?? {}, signal);
     }

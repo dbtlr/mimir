@@ -293,10 +293,12 @@ anything after it:
    writer typed; the agent reads the task from Mimir. T3 answers the same
    thread for the same id, so a retry of an attempt never makes a second
    thread. The launch call's timeout is 60 seconds, because creating a
-   worktree can be slow. A launch that T3 answers with a tool error (`isError`),
-   or that fails because T3 has no launch tool, reads `refused`, without T3's text, because T3 refuses some launches on
-   every try (a branch that already exists); the operator launches again as a
-   new attempt, with the same choice or a changed one. A reply without a `threadId` reads
+   worktree can be slow. A launch that T3 answers with a tool error
+   (`isError`), or that fails because T3 has no launch tool, reads `refused`,
+   without T3's text, because T3 refuses some launches on every try (a branch
+   that already exists); the operator launches again as a new attempt, with
+   the same choice or a changed one. A missing read tool still reads
+   `unreachable`, as in step 2. A reply without a `threadId` reads
    `unreachable`.
 4. Queue the task with the writes below. When the task's main session is
    already `<threadId>`, queued or in progress, an earlier try of this

@@ -739,6 +739,14 @@ describe('step 3: the launch call', () => {
     expect(h.fake.queued).toEqual([]);
   });
 
+  test('a read tool T3 does not have, during a launch, reads unreachable and makes no launch call', async () => {
+    for (const tool of ['t3_environment_read', 't3_project_list'] as const) {
+      const h = harness({ stub: { missingTools: [tool] } });
+      expect(await h.launch()).toEqual({ state: 'unreachable' });
+      expect(h.stub.launches).toEqual([]);
+    }
+  });
+
   test("another tool's error during a launch reads unreachable and makes no launch call", async () => {
     const h = harness({ stub: { linksError: 'is_error' } });
     expect(await h.launch({ environmentId: 'env-asgard' })).toEqual({ state: 'unreachable' });
