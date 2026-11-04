@@ -356,9 +356,11 @@ mode is the last one chosen for this Mimir project when the provider still
 offers it, or else the broadest it may use: the ceiling is the access level
 the operator granted at Connect, and threads meant to run unattended need it.
 The workspace follows the system's `defaultThreadEnvMode` (`worktree`, or
-else the project checkout), and plan mode is off. When no system, project, or
-model can be picked this way, the launch control opens the settings instead of
-launching.
+else the project checkout), and plan mode is off. When the Mimir project has
+no remote, or no reachable system has a matching T3 project, the launch control
+shows that state, disabled. When reachable systems exist but no system,
+project, or model can be picked this way, the control opens the settings
+instead of launching.
 
 ## Why
 
