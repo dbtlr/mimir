@@ -99,3 +99,53 @@ export const T3_CALLBACK_REASONS = [
   'stale',
 ] as const;
 export type T3CallbackReason = (typeof T3_CALLBACK_REASONS)[number];
+
+/** A launch attempt id: one launch of one task with one choice (ADR 0040, Launch). */
+export const T3_ATTEMPT_PATTERN = /^[A-Za-z0-9_-]{16,64}$/;
+
+/** A model option's chosen value, in T3's `{ id, value }` form. */
+export type T3OptionChoice = { id: string; value: boolean | number | string };
+
+/** Where the thread works: the project checkout, or a new worktree with an optional new branch. */
+export type T3Workspace = { type: 'root' } | { type: 'worktree'; branch?: string };
+
+/** The launch server function's input: a choice, never a T3 operation. */
+export type T3LaunchInput = {
+  task: string;
+  environmentId: string;
+  projectId: string;
+  model: { instanceId: string; model: string; options: T3OptionChoice[] };
+  runtimeMode: T3RuntimeMode;
+  interactionMode: 'default' | 'plan';
+  workspace: T3Workspace;
+  attempt: string;
+};
+
+/** The input field an `invalid` launch names. */
+export type T3LaunchField =
+  | 'attempt'
+  | 'branch'
+  | 'environmentId'
+  | 'interactionMode'
+  | 'model'
+  | 'options'
+  | 'projectId'
+  | 'runtimeMode'
+  | 'task'
+  | 'workspace';
+
+/** The thread a launch reached. */
+export type T3LaunchedThread = { threadId: string; environmentId: string; label: string };
+
+/** What a launch answers (ADR 0040, Launch). Only `unreachable` and `not_queued` are retried with the same attempt. */
+export type T3LaunchResult =
+  | T3Unavailable
+  | { state: 'not_ready' }
+  | { state: 'taken'; harness: string | null; session: string | null; host: string | null }
+  | { state: 'invalid'; field: T3LaunchField }
+  | { state: 'refused' }
+  | ({ state: 'launched' } & T3LaunchedThread)
+  | ({ state: 'not_queued'; message: string } & T3LaunchedThread);
+
+/** The Open in T3 origin: `MIMIR_T3_URL` when the feature is configured, else null. */
+export type T3Origin = { origin: string | null };
