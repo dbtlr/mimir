@@ -31,8 +31,9 @@ it appears in `list --status queued`.
   preserving an established main identity. The main agent supplies its main
   flags; a distinct whole-task owner supplies `--worker-session` and optionally
   `--worker-harness` when known. Helper agents leave task identity alone.
-  Starting queued work preserves a worker preassigned with `update`, resets
-  only host and branch, and applies supplied values. History retains both main
+  Starting queued work preserves a worker preassigned with `update`. It keeps
+  host and branch unless the started task has a worker, then resets them;
+  supplied values always replace stored ones. History retains both main
   and worker identities.
 - `unqueue <id> "reason"` moves `queued → todo`, clears all handles, and echoes
   the released run handles in history. A nonblank cancellation reason is required.

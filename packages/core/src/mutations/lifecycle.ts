@@ -36,7 +36,13 @@ async function logTerminalRelease(w: StoreWriter, task: Node): Promise<void> {
 /** The exact task state a caller used to decide whether ambient main identity could be filled. */
 export type StartExpectation = Pick<Node, 'lifecycle' | 'harness' | 'session'>;
 
-/** Begin work, preserving main identity and replacing queued execution context. */
+/**
+ * Begin work, preserving main identity. A queued task keeps its host and branch
+ * (the reservation may name where the run already lives) unless the started task
+ * has a worker once the start's handles are applied and normalized; a worker is
+ * a distinct agent with unknown context, so it resets them. A host or branch the
+ * start supplies replaces the stored one either way (ADR 0026, MMR-625).
+ */
 export async function startTask(
   store: Store,
   id: string,
@@ -60,10 +66,6 @@ export async function startTask(
       throw validation(`only a todo or queued task can be started (is ${String(task.lifecycle)})`);
     }
     const patch: NodePatch = { lifecycle: 'in_progress' };
-    if (task.lifecycle === 'queued') {
-      patch.branch = null;
-      patch.host = null;
-    }
     applyHandlePatch(patch, handles);
     for (const key of ['harness', 'session'] as const) {
       if (task[key] !== null && patch[key] !== undefined && patch[key] !== task[key]) {
@@ -74,6 +76,10 @@ export async function startTask(
       }
     }
     validateAssignment(patch, task);
+    if (task.lifecycle === 'queued' && { ...task, ...patch }.worker_session !== null) {
+      patch.branch ??= null;
+      patch.host ??= null;
+    }
     await w.updateNode(id, patch);
     await logTransition(w, {
       from_value: task.lifecycle,

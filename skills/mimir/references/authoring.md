@@ -237,8 +237,9 @@ fill nothing and produce a note, but only when main fallback applies.
 `update` and MCP never infer identity from their environment.
 
 `queue` records the main reservation. Starting queued work preserves its main
-identity and any worker assignment already made with `update`. It resets only
-old host and branch fields before applying supplied execution fields. Explicit
+identity and any worker assignment already made with `update`. It keeps the
+reserved host and branch unless the started task has a worker, which resets
+them; host or branch values the start supplies always replace stored ones. Explicit
 worker flags change the worker assignment; a blank worker session clears it.
 A worker using the same session as main collapses to unset unless the supplied
 harnesses explicitly distinguish two agents. `unqueue` clears all live handles
