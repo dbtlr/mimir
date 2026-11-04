@@ -105,7 +105,7 @@ function world(change: Partial<StubOptions> = {}): StubOptions {
 const remotes: Record<string, string | null> = { BRF: null, MMR: 'github.com/dbtlr/mimir' };
 const engine = {
   getNode: async ({ id }: { id: string }) => ({ id, remote: remotes[id] ?? null }),
-} as unknown as Pick<Engine, 'getNode'>;
+} as unknown as Pick<Engine, 'getNode' | 'queue'>;
 
 /** An adapter over a stub T3, with its logs, secrets, requests, and a movable clock. */
 function harness(
