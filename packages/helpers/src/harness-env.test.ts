@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 
-import { detectHarness, fillFromShell } from './harness-env';
+import { detectHarness, fillFromShell, t3HostFromShell } from './harness-env';
 
 const claudeShell = { CLAUDECODE: '1', CLAUDE_CODE_SESSION_ID: 'S' };
 
@@ -170,3 +170,37 @@ test('inside T3, a passed agent harness fills nothing and the T3 session fills t
     session: 't3-thread',
   });
 });
+
+const t3Thread = { T3CODE_ENVIRONMENT_ID: 'env-1', T3CODE_THREAD_ID: 't3-thread' };
+const thisThread = { harness: 't3', session: 't3-thread' };
+
+test('the T3 environment fills the host of the T3 thread being recorded', () => {
+  expect(t3HostFromShell(thisThread, t3Thread)).toBe('env-1');
+  expect(t3HostFromShell(thisThread, { ...claudeShell, ...t3Thread })).toBe('env-1');
+});
+
+test('a passed host wins over the T3 environment, a blank one included', () => {
+  expect(t3HostFromShell({ ...thisThread, host: 'laptop' }, t3Thread)).toBe('laptop');
+  expect(t3HostFromShell({ ...thisThread, host: '' }, t3Thread)).toBe('');
+});
+
+test.each([
+  ['no environment id', { T3CODE_THREAD_ID: 't3-thread' }],
+  ['a blank environment id', { T3CODE_ENVIRONMENT_ID: '  ', T3CODE_THREAD_ID: 't3-thread' }],
+  ['an environment id outside a T3 thread', { ...claudeShell, T3CODE_ENVIRONMENT_ID: 'env-1' }],
+  ['a blank T3 thread', { T3CODE_ENVIRONMENT_ID: 'env-1', T3CODE_THREAD_ID: '' }],
+] satisfies [string, Record<string, string>][])('%s fills no host', (_, env) => {
+  expect(t3HostFromShell(thisThread, env)).toBeUndefined();
+});
+
+test.each([
+  ['another harness', { harness: 'claude', session: 't3-thread' }],
+  ['another session', { harness: 't3', session: 'other-thread' }],
+  ['no harness', { session: 't3-thread' }],
+  ['no session', { harness: 't3' }],
+] satisfies [string, Passed][])(
+  'an identity with %s runs elsewhere and fills no host',
+  (_, passed) => {
+    expect(t3HostFromShell(passed, t3Thread)).toBeUndefined();
+  },
+);

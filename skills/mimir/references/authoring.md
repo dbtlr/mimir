@@ -206,7 +206,9 @@ Use each harness's own knowledge of its resumable session. Inherited shell
 variables can describe an outer harness; they do not override that knowledge.
 T3 Code is the exception: when `T3CODE_THREAD_ID` is nonblank, an agent records the
 T3 thread as its main identity, `--harness t3 --session "$T3CODE_THREAD_ID"`,
-because the T3 thread is the conversation the user resumes.
+because the T3 thread is the conversation the user resumes. When
+`T3CODE_ENVIRONMENT_ID` is also nonblank, pass `--host "$T3CODE_ENVIRONMENT_ID"`
+too: the console's Open in T3 link needs the T3 environment as the host.
 
 | Harness | Session id in its tool shell |
 | --- | --- |
@@ -232,7 +234,8 @@ Supplying a worker session without a worker harness also clears any previous
 worker harness during a takeover; omitting both fields preserves the assignment.
 A nonblank `T3CODE_THREAD_ID` identifies T3 and wins over every agent detected
 under it, including agents started from inside the thread, because the thread
-is the conversation the user resumes. Without it, multiple detected harnesses
+is the conversation the user resumes. When the main identity recorded is that
+thread, a nonblank `T3CODE_ENVIRONMENT_ID` fills an omitted host. Without it, multiple detected harnesses
 fill nothing and produce a note, but only when main fallback applies.
 `update` and MCP never infer identity from their environment.
 
