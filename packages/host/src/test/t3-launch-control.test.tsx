@@ -11,7 +11,7 @@ import { T3_ATTEMPT_PATTERN } from '../server/t3-states';
 import { engineTask } from './node-fixtures';
 import { renderInRouter } from './router';
 import { connectedCatalog, reachableSystem, unreachableSystem } from './t3-fixtures';
-import { serveT3Launch, T3_ORIGIN } from './t3-fns';
+import { serveT3Launch } from './t3-fns';
 
 vi.mock('../api/fns/t3');
 vi.mock('../lib/leave-for');
@@ -366,7 +366,7 @@ async function launchNow(answer: T3LaunchResult) {
 }
 
 describe('the answers', () => {
-  const link = `${T3_ORIGIN}/env-1/thread-1`;
+  const link = 't3code://threads/env-1/thread-1';
 
   it('launched: says so, offers Open in T3, and remembers the choice', async () => {
     const open = vi.spyOn(globalThis, 'open').mockReturnValue(null);
@@ -378,7 +378,7 @@ describe('the answers', () => {
       );
     });
     toastAction(toast.success, 'Open in T3')?.onClick();
-    expect(open).toHaveBeenCalledWith(link, '_blank', 'noopener,noreferrer');
+    expect(open).toHaveBeenCalledWith(link, '_self');
     expect(JSON.parse(localStorage.getItem('mimir:t3-launch:MMR') ?? 'null')).toMatchObject({
       instanceId: 'claude',
       model: 'opus',

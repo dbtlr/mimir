@@ -98,8 +98,7 @@ environments.
 loopback host, with no path. An empty value counts as set and malformed, as an
 empty `MIMIR_URL` counts as set. It must be the origin T3 itself reports as its
 OAuth issuer, which is the origin it is reached on; on asgard it is
-`https://asgard.tail52fcb9.ts.net`. The same origin is the origin of every
-Open in T3 link.
+`https://asgard.tail52fcb9.ts.net`.
 
 The feature also requires Host filtering: `MIMIR_HOSTS` must be set (an empty
 value allows loopback names only). Without it, a page on another site could
@@ -329,13 +328,17 @@ leaves the task with a worker clears it; either leaves the task with a different
 the operator can see and correct with `update`.
 
 **Open in T3.** A task with `harness=t3` and both `host` and `session` set
-links to `<MIMIR_T3_URL>/<host>/<session>`, each handle percent-encoded as one
-path segment; a handle that is empty, `.`, or `..` gets no link. T3's own
-`link` is not used: for a peer thread it is the internal `t3-thread://` form.
-The console reads the origin from a server function that answers
-`MIMIR_T3_URL` when the feature is configured and `null` otherwise; it reads no
-secret and calls nothing. A thread an agent started by hand records no `host`
-(MMR-623) and gets no link.
+links to T3's app link, `t3code://threads/<host>/<session>`, each handle
+percent-encoded as one path segment; a handle that is empty, `.`, or `..` gets
+no link. T3's desktop and mobile apps open that link on the thread, through
+any linked system, and the link opens in place because it hands off to the
+app. The web UI's `<MIMIR_T3_URL>/<host>/<session>` is not used: it needs a
+browser paired with T3's web UI, and operators work in the app. T3's own
+`link` is not used either: its `t3-thread://` form opens only inside T3's
+chat. The console reads the configured origin from a server function that
+answers `MIMIR_T3_URL` when the feature is configured and `null` otherwise,
+and shows the link only with one; it reads no secret and calls nothing. A
+thread an agent started by hand records no `host` (MMR-623) and gets no link.
 
 **Defaults.** The browser picks the launch's defaults from the catalog, and
 the server keeps none (shaping principle 5). The system is the configured

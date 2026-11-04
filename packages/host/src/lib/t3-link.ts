@@ -10,14 +10,16 @@ const unsafe = (handle: string | null | undefined): handle is null | undefined |
   handle == null || handle === '' || handle === '.' || handle === '..';
 
 /**
- * The Open in T3 link (ADR 0040): `<origin>/<host>/<session>`, each handle
- * percent-encoded as one path segment. Null without an origin, for another
- * harness, or when a handle is empty, `.`, or `..`.
+ * The Open in T3 link (ADR 0040): T3's app link,
+ * `t3code://threads/<host>/<session>`, each handle percent-encoded as one path
+ * segment, which T3's desktop and mobile apps open on that thread. The
+ * configured T3 origin only gates it: null without one (the feature is off),
+ * for another harness, or when a handle is empty, `.`, or `..`.
  */
 export function t3ThreadLink(origin: string | null, handles: T3ThreadHandles): string | null {
   const { harness, host, session } = handles;
   if (origin === null || harness !== 't3' || unsafe(host) || unsafe(session)) {
     return null;
   }
-  return `${origin}/${encodeURIComponent(host)}/${encodeURIComponent(session)}`;
+  return `t3code://threads/${encodeURIComponent(host)}/${encodeURIComponent(session)}`;
 }

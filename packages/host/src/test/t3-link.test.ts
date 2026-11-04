@@ -6,13 +6,16 @@ const ORIGIN = 'https://t3.example';
 const handles = { harness: 't3', host: 'env-1', session: 'thread-1' };
 
 describe('t3ThreadLink', () => {
-  it('builds the link from the origin and both handles', () => {
-    expect(t3ThreadLink(ORIGIN, handles)).toBe('https://t3.example/env-1/thread-1');
+  it('builds T3’s app link from both handles once the feature is configured', () => {
+    expect(t3ThreadLink(ORIGIN, handles)).toBe('t3code://threads/env-1/thread-1');
   });
 
   it('encodes each handle as one path segment', () => {
     expect(t3ThreadLink(ORIGIN, { ...handles, host: 'a/b', session: 'x y?' })).toBe(
-      'https://t3.example/a%2Fb/x%20y%3F',
+      't3code://threads/a%2Fb/x%20y%3F',
+    );
+    expect(t3ThreadLink(ORIGIN, { ...handles, session: 'mcp:launch:abc' })).toBe(
+      't3code://threads/env-1/mcp%3Alaunch%3Aabc',
     );
   });
 

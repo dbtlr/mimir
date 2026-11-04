@@ -94,9 +94,9 @@ describe('Open in T3', () => {
       engineTask({ id: 'MMR-7', parent: 'MMR-2', status: 'queued', ...handles }),
     );
     const link = await within(rail).findByRole('link', { name: /Open in T3/ });
-    expect(link).toHaveAttribute('href', `${T3_ORIGIN}/env-1/thread-1`);
-    expect(link).toHaveAttribute('target', '_blank');
-    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(link).toHaveAttribute('href', 't3code://threads/env-1/thread-1');
+    // The app link hands off to the T3 app; a new tab would only leave a blank one behind.
+    expect(link).not.toHaveAttribute('target');
   });
 
   it('shows no link on the agent panel when the host handle is missing', async () => {
@@ -118,7 +118,7 @@ describe('Open in T3', () => {
     );
     await expect(screen.findByRole('link', { name: /Open in T3/ })).resolves.toHaveAttribute(
       'href',
-      `${T3_ORIGIN}/env-1/thread-1`,
+      't3code://threads/env-1/thread-1',
     );
   });
 
