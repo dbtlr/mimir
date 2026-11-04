@@ -381,6 +381,15 @@ describe('step 1: the task', () => {
     expect(h.stub.threads.size).toBe(1);
   });
 
+  test('a known attempt whose task is now under review still reads launched without reaching T3', async () => {
+    const h = harness();
+    expect(await h.launch()).toEqual(launched());
+    const sent = h.stub.requests.length;
+    Object.assign(h.fake.nodes.get('MMR-1')!, { lifecycle: 'under_review' });
+    expect(await h.launch()).toEqual(launched());
+    expect(h.stub.requests).toHaveLength(sent);
+  });
+
   test('a task the Engine does not know is its refusal, not a T3 state', async () => {
     const h = harness();
     const error = await thrown(h.launch({ task: 'MMR-404' }));
@@ -390,23 +399,41 @@ describe('step 1: the task', () => {
 });
 
 describe('the attempt registry', () => {
-  test('a known attempt reused with another task or another choice reads invalid, before step 1', async () => {
+  test('a known attempt reused with another task reads invalid, before step 1', async () => {
     const h = harness({ tasks: [todo('MMR-1'), { ...todo('MMR-2'), lifecycle: 'done' }] });
     expect(await h.launch()).toEqual(launched());
     const sent = h.stub.requests.length;
     const reads = h.fake.control.reads;
-    for (const change of [
-      { task: 'MMR-2' },
-      { runtimeMode: 'approval-required' },
-      { interactionMode: 'plan' },
-      { workspace: { type: 'worktree' } },
-      { model: { ...choice().model, options: [] } },
-    ]) {
-      expect(await h.launch(change)).toEqual({ field: 'attempt', state: 'invalid' });
-    }
+    expect(await h.launch({ task: 'MMR-2' })).toEqual(invalid('attempt'));
     expect(h.stub.requests).toHaveLength(sent);
     expect(h.fake.control.reads).toBe(reads);
   });
+
+  test.each([
+    ['environmentId', { environmentId: 'env-asgard' }],
+    ['projectId', { projectId: 'p-other' }],
+    ['model.instanceId', { model: { ...choice().model, instanceId: 'claudeAgent' } }],
+    ['model.model', { model: { ...choice().model, model: 'other-model' } }],
+    [
+      'an option value',
+      { model: { ...choice().model, options: [{ id: 'reasoningEffort', value: 'low' }] } },
+    ],
+    ['runtimeMode', { runtimeMode: 'approval-required' }],
+    ['interactionMode', { interactionMode: 'plan' }],
+    ['workspace type', { workspace: { type: 'root' } }],
+    ['workspace branch', { workspace: { branch: 'mmr-1/other', type: 'worktree' } }],
+  ])(
+    'a known attempt reused with another %s reads invalid attempt, with no launch',
+    async (_name, change) => {
+      const h = harness();
+      // The first launch names no branch, so the type and the branch each change alone.
+      const first = { workspace: { type: 'worktree' } };
+      expect(await h.launch(first)).toEqual(launched());
+      const launches = h.stub.launches.length;
+      expect(await h.launch({ ...first, ...change })).toEqual(invalid('attempt'));
+      expect(h.stub.launches).toHaveLength(launches);
+    },
+  );
 
   test('the same options in another order are the same choice', async () => {
     const options = [
@@ -477,6 +504,19 @@ describe('one launch per task at a time', () => {
   test('two concurrent launches of the same attempt both read launched, with one thread', async () => {
     const h = harness({ stub: { launchDelayMs: 20 } });
     expect(await Promise.all([h.launch(), h.launch()])).toEqual([launched(), launched()]);
+    expect(h.stub.launches).toHaveLength(1);
+  });
+
+  test('two different tasks racing with the same attempt: one reaches T3, the other reads invalid attempt', async () => {
+    const h = harness();
+    const results = await Promise.all([h.launch(), h.launch({ task: 'MMR-2' })]);
+    expect(results).toContainEqual(launched());
+    expect(results).toContainEqual(invalid('attempt'));
+    expect(h.stub.launches).toHaveLength(1);
+    // The registry kept the first task's thread.
+    const winner = results.findIndex((result) => result.state === 'launched');
+    const task = winner === 0 ? 'MMR-1' : 'MMR-2';
+    expect(await h.launch({ task })).toEqual(launched());
     expect(h.stub.launches).toHaveLength(1);
   });
 
@@ -693,6 +733,18 @@ describe('step 3: the launch call', () => {
     expect(h.fake.queued).toEqual([]);
   });
 
+  test('a launch tool T3 does not have reads refused, so Retry is not offered forever', async () => {
+    const h = harness({ stub: { launchReply: 'unknown_tool' } });
+    expect(await h.launch()).toEqual({ state: 'refused' });
+    expect(h.fake.queued).toEqual([]);
+  });
+
+  test("another tool's error during a launch reads unreachable and makes no launch call", async () => {
+    const h = harness({ stub: { linksError: 'is_error' } });
+    expect(await h.launch({ environmentId: 'env-asgard' })).toEqual({ state: 'unreachable' });
+    expect(h.stub.launches).toEqual([]);
+  });
+
   test('a lost reply, then a retry of the attempt, makes no second thread and ends launched', async () => {
     for (const lost of ['drop', 'hang'] as const) {
       const h = harness({ launchTimeoutMs: 30, stub: { launchReply: lost } });
@@ -756,6 +808,21 @@ describe('step 4: the queue', () => {
     expect(await h.launch()).toEqual(launched());
     expect(h.stub.threads.size).toBe(1);
     expect(h.fake.queued).toHaveLength(2);
+  });
+
+  test('a task that can no longer be read after a refusal reads not_queued with the refusal', async () => {
+    const h = harness();
+    h.fake.control.beforeQueue = (task) => {
+      h.fake.nodes.delete(task.id);
+    };
+    h.fake.control.refuseNext = new MimirError('conflict', 'the store is busy');
+    expect(await h.launch()).toEqual({
+      environmentId: 'env-valhalla',
+      label: 'Valhalla',
+      message: 'the store is busy',
+      state: 'not_queued',
+      threadId: 'thread-1',
+    });
   });
 
   test('a not_queued retry whose task another session has since queued reads taken', async () => {

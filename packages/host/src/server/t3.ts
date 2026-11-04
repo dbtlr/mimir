@@ -216,6 +216,7 @@ async function matchingProjects(mcp: McpSession, environmentId: string, remote: 
 async function readSystem(
   mcp: McpSession,
   system: { environmentId: string; label: string },
+  configured: boolean,
   remote: string,
   defaultThreadEnvMode: () => Promise<string | null>,
 ): Promise<T3System | undefined> {
@@ -231,6 +232,7 @@ async function readSystem(
       return undefined;
     }
     return {
+      configured,
       defaultThreadEnvMode: envMode,
       environmentId: system.environmentId,
       label: system.label,
@@ -250,7 +252,12 @@ async function readSystem(
     };
   } catch (error) {
     if (error instanceof T3RequestError && error.kind !== 'rejected') {
-      return { environmentId: system.environmentId, label: system.label, status: 'unreachable' };
+      return {
+        configured,
+        environmentId: system.environmentId,
+        label: system.label,
+        status: 'unreachable',
+      };
     }
     throw error;
   }
@@ -293,6 +300,7 @@ const readConfigured = (mcp: McpSession, configured: Environment, remote: string
   readSystem(
     mcp,
     configured,
+    true,
     remote,
     async () => configured.preferences?.defaultThreadEnvMode ?? null,
   );
@@ -307,12 +315,18 @@ const readPeer = async (
     ? readSystem(
         mcp,
         peer,
+        false,
         remote,
         async () =>
           (await readEnvironment(mcp, peer.environmentId)).preferences?.defaultThreadEnvMode ??
           null,
       )
-    : { environmentId: peer.environmentId, label: peer.label, status: 'unreachable' };
+    : {
+        configured: false,
+        environmentId: peer.environmentId,
+        label: peer.label,
+        status: 'unreachable',
+      };
 
 const launchSchema = z.looseObject({ threadId: z.string().min(1) });
 
@@ -570,17 +584,28 @@ export function createT3Adapter(options: T3AdapterOptions) {
     return { state: 'not_ready' };
   };
 
-  /** Step 3: create the thread, or find the one this attempt already made. */
+  /**
+   * Step 3: create the thread, or find the one this attempt already made. A T3
+   * build without the launch tool fails on every try, so it reads `refused`.
+   */
   const launchThread = async (
     mcp: McpSession,
     input: T3LaunchRequest,
     title: string,
-  ): Promise<string> =>
-    parseReply(
-      launchSchema,
-      await mcp.call('t3_thread_launch', launchArguments(input, title), launchTimeoutMs),
-      't3_thread_launch',
-    ).threadId;
+  ): Promise<string> => {
+    try {
+      return parseReply(
+        launchSchema,
+        await mcp.call('t3_thread_launch', launchArguments(input, title), launchTimeoutMs),
+        't3_thread_launch',
+      ).threadId;
+    } catch (error) {
+      if (error instanceof T3RequestError && error.kind === 'unknown_tool') {
+        throw new T3RequestError('refused', '/mcp t3_thread_launch');
+      }
+      throw error;
+    }
+  };
 
   /**
    * Step 4: queue the task for the thread. A task whose main session is

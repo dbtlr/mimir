@@ -193,8 +193,9 @@ could not be read (below). Each listed system
 carries:
 
 - its `environmentId`, label, and `status`: `reachable`, or `unreachable` when
-  T3 reports the link unreachable or one of its reads failed; an unreachable
-  system carries nothing else;
+  T3 reports the link unreachable or one of its reads failed, and whether it
+  is the configured server (`configured`); an unreachable system carries
+  nothing else;
 - every matching T3 project, each with its `id`, `title`, and
   `defaultModelSelection` (`instanceId`, `model`, or null);
 - its server's `defaultThreadEnvMode`;
@@ -292,8 +293,8 @@ anything after it:
    writer typed; the agent reads the task from Mimir. T3 answers the same
    thread for the same id, so a retry of an attempt never makes a second
    thread. The launch call's timeout is 60 seconds, because creating a
-   worktree can be slow. A launch T3 answers with a tool error (`isError`)
-   reads `refused`, without T3's text, because T3 refuses some launches on
+   worktree can be slow. A launch that T3 answers with a tool error (`isError`),
+   or that fails because T3 has no launch tool, reads `refused`, without T3's text, because T3 refuses some launches on
    every try (a branch that already exists); the operator launches again as a
    new attempt, with the same choice or a changed one. A reply without a `threadId` reads
    `unreachable`.

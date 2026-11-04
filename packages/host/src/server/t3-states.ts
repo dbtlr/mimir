@@ -71,10 +71,14 @@ export type T3Project = {
   defaultModelSelection: { instanceId: string; model: string } | null;
 };
 
-/** One T3 environment a project can launch onto, or one that could not be read. */
+/**
+ * One T3 environment a project can launch onto, or one that could not be
+ * read. `configured` marks the `MIMIR_T3_URL` server itself; peers are false.
+ */
 export type T3System =
-  | { environmentId: string; label: string; status: 'unreachable' }
+  | { configured: boolean; environmentId: string; label: string; status: 'unreachable' }
   | {
+      configured: boolean;
       environmentId: string;
       label: string;
       status: 'reachable';

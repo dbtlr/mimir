@@ -165,7 +165,7 @@ describe('the split button', () => {
   });
 
   it('lists every system in the caret menu, unreachable ones disabled, then Choose settings…', async () => {
-    const peer = reachableSystem({ environmentId: 'peer', label: 'asgard' });
+    const peer = reachableSystem({ configured: false, environmentId: 'peer', label: 'asgard' });
     await show(connectedCatalog([reachableSystem(), peer, unreachableSystem()]));
     await userEvent.click(await screen.findByRole('button', { name: 'Choose where to launch' }));
     const items = await screen.findAllByRole('menuitem');
@@ -180,6 +180,7 @@ describe('the split button', () => {
 
   it('launches a peer with that system’s defaults', async () => {
     const peer = reachableSystem({
+      configured: false,
       defaultThreadEnvMode: 'local',
       environmentId: 'peer',
       label: 'asgard',
@@ -216,6 +217,7 @@ describe('the split button', () => {
 
   it('opens the settings, preselected, for a system with no defaults', async () => {
     const peer = reachableSystem({
+      configured: false,
       environmentId: 'peer',
       label: 'asgard',
       projects: [
@@ -239,6 +241,19 @@ async function openSettings() {
 }
 
 describe('the settings dialog', () => {
+  it('with no defaults, starts on the configured server even when a peer is listed first', async () => {
+    const projects = [{ defaultModelSelection: null, id: 'proj-1', title: 'mimir' }];
+    const peer = reachableSystem({
+      configured: false,
+      environmentId: 'peer',
+      label: 'asgard',
+      projects,
+    });
+    await show(connectedCatalog([peer, reachableSystem({ projects })]));
+    const dialog = await openSettings();
+    expect(within(dialog).getByRole('combobox', { name: 'System' })).toHaveValue('env-1');
+  });
+
   it('starts from the defaults and launches the chosen input', async () => {
     await show(connectedCatalog([reachableSystem()]));
     const dialog = await openSettings();
@@ -423,15 +438,11 @@ describe('the answers', () => {
     expect(fresh?.attempt).not.toBe(first?.attempt);
   });
 
-  it('taken: says so and offers Open in T3 only when the handles make a link', async () => {
-    await launchNow({ harness: 't3', host: 'env-9', session: 'th-9', state: 'taken' });
+  it('taken by another harness with handles for no link: says so, no action', async () => {
+    await launchNow({ harness: 'claude', host: 'env-9', session: 'th-9', state: 'taken' });
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(
-        'Already queued for another session',
-        expect.anything(),
-      );
+      expect(toast.error).toHaveBeenCalledWith('Already queued for another session');
     });
-    expect(toastAction(toast.error, 'Open in T3')).toBeDefined();
   });
 
   it('taken without a link: no action', async () => {
@@ -441,15 +452,68 @@ describe('the answers', () => {
     });
   });
 
+  it('taken by a T3 thread: says so, and still offers Open in T3', async () => {
+    await launchNow({ harness: 't3', host: 'env-9', session: 'th-9', state: 'taken' });
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('Already queued for a T3 thread', expect.anything());
+    });
+    expect(toastAction(toast.error, 'Open in T3')).toBeDefined();
+  });
+
+  it('taken by a T3 thread without handles for a link: no action', async () => {
+    await launchNow({ harness: 't3', host: null, session: null, state: 'taken' });
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('Already queued for a T3 thread');
+    });
+  });
+
   it.each<[string, T3LaunchResult, string]>([
     ['not_ready', { state: 'not_ready' }, 'This task can no longer be launched'],
-    ['invalid', { field: 'model', state: 'invalid' }, 'T3’s options changed; check the settings'],
+    [
+      'invalid model',
+      { field: 'model', state: 'invalid' },
+      'T3’s options changed; check the settings',
+    ],
+    [
+      'invalid environmentId',
+      { field: 'environmentId', state: 'invalid' },
+      'T3’s options changed; check the settings',
+    ],
+    [
+      'invalid branch',
+      { field: 'branch', state: 'invalid' },
+      'The branch name is not valid. T3’s options did not change.',
+    ],
+    [
+      'invalid attempt',
+      { field: 'attempt', state: 'invalid' },
+      'This launch could not be sent; launch again',
+    ],
     ['refused', { state: 'refused' }, 'T3 refused the launch'],
   ])('%s: toasts with no Retry', async (_state, answer, message) => {
     await launchNow(answer);
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(message);
     });
+  });
+
+  it.each<[string, T3LaunchResult]>([
+    ['refused', { state: 'refused' }],
+    ['invalid', { field: 'model', state: 'invalid' }],
+    ['not_queued', { ...LAUNCHED, message: 'no longer ready', state: 'not_queued' }],
+    ['unreachable', { state: 'unreachable' }],
+  ])('%s: the stored choice is left as it was', async (_state, answer) => {
+    const stored = JSON.stringify({
+      instanceId: 'claude',
+      model: 'sonnet',
+      runtimeMode: 'approval-required',
+    });
+    localStorage.setItem('mimir:t3-launch:MMR', stored);
+    await launchNow(answer);
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalled();
+    });
+    expect(localStorage.getItem('mimir:t3-launch:MMR')).toBe(stored);
   });
 
   it('invalid and disconnected answers reread the catalog', async () => {

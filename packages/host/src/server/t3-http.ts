@@ -20,7 +20,8 @@ export type T3Http = {
 /**
  * Why a T3 request failed: `rejected` is T3's `401`; `unknown_tool` is T3
  * saying it exposes no such tool; `refused` is a tool error (`isError`) from
- * `t3_thread_launch`, which T3 answers the same on every try; `unreachable` is
+ * `t3_thread_launch` (the adapter also reads its missing tool so), which T3
+ * answers the same on every try; `unreachable` is
  * everything else (no answer, a timeout, a redirect, another status, another
  * JSON-RPC error, another tool's failed result, or a reply that fails its
  * checks).

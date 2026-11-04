@@ -5,6 +5,7 @@ export function reachableSystem(
   overrides: Partial<Extract<T3System, { status: 'reachable' }>> = {},
 ) {
   return {
+    configured: true,
     defaultThreadEnvMode: 'worktree',
     environmentId: 'env-1',
     label: 'Valhalla',
@@ -38,8 +39,12 @@ export function reachableSystem(
   } satisfies T3System;
 }
 
-export function unreachableSystem(environmentId = 'env-down', label = 'DB MBP'): T3System {
-  return { environmentId, label, status: 'unreachable' };
+export function unreachableSystem(
+  environmentId = 'env-down',
+  label = 'DB MBP',
+  configured = false,
+): T3System {
+  return { configured, environmentId, label, status: 'unreachable' };
 }
 
 export function connectedCatalog(systems: T3System[], noRemote = false): T3Catalog {

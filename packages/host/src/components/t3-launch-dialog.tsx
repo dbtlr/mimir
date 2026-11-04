@@ -131,7 +131,11 @@ export function T3LaunchDialog({
   onLaunch: (choice: LaunchChoice) => void;
   onClose: () => void;
 }) {
-  const first = systems.find((s) => s.environmentId === initialEnvironmentId) ?? systems[0];
+  // The menu's pick, else the configured server, else the first reachable system.
+  const first =
+    systems.find((s) => s.environmentId === initialEnvironmentId) ??
+    systems.find((s) => s.configured) ??
+    systems[0];
   const [choice, setChoice] = useState<LaunchChoice | null>(
     first === undefined ? null : startingChoice(first, remembered),
   );

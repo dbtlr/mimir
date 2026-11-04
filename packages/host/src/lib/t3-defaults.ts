@@ -14,7 +14,6 @@ export type LaunchChoice = Omit<T3LaunchInput, 'attempt' | 'task'>;
 export type RememberedChoice = {
   instanceId: string;
   model: string;
-  options: T3OptionChoice[];
   runtimeMode: T3RuntimeMode;
 };
 
@@ -25,14 +24,6 @@ const storageKey = (project: string) => `mimir:t3-launch:${project}`;
 const isRuntimeMode = (value: unknown): value is T3RuntimeMode =>
   T3_RUNTIME_MODES.some((mode) => mode === value);
 
-const isOptionChoice = (value: unknown): value is T3OptionChoice =>
-  typeof value === 'object' &&
-  value !== null &&
-  'id' in value &&
-  typeof value.id === 'string' &&
-  'value' in value &&
-  ['boolean', 'number', 'string'].includes(typeof value.value);
-
 function parseRemembered(raw: string): RememberedChoice | null {
   const value: unknown = JSON.parse(raw);
   if (
@@ -42,16 +33,12 @@ function parseRemembered(raw: string): RememberedChoice | null {
     typeof value.instanceId === 'string' &&
     'model' in value &&
     typeof value.model === 'string' &&
-    'options' in value &&
-    Array.isArray(value.options) &&
-    value.options.every(isOptionChoice) &&
     'runtimeMode' in value &&
     isRuntimeMode(value.runtimeMode)
   ) {
     return {
       instanceId: value.instanceId,
       model: value.model,
-      options: value.options,
       runtimeMode: value.runtimeMode,
     };
   }
@@ -73,7 +60,6 @@ export function rememberChoice(project: string, choice: LaunchChoice): void {
   const remembered: RememberedChoice = {
     instanceId: choice.model.instanceId,
     model: choice.model.model,
-    options: choice.model.options,
     runtimeMode: choice.runtimeMode,
   };
   try {
@@ -208,8 +194,8 @@ export function startingChoice(
 
 /**
  * The launch's defaults across the catalog's systems: the configured server
- * (listed first) when it is reachable with a matching project, else the only
- * reachable system with one. Null when no system, project, or model can be picked.
+ * (the entry flagged `configured`) when it is reachable with a matching
+ * project, else the only reachable system with one. Null when no system, project, or model can be picked.
  */
 export function launchDefaults(
   systems: readonly T3System[],
@@ -218,7 +204,7 @@ export function launchDefaults(
   const launchable = systems.filter(
     (system) => system.status === 'reachable' && system.projects.length > 0,
   );
-  const [configured] = systems;
+  const configured = systems.find((system) => system.configured);
   const only = launchable.length === 1 ? launchable[0] : undefined;
   const system = configured !== undefined && launchable.includes(configured) ? configured : only;
   return system === undefined ? null : defaultsForSystem(system, remembered);

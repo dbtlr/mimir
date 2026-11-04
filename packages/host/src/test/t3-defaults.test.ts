@@ -13,7 +13,6 @@ import { reachableSystem, unreachableSystem } from './t3-fixtures';
 const REMEMBERED: RememberedChoice = {
   instanceId: 'claude',
   model: 'sonnet',
-  options: [],
   runtimeMode: 'auto-accept-edits',
 };
 
@@ -30,23 +29,38 @@ describe('launchDefaults (ADR 0040, Defaults)', () => {
   });
 
   it('prefers the configured server (listed first) when it is reachable with a project', () => {
-    const peer = reachableSystem({ environmentId: 'peer', label: 'asgard' });
+    const peer = reachableSystem({ configured: false, environmentId: 'peer', label: 'asgard' });
     expect(launchDefaults([reachableSystem(), peer], null)?.environmentId).toBe('env-1');
   });
 
+  it('prefers a configured entry with a match even when it is listed after a peer', () => {
+    const peer = reachableSystem({ configured: false, environmentId: 'peer', label: 'asgard' });
+    expect(launchDefaults([peer, reachableSystem()], null)?.environmentId).toBe('env-1');
+  });
+
+  it('picks no system when two reachable peers match and the configured server has no entry', () => {
+    const peers = [
+      reachableSystem({ configured: false, environmentId: 'a', label: 'a' }),
+      reachableSystem({ configured: false, environmentId: 'b', label: 'b' }),
+    ];
+    expect(launchDefaults(peers, null)).toBeNull();
+  });
+
   it('takes the only reachable system when the configured server is unreachable', () => {
-    const peer = reachableSystem({ environmentId: 'peer', label: 'asgard' });
+    const peer = reachableSystem({ configured: false, environmentId: 'peer', label: 'asgard' });
     expect(
-      launchDefaults([unreachableSystem('env-1', 'Valhalla'), peer], null)?.environmentId,
+      launchDefaults([unreachableSystem('env-1', 'Valhalla', true), peer], null)?.environmentId,
     ).toBe('peer');
   });
 
   it('picks no system when several peers are reachable and the configured one is not', () => {
     const peers = [
-      reachableSystem({ environmentId: 'a', label: 'a' }),
-      reachableSystem({ environmentId: 'b', label: 'b' }),
+      reachableSystem({ configured: false, environmentId: 'a', label: 'a' }),
+      reachableSystem({ configured: false, environmentId: 'b', label: 'b' }),
     ];
-    expect(launchDefaults([unreachableSystem(), ...peers], null)).toBeNull();
+    expect(
+      launchDefaults([unreachableSystem('env-1', 'Valhalla', true), ...peers], null),
+    ).toBeNull();
   });
 
   it('picks nothing when no system is reachable', () => {
@@ -167,28 +181,41 @@ describe('the remembered choice', () => {
     localStorage.clear();
   });
 
-  it('round-trips the model, options, and runtime mode per Mimir project', () => {
+  it('round-trips the model and runtime mode per Mimir project, without options', () => {
     rememberChoice('MMR', choice);
     expect(recallChoice('MMR')).toEqual({
       instanceId: 'claude',
       model: 'opus',
-      options: [{ id: 'effort', value: 'low' }],
       runtimeMode: 'auto',
     });
+    expect(JSON.parse(localStorage.getItem('mimir:t3-launch:MMR') ?? 'null')).not.toHaveProperty(
+      'options',
+    );
     expect(recallChoice('OTH')).toBeNull();
+  });
+
+  it('ignores the options an older stored value still carries', () => {
+    localStorage.setItem(
+      'mimir:t3-launch:MMR',
+      JSON.stringify({
+        instanceId: 'a',
+        model: 'b',
+        options: [{ id: 'effort', value: 'low' }],
+        runtimeMode: 'auto',
+      }),
+    );
+    expect(recallChoice('MMR')).toEqual({ instanceId: 'a', model: 'b', runtimeMode: 'auto' });
+    localStorage.setItem(
+      'mimir:t3-launch:MMR',
+      JSON.stringify({ instanceId: 'a', model: 'b', options: 3, runtimeMode: 'auto' }),
+    );
+    expect(recallChoice('MMR')?.model).toBe('b');
   });
 
   it.each([
     ['not JSON', '{nope'],
     ['not an object', '"x"'],
-    [
-      'a bad runtime mode',
-      JSON.stringify({ instanceId: 'a', model: 'b', options: [], runtimeMode: 'x' }),
-    ],
-    [
-      'bad options',
-      JSON.stringify({ instanceId: 'a', model: 'b', options: 3, runtimeMode: 'auto' }),
-    ],
+    ['a bad runtime mode', JSON.stringify({ instanceId: 'a', model: 'b', runtimeMode: 'x' })],
   ])('reads %s as nothing remembered', (_name, raw) => {
     localStorage.setItem('mimir:t3-launch:MMR', raw);
     expect(recallChoice('MMR')).toBeNull();

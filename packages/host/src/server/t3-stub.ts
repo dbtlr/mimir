@@ -85,7 +85,13 @@ export type StubOptions = {
  * the thread, no reply at all: the connection drops (`drop`) or the request
  * hangs until its timeout aborts it (`hang`).
  */
-export type StubLaunchReply = 'answer' | 'drop' | 'hang' | 'is_error' | 'no_thread';
+export type StubLaunchReply =
+  | 'answer'
+  | 'drop'
+  | 'hang'
+  | 'is_error'
+  | 'no_thread'
+  | 'unknown_tool';
 
 /** The text of the stub's launch refusal: T3's words, which never reach a log or the console. */
 export const STUB_LAUNCH_REFUSAL = "Branch 'feature/taken' already exists";
@@ -290,6 +296,13 @@ export function stubT3(options: StubOptions) {
         id,
         jsonrpc: '2.0',
         result: { content: [{ text: STUB_LAUNCH_REFUSAL, type: 'text' }], isError: true },
+      });
+    }
+    if (state.launchReply === 'unknown_tool') {
+      return rpcReply({
+        error: { code: -32602, message: "Tool 't3_thread_launch' not found" },
+        id,
+        jsonrpc: '2.0',
       });
     }
     if (options.launchDelayMs !== undefined) {

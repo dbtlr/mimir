@@ -34,6 +34,21 @@ function unavailableMessage(
   }
 }
 
+/** The words for an `invalid` answer, by the field it names. */
+function invalidMessage(field: Extract<T3LaunchResult, { state: 'invalid' }>['field']) {
+  switch (field) {
+    case 'attempt': {
+      return 'This launch could not be sent; launch again';
+    }
+    case 'branch': {
+      return 'The branch name is not valid. T3’s options did not change.';
+    }
+    default: {
+      return 'T3’s options changed; check the settings';
+    }
+  }
+}
+
 /**
  * Say what a launch answered (ADR 0040, Launch). Only `unreachable` and
  * `not_queued` offer a Retry, which sends the same input, attempt included.
@@ -75,11 +90,16 @@ export function announceLaunch(
       return;
     }
     case 'taken': {
+      // The holder may be the operator's own launch, in a T3 thread.
+      const message =
+        answer.harness === 't3'
+          ? 'Already queued for a T3 thread'
+          : 'Already queued for another session';
       const action = openAction(origin, answer);
       if (action === undefined) {
-        toast.error('Already queued for another session');
+        toast.error(message);
       } else {
-        toast.error('Already queued for another session', { action });
+        toast.error(message, { action });
       }
       return;
     }
@@ -88,7 +108,7 @@ export function announceLaunch(
       return;
     }
     case 'invalid': {
-      toast.error('T3’s options changed; check the settings');
+      toast.error(invalidMessage(answer.field));
       return;
     }
     case 'refused': {
