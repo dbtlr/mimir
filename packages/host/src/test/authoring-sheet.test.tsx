@@ -469,6 +469,24 @@ describe('authoringSheet', () => {
     });
   });
 
+  // ADR 0019 §1 (MMR-626): a selected priority reads as a selection, not a status.
+  it('a selected priority pill draws in ink like the size pill, never a status hue', async () => {
+    const user = userEvent.setup();
+    await renderSheet();
+    await sheetReady();
+
+    await user.click(screen.getByRole('button', { name: /signals · optional/i }));
+    for (const priority of ['p0', 'p1', 'p2', 'p3']) {
+      const pill = screen.getByRole('button', { name: priority });
+      await user.click(pill);
+      expect(pill).toHaveAttribute('aria-pressed', 'true');
+      expect(pill.className).not.toMatch(/status-/);
+      expect(pill.className.split(/\s+/)).toEqual(
+        expect.arrayContaining(['bg-line', 'text-ink-bright']),
+      );
+    }
+  });
+
   it('offline disables both create buttons', async () => {
     await renderSheet({ offline: true });
     await sheetReady();

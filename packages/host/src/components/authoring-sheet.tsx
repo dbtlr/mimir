@@ -1,5 +1,5 @@
 import { PRIORITY_VALUES, SIZE_VALUES } from '@mimir/contract';
-import type { EngineNode, Priority, SeedKind, Size } from '@mimir/contract';
+import type { EngineNode, SeedKind, Size } from '@mimir/contract';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
@@ -35,14 +35,6 @@ const DEP_HELPER =
 
 /** The hairline field shell (mock 19a's .16 border on the page well). */
 const FIELD_SHELL = 'rounded-[9px] border border-line-bright bg-well-900';
-
-/** Selected-pill wash per priority — the PriorityBadge hues, sheet-local shape. */
-const PRIORITY_WASH: Record<Priority, string> = {
-  p0: 'bg-status-blocked/12 inset-ring-status-blocked/24 text-status-blocked-foreground',
-  p1: 'bg-status-in-progress/12 inset-ring-status-in-progress/24 text-status-in-progress-foreground',
-  p2: 'bg-well-800 text-ink',
-  p3: 'bg-well-800 text-ink-dim',
-};
 
 const SIZE_GLYPH: Record<Size, string> = { large: 'l', medium: 'm', small: 's' };
 
@@ -802,7 +794,7 @@ function AuthoringSheetBody({
                           onClick={() => setPriority((cur) => (cur === p ? '' : p))}
                           className={cn(
                             'min-h-11 rounded-full px-2.5 py-1 font-mono text-micro text-ink-dim inset-ring inset-ring-line transition-colors hover:text-ink sm:min-h-0',
-                            priority === p && PRIORITY_WASH[p],
+                            priority === p && 'bg-line text-ink-bright',
                           )}
                         >
                           {p}
