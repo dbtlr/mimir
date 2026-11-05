@@ -30,8 +30,8 @@ amd64. Where this record says a behavior was observed, the spike observed it.
 Agents run in the host's process tree through the Claude Agent SDK, against
 the host's Engine, on clones the host keeps. No other program runs Mimir's
 agents, and a run needs no agent harness on any client. The runtime is an
-optional host feature in ADR 0040's pattern: one enabling setting, absent when
-it is unset, and `misconfigured` (logged, never refusing startup) when it or a
+optional host feature in ADR 0040's pattern: one enabling setting, absent
+(`unconfigured`) when it is unset, and `misconfigured` (logged, never refusing startup) when it or a
 prerequisite is wrong.
 
 ### The credential is the operator's subscription, read from a file
@@ -130,10 +130,12 @@ lifecycle verbs are never exposed.
 
 The grant's `groom` refuses a task that has left `todo`. The check reads the
 task before the write, and the core's `groom` mutation, which accepts any
-lifecycle (ADR 0033), is unchanged. If the operator starts the task between the
-check and the write, the run sets a grooming state that no view reads, because
-grooming state is read only for `todo` tasks (ADR 0033). The race is harmless,
-so the check needs no compare-and-set in the core. A grooming run never changes
+lifecycle (ADR 0033), is unchanged. If the operator starts or queues the task
+between the check and the write, the run sets a grooming state that no view
+reads, because grooming state is read only for `todo` tasks (ADR 0033). The
+state surfaces only if `unqueue` later returns the task to `todo`, and then
+it is visible beside the run's own note, so the operator can correct it. The
+check therefore needs no compare-and-set in the core. A grooming run never changes
 a task's status.
 
 ### The host syncs clones; the agent never runs git
@@ -168,7 +170,7 @@ Migration 0013 adds a `runs` table in both dialects:
 | `id` | Run id |
 | `project`, `task` | The record the run acts on |
 | `kind` | What the run does: `groom` first |
-| `trigger` | `console` or `schedule` |
+| `trigger` | `console`; `schedule` is reserved for the daily briefing (MMR-442) |
 | `state` | `running`, `succeeded`, `failed`, `cancelled`, or `interrupted` |
 | `runner` | The host process instance that owns the run |
 | `heartbeat_at` | Updated by the owning runner while it runs |
@@ -305,14 +307,21 @@ for each published platform, amd64 and arm64.
   2026-11-05 refinement.
 - **ADR 0033 (grooming state).** The core's `groom` keeps setting grooming
   state at any lifecycle for every caller. Only a grooming run's grant refuses
-  a task that left `todo`.
+  a task that left `todo`. ADR 0033 §2 bars the core from inferring a grooming
+  state from a description; a grooming agent is a caller that reads the task
+  and the code and decides, as a person or an outside agent does, and its
+  decision is recorded with its note.
 - **ADR 0035 (the host container).** The image gains `git` and the Claude Code
   executable, and `MIMIR_DATA_DIR` becomes the host's working directory for
   every backend. See ADR 0035's 2026-11-05 addendum.
 - **ADR 0036 (project remotes).** Clone locations derive from the stored
   `host/path` form.
 - **ADR 0040 (outbound integrations and host secrets).** The runtime follows
-  its enabling-setting pattern and its Host-filtering requirement. ADR 0040
+  its enabling-setting pattern and its Host-filtering requirement. Its
+  credentials do not use host secrets: a host secret holds a credential a
+  console flow obtains at runtime, such as T3's OAuth token, while the agent
+  token and git credentials are supplied by the operator and ride mounted
+  files, like `MIMIR_SECRET_KEY_FILE` and `MIMIR_DATABASE_URL_FILE`. ADR 0040
   says the core gains only generic host-secret storage. The runs table extends
   that boundary: it lives in the store's migrations, but nothing outside the
   host reads or writes it, and the core gains no concept of agents. See ADR
