@@ -162,3 +162,12 @@ host or branch the start supplies replaces the stored one. Main identity is
 unchanged by this refinement: `start` already preserves it, so a start that
 keeps the reservation's main session is the reserved conversation beginning
 its own work, and the context it reserved under stays true.
+
+## 2026-11-05 refinement: an agent run is not a resume handle (MMR-629)
+
+[ADR 0041](0041-agent-runtime-on-the-host.md) adds a host-owned `runs` table
+that stores a run's model and token counts. Decision 3's boundary rule stands:
+it governs a task's resume handles, which point into sessions Mimir does not
+run. A run row records execution the host itself performs, so it is not a
+handle, and a task's handles do not change when a run acts on it. The rows are
+host transport data, outside the work-state model and the export.

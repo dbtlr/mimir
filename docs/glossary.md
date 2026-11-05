@@ -6,8 +6,9 @@ description: Canonical terms for Mimir’s client/host boundary and task session
 
 This glossary defines the client and host boundary terms used in
 [ADR 0034](decisions/0034-engine-interface-and-trpc-wire.md),
-[ADR 0035](decisions/0035-tanstack-start-container-host.md), and
-[ADR 0038](decisions/0038-device-pairing-and-the-version-window.md).
+[ADR 0035](decisions/0035-tanstack-start-container-host.md),
+[ADR 0038](decisions/0038-device-pairing-and-the-version-window.md), and
+[ADR 0041](decisions/0041-agent-runtime-on-the-host.md).
 
 **Host**: The Mimir server that serves the operator console and remote clients
 and owns their shared store.
@@ -34,3 +35,12 @@ own task has no separate worker identity.
 
 **Helper agent**: An agent delegated a piece of a task by its responsible worker.
 Its identity is not attached to the task.
+
+**Agent run**: One execution of an agent by the host on behalf of a task, such
+as a grooming run, recorded as a host-owned row with its state, usage, and
+outcome ([ADR 0041](decisions/0041-agent-runtime-on-the-host.md)). An agent
+run is not a task's session and changes none of its handles.
+
+**Capability**: The board access an agent run is given: the reads its kind
+needs within its project, and writes limited to its own task. A run reaches
+the board only through its capability, never through the Engine directly.

@@ -230,3 +230,19 @@ malformed key, an unset `MIMIR_HOSTS`, or an HTTP `MIMIR_URL` on a
 non-loopback host lets the host boot, logs a warning that names the setting,
 and makes the feature report itself misconfigured until the setting is
 fixed.
+
+## Addendum (2026-11-05, MMR-629): the agent runtime
+
+[ADR 0041](0041-agent-runtime-on-the-host.md) runs agents in the host. The
+image gains `git` and the Claude Code executable the Agent SDK runs, a native
+binary installed in the runtime stage for each published platform.
+`MIMIR_DATA_DIR` becomes the host's working directory for every backend, not
+only the SQLite store's. When agents are enabled, the host checks that it is
+writable and keeps clones and SDK state there. On Postgres without a
+persistent volume, that state is rebuilt after each deploy. The feature adds
+two settings, which degrade like ADR 0040's optional settings:
+
+| Variable | Meaning |
+| --- | --- |
+| `MIMIR_AGENT_TOKEN_FILE` | A file holding the `claude setup-token` token. Unset, agents are absent. |
+| `MIMIR_GIT_CREDENTIALS_FILE` | A git credential-store file for cloning private repositories. |
