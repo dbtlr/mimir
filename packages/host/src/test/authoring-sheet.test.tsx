@@ -481,7 +481,9 @@ describe('authoringSheet', () => {
       await user.click(pill);
       expect(pill).toHaveAttribute('aria-pressed', 'true');
       expect(pill.className).not.toMatch(/status-/);
-      expect(pill.className).toContain('text-ink-bright');
+      expect(pill.className.split(/\s+/)).toEqual(
+        expect.arrayContaining(['bg-line', 'text-ink-bright']),
+      );
     }
   });
 

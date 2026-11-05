@@ -24,7 +24,8 @@ describe('priority and seed-kind chips stay off the status hues (ADR 0019 §1, M
       render(<PriorityBadge priority={priority} />);
       expect(screen.getByText(priority).className.split(/\s+/)).toContain(ink[priority]);
     }
-    expect(screen.getByText('p0').className).toContain('inset-ring-line-bright');
+    const p0 = screen.getByText('p0').className.split(/\s+/);
+    expect(p0).toEqual(expect.arrayContaining(['inset-ring-line-bright', 'font-semibold']));
   });
 
   it.each(SEED_KIND_VALUES)('%s kind chip uses no status token', (kind) => {

@@ -249,8 +249,8 @@ revised:
   untriaged seeds (a parked seed is not untriaged, MMR-473), `doctor`
   findings, and tasks going cold. The review page counts them per project.
   They never take the attention hue: seeds keep their kind hues, findings the
-  amber of record damage, and going cold its cold hue. (Seed kinds draw in
-  ink since the MMR-626 refinement.)
+  amber of record damage, and going cold its cold hue. (Going cold draws in
+  ink since the MMR-619 refinement, and seed kinds since MMR-626.)
 - **Attention, the top-bar alert, counts decisions only.** It becomes a link
   to `/` carrying the count, and it is absent when there are no decisions.
   Its per-project `doctor` lines and its amber findings pill retire; findings
@@ -490,7 +490,10 @@ the status misreading MMR-617, MMR-619, and MMR-620 removed elsewhere.
   hues".
 - **A selected pill is a selection, not a status.** The authoring sheet's
   priority pills and the seed capture's kind pills select with the size
-  pill's treatment (a `line` fill with `ink-bright` text).
+  pill's treatment (a `line` fill with `ink-bright` text), so the sheet's
+  two signal pickers, which sit side by side, select alike. They keep that
+  neutral fill rather than the accent wash §1 gives selection and the list
+  filter chips use; whether form pickers move to the accent is left open.
 - **Considered and rejected.** Flat neutral chips for every priority: p0
   read the same as p3 at a glance. A ▲ mark on p0 alone: a new glyph to
   learn, and p1 to p3 read the same.
