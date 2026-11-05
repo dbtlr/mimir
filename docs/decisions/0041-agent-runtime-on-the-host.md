@@ -324,7 +324,7 @@ for each published platform, amd64 and arm64.
   files, like `MIMIR_SECRET_KEY_FILE` and `MIMIR_DATABASE_URL_FILE`. ADR 0040
   says the core gains only generic host-secret storage. The runs table extends
   that boundary: it lives in the store's migrations, but nothing outside the
-  host reads or writes it, and the core gains no concept of agents. See ADR
+  host reads or writes it, and the core gains no Engine verb or contract type for agents. See ADR
   0040's 2026-11-05 refinement.
 
 ## Consequences

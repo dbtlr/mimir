@@ -166,9 +166,9 @@ its own work, and the context it reserved under stays true.
 ## 2026-11-05 refinement: an agent run is not a resume handle (MMR-629)
 
 [ADR 0041](0041-agent-runtime-on-the-host.md) adds a host-owned `runs` table
-that stores a run's model and token counts. Decision 3's boundary rule stands:
+that stores an agent run's model and token counts. Decision 3's boundary rule stands:
 it governs a task's resume handles, which point into sessions Mimir does not
-run. A run row records execution the host itself performs, so it is not a
+run. An agent run's row records execution the host itself performs, so it is not a
 handle, and a task's handles do not change when an agent run acts on it. An
 agent run is distinct from the queued run above, which is a session in an
 outside harness. The rows are

@@ -44,6 +44,5 @@ from the run a queued task is reserved for (ADR 0026), which is a session in an
 outside harness.
 
 **Run grant**: The board access an agent run is given: the reads its kind
-needs within its project, and writes limited to its own task. A run reaches
-the board only through its run grant, never through the Engine directly. Not
+needs within its project, and writes limited to its own task. An agent run reaches the board only through its run grant, never through the Engine directly. Not
 to be confused with a capability in ADR 0012's sense, a feature of the core.
