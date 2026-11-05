@@ -1,6 +1,6 @@
 ---
 title: 'ADR 0041: The agent runtime runs on the host'
-description: The host runs Mimir's agents itself through the Claude Agent SDK, on the operator's own subscription, as personal automation. A run's configuration is code only, a fail-closed PreToolUse hook is its one gate, its board access is a per-run capability, it reads host-synced clones, and a host-owned runs table backs its budget and its one-at-a-time limit.
+description: The host runs Mimir's agents itself through the Claude Agent SDK, on the operator's own subscription, as personal automation. A run's configuration is code only, a fail-closed PreToolUse hook is its one gate, its board access is a run grant, it reads host-synced clones, and a host-owned runs table backs its budget and its one-at-a-time limit.
 status: accepted
 date: 2026-11-05
 ---
@@ -18,9 +18,10 @@ they authenticate, how a run is confined, what a run may write, and how a run
 is recorded and bounded.
 
 A phase 0 spike (MMR-628, report MMR-a383) tested every load-bearing
-assumption below in the host image, on arm64 and on amd64, with
-`@anthropic-ai/claude-agent-sdk` 0.3.318 and Claude Code 2.1.318. Where this
-record says a behavior was observed, the spike observed it.
+assumption below in the host image on arm64, with
+`@anthropic-ai/claude-agent-sdk` 0.3.318 and Claude Code 2.1.318, and repeated
+the authentication, configuration, gate, subagent, and run-grant checks on
+amd64. Where this record says a behavior was observed, the spike observed it.
 
 ## The decision
 
@@ -37,8 +38,8 @@ prerequisite is wrong.
 
 `MIMIR_AGENT_TOKEN_FILE` names a mounted file that holds a token made by
 `claude setup-token`. It is the feature's one enabling setting. A missing or
-unreadable file reads `misconfigured`, and so does an unset `MIMIR_HOSTS`
-(ADR 0040's Host filtering). A token the API rejects reads `disconnected`, and
+unreadable file reads `misconfigured`, and so do an unset `MIMIR_HOSTS`
+(ADR 0040's Host filtering) and a `MIMIR_DATA_DIR` the host cannot write. A token the API rejects reads `disconnected`, and
 the console says to replace the file. The console shows the file's age and
 never accepts a token. Rotation is replacing the file.
 
@@ -46,7 +47,8 @@ The token authenticates the Agent SDK with the operator's own Claude
 subscription. The Agent SDK documentation says: "Unless previously approved,
 Anthropic does not allow third party developers to offer claude.ai login or
 rate limits for their products, including agents built on the Claude Agent
-SDK." Mimir's agent runtime is therefore **personal automation for the operator
+SDK." (code.claude.com/docs/en/agent-sdk/overview). Mimir's agent runtime is
+therefore **personal automation for the operator
 who deploys it**. Mimir builds no login flow and offers no subscription access
 to anyone. The operator generates the token and mounts it into their own
 deployment. Offering agents to people who deploy Mimir for others needs a new
@@ -62,8 +64,9 @@ The runner passes every option the SDK would otherwise discover:
 - a `CLAUDE_CONFIG_DIR` and `TMPDIR` in the host's working directory;
 - auto memory off (`CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`);
 - a minimal subprocess environment. It holds the token, `HOME`, `PATH`, and the
-  variables above, plus the subagent limits below, and none of the host's
-  secrets or database URL.
+  variables above, plus the subagent limits below. It holds no other host
+  credential: not the secret key, the database URL, the git credentials, or
+  any host secret (ADR 0040).
 
 The SDK's `env` option replaces the subprocess environment, so a setting left
 out takes the SDK's default.
@@ -88,7 +91,7 @@ A `PreToolUse` hook is the only gate. It sees every tool call:
 
 It denies anything it does not allow. It is registered with
 `onFailure: "block"`, so a hook that throws, returns nothing, or returns
-invalid output blocks the call. In the spike, the same failures with
+invalid output blocks the call. In the spike, a hook that threw or returned invalid output under
 `onFailure: "continue"` let a read through and leaked a canary, under `dontAsk`
 and a `canUseTool` that denied everything: reads inside `cwd` never reach
 `canUseTool`. `canUseTool` stays as a deny-all backstop. The hook's code is the
@@ -99,7 +102,7 @@ The gate allows:
 - **Read, Grep, and Glob** whose path arguments resolve, through every
   symlink, to real paths inside the clone;
 - **the subagent tool**, from the main agent only;
-- **the run's capability tools**, from the main agent only.
+- **the run grant's tools**, from the main agent only.
 
 There are no shell, write, edit, web, or git tools. The container holds no push
 credentials.
@@ -111,23 +114,27 @@ parallel. The runner sets `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1` (subagents
 cannot start subagents) and `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` to a small
 limit. It turns off forked subagents (`CLAUDE_CODE_FORK_SUBAGENT=0`) and the
 SDK's built-in agents (`CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS=1`), and
-defines its own reader agent. Subagents inherit the main agent's MCP tools, so
-the gate denies capability tools to any call with an `agent_id`. In the spike,
+defines its own reader agent. Subagents inherit the main agent's MCP tools by default (the
+Agent SDK's subagent documentation), so the gate denies the run grant's tools to any call with an `agent_id`. In the spike,
 a launch past the concurrency limit was rejected, not queued.
 
-### Board access is a per-run capability
+### Board access is a run grant
 
-A run reaches the board through an in-process MCP server, not the Engine. The
-server exposes a **capability**: the reads the run's kind needs, scoped to the
-run's project, and writes scoped to the run's own task. A grooming run's only
+The agent never calls the Engine. It reaches the board through an in-process
+MCP server whose tools call Engine verbs on its behalf, and which exposes only
+the run's **run grant**: the reads the run's kind needs, scoped to the run's
+project, and writes scoped to the run's own task. A grooming run's only
 writes are `annotate` and `groom` on its own task. A call that names any other
 id is refused whole, including a batch with one stray id. Structural and
 lifecycle verbs are never exposed.
 
-The core's `groom` mutation has no lifecycle guard, so the capability's `groom`
-checks that the task is still `todo` and sets its grooming state in one
-compare-and-set. Grooming state is read only for `todo` tasks (ADR 0033). A
-grooming run never changes a task's status.
+The grant's `groom` refuses a task that has left `todo`. The check reads the
+task before the write, and the core's `groom` mutation, which accepts any
+lifecycle (ADR 0033), is unchanged. If the operator starts the task between the
+check and the write, the run sets a grooming state that no view reads, because
+grooming state is read only for `todo` tasks (ADR 0033). The race is harmless,
+so the check needs no compare-and-set in the core. A grooming run never changes
+a task's status.
 
 ### The host syncs clones; the agent never runs git
 
@@ -154,7 +161,7 @@ why.
 
 ### A run is a host-owned record
 
-Migration 13 adds a `runs` table in both dialects:
+Migration 0013 adds a `runs` table in both dialects:
 
 | Column | Meaning |
 | --- | --- |
@@ -174,7 +181,7 @@ Migration 13 adds a `runs` table in both dialects:
 
 A partial unique index on running rows makes the concurrency limit the insert
 itself: two simultaneous starts cannot both succeed. Every runner write and
-every capability write first checks that the row still belongs to its runner
+every write through the run grant first checks that the row still belongs to its runner
 and is still `running`. A runner that finds its row gone aborts its SDK run.
 At boot and at every admission, a host marks a running row `interrupted` once
 its heartbeat is older than a stale window. Boot alone never interrupts a run,
@@ -196,8 +203,8 @@ were about 1.5k Haiku tokens a run.
   day's settled and reserved tokens plus the ceiling fit the budget.
 - **In flight.** The runner sums the main agent's streamed usage, deduplicated
   by message id. Streamed output counts are placeholders, so it adds a per-turn
-  output allowance. Subagent usage streams only partly (81–91% of the true
-  figure in the spike), so the gate also charges a fixed per-subagent allowance
+  output allowance. Streamed subagent usage is only a lower bound (one spike
+  run matched the total, and two covered 81–91% of it), so the gate also charges a fixed per-subagent allowance
   when it admits a spawn, and denies the spawn when the allowance does not fit.
   The spike measured a survey subagent at about 0.33–0.35M tokens processed on
   Opus 5.5, which puts the allowance at about 400k. The runner aborts the run
@@ -235,13 +242,13 @@ for each published platform, amd64 and arm64.
   would need its own credentials to the board, its own deployment, and its own
   answer to who may start a run. On the host, a run uses the same Engine, the
   same Host filtering, and the same store as every other console action.
-- **The SDK gives both capability and confinement.** It brings subagents, a
+- **The SDK gives both reach and confinement.** It brings subagents, a
   full tool loop, and per-model usage. It also exposes enforcement points that
   run before any tool executes: `PreToolUse` hooks with a failure policy, an
   explicit tool list, and `settingSources`. The spike showed each one holding
   in the host image, and showed what breaks without it.
 - **One gate is reviewable.** With nothing pre-allowed and everything
-  discoverable switched off, the gate's code and the capability's code are the
+  discoverable switched off, the gate's code and the run grant's code are the
   whole of what a run may do.
 - **Clones need nothing from the agent.** The host's own code keeps them
   current and safe before the agent starts, so the agent needs no shell and no
@@ -273,19 +280,32 @@ for each published platform, amd64 and arm64.
 - **Taking the token in the console.** The console is unauthenticated, so any
   client that reaches it could replace the operator's credential. A one-year
   token does not have the 30-day expiry that led ADR 0040 to keep T3's token
-  out of configuration.
+  out of configuration. A `setup-token` lasts one year (Claude Code's
+  authentication documentation).
+
 
 ## Relation to other records
 
 - **ADR 0002 (no baked-in semantics).** A run row is host execution state, not
   work state or a consumer's processing state. It never enters the work-state
   model, the contract, or the export, as host secrets and device tokens do not.
+- **ADR 0010 (transport-only consumption).** The in-process MCP server is part
+  of the host, not a Mimir transport: it is the run grant's tool surface,
+  built by the host for one run, and never offered to another client. Agents
+  outside the host still reach Mimir through MCP or the CLI, which stay 1:1.
+- **ADR 0012 (capabilities land in core).** The run grant adds no core
+  capability. It narrows existing Engine verbs for one caller, and the CLI and
+  MCP keep the verbs as they are. "Capability" keeps ADR 0012's meaning; a
+  run's board access is called a run grant.
 - **ADR 0026 (resume handles).** Decision 3 keeps model and token counts out of
   a task's handles. A run row is not an assignment handle: it records the
   host's own execution, which Mimir performs, and a task's handles are
   unchanged. `annotate` and `groom` carry no handles, so the run row, by its
   task and time window, is the provenance of what a run wrote. See ADR 0026's
   2026-11-05 refinement.
+- **ADR 0033 (grooming state).** The core's `groom` keeps setting grooming
+  state at any lifecycle for every caller. Only a grooming run's grant refuses
+  a task that left `todo`.
 - **ADR 0035 (the host container).** The image gains `git` and the Claude Code
   executable, and `MIMIR_DATA_DIR` becomes the host's working directory for
   every backend. See ADR 0035's 2026-11-05 addendum.
@@ -295,11 +315,12 @@ for each published platform, amd64 and arm64.
   its enabling-setting pattern and its Host-filtering requirement. ADR 0040
   says the core gains only generic host-secret storage. The runs table extends
   that boundary: it lives in the store's migrations, but nothing outside the
-  host reads or writes it, and the core gains no concept of agents.
+  host reads or writes it, and the core gains no concept of agents. See ADR
+  0040's 2026-11-05 refinement.
 
 ## Consequences
 
-- Migration 13 adds `runs`, and the schema moves to version 13. Rolling the host
+- Migration 0013 adds `runs`, and the schema moves to version 13. Rolling the host
   image back past it needs a database restore, as with any migration.
 - A deployment that enables agents sets `MIMIR_AGENT_TOKEN_FILE` and
   `MIMIR_HOSTS`, gives `MIMIR_DATA_DIR` a writable directory, and, for private
@@ -310,7 +331,7 @@ for each published platform, amd64 and arm64.
   shares. A one-subagent grooming run on Opus 5.5 processed about 0.36M tokens
   in the spike.
 - Prompt injection from repository content can steer a run. With no write
-  tools and a one-task capability, the worst outcome is wrong notes or a wrong
+  tools and a one-task run grant, the worst outcome is wrong notes or a wrong
   grooming state on that task, which the operator sees and corrects.
 - A project's remote is board data that any client of the host can change, and
   it decides which repository the host clones. Credentials are scoped per
@@ -318,4 +339,4 @@ for each published platform, amd64 and arm64.
 - Updating the Agent SDK is a release-tested change: the guarantees above are
   re-checked before the pin moves.
 - The daily briefing (MMR-442) and the agent panel (MMR-443) build on this
-  runtime as new run kinds with their own capabilities.
+  runtime as new run kinds with their own run grants.

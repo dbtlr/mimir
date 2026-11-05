@@ -48,7 +48,7 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0023](0023-concurrency-and-safety-posture.md)                    | Concurrency & safety posture — not a write-safe datastore          |
 | [0024](0024-cli-command-taxonomy.md)                              | CLI command taxonomy — two planes, flat work verbs                 |
 | [0025](0025-descriptor-driven-registration.md)                    | Descriptor-driven registration — facts in tables, grammar in views (Decision 4 superseded for the CLI and MCP by 0037) |
-| [0026](0026-work-state-composition.md)                            | Work-state composition — views composed at read time               |
+| [0026](0026-work-state-composition.md)                            | Work-state composition — views composed at read time (refined by 0041) |
 | [0027](0027-scratchpads-are-temporary-episode-state.md)           | Scratchpads are temporary episode state                            |
 | [0028](0028-scratchpads-use-a-work-noun-group.md)                 | Scratchpads use a work-plane noun group                            |
 | [0029](0029-caller-zoned-date-semantics.md)                       | Date queries use caller timezone context                           |
@@ -57,12 +57,12 @@ dogfooded CLI conventions are prior art that ADR 0009 adopts.
 | [0032](0032-sqlite-local-tier-shared-sql-store.md)                | SQLite is the local tier, beside Postgres, on one shared SQL store |
 | [0033](0033-task-grooming-state.md)                               | Tasks carry a stored grooming state                                |
 | [0034](0034-engine-interface-and-trpc-wire.md)                    | The Engine is a plain interface, and the remote wire is tRPC (transport checks refined by 0038) |
-| [0035](0035-tanstack-start-container-host.md)                    | The host is a TanStack Start container                            |
+| [0035](0035-tanstack-start-container-host.md)                    | The host is a TanStack Start container (refined by 0041)          |
 | [0036](0036-project-binding-through-git-config.md)               | A clone binds to its project through git config and the project remote |
 | [0037](0037-the-cli-and-mcp-on-loom.md)                         | The CLI and MCP on Loom                                            |
 | [0038](0038-device-pairing-and-the-version-window.md)            | Device pairing and the version window                              |
 | [0039](0039-changelog-and-versioning-on-loom.md)                 | Changelog and versioning on Loom (supersedes 0022)                 |
-| [0040](0040-outbound-integrations-and-host-secrets.md)            | Outbound integrations and host secrets                             |
+| [0040](0040-outbound-integrations-and-host-secrets.md)            | Outbound integrations and host secrets (refined by 0041)           |
 | [0041](0041-agent-runtime-on-the-host.md)                         | The agent runtime runs on the host                                 |
 
 Two maintained engineering references live beside this directory:

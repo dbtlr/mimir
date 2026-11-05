@@ -236,8 +236,9 @@ fixed.
 [ADR 0041](0041-agent-runtime-on-the-host.md) runs agents in the host. The
 image gains `git` and the Claude Code executable the Agent SDK runs, a native
 binary installed in the runtime stage for each published platform.
-`MIMIR_DATA_DIR` becomes the host's working directory for every backend, not
-only the SQLite store's. When agents are enabled, the host checks that it is
+When the runtime ships (MMR-631, MMR-632), `MIMIR_DATA_DIR` becomes the host's
+working directory for every backend, not only the SQLite store's; until then,
+the settings table above and the host guide describe it as shipped. When agents are enabled, the host checks that it is
 writable and keeps clones and SDK state there. On Postgres without a
 persistent volume, that state is rebuilt after each deploy. The feature adds
 two settings, which degrade like ADR 0040's optional settings:

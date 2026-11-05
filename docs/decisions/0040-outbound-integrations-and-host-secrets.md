@@ -462,3 +462,12 @@ the environment id.
 `$T3CODE_HOME/userdata/environment-id`, where T3 0.1.6 keeps it: the file is
 T3's private storage, not a contract. Asking T3 where the thread lives when the
 link is clicked: it adds a T3 call and a tool to the adapter for every link.
+
+## Refinement (2026-11-05, MMR-629): the core also holds agent runs
+
+"The core gains only the generic host-secret store" described this record's
+first integration. [ADR 0041](0041-agent-runtime-on-the-host.md) adds a second
+host-only table, `runs`, to the store's migrations for the agent runtime. The
+boundary this record draws still holds for it: only the host reads or writes
+the table, it stays out of the contract, the wire, the CLI, and the work-state
+export, and the core gains no concept of agents or of any integration.

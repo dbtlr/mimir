@@ -39,8 +39,11 @@ Its identity is not attached to the task.
 **Agent run**: One execution of an agent by the host on behalf of a task, such
 as a grooming run, recorded as a host-owned row with its state, usage, and
 outcome ([ADR 0041](decisions/0041-agent-runtime-on-the-host.md)). An agent
-run is not a task's session and changes none of its handles.
+run is not a task's session and changes none of its handles. It is distinct
+from the run a queued task is reserved for (ADR 0026), which is a session in an
+outside harness.
 
-**Capability**: The board access an agent run is given: the reads its kind
+**Run grant**: The board access an agent run is given: the reads its kind
 needs within its project, and writes limited to its own task. A run reaches
-the board only through its capability, never through the Engine directly.
+the board only through its run grant, never through the Engine directly. Not
+to be confused with a capability in ADR 0012's sense, a feature of the core.
