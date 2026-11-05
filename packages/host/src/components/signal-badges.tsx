@@ -1,22 +1,24 @@
 import type { Priority, Size } from '@mimir/contract';
 
-import { cn } from '../lib/cn';
 import { Badge } from './ui/badge';
 
-/** Priority signal chip — p0 burns hottest; a signal, never a sort (ADR 0007). */
+/**
+ * Priority ink (ADR 0019 §1, MMR-626): priority is ordinal, so it steps down
+ * the ink ramp instead of borrowing a status hue. p0 alone adds weight and the
+ * bright hairline. p3 shares p2's ink because the ramp's faint step falls
+ * below AA contrast on the chip ground; their labels tell them apart.
+ */
+const PRIORITY_INK: Record<Priority, string> = {
+  p0: 'inset-ring-line-bright font-semibold text-ink-bright',
+  p1: 'text-ink',
+  p2: 'text-ink-dim',
+  p3: 'text-ink-dim',
+};
+
+/** Priority signal chip — p0 brightest; a signal, never a sort (ADR 0007). */
 export function PriorityBadge({ priority }: { priority: Priority }) {
   return (
-    <Badge
-      variant="mono"
-      className={cn(
-        priority === 'p0' &&
-          'bg-status-blocked/12 inset-ring inset-ring-status-blocked/24 text-status-blocked-foreground',
-        priority === 'p1' &&
-          'bg-status-in-progress/12 inset-ring inset-ring-status-in-progress/24 text-status-in-progress-foreground',
-        priority === 'p2' && 'bg-well-800 inset-ring inset-ring-line text-ink',
-        priority === 'p3' && 'bg-well-800 inset-ring inset-ring-line text-ink-dim',
-      )}
-    >
+    <Badge variant="mono" className={PRIORITY_INK[priority]}>
       {priority}
     </Badge>
   );

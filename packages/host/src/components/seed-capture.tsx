@@ -10,7 +10,6 @@ import { toast } from 'sonner';
 import { useFileSeed } from '../api/seed-mutations';
 import { projectsQuery } from '../api/shell-queries';
 import { cn } from '../lib/cn';
-import { SEED_KIND_WASH } from '../lib/seed-kind';
 import { useHotkey } from '../lib/use-hotkey';
 import { ActionButton } from './ui/action-button';
 
@@ -145,7 +144,9 @@ function SeedCaptureForm({ onClose }: { onClose: () => void }) {
             onClick={() => setKind(k)}
             className={cn(
               'rounded-full px-3 py-1 text-xs font-semibold inset-ring transition-colors',
-              kind === k ? SEED_KIND_WASH[k] : 'text-ink-dim inset-ring-line hover:text-ink-bright',
+              kind === k
+                ? 'bg-line text-ink-bright inset-ring-line'
+                : 'text-ink-dim inset-ring-line hover:text-ink-bright',
             )}
           >
             {k}

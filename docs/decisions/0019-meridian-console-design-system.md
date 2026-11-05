@@ -249,7 +249,8 @@ revised:
   untriaged seeds (a parked seed is not untriaged, MMR-473), `doctor`
   findings, and tasks going cold. The review page counts them per project.
   They never take the attention hue: seeds keep their kind hues, findings the
-  amber of record damage, and going cold its cold hue.
+  amber of record damage, and going cold its cold hue. (Seed kinds draw in
+  ink since the MMR-626 refinement.)
 - **Attention, the top-bar alert, counts decisions only.** It becomes a link
   to `/` carrying the count, and it is absent when there are no decisions.
   Its per-project `doctor` lines and its amber findings pill retire; findings
@@ -463,3 +464,37 @@ the chip had drifted from the decision rather than extended it.
   neighbours, but not chosen.
 - The work page's test fails unless the chip, on a frontier row and a
   _Going cold_ row, draws in `text-ink-dim` with no `status-` class.
+
+## Refinement (2026-11-04, MMR-626): priority and seed kind draw in ink
+
+Two chip families borrowed status hues with no recorded basis. The priority
+chip drew p0 in the `blocked` red and p1 in the `in_progress` amber, in the
+task page's signals and the authoring sheet's selected pill. The seed-kind
+chip drew `bug` in the `blocked` red, `idea` in the `in_progress` amber, and
+`feature` in the `ready` blue, on every seed surface and in the seed
+capture's selected pill. The MMR-476 refinement said only that seeds keep
+their kind hues. So a p0 task read as blocked and an idea as work in flight:
+the status misreading MMR-617, MMR-619, and MMR-620 removed elsewhere.
+
+- **Priority steps down the ink ramp.** Priority is ordinal, so brightness,
+  which is ordinal too, carries it. Every priority chip keeps the badge's
+  default ground (the `well-800` fill under a `line` hairline ring). p0
+  draws in `ink-bright`, semibold, under the `line-bright` ring; p1 in
+  `ink`; p2 and p3 in `ink-dim`. p3 stops at `ink-dim` because `ink-faint`
+  measures 3.11:1 (dark) and 2.84:1 (light) against the chip ground, below
+  AA's 4.5:1; `ink-dim` measures 6.37:1 and 5.13:1. Their labels tell p2
+  and p3 apart.
+- **Seed kind is a category, so every kind draws alike.** The kind chip is
+  a neutral chip in `ink-dim` on the same ground; the label carries the
+  kind. This supersedes the MMR-476 refinement's "seeds keep their kind
+  hues".
+- **A selected pill is a selection, not a status.** The authoring sheet's
+  priority pills and the seed capture's kind pills select with the size
+  pill's treatment (a `line` fill with `ink-bright` text).
+- **Considered and rejected.** Flat neutral chips for every priority: p0
+  read the same as p3 at a glance. A ▲ mark on p0 alone: a new glyph to
+  learn, and p1 to p3 read the same.
+- `packages/host/src/test/signal-chips.test.tsx` fails if a priority or kind
+  chip carries a `status-` class, if the priority ink steps change, or if
+  two kinds draw differently. The authoring sheet's and seed capture's tests
+  fail if a selected priority or kind pill carries a `status-` class.

@@ -88,6 +88,23 @@ describe('seed capture popover (12c, MMR-247)', () => {
     });
   });
 
+  // ADR 0019 §1 (MMR-626): seed kind is a category, so the picked kind draws in ink.
+  it('a picked kind draws in ink, never a status hue', async () => {
+    mockApi();
+    renderApp();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: '+ File a seed' }));
+    await screen.findByLabelText('Seed');
+    for (const kind of ['bug', 'idea', 'feature']) {
+      const pill = screen.getByRole('button', { name: kind });
+      await user.click(pill);
+      expect(pill).toHaveAttribute('aria-pressed', 'true');
+      expect(pill.className).not.toMatch(/status-/);
+      expect(pill.className).toContain('text-ink-bright');
+    }
+  });
+
   it('enter files; Shift+Enter adds a body line — the whole blob rides `title` (MMR-263)', async () => {
     mockApi();
     renderApp();
