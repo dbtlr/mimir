@@ -500,4 +500,5 @@ the status misreading MMR-617, MMR-619, and MMR-620 removed elsewhere.
 - `packages/host/src/test/signal-chips.test.tsx` fails if a priority or kind
   chip carries a `status-` class, if the priority ink steps change, or if
   two kinds draw differently. The authoring sheet's and seed capture's tests
-  fail if a selected priority or kind pill carries a `status-` class.
+  fail if a selected priority or kind pill carries a `status-` class or
+  loses the `bg-line` fill or `ink-bright` text.
