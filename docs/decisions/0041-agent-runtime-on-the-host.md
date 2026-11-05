@@ -39,7 +39,8 @@ prerequisite is wrong.
 `MIMIR_AGENT_TOKEN_FILE` names a mounted file that holds a token made by
 `claude setup-token`. It is the feature's one enabling setting. A missing or
 unreadable file reads `misconfigured`, and so do an unset `MIMIR_HOSTS`
-(ADR 0040's Host filtering) and a `MIMIR_DATA_DIR` the host cannot write. A token the API rejects reads `disconnected`, and
+(ADR 0040's Host filtering) and a `MIMIR_DATA_DIR` that the host cannot
+write to. A token the API rejects reads `disconnected`, and
 the console says to replace the file. The console shows the file's age and
 never accepts a token. Rotation is replacing the file.
 
@@ -147,6 +148,10 @@ scheme, credentials, and port dropped, so the fetch location is
 not supported. Credentials for a private repository come from
 `MIMIR_GIT_CREDENTIALS_FILE`, a mounted file in git's credential-store format,
 read with `credential.useHttpPath` so a credential applies to one repository.
+The file is optional and degrades like ADR 0040's optional settings: unset,
+the host clones public repositories only; set but missing or unreadable, the
+host logs a warning naming the setting and clones without credentials, so
+only a private repository's run fails, with an outcome that names the setting.
 
 Before each run, the host's own code:
 
@@ -182,9 +187,14 @@ Migration 0013 adds a `runs` table in both dialects:
 | `outcome` | One line from the runner: what the run did, or why it failed |
 
 A partial unique index on running rows makes the concurrency limit the insert
-itself: two simultaneous starts cannot both succeed. Every runner write and
-every write through the run grant first checks that the row still belongs to its runner
-and is still `running`. A runner that finds its row gone aborts its SDK run.
+itself: two simultaneous starts cannot both succeed. Every runner write to its
+row is one conditional update that matches the row's `id`, its `runner`, and
+`state = 'running'`; an update that matches no row means the runner lost the
+run, and it aborts its SDK run. Every write through the run grant checks the
+same condition first. That check and the Engine verb that follows are separate
+transactions, so a runner whose row was just taken over can still land one
+write already in flight. It lands on the run's own task, beside the run's
+notes, where the operator sees it.
 At boot and at every admission, a host marks a running row `interrupted` once
 its heartbeat is older than a stale window. Boot alone never interrupts a run,
 so the old container's live run keeps its row during an overlapping deploy.

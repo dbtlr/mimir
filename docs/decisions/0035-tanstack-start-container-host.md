@@ -247,4 +247,4 @@ documented in the host guide when they ship:
 | Variable | Meaning |
 | --- | --- |
 | `MIMIR_AGENT_TOKEN_FILE` | A file holding the `claude setup-token` token. Unset, agents are absent. |
-| `MIMIR_GIT_CREDENTIALS_FILE` | A git credential-store file for cloning private repositories. |
+| `MIMIR_GIT_CREDENTIALS_FILE` | A git credential-store file for cloning private repositories. Unset, only public repositories clone; missing or unreadable, the host warns and only private repositories' runs fail. |
