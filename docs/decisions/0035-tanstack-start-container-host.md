@@ -249,7 +249,9 @@ documented in the host guide when they ship:
 | `MIMIR_AGENT_TOKEN_FILE` | A file holding the `claude setup-token` token. Unset, agents are absent. |
 | `MIMIR_GIT_CREDENTIALS_FILE` | A git credential-store file for cloning private repositories. Unset, only public repositories clone; missing or unreadable, the host warns and only private repositories' runs fail. |
 
-MMR-631 shipped `git` in the image, `MIMIR_DATA_DIR` as the working directory
-for every backend, and `MIMIR_GIT_CREDENTIALS_FILE`; the settings table above
-and the host guide describe them. The Claude Code executable and
-`MIMIR_AGENT_TOKEN_FILE` ship with MMR-632.
+**Status update (2026-11-06, MMR-631):** the image carries `git`,
+`MIMIR_DATA_DIR` is the working directory for every backend, and the host
+reads `MIMIR_GIT_CREDENTIALS_FILE`; the settings table above and the host guide
+describe them. The host's clone sync ships with them and is unused until agent
+runs ship. The Claude Code executable and `MIMIR_AGENT_TOKEN_FILE` ship with
+MMR-632.

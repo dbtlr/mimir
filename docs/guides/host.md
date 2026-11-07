@@ -488,13 +488,16 @@ again.
 
 ## Clone private repositories
 
-Agent runs read a clone of the project's repository, which the host keeps at
-`clones/<PROJECT_KEY>` in `MIMIR_DATA_DIR` and syncs before each run
+The image carries git, and the host can keep a clone of each project's
+repository at `clones/<PROJECT_KEY>` in `MIMIR_DATA_DIR`
 ([ADR 0041](../decisions/0041-agent-runtime-on-the-host.md#the-host-syncs-clones-the-agent-never-runs-git)).
-The host fetches the project's remote over HTTPS, as
+Agent runs will read these clones; until agent runs ship, the host creates
+none. The host fetches the project's remote over HTTPS only, as
 `https://<host>/<path>.git`. A remote that needs SSH or a port other than 443
-is not supported. A project without a remote has nothing to clone, and its
-runs cannot start.
+is not supported, and a project without a remote has nothing to clone.
+
+You can set up the credentials setting now: the host checks it at startup and
+warns about a problem, as described below.
 
 Public repositories need no setup. For a private repository, give the host a
 credential for that repository:
@@ -514,11 +517,12 @@ credential for that repository:
    1000, so the file must be readable by that user.
 
 The host reads the file with `credential.useHttpPath`, so a credential is sent
-only to its own repository. If a project's remote changes, its credential does
+only to its own repository, and a redirect to another host never carries it.
+If a project's remote changes, its credential does
 not follow it. The host only reads the file: git never writes to it, and the
 credential is never copied into a clone's configuration, its URL, or the log.
-The host reads the file again at each sync, so replacing it takes effect
-without a restart.
+The host reads the file again each time it syncs a clone, so replacing it
+takes effect without a restart.
 
 When `MIMIR_GIT_CREDENTIALS_FILE` is set but the file is missing or
 unreadable, the host starts and logs a warning that names the setting. It then
