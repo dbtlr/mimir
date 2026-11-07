@@ -1,11 +1,23 @@
 import { afterEach, expect, test } from 'bun:test';
-import { execFile } from 'node:child_process';
-import { chmod, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { execFile, spawnSync } from 'node:child_process';
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { promisify } from 'node:util';
+import { deflateSync } from 'node:zlib';
 
-import { syncClone } from './clones';
+import { gitEnvironment, syncClone } from './clones';
 import type { CloneSyncOptions } from './clones';
 import { gitCredentialsWarnings, readGitCredentials } from './git-credentials';
 
@@ -59,10 +71,14 @@ async function publish(
   remotes: string,
   remote: string,
   files: Record<string, string>,
-  { branch = 'main', links = {} }: { branch?: string; links?: Record<string, string> } = {},
+  {
+    branch = 'main',
+    links = {},
+    makeDefault = true,
+  }: { branch?: string; links?: Record<string, string>; makeDefault?: boolean } = {},
 ) {
   const bare = join(remotes, `${remote}.git`);
-  const work = `${bare}.work`;
+  const work = `${bare}.work-${branch}`;
   await mkdir(bare, { recursive: true });
   await git(bare, ['init', '--quiet', '--bare', '--initial-branch', branch]);
   await mkdir(work, { recursive: true });
@@ -79,7 +95,9 @@ async function publish(
   await git(work, ['add', '--all']);
   await git(work, ['commit', '--quiet', '--allow-empty', '-m', `publish ${branch}`]);
   await git(work, ['push', '--quiet', '--force', bare, `${branch}:${branch}`]);
-  await git(bare, ['symbolic-ref', 'HEAD', `refs/heads/${branch}`]);
+  if (makeDefault) {
+    await git(bare, ['symbolic-ref', 'HEAD', `refs/heads/${branch}`]);
+  }
   return git(work, ['rev-parse', 'HEAD']);
 }
 
@@ -96,7 +114,7 @@ test('a first sync clones the project remote into the clones directory, and late
   const { dataDirectory, options, remotes } = await fixture();
   const commit = await publish(remotes, 'github.test/owner/repo', { 'README.md': 'hello\n' });
   const first = await syncClone(options('github.test/owner/repo'));
-  const directory = join(dataDirectory, 'clones', 'CLN');
+  const directory = await realpath(join(dataDirectory, 'clones', 'CLN'));
   expect(first).toEqual({ branch: 'main', commit, directory, fresh: true, ok: true });
   expect(await readFile(join(directory, 'README.md'), 'utf8')).toBe('hello\n');
   expect(await git(directory, ['config', '--get', 'remote.origin.url'])).toBe(
@@ -399,4 +417,420 @@ test('hooks and command config planted in a clone never run during a sync', asyn
   });
   expect(await readFile(join(directory, 'README.md'), 'utf8')).toBe('changed\n');
   expect(await exists(marker)).toBe(false);
+});
+
+/** Every file and symlink under `directory`, relative to it, skipping its top-level `.git`. */
+async function treeFiles(directory: string): Promise<string[]> {
+  const entries = await readdir(directory, { recursive: true, withFileTypes: true });
+  return entries
+    .filter((entry) => !entry.isDirectory())
+    .map((entry) => relative(directory, join(entry.parentPath, entry.name)))
+    .filter((path) => path !== '.git' && !path.startsWith('.git/'))
+    .toSorted();
+}
+
+/**
+ * A kept clone of `github.test/owner/repo`, synced once, beside an `evil` branch
+ * of the same repository and a separate `github.test/owner/evil` repository.
+ */
+async function keptClone() {
+  const base = await fixture();
+  const repo = 'github.test/owner/repo';
+  const files = { 'README.md': 'hello\n', 'docs/guide.md': 'guide\n' };
+  await publish(base.remotes, repo, files);
+  await publish(
+    base.remotes,
+    repo,
+    { 'README.md': 'evil\n' },
+    { branch: 'evil', makeDefault: false },
+  );
+  await publish(base.remotes, 'github.test/owner/evil', { 'README.md': 'evil\n' });
+  expect(await syncClone(base.options(repo))).toMatchObject({ fresh: true, ok: true });
+  const directory = join(base.dataDirectory, 'clones', 'CLN');
+  return {
+    ...base,
+    directory,
+    files,
+    gitDirectory: join(directory, '.git'),
+    marker: join(base.root, 'ran'),
+    /** Run fixture git inside the clone, as a writer between syncs would. */
+    plant: (args: string[]) => git(directory, args),
+    repo,
+  };
+}
+
+type KeptClone = Awaited<ReturnType<typeof keptClone>>;
+
+/**
+ * Publish an upstream change, run `plant` against the kept clone, sync, and
+ * expect the clone to hold exactly the upstream tree.
+ */
+async function expectExactSyncAfter(clone: KeptClone, plant: (commit: string) => Promise<void>) {
+  const commit = await publish(clone.remotes, clone.repo, {
+    ...clone.files,
+    'CHANGED.md': 'upstream\n',
+  });
+  await plant(commit);
+  const result = await syncClone(clone.options(clone.repo));
+  expect(result).toMatchObject({ branch: 'main', commit, ok: true });
+  const bare = join(clone.remotes, `${clone.repo}.git`);
+  const tracked = (await git(bare, ['ls-tree', '-r', '--name-only', commit])).split('\n');
+  expect(await treeFiles(clone.directory)).toEqual(tracked.toSorted());
+  for (const path of tracked) {
+    const upstream = await git(bare, ['show', `${commit}:${path}`]);
+    expect((await readFile(join(clone.directory, path), 'utf8')).trim(), path).toBe(upstream);
+  }
+  expect(await exists(clone.marker)).toBe(false);
+  return result;
+}
+
+const plantedState: [string, (clone: KeptClone, commit: string) => Promise<void>][] = [
+  [
+    'a fetch refspec naming another branch',
+    async ({ plant }) => {
+      await plant(['config', 'remote.origin.fetch', '+refs/heads/evil:refs/remotes/origin/main']);
+    },
+  ],
+  [
+    'a longer url.insteadOf naming another repository',
+    async ({ plant, remotes }) => {
+      await plant([
+        'config',
+        `url.${remotes}/github.test/owner/evil.git.insteadOf`,
+        'https://github.test/owner/repo.git',
+      ]);
+    },
+  ],
+  [
+    'a second origin url that fetch reads first',
+    async ({ plant }) => {
+      await plant([
+        'config',
+        '--replace-all',
+        'remote.origin.url',
+        'https://github.test/owner/evil.git',
+      ]);
+      await plant(['config', '--add', 'remote.origin.url', 'https://github.test/owner/repo.git']);
+    },
+  ],
+  [
+    'a smudge filter applied through info/attributes',
+    async ({ gitDirectory, marker, plant }) => {
+      await plant(['config', 'filter.x.smudge', `sh -c 'echo pwned > ${marker}; cat'`]);
+      await mkdir(join(gitDirectory, 'info'), { recursive: true });
+      await writeFile(join(gitDirectory, 'info', 'attributes'), '* filter=x\n');
+    },
+  ],
+  [
+    'a replace ref for the commit being synced',
+    async ({ plant, remotes }, commit) => {
+      await plant(['fetch', '--quiet', join(remotes, 'github.test/owner/evil.git'), 'main']);
+      await plant([
+        'update-ref',
+        `refs/replace/${commit}`,
+        await plant(['rev-parse', 'FETCH_HEAD']),
+      ]);
+    },
+  ],
+  [
+    'a sparse checkout',
+    async ({ gitDirectory, plant }) => {
+      await plant(['config', 'core.sparseCheckout', 'true']);
+      await mkdir(join(gitDirectory, 'info'), { recursive: true });
+      await writeFile(join(gitDirectory, 'info', 'sparse-checkout'), '/CHANGED.md\n');
+    },
+  ],
+  [
+    'a skip-worktree entry over a local edit',
+    async ({ directory, plant }) => {
+      await plant(['update-index', '--skip-worktree', 'README.md']);
+      await writeFile(join(directory, 'README.md'), 'edited\n');
+    },
+  ],
+  [
+    'an include.path and an includeIf naming another repository',
+    async ({ plant, remotes, root }) => {
+      const included = join(root, 'included.gitconfig');
+      await writeFile(
+        included,
+        `[url "${remotes}/github.test/owner/evil.git"]\n\tinsteadOf = https://github.test/owner/repo.git\n`,
+      );
+      await plant(['config', 'include.path', included]);
+      await plant(['config', 'includeIf.gitdir:/.path', included]);
+    },
+  ],
+  [
+    'an object replaced in place with other content',
+    async ({ directory, gitDirectory, plant }) => {
+      const oid = await plant(['rev-parse', 'HEAD:README.md']);
+      const path = join(gitDirectory, 'objects', oid.slice(0, 2), oid.slice(2));
+      expect(await exists(path)).toBe(true);
+      await rm(path, { force: true });
+      await writeFile(path, deflateSync(Buffer.from('blob 5\0evil\n')));
+      // A local edit makes the reset write the file again from the object store.
+      await writeFile(join(directory, 'README.md'), 'edited\n');
+    },
+  ],
+  [
+    'a nested .git entry in a tracked directory',
+    async ({ directory }) => {
+      await writeFile(join(directory, 'docs', '.git'), 'gitdir: /etc\n');
+    },
+  ],
+  [
+    'a stale index.lock left by a killed sync',
+    async ({ gitDirectory }) => {
+      await writeFile(join(gitDirectory, 'index.lock'), '');
+    },
+  ],
+  [
+    'a stale remote-tracking ref lock left by a killed sync',
+    async ({ gitDirectory }) => {
+      await mkdir(join(gitDirectory, 'refs', 'remotes', 'origin'), { recursive: true });
+      await writeFile(join(gitDirectory, 'refs', 'remotes', 'origin', 'main.lock'), '');
+    },
+  ],
+  [
+    'a remote-tracking ref replaced by a directory',
+    async ({ gitDirectory }) => {
+      const ref = join(gitDirectory, 'refs', 'remotes', 'origin', 'main');
+      await rm(ref, { force: true });
+      await mkdir(ref, { recursive: true });
+      await writeFile(join(ref, 'blocked'), 'not a ref\n');
+    },
+  ],
+];
+
+test.each(plantedState)(
+  'a sync reaches the remote default branch exactly despite %s planted in the clone',
+  async (_name, plantState) => {
+    const clone = await keptClone();
+    await expectExactSyncAfter(clone, (commit) => plantState(clone, commit));
+  },
+);
+
+test('a URL-scoped credential helper planted in the clone never runs', async () => {
+  const clone = await keptClone();
+  const { base, server } = privateServer();
+  try {
+    const script = join(clone.root, 'planted.sh');
+    await writeFile(script, `#!/bin/sh\necho "$0" >> ${clone.marker}\n`);
+    await chmod(script, 0o755);
+    for (const scope of [base.replace(/\/$/, ''), 'https://github.test']) {
+      await clone.plant(['config', `credential.${scope}.helper`, `!${script}`]);
+    }
+    expect(await syncClone(clone.options(clone.repo, { fetchBase: base }))).toMatchObject({
+      ok: false,
+      reason: 'credentials',
+    });
+    expect(await exists(clone.marker)).toBe(false);
+  } finally {
+    await server.stop(true);
+  }
+});
+
+test('a corrupt kept clone is rebuilt from scratch', async () => {
+  const clone = await keptClone();
+  const oid = await clone.plant(['rev-parse', 'HEAD:README.md']);
+  const path = join(clone.gitDirectory, 'objects', oid.slice(0, 2), oid.slice(2));
+  await rm(path, { force: true });
+  await writeFile(path, 'not an object');
+  await clone.plant(['update-index', '--really-refresh']).catch(() => '');
+  await writeFile(join(clone.directory, 'README.md'), 'edited\n');
+  const result = await syncClone(clone.options(clone.repo));
+  expect(result).toMatchObject({ fresh: true, ok: true });
+  expect(await readFile(join(clone.directory, 'README.md'), 'utf8')).toBe('hello\n');
+});
+
+test('concurrent syncs of one project run one at a time, and each ends with the clone in place', async () => {
+  const { dataDirectory, options, remotes } = await fixture();
+  const commit = await publish(remotes, 'github.test/owner/repo', { 'README.md': 'hello\n' });
+  const results = await Promise.all(
+    Array.from({ length: 4 }, () => syncClone(options('github.test/owner/repo'))),
+  );
+  for (const result of results) {
+    expect(result).toMatchObject({ commit, ok: true });
+  }
+  expect(results.filter((result) => result.ok && result.fresh)).toHaveLength(1);
+  expect(await readFile(join(dataDirectory, 'clones', 'CLN', 'README.md'), 'utf8')).toBe('hello\n');
+});
+
+test('a filesystem failure is a typed failure, never a throw', async () => {
+  const { options, remotes, root } = await fixture();
+  await publish(remotes, 'github.test/owner/repo', { 'README.md': 'hello\n' });
+  const file = join(root, 'not-a-directory');
+  await writeFile(file, 'file');
+  const result = await syncClone({ ...options('github.test/owner/repo'), dataDirectory: file });
+  expect(result).toMatchObject({ ok: false, reason: 'filesystem' });
+  expect(result.ok ? '' : result.message).not.toContain('\n');
+});
+
+test('a sync reports the clone by its real path', async () => {
+  const { options, remotes, root } = await fixture();
+  await publish(remotes, 'github.test/owner/repo', { 'README.md': 'hello\n' });
+  const real = join(root, 'real-data');
+  await mkdir(real);
+  const linked = join(root, 'linked-data');
+  await symlink(real, linked);
+  const result = await syncClone({ ...options('github.test/owner/repo'), dataDirectory: linked });
+  expect(result).toMatchObject({
+    directory: await realpath(join(real, 'clones', 'CLN')),
+    ok: true,
+  });
+});
+
+test('production git refuses every protocol but https', async () => {
+  const { remotes, root } = await fixture();
+  await publish(remotes, 'github.test/owner/repo', { 'README.md': 'hello\n' });
+  const env = gitEnvironment(undefined, undefined);
+  for (const url of [
+    `file://${remotes}/github.test/owner/repo.git`,
+    'http://127.0.0.1:9/owner/repo.git',
+    `ext::sh -c touch% ${join(root, 'ran')}`,
+  ]) {
+    const listed = spawnSync('git', ['ls-remote', url], { cwd: root, encoding: 'utf8', env });
+    expect(listed.status, url).not.toBe(0);
+    expect(listed.stderr, url).toMatch(/transport '\w+' not allowed/);
+  }
+  expect(await exists(join(root, 'ran'))).toBe(false);
+});
+
+test('the credential helper answers only for the repository path a credential names', async () => {
+  const { root } = await fixture();
+  const file = join(root, 'git-credentials');
+  await writeFile(file, 'https://alice:s3cret-token@github.test/owner/repo.git\n');
+  const env = gitEnvironment(file, undefined);
+  const fill = (path: string) =>
+    spawnSync('git', ['credential', 'fill'], {
+      cwd: root,
+      encoding: 'utf8',
+      env,
+      input: `protocol=https\nhost=github.test\npath=${path}\n\n`,
+    });
+  const matched = fill('owner/repo.git');
+  expect(matched.status).toBe(0);
+  expect(matched.stdout).toContain('username=alice\npassword=s3cret-token\n');
+  for (const sibling of ['owner/repo2.git', 'owner/other.git']) {
+    const refused = fill(sibling);
+    expect(refused.status, sibling).not.toBe(0);
+    expect(refused.stdout, sibling).not.toContain('s3cret-token');
+  }
+  expect(await readFile(file, 'utf8')).toBe(
+    'https://alice:s3cret-token@github.test/owner/repo.git\n',
+  );
+});
+
+type SeenRequest = { authorization: string | null; method: string; path: string };
+
+/** A local HTTP server that records every request and answers with `respond`. */
+function recordingServer(respond: (request: Request) => Response | Promise<Response>) {
+  const seen: SeenRequest[] = [];
+  const server = Bun.serve({
+    fetch: (request) => {
+      seen.push({
+        authorization: request.headers.get('authorization'),
+        method: request.method,
+        path: new URL(request.url).pathname,
+      });
+      return respond(request);
+    },
+    hostname: '127.0.0.1',
+    port: 0,
+  });
+  return { base: `http://127.0.0.1:${String(server.port)}/`, seen, server };
+}
+
+const authorized = (request: Request) => request.headers.get('authorization') !== null;
+
+const challenge = () =>
+  new Response('authentication required', {
+    headers: { 'www-authenticate': 'Basic realm="fixture"' },
+    status: 401,
+  });
+
+/** A smart-HTTP ref advertisement for the bare repository at `bare`. */
+async function advertisement(bare: string): Promise<Response> {
+  const { stdout } = await run(
+    'git',
+    ['upload-pack', '--stateless-rpc', '--advertise-refs', bare],
+    { encoding: 'buffer', env: { GIT_CONFIG_GLOBAL: '/dev/null', PATH: process.env.PATH } },
+  );
+  const header = '# service=git-upload-pack\n';
+  const line = `${(header.length + 4).toString(16).padStart(4, '0')}${header}0000`;
+  return new Response(Buffer.concat([Buffer.from(line), stdout]), {
+    headers: { 'content-type': 'application/x-git-upload-pack-advertisement' },
+  });
+}
+
+/**
+ * Redirects (MMR-631 review): the credential for the remote's own URL is never
+ * sent to another host a redirect names, whether the redirect comes before the
+ * credential, after it on the initial request, or on a later request.
+ */
+test('a redirect never carries the credential to another host', async () => {
+  const { options, remotes, root } = await fixture();
+  const bare = join(remotes, 'github.test/owner/private.git');
+  await publish(remotes, 'github.test/owner/private', { 'README.md': 'private\n' });
+  const target = recordingServer(challenge);
+  const elsewhere = (request: Request) => {
+    const url = new URL(request.url);
+    return Response.redirect(`${target.base}${url.pathname.slice(1)}${url.search}`);
+  };
+  // What each scenario proved on git 2.47.3 and 2.56: whether the origin got the
+  // credential, and whether git followed the redirect to the other host at all.
+  const scenarios: [
+    string,
+    (request: Request) => Response | Promise<Response>,
+    { originAuthorized: boolean; targetContacted: boolean },
+  ][] = [
+    ['before the credential', elsewhere, { originAuthorized: false, targetContacted: true }],
+    [
+      'after the credential, on the initial request',
+      (request) => (authorized(request) ? elsewhere(request) : challenge()),
+      { originAuthorized: true, targetContacted: true },
+    ],
+    [
+      'on a later request',
+      (request) => {
+        if (!authorized(request)) {
+          return challenge();
+        }
+        return request.method === 'GET'
+          ? advertisement(bare)
+          : Response.redirect(`${target.base}github.test/owner/private.git/git-upload-pack`, 307);
+      },
+      { originAuthorized: true, targetContacted: false },
+    ],
+  ];
+  try {
+    for (const [name, respond, expected] of scenarios) {
+      const origin = recordingServer(respond);
+      try {
+        const file = join(root, 'git-credentials');
+        await writeFile(
+          file,
+          `${origin.base.replace('http://', 'http://alice:s3cret-token@')}github.test/owner/private.git\n`,
+        );
+        const credentials = { configured: true, file, problem: undefined } as const;
+        const result = await syncClone(
+          options('github.test/owner/private', { credentials, fetchBase: origin.base }),
+        );
+        expect(result.ok, name).toBe(false);
+        expect(
+          origin.seen.some(({ authorization }) => authorization !== null),
+          name,
+        ).toBe(expected.originAuthorized);
+        expect(target.seen.length > 0, name).toBe(expected.targetContacted);
+        expect(
+          target.seen.filter(({ authorization }) => authorization !== null),
+          name,
+        ).toEqual([]);
+        target.seen.length = 0;
+      } finally {
+        await origin.server.stop(true);
+      }
+    }
+  } finally {
+    await target.server.stop(true);
+  }
 });
