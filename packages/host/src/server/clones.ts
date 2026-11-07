@@ -84,7 +84,8 @@ function shellQuote(word: string): string {
  * programs, and global and system git config never apply. Transient config
  * (`GIT_CONFIG_COUNT`) turns off hooks and fsmonitor, so a clone's content
  * cannot make git run host-side code, and names the credential helper, so
- * nothing is written into the clone's own config.
+ * nothing is written into the clone's own config. `prepareClone` also removes
+ * the clone's hooks directory, for git commands that ignore `core.hooksPath`.
  */
 function gitEnvironment(credentialsFile: string | undefined, fetchBase: string | undefined) {
   const config: [string, string][] = [
@@ -283,6 +284,9 @@ async function prepareClone(context: SyncContext): Promise<{ fresh: boolean } | 
     ? await runGit(directory, ['config', '--local', '--get', 'remote.origin.url'], cloneEnv)
     : undefined;
   if (origin?.ok === true && tryNormalizeRemote(origin.stdout) === remote) {
+    // A clone starts with no hooks (`--template=`); remove any written since. `core.hooksPath`
+    // alone is not enough: git 2.47's `remote set-head` never reads it and runs `.git/hooks`.
+    await rm(join(directory, '.git', 'hooks'), { force: true, recursive: true });
     return { fresh: false };
   }
   await rm(directory, { force: true, recursive: true });
