@@ -11,7 +11,7 @@
 import { execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { once } from 'node:events';
-import { mkdir, readdir, readlink, realpath, rm, stat, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readdir, readlink, realpath, rm, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -278,10 +278,10 @@ async function sweepTree(root: string): Promise<string | undefined> {
   return walk(realRoot, '');
 }
 
-/** Whether `path` is a directory. */
+/** Whether `path` is a directory itself, not a symlink to one. */
 async function isDirectory(path: string): Promise<boolean> {
   try {
-    return (await stat(path)).isDirectory();
+    return (await lstat(path)).isDirectory();
   } catch {
     return false;
   }
@@ -384,11 +384,18 @@ async function writeHostConfig(context: SyncContext): Promise<GitRun> {
 
 /**
  * Put a clone's git state back to what the host owns: remove every lock file a
- * killed sync left, the untrusted state above, and replace the config.
+ * killed sync left, the untrusted state above, and replace the config. Git
+ * never makes a symlink in its own directory, and one could send the host's
+ * writes outside the clone, so a symlink there fails the step.
  */
 async function resetGitState(context: SyncContext): Promise<CloneSyncResult | undefined> {
   const { gitDirectory } = context;
   const entries = await readdir(gitDirectory, { recursive: true, withFileTypes: true });
+  const link = entries.find((entry) => entry.isSymbolicLink());
+  if (link !== undefined) {
+    const path = relative(gitDirectory, join(link.parentPath, link.name));
+    return failed('git', `${context.key}'s git directory holds a symlink: ${path}`);
+  }
   for (const entry of entries) {
     if (entry.name.endsWith('.lock') && !entry.isDirectory()) {
       await rm(join(entry.parentPath, entry.name), { force: true });
@@ -402,10 +409,9 @@ async function resetGitState(context: SyncContext): Promise<CloneSyncResult | un
 }
 
 /**
- * Step 1: keep the clone only while its `origin` still normalizes to the
- * project's remote, and put its git state back to the host's; otherwise, or
- * when `rebuild` is set, start a new, empty repository whose `origin` is the
- * remote's fetch URL.
+ * Step 1: with `keep`, put the kept clone's git state back to the host's;
+ * otherwise start a new, empty repository whose `origin` is the remote's
+ * fetch URL.
  */
 async function prepareClone(
   context: SyncContext,

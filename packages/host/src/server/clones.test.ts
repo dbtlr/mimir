@@ -609,6 +609,54 @@ test.each(plantedState)(
   },
 );
 
+test('a symlink planted in the git directory never sends host writes outside the clone', async () => {
+  const clone = await keptClone();
+  // A valid config naming the right origin, so the clone would otherwise be kept.
+  const outside = join(clone.root, 'outside-config');
+  const config = `${await readFile(join(clone.gitDirectory, 'config'), 'utf8')}# outside\n`;
+  await writeFile(outside, config);
+  await rm(join(clone.gitDirectory, 'config'));
+  await symlink(outside, join(clone.gitDirectory, 'config'));
+  const result = await expectExactSyncAfter(clone, async () => {});
+  expect(result).toMatchObject({ fresh: true });
+  expect(await readFile(outside, 'utf8')).toBe(config);
+});
+
+test('a git directory that is a symlink is never written through', async () => {
+  const clone = await keptClone();
+  const outside = join(clone.root, 'outside-git');
+  await rm(outside, { force: true, recursive: true });
+  await run('mv', [clone.gitDirectory, outside]);
+  await symlink(outside, clone.gitDirectory);
+  const before = await readFile(join(outside, 'config'), 'utf8');
+  const result = await expectExactSyncAfter(clone, async () => {});
+  expect(result).toMatchObject({ fresh: true });
+  expect(await readFile(join(outside, 'config'), 'utf8')).toBe(before);
+  expect(await exists(join(outside, 'HEAD'))).toBe(true);
+});
+
+test('a kept clone with large files passes the object check and is kept', async () => {
+  const clone = await keptClone();
+  // Several pipe-sized chunks of content, so object bodies span chunk boundaries.
+  const large = Array.from({ length: 40_000 }, (_, index) => `line ${String(index)}\n`).join('');
+  const commit = await publish(clone.remotes, clone.repo, {
+    ...clone.files,
+    'large-a.txt': large,
+    'large-b.txt': `${large}b\n`,
+  });
+  await syncClone(clone.options(clone.repo));
+  await publish(clone.remotes, clone.repo, {
+    ...clone.files,
+    'CHANGED.md': 'upstream\n',
+    'large-a.txt': large,
+    'large-b.txt': `${large}b\n`,
+  });
+  const result = await syncClone(clone.options(clone.repo));
+  expect(result).toMatchObject({ fresh: false, ok: true });
+  expect(result.ok && result.commit).not.toBe(commit);
+  expect(await readFile(join(clone.directory, 'large-b.txt'), 'utf8')).toBe(`${large}b\n`);
+});
+
 test('a URL-scoped credential helper planted in the clone never runs', async () => {
   const clone = await keptClone();
   const { base, server } = privateServer();
