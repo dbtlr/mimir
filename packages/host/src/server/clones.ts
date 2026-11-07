@@ -8,9 +8,14 @@
  * `git/<KEY>`, outside every work tree, and only the host's own git calls
  * write it, so the host trusts it. Every git call names both through `GIT_DIR`
  * and `GIT_WORK_TREE`, so git never reads repository state from the work tree.
+ *
+ * The work tree is disposable: each sync empties it before git runs, then
+ * checks the commit out into it, so nothing written into it between syncs can
+ * steer the checkout or survive it.
  */
 import { execFile } from 'node:child_process';
-import { mkdir, readdir, readlink, realpath, rm } from 'node:fs/promises';
+import type { Stats } from 'node:fs';
+import { chmod, lstat, mkdir, readdir, readlink, realpath, rmdir, unlink } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -232,22 +237,64 @@ function isInside(root: string, target: string): boolean {
   return path === '' || (path !== '..' && !path.startsWith(`..${sep}`) && !isAbsolute(path));
 }
 
-/**
- * Remove every entry named `.git`, in any case, at any depth of `directory`,
- * without following symlinks. Git never checks one out and `git clean` never
- * removes one, so any `.git` in a work tree was planted; removing it before
- * git runs keeps git from ever reading repository state out of the work tree,
- * and keeps the agent from seeing any.
- */
-async function removeGitEntries(directory: string): Promise<void> {
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    const path = join(directory, entry.name);
-    if (entry.name.toLowerCase() === '.git') {
-      await rm(path, { force: true, recursive: true });
-    } else if (entry.isDirectory()) {
-      await removeGitEntries(path);
+/** `path`'s own status, never a symlink target's, or `undefined` when nothing is there. */
+async function lstatIfPresent(path: string): Promise<Stats | undefined> {
+  try {
+    return await lstat(path);
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') {
+      return undefined;
     }
+    throw error;
   }
+}
+
+/**
+ * Remove everything inside `directory`, whose own status is `stats`, without
+ * following symlinks: a symlink is unlinked, never its target. Each directory
+ * first gets its owner's read, write, and search bits back, so no mode a
+ * writer in the work tree set, such as 000 or 0500, can block the removal.
+ * The chmod follows a symlink, so this relies on nothing replacing a directory
+ * with one while the host syncs; no agent runs then (ADR 0041).
+ */
+async function emptyDirectory(directory: string, stats: Stats): Promise<void> {
+  await chmod(directory, (stats.mode & 0o7777) | 0o700);
+  const removals = await Promise.allSettled(
+    (await readdir(directory)).map((name) => removeTree(join(directory, name))),
+  );
+  // Every removal settles first, so none still runs when the caller recovers.
+  const failure = removals.find((removal) => removal.status === 'rejected');
+  if (failure !== undefined) {
+    throw failure.reason;
+  }
+}
+
+/** Remove `path` and everything under it as `emptyDirectory` does; nothing there is fine. */
+async function removeTree(path: string): Promise<void> {
+  const stats = await lstatIfPresent(path);
+  if (stats === undefined) {
+    return;
+  }
+  if (!stats.isDirectory()) {
+    await unlink(path);
+    return;
+  }
+  await emptyDirectory(path, stats);
+  await rmdir(path);
+}
+
+/**
+ * Leave `workTree` an empty, real directory the host can write. Anything else
+ * at its path, a symlink included, is removed rather than followed.
+ */
+async function emptyWorkTree(workTree: string): Promise<void> {
+  const stats = await lstatIfPresent(workTree);
+  if (stats?.isDirectory() === true) {
+    await emptyDirectory(workTree, stats);
+    return;
+  }
+  await removeTree(workTree);
+  await mkdir(workTree, { recursive: true });
 }
 
 /**
@@ -335,26 +382,24 @@ async function originMatches(context: SyncContext): Promise<boolean> {
 }
 
 /**
- * Step 1: with `keep`, make sure the work tree exists; otherwise remove both
- * directories and start a new, empty repository whose `origin` is the
- * remote's fetch URL. Either way, remove every `.git` entry from the work tree
- * before git runs.
+ * Step 1: empty the work tree before any git call runs with it, so no file
+ * planted there, such as a `.git`, a `.gitattributes`, a FIFO, or content
+ * under a submodule's directory, can reach git or outlast the checkout.
+ * Without `keep`, also remove the git directory and start a new, empty
+ * repository whose `origin` is the remote's fetch URL; with it, the git
+ * directory and its objects stay, so the sync fetches only what is new.
  */
 async function prepareClone(
   context: SyncContext,
   keep: boolean,
 ): Promise<CloneSyncResult | undefined> {
   const { gitDirectory, workTree } = context;
-  if (!keep) {
-    await rm(gitDirectory, { force: true, recursive: true });
-    await rm(workTree, { force: true, recursive: true });
-    await mkdir(gitDirectory, { recursive: true });
-  }
-  await mkdir(workTree, { recursive: true });
-  await removeGitEntries(workTree);
+  await emptyWorkTree(workTree);
   if (keep) {
     return undefined;
   }
+  await removeTree(gitDirectory);
+  await mkdir(gitDirectory, { recursive: true });
   for (const args of [
     ['init', '--quiet', '--template='],
     ['config', 'remote.origin.url', fetchUrl(context.remote)],
@@ -412,24 +457,19 @@ async function fetchDefaultBranch(
 }
 
 /**
- * Steps 3 and 4: hard-reset to the fetched commit with HEAD detached, so no
- * local branch goes stale, then remove untracked and ignored files, nested
- * repositories included.
- *
- * The index goes first. Git skips rewriting a file whose stat data still
- * matches the index, and a writer in the work tree controls a file's content,
- * size, and modification time; without an index, the reset writes every
- * tracked file from the object store.
+ * Step 3: check the fetched commit out into the empty work tree with HEAD
+ * detached, so no local branch goes stale. The index goes first, so the reset
+ * trusts no cached state and writes every tracked file from the object store;
+ * a submodule's path becomes an empty directory.
  */
-async function resetAndClean(
+async function checkOut(
   context: SyncContext,
   commit: string,
 ): Promise<CloneSyncResult | undefined> {
-  await rm(join(context.gitDirectory, 'index'), { force: true });
+  await removeTree(join(context.gitDirectory, 'index'));
   for (const args of [
     ['update-ref', '--no-deref', 'HEAD', commit],
     ['reset', '--quiet', '--hard', commit],
-    ['clean', '-ffdxq'],
   ]) {
     const step = await cloneGit(context, args);
     if (!step.ok) {
@@ -450,11 +490,11 @@ async function syncOnce(context: SyncContext, keep: boolean): Promise<CloneSyncR
     if (!('commit' in fetched)) {
       return fetched;
     }
-    const reset = await resetAndClean(context, fetched.commit);
-    if (reset !== undefined) {
-      return reset;
+    const checkedOut = await checkOut(context, fetched.commit);
+    if (checkedOut !== undefined) {
+      return checkedOut;
     }
-    // Step 5: refuse a symlink that would let a reader leave the clone.
+    // Step 4: refuse a symlink that would let a reader leave the clone.
     const escaping = await findEscapingSymlink(context.workTree);
     if (escaping !== undefined) {
       return failed(
@@ -511,10 +551,9 @@ async function exclusive<T>(key: string, task: () => Promise<T>): Promise<T> {
 
 /**
  * Sync a project's clone before a run: clone it again when its `origin` no
- * longer normalizes to the project's remote, remove every `.git` entry from
- * the work tree, fetch, follow the remote's default branch, hard-reset to
- * `origin/HEAD`, remove untracked and ignored files, and refuse a clone with a
- * symlink that resolves outside it. A kept clone that fails for a reason a
+ * longer normalizes to the project's remote, empty the work tree, fetch,
+ * follow the remote's default branch, check `origin/HEAD` out into the empty
+ * work tree, and refuse a clone with a symlink that resolves outside it. A kept clone that fails for a reason a
  * fresh clone could fix, such as a stale lock or corrupt state after a crash,
  * is cloned again once. Writes nothing for a project without a remote. Syncs
  * of one project run one at a time.
