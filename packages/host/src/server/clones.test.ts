@@ -43,13 +43,13 @@ async function git(cwd: string, args: string[], env: Record<string, string> = {}
 }
 
 /** The exact bytes of `path` at `commit` in the bare repository `bare`. */
-async function blob(bare: string, commit: string, path: string): Promise<Buffer> {
+async function blob(bare: string, commit: string, path: string) {
   const { stdout } = await run('git', ['cat-file', 'blob', `${commit}:${path}`], {
     cwd: bare,
     encoding: 'buffer',
     env: { GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', PATH: process.env.PATH },
   });
-  return stdout;
+  return Buffer.from(stdout);
 }
 
 /** Make a FIFO at `path`. A reader that opens one blocks until a writer does. */
