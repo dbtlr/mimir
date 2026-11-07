@@ -2,6 +2,7 @@ import { afterEach, expect, test } from 'bun:test';
 import { execFile, spawnSync } from 'node:child_process';
 import {
   chmod,
+  lstat,
   mkdir,
   mkdtemp,
   readdir,
@@ -39,6 +40,22 @@ async function git(cwd: string, args: string[], env: Record<string, string> = {}
     },
   });
   return stdout.trim();
+}
+
+/** The exact bytes of `path` at `commit` in the bare repository `bare`. */
+async function blob(bare: string, commit: string, path: string): Promise<Buffer> {
+  const { stdout } = await run('git', ['cat-file', 'blob', `${commit}:${path}`], {
+    cwd: bare,
+    encoding: 'buffer',
+    env: { GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', PATH: process.env.PATH },
+  });
+  return stdout;
+}
+
+/** Make a FIFO at `path`. A reader that opens one blocks until a writer does. */
+function mkfifo(path: string) {
+  const made = spawnSync('mkfifo', [path], { encoding: 'utf8' });
+  expect(made.status, made.stderr).toBe(0);
 }
 
 /** Fixture git on the host's own git directory for the `CLN` clone under `dataDirectory`. */
@@ -96,16 +113,25 @@ async function fixture() {
   };
 }
 
-/** Publish `files` as a commit on `branch` of the bare repository for `remote`, made its default. */
+/**
+ * Publish `files` as a commit on `branch` of the bare repository for `remote`,
+ * made its default. `gitlinks` maps a path to the commit a submodule there names.
+ */
 async function publish(
   remotes: string,
   remote: string,
   files: Record<string, string>,
   {
     branch = 'main',
+    gitlinks = {},
     links = {},
     makeDefault = true,
-  }: { branch?: string; links?: Record<string, string>; makeDefault?: boolean } = {},
+  }: {
+    branch?: string;
+    gitlinks?: Record<string, string>;
+    links?: Record<string, string>;
+    makeDefault?: boolean;
+  } = {},
 ) {
   const bare = join(remotes, `${remote}.git`);
   const work = `${bare}.work-${branch}`;
@@ -123,6 +149,9 @@ async function publish(
     await symlink(target, join(work, path));
   }
   await git(work, ['add', '--all']);
+  for (const [path, commit] of Object.entries(gitlinks)) {
+    await git(work, ['update-index', '--add', '--cacheinfo', `160000,${commit},${path}`]);
+  }
   await git(work, ['commit', '--quiet', '--allow-empty', '-m', `publish ${branch}`]);
   await git(work, ['push', '--quiet', '--force', bare, `${branch}:${branch}`]);
   if (makeDefault) {
@@ -446,7 +475,12 @@ async function treeFiles(directory: string): Promise<string[]> {
 async function keptClone() {
   const base = await fixture();
   const repo = 'github.test/owner/repo';
-  const files = { '.gitignore': '*.log\n', 'README.md': 'hello\n', 'docs/guide.md': 'guide\n' };
+  const files = {
+    '.gitignore': '*.log\n',
+    'README.md': 'hello\n',
+    'docs/guide.md': 'guide\nsecond line\n',
+    'src/app.ts': 'export const id = "$Id$";\nexport const two = 2;\n',
+  };
   await publish(base.remotes, repo, files);
   const evilCommit = await publish(
     base.remotes,
@@ -556,8 +590,9 @@ async function expectExactSyncAfter(clone: KeptClone, plant: (commit: string) =>
   const tracked = (await git(bare, ['ls-tree', '-r', '--name-only', commit])).split('\n');
   expect(await treeFiles(clone.directory)).toEqual(tracked.toSorted());
   for (const path of tracked) {
-    const upstream = await git(bare, ['show', `${commit}:${path}`]);
-    expect((await readFile(join(clone.directory, path), 'utf8')).trim(), path).toBe(upstream);
+    expect(await readFile(join(clone.directory, path)), path).toEqual(
+      await blob(bare, commit, path),
+    );
   }
   await expectHostLayout(clone.dataDirectory);
   expect(await hostGit(clone.dataDirectory, ['config', '--get', 'remote.origin.url'])).toBe(
@@ -643,6 +678,25 @@ const plantedInWorkTree: [string, (clone: KeptClone, commit: string) => Promise<
     },
   ],
   [
+    'attributes that would rewrite line endings, expand ident, and re-encode files on checkout',
+    async ({ directory }) => {
+      await writeFile(join(directory, '.gitattributes'), '*.ts text eol=crlf ident\n');
+      await writeFile(
+        join(directory, 'docs', '.gitattributes'),
+        '*.md working-tree-encoding=UTF-16LE\n',
+      );
+    },
+  ],
+  [
+    'symlinks naming directories and files outside the clone',
+    async (clone) => {
+      const outside = join(clone.root, 'outside');
+      await symlink(join(outside, 'dir'), join(clone.directory, 'link-dir'));
+      await symlink(join(outside, 'dir', 'keep.txt'), join(clone.directory, 'link-file'));
+      await symlink(outside, join(clone.directory, 'docs', 'link-outside'));
+    },
+  ],
+  [
     'untracked and ignored files',
     async ({ directory }) => {
       await writeFile(join(directory, 'untracked.txt'), 'untracked');
@@ -657,11 +711,104 @@ test.each(plantedInWorkTree)(
   'a sync reaches the remote default branch exactly, keeping its git directory, despite %s in the work tree',
   async (_name, plantState) => {
     const clone = await keptClone();
+    const outside = join(clone.root, 'outside');
+    await mkdir(join(outside, 'dir'), { recursive: true });
+    await writeFile(join(outside, 'dir', 'keep.txt'), 'keep');
+    await chmod(join(outside, 'dir'), 0o755);
     const result = await expectExactSyncAfter(clone, (commit) => plantState(clone, commit));
     expect(result).toMatchObject({ fresh: false });
     expect(clone.lines).toEqual([]);
+    // Emptying the work tree never follows a symlink out of it.
+    expect(await readFile(join(outside, 'dir', 'keep.txt'), 'utf8')).toBe('keep');
+    expect((await stat(join(outside, 'dir'))).mode & 0o777).toBe(0o755);
   },
 );
+
+test('a FIFO planted in the work tree never blocks a sync', async () => {
+  const clone = await keptClone();
+  const started = performance.now();
+  await expectExactSyncAfter(clone, async () => {
+    mkfifo(join(clone.directory, '.gitattributes'));
+    mkfifo(join(clone.directory, 'docs', '.gitattributes'));
+    await rm(join(clone.directory, 'README.md'));
+    mkfifo(join(clone.directory, 'README.md'));
+  });
+  // Git's own timeout is 120 seconds; a blocked read would reach it.
+  expect(performance.now() - started).toBeLessThan(10_000);
+}, 20_000);
+
+/** Give the owner rwx on every directory under `directory`, so a failed test can clean up. */
+function unlock(directory: string) {
+  spawnSync('chmod', ['-R', 'u+rwx', directory]);
+}
+
+/** Modes a writer in the work tree can set that would block reading or removing it. */
+const lockedWorkTrees: [string, (clone: KeptClone) => Promise<void>][] = [
+  [
+    'a planted directory with mode 000',
+    async ({ directory }) => {
+      const locked = join(directory, 'scratch', 'locked');
+      await mkdir(join(locked, 'deeper'), { recursive: true });
+      await writeFile(join(locked, 'deeper', 'file.txt'), 'planted');
+      await chmod(join(locked, 'deeper'), 0o000);
+      await chmod(locked, 0o000);
+    },
+  ],
+  [
+    'a work-tree root with mode 0500',
+    async ({ directory }) => {
+      await chmod(join(directory, 'docs'), 0o500);
+      await chmod(directory, 0o500);
+    },
+  ],
+];
+
+test.each(lockedWorkTrees)('a sync empties a work tree despite %s', async (_name, lock) => {
+  const clone = await keptClone();
+  try {
+    const result = await expectExactSyncAfter(clone, () => lock(clone));
+    expect(result).toMatchObject({ fresh: false });
+    expect((await stat(clone.directory)).mode & 0o700).toBe(0o700);
+  } finally {
+    unlock(clone.directory);
+  }
+});
+
+test('a work tree replaced by a symlink is made a directory again, and the target left alone', async () => {
+  const clone = await keptClone();
+  const outside = join(clone.root, 'outside');
+  await mkdir(outside);
+  await writeFile(join(outside, 'keep.txt'), 'keep');
+  await expectExactSyncAfter(clone, async () => {
+    await rm(clone.directory, { force: true, recursive: true });
+    await symlink(outside, clone.directory);
+  });
+  expect((await lstat(clone.directory)).isDirectory()).toBe(true);
+  expect(await readdir(outside)).toEqual(['keep.txt']);
+});
+
+test('files and symlinks planted under a submodule directory are gone after the next sync', async () => {
+  const { dataDirectory, options, remotes } = await fixture();
+  const repo = 'github.test/owner/repo';
+  const commit = await publish(
+    remotes,
+    repo,
+    { 'README.md': 'hello\n' },
+    { gitlinks: { vendor: 'a'.repeat(40) } },
+  );
+  expect(await syncClone(options(repo))).toMatchObject({ commit, ok: true });
+  const directory = join(dataDirectory, 'clones', 'CLN');
+  const vendor = join(directory, 'vendor');
+  expect(await readdir(vendor)).toEqual([]);
+  await mkdir(join(vendor, 'nested'), { recursive: true });
+  await writeFile(join(vendor, 'planted.txt'), 'planted');
+  await writeFile(join(vendor, 'nested', 'planted.txt'), 'planted');
+  await symlink('/etc', join(vendor, 'escape'));
+  expect(await syncClone(options(repo))).toMatchObject({ commit, fresh: false, ok: true });
+  expect(await readdir(vendor)).toEqual([]);
+  expect(await treeFiles(directory)).toEqual(['README.md']);
+  await expectHostLayout(dataDirectory);
+});
 
 test('a planted credential helper never runs when the remote asks for credentials', async () => {
   const clone = await keptClone();
