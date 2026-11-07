@@ -1,5 +1,6 @@
 import { constants } from 'node:fs';
 import { access, stat } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 /** The setting that names the git credential-store file (ADR 0041). */
 export const GIT_CREDENTIALS_SETTING = 'MIMIR_GIT_CREDENTIALS_FILE';
@@ -29,10 +30,16 @@ async function readable(file: string): Promise<boolean> {
 
 /** Read `MIMIR_GIT_CREDENTIALS_FILE`; a problem with it never refuses startup. */
 export async function readGitCredentials(env: NodeJS.ProcessEnv): Promise<GitCredentialsSetting> {
-  const file = env[GIT_CREDENTIALS_SETTING];
-  if (file === undefined) {
+  const setting = env[GIT_CREDENTIALS_SETTING];
+  if (setting === undefined) {
     return { configured: false };
   }
+  if (setting.trim() === '' || setting.includes('\0')) {
+    return { configured: true, file: setting, problem: 'unreadable' };
+  }
+  // Resolved once against the host's directory: git reads the file from inside a
+  // clone's work tree, where a relative path would name a different file.
+  const file = resolve(setting);
   return { configured: true, file, problem: (await readable(file)) ? undefined : 'unreadable' };
 }
 

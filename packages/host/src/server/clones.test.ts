@@ -1156,3 +1156,13 @@ test('a credentials failure on a kept clone is refused without cloning again', a
     await server.stop(true);
   }
 });
+
+test('a relative credentials setting resolves once, so the host and git read the same file', async () => {
+  const { root } = await fixture();
+  const file = join(root, 'relative-credentials');
+  await writeFile(file, 'https://alice:token@github.test/owner/repo.git\n');
+  const setting = await readGitCredentials({
+    MIMIR_GIT_CREDENTIALS_FILE: relative(process.cwd(), file),
+  });
+  expect(setting).toEqual({ configured: true, file, problem: undefined });
+});
