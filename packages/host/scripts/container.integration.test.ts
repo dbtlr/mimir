@@ -127,6 +127,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
     expect(await docker(['logs', name])).toContain('applied migration 0009_device_tokens');
     expect(await docker(['logs', name])).toContain('applied migration 0010_pairing_requests');
     expect(await docker(['logs', name])).toContain('applied migration 0012_host_secrets');
+    expect(await docker(['logs', name])).toContain('applied migration 0013_runs');
     for (const path of [
       '/',
       '/_shell.html',
@@ -454,6 +455,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
       'applied migration 0010_pairing_requests',
     );
     expect(await docker(['logs', postgresHost])).toContain('applied migration 0012_host_secrets');
+    expect(await docker(['logs', postgresHost])).toContain('applied migration 0013_runs');
     await docker(['rm', '--force', postgresHost]);
     const sql = async (statement: string) =>
       docker([
@@ -470,7 +472,7 @@ test('the host image persists SQLite and migrates Postgres before serving', asyn
         statement,
       ]);
     await sql(
-      'ALTER TABLE project DROP COLUMN remote; ALTER TABLE project DROP COLUMN pinned; ALTER TABLE node DROP COLUMN worker_harness; ALTER TABLE node DROP COLUMN worker_session; ALTER TABLE transition_log DROP CONSTRAINT transition_log_assignment_node_check; DROP TABLE device_tokens; DROP TABLE pairing_requests; DROP TABLE host_secrets; DELETE FROM schema_version WHERE version >= 5;',
+      'ALTER TABLE project DROP COLUMN remote; ALTER TABLE project DROP COLUMN pinned; ALTER TABLE node DROP COLUMN worker_harness; ALTER TABLE node DROP COLUMN worker_session; ALTER TABLE transition_log DROP CONSTRAINT transition_log_assignment_node_check; DROP TABLE device_tokens; DROP TABLE pairing_requests; DROP TABLE host_secrets; DROP TABLE runs; DELETE FROM schema_version WHERE version >= 5;',
     );
     await runPostgresHost();
     base = await ready(postgresHost, 12345);
