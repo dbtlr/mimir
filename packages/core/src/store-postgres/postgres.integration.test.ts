@@ -168,6 +168,48 @@ lane('simultaneous run admissions on a real server let exactly one in', async ()
   });
 });
 
+// PGlite hands `bigint` back as a number, so only the real `pg` driver, which
+// returns int8 as a string, proves the run store converts token counts.
+lane('run token counts at and above 2^31 come back as numbers on a real server', async () => {
+  await onFreshSchema(async (url) => {
+    const handle = openPostgres(url);
+    try {
+      await upgradeSchema(handle.db);
+      const runs = createRunStore({ db: handle.db, dialect: postgresDialect });
+      const large = 2 ** 31 + 5;
+      const admission = await runs.admit({
+        id: 'r1',
+        kind: 'groom',
+        model: 'opus',
+        project: 'MMR',
+        reservedTokens: large,
+        runner: 'host-a',
+        staleAfterMs: 60_000,
+        task: 'MMR-1',
+        trigger: 'console',
+      });
+      expect(admission.admitted).toBe(true);
+      const usage = {
+        cacheReadTokens: large + 1,
+        cacheWriteTokens: large + 2,
+        inputTokens: large + 3,
+        outputTokens: large + 4,
+      };
+      expect(await runs.recordUsage('r1', 'host-a', usage)).toBe('held');
+      const run = await runs.get('r1');
+      expect(run).toMatchObject({
+        cache_read_tokens: large + 1,
+        cache_write_tokens: large + 2,
+        input_tokens: large + 3,
+        output_tokens: large + 4,
+        reserved_tokens: large,
+      });
+    } finally {
+      await handle.close();
+    }
+  });
+});
+
 lane(
   'concurrent ## Next rewrites through the verb all settle',
   async () => {
