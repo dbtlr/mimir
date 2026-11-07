@@ -1,13 +1,17 @@
 import type { Kysely, Selectable, Updateable } from 'kysely';
 
+import { conflict, validation } from './errors';
 import type { StoreDialect } from './store-sql/dialect';
 import type { DB, RunTable } from './store-sql/schema';
 import { now } from './time';
 
-/** One stored run (ADR 0041). */
-export type Run = Selectable<RunTable>;
+/** One stored run (ADR 0041), with its token counts as numbers and `usage_settled` as a boolean. */
+export type Run = Omit<Selectable<RunTable>, 'usage_settled'> & { usage_settled: boolean };
 
-/** The states a run can end in; a runner closes a run to one of the first three. */
+/**
+ * The states a runner closes its own run to. Only stale recovery sets
+ * `interrupted`, so a runner never passes it.
+ */
 export type RunClosingState = 'succeeded' | 'failed' | 'cancelled';
 
 /** Token counts for a run, as streamed or settled. */
@@ -41,6 +45,12 @@ export type CloseRun = {
   state: RunClosingState;
   outcome: string;
   usage: RunUsage;
+  /**
+   * True when `usage` is the settled total from the run's result, which replaces
+   * the reservation. False when it is only the streamed usage, so an interrupted
+   * or failed run with no valid total counts the larger of reservation and usage.
+   */
+  usageSettled: boolean;
   costEstimateUsd: number | null;
 };
 
@@ -68,6 +78,30 @@ const usageColumns = (usage: RunUsage) => ({
   output_tokens: usage.outputTokens,
 });
 
+// The driver may hand a bigint column over as a string.
+const asCount = (value: unknown): number => Number(value);
+
+const CLOSING_STATES = new Set<string>(['succeeded', 'failed', 'cancelled']);
+
+const assertTokenCount = (name: string, value: number) => {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw validation(`${name} must be a non-negative safe integer, got ${value}`);
+  }
+};
+
+const assertUsage = (usage: RunUsage) => {
+  assertTokenCount('inputTokens', usage.inputTokens);
+  assertTokenCount('cacheReadTokens', usage.cacheReadTokens);
+  assertTokenCount('cacheWriteTokens', usage.cacheWriteTokens);
+  assertTokenCount('outputTokens', usage.outputTokens);
+};
+
+const assertStaleWindow = (staleAfterMs: number) => {
+  if (!Number.isFinite(staleAfterMs) || staleAfterMs <= 0) {
+    throw validation(`staleAfterMs must be a finite number above 0, got ${staleAfterMs}`);
+  }
+};
+
 /** The run rows over one store handle. */
 export function createRunStore({
   db,
@@ -82,10 +116,28 @@ export function createRunStore({
   const clockMs = () => new Date(clock()).getTime();
   const instant = (ms: number = clockMs()) => new Date(ms).toISOString();
 
-  const get: RunStore['get'] = (id) =>
-    db.selectFrom('runs').selectAll().where('id', '=', id).executeTakeFirst();
-  const running: RunStore['running'] = () =>
-    db.selectFrom('runs').selectAll().where('state', '=', 'running').executeTakeFirst();
+  // Postgres returns bigint columns as strings and SQLite stores booleans as 0/1.
+  const toRun = (row: Selectable<RunTable>): Run => ({
+    ...row,
+    cache_read_tokens: asCount(row.cache_read_tokens),
+    cache_write_tokens: asCount(row.cache_write_tokens),
+    input_tokens: asCount(row.input_tokens),
+    output_tokens: asCount(row.output_tokens),
+    reserved_tokens: asCount(row.reserved_tokens),
+    usage_settled: dialect.codecs.bool.decode(row.usage_settled),
+  });
+  const get: RunStore['get'] = async (id) => {
+    const row = await db.selectFrom('runs').selectAll().where('id', '=', id).executeTakeFirst();
+    return row === undefined ? undefined : toRun(row);
+  };
+  const running: RunStore['running'] = async () => {
+    const row = await db
+      .selectFrom('runs')
+      .selectAll()
+      .where('state', '=', 'running')
+      .executeTakeFirst();
+    return row === undefined ? undefined : toRun(row);
+  };
 
   // The one ownership check: id, runner, and still running, in the UPDATE itself.
   const ownedWrite = async (
@@ -122,6 +174,8 @@ export function createRunStore({
 
   return {
     admit: async (input) => {
+      assertStaleWindow(input.staleAfterMs);
+      assertTokenCount('reservedTokens', input.reservedTokens);
       const at = instant();
       try {
         const run = await dialect.write(db, async (tx) => {
@@ -144,31 +198,50 @@ export function createRunStore({
             .returningAll()
             .executeTakeFirstOrThrow();
         });
-        return { admitted: true, run };
+        return { admitted: true, run: toRun(run) };
       } catch (error) {
         if (!dialect.isUniqueViolation(error)) {
           throw error;
         }
+        // A primary-key clash is the caller's bug, not a busy slot.
+        if ((await get(input.id)) !== undefined) {
+          throw conflict(`run ${input.id} already exists`, 'admit each run under a fresh id');
+        }
         const holder = await running();
         if (holder === undefined) {
-          throw error; // the holder ended between the refusal and this read: let the caller retry
+          // The running-slot index refused the insert, but its holder ended before this read.
+          throw conflict('the running slot changed during admission', 'retry the admission');
         }
         return { admitted: false, running: holder };
       }
     },
-    close: (id, runner, close) =>
-      ownedWrite(id, runner, {
+    close: async (id, runner, close) => {
+      if (!CLOSING_STATES.has(close.state)) {
+        throw validation(`a run closes as succeeded, failed, or cancelled, not ${close.state}`);
+      }
+      assertUsage(close.usage);
+      if (close.costEstimateUsd !== null && !Number.isFinite(close.costEstimateUsd)) {
+        throw validation('costEstimateUsd must be a finite number or null');
+      }
+      return ownedWrite(id, runner, {
         ...usageColumns(close.usage),
         cost_estimate_usd: close.costEstimateUsd,
         ended_at: instant(),
         outcome: close.outcome,
         state: close.state,
-      }),
+        usage_settled: dialect.codecs.bool.encode(close.usageSettled),
+      });
+    },
     get,
     heartbeat: (id, runner) => ownedWrite(id, runner, { heartbeat_at: instant() }),
-    recordUsage: (id, runner, usage) => ownedWrite(id, runner, usageColumns(usage)),
-    recoverStale: async (staleAfterMs) =>
-      (await dialect.write(db, (tx) => markStale(tx, staleAfterMs))).map((row) => row.id),
+    recordUsage: async (id, runner, usage) => {
+      assertUsage(usage);
+      return ownedWrite(id, runner, usageColumns(usage));
+    },
+    recoverStale: async (staleAfterMs) => {
+      assertStaleWindow(staleAfterMs);
+      return (await dialect.write(db, (tx) => markStale(tx, staleAfterMs))).map((row) => row.id);
+    },
     running,
   };
 }

@@ -278,6 +278,7 @@ export type RunTable = {
   cache_write_tokens: Generated<number>;
   output_tokens: Generated<number>;
   cost_estimate_usd: number | null;
+  usage_settled: Generated<Stored<boolean>>;
   started_at: string;
   ended_at: string | null;
   outcome: string | null;
