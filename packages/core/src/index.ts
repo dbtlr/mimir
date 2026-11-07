@@ -96,6 +96,17 @@ export type {
 } from './tokens';
 export { createHostSecretStore } from './host-secrets';
 export type { HostSecretStore } from './host-secrets';
+export { createRunStore } from './runs';
+export type {
+  AdmitResult,
+  AdmitRun,
+  CloseRun,
+  Run,
+  RunClosingState,
+  RunStore,
+  RunUsage,
+  RunWrite,
+} from './runs';
 export { openSecret, parseSecretKey, sealSecret } from './secret-seal';
 export type { SecretKey } from './secret-seal';
 export type { StoreDialect } from './store-sql/dialect';
