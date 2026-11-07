@@ -299,10 +299,41 @@ async function emptyWorkTree(workTree: string): Promise<void> {
 }
 
 /**
+ * Where a dangling symlink would land, resolved one segment at a time as the
+ * kernel does: an existing segment is replaced by its real path before the next
+ * `..` applies, so `s/..` through a link `s` leaves from where `s` leads, not
+ * from where its text sits. `undefined` when a segment is itself a link that
+ * resolves nowhere, since where the path lands then depends on what appears later.
+ */
+async function resolveDangling(link: string): Promise<string | undefined> {
+  const text = await readlink(link);
+  let current = isAbsolute(text) ? sep : await realpath(dirname(link));
+  for (const segment of text.split(sep)) {
+    if (segment === '' || segment === '.') {
+      continue;
+    }
+    if (segment === '..') {
+      current = dirname(current);
+      continue;
+    }
+    const next = join(current, segment);
+    try {
+      current = await realpath(next);
+    } catch {
+      if ((await lstatIfPresent(next))?.isSymbolicLink() === true) {
+        return undefined;
+      }
+      current = next;
+    }
+  }
+  return current;
+}
+
+/**
  * The path, relative to the work tree, of the first symlink in it that
  * resolves outside it, into the host's git directories or anywhere else. A
- * dangling link is resolved from its real parent directory, so it fails when
- * its target would be outside.
+ * dangling link is resolved as the kernel would (see {@link resolveDangling}),
+ * so it fails when its target would be outside or cannot be known.
  */
 async function findEscapingSymlink(workTree: string): Promise<string | undefined> {
   const root = await realpath(workTree);
@@ -311,13 +342,13 @@ async function findEscapingSymlink(workTree: string): Promise<string | undefined
       const path = join(directory, entry.name);
       const name = `${prefix}${entry.name}`;
       if (entry.isSymbolicLink()) {
-        let target: string;
+        let target: string | undefined;
         try {
           target = await realpath(path);
         } catch {
-          target = resolve(await realpath(dirname(path)), await readlink(path));
+          target = await resolveDangling(path);
         }
-        if (!isInside(root, target)) {
+        if (target === undefined || !isInside(root, target)) {
           return name;
         }
       } else if (entry.isDirectory()) {

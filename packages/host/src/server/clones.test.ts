@@ -277,6 +277,11 @@ test('a symlink that resolves outside the clone refuses the sync, absolute or re
     // The host's git directory for this clone is outside it, at <data>/git/CLN.
     ['github.test/owner/git-directory', { 'host-git': '../../git/CLN' }],
     ['github.test/owner/git-config', { 'docs/config': '../../../git/CLN/config' }],
+    // Dangling, and only the kernel's walk sees it leave: deep/s is the root, so
+    // deep/s/../.. is the clones directory, though the text reads as inside.
+    ['github.test/owner/through-link', { a: 'deep/s/../../outside', 'deep/s': '..' }],
+    // Dangling through a link that resolves nowhere: where it lands is unknowable.
+    ['github.test/owner/through-broken-link', { b: 'hop/../c', hop: 'nowhere/deeper' }],
   ] as const) {
     await publish(remotes, remote, { 'README.md': 'hello\n' }, { links });
     const refused = await syncClone(options(remote));
