@@ -1,17 +1,16 @@
 /**
  * The host's project clones (ADR 0041, "The host syncs clones; the agent never
- * runs git"). A project with a `remote` gets one clone under
- * `<MIMIR_DATA_DIR>/clones/<KEY>`, synced by the host's own code before each
- * run. Server-only: it runs git as a child process.
+ * runs git"). A project with a `remote` gets one clone, synced by the host's own
+ * code before each run. Server-only: it runs git as a child process.
  *
- * Everything inside a kept clone's `.git` is untrusted between syncs: the host
- * owns that state, so each sync rewrites or removes whatever could change what
- * git fetches, checks out, or runs, and checks the objects it checks out.
+ * Each clone is split in two under `MIMIR_DATA_DIR`. Its work tree, which the
+ * agent reads, is `clones/<KEY>` and holds no `.git`. Its git directory is
+ * `git/<KEY>`, outside every work tree, and only the host's own git calls
+ * write it, so the host trusts it. Every git call names both through `GIT_DIR`
+ * and `GIT_WORK_TREE`, so git never reads repository state from the work tree.
  */
-import { execFile, spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { once } from 'node:events';
-import { lstat, mkdir, readdir, readlink, realpath, rm, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { mkdir, readdir, readlink, realpath, rm } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -25,8 +24,11 @@ import {
 } from './git-credentials';
 import type { GitCredentialsSetting } from './git-credentials';
 
-/** The directory under `MIMIR_DATA_DIR` that holds every project's clone. */
+/** The directory under `MIMIR_DATA_DIR` that holds every project's work tree. */
 export const CLONES_DIRECTORY = 'clones';
+
+/** The directory under `MIMIR_DATA_DIR` that holds every clone's git directory, beside `clones`. */
+export const GIT_DIRECTORIES = 'git';
 
 /** Why a sync failed, for the runner to report. */
 export type CloneSyncFailure =
@@ -92,14 +94,14 @@ function fetchBaseProtocol(fetchBase: string): string {
 }
 
 /**
- * The environment every git call runs with. It is built from nothing but
- * `PATH`, proxy, and CA settings, so the operator's `GIT_*` variables, askpass
- * programs, and global and system git config never apply. Transient config
- * (`GIT_CONFIG_COUNT`) is read after a clone's own config, so it wins: it turns
- * off hooks, fsmonitor, sparse checkout, commit-graphs, multi-pack indexes,
- * submodules, and automatic maintenance; allows https and no other transport;
- * and names the credential helper, so nothing is written into the clone's own
- * config. Replace refs are ignored. `resetGitState` removes the rest.
+ * The environment every git call runs with, before `syncClone` adds
+ * `GIT_DIR` and `GIT_WORK_TREE`. It is built from nothing but `PATH`, proxy,
+ * and CA settings, so the operator's `GIT_*` variables, askpass programs, and
+ * global and system git config never apply. Transient config
+ * (`GIT_CONFIG_COUNT`) turns off hooks, fsmonitor, sparse checkout,
+ * commit-graphs, multi-pack indexes, submodules, and automatic maintenance;
+ * allows https and no other transport; and names the credential helper, so
+ * nothing is written into the clone's config. Replace refs are ignored.
  */
 export function gitEnvironment(credentialsFile: string | undefined, fetchBase: string | undefined) {
   const config: [string, string][] = [
@@ -212,13 +214,6 @@ function isAuthenticationFailure(stderr: string): boolean {
   );
 }
 
-/** Whether a fetch failed on the clone's own refs or objects, not on the remote. */
-function isLocalFetchFailure(stderr: string): boolean {
-  return /cannot lock ref|unable to update local ref|some local refs could not be updated|bad object|is corrupt|unable to read [0-9a-f]{7,}/i.test(
-    stderr,
-  );
-}
-
 /** The one line a credentials failure reports, naming the setting and never its value. */
 function credentialsMessage(remote: string, setting: GitCredentialsSetting): string {
   let state = `${GIT_CREDENTIALS_SETTING} is unset`;
@@ -238,23 +233,34 @@ function isInside(root: string, target: string): boolean {
 }
 
 /**
- * Remove every entry named `.git` below the clone's top level, which git never
- * checks out and `git clean` never removes, and return the path, relative to
- * the clone, of the first symlink that resolves outside `root`. A dangling link
- * is resolved from its real parent directory, so it fails when its target
- * would be outside.
+ * Remove every entry named `.git`, in any case, at any depth of `directory`,
+ * without following symlinks. Git never checks one out and `git clean` never
+ * removes one, so any `.git` in a work tree was planted; removing it before
+ * git runs keeps git from ever reading repository state out of the work tree,
+ * and keeps the agent from seeing any.
  */
-async function sweepTree(root: string): Promise<string | undefined> {
-  const realRoot = await realpath(root);
-  const walk = async (directory: string, prefix: string): Promise<string | undefined> => {
+async function removeGitEntries(directory: string): Promise<void> {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.name.toLowerCase() === '.git') {
+      await rm(path, { force: true, recursive: true });
+    } else if (entry.isDirectory()) {
+      await removeGitEntries(path);
+    }
+  }
+}
+
+/**
+ * The path, relative to the work tree, of the first symlink in it that
+ * resolves outside it, into the host's git directories or anywhere else. A
+ * dangling link is resolved from its real parent directory, so it fails when
+ * its target would be outside.
+ */
+async function findEscapingSymlink(workTree: string): Promise<string | undefined> {
+  const root = await realpath(workTree);
+  const search = async (directory: string, prefix: string): Promise<string | undefined> => {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name);
-      if (entry.name.toLowerCase() === '.git') {
-        if (prefix !== '') {
-          await rm(path, { force: true, recursive: true });
-        }
-        continue;
-      }
       const name = `${prefix}${entry.name}`;
       if (entry.isSymbolicLink()) {
         let target: string;
@@ -263,11 +269,11 @@ async function sweepTree(root: string): Promise<string | undefined> {
         } catch {
           target = resolve(await realpath(dirname(path)), await readlink(path));
         }
-        if (!isInside(realRoot, target)) {
+        if (!isInside(root, target)) {
           return name;
         }
       } else if (entry.isDirectory()) {
-        const found = await walk(path, `${name}/`);
+        const found = await search(path, `${name}/`);
         if (found !== undefined) {
           return found;
         }
@@ -275,16 +281,7 @@ async function sweepTree(root: string): Promise<string | undefined> {
     }
     return undefined;
   };
-  return walk(realRoot, '');
-}
-
-/** Whether `path` is a directory itself, not a symlink to one. */
-async function isDirectory(path: string): Promise<boolean> {
-  try {
-    return (await lstat(path)).isDirectory();
-  } catch {
-    return false;
-  }
+  return search(root, '');
 }
 
 /** A failed sync. */
@@ -292,20 +289,24 @@ function failed(reason: CloneSyncFailure, message: string): CloneSyncResult {
   return { message, ok: false, reason };
 }
 
-/** The environments one project's sync runs git with. */
+/** One project's sync: its clone's two directories and the environment git runs with. */
 type SyncContext = {
   key: string;
   remote: string;
-  directory: string;
-  /** The clone's git directory, `<directory>/.git`. */
+  /** The work tree, `<data>/clones/<KEY>`. */
+  workTree: string;
+  /** The git directory, `<data>/git/<KEY>`. */
   gitDirectory: string;
-  /** For `git init`, before the clone exists. */
+  /** `gitEnvironment` with `GIT_DIR` and `GIT_WORK_TREE` naming the two directories. */
   env: Record<string, string>;
-  /** Names the clone's own repository, so git never discovers an enclosing one. */
-  cloneEnv: Record<string, string>;
   credentials: GitCredentialsSetting;
   credentialsFile: string | undefined;
 };
+
+/** Run git for this clone, from its work tree. */
+function cloneGit(context: SyncContext, args: string[], timeout?: number): Promise<GitRun> {
+  return runGit(context.workTree, args, context.env, timeout);
+}
 
 /** A local git step's failure, naming the step. */
 function stepFailed(context: SyncContext, step: string, run: { stderr: string }) {
@@ -316,18 +317,15 @@ function stepFailed(context: SyncContext, step: string, run: { stderr: string })
 }
 
 /**
- * Whether the clone's `origin` is exactly one URL that still normalizes to the
- * project's remote. Read from the config file alone, so no include is followed;
- * anything unreadable reads as a mismatch, and the clone is made again.
+ * Whether the git directory's `origin` is exactly one URL that still
+ * normalizes to the project's remote. Anything unreadable reads as a
+ * mismatch, and the clone is made again.
  */
 async function originMatches(context: SyncContext): Promise<boolean> {
-  if (!(await isDirectory(context.gitDirectory))) {
-    return false;
-  }
   const origin = await runGit(
-    context.directory,
+    dirname(context.gitDirectory),
     ['config', '--file', join(context.gitDirectory, 'config'), '--get-all', 'remote.origin.url'],
-    context.cloneEnv,
+    context.env,
   );
   if (!origin.ok) {
     return false;
@@ -337,283 +335,32 @@ async function originMatches(context: SyncContext): Promise<boolean> {
 }
 
 /**
- * Git state a sync removes from a kept clone: everything that could change what
- * a fetch, reset, or checkout produces, or make git run code, beyond the config
- * `resetGitState` rewrites. Removing the index makes the reset write every file.
- */
-const UNTRUSTED_GIT_STATE = [
-  'info',
-  'hooks',
-  'branches',
-  'remotes',
-  'modules',
-  'worktrees',
-  'refs/replace',
-  'objects/info/alternates',
-  'objects/info/http-alternates',
-  'objects/info/commit-graph',
-  'objects/info/commit-graphs',
-  'objects/pack/multi-pack-index',
-  'index',
-  'shallow',
-  'config.worktree',
-];
-
-/** The only config a clone has: the repository format and the host's `origin`. */
-async function writeHostConfig(context: SyncContext): Promise<GitRun> {
-  const file = join(context.gitDirectory, 'config');
-  await writeFile(
-    file,
-    '[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n',
-  );
-  for (const [key, value] of [
-    ['remote.origin.url', fetchUrl(context.remote)],
-    ['remote.origin.fetch', '+refs/heads/*:refs/remotes/origin/*'],
-  ] as const) {
-    const set = await runGit(
-      context.directory,
-      ['config', '--file', file, key, value],
-      context.cloneEnv,
-    );
-    if (!set.ok) {
-      return set;
-    }
-  }
-  return { ok: true, stdout: '' };
-}
-
-/**
- * Put a clone's git state back to what the host owns: remove every lock file a
- * killed sync left, the untrusted state above, and replace the config. Git
- * never makes a symlink in its own directory, and one could send the host's
- * writes outside the clone, so a symlink there fails the step.
- */
-async function resetGitState(context: SyncContext): Promise<CloneSyncResult | undefined> {
-  const { gitDirectory } = context;
-  const entries = await readdir(gitDirectory, { recursive: true, withFileTypes: true });
-  const link = entries.find((entry) => entry.isSymbolicLink());
-  if (link !== undefined) {
-    const path = relative(gitDirectory, join(link.parentPath, link.name));
-    return failed('git', `${context.key}'s git directory holds a symlink: ${path}`);
-  }
-  for (const entry of entries) {
-    if (entry.name.endsWith('.lock') && !entry.isDirectory()) {
-      await rm(join(entry.parentPath, entry.name), { force: true });
-    }
-  }
-  for (const path of UNTRUSTED_GIT_STATE) {
-    await rm(join(gitDirectory, path), { force: true, recursive: true });
-  }
-  const configured = await writeHostConfig(context);
-  return configured.ok ? undefined : stepFailed(context, 'git config', configured);
-}
-
-/**
- * Step 1: with `keep`, put the kept clone's git state back to the host's;
- * otherwise start a new, empty repository whose `origin` is the remote's
- * fetch URL.
+ * Step 1: with `keep`, make sure the work tree exists; otherwise remove both
+ * directories and start a new, empty repository whose `origin` is the
+ * remote's fetch URL. Either way, remove every `.git` entry from the work tree
+ * before git runs.
  */
 async function prepareClone(
   context: SyncContext,
   keep: boolean,
 ): Promise<CloneSyncResult | undefined> {
-  const { directory, env } = context;
+  const { gitDirectory, workTree } = context;
   if (!keep) {
-    await rm(directory, { force: true, recursive: true });
-    await mkdir(directory, { recursive: true });
-    const init = await runGit(directory, ['init', '--quiet', '--template=', directory], env);
-    if (!init.ok) {
-      return stepFailed(context, 'git init', init);
-    }
+    await rm(gitDirectory, { force: true, recursive: true });
+    await rm(workTree, { force: true, recursive: true });
+    await mkdir(gitDirectory, { recursive: true });
   }
-  return resetGitState(context);
-}
-
-/** A fetch-time failure: missing credentials, the clone's own state, or the fetch itself. */
-function fetchFailed(context: SyncContext, stderr: string): CloneSyncResult {
-  if (isAuthenticationFailure(stderr)) {
-    return failed('credentials', credentialsMessage(context.remote, context.credentials));
+  await mkdir(workTree, { recursive: true });
+  await removeGitEntries(workTree);
+  if (keep) {
+    return undefined;
   }
-  return isLocalFetchFailure(stderr)
-    ? stepFailed(context, 'git fetch', { stderr })
-    : failed(
-        'fetch',
-        `fetching ${context.remote} failed: ${gitDetail(stderr, context.credentialsFile)}`,
-      );
-}
-
-/** Step 2: fetch, and follow the remote's default branch. */
-async function fetchDefaultBranch(
-  context: SyncContext,
-): Promise<{ branch: string; commit: string } | CloneSyncResult> {
-  const { cloneEnv, directory, remote } = context;
-  const fetched = await runGit(
-    directory,
-    ['fetch', '--quiet', '--prune', '--no-tags', '--no-recurse-submodules', 'origin'],
-    cloneEnv,
-    600_000,
-  );
-  if (!fetched.ok) {
-    return fetchFailed(context, fetched.stderr);
-  }
-  const head = await runGit(directory, ['remote', 'set-head', 'origin', '--auto'], cloneEnv);
-  if (!head.ok && !/cannot determine remote head/i.test(head.stderr)) {
-    return fetchFailed(context, head.stderr);
-  }
-  const branch = await runGit(directory, ['symbolic-ref', 'refs/remotes/origin/HEAD'], cloneEnv);
-  const commit = await runGit(
-    directory,
-    ['rev-parse', '--verify', 'origin/HEAD^{commit}'],
-    cloneEnv,
-  );
-  if (!head.ok || !branch.ok || !commit.ok) {
-    return failed('no-default-branch', `${remote} reports no default branch`);
-  }
-  return {
-    branch: branch.stdout.replace(/^refs\/remotes\/origin\//, ''),
-    commit: commit.stdout,
-  };
-}
-
-/**
- * A reader of `git cat-file --batch` output that hashes each object as it
- * streams past and keeps the first one that is missing or does not hash to
- * its own name. A clone's format is SHA-1: `writeHostConfig` sets format
- * version 0.
- */
-function objectBatchChecker() {
-  let mismatch: string | undefined;
-  let checked = 0;
-  let header = '';
-  let body: { oid: string; hash: ReturnType<typeof createHash>; remaining: number } | undefined;
-  let separator = false;
-  const finishBody = () => {
-    if (body !== undefined && body.remaining === 0) {
-      if (body.hash.digest('hex') !== body.oid) {
-        mismatch ??= `object ${body.oid} does not match its content`;
-      }
-      checked += 1;
-      body = undefined;
-      // Each object's content is followed by one newline.
-      separator = true;
-    }
-  };
-  const readHeader = (line: string) => {
-    const [oid = '', type, size] = line.split(' ');
-    if (type === undefined || size === undefined) {
-      mismatch ??= `object ${oid} is missing`;
-      checked += 1;
-      return;
-    }
-    body = { hash: createHash('sha1').update(`${type} ${size}\0`), oid, remaining: Number(size) };
-    finishBody();
-  };
-  return {
-    result: () => ({ checked, mismatch }),
-    scan(chunk: Buffer) {
-      let offset = 0;
-      while (offset < chunk.length) {
-        if (body !== undefined) {
-          const take = Math.min(body.remaining, chunk.length - offset);
-          body.hash.update(chunk.subarray(offset, offset + take));
-          body.remaining -= take;
-          offset += take;
-          finishBody();
-        } else if (separator) {
-          separator = false;
-          offset += 1;
-        } else {
-          const end = chunk.indexOf(10, offset);
-          if (end === -1) {
-            header += chunk.toString('latin1', offset);
-            return;
-          }
-          const line = header + chunk.toString('latin1', offset, end);
-          header = '';
-          offset = end + 1;
-          readHeader(line);
-        }
-      }
-    },
-  };
-}
-
-/**
- * Hash every object in `oids` through one `git cat-file --batch`, and return a
- * line naming the first that is missing or does not hash to its own name, or
- * `undefined` when all match.
- */
-async function findMismatchedObject(
-  context: SyncContext,
-  oids: string[],
-): Promise<string | undefined> {
-  const child = spawn('git', ['cat-file', '--batch'], {
-    cwd: context.directory,
-    env: context.cloneEnv,
-    stdio: ['pipe', 'pipe', 'ignore'],
-    timeout: 600_000,
-  });
-  const closed = once(child, 'close');
-  child.stdin.on('error', () => {});
-  child.stdin.end(oids.length === 0 ? '' : `${oids.join('\n')}\n`);
-  const checker = objectBatchChecker();
-  try {
-    for await (const chunk of child.stdout) {
-      if (Buffer.isBuffer(chunk)) {
-        checker.scan(chunk);
-      }
-    }
-    await closed;
-    const { checked, mismatch } = checker.result();
-    if (mismatch === undefined && (child.exitCode !== 0 || checked !== oids.length)) {
-      return 'git cat-file did not read every object';
-    }
-    return mismatch;
-  } catch {
-    return 'git cat-file could not run';
-  }
-}
-
-/**
- * Step 3, for a kept clone: check that every object the commit checks out
- * hashes to its name, since an object written into the clone's store would
- * otherwise be trusted by the fetch and checked out as is. A fresh clone's
- * objects were each hashed as the fetch indexed them.
- */
-async function verifyObjects(
-  context: SyncContext,
-  commit: string,
-): Promise<CloneSyncResult | undefined> {
-  const listed = await runGit(
-    context.directory,
-    ['rev-list', '--objects', '--no-object-names', '--no-walk', commit],
-    context.cloneEnv,
-    600_000,
-  );
-  if (!listed.ok) {
-    return stepFailed(context, 'git rev-list', listed);
-  }
-  const mismatch = await findMismatchedObject(context, listed.stdout.split('\n').filter(Boolean));
-  return mismatch === undefined
-    ? undefined
-    : failed('git', `checking ${context.key}'s objects failed: ${mismatch}`);
-}
-
-/**
- * Steps 4 and 5: hard-reset to the fetched commit with HEAD detached, so no
- * local branch goes stale, then remove untracked and ignored files, nested
- * repositories included.
- */
-async function resetAndClean(
-  context: SyncContext,
-  commit: string,
-): Promise<CloneSyncResult | undefined> {
   for (const args of [
-    ['update-ref', '--no-deref', 'HEAD', commit],
-    ['reset', '--quiet', '--hard', commit],
-    ['clean', '-ffdxq'],
+    ['init', '--quiet', '--template='],
+    ['config', 'remote.origin.url', fetchUrl(context.remote)],
+    ['config', 'remote.origin.fetch', '+refs/heads/*:refs/remotes/origin/*'],
   ]) {
-    const step = await runGit(context.directory, args, context.cloneEnv);
+    const step = await cloneGit(context, args);
     if (!step.ok) {
       return stepFailed(context, `git ${args[0] ?? ''}`, step);
     }
@@ -621,8 +368,76 @@ async function resetAndClean(
   return undefined;
 }
 
-/** Failures a kept clone's own state can cause, which a fresh clone recovers from. */
-const LOCAL_FAILURES = new Set<CloneSyncFailure>(['git', 'filesystem']);
+/** A fetch-time failure: missing credentials, or the fetch itself. */
+function fetchFailed(context: SyncContext, stderr: string): CloneSyncResult {
+  return isAuthenticationFailure(stderr)
+    ? failed('credentials', credentialsMessage(context.remote, context.credentials))
+    : failed(
+        'fetch',
+        `fetching ${context.remote} failed: ${gitDetail(stderr, context.credentialsFile)}`,
+      );
+}
+
+/**
+ * Step 2: fetch, and follow the remote's default branch. Refs are named in
+ * full, so no other ref can shadow the one meant.
+ */
+async function fetchDefaultBranch(
+  context: SyncContext,
+): Promise<{ branch: string; commit: string } | CloneSyncResult> {
+  const fetched = await cloneGit(
+    context,
+    ['fetch', '--quiet', '--prune', '--no-tags', '--no-recurse-submodules', 'origin'],
+    600_000,
+  );
+  if (!fetched.ok) {
+    return fetchFailed(context, fetched.stderr);
+  }
+  const head = await cloneGit(context, ['remote', 'set-head', 'origin', '--auto']);
+  if (!head.ok && !/cannot determine remote head/i.test(head.stderr)) {
+    return fetchFailed(context, head.stderr);
+  }
+  const branch = await cloneGit(context, ['symbolic-ref', 'refs/remotes/origin/HEAD']);
+  const commit = await cloneGit(context, [
+    'rev-parse',
+    '--verify',
+    '--end-of-options',
+    'refs/remotes/origin/HEAD^{commit}',
+  ]);
+  const prefix = 'refs/remotes/origin/';
+  if (!head.ok || !branch.ok || !commit.ok || !branch.stdout.startsWith(prefix)) {
+    return failed('no-default-branch', `${context.remote} reports no default branch`);
+  }
+  return { branch: branch.stdout.slice(prefix.length), commit: commit.stdout };
+}
+
+/**
+ * Steps 3 and 4: hard-reset to the fetched commit with HEAD detached, so no
+ * local branch goes stale, then remove untracked and ignored files, nested
+ * repositories included.
+ *
+ * The index goes first. Git skips rewriting a file whose stat data still
+ * matches the index, and a writer in the work tree controls a file's content,
+ * size, and modification time; without an index, the reset writes every
+ * tracked file from the object store.
+ */
+async function resetAndClean(
+  context: SyncContext,
+  commit: string,
+): Promise<CloneSyncResult | undefined> {
+  await rm(join(context.gitDirectory, 'index'), { force: true });
+  for (const args of [
+    ['update-ref', '--no-deref', 'HEAD', commit],
+    ['reset', '--quiet', '--hard', commit],
+    ['clean', '-ffdxq'],
+  ]) {
+    const step = await cloneGit(context, args);
+    if (!step.ok) {
+      return stepFailed(context, `git ${args[0] ?? ''}`, step);
+    }
+  }
+  return undefined;
+}
 
 /** One pass at a sync, on the kept clone or (`keep` false) from nothing. */
 async function syncOnce(context: SyncContext, keep: boolean): Promise<CloneSyncResult> {
@@ -635,16 +450,12 @@ async function syncOnce(context: SyncContext, keep: boolean): Promise<CloneSyncR
     if (!('commit' in fetched)) {
       return fetched;
     }
-    const mismatched = keep ? await verifyObjects(context, fetched.commit) : undefined;
-    if (mismatched !== undefined) {
-      return mismatched;
-    }
     const reset = await resetAndClean(context, fetched.commit);
     if (reset !== undefined) {
       return reset;
     }
-    // Step 6: refuse a symlink that would let a reader leave the clone.
-    const escaping = await sweepTree(context.directory);
+    // Step 5: refuse a symlink that would let a reader leave the clone.
+    const escaping = await findEscapingSymlink(context.workTree);
     if (escaping !== undefined) {
       return failed(
         'escaping-symlink',
@@ -652,13 +463,19 @@ async function syncOnce(context: SyncContext, keep: boolean): Promise<CloneSyncR
       );
     }
     // ADR 0041 gates reads by real paths inside the clone, so report the clone by its own.
-    const directory = await realpath(context.directory);
+    const directory = await realpath(context.workTree);
     return { ...fetched, directory, fresh: !keep, ok: true };
   } catch (error) {
     const detail = (error instanceof Error ? error.message : String(error)).replaceAll(/\s+/g, ' ');
     return failed('filesystem', `syncing ${context.key}'s clone failed: ${detail}`);
   }
 }
+
+/**
+ * Failures a fresh clone would only repeat: they come from the remote, the
+ * project, or the fetched content, not from state the kept clone holds.
+ */
+const FINAL_FAILURES = new Set<CloneSyncFailure>(['credentials', 'no-remote', 'escaping-symlink']);
 
 /** The tail of each clone's queue of syncs, keyed by its directory; it never rejects. */
 const syncQueues = new Map<string, Promise<void>>();
@@ -694,12 +511,13 @@ async function exclusive<T>(key: string, task: () => Promise<T>): Promise<T> {
 
 /**
  * Sync a project's clone before a run: clone it again when its `origin` no
- * longer normalizes to the project's remote, put its git state back to the
- * host's, fetch, follow the remote's default branch, check a kept clone's
- * objects, hard-reset to `origin/HEAD`, remove untracked and ignored files,
- * and refuse a clone with a symlink that resolves outside it. A kept clone
- * that fails a local step is cloned again once. Writes nothing for a project
- * without a remote. Syncs of one project run one at a time.
+ * longer normalizes to the project's remote, remove every `.git` entry from
+ * the work tree, fetch, follow the remote's default branch, hard-reset to
+ * `origin/HEAD`, remove untracked and ignored files, and refuse a clone with a
+ * symlink that resolves outside it. A kept clone that fails for a reason a
+ * fresh clone could fix, such as a stale lock or corrupt state after a crash,
+ * is cloned again once. Writes nothing for a project without a remote. Syncs
+ * of one project run one at a time.
  */
 export async function syncClone(options: CloneSyncOptions): Promise<CloneSyncResult> {
   const { key, remote } = options.project;
@@ -712,9 +530,9 @@ export async function syncClone(options: CloneSyncOptions): Promise<CloneSyncRes
       `project ${key} has no remote, so the host has no repository to clone; set one with mimir update ${key} --remote <url>`,
     );
   }
-  const clones = join(options.dataDirectory, CLONES_DIRECTORY);
-  const directory = join(clones, key);
-  return exclusive(resolve(directory), async () => {
+  const workTree = join(options.dataDirectory, CLONES_DIRECTORY, key);
+  const gitDirectory = join(options.dataDirectory, GIT_DIRECTORIES, key);
+  return exclusive(resolve(workTree), async () => {
     const log = options.log ?? ((line: string) => console.error(line));
     const credentials = await currentGitCredentials(options.credentials);
     for (const warning of gitCredentialsWarnings(credentials)) {
@@ -722,26 +540,22 @@ export async function syncClone(options: CloneSyncOptions): Promise<CloneSyncRes
     }
     const credentialsFile =
       credentials.configured && credentials.problem === undefined ? credentials.file : undefined;
-    const env = gitEnvironment(credentialsFile, options.fetchBase);
-    const gitDirectory = join(directory, '.git');
     const context: SyncContext = {
-      cloneEnv: {
-        ...env,
-        GIT_CEILING_DIRECTORIES: clones,
-        GIT_DIR: gitDirectory,
-        GIT_WORK_TREE: directory,
-      },
       credentials,
       credentialsFile,
-      directory,
-      env,
+      env: {
+        ...gitEnvironment(credentialsFile, options.fetchBase),
+        GIT_DIR: gitDirectory,
+        GIT_WORK_TREE: workTree,
+      },
       gitDirectory,
       key,
       remote,
+      workTree,
     };
     const keep = await originMatches(context);
     const result = await syncOnce(context, keep);
-    if (!keep || result.ok || !LOCAL_FAILURES.has(result.reason)) {
+    if (!keep || result.ok || FINAL_FAILURES.has(result.reason)) {
       return result;
     }
     log(`⚠ host: ${result.message}; cloning ${key} again`);
