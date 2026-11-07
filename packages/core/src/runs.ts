@@ -96,9 +96,15 @@ const assertUsage = (usage: RunUsage) => {
   assertTokenCount('outputTokens', usage.outputTokens);
 };
 
+// A heartbeat window longer than a day means a dead runner holds the one running
+// slot for that long; the cap also keeps the stale cut-off a valid date.
+const MAX_STALE_WINDOW_MS = 86_400_000;
+
 const assertStaleWindow = (staleAfterMs: number) => {
-  if (!Number.isFinite(staleAfterMs) || staleAfterMs <= 0) {
-    throw validation(`staleAfterMs must be a finite number above 0, got ${staleAfterMs}`);
+  if (!Number.isFinite(staleAfterMs) || staleAfterMs <= 0 || staleAfterMs > MAX_STALE_WINDOW_MS) {
+    throw validation(
+      `staleAfterMs must be above 0 and at most ${MAX_STALE_WINDOW_MS} (one day), got ${staleAfterMs}`,
+    );
   }
 };
 

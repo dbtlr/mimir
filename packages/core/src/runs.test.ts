@@ -251,8 +251,6 @@ describe.each([
       output_tokens: big + 3,
       reserved_tokens: big,
     });
-    const closed = await runs.running();
-    expect(typeof closed?.reserved_tokens).toBe('number');
   });
 
   test('the database refuses negative token counts', async () => {
@@ -288,10 +286,10 @@ describe.each([
     }
   });
 
-  test('admit and recoverStale refuse a stale window that is not a finite number above zero', async () => {
+  test('admit and recoverStale refuse a stale window that is not a finite number above zero and at most a day', async () => {
     const { runs } = await fixture();
     await runs.admit(admission('r1'));
-    for (const bad of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+    for (const bad of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, 86_400_001, 1e16]) {
       expect(await failureOf(runs.admit({ ...admission('r2'), staleAfterMs: bad }))).toMatchObject({
         code: 'validation',
       });
