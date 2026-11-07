@@ -80,6 +80,8 @@ test('the host image reports its stamped version rather than runtime overrides',
     ]);
     const base = await ready(name);
     expect(await getJson(base, '/health')).toMatchObject({ status: 'ok', version });
+    // The host syncs project clones with the image's own git (ADR 0041).
+    expect(await docker(['exec', name, 'git', '--version'])).toMatch(/^git version \d/);
   } finally {
     await docker(['rm', '--force', name]).catch(() => undefined);
     await docker(['image', 'rm', '--force', image]).catch(() => undefined);

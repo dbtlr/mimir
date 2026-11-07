@@ -191,13 +191,14 @@ that names an invalid one. It does not read the CLI's `config.toml`.
 | ------------------------- | ---------------------------------------------------------------------------------------- |
 | `MIMIR_DATABASE_URL_FILE` | Read a Postgres connection URL from this file, such as a mounted secret.                 |
 | `MIMIR_DATABASE_URL`      | Use this Postgres connection URL.                                                        |
-| `MIMIR_DATA_DIR`          | The SQLite directory when neither URL variable is set. The image sets `/data`.           |
+| `MIMIR_DATA_DIR`          | The host's working directory, for every backend: the SQLite store when neither URL variable is set, and project clones. The image sets `/data`. |
 | `MIMIR_URL`               | The console's public `http` or `https` origin, with no path.                             |
 | `MIMIR_HOSTS`             | Turn on the Host allowlist: comma-separated bare hostnames. An empty value is allowed.   |
 | `MIMIR_PORT`              | The port inside the container, `64647` by default.                                       |
 | `MIMIR_T3_URL`            | Turn on the T3 Code integration: the T3 server's origin. See [Connect T3 Code](#connect-t3-code). |
 | `MIMIR_SECRET_KEY_FILE`   | Read the 32-byte key that seals host secrets from this file, such as a mounted secret.   |
 | `MIMIR_SECRET_KEY`        | The 32-byte key that seals host secrets, as base64 or base64url text.                    |
+| `MIMIR_GIT_CREDENTIALS_FILE` | A git credential-store file for cloning private repositories. See [Clone private repositories](#clone-private-repositories). |
 
 By default the host answers any `Host` header. Setting `MIMIR_HOSTS` adds
 optional protection against DNS rebinding: the host then answers only
@@ -220,6 +221,10 @@ Setting both `MIMIR_SECRET_KEY` and `MIMIR_SECRET_KEY_FILE` refuses startup.
 A problem with the T3 settings does not: the host starts, logs a warning that
 names the setting, and the integration stays off until you fix it. Without
 `MIMIR_T3_URL`, the key settings are ignored.
+
+On Postgres, the host writes nothing to `MIMIR_DATA_DIR` at start. It creates
+the directory's `clones` and `git` folders the first time it syncs a project's
+clone.
 
 ## Check health
 
@@ -481,6 +486,57 @@ A connection lasts 30 days. When it expires, or T3 stops accepting it, the
 card says so: select **Reconnect T3** and approve again. Changing the secret
 key makes the saved connection unreadable, and the card asks you to connect
 again.
+
+## Clone private repositories
+
+The image carries git, and the host can keep a clone of each project's
+repository in `MIMIR_DATA_DIR`
+([ADR 0041](../decisions/0041-agent-runtime-on-the-host.md#the-host-syncs-clones-the-agent-never-runs-git)).
+Each clone has two directories:
+
+- `clones/<PROJECT_KEY>` holds the checked-out files that agent runs will
+  read. It contains no `.git`.
+- `git/<PROJECT_KEY>` holds the clone's git directory. It sits beside
+  `clones`, outside every checkout, and only the host's own git calls write it.
+
+Each sync empties the checkout, then checks the remote's default branch out
+into it, so nothing left in the checkout since the last sync survives. Until agent runs ship, the
+host creates no clones. The host fetches the project's remote over HTTPS only, as
+`https://<host>/<path>.git`. A remote that needs SSH or a port other than 443
+is not supported, and a project without a remote has nothing to clone.
+
+You can set up the credentials setting now: the host checks it at startup and
+warns about a problem, as described below.
+
+Public repositories need no setup. For a private repository, give the host a
+credential for that repository:
+
+1. Write a file in git's credential-store format, one line for each
+   repository. The path must match the remote's path, with `.git` at the end:
+
+   ```text
+   https://<user>:<token>@github.com/owner/repo.git
+   ```
+
+   Use a token with read access to that repository only. Percent-encode a
+   user or token that holds `@`, `:`, or `/`.
+
+2. Mount the file into the container and set `MIMIR_GIT_CREDENTIALS_FILE` to
+   its path, such as `/run/secrets/git_credentials`. The host runs as UID
+   1000, so the file must be readable by that user.
+
+The host reads the file with `credential.useHttpPath`, so a credential is sent
+only to its own repository, and a redirect to another host never carries it.
+If a project's remote changes, its credential does
+not follow it. The host only reads the file: git never writes to it, and the
+credential is never copied into a clone's configuration, its URL, or the log.
+The host reads the file again each time it syncs a clone, so replacing it
+takes effect without a restart.
+
+When `MIMIR_GIT_CREDENTIALS_FILE` is set but the file is missing or
+unreadable, the host starts and logs a warning that names the setting. It then
+clones without credentials: public repositories still sync, and a private
+repository's sync fails with a message that names the setting.
 
 ## Administer the host with mimir-host
 

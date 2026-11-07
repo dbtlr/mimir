@@ -5,6 +5,7 @@ import { readHostConfig } from './config';
 test('host defaults select isolated SQLite and the standard port', async () => {
   expect(await readHostConfig({})).toEqual({
     dataDirectory: expect.stringContaining('.dev/host'),
+    gitCredentials: { configured: false },
     port: 64647,
     serve: {},
     store: { backend: 'sqlite' },
@@ -22,6 +23,7 @@ test('host validates environment configuration and refuses conflicting URLs', as
   });
   expect(config).toEqual({
     dataDirectory: '/data',
+    gitCredentials: { configured: false },
     port: 12345,
     serve: { hosts: ['mimir.example', '[::1]'], url: 'https://mimir.example' },
     store: { backend: 'postgres', url: 'postgres://user:secret@db/example' },
@@ -42,6 +44,21 @@ test('host validates environment configuration and refuses conflicting URLs', as
   await expect(
     readHostConfig({ MIMIR_DATABASE_URL: '', MIMIR_DATABASE_URL_FILE: 'secret' }),
   ).rejects.toThrow('MIMIR_DATABASE_URL and MIMIR_DATABASE_URL_FILE');
+});
+
+test('the data directory is the working directory on Postgres too, with the same default', async () => {
+  const postgres = await readHostConfig({ MIMIR_DATABASE_URL: 'postgres://db/example' });
+  expect(postgres.dataDirectory).toBe((await readHostConfig({})).dataDirectory);
+  expect(
+    (await readHostConfig({ MIMIR_DATABASE_URL: 'postgres://db/example', MIMIR_DATA_DIR: '/work' }))
+      .dataDirectory,
+  ).toBe('/work');
+});
+
+test('an unreadable git credentials file degrades instead of refusing startup', async () => {
+  expect(
+    (await readHostConfig({ MIMIR_GIT_CREDENTIALS_FILE: '/missing-credentials' })).gitCredentials,
+  ).toEqual({ configured: true, file: '/missing-credentials', problem: 'unreadable' });
 });
 
 test('a mounted secret file selects Postgres and trims its trailing newline', async () => {
