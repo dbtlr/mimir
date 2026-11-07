@@ -523,9 +523,9 @@ const syncQueues = new Map<string, Promise<void>>();
 
 /**
  * Run `task` after every earlier task queued for `key` settles. This excludes
- * overlapping syncs within one process only; across processes, the runner
- * syncs a clone only after admitting a run, and admission allows one run at a
- * time (ADR 0041's runs table, MMR-632).
+ * overlapping syncs within one process only. Exclusion across processes is
+ * left to the agent runner (MMR-632), which is to sync a clone only after
+ * admitting a run; the runs table admits one run at a time (ADR 0041).
  */
 async function exclusive<T>(key: string, task: () => Promise<T>): Promise<T> {
   const previous = syncQueues.get(key);

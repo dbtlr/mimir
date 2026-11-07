@@ -1115,3 +1115,21 @@ test('git error text names the credentials setting, never its path or a URL cred
   expect(urlDetail).not.toContain('s3cret');
   expect(urlDetail).not.toContain('alice');
 });
+
+test('a credentials failure on a kept clone is refused without cloning again', async () => {
+  const { options, remotes } = await fixture();
+  const repo = 'github.test/owner/repo';
+  await publish(remotes, repo, { 'README.md': 'hello\n' });
+  expect(await syncClone(options(repo))).toMatchObject({ fresh: true, ok: true });
+  const { base, server } = privateServer();
+  try {
+    const lines: string[] = [];
+    const refused = await syncClone(
+      options(repo, { fetchBase: base, log: (line) => lines.push(line) }),
+    );
+    expect(refused).toMatchObject({ ok: false, reason: 'credentials' });
+    expect(lines.filter((line) => line.includes('cloning CLN again'))).toEqual([]);
+  } finally {
+    await server.stop(true);
+  }
+});
