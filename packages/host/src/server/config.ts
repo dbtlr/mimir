@@ -5,6 +5,7 @@ import { isHostName, normalizeServeUrl } from '@mimir/core';
 import type { ServeConfig, StoreConfig } from '@mimir/core';
 import { parse } from 'pg-connection-string';
 
+import { readGitCredentials } from './git-credentials';
 import { readT3Settings } from './t3-settings';
 
 /** Read and validate host configuration without consulting CLI configuration. */
@@ -48,6 +49,8 @@ export async function readHostConfig(env: NodeJS.ProcessEnv = process.env) {
   ) {
     throw new Error('MIMIR_PORT must be an integer from 1 to 65535');
   }
+  // The host's working directory for every backend (ADR 0041): the SQLite store's
+  // directory, and where agent runs keep clones. Nothing writes here at boot on Postgres.
   const dataDirectory = env.MIMIR_DATA_DIR ?? resolve('.dev/host');
   if (dataDirectory.trim() === '' || dataDirectory.includes('\0')) {
     throw new Error('MIMIR_DATA_DIR must name a directory');
@@ -70,7 +73,8 @@ export async function readHostConfig(env: NodeJS.ProcessEnv = process.env) {
   }
   // The optional T3 integration (ADR 0040) degrades instead of refusing startup.
   const t3 = await readT3Settings(env, serve);
-  return { dataDirectory, port, serve, store, t3 };
+  const gitCredentials = await readGitCredentials(env);
+  return { dataDirectory, gitCredentials, port, serve, store, t3 };
 }
 
 export type HostConfig = Awaited<ReturnType<typeof readHostConfig>>;

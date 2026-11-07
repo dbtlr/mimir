@@ -58,7 +58,7 @@ The host does not read the CLI's `config.toml`. Its configuration is:
 | --- | --- |
 | `MIMIR_DATABASE_URL` | Select Postgres with the supplied connection URL. |
 | `MIMIR_DATABASE_URL_FILE` | Read the Postgres connection URL from a file, such as a mounted Docker secret. |
-| `MIMIR_DATA_DIR` | Directory for SQLite when neither database URL variable is set. The image defaults to `/data`. |
+| `MIMIR_DATA_DIR` | The host's working directory for every backend: the SQLite store when neither database URL variable is set, and project clones (ADR 0041). The image defaults to `/data`. |
 | `MIMIR_HOSTS` | Configure ADR 0012's optional Host allowlist. |
 | `MIMIR_URL` | Name the public console origin. Setting it does not enable the Host allowlist. |
 | `MIMIR_PORT` | Listening port, default `64647`. |
@@ -248,3 +248,8 @@ documented in the host guide when they ship:
 | --- | --- |
 | `MIMIR_AGENT_TOKEN_FILE` | A file holding the `claude setup-token` token. Unset, agents are absent. |
 | `MIMIR_GIT_CREDENTIALS_FILE` | A git credential-store file for cloning private repositories. Unset, only public repositories clone; missing or unreadable, the host warns and only private repositories' runs fail. |
+
+MMR-631 shipped `git` in the image, `MIMIR_DATA_DIR` as the working directory
+for every backend, and `MIMIR_GIT_CREDENTIALS_FILE`; the settings table above
+and the host guide describe them. The Claude Code executable and
+`MIMIR_AGENT_TOKEN_FILE` ship with MMR-632.

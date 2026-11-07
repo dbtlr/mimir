@@ -21,6 +21,9 @@ services:
       # MIMIR_T3_URL: https://box.tail1234.ts.net
       # MIMIR_SECRET_KEY_FILE: /run/secrets/mimir_secret_key
       # MIMIR_SECRET_KEY: <openssl rand -base64 32>
+      # Optional: a git credential-store file for cloning private repositories
+      # (docs/guides/host.md, Clone private repositories).
+      # MIMIR_GIT_CREDENTIALS_FILE: /run/secrets/git_credentials
       MIMIR_DATA_DIR: /data
     volumes:
       - data:/data

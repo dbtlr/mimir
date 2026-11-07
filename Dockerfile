@@ -13,6 +13,10 @@ RUN bun build packages/host/src/admin/main.ts --target bun --outfile /app/script
 
 FROM oven/bun:1.4.4 AS runtime
 WORKDIR /app
+# The host syncs project clones with git before agent runs (ADR 0041).
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production \
     MIMIR_DATA_DIR=/data \
     NITRO_HOST=0.0.0.0

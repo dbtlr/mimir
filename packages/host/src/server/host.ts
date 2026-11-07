@@ -6,6 +6,7 @@ import { buildStore, findingsProviderOf, LocalEngine, MimirError, SQLITE_FILE } 
 import { assertHostVersion, createEngineHandler } from '@mimir/wire/server';
 
 import type { HostConfig } from './config';
+import { gitCredentialsWarnings } from './git-credentials';
 import { createPairingHandlers } from './pairing';
 import { createT3Adapter } from './t3';
 import { t3StartupWarnings } from './t3-settings';
@@ -48,7 +49,10 @@ export async function openHost(
     });
     const pairing = createPairingHandlers({ log, tokens: built.tokens });
     // An optional integration's bad setting warns and degrades; it never refuses startup.
-    for (const warning of t3StartupWarnings(config.t3)) {
+    for (const warning of [
+      ...t3StartupWarnings(config.t3),
+      ...gitCredentialsWarnings(config.gitCredentials),
+    ]) {
       log(warning);
     }
     const t3 = createT3Adapter({

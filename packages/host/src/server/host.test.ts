@@ -1,7 +1,7 @@
 import { Database } from 'bun:sqlite';
 import { afterEach, expect, spyOn, test } from 'bun:test';
 import { randomUUID } from 'node:crypto';
-import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -369,6 +369,29 @@ test('a host without MIMIR_T3_URL logs nothing about T3', async () => {
   try {
     expect(lines.filter((line) => line.includes('T3'))).toEqual([]);
     expect(await host.t3.status('http://localhost:64647')).toEqual({ state: 'unconfigured' });
+  } finally {
+    await host.close();
+  }
+});
+
+test('an unreadable git credentials file warns by setting name at boot, and nothing is cloned', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-git-credentials-'));
+  roots.push(root);
+  const lines: string[] = [];
+  const host = await openHost(
+    await readHostConfig({
+      MIMIR_DATA_DIR: root,
+      MIMIR_GIT_CREDENTIALS_FILE: join(root, 'missing-credentials'),
+    }),
+    '0.26.0',
+    (line) => lines.push(line),
+  );
+  try {
+    expect(lines.filter((line) => line.includes('MIMIR_GIT_CREDENTIALS_FILE'))).toEqual([
+      expect.stringContaining('MIMIR_GIT_CREDENTIALS_FILE is unreadable'),
+    ]);
+    expect(lines.join('\n')).not.toContain('missing-credentials');
+    expect(await readdir(root)).not.toContain('clones');
   } finally {
     await host.close();
   }
