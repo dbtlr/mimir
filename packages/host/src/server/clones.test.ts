@@ -10,12 +10,12 @@ import {
   rm,
   stat,
   symlink,
+  utimes,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { promisify } from 'node:util';
-import { deflateSync } from 'node:zlib';
 
 import { gitEnvironment, syncClone } from './clones';
 import type { CloneSyncOptions } from './clones';
@@ -24,7 +24,7 @@ import { gitCredentialsWarnings, readGitCredentials } from './git-credentials';
 const run = promisify(execFile);
 
 /** Fixture git, isolated from the operator's own git configuration. */
-async function git(cwd: string, args: string[]) {
+async function git(cwd: string, args: string[], env: Record<string, string> = {}) {
   const { stdout } = await run('git', args, {
     cwd,
     env: {
@@ -35,9 +35,39 @@ async function git(cwd: string, args: string[]) {
       GIT_CONFIG_GLOBAL: '/dev/null',
       GIT_CONFIG_NOSYSTEM: '1',
       PATH: process.env.PATH,
+      ...env,
     },
   });
   return stdout.trim();
+}
+
+/** Fixture git on the host's own git directory for the `CLN` clone under `dataDirectory`. */
+function hostGit(dataDirectory: string, args: string[]) {
+  const workTree = join(dataDirectory, 'clones', 'CLN');
+  return git(workTree, args, {
+    GIT_DIR: join(dataDirectory, 'git', 'CLN'),
+    GIT_WORK_TREE: workTree,
+  });
+}
+
+/** Every entry named `.git`, in any case, at any depth below `directory`, without following symlinks. */
+async function gitEntries(directory: string): Promise<string[]> {
+  const entries = await readdir(directory, { recursive: true, withFileTypes: true });
+  return entries
+    .filter((entry) => entry.name.toLowerCase() === '.git')
+    .map((entry) => relative(directory, join(entry.parentPath, entry.name)));
+}
+
+/**
+ * The layout every sync leaves: a work tree with no `.git` entry at any depth,
+ * and its git directory at `<data>/git/CLN`, outside `<data>/clones`.
+ */
+async function expectHostLayout(dataDirectory: string) {
+  const clones = join(dataDirectory, 'clones');
+  const gitDirectory = join(dataDirectory, 'git', 'CLN');
+  expect(await gitEntries(join(clones, 'CLN'))).toEqual([]);
+  expect(await exists(join(gitDirectory, 'HEAD'))).toBe(true);
+  expect(relative(await realpath(clones), await realpath(gitDirectory))).toStartWith('..');
 }
 
 const roots: string[] = [];
@@ -117,9 +147,10 @@ test('a first sync clones the project remote into the clones directory, and late
   const directory = await realpath(join(dataDirectory, 'clones', 'CLN'));
   expect(first).toEqual({ branch: 'main', commit, directory, fresh: true, ok: true });
   expect(await readFile(join(directory, 'README.md'), 'utf8')).toBe('hello\n');
-  expect(await git(directory, ['config', '--get', 'remote.origin.url'])).toBe(
+  expect(await hostGit(dataDirectory, ['config', '--get', 'remote.origin.url'])).toBe(
     'https://github.test/owner/repo.git',
   );
+  await expectHostLayout(dataDirectory);
   expect(await syncClone(options('github.test/owner/repo'))).toEqual({
     branch: 'main',
     commit,
@@ -127,6 +158,7 @@ test('a first sync clones the project remote into the clones directory, and late
     fresh: false,
     ok: true,
   });
+  await expectHostLayout(dataDirectory);
 });
 
 test('a changed project remote clones the new repository again', async () => {
@@ -142,9 +174,10 @@ test('a changed project remote clones the new repository again', async () => {
   });
   expect(await exists(join(directory, 'old.txt'))).toBe(false);
   expect(await readFile(join(directory, 'new.txt'), 'utf8')).toBe('new\n');
-  expect(await git(directory, ['config', '--get', 'remote.origin.url'])).toBe(
+  expect(await hostGit(dataDirectory, ['config', '--get', 'remote.origin.url'])).toBe(
     'https://github.test/owner/new.git',
   );
+  await expectHostLayout(dataDirectory);
 });
 
 test('a directory that is not a clone is replaced, never mistaken for an enclosing repository', async () => {
@@ -212,6 +245,9 @@ test('a symlink that resolves outside the clone refuses the sync, absolute or re
     ['github.test/owner/absolute', { 'etc-link': '/etc' }],
     ['github.test/owner/relative', { 'nested/dir/up': '../../../outside' }],
     ['github.test/owner/dangling', { gone: '/nonexistent/secret' }],
+    // The host's git directory for this clone is outside it, at <data>/git/CLN.
+    ['github.test/owner/git-directory', { 'host-git': '../../git/CLN' }],
+    ['github.test/owner/git-config', { 'docs/config': '../../../git/CLN/config' }],
   ] as const) {
     await publish(remotes, remote, { 'README.md': 'hello\n' }, { links });
     const refused = await syncClone(options(remote));
@@ -321,7 +357,7 @@ test('a credential is sent only to its own repository path, and never leaks into
     expect(await readFile(file, 'utf8')).toBe(
       stored.replace('owner/other.git', 'owner/private.git'),
     );
-    const config = await readFile(join(dataDirectory, 'clones', 'CLN', '.git', 'config'), 'utf8');
+    const config = await readFile(join(dataDirectory, 'git', 'CLN', 'config'), 'utf8');
     expect(config).not.toContain('s3cret-token');
     expect(config).not.toContain('credential');
     expect(config).not.toContain(file);
@@ -394,38 +430,12 @@ test('a sync refuses a project key that is not a key', async () => {
   await expect(sync).rejects.toThrow('project key');
 });
 
-test('hooks and command config planted in a clone never run during a sync', async () => {
-  const { dataDirectory, options, remotes, root } = await fixture();
-  await publish(remotes, 'github.test/owner/repo', { 'README.md': 'hello\n' });
-  await syncClone(options('github.test/owner/repo'));
-  const directory = join(dataDirectory, 'clones', 'CLN');
-  const marker = join(root, 'ran');
-  const script = join(root, 'planted.sh');
-  await writeFile(script, `#!/bin/sh\necho "$0" >> ${marker}\n`);
-  await chmod(script, 0o755);
-  await mkdir(join(directory, '.git', 'hooks'), { recursive: true });
-  for (const hook of ['reference-transaction', 'post-checkout', 'post-merge', 'pre-auto-gc']) {
-    await writeFile(join(directory, '.git', 'hooks', hook), `#!/bin/sh\n${script}\n`);
-    await chmod(join(directory, '.git', 'hooks', hook), 0o755);
-  }
-  await git(directory, ['config', 'core.fsmonitor', script]);
-  await git(directory, ['config', 'credential.helper', `!${script}`]);
-  await publish(remotes, 'github.test/owner/repo', { 'README.md': 'changed\n' });
-  expect(await syncClone(options('github.test/owner/repo'))).toMatchObject({
-    fresh: false,
-    ok: true,
-  });
-  expect(await readFile(join(directory, 'README.md'), 'utf8')).toBe('changed\n');
-  expect(await exists(marker)).toBe(false);
-});
-
-/** Every file and symlink under `directory`, relative to it, skipping its top-level `.git`. */
+/** Every file and symlink under `directory`, relative to it. */
 async function treeFiles(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { recursive: true, withFileTypes: true });
   return entries
     .filter((entry) => !entry.isDirectory())
     .map((entry) => relative(directory, join(entry.parentPath, entry.name)))
-    .filter((path) => path !== '.git' && !path.startsWith('.git/'))
     .toSorted();
 }
 
@@ -436,34 +446,103 @@ async function treeFiles(directory: string): Promise<string[]> {
 async function keptClone() {
   const base = await fixture();
   const repo = 'github.test/owner/repo';
-  const files = { 'README.md': 'hello\n', 'docs/guide.md': 'guide\n' };
+  const files = { '.gitignore': '*.log\n', 'README.md': 'hello\n', 'docs/guide.md': 'guide\n' };
   await publish(base.remotes, repo, files);
-  await publish(
+  const evilCommit = await publish(
     base.remotes,
     repo,
     { 'README.md': 'evil\n' },
     { branch: 'evil', makeDefault: false },
   );
   await publish(base.remotes, 'github.test/owner/evil', { 'README.md': 'evil\n' });
-  expect(await syncClone(base.options(repo))).toMatchObject({ fresh: true, ok: true });
+  const lines: string[] = [];
+  const options = (remote: string | null, extra: Partial<CloneSyncOptions> = {}) =>
+    base.options(remote, { log: (line) => lines.push(line), ...extra });
+  expect(await syncClone(options(repo))).toMatchObject({ fresh: true, ok: true });
   const directory = join(base.dataDirectory, 'clones', 'CLN');
+  const marker = join(base.root, 'ran');
+  const script = join(base.root, 'planted.sh');
+  await writeFile(script, `#!/bin/sh\necho "$0 $*" >> ${marker}\n`);
+  await chmod(script, 0o755);
   return {
     ...base,
     directory,
+    evilCommit,
     files,
-    gitDirectory: join(directory, '.git'),
-    marker: join(base.root, 'ran'),
-    /** Run fixture git inside the clone, as a writer between syncs would. */
-    plant: (args: string[]) => git(directory, args),
+    gitDirectory: join(base.dataDirectory, 'git', 'CLN'),
+    /** Lines the syncs since `keptClone` logged. */
+    lines,
+    marker,
+    options,
     repo,
+    /** An executable that appends a line to `marker` when anything runs it. */
+    script,
   };
 }
 
 type KeptClone = Awaited<ReturnType<typeof keptClone>>;
 
 /**
+ * Make `target` a repository a planted `.git` could name: a copy of the host's
+ * git directory with the `evil` branch fetched, every ref git could resolve for
+ * `origin/HEAD` naming it, every hook and command setting git reads running
+ * `clone.script`, and an alternate store so `core.alternateRefsCommand` runs on
+ * fetch. Git would act on any of it if it ever discovered this repository.
+ */
+async function hostileRepository(clone: KeptClone, target: string) {
+  await run('cp', ['-R', clone.gitDirectory, target]);
+  const hostile = (args: string[]) => git(clone.root, args, { GIT_DIR: target });
+  const bare = join(clone.remotes, `${clone.repo}.git`);
+  await hostile(['fetch', '--quiet', bare, 'evil']);
+  for (const ref of [
+    'refs/remotes/origin/HEAD',
+    'refs/remotes/origin/main',
+    'refs/tags/origin/HEAD',
+    'refs/heads/origin/HEAD',
+    'refs/heads/main',
+  ]) {
+    await hostile(['update-ref', '--no-deref', ref, clone.evilCommit]);
+  }
+  await hostile(['update-ref', '--no-deref', 'HEAD', clone.evilCommit]);
+  await mkdir(join(target, 'hooks'), { recursive: true });
+  for (const hook of [
+    'pre-auto-gc',
+    'post-checkout',
+    'post-merge',
+    'post-index-change',
+    'reference-transaction',
+  ]) {
+    await writeFile(join(target, 'hooks', hook), `#!/bin/sh\n${clone.script} ${hook}\n`);
+    await chmod(join(target, 'hooks', hook), 0o755);
+  }
+  const included = join(clone.root, 'included.gitconfig');
+  await writeFile(
+    included,
+    `[url "${clone.remotes}/github.test/owner/evil.git"]\n\tinsteadOf = https://github.test/owner/repo.git\n`,
+  );
+  for (const [key, value] of [
+    ['core.hooksPath', join(target, 'hooks')],
+    ['core.fsmonitor', clone.script],
+    ['core.alternateRefsCommand', clone.script],
+    ['core.sshCommand', clone.script],
+    ['credential.helper', `!${clone.script}`],
+    ['filter.x.smudge', `${clone.script} smudge`],
+    ['filter.x.required', 'true'],
+    ['include.path', included],
+    ['remote.origin.url', `${clone.remotes}/github.test/owner/evil.git`],
+  ] as const) {
+    await hostile(['config', key, value]);
+  }
+  await mkdir(join(target, 'info'), { recursive: true });
+  await writeFile(join(target, 'info', 'attributes'), '* filter=x\n');
+  await mkdir(join(target, 'objects', 'info'), { recursive: true });
+  await writeFile(join(target, 'objects', 'info', 'alternates'), `${join(bare, 'objects')}\n`);
+}
+
+/**
  * Publish an upstream change, run `plant` against the kept clone, sync, and
- * expect the clone to hold exactly the upstream tree.
+ * expect the clone to hold exactly the upstream tree, in the host's layout,
+ * with nothing planted having run.
  */
 async function expectExactSyncAfter(clone: KeptClone, plant: (commit: string) => Promise<void>) {
   const commit = await publish(clone.remotes, clone.repo, {
@@ -480,192 +559,118 @@ async function expectExactSyncAfter(clone: KeptClone, plant: (commit: string) =>
     const upstream = await git(bare, ['show', `${commit}:${path}`]);
     expect((await readFile(join(clone.directory, path), 'utf8')).trim(), path).toBe(upstream);
   }
+  await expectHostLayout(clone.dataDirectory);
+  expect(await hostGit(clone.dataDirectory, ['config', '--get', 'remote.origin.url'])).toBe(
+    `https://${clone.repo}.git`,
+  );
   expect(await exists(clone.marker)).toBe(false);
   return result;
 }
 
-const plantedState: [string, (clone: KeptClone, commit: string) => Promise<void>][] = [
+/** Things a writer in the work tree can leave between syncs, none of which the host trusts. */
+const plantedInWorkTree: [string, (clone: KeptClone, commit: string) => Promise<void>][] = [
   [
-    'a fetch refspec naming another branch',
-    async ({ plant }) => {
-      await plant(['config', 'remote.origin.fetch', '+refs/heads/evil:refs/remotes/origin/main']);
+    'a .git directory with hooks, command config, and refs naming another commit',
+    async (clone) => {
+      await hostileRepository(clone, join(clone.directory, '.git'));
     },
   ],
   [
-    'a longer url.insteadOf naming another repository',
-    async ({ plant, remotes }) => {
-      await plant([
-        'config',
-        `url.${remotes}/github.test/owner/evil.git.insteadOf`,
-        'https://github.test/owner/repo.git',
-      ]);
+    'a .git directory whose commondir names a hostile repository',
+    async (clone) => {
+      const common = join(clone.root, 'hostile-common');
+      await hostileRepository(clone, common);
+      const dotGit = join(clone.directory, '.git');
+      await mkdir(dotGit, { recursive: true });
+      await writeFile(join(dotGit, 'commondir'), `${common}\n`);
+      await writeFile(join(dotGit, 'HEAD'), `${clone.evilCommit}\n`);
     },
   ],
   [
-    'a second origin url that fetch reads first',
-    async ({ plant }) => {
-      await plant([
-        'config',
-        '--replace-all',
-        'remote.origin.url',
-        'https://github.test/owner/evil.git',
-      ]);
-      await plant(['config', '--add', 'remote.origin.url', 'https://github.test/owner/repo.git']);
+    'a .git gitfile naming a hostile repository',
+    async (clone) => {
+      const hostile = join(clone.root, 'hostile-gitfile');
+      await hostileRepository(clone, hostile);
+      await rm(join(clone.directory, '.git'), { force: true, recursive: true });
+      await writeFile(join(clone.directory, '.git'), `gitdir: ${hostile}\n`);
     },
   ],
   [
-    'a smudge filter applied through info/attributes',
-    async ({ gitDirectory, marker, plant }) => {
-      await plant(['config', 'filter.x.smudge', `sh -c 'echo pwned > ${marker}; cat'`]);
-      await mkdir(join(gitDirectory, 'info'), { recursive: true });
-      await writeFile(join(gitDirectory, 'info', 'attributes'), '* filter=x\n');
-    },
-  ],
-  [
-    'a replace ref for the commit being synced',
-    async ({ plant, remotes }, commit) => {
-      await plant(['fetch', '--quiet', join(remotes, 'github.test/owner/evil.git'), 'main']);
-      await plant([
-        'update-ref',
-        `refs/replace/${commit}`,
-        await plant(['rev-parse', 'FETCH_HEAD']),
-      ]);
-    },
-  ],
-  [
-    'a sparse checkout',
-    async ({ gitDirectory, plant }) => {
-      await plant(['config', 'core.sparseCheckout', 'true']);
-      await mkdir(join(gitDirectory, 'info'), { recursive: true });
-      await writeFile(join(gitDirectory, 'info', 'sparse-checkout'), '/CHANGED.md\n');
-    },
-  ],
-  [
-    'a skip-worktree entry over a local edit',
-    async ({ directory, plant }) => {
-      await plant(['update-index', '--skip-worktree', 'README.md']);
-      await writeFile(join(directory, 'README.md'), 'edited\n');
-    },
-  ],
-  [
-    'an include.path and an includeIf naming another repository',
-    async ({ plant, remotes, root }) => {
-      const included = join(root, 'included.gitconfig');
-      await writeFile(
-        included,
-        `[url "${remotes}/github.test/owner/evil.git"]\n\tinsteadOf = https://github.test/owner/repo.git\n`,
-      );
-      await plant(['config', 'include.path', included]);
-      await plant(['config', 'includeIf.gitdir:/.path', included]);
-    },
-  ],
-  [
-    'an object replaced in place with other content',
-    async ({ directory, gitDirectory, plant }) => {
-      const oid = await plant(['rev-parse', 'HEAD:README.md']);
-      const path = join(gitDirectory, 'objects', oid.slice(0, 2), oid.slice(2));
-      expect(await exists(path)).toBe(true);
-      await rm(path, { force: true });
-      await writeFile(path, deflateSync(Buffer.from('blob 5\0evil\n')));
-      // A local edit makes the reset write the file again from the object store.
-      await writeFile(join(directory, 'README.md'), 'edited\n');
-    },
-  ],
-  [
-    'a nested .git entry in a tracked directory',
+    'a .git symlink to the host git directory',
     async ({ directory }) => {
-      await writeFile(join(directory, 'docs', '.git'), 'gitdir: /etc\n');
+      await symlink('../../git/CLN', join(directory, '.git'));
     },
   ],
   [
-    'a stale index.lock left by a killed sync',
-    async ({ gitDirectory }) => {
-      await writeFile(join(gitDirectory, 'index.lock'), '');
+    'nested .git entries in tracked and untracked directories',
+    async (clone) => {
+      const hostile = join(clone.root, 'hostile-nested');
+      await hostileRepository(clone, hostile);
+      await writeFile(join(clone.directory, 'docs', '.git'), `gitdir: ${hostile}\n`);
+      await mkdir(join(clone.directory, 'vendor', 'lib'), { recursive: true });
+      await hostileRepository(clone, join(clone.directory, 'vendor', 'lib', '.GIT'));
     },
   ],
   [
-    'a stale remote-tracking ref lock left by a killed sync',
-    async ({ gitDirectory }) => {
-      await mkdir(join(gitDirectory, 'refs', 'remotes', 'origin'), { recursive: true });
-      await writeFile(join(gitDirectory, 'refs', 'remotes', 'origin', 'main.lock'), '');
+    'a symlink in place of a tracked directory, naming the host git directory',
+    async ({ directory }) => {
+      await rm(join(directory, 'docs'), { force: true, recursive: true });
+      await symlink('../../git/CLN', join(directory, 'docs'));
     },
   ],
   [
-    'a remote-tracking ref replaced by a directory',
-    async ({ gitDirectory }) => {
-      const ref = join(gitDirectory, 'refs', 'remotes', 'origin', 'main');
-      await rm(ref, { force: true });
-      await mkdir(ref, { recursive: true });
-      await writeFile(join(ref, 'blocked'), 'not a ref\n');
+    'a symlink in place of a tracked file, naming the host git config',
+    async ({ directory }) => {
+      await rm(join(directory, 'README.md'), { force: true });
+      await symlink('../../git/CLN/config', join(directory, 'README.md'));
+    },
+  ],
+  [
+    'untracked symlinks naming the host git directory',
+    async ({ directory }) => {
+      await symlink('../../git/CLN', join(directory, 'host-git'));
+      await symlink('../../../git/CLN/config', join(directory, 'docs', 'config.log'));
+    },
+  ],
+  [
+    'local edits, one keeping the size and modification time',
+    async ({ directory }) => {
+      const readme = join(directory, 'README.md');
+      const before = await stat(readme);
+      await writeFile(readme, 'HELLO\n');
+      await utimes(readme, before.atime, before.mtime);
+      await writeFile(join(directory, 'docs', 'guide.md'), 'edited\n');
+    },
+  ],
+  [
+    'untracked and ignored files',
+    async ({ directory }) => {
+      await writeFile(join(directory, 'untracked.txt'), 'untracked');
+      await writeFile(join(directory, 'debug.log'), 'ignored');
+      await mkdir(join(directory, 'scratch', 'deep'), { recursive: true });
+      await writeFile(join(directory, 'scratch', 'deep', 'file.log'), 'nested');
     },
   ],
 ];
 
-test.each(plantedState)(
-  'a sync reaches the remote default branch exactly despite %s planted in the clone',
+test.each(plantedInWorkTree)(
+  'a sync reaches the remote default branch exactly, keeping its git directory, despite %s in the work tree',
   async (_name, plantState) => {
     const clone = await keptClone();
-    await expectExactSyncAfter(clone, (commit) => plantState(clone, commit));
+    const result = await expectExactSyncAfter(clone, (commit) => plantState(clone, commit));
+    expect(result).toMatchObject({ fresh: false });
+    expect(clone.lines).toEqual([]);
   },
 );
 
-test('a symlink planted in the git directory never sends host writes outside the clone', async () => {
-  const clone = await keptClone();
-  // A valid config naming the right origin, so the clone would otherwise be kept.
-  const outside = join(clone.root, 'outside-config');
-  const config = `${await readFile(join(clone.gitDirectory, 'config'), 'utf8')}# outside\n`;
-  await writeFile(outside, config);
-  await rm(join(clone.gitDirectory, 'config'));
-  await symlink(outside, join(clone.gitDirectory, 'config'));
-  const result = await expectExactSyncAfter(clone, async () => {});
-  expect(result).toMatchObject({ fresh: true });
-  expect(await readFile(outside, 'utf8')).toBe(config);
-});
-
-test('a git directory that is a symlink is never written through', async () => {
-  const clone = await keptClone();
-  const outside = join(clone.root, 'outside-git');
-  await rm(outside, { force: true, recursive: true });
-  await run('mv', [clone.gitDirectory, outside]);
-  await symlink(outside, clone.gitDirectory);
-  const before = await readFile(join(outside, 'config'), 'utf8');
-  const result = await expectExactSyncAfter(clone, async () => {});
-  expect(result).toMatchObject({ fresh: true });
-  expect(await readFile(join(outside, 'config'), 'utf8')).toBe(before);
-  expect(await exists(join(outside, 'HEAD'))).toBe(true);
-});
-
-test('a kept clone with large files passes the object check and is kept', async () => {
-  const clone = await keptClone();
-  // Several pipe-sized chunks of content, so object bodies span chunk boundaries.
-  const large = Array.from({ length: 40_000 }, (_, index) => `line ${String(index)}\n`).join('');
-  const commit = await publish(clone.remotes, clone.repo, {
-    ...clone.files,
-    'large-a.txt': large,
-    'large-b.txt': `${large}b\n`,
-  });
-  await syncClone(clone.options(clone.repo));
-  await publish(clone.remotes, clone.repo, {
-    ...clone.files,
-    'CHANGED.md': 'upstream\n',
-    'large-a.txt': large,
-    'large-b.txt': `${large}b\n`,
-  });
-  const result = await syncClone(clone.options(clone.repo));
-  expect(result).toMatchObject({ fresh: false, ok: true });
-  expect(result.ok && result.commit).not.toBe(commit);
-  expect(await readFile(join(clone.directory, 'large-b.txt'), 'utf8')).toBe(`${large}b\n`);
-});
-
-test('a URL-scoped credential helper planted in the clone never runs', async () => {
+test('a planted credential helper never runs when the remote asks for credentials', async () => {
   const clone = await keptClone();
   const { base, server } = privateServer();
   try {
-    const script = join(clone.root, 'planted.sh');
-    await writeFile(script, `#!/bin/sh\necho "$0" >> ${clone.marker}\n`);
-    await chmod(script, 0o755);
+    await hostileRepository(clone, join(clone.directory, '.git'));
+    const dotGit = { GIT_DIR: join(clone.directory, '.git') };
     for (const scope of [base.replace(/\/$/, ''), 'https://github.test']) {
-      await clone.plant(['config', `credential.${scope}.helper`, `!${script}`]);
+      await git(clone.root, ['config', `credential.${scope}.helper`, `!${clone.script}`], dotGit);
     }
     expect(await syncClone(clone.options(clone.repo, { fetchBase: base }))).toMatchObject({
       ok: false,
@@ -677,18 +682,64 @@ test('a URL-scoped credential helper planted in the clone never runs', async () 
   }
 });
 
-test('a corrupt kept clone is rebuilt from scratch', async () => {
+test('the commit is resolved by its full ref name, never a short name another ref could shadow', async () => {
   const clone = await keptClone();
-  const oid = await clone.plant(['rev-parse', 'HEAD:README.md']);
-  const path = join(clone.gitDirectory, 'objects', oid.slice(0, 2), oid.slice(2));
-  await rm(path, { force: true });
-  await writeFile(path, 'not an object');
-  await clone.plant(['update-index', '--really-refresh']).catch(() => '');
-  await writeFile(join(clone.directory, 'README.md'), 'edited\n');
-  const result = await syncClone(clone.options(clone.repo));
-  expect(result).toMatchObject({ fresh: true, ok: true });
-  expect(await readFile(join(clone.directory, 'README.md'), 'utf8')).toBe('hello\n');
+  // Defence in depth: the git directory is the host's, but a shadowing ref there must not win.
+  await hostGit(clone.dataDirectory, [
+    'fetch',
+    '--quiet',
+    join(clone.remotes, `${clone.repo}.git`),
+    'evil',
+  ]);
+  for (const ref of ['refs/tags/origin/HEAD', 'refs/heads/origin/HEAD', 'refs/origin/HEAD']) {
+    await hostGit(clone.dataDirectory, ['update-ref', ref, clone.evilCommit]);
+  }
+  const result = await expectExactSyncAfter(clone, async () => {});
+  expect(result).toMatchObject({ fresh: false });
 });
+
+/** Host git state a crash or a full disk can leave, each of which a fresh clone recovers from. */
+const brokenGitState: [string, (clone: KeptClone) => Promise<void>][] = [
+  [
+    'a stale index.lock',
+    async ({ gitDirectory }) => {
+      await writeFile(join(gitDirectory, 'index.lock'), '');
+    },
+  ],
+  [
+    'a garbage HEAD',
+    async ({ gitDirectory }) => {
+      await writeFile(join(gitDirectory, 'HEAD'), 'garbage\n');
+    },
+  ],
+  [
+    'a garbage packed-refs',
+    async ({ gitDirectory }) => {
+      await writeFile(join(gitDirectory, 'packed-refs'), 'garbage\n');
+    },
+  ],
+  [
+    'a corrupt object the checkout needs',
+    async ({ dataDirectory, directory, gitDirectory }) => {
+      const oid = await hostGit(dataDirectory, ['rev-parse', 'HEAD:README.md']);
+      const path = join(gitDirectory, 'objects', oid.slice(0, 2), oid.slice(2));
+      await rm(path, { force: true });
+      await writeFile(path, 'not an object');
+      // A local edit makes the reset read the object again.
+      await writeFile(join(directory, 'README.md'), 'edited\n');
+    },
+  ],
+];
+
+test.each(brokenGitState)(
+  'a sync recovers from %s in the git directory with one fresh clone',
+  async (_name, breakState) => {
+    const clone = await keptClone();
+    const result = await expectExactSyncAfter(clone, () => breakState(clone));
+    expect(result).toMatchObject({ fresh: true });
+    expect(clone.lines.filter((line) => line.includes('cloning CLN again'))).toHaveLength(1);
+  },
+);
 
 test('concurrent syncs of one project run one at a time, and each ends with the clone in place', async () => {
   const { dataDirectory, options, remotes } = await fixture();
