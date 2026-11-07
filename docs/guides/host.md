@@ -223,7 +223,8 @@ names the setting, and the integration stays off until you fix it. Without
 `MIMIR_T3_URL`, the key settings are ignored.
 
 On Postgres, the host writes nothing to `MIMIR_DATA_DIR` at start. It creates
-the directory's `clones` folder the first time it syncs a project's clone.
+the directory's `clones` and `git` folders the first time it syncs a project's
+clone.
 
 ## Check health
 
@@ -489,10 +490,18 @@ again.
 ## Clone private repositories
 
 The image carries git, and the host can keep a clone of each project's
-repository at `clones/<PROJECT_KEY>` in `MIMIR_DATA_DIR`
+repository in `MIMIR_DATA_DIR`
 ([ADR 0041](../decisions/0041-agent-runtime-on-the-host.md#the-host-syncs-clones-the-agent-never-runs-git)).
-Agent runs will read these clones; until agent runs ship, the host creates
-none. The host fetches the project's remote over HTTPS only, as
+Each clone has two directories:
+
+- `clones/<PROJECT_KEY>` holds the checked-out files that agent runs will
+  read. It contains no `.git`.
+- `git/<PROJECT_KEY>` holds the clone's git directory. It sits beside
+  `clones`, outside every checkout, and only the host's own git calls write it.
+
+Each sync resets the checkout to the remote's default branch and removes
+everything else in it, including any `.git` entry. Until agent runs ship, the
+host creates no clones. The host fetches the project's remote over HTTPS only, as
 `https://<host>/<path>.git`. A remote that needs SSH or a port other than 443
 is not supported, and a project without a remote has nothing to clone.
 

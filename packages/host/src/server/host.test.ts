@@ -392,6 +392,7 @@ test('an unreadable git credentials file warns by setting name at boot, and noth
     ]);
     expect(lines.join('\n')).not.toContain('missing-credentials');
     expect(await readdir(root)).not.toContain('clones');
+    expect(await readdir(root)).not.toContain('git');
   } finally {
     await host.close();
   }
