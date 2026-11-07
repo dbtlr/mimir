@@ -3,6 +3,7 @@ import { configPath, DEFAULT_STORE_BACKEND, hostOrigin, readRuntimeConfig } from
 import type { DoctorBackend } from './doctor/contract';
 import { invariant } from './errors';
 import type { HostSecretStore } from './host-secrets';
+import type { RunStore } from './runs';
 /**
  * Composition root for the work-state store (ADR 0030, ADR 0032). The backend
  * is a fence, never a per-project choice: the working-set load is deliberately
@@ -29,6 +30,8 @@ export type BuiltStore = {
   doctor: DoctorBackend;
   /** Sealed host secrets (ADR 0040), outside work state and board transfers. */
   secrets: HostSecretStore;
+  /** Host-owned agent-run records (ADR 0041), outside work state and board transfers. */
+  runs: RunStore;
   /** Host transport credentials, outside work state and board transfers. */
   tokens: TokenStore;
 };

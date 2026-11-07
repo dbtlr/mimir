@@ -1,6 +1,7 @@
 import type { GlobalConfig } from './config';
 import { createSqlDoctorBackend } from './doctor/sql/backend';
 import { createHostSecretStore } from './host-secrets';
+import { createRunStore } from './runs';
 import type { BuiltStore, StoreOverride } from './store-backend';
 /**
  * The Postgres backend arm of the store composition root (ADR 0016, ADR 0030).
@@ -63,6 +64,7 @@ export async function buildPostgresStore(
   return {
     close: () => handle.close(),
     doctor: createSqlDoctorBackend(handle.db, postgresDialect),
+    runs: createRunStore({ db: handle.db, dialect: postgresDialect }),
     secrets: createHostSecretStore({ db: handle.db, dialect: postgresDialect }),
     store: createPostgresStore(handle.db),
     tokens: createTokenStore({ db: handle.db, dialect: postgresDialect }),

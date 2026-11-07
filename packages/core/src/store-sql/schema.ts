@@ -262,7 +262,30 @@ export type HostSecretTable = {
   updated_at: string;
 };
 
+export type RunTable = {
+  id: string;
+  project: string;
+  task: string;
+  kind: 'groom';
+  trigger: 'console' | 'schedule';
+  state: 'running' | 'succeeded' | 'failed' | 'cancelled' | 'interrupted';
+  runner: string;
+  heartbeat_at: string;
+  model: string;
+  reserved_tokens: number;
+  input_tokens: Generated<number>;
+  cache_read_tokens: Generated<number>;
+  cache_write_tokens: Generated<number>;
+  output_tokens: Generated<number>;
+  cost_estimate_usd: number | null;
+  usage_settled: Generated<Stored<boolean>>;
+  started_at: string;
+  ended_at: string | null;
+  outcome: string | null;
+};
+
 export type DB = {
+  runs: RunTable;
   pairing_requests: PairingRequestTable;
   device_tokens: DeviceTokenTable;
   host_secrets: HostSecretTable;

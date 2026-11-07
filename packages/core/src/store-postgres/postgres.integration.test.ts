@@ -5,6 +5,7 @@ import { sql } from 'kysely';
 import { createInitiative, createPhase, createProject, createTask } from '../create';
 import { LocalEngine } from '../engine';
 import { updateNode } from '../mutations';
+import { createRunStore } from '../runs';
 import { sandboxPostgresUrlFromEnvironment } from '../sandbox-authority';
 import { observe, seedWorkingSet, withoutStamp } from '../testing/conformance';
 import { pairTestDevice } from '../testing/store';
@@ -71,6 +72,7 @@ lane('upgradeSchema builds the schema from empty, and the gate then passes', asy
           '0010_pairing_requests',
           '0011_terminal_hold',
           '0012_host_secrets',
+          '0013_runs',
         ],
         from: 0,
         to: SCHEMA_VERSION,
@@ -134,6 +136,76 @@ lane('two concurrent upgrades from empty apply each migration exactly once', asy
     } finally {
       await second.close();
       await first.close();
+    }
+  });
+});
+
+lane('simultaneous run admissions on a real server let exactly one in', async () => {
+  await onFreshSchema(async (url) => {
+    const handle = openPostgres(url);
+    try {
+      await upgradeSchema(handle.db);
+      const runs = createRunStore({ db: handle.db, dialect: postgresDialect });
+      const results = await Promise.all(
+        ['a', 'b', 'c', 'd'].map((id) =>
+          runs.admit({
+            id,
+            kind: 'groom',
+            model: 'opus',
+            project: 'MMR',
+            reservedTokens: 1000,
+            runner: `host-${id}`,
+            staleAfterMs: 60_000,
+            task: 'MMR-1',
+            trigger: 'console',
+          }),
+        ),
+      );
+      expect(results.filter((result) => result.admitted)).toHaveLength(1);
+    } finally {
+      await handle.close();
+    }
+  });
+});
+
+// PGlite hands `bigint` back as a number, so only the real `pg` driver, which
+// returns int8 as a string, proves the run store converts token counts.
+lane('run token counts at and above 2^31 come back as numbers on a real server', async () => {
+  await onFreshSchema(async (url) => {
+    const handle = openPostgres(url);
+    try {
+      await upgradeSchema(handle.db);
+      const runs = createRunStore({ db: handle.db, dialect: postgresDialect });
+      const large = 2 ** 31 + 5;
+      const admission = await runs.admit({
+        id: 'r1',
+        kind: 'groom',
+        model: 'opus',
+        project: 'MMR',
+        reservedTokens: large,
+        runner: 'host-a',
+        staleAfterMs: 60_000,
+        task: 'MMR-1',
+        trigger: 'console',
+      });
+      expect(admission.admitted).toBe(true);
+      const usage = {
+        cacheReadTokens: large + 1,
+        cacheWriteTokens: large + 2,
+        inputTokens: large + 3,
+        outputTokens: large + 4,
+      };
+      expect(await runs.recordUsage('r1', 'host-a', usage)).toBe('held');
+      const run = await runs.get('r1');
+      expect(run).toMatchObject({
+        cache_read_tokens: large + 1,
+        cache_write_tokens: large + 2,
+        input_tokens: large + 3,
+        output_tokens: large + 4,
+        reserved_tokens: large,
+      });
+    } finally {
+      await handle.close();
     }
   });
 });
