@@ -499,8 +499,8 @@ Each clone has two directories:
 - `git/<PROJECT_KEY>` holds the clone's git directory. It sits beside
   `clones`, outside every checkout, and only the host's own git calls write it.
 
-Each sync resets the checkout to the remote's default branch and removes
-everything else in it, including any `.git` entry. Until agent runs ship, the
+Each sync empties the checkout, then checks the remote's default branch out
+into it, so nothing left in the checkout since the last sync survives. Until agent runs ship, the
 host creates no clones. The host fetches the project's remote over HTTPS only, as
 `https://<host>/<path>.git`. A remote that needs SSH or a port other than 443
 is not supported, and a project without a remote has nothing to clone.

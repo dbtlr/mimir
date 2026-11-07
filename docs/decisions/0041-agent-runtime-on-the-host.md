@@ -359,3 +359,26 @@ for each published platform, amd64 and arm64.
   re-checked before the pin moves.
 - The daily briefing (MMR-442) and the agent panel (MMR-443) build on this
   runtime as new run kinds with their own run grants.
+
+## Refinement (2026-11-06, MMR-631): the clone's git directory and a disposable work tree
+
+"The host syncs clones" names one clone per project. Each clone is split in
+two under `MIMIR_DATA_DIR`: its work tree, which the agent reads, is
+`clones/<KEY>` and holds no `.git`; its git directory is `git/<KEY>`, outside
+every work tree. Only the host's own git calls write the git directory, and
+every one names both directories through `GIT_DIR` and `GIT_WORK_TREE`.
+
+The work tree is disposable. Before each checkout the host empties it,
+without following symlinks and restoring its own access to every directory
+first, then checks `origin/HEAD` out into the empty tree. The git directory
+stays, so a sync fetches only what is new. Steps 3 and 4 become this one
+step: no file written into the work tree between syncs, such as a
+`.gitattributes`, a FIFO, a `.git`, or content under a submodule's directory,
+can steer the checkout or outlast it.
+
+The host trusts the git directory because nothing else can touch it. The
+runner (MMR-632) enforces that an agent run never reads, writes, or creates a
+link to anything under `<MIMIR_DATA_DIR>/git`, and never creates a hardlink
+to a file the host owns: a hardlink to a clone's git config would let a
+planted filter run on the host at the next sync. The runner also never starts
+a run on a clone whose sync failed.
