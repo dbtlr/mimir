@@ -308,11 +308,17 @@ async function emptyWorkTree(workTree: string): Promise<void> {
 async function resolveDangling(link: string): Promise<string | undefined> {
   const text = await readlink(link);
   let current = isAbsolute(text) ? sep : await realpath(dirname(link));
+  // Past a segment that does not exist, the walk is text: `..` there would leave
+  // from wherever that segment, created later as a link, happens to lead.
+  let missing = false;
   for (const segment of text.split(sep)) {
     if (segment === '' || segment === '.') {
       continue;
     }
     if (segment === '..') {
+      if (missing) {
+        return undefined;
+      }
       current = dirname(current);
       continue;
     }
@@ -320,13 +326,30 @@ async function resolveDangling(link: string): Promise<string | undefined> {
     try {
       current = await realpath(next);
     } catch {
-      if ((await lstatIfPresent(next))?.isSymbolicLink() === true) {
+      // Something is there but does not resolve (a broken link, or an error):
+      // where the path lands depends on what appears later.
+      if ((await lstatOrMissing(next)) !== null) {
         return undefined;
       }
+      missing = true;
       current = next;
     }
   }
   return current;
+}
+
+/**
+ * `null` when nothing is at `path` or can be (a missing parent, or a file where
+ * a directory would be); otherwise `path`'s own status, or `undefined` for any
+ * other error.
+ */
+async function lstatOrMissing(path: string): Promise<Stats | null | undefined> {
+  try {
+    return await lstat(path);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    return code === 'ENOENT' || code === 'ENOTDIR' ? null : undefined;
+  }
 }
 
 /**

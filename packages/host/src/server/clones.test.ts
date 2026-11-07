@@ -282,6 +282,9 @@ test('a symlink that resolves outside the clone refuses the sync, absolute or re
     ['github.test/owner/through-link', { a: 'deep/s/../../outside', 'deep/s': '..' }],
     // Dangling through a link that resolves nowhere: where it lands is unknowable.
     ['github.test/owner/through-broken-link', { b: 'hop/../c', hop: 'nowhere/deeper' }],
+    // Through a directory that does not exist yet: once it does, as a link, the
+    // `..` after it lands wherever that link leads.
+    ['github.test/owner/through-missing', { a: '../OTHER/x/../../CLN/later' }],
   ] as const) {
     await publish(remotes, remote, { 'README.md': 'hello\n' }, { links });
     const refused = await syncClone(options(remote));
@@ -296,7 +299,15 @@ test('a symlink that stays inside the clone is allowed', async () => {
     remotes,
     'github.test/owner/repo',
     { 'docs/guide.md': 'guide\n' },
-    { links: { 'docs/later': '../not-yet', 'docs/self': '..', guide: 'docs/guide.md' } },
+    {
+      links: {
+        'docs/later': '../not-yet',
+        'docs/self': '..',
+        guide: 'docs/guide.md',
+        // Dangling through a tracked file: it can never resolve, and never leaves.
+        'through-file': 'docs/guide.md/x',
+      },
+    },
   );
   expect(await syncClone(options('github.test/owner/repo'))).toMatchObject({ ok: true });
 });
