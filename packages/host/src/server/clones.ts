@@ -1,7 +1,8 @@
 /**
  * The host's project clones (ADR 0041, "The host syncs clones; the agent never
- * runs git"). A project with a `remote` gets one clone, synced by the host's own
- * code before each run. Server-only: it runs git as a child process.
+ * runs git"). A project with a `remote` gets one clone, which the host's own
+ * code syncs before an agent run reads it. Server-only: it runs git as a child
+ * process.
  *
  * Each clone is split in two under `MIMIR_DATA_DIR`. Its work tree, which the
  * agent reads, is `clones/<KEY>` and holds no `.git`. Its git directory is
@@ -199,7 +200,7 @@ async function runGit(
 }
 
 /** Git's last meaningful stderr line, with any URL credentials and the credentials file removed. */
-function gitDetail(stderr: string, credentialsFile: string | undefined): string {
+export function gitDetail(stderr: string, credentialsFile: string | undefined): string {
   const lines = stderr
     .split('\n')
     .map((line) => line.trim())

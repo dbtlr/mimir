@@ -50,7 +50,7 @@ export async function readHostConfig(env: NodeJS.ProcessEnv = process.env) {
     throw new Error('MIMIR_PORT must be an integer from 1 to 65535');
   }
   // The host's working directory for every backend (ADR 0041): the SQLite store's
-  // directory, and where agent runs keep clones. Nothing writes here at boot on Postgres.
+  // directory, and where the host keeps project clones. Nothing writes here at boot on Postgres.
   const dataDirectory = env.MIMIR_DATA_DIR ?? resolve('.dev/host');
   if (dataDirectory.trim() === '' || dataDirectory.includes('\0')) {
     throw new Error('MIMIR_DATA_DIR must name a directory');

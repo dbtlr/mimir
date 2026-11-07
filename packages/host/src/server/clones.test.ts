@@ -18,7 +18,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { promisify } from 'node:util';
 
-import { gitEnvironment, syncClone } from './clones';
+import { gitDetail, gitEnvironment, syncClone } from './clones';
 import type { CloneSyncOptions } from './clones';
 import { gitCredentialsWarnings, readGitCredentials } from './git-credentials';
 
@@ -1079,4 +1079,39 @@ test('a redirect never carries the credential to another host', async () => {
   } finally {
     await target.server.stop(true);
   }
+});
+
+test('a credentials setting that names a directory reads as unreadable', async () => {
+  const { root } = await fixture();
+  const setting = await readGitCredentials({ MIMIR_GIT_CREDENTIALS_FILE: root });
+  expect(setting).toMatchObject({ configured: true, problem: 'unreadable' });
+  expect(gitCredentialsWarnings(setting)).toEqual([
+    expect.stringContaining('MIMIR_GIT_CREDENTIALS_FILE is unreadable'),
+  ]);
+});
+
+test('an escaping symlink on a kept clone is refused without cloning again', async () => {
+  const { options, remotes } = await fixture();
+  const repo = 'github.test/owner/repo';
+  const lines: string[] = [];
+  await publish(remotes, repo, { 'README.md': 'hello\n' });
+  expect(await syncClone(options(repo))).toMatchObject({ fresh: true, ok: true });
+  await publish(remotes, repo, { 'README.md': 'hello\n' }, { links: { 'etc-link': '/etc' } });
+  const refused = await syncClone(options(repo, { log: (line) => lines.push(line) }));
+  expect(refused).toMatchObject({ ok: false, reason: 'escaping-symlink' });
+  expect(lines.filter((line) => line.includes('cloning CLN again'))).toEqual([]);
+});
+
+test('git error text names the credentials setting, never its path or a URL credential', () => {
+  const file = '/run/secrets/git-credentials';
+  const fileDetail = gitDetail(`fatal: unable to read ${file}`, file);
+  expect(fileDetail).toContain('MIMIR_GIT_CREDENTIALS_FILE');
+  expect(fileDetail).not.toContain(file);
+  const urlDetail = gitDetail(
+    'fatal: could not read https://alice:s3cret@github.test/owner/repo.git',
+    file,
+  );
+  expect(urlDetail).toContain('https://github.test/owner/repo.git');
+  expect(urlDetail).not.toContain('s3cret');
+  expect(urlDetail).not.toContain('alice');
 });

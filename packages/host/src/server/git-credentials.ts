@@ -1,5 +1,5 @@
 import { constants } from 'node:fs';
-import { access } from 'node:fs/promises';
+import { access, stat } from 'node:fs/promises';
 
 /** The setting that names the git credential-store file (ADR 0041). */
 export const GIT_CREDENTIALS_SETTING = 'MIMIR_GIT_CREDENTIALS_FILE';
@@ -14,14 +14,14 @@ export type GitCredentialsSetting =
   | { configured: false }
   | { configured: true; file: string; problem: 'unreadable' | undefined };
 
-/** Whether `file` names a file this process can read now. */
+/** Whether `file` names a regular file (a directory passes `access`) this process can read now. */
 async function readable(file: string): Promise<boolean> {
   if (file.trim() === '' || file.includes('\0')) {
     return false;
   }
   try {
     await access(file, constants.R_OK);
-    return true;
+    return (await stat(file)).isFile();
   } catch {
     return false;
   }
