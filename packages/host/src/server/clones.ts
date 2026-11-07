@@ -347,7 +347,7 @@ async function lstatOrMissing(path: string): Promise<Stats | null | undefined> {
   try {
     return await lstat(path);
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
+    const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : '';
     return code === 'ENOENT' || code === 'ENOTDIR' ? null : undefined;
   }
 }
