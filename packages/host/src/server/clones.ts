@@ -299,17 +299,21 @@ async function emptyWorkTree(workTree: string): Promise<void> {
 }
 
 /**
- * Where a dangling symlink would land, resolved one segment at a time as the
- * kernel does: an existing segment is replaced by its real path before the next
- * `..` applies, so `s/..` through a link `s` leaves from where `s` leads, not
- * from where its text sits. `undefined` when a segment is itself a link that
- * resolves nowhere, since where the path lands then depends on what appears later.
+ * Whether the symlink at `link` stays inside `root` at every step of its target,
+ * followed one segment at a time as the kernel does: an existing segment is
+ * replaced by its real path before the next `..` applies. Any step outside
+ * refuses, even one that comes back in by name, because a path outside the
+ * clone (another project's clone, say) can later be replaced by a link. So do
+ * an absolute target, a segment that is there but resolves nowhere, and a `..`
+ * past a segment that does not exist yet, since where those land depends on
+ * what appears later.
  */
-async function resolveDangling(link: string): Promise<string | undefined> {
+async function staysInside(root: string, link: string): Promise<boolean> {
   const text = await readlink(link);
-  let current = isAbsolute(text) ? sep : await realpath(dirname(link));
-  // Past a segment that does not exist, the walk is text: `..` there would leave
-  // from wherever that segment, created later as a link, happens to lead.
+  if (isAbsolute(text)) {
+    return false;
+  }
+  let current = await realpath(dirname(link));
   let missing = false;
   for (const segment of text.split(sep)) {
     if (segment === '' || segment === '.') {
@@ -317,25 +321,26 @@ async function resolveDangling(link: string): Promise<string | undefined> {
     }
     if (segment === '..') {
       if (missing) {
-        return undefined;
+        return false;
       }
       current = dirname(current);
-      continue;
-    }
-    const next = join(current, segment);
-    try {
-      current = await realpath(next);
-    } catch {
-      // Something is there but does not resolve (a broken link, or an error):
-      // where the path lands depends on what appears later.
-      if ((await lstatOrMissing(next)) !== null) {
-        return undefined;
+    } else {
+      const next = join(current, segment);
+      try {
+        current = await realpath(next);
+      } catch {
+        if ((await lstatOrMissing(next)) !== null) {
+          return false;
+        }
+        missing = true;
+        current = next;
       }
-      missing = true;
-      current = next;
+    }
+    if (!isInside(root, current)) {
+      return false;
     }
   }
-  return current;
+  return true;
 }
 
 /**
@@ -353,10 +358,9 @@ async function lstatOrMissing(path: string): Promise<Stats | null | undefined> {
 }
 
 /**
- * The path, relative to the work tree, of the first symlink in it that
- * resolves outside it, into the host's git directories or anywhere else. A
- * dangling link is resolved as the kernel would (see {@link resolveDangling}),
- * so it fails when its target would be outside or cannot be known.
+ * The path, relative to the work tree, of the first symlink in it that does not
+ * stay inside it (see {@link staysInside}): into the host's git directories,
+ * another project's clone, or anywhere else, now or once a missing path appears.
  */
 async function findEscapingSymlink(workTree: string): Promise<string | undefined> {
   const root = await realpath(workTree);
@@ -365,13 +369,7 @@ async function findEscapingSymlink(workTree: string): Promise<string | undefined
       const path = join(directory, entry.name);
       const name = `${prefix}${entry.name}`;
       if (entry.isSymbolicLink()) {
-        let target: string | undefined;
-        try {
-          target = await realpath(path);
-        } catch {
-          target = await resolveDangling(path);
-        }
-        if (target === undefined || !isInside(root, target)) {
+        if (!(await staysInside(root, path))) {
           return name;
         }
       } else if (entry.isDirectory()) {

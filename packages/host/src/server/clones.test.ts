@@ -285,6 +285,10 @@ test('a symlink that resolves outside the clone refuses the sync, absolute or re
     // Through a directory that does not exist yet: once it does, as a link, the
     // `..` after it lands wherever that link leads.
     ['github.test/owner/through-missing', { a: '../OTHER/x/../../CLN/later' }],
+    // Out and back in by name: a step outside the clone passes through paths
+    // another project's sync can later replace with links, so any step out refuses.
+    ['github.test/owner/out-and-back', { a: '../CLN/README.md' }],
+    ['github.test/owner/via-sibling', { a: '../OTH/d/../../CLN/README.md' }],
   ] as const) {
     await publish(remotes, remote, { 'README.md': 'hello\n' }, { links });
     const refused = await syncClone(options(remote));
