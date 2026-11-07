@@ -282,9 +282,12 @@ test('a symlink that resolves outside the clone refuses the sync, absolute or re
     ['github.test/owner/through-link', { a: 'deep/s/../../outside', 'deep/s': '..' }],
     // Dangling through a link that resolves nowhere: where it lands is unknowable.
     ['github.test/owner/through-broken-link', { b: 'hop/../c', hop: 'nowhere/deeper' }],
-    // Through a directory that does not exist yet: once it does, as a link, the
-    // `..` after it lands wherever that link leads.
+    ['github.test/owner/into-broken-link', { a: 'hop/x', hop: 'nowhere/deeper' }],
+    // Out of the clone through a path that does not exist yet.
     ['github.test/owner/through-missing', { a: '../OTHER/x/../../CLN/later' }],
+    // `..` after a segment that does not exist yet: once it does, as a link, the
+    // `..` leaves from wherever that link leads.
+    ['github.test/owner/back-from-missing', { a: 'not-yet/../README.md' }],
     // Out and back in by name: a step outside the clone passes through paths
     // another project's sync can later replace with links, so any step out refuses.
     ['github.test/owner/out-and-back', { a: '../CLN/README.md' }],
