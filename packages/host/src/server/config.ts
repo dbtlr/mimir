@@ -5,6 +5,7 @@ import { isHostName, normalizeServeUrl } from '@mimir/core';
 import type { ServeConfig, StoreConfig } from '@mimir/core';
 import { parse } from 'pg-connection-string';
 
+import { readAgentSettings } from './agent-settings';
 import { readGitCredentials } from './git-credentials';
 import { readT3Settings } from './t3-settings';
 
@@ -74,7 +75,9 @@ export async function readHostConfig(env: NodeJS.ProcessEnv = process.env) {
   // The optional T3 integration (ADR 0040) degrades instead of refusing startup.
   const t3 = await readT3Settings(env, serve);
   const gitCredentials = await readGitCredentials(env);
-  return { dataDirectory, gitCredentials, port, serve, store, t3 };
+  // The optional agent runtime (ADR 0041) degrades the same way.
+  const agent = await readAgentSettings(env, serve, dataDirectory);
+  return { agent, dataDirectory, gitCredentials, port, serve, store, t3 };
 }
 
 export type HostConfig = Awaited<ReturnType<typeof readHostConfig>>;

@@ -4,6 +4,7 @@ import { readHostConfig } from './config';
 
 test('host defaults select isolated SQLite and the standard port', async () => {
   expect(await readHostConfig({})).toEqual({
+    agent: { enabled: false },
     dataDirectory: expect.stringContaining('.dev/host'),
     gitCredentials: { configured: false },
     port: 64647,
@@ -22,6 +23,7 @@ test('host validates environment configuration and refuses conflicting URLs', as
     MIMIR_URL: 'https://mimir.example/',
   });
   expect(config).toEqual({
+    agent: { enabled: false },
     dataDirectory: '/data',
     gitCredentials: { configured: false },
     port: 12345,
