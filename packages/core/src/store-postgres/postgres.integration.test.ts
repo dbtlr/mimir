@@ -7,6 +7,7 @@ import { LocalEngine } from '../engine';
 import { updateNode } from '../mutations';
 import { createRunStore } from '../runs';
 import { sandboxPostgresUrlFromEnvironment } from '../sandbox-authority';
+import type { StoreDialect } from '../store-sql/dialect';
 import { observe, seedWorkingSet, withoutStamp } from '../testing/conformance';
 import { pairTestDevice } from '../testing/store';
 import { createTokenStore } from '../tokens';
@@ -149,6 +150,7 @@ lane('simultaneous run admissions on a real server let exactly one in', async ()
       const results = await Promise.all(
         ['a', 'b', 'c', 'd'].map((id) =>
           runs.admit({
+            budget: { dailyTokens: Number.MAX_SAFE_INTEGER, since: '2000-01-01T00:00:00.000Z' },
             id,
             kind: 'groom',
             model: 'opus',
@@ -168,6 +170,84 @@ lane('simultaneous run admissions on a real server let exactly one in', async ()
   });
 });
 
+// The budget race (MMR-632): B's admission begins while A's is still open, and
+// A closes unsettled, charging its whole reservation, before B could insert.
+// Admission sums the day's charges in its own serialized transaction, so B is
+// refused and the day stays within its budget whichever way the two interleave.
+lane(
+  'an admission waiting on another sees its charge on a real server',
+  async () => {
+    await onFreshSchema(async (url) => {
+      const handle = openPostgres(url);
+      try {
+        await upgradeSchema(handle.db);
+        const runs = createRunStore({ db: handle.db, dialect: postgresDialect });
+        const since = '2000-01-01T00:00:00.000Z';
+        const budget = { dailyTokens: 10_000_000, since };
+        const admission = (id: string, dialect = postgresDialect) =>
+          createRunStore({ db: handle.db, dialect }).admit({
+            budget,
+            id,
+            kind: 'groom',
+            model: 'opus',
+            project: 'MMR',
+            reservedTokens: 4_000_000,
+            runner: `host-${id}`,
+            staleAfterMs: 60_000,
+            task: 'MMR-1',
+            trigger: 'console',
+          });
+        const unsettled = {
+          costEstimateUsd: null,
+          outcome: 'failed',
+          state: 'failed' as const,
+          usage: { cacheReadTokens: 0, cacheWriteTokens: 0, inputTokens: 0, outputTokens: 0 },
+          usageSettled: false,
+        };
+        // 4M already spent today.
+        await admission('spent');
+        await runs.close('spent', 'host-spent', unsettled);
+        for (let round = 0; round < 5; round += 1) {
+          // A's admission holds its transaction open until B's has started.
+          const { promise: bStarted, resolve: startB } = Promise.withResolvers<void>();
+          const { promise: aInside, resolve: enterA } = Promise.withResolvers<void>();
+          const holdsOpen: StoreDialect = {
+            ...postgresDialect,
+            write: (db, fn) =>
+              postgresDialect.write(db, async (tx) => {
+                const value = await fn(tx);
+                enterA();
+                await bStarted;
+                return value;
+              }),
+          };
+          const a = admission(`a${round}`, holdsOpen);
+          await aInside;
+          const b = admission(`b${round}`);
+          // Give B time to reach the database and wait there.
+          await Bun.sleep(50);
+          startB();
+          const admittedA = await a;
+          if (admittedA.admitted) {
+            await runs.close(`a${round}`, `host-a${round}`, unsettled);
+          }
+          const admittedB = await b;
+          expect([admittedA.admitted, admittedB.admitted].filter(Boolean)).toHaveLength(
+            round === 0 ? 1 : 0,
+          );
+          expect(await runs.tokensUsedSince(since)).toBeLessThanOrEqual(10_000_000);
+          if (admittedB.admitted) {
+            await runs.close(`b${round}`, `host-b${round}`, unsettled);
+          }
+        }
+      } finally {
+        await handle.close();
+      }
+    });
+  },
+  30_000,
+);
+
 // PGlite hands `bigint` back as a number, so only the real `pg` driver, which
 // returns int8 as a string, proves the run store converts token counts.
 lane('run token counts at and above 2^31 come back as numbers on a real server', async () => {
@@ -178,6 +258,7 @@ lane('run token counts at and above 2^31 come back as numbers on a real server',
       const runs = createRunStore({ db: handle.db, dialect: postgresDialect });
       const large = 2 ** 31 + 5;
       const admission = await runs.admit({
+        budget: { dailyTokens: Number.MAX_SAFE_INTEGER, since: '2000-01-01T00:00:00.000Z' },
         id: 'r1',
         kind: 'groom',
         model: 'opus',

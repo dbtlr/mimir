@@ -545,7 +545,8 @@ Agent runs let the host run a Claude agent against one task of its own
 board, such as grooming a `todo` task. The host runs the agent itself, on
 your own Claude subscription, as personal automation for the operator who
 deploys it (ADR 0041). The console cannot start a run yet; you can set the
-feature up now, and the host checks the settings at startup.
+feature up now, and the host checks the settings at startup and again before
+each run.
 
 Use a token from a personal Claude plan. A token from a Team or Enterprise
 organization makes Claude Code apply that organization's server-managed
@@ -558,7 +559,8 @@ settings to every run, and the host cannot detect or turn them off.
    file must be readable by that user.
 3. Set `MIMIR_HOSTS`. Agent runs stay off without Host filtering.
 4. Give `MIMIR_DATA_DIR` a writable directory. Each run keeps its Claude Code
-   configuration and temporary files there, under `agent/runs/`.
+   configuration and temporary files there, under `agent/runs/`. The host
+   deletes a run's directory when the run ends, so it keeps no transcripts.
 
 The host reads the token file at each use, so to rotate the token, replace
 the file. The console never accepts a token; when its agent view arrives, it
@@ -576,7 +578,7 @@ valid logs a warning that names the setting, and the host uses the default.
 | Variable | Meaning | Default |
 | --- | --- | --- |
 | `MIMIR_AGENT_DAILY_TOKENS` | The tokens agent runs may process in one day, counting input, cache reads, cache writes, and output across every model. | `10000000` |
-| `MIMIR_AGENT_RUN_TOKENS` | The most tokens one run may process. A value above the daily budget warns, and the host uses the daily budget. | `4000000` |
+| `MIMIR_AGENT_RUN_TOKENS` | The tokens the host reserves for one run when it starts, and the estimate at which it stops the run. A run's final usage total can still be higher; see [Know what the token budget counts](#know-what-the-token-budget-counts). A value above the daily budget warns, and the host uses the daily budget. | `4000000` |
 | `MIMIR_AGENT_MAX_TURNS` | The most turns one run may take. | `50` |
 | `MIMIR_AGENT_BUDGET_TIMEZONE` | The IANA time zone whose midnight starts a new budget day, such as `America/New_York`. Case does not matter: `utc` is stored as `UTC`. A UTC offset such as `+05:00` is not valid. | `UTC` |
 | `MIMIR_AGENT_MODEL` | The model a run asks for. | `claude-opus-5-5` |
@@ -585,10 +587,56 @@ valid logs a warning that names the setting, and the host uses the default.
 A run reads only the project's clone and reaches the board only through its
 run grant: reads within the task's project, and notes, a grooming state, and
 planning artifacts on the run's own task. It has no shell, write, or web
-tools. Once runs can start, the host will refuse to start one while Claude
-Code managed settings are present, such as
-`/etc/claude-code/managed-settings.json`, because they would apply to the run.
-The image carries none.
+tools. It may start read-only subagents, but never in the background.
+
+### Know what the token budget counts
+
+The host keeps its own count of the tokens agent runs process, because a
+`setup-token` token cannot read your plan's limits. A token is any input,
+cache read, cache write, or output token, on any model a run uses: the
+model you set, its subagents, and Claude Code's own background calls on
+other models.
+
+- **The day.** A budget day starts at midnight in
+  `MIMIR_AGENT_BUDGET_TIMEZONE` and resets at the next midnight there. A run
+  counts against the day it started in.
+- **Starting a run.** The host reserves `MIMIR_AGENT_RUN_TOKENS` for the run.
+  It refuses the run unless the day's usage plus that reservation fits
+  `MIMIR_AGENT_DAILY_TOKENS`. The check and the reservation are one database
+  transaction, so two starts at once, even from two hosts sharing a store,
+  cannot both fit a budget that only one fits.
+- **While a run works.** The host estimates the run's usage from the main
+  agent's streamed usage, plus an allowance for each turn's output and a
+  400,000-token allowance for each subagent it starts. It refuses a subagent
+  whose allowance does not fit the run's reservation, and it stops the run
+  when the estimate reaches the reservation. A run also stops after
+  `MIMIR_AGENT_MAX_TURNS` turns.
+- **When a run ends.** A run that ends with Claude Code's usage total counts
+  that total, which can be less or more than its reservation; a total past
+  the estimate is named in the run's outcome. A run that ends without a
+  total, because the host stopped it, it crashed, or its host stopped, counts
+  its reservation or its streamed usage, whichever is larger. A run whose
+  clone failed to sync counts nothing.
+
+The host refuses to start a run, and says why, when:
+
+- agent runs are not set up, or the API refused the token;
+- Claude Code managed settings are present, such as
+  `/etc/claude-code/managed-settings.json`, because they would apply to the
+  run (the image carries none);
+- the task is not a `todo` task in the project, or the project has no remote;
+- another run is running, because the host runs one at a time;
+- the day's budget cannot cover the run's reservation. The refusal names the
+  time the budget day resets. To run sooner, wait for the reset or raise
+  `MIMIR_AGENT_DAILY_TOKENS`.
+
+A clone that fails to sync is not a refusal. The run has already started, so
+it ends as a failed run whose outcome names the reason the sync failed.
+
+A host that stops while a run is running leaves the run's record behind.
+After two minutes without a heartbeat from its host, the run shows as stale,
+and the next host start or run start marks it interrupted. It then counts as
+a run that ended without a total.
 
 ## Administer the host with mimir-host
 

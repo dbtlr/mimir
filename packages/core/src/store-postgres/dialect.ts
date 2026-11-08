@@ -55,6 +55,13 @@ function isUniqueViolation(error: unknown): boolean {
 const UPGRADE_LOCK = 379_231_001;
 
 /**
+ * The advisory-lock key run admissions serialize on (ADR 0041), fixed forever
+ * like {@link UPGRADE_LOCK}, so every host process sharing the store excludes
+ * the others.
+ */
+const RUN_ADMISSION_LOCK = 379_231_002;
+
+/**
  * The probe SCANS `pg_class` rather than calling `to_regclass`. `to_regclass` is
  * a syscache lookup, and a negative lookup a connection already made can still
  * be cached when a later transaction on that same connection asks again — which
@@ -95,6 +102,14 @@ export const postgresDialect: StoreDialect = {
   hasSchemaVersionTable,
   isUniqueViolation,
   label: 'Postgres',
+  // A transaction-scoped advisory lock: a second admission waits here until
+  // the first commits or rolls back. Its SERIALIZABLE snapshot was taken at
+  // this statement, before the wait, so once the first admission has written
+  // a row the second fails serialization and `write` replays it on a fresh
+  // snapshot that sees that row.
+  lockRunAdmission: async (tx) => {
+    await sql`select pg_advisory_xact_lock(${RUN_ADMISSION_LOCK}::bigint)`.execute(tx);
+  },
   maxParameters: 65_535,
   migrations: {
     '0001_init': init,

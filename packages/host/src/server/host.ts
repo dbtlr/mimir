@@ -1,11 +1,15 @@
+import { randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { access, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { query } from '@anthropic-ai/claude-agent-sdk';
 import { buildStore, findingsProviderOf, LocalEngine, MimirError, SQLITE_FILE } from '@mimir/core';
 import { assertHostVersion, createEngineHandler } from '@mimir/wire/server';
 
-import { agentStartupWarnings } from './agent-settings';
+import { createAgentRunner, RUNNER_TIMING } from './agent-runner';
+import { agentStartupWarnings, createAgentConnection } from './agent-settings';
+import { syncClone } from './clones';
 import type { HostConfig } from './config';
 import { gitCredentialsWarnings } from './git-credentials';
 import { createPairingHandlers } from './pairing';
@@ -57,6 +61,28 @@ export async function openHost(
     ]) {
       log(warning);
     }
+    // A run whose runner stopped heartbeating, such as one a crashed container
+    // held, frees the slot here. A live run on an overlapping container keeps
+    // heartbeating, so boot alone never interrupts it (ADR 0041).
+    const interrupted = await built.runs.recoverStale(RUNNER_TIMING.staleAfterMs);
+    if (interrupted.length > 0) {
+      log(
+        `host: interrupted ${interrupted.length} agent run${interrupted.length === 1 ? '' : 's'} whose runner stopped heartbeating`,
+      );
+    }
+    // The agent runtime (ADR 0041): host-internal, started only by host server code.
+    const agent = createAgentRunner({
+      connection: createAgentConnection(),
+      engine,
+      gitCredentials: config.gitCredentials,
+      log,
+      query,
+      // One id per host process: the rows it admits are its own.
+      runnerId: randomUUID(),
+      runs: built.runs,
+      settings: config.agent,
+      syncClone,
+    });
     const t3 = createT3Adapter({
       engine,
       log,
@@ -65,6 +91,7 @@ export async function openHost(
       version,
     });
     return {
+      agent,
       close: built.close,
       // The record-health facet: a host concern, not an Engine method (ADR 0034).
       doctor: built.doctor.facet,
@@ -73,6 +100,8 @@ export async function openHost(
       handlePairingRequest: pairing.request,
       handleT3Callback: t3.callback,
       handleTrpc: createEngineHandler(engine, { verifyToken: built.tokens.verify, version }),
+      // Host-only run records (ADR 0041); never reached through the Engine or the wire.
+      runs: built.runs,
       // The T3 adapter: a host concern beside the Engine (ADR 0040).
       t3,
       tokens: built.tokens,

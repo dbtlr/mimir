@@ -424,3 +424,94 @@ test('a misconfigured agent runtime warns by setting name at boot and still open
     await host.close();
   }
 });
+
+test('the host interrupts a stale run at boot and exposes the runs and the agent runner', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-runs-'));
+  roots.push(root);
+  const config = await readHostConfig({ MIMIR_DATA_DIR: root });
+  const first = await openHost(config, '0.26.0', () => {});
+  await first.runs.admit({
+    budget: { dailyTokens: 1_000, since: '2000-01-01T00:00:00.000Z' },
+    id: 'dead-run',
+    kind: 'groom',
+    model: 'claude-opus-5-5',
+    project: 'TST',
+    reservedTokens: 100,
+    runner: 'old-container',
+    staleAfterMs: 1,
+    task: 'TST-1',
+    trigger: 'console',
+  });
+  // Its heartbeat ages past the stale window while no host runs.
+  await first.close();
+  const database = new Database(join(root, SQLITE_FILE));
+  database.run("UPDATE runs SET heartbeat_at = '2000-01-01T00:00:00.000Z'");
+  database.close();
+
+  const lines: string[] = [];
+  const host = await openHost(config, '0.26.0', (line) => lines.push(line));
+  try {
+    expect((await host.runs.get('dead-run'))?.state).toBe('interrupted');
+    expect(lines).toContain('host: interrupted 1 agent run whose runner stopped heartbeating');
+    expect(await host.agent.status()).toEqual({
+      agent: { state: 'unconfigured' },
+      budget: null,
+      running: null,
+    });
+    expect(
+      await host.agent.startRun({
+        brief: { prompt: 'p', systemPrompt: 's' },
+        kind: 'groom',
+        project: 'TST',
+        task: 'TST-1',
+        trigger: 'console',
+      }),
+    ).toEqual({ reason: 'unconfigured', started: false });
+  } finally {
+    await host.close();
+  }
+});
+
+test('a fresh host boot interrupts nothing', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-runs-'));
+  roots.push(root);
+  const lines: string[] = [];
+  const host = await openHost(await readHostConfig({ MIMIR_DATA_DIR: root }), '0.26.0', (line) =>
+    lines.push(line),
+  );
+  await host.close();
+  expect(lines.filter((line) => line.includes('agent run'))).toEqual([]);
+});
+
+test('a fresh run of another host survives boot and keeps the slot', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-runs-'));
+  roots.push(root);
+  const config = await readHostConfig({ MIMIR_DATA_DIR: root });
+  const first = await openHost(config, '0.26.0', () => {});
+  await first.runs.admit({
+    budget: { dailyTokens: 1_000, since: '2000-01-01T00:00:00.000Z' },
+    id: 'live-run',
+    kind: 'groom',
+    model: 'claude-opus-5-5',
+    project: 'TST',
+    reservedTokens: 100,
+    runner: 'overlapping-container',
+    staleAfterMs: 120_000,
+    task: 'TST-1',
+    trigger: 'console',
+  });
+  await first.close();
+
+  const lines: string[] = [];
+  const host = await openHost(config, '0.26.0', (line) => lines.push(line));
+  try {
+    expect(await host.runs.running()).toMatchObject({ id: 'live-run', state: 'running' });
+    expect(lines.filter((line) => line.includes('agent run'))).toEqual([]);
+    expect((await host.agent.status()).running).toMatchObject({
+      run: { id: 'live-run' },
+      stale: false,
+    });
+  } finally {
+    await host.close();
+  }
+});
