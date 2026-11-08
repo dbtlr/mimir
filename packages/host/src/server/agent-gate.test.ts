@@ -38,7 +38,28 @@ beforeAll(async () => {
   await symlink(join(outside, 'canary'), join(clone, 'escape-link'));
   await symlink(outside, join(clone, 'escape-dir'));
   await symlink(join(dataDirectory, 'git', 'ENG', 'config'), join(clone, 'git-link'));
+  // Real directories a commit can hold beside `escape-dir`: names the tools trim or
+  // normalize to `escape-dir`, so the gate would check the decoy while the tool searches the link.
+  for (const decoy of DECOYS) {
+    await mkdir(join(clone, decoy));
+  }
+  await mkdir(join(clone, NFD_NAME));
+  // Linux keeps the composed name apart; macOS already finds the decomposed one under it.
+  await mkdir(join(clone, 'caf\u00e9'), { recursive: true });
+  await mkdir(join(clone, 'bell\u0007dir'));
+  // A directory literally named `~`, which the tools would read as the run's home.
+  await mkdir(join(clone, '~'));
+  await writeFile(join(clone, '~', 'notes.txt'), 'notes');
+  // A sibling clone whose key extends this one's: clones/ENG must not reach clones/ENGX.
+  await mkdir(join(dataDirectory, 'clones', 'ENGX'));
+  await writeFile(join(dataDirectory, 'clones', 'ENGX', 'secret.txt'), 'other project');
 });
+
+/** Names the tools turn into `escape-dir` by trimming whitespace. */
+const DECOYS = ['escape-dir ', ' escape-dir', 'escape-dir\t', 'escape-dir\u00a0'];
+
+/** `café` in decomposed form; the tools search its composed (NFC) spelling. */
+const NFD_NAME = 'cafe\u0301';
 
 afterAll(async () => {
   await rm(root, { force: true, recursive: true });
@@ -165,6 +186,47 @@ test('a path that does not resolve is denied', async () => {
   expect(await decide(hook, 'Read', {})).toBe('deny');
   expect(await decide(hook, 'Read', null)).toBe('deny');
   expect(await decide(hook, 'Read', [join(clone, 'README.md')])).toBe('deny');
+});
+
+test('a path the tools would trim or normalize to another name is denied', async () => {
+  const { hook } = gate();
+  for (const decoy of DECOYS) {
+    expect(await decide(hook, 'Grep', { path: decoy, pattern: 'secret' })).toBe('deny');
+    expect(await decide(hook, 'Glob', { path: decoy, pattern: '*' })).toBe('deny');
+    expect(await decide(hook, 'Read', { file_path: `${decoy}/canary` })).toBe('deny');
+  }
+  expect(await decide(hook, 'Grep', { path: NFD_NAME, pattern: 'secret' })).toBe('deny');
+  expect(await decide(hook, 'Glob', { path: join(clone, NFD_NAME), pattern: '*' })).toBe('deny');
+  // The same directory under its composed name is an ordinary path in the clone.
+  expect(await decide(hook, 'Grep', { path: 'caf\u00e9', pattern: 'secret' })).toBe('allow');
+});
+
+test('a path holding a control character is denied', async () => {
+  const { hook } = gate();
+  expect(await decide(hook, 'Grep', { path: 'bell\u0007dir', pattern: 'x' })).toBe('deny');
+  expect(await decide(hook, 'Glob', { path: 'src\n', pattern: '*' })).toBe('deny');
+});
+
+test('a path starting with ~ is denied even when the clone holds a directory named ~', async () => {
+  const { hook } = gate();
+  expect(await decide(hook, 'Read', { file_path: '~/notes.txt' })).toBe('deny');
+  expect(await decide(hook, 'Grep', { path: '~', pattern: 'notes' })).toBe('deny');
+  expect(await decide(hook, 'Glob', { path: '~', pattern: '*' })).toBe('deny');
+});
+
+test('a clone does not reach a sibling clone whose name extends its own', async () => {
+  const { hook } = gate();
+  const sibling = join(dataDirectory, 'clones', 'ENGX', 'secret.txt');
+  expect(await decide(hook, 'Read', { file_path: sibling })).toBe('deny');
+  expect(await decide(hook, 'Grep', { path: '../ENGX', pattern: 'project' })).toBe('deny');
+});
+
+test('a glob pattern the tools would trim or normalize is denied', async () => {
+  const { hook } = gate();
+  for (const pattern of [` ${outside}/*`, '*.ts ', '\t**/*', `${NFD_NAME}/*`, 'src/\u0007*']) {
+    expect(await decide(hook, 'Glob', { pattern })).toBe('deny');
+    expect(await decide(hook, 'Grep', { glob: pattern, pattern: 'x' })).toBe('deny');
+  }
 });
 
 test('glob patterns that are absolute or climb are denied', async () => {

@@ -81,6 +81,33 @@ function within(path: string, directory: string): boolean {
   );
 }
 
+/*
+ * Control characters (Unicode Cc: C0, DEL, and C1). No path a run needs holds
+ * one, and a name that does could print as another name in a transcript.
+ */
+const CONTROL_CHARACTER = /\p{Cc}/u;
+
+/**
+ * Why a path or pattern is not in the one spelling the tools act on, or
+ * undefined when it is. Claude Code (2.1.318, its path expansion) trims a Glob
+ * or Grep path and NFC-normalizes it after this hook decides, so the gate
+ * would resolve `escape-dir ` (a real directory) while the tool searched the
+ * symlink `escape-dir`. Read's file_path arrives already expanded. Requiring
+ * the canonical spelling makes the gate and the tool name the same file.
+ */
+function notCanonical(value: string): string | undefined {
+  if (CONTROL_CHARACTER.test(value)) {
+    return 'holds a control character';
+  }
+  if (value !== value.trim()) {
+    return 'starts or ends with white space';
+  }
+  if (value !== value.normalize('NFC')) {
+    return 'is not in Unicode composed form (NFC)';
+  }
+  return undefined;
+}
+
 /** Whether a glob could name a file outside its search root: absolute, home-relative, or climbing. */
 function escapingGlob(pattern: string): boolean {
   if (isAbsolute(pattern) || pattern.startsWith('~') || pattern.startsWith('\\')) {
@@ -100,6 +127,10 @@ type Roots = { clone: string; forbidden: string[] };
 async function checkPath(value: unknown, roots: Roots, name: string): Promise<Decision> {
   if (typeof value !== 'string' || value === '' || value.includes('\0')) {
     return deny(`${name} must be a path inside the clone`);
+  }
+  const spelling = notCanonical(value);
+  if (spelling !== undefined) {
+    return deny(`${name} ${spelling}`);
   }
   if (value.startsWith('~')) {
     return deny(`${name} must not name a home directory`);
@@ -138,10 +169,13 @@ async function decideRead(
   }
   const pattern = tool === 'Glob' ? args.pattern : args.glob;
   if (tool === 'Glob' || pattern !== undefined) {
+    const name = tool === 'Glob' ? 'pattern' : 'glob';
     if (typeof pattern !== 'string' || escapingGlob(pattern)) {
-      return deny(
-        `${tool === 'Glob' ? 'pattern' : 'glob'} must be a relative pattern that stays in its path`,
-      );
+      return deny(`${name} must be a relative pattern that stays in its path`);
+    }
+    const spelling = notCanonical(pattern);
+    if (spelling !== undefined) {
+      return deny(`${name} ${spelling}`);
     }
   }
   // An omitted path searches the clone itself.
