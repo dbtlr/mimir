@@ -848,7 +848,8 @@ describe('in flight', () => {
       async function* script() {
         yield assistant('msg_1', { input: 100, output: 10 });
         yield assistant('msg_2', { input: 200, output: 20 });
-        yield result({ modelUsage: modelUsage(300, 30) });
+        // A valid settled total, larger than what streamed, whose close then fails.
+        yield result({ modelUsage: { [MODEL]: modelUsage(400, 40) } });
       },
       { runs: faulting },
     );
