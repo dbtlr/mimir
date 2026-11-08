@@ -69,6 +69,12 @@ export type RunStore = {
   get: (id: string) => Promise<Run | undefined>;
   /** The run holding the single running slot, if any. */
   running: () => Promise<Run | undefined>;
+  /**
+   * The tokens charged to runs that started at or after `since`, an ISO
+   * instant: each run counts {@link chargedTokens}. The host's daily budget
+   * reads this with the instant its budget day began.
+   */
+  tokensUsedSince: (since: string) => Promise<number>;
 };
 
 const usageColumns = (usage: RunUsage) => ({
@@ -107,6 +113,22 @@ const assertStaleWindow = (staleAfterMs: number) => {
     );
   }
 };
+
+/** A run's tokens processed: input, cache reads, cache writes, and output. */
+const usageTotal = (run: Run) =>
+  run.input_tokens + run.cache_read_tokens + run.cache_write_tokens + run.output_tokens;
+
+/**
+ * What a run charges against the daily budget (ADR 0041, "The budget is a
+ * token count Mimir keeps"). A settled run counts its settled total, which
+ * replaces the reservation. A running run, and a closed run whose usage never
+ * settled (interrupted, or failed with no valid total), counts its
+ * reservation or its streamed usage, whichever is larger.
+ */
+export function chargedTokens(run: Run): number {
+  const used = usageTotal(run);
+  return run.state !== 'running' && run.usage_settled ? used : Math.max(run.reserved_tokens, used);
+}
 
 /** The run rows over one store handle. */
 export function createRunStore({
@@ -249,5 +271,18 @@ export function createRunStore({
       return (await dialect.write(db, (tx) => markStale(tx, staleAfterMs))).map((row) => row.id);
     },
     running,
+    tokensUsedSince: async (since) => {
+      const at = new Date(since).getTime();
+      if (Number.isNaN(at)) {
+        throw validation(`since must be an ISO instant, got ${since}`);
+      }
+      // Stored instants are canonical ISO strings, so text order is time order.
+      const rows = await db
+        .selectFrom('runs')
+        .selectAll()
+        .where('started_at', '>=', instant(at))
+        .execute();
+      return rows.reduce((sum, row) => sum + chargedTokens(toRun(row)), 0);
+    },
   };
 }

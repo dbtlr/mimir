@@ -296,7 +296,7 @@ test('the main agent may spawn the reader, charging the allowance once per spawn
   const { hook, spawns } = gate();
   const spawn = { description: 'survey', prompt: 'read src', subagent_type: 'reader' };
   expect(await decide(hook, 'Agent', spawn)).toBe('allow');
-  expect(await decide(hook, 'Task', { ...spawn, run_in_background: true })).toBe('allow');
+  expect(await decide(hook, 'Task', { ...spawn, run_in_background: false })).toBe('allow');
   expect(spawns.charged).toBe(2);
 });
 
@@ -310,6 +310,9 @@ test('a spawn from a subagent, of another agent type, or with overrides is denie
   expect(await decide(hook, 'Agent', { ...spawn, isolation: 'remote' })).toBe('deny');
   expect(await decide(hook, 'Agent', { ...spawn, mode: 'bypassPermissions' })).toBe('deny');
   expect(await decide(hook, 'Agent', { ...spawn, model: 'fable' })).toBe('deny');
+  // A background subagent can outlive the result message and escape settlement.
+  expect(await decide(hook, 'Agent', { ...spawn, run_in_background: true })).toBe('deny');
+  expect(await decide(hook, 'Agent', { ...spawn, run_in_background: 'true' })).toBe('deny');
   expect(spawns.charged).toBe(0);
 });
 

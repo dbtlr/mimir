@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 
 import { createProject } from './create';
-import { createRunStore } from './runs';
-import type { AdmitRun, RunUsage } from './runs';
+import { chargedTokens, createRunStore } from './runs';
+import type { AdmitRun, Run, RunUsage } from './runs';
 import { postgresDialect } from './store-postgres/dialect';
 import { createPgliteTestStore } from './store-postgres/testing';
 import { sqliteDialect } from './store-sqlite/dialect';
@@ -36,6 +36,64 @@ const admission = (id: string, runner = 'host-a'): AdmitRun => ({
   staleAfterMs: STALE_MS,
   task: 'MMR-1',
   trigger: 'console',
+});
+
+/** A run row with every count zero, for the charge arithmetic. */
+const runRow = (fields: Partial<Run>): Run => ({
+  cache_read_tokens: 0,
+  cache_write_tokens: 0,
+  cost_estimate_usd: null,
+  ended_at: null,
+  heartbeat_at: '2026-11-01T12:00:00.000Z',
+  id: 'r',
+  input_tokens: 0,
+  kind: 'groom',
+  model: 'opus',
+  outcome: null,
+  output_tokens: 0,
+  project: 'MMR',
+  reserved_tokens: 0,
+  runner: 'host-a',
+  started_at: '2026-11-01T12:00:00.000Z',
+  state: 'running',
+  task: 'MMR-1',
+  trigger: 'console',
+  usage_settled: false,
+  ...fields,
+});
+
+describe('chargedTokens', () => {
+  const streamed = {
+    cache_read_tokens: 20,
+    cache_write_tokens: 5,
+    input_tokens: 100,
+    output_tokens: 50,
+  };
+
+  test('a settled run counts its settled total, below or above its reservation', () => {
+    expect(
+      chargedTokens(
+        runRow({ ...streamed, reserved_tokens: 1000, state: 'succeeded', usage_settled: true }),
+      ),
+    ).toBe(175);
+    expect(
+      chargedTokens(
+        runRow({ ...streamed, reserved_tokens: 10, state: 'failed', usage_settled: true }),
+      ),
+    ).toBe(175);
+  });
+
+  test('a running run counts the larger of its reservation and its streamed usage', () => {
+    expect(chargedTokens(runRow({ ...streamed, reserved_tokens: 1000 }))).toBe(1000);
+    expect(chargedTokens(runRow({ ...streamed, reserved_tokens: 100 }))).toBe(175);
+  });
+
+  test('a closed run whose usage never settled counts the larger of reservation and streamed usage', () => {
+    for (const state of ['interrupted', 'failed', 'cancelled'] as const) {
+      expect(chargedTokens(runRow({ ...streamed, reserved_tokens: 1000, state }))).toBe(1000);
+      expect(chargedTokens(runRow({ ...streamed, reserved_tokens: 1, state }))).toBe(175);
+    }
+  });
 });
 
 describe.each([
@@ -399,5 +457,57 @@ describe.each([
     await target.store.import(document, { dryRun: false, mode: 'fresh' });
     expect((await target.runs.running())?.id).toBe('target-run');
     expect(await target.runs.get('source-run')).toBeUndefined();
+  });
+
+  test('usage since an instant counts runs started at or after the instant, each by its charge', async () => {
+    const { advance, runs } = await fixture();
+    // Started before the day: never counted.
+    await runs.admit(admission('yesterday'));
+    await runs.close('yesterday', 'host-a', {
+      costEstimateUsd: null,
+      outcome: 'done',
+      state: 'succeeded',
+      usage: USAGE,
+      usageSettled: true,
+    });
+    advance(60_000);
+    const dayStart = '2026-11-01T12:01:00.000Z';
+    // Settled: its total, 175, below its 1000 reservation.
+    await runs.admit(admission('settled'));
+    await runs.close('settled', 'host-a', {
+      costEstimateUsd: 0.1,
+      outcome: 'done',
+      state: 'succeeded',
+      usage: USAGE,
+      usageSettled: true,
+    });
+    // Failed without a valid total: max(1000 reserved, 175 streamed).
+    await runs.admit(admission('unsettled'));
+    await runs.close('unsettled', 'host-a', {
+      costEstimateUsd: null,
+      outcome: 'aborted',
+      state: 'failed',
+      usage: USAGE,
+      usageSettled: false,
+    });
+    // Interrupted by stale recovery with streamed usage above its reservation: 2000.
+    await runs.admit({ ...admission('stale'), reservedTokens: 10 });
+    await runs.recordUsage('stale', 'host-a', { ...USAGE, inputTokens: 1925 });
+    advance(STALE_MS + 1);
+    expect(await runs.recoverStale(STALE_MS)).toEqual(['stale']);
+    // Running: max(1000 reserved, 175 streamed).
+    await runs.admit(admission('live'));
+    await runs.recordUsage('live', 'host-a', USAGE);
+    expect(await runs.tokensUsedSince(dayStart)).toBe(175 + 1000 + 2000 + 1000);
+    // The instant is canonicalized, so another spelling of it counts the same runs.
+    expect(await runs.tokensUsedSince('2026-11-01T07:01:00-05:00')).toBe(4175);
+    expect(await runs.tokensUsedSince('2026-11-02T00:00:00.000Z')).toBe(0);
+  });
+
+  test('usage since refuses an instant that is not a date', async () => {
+    const { runs } = await fixture();
+    expect(await failureOf(runs.tokensUsedSince('yesterday'))).toMatchObject({
+      code: 'validation',
+    });
   });
 });

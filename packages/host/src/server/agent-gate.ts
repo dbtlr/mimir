@@ -198,6 +198,11 @@ function decideSpawn(input: unknown, fromSubagent: boolean, options: AgentGateOp
   if (args.subagent_type !== options.readerAgentName) {
     return deny(`only the ${options.readerAgentName} agent may be started`);
   }
+  // A background subagent can outlive the run's result message, so its usage
+  // would escape settlement. Only an explicit false is taken as foreground.
+  if (args.run_in_background !== undefined && args.run_in_background !== false) {
+    return deny('a subagent in an agent run cannot run in the background');
+  }
   // Charged last, so a spawn denied for any other reason costs nothing.
   return options.chargeSpawn()
     ? allow('a reader subagent within the run budget')

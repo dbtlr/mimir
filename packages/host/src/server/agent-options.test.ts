@@ -12,6 +12,7 @@ import {
   MANAGED_POLICY_PATHS,
   presentManagedPolicy,
   READER_AGENT,
+  READER_MAX_TURNS,
   runDirectoryFor,
 } from './agent-options';
 import type { RunOptionsInput } from './agent-options';
@@ -114,7 +115,9 @@ test('the reader agent has the read tools only and no MCP tools', () => {
   const { agents } = buildRunOptions(input());
   expect(Object.keys(agents ?? {})).toEqual([READER_AGENT]);
   expect(agents?.[READER_AGENT]).toMatchObject({
+    background: false,
     disallowedTools: ['mcp__*'],
+    maxTurns: READER_MAX_TURNS,
     tools: ['Read', 'Grep', 'Glob'],
   });
   expect(agents?.[READER_AGENT]?.mcpServers).toBeUndefined();
