@@ -234,7 +234,7 @@ export type MarkdownClamp = 2 | 3 | 6;
  *
  * `images` loads markdown images. Without it an image renders as a link to its
  * URL, so a body written by an agent cannot make the console fetch a remote
- * address; only the artifact reader and the artifact page opt in.
+ * address; only the artifact page's reader opts in.
  */
 export function MarkdownBody({
   children,

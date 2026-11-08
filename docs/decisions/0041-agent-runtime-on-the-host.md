@@ -382,3 +382,33 @@ link to anything under `<MIMIR_DATA_DIR>/git`, and never creates a hardlink
 to a file the host owns: a hardlink to a clone's git config would let a
 planted filter run on the host at the next sync. The runner also never starts
 a run on a clone whose sync failed.
+
+## Refinement (2026-11-08, MMR-632): a grooming run may attach planning artifacts
+
+"A grooming run's only writes are `annotate` and `groom` on its own task"
+(The decision, "Board access is a run grant") widens to a third write:
+`attach`, so a run can leave a planning document, such as a survey of the
+code or a proposed breakdown, that is too long for a note. An artifact is
+anchored to its project (ADR 0004), so the grant's write scope reads: writes
+to the run's own task, or new records linked only to it. The run grant's
+`attach` holds that scope:
+
+- the agent supplies the artifact's title, summary, and content, and nothing
+  else;
+- the grant always creates the artifact in the run's project, linked to the
+  run's own task and to no other record, and tagged `plan`;
+- a call that passes links, tags, or a project is refused whole;
+- a call whose title, summary, or content contains markdown image syntax
+  (`![`) is refused whole, because the console's artifact pages load images
+  and an injected image URL would send what the run read to a remote
+  address; notes and descriptions already render images as links;
+- content is capped in size, and a run creates a bounded number of artifacts.
+
+An artifact's content is frozen, and the grant exposes no `updateArtifact`.
+Each `attach` first checks the run's row, like the grant's other writes. Like `annotate`
+and `groom`, `attach` carries no handles, so the run row, by its task and
+time window, is the provenance of a run's artifacts; the `plan` tag is shared
+with people's own planning artifacts and does not mark one as a run's.
+Prompt injection's worst case grows by a misleading planning artifact on the
+run's own task. Artifacts cannot be deleted, so the operator sees it beside
+the run's notes and corrects it with a note on the task or a retitle.
