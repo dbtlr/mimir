@@ -820,6 +820,48 @@ describe('in flight', () => {
     expect(await chargedToday()).toBe(0);
   });
 
+  test('an API error other than a refused token leaves the token connected', async () => {
+    for (const error of ['rate_limit', 'server_error', 'overloaded', 'unknown']) {
+      const { runner: created } = runner(async function* script() {
+        yield assistant(`msg_${error}`, { input: 0, output: 0 }, { error });
+        yield result({ is_error: true, modelUsage: {}, result: `API error: ${error}` });
+      });
+      const outcome = await (await started(created)).finished;
+      expect(outcome.state).toBe('failed');
+      expect((await agentState(settings(), connection)).state).not.toBe('disconnected');
+    }
+  });
+
+  test('a fault after turns were metered records streamed usage, not the allowances', async () => {
+    let closes = 0;
+    const faulting: RunStore = {
+      ...runs,
+      close: async (id, owner, closing) => {
+        closes += 1;
+        if (closes === 1) {
+          throw new Error('the store went away');
+        }
+        return runs.close(id, owner, closing);
+      },
+    };
+    const { runner: created } = runner(
+      async function* script() {
+        yield assistant('msg_1', { input: 100, output: 10 });
+        yield assistant('msg_2', { input: 200, output: 20 });
+        yield result({ modelUsage: modelUsage(300, 30) });
+      },
+      { runs: faulting },
+    );
+    const start = await started(created);
+    const outcome = await start.finished;
+    expect(outcome.state).toBe('failed');
+    expect(outcome.outcome).toContain('faulted');
+    const row = await runs.get(start.runId);
+    // The per-turn output allowance feeds only the ceiling; the row keeps what streamed.
+    expect(row?.output_tokens).toBe(30);
+    expect(row?.input_tokens).toBe(300);
+  });
+
   test('admission sweeps run directories left by runs that are no longer running', async () => {
     const orphan = join(dataDirectory, 'agent', 'runs', 'old-run');
     await mkdir(join(orphan, 'config'), { recursive: true });
