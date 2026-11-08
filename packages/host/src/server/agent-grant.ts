@@ -26,6 +26,22 @@ export const GRANT_TOOLS = [
   'attach',
 ] as const;
 
+/**
+ * The Engine treats a query shaped like an id or a bare key (`OTH-3`, `oth`)
+ * as a lookup in any project, and falls back to text search only when it names
+ * nothing (core's `search/intent.ts`). The grant filters a foreign hit out, so
+ * an empty answer would tell the run that the foreign record exists. A query
+ * that would look outside the project is repeated once, which text search
+ * reads as the same terms but the id lookup does not match, so the answer is
+ * the project's own text search whether or not the foreign record exists.
+ */
+const ID_SHAPED = /^([a-z]{2,4})(?:-[as]?\d+)?$/i;
+function textOnlyOutside(project: string, query: string): string {
+  const trimmed = query.trim();
+  const key = ID_SHAPED.exec(trimmed)?.[1]?.toUpperCase();
+  return key !== undefined && key !== project ? `${trimmed} ${trimmed}` : query;
+}
+
 /** The full names the gate allows from the main agent. */
 export const grantToolNames: readonly string[] = GRANT_TOOLS.map(
   (name) => `mcp__${GRANT_SERVER}__${name}`,
@@ -176,6 +192,7 @@ function refusalText(error: unknown): string {
 export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWithInstance {
   const { engine, project, task } = options;
   const inProject = (record: string) => record === project || record.startsWith(`${project}-`);
+  const withinProject = (query: string) => textOnlyOutside(project, query);
   let attached = 0;
   let attaching = 0;
 
@@ -312,7 +329,7 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
       `Search the records of ${project} by id, title, or description.`,
       searchInput,
       async (args) => {
-        const set = await engine.search({ ...args, project });
+        const set = await engine.search({ ...args, project, query: withinProject(args.query) });
         // A link hit names which record links the match, and an id query can reach
         // another project, so only direct in-project hits are kept and counted.
         const items = set.items.filter(

@@ -550,3 +550,23 @@ test('no other Engine verb is reachable', async () => {
     expect((await call(name, { id: task })).refused).toBe(true);
   }
 });
+
+test("search answers the same whether another project's id or key exists or not", async () => {
+  const { call } = await grant(await newTask());
+  // The run plants a title naming real and made-up foreign ids, then probes with them.
+  json(
+    await call('attach', {
+      content: 'probe',
+      title: `Notes on ${other.task} OTH-999 ${other.seed} OTH-s999 OTH ZZZ`,
+    }),
+  );
+  const answer = async (query: string) => json(await call('search', { query })).items;
+  expect(await answer(other.task)).toEqual(await answer('OTH-999'));
+  expect(await answer(other.seed)).toEqual(await answer('OTH-s999'));
+  // A bare key gets the project's text search for that word, as a made-up key does.
+  expect(await answer('OTH')).toEqual(await answer('OTH OTH'));
+  expect(await answer('ZZZ')).toEqual(await answer('ZZZ ZZZ'));
+  expect(await answer(other.task.toLowerCase())).toEqual(await answer('oth-999'));
+  // The probe title is still found, so the answer is the project's own text search.
+  expect((await answer('ZZZ')).length).toBe(1);
+});
