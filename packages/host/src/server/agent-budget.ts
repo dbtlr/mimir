@@ -1,7 +1,7 @@
 /*
  * The daily token budget's arithmetic (ADR 0041, "The budget is a token count
- * Mimir keeps"). Pure functions: the runner reads the day's usage from the
- * runs table and decides here.
+ * Mimir keeps"). Pure functions: the budget day and what is left of it.
+ * Admission itself checks the budget, inside its write (`RunStore.admit`).
  */
 
 /** One budget day: its first instant and the instant the next one starts. */
@@ -64,15 +64,6 @@ export function budgetDay(now: Date, timezone: string): BudgetDay {
     resetsAt: startOfDate(year, month, day + 1, timezone),
     startedAt: startOfDate(year, month, day, timezone),
   };
-}
-
-/** Whether a run's ceiling fits what is left of the day's budget. */
-export function budgetFits(input: {
-  dailyTokens: number;
-  runTokens: number;
-  usedTokens: number;
-}): boolean {
-  return input.usedTokens + input.runTokens <= input.dailyTokens;
 }
 
 /** What is left of the day's budget; zero once a run has overrun it. */

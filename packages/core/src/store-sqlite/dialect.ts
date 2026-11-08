@@ -101,6 +101,9 @@ export const sqliteDialect: StoreDialect = {
   },
   isUniqueViolation,
   label: 'SQLite',
+  // A write transaction already holds the database's one write lock from
+  // `BEGIN IMMEDIATE` (see ./driver), so no other admission can interleave.
+  lockRunAdmission: async () => {},
   // SQLITE_MAX_VARIABLE_NUMBER's default since SQLite 3.32.
   maxParameters: 32_766,
   migrations: {

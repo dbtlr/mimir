@@ -27,6 +27,8 @@ const USAGE: RunUsage = {
 };
 
 const admission = (id: string, runner = 'host-a'): AdmitRun => ({
+  // A budget no test reaches unless it sets its own.
+  budget: { dailyTokens: Number.MAX_SAFE_INTEGER, since: '2026-11-01T00:00:00.000Z' },
   id,
   kind: 'groom',
   model: 'opus',
@@ -140,8 +142,7 @@ describe.each([
     const { runs } = await fixture();
     await runs.admit(admission('r1'));
     const second = await runs.admit(admission('r2', 'host-b'));
-    expect(second.admitted).toBe(false);
-    expect(second.admitted ? undefined : second.running.id).toBe('r1');
+    expect(second).toMatchObject({ admitted: false, reason: 'busy', running: { id: 'r1' } });
     expect(await runs.get('r2')).toBeUndefined();
   });
 
@@ -433,7 +434,7 @@ describe.each([
     expect(await runs.recoverStale(STALE_MS)).toEqual(['r1']);
   });
 
-  test('admission reports a conflict when the slot holder ended before it could be read', async () => {
+  test('admission reports busy, with no holder, when the slot holder ended before it could be read', async () => {
     const { db } = await fixture();
     const raced = {
       ...dialect,
@@ -441,7 +442,89 @@ describe.each([
       write: () => Promise.reject(new Error('slot taken')),
     };
     const runs = createRunStore({ db, dialect: raced });
-    expect(await failureOf(runs.admit(admission('r1')))).toMatchObject({ code: 'conflict' });
+    expect(await runs.admit(admission('r1'))).toEqual({
+      admitted: false,
+      reason: 'busy',
+      running: null,
+    });
+  });
+
+  test('admission refuses a reservation that does not fit the day, counting each run by its charge', async () => {
+    const { advance, runs } = await fixture();
+    const day = { dailyTokens: 3_000, since: '2026-11-01T12:00:00.000Z' };
+    // Settled at 175, below its 1000 reservation.
+    await runs.admit({ ...admission('settled'), budget: day });
+    await runs.close('settled', 'host-a', {
+      costEstimateUsd: null,
+      outcome: 'done',
+      state: 'succeeded',
+      usage: USAGE,
+      usageSettled: true,
+    });
+    // Failed with no valid total: its 1000 reservation.
+    await runs.admit({ ...admission('unsettled'), budget: day });
+    await runs.close('unsettled', 'host-a', {
+      costEstimateUsd: null,
+      outcome: 'aborted',
+      state: 'failed',
+      usage: USAGE,
+      usageSettled: false,
+    });
+    advance(1_000);
+    // 1175 used: a 1825 reservation fits exactly, one more token does not.
+    expect(await runs.admit({ ...admission('over'), budget: day, reservedTokens: 1_826 })).toEqual({
+      admitted: false,
+      reason: 'budget',
+      used: 1_175,
+    });
+    expect(await runs.get('over')).toBeUndefined();
+    expect(
+      (await runs.admit({ ...admission('fits'), budget: day, reservedTokens: 1_825 })).admitted,
+    ).toBe(true);
+    // Only runs started at or after the day's start count.
+    await runs.close('fits', 'host-a', {
+      costEstimateUsd: null,
+      outcome: 'done',
+      state: 'succeeded',
+      usage: USAGE,
+      usageSettled: true,
+    });
+    const tomorrow = { dailyTokens: 3_000, since: '2026-11-01T12:00:01.001Z' };
+    expect(
+      (await runs.admit({ ...admission('next'), budget: tomorrow, reservedTokens: 3_000 }))
+        .admitted,
+    ).toBe(true);
+  });
+
+  test('a running run is reported busy, not as a budget refusal, even when the day is spent', async () => {
+    const { runs } = await fixture();
+    const day = { dailyTokens: 1_000, since: '2026-11-01T00:00:00.000Z' };
+    await runs.admit({ ...admission('r1'), budget: day });
+    expect(await runs.admit({ ...admission('r2', 'host-b'), budget: day })).toMatchObject({
+      admitted: false,
+      reason: 'busy',
+      running: { id: 'r1' },
+    });
+  });
+
+  test('admission refuses a budget that is not a token count or a day start that is not an instant', async () => {
+    const { runs } = await fixture();
+    for (const dailyTokens of [-1, 1.5, Number.NaN]) {
+      expect(
+        await failureOf(
+          runs.admit({
+            ...admission('r1'),
+            budget: { dailyTokens, since: '2026-11-01T00:00:00Z' },
+          }),
+        ),
+      ).toMatchObject({ code: 'validation' });
+    }
+    expect(
+      await failureOf(
+        runs.admit({ ...admission('r1'), budget: { dailyTokens: 1, since: 'yesterday' } }),
+      ),
+    ).toMatchObject({ code: 'validation' });
+    expect(await runs.get('r1')).toBeUndefined();
   });
 
   test('runs stay out of the transfer document, and an import leaves them intact', async () => {

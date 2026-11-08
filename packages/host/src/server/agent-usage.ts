@@ -8,12 +8,15 @@ import type { RunUsage } from '@mimir/core';
  */
 
 /**
- * Added once per main-loop turn. Streamed output counts are placeholders (the
- * spike saw 1 to a few tokens where the turn wrote thousands), so the meter
- * assumes each turn writes up to this many. 8k covers a turn that writes the
- * longest note the run grant takes (20k characters, about 5k tokens) with
- * room for thinking; at the default 50 turns it is 400k, a tenth of the
- * default run ceiling. Settlement replaces the estimate either way.
+ * Added once per main-loop turn. Streamed output counts fall short of what a
+ * turn writes (the spike streamed 86 output tokens against a settled 290), so
+ * the meter assumes each turn writes up to this many. 8k covers a turn that
+ * writes the longest note the run grant takes (20k characters, about 5k
+ * tokens) with room for thinking. A turn that writes more, such as an attach
+ * of up to 100k characters (about 25k tokens), is not covered in flight; it
+ * is caught at settlement, which counts it as an overrun against the day and
+ * names it in the run's outcome. At the default 50 turns the allowance is
+ * 400k, a tenth of the default run ceiling.
  */
 export const PER_TURN_OUTPUT_ALLOWANCE = 8_000;
 
@@ -29,7 +32,8 @@ export function usageTotal(usage: RunUsage): number {
   return usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens + usage.outputTokens;
 }
 
-const NO_USAGE: RunUsage = {
+/** A usage of zero tokens. */
+export const NO_USAGE: RunUsage = {
   cacheReadTokens: 0,
   cacheWriteTokens: 0,
   inputTokens: 0,
@@ -78,14 +82,15 @@ export type UsageMeterOptions = {
 
 /** A run's in-flight usage estimate. */
 export type UsageMeter = {
-  /** Count a streamed message: only the main loop's assistant turns, once per message id. */
+  /**
+   * Count a streamed message: only the main loop's assistant turns, once per
+   * message id. A message with no id counts as a turn of its own.
+   */
   observe: (message: SDKMessage) => void;
   /** Charge one subagent's allowance; false, and nothing charged, when it does not fit the ceiling. */
   chargeSpawn: () => boolean;
-  /** The main loop's streamed usage, without allowances. */
+  /** The main loop's streamed usage, without allowances: what the run's row records. */
   streamed: () => RunUsage;
-  /** The estimate as row counts: the allowances ride in output, since they stand for output not yet counted. */
-  usage: () => RunUsage;
   /** The estimate's tokens: streamed usage plus every allowance. */
   total: () => number;
   /** Whether the estimate has reached the ceiling. */
@@ -96,7 +101,8 @@ export type UsageMeter = {
 
 /** A fresh meter for one run. */
 export function createUsageMeter(options: UsageMeterOptions): UsageMeter {
-  const turns = new Map<string, RunUsage>();
+  // Keyed by message id; a message with no id gets a key of its own.
+  const turns = new Map<string | symbol, RunUsage>();
   let spawns = 0;
   const streamed = () => [...turns.values()].reduce(sum, NO_USAGE);
   const allowances = () =>
@@ -119,20 +125,18 @@ export function createUsageMeter(options: UsageMeterOptions): UsageMeter {
       ) {
         return;
       }
-      const { id } = message.message;
-      // Messages of one API turn share its id and repeat its usage.
-      const seen = turns.get(id);
+      // Messages of one API turn share its id and repeat its usage. Merging
+      // messages with no id could hide turns, so each counts on its own.
+      const { id } = message.message as { id?: unknown };
+      const key = typeof id === 'string' && id !== '' ? id : Symbol('no message id');
+      const seen = turns.get(key);
       const used = messageUsage(message.message.usage);
-      turns.set(id, seen === undefined ? used : larger(seen, used));
+      turns.set(key, seen === undefined ? used : larger(seen, used));
     },
     reachedCeiling: () => total() >= options.ceiling,
     spawns: () => spawns,
     streamed,
     total,
-    usage: () => {
-      const main = streamed();
-      return { ...main, outputTokens: main.outputTokens + allowances() };
-    },
   };
 }
 

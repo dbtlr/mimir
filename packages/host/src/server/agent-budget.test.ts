@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { budgetDay, budgetFits, remainingTokens } from './agent-budget';
+import { budgetDay, remainingTokens } from './agent-budget';
 
 /*
  * The budget day (ADR 0041): it starts at midnight in
@@ -66,14 +66,6 @@ describe('budgetDay', () => {
     expect(budgetDay(at('2026-12-31T23:00:00Z'), 'UTC').resetsAt).toEqual(
       at('2027-01-01T00:00:00Z'),
     );
-  });
-});
-
-describe('budgetFits', () => {
-  test('a run fits when the day so far plus its ceiling stays within the budget', () => {
-    expect(budgetFits({ dailyTokens: 10, runTokens: 4, usedTokens: 6 })).toBe(true);
-    expect(budgetFits({ dailyTokens: 10, runTokens: 4, usedTokens: 7 })).toBe(false);
-    expect(budgetFits({ dailyTokens: 10, runTokens: 10, usedTokens: 0 })).toBe(true);
   });
 });
 

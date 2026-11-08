@@ -7,7 +7,7 @@ import type { Engine } from '@mimir/contract';
 import type { Run, RunClosingState, RunStore, RunUsage } from '@mimir/core';
 
 import { isEngineRefusal } from '../api/errors';
-import { budgetDay, budgetFits, remainingTokens } from './agent-budget';
+import { budgetDay, remainingTokens } from './agent-budget';
 import { createAgentGate } from './agent-gate';
 import { createRunGrant, grantToolNames } from './agent-grant';
 import {
@@ -22,6 +22,7 @@ import type { AgentConnection, AgentSettings, EnabledAgentSettings } from './age
 import type { AgentMisconfiguration, AgentState } from './agent-states';
 import {
   createUsageMeter,
+  NO_USAGE,
   PER_TURN_OUTPUT_ALLOWANCE,
   settledUsage,
   SPAWN_ALLOWANCE,
@@ -42,7 +43,10 @@ import type { GitCredentialsSetting } from './git-credentials';
 export type RunnerTiming = {
   /** How often the owning runner marks its row alive. */
   heartbeatMs: number;
-  /** A running row whose heartbeat is older than this is interrupted at boot and admission. */
+  /**
+   * A running row whose heartbeat is older than this is interrupted at boot
+   * and admission, and shown stale in `status`.
+   */
   staleAfterMs: number;
   /** The least time between streamed usage writes. */
   recordEveryMs: number;
@@ -102,8 +106,11 @@ export type RunRefusal =
       /** When the budget day resets. */
       resetsAt: Date;
     }
-  /** Another run holds the one running slot. */
-  | { reason: 'busy'; running: { id: string; task: string; startedAt: string } };
+  /**
+   * Another run holds the one running slot. `running` is null when that run
+   * ended before it could be read, so starting again may be admitted.
+   */
+  | { reason: 'busy'; running: { id: string; task: string; startedAt: string } | null };
 
 /** How a run ended. `lost` means another host took its row over, so the runner could not close it. */
 export type RunOutcome = {
@@ -115,7 +122,11 @@ export type RunOutcome = {
   usageSettled: boolean;
 };
 
-/** A started run, which settles in `finished`, or a refusal. */
+/**
+ * A started run, which settles in `finished`, or a refusal. A clone that does
+ * not sync is no refusal: the run was admitted, so `finished` reports it as a
+ * failed run whose outcome names the sync's reason.
+ */
 export type StartRunResult =
   | { started: true; runId: string; finished: Promise<RunOutcome> }
   | ({ started: false } & RunRefusal);
@@ -131,12 +142,23 @@ export type AgentBudgetStatus = {
   timezone: string;
 };
 
+/** The run holding the one running slot, as the console shows it. */
+export type RunningRun = {
+  run: Run;
+  /**
+   * Its heartbeat is older than the stale window: its host most likely
+   * crashed. The row stays running until the next boot or admission
+   * interrupts it; reading status never does.
+   */
+  stale: boolean;
+};
+
 /** What the console reads (MMR-633): the agent state, the day's budget, and the running run. */
 export type AgentStatus = {
   agent: AgentState;
   /** Null while agent runs are unconfigured. */
   budget: AgentBudgetStatus | null;
-  running: Run | null;
+  running: RunningRun | null;
 };
 
 export type AgentRunner = {
@@ -160,13 +182,6 @@ export type AgentRunnerOptions = {
   clock?: () => Date;
   newRunId?: () => string;
   timing?: RunnerTiming;
-};
-
-const NO_USAGE: RunUsage = {
-  cacheReadTokens: 0,
-  cacheWriteTokens: 0,
-  inputTokens: 0,
-  outputTokens: 0,
 };
 
 /** Why the runner aborted a run. */
@@ -204,7 +219,7 @@ function stateRefusal(state: Exclude<AgentState, { state: 'ready' }>): RunRefusa
 }
 
 /** The outcome line for a run that ended with a result and a valid total. */
-export function describeResult(input: {
+function describeResult(input: {
   result: SDKResultMessage;
   settled: RunUsage;
   estimate: number;
@@ -286,13 +301,6 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
     timing = RUNNER_TIMING,
   } = options;
 
-  /** The day's usage and its reset, in the budget's zone. */
-  const today = async (enabled: EnabledAgentSettings) => {
-    const day = budgetDay(clock(), enabled.budget.timezone);
-    const usedTokens = await runs.tokensUsedSince(day.startedAt.toISOString());
-    return { day, usedTokens };
-  };
-
   /** The task and its project's remote, or why the run cannot act on it. */
   const checkTask = async (input: StartRunInput): Promise<{ remote: string } | RunRefusal> => {
     let node: Awaited<ReturnType<Engine['getNode']>>;
@@ -350,29 +358,14 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
     if ('reason' in target) {
       return refused(target);
     }
-    await runs.recoverStale(timing.staleAfterMs);
-    const holder = await runs.running();
-    if (holder !== undefined) {
-      return refused({
-        reason: 'busy',
-        running: { id: holder.id, startedAt: holder.started_at, task: holder.task },
-      });
-    }
+    // Admission recovers a stale holder, checks the slot and the day's
+    // budget, and inserts the row in one serialized write, so two starts can
+    // never both fit a budget only one fits.
     const { budget } = settings;
-    const { day, usedTokens } = await today(settings);
-    if (!budgetFits({ dailyTokens: budget.dailyTokens, runTokens: budget.runTokens, usedTokens })) {
-      return refused({
-        dailyTokens: budget.dailyTokens,
-        reason: 'budget',
-        resetsAt: day.resetsAt,
-        runTokens: budget.runTokens,
-        usedTokens,
-      });
-    }
-    // The budget check above is safe without a lock: the partial unique index
-    // lets only one row run, so a racing start is refused here as busy.
+    const day = budgetDay(clock(), budget.timezone);
     const runId = newRunId();
     const admitted = await runs.admit({
+      budget: { dailyTokens: budget.dailyTokens, since: day.startedAt.toISOString() },
       id: runId,
       kind: input.kind,
       model: settings.model,
@@ -384,10 +377,22 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
       trigger: input.trigger,
     });
     if (!admitted.admitted) {
+      if (admitted.reason === 'budget') {
+        return refused({
+          dailyTokens: budget.dailyTokens,
+          reason: 'budget',
+          resetsAt: day.resetsAt,
+          runTokens: budget.runTokens,
+          usedTokens: admitted.used,
+        });
+      }
       const { running } = admitted;
       return refused({
         reason: 'busy',
-        running: { id: running.id, startedAt: running.started_at, task: running.task },
+        running:
+          running === null
+            ? null
+            : { id: running.id, startedAt: running.started_at, task: running.task },
       });
     }
     await sweepRunDirectories(settings.dataDirectory, runId);
@@ -493,7 +498,7 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
         costEstimateUsd: null,
         outcome: oneLine(`failed: the runner faulted: ${message}`),
         state: 'failed' as const,
-        usage: meter.usage(),
+        usage: meter.streamed(),
         usageSettled: false,
       };
       try {
@@ -589,7 +594,8 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
           const now = clock().getTime();
           if (result === undefined && now - recordedAt >= timing.recordEveryMs) {
             recordedAt = now;
-            await owned(runs.recordUsage(run.runId, options.runnerId, meter.usage()), 'usage');
+            // The row holds streamed usage only; the allowances are the in-flight estimate's.
+            await owned(runs.recordUsage(run.runId, options.runnerId, meter.streamed()), 'usage');
           }
           if (result === undefined && meter.reachedCeiling()) {
             abort('ceiling');
@@ -626,7 +632,8 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
         usageSettled: true,
       });
     }
-    // No valid total: the row counts the larger of its reservation and this streamed estimate.
+    // No valid total: the row records the streamed usage and is charged the
+    // larger of that and its reservation, which is the run's ceiling.
     const unsettled = describeUnsettled({
       aborted: context.aborted(),
       ceiling: budget.runTokens,
@@ -639,19 +646,26 @@ export function createAgentRunner(options: AgentRunnerOptions): AgentRunner {
       costEstimateUsd: null,
       outcome: unsettled.outcome,
       state: unsettled.state,
-      usage: meter.usage(),
+      usage: meter.streamed(),
       usageSettled: false,
     });
   };
 
   const status: AgentRunner['status'] = async () => {
     const agent = await agentState(settings, connection);
-    const running = (await runs.running()) ?? null;
+    const holder = await runs.running();
+    const staleBefore = clock().getTime() - timing.staleAfterMs;
+    // Stale as recovery judges it: a heartbeat strictly before the cut-off.
+    const running =
+      holder === undefined
+        ? null
+        : { run: holder, stale: new Date(holder.heartbeat_at).getTime() < staleBefore };
     if (!settings.enabled) {
       return { agent, budget: null, running };
     }
     const { budget } = settings;
-    const { day, usedTokens } = await today(settings);
+    const day = budgetDay(clock(), budget.timezone);
+    const usedTokens = await runs.tokensUsedSince(day.startedAt.toISOString());
     return {
       agent,
       budget: {

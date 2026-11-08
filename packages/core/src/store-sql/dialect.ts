@@ -41,6 +41,15 @@ export type StoreDialect = {
    */
   checkDeferredConstraints: (tx: Transaction<DB>) => Promise<void>;
 
+  /**
+   * Inside a `write`, wait until no other run admission is in flight, and
+   * hold that exclusion until the transaction ends (ADR 0041). Admission sums
+   * the day's charged tokens and then inserts; two admissions interleaving
+   * there could both fit a budget only one fits. The first statement of an
+   * admission's transaction.
+   */
+  lockRunAdmission: (tx: Transaction<DB>) => Promise<void>;
+
   /** Is this driver error a unique-key violation? */
   isUniqueViolation: (error: unknown) => boolean;
 

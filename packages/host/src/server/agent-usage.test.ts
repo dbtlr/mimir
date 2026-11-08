@@ -24,16 +24,20 @@ const usage = (input: number, output = 1, read = 0, write = 0): Usage => ({
   output_tokens: output,
 });
 
-/** A streamed assistant message; `from` marks a subagent's. */
-function assistant(id: string, used: Usage, from?: { parent: string; agent: string }): SDKMessage {
+/** A streamed assistant message; `from` marks a subagent's by either id or both. */
+function assistant(
+  id: string | undefined,
+  used: Usage,
+  from: { parent?: string; agent?: string } = {},
+): SDKMessage {
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return {
     message: { content: [], id, model: 'claude-opus-5-5', role: 'assistant', usage: used },
-    parent_tool_use_id: from?.parent ?? null,
+    parent_tool_use_id: from.parent ?? null,
     session_id: 's',
     type: 'assistant',
     uuid: `${id}-${Math.random()}`,
-    ...(from === undefined ? {} : { agent_id: from.agent }),
+    ...(from.agent === undefined ? {} : { agent_id: from.agent }),
   } as unknown as SDKMessage;
 }
 
@@ -53,13 +57,18 @@ describe('the usage meter', () => {
       inputTokens: 15,
       outputTokens: 3,
     });
+    // The allowances are in the estimate only, never in the streamed usage the row records.
     expect(tracked.total()).toBe(548 + 200);
-    expect(tracked.usage()).toEqual({
-      cacheReadTokens: 500,
-      cacheWriteTokens: 30,
-      inputTokens: 15,
-      outputTokens: 203,
-    });
+  });
+
+  test('counts each main-loop message with no id as its own turn', () => {
+    const tracked = meter();
+    for (let turn = 0; turn < 5; turn += 1) {
+      tracked.observe(assistant(undefined, usage(10)));
+    }
+    tracked.observe(assistant('', usage(10)));
+    expect(tracked.streamed().inputTokens).toBe(60);
+    expect(tracked.total()).toBe(66 + 6 * 100);
   });
 
   test('keeps the larger count when a later message of one id reports more', () => {
@@ -74,6 +83,14 @@ describe('the usage meter', () => {
     const tracked = meter();
     tracked.observe(assistant('msg_sub', usage(9_000), { agent: 'a1', parent: 'toolu_1' }));
     tracked.observe(assistant('msg_sub2', usage(9_000), { agent: 'a1', parent: '' }));
+    expect(tracked.total()).toBe(0);
+  });
+
+  test('ignores a message carrying only a parent tool call id, or only an agent id', () => {
+    const tracked = meter();
+    tracked.observe(assistant('msg_parent', usage(9_000), { parent: 'toolu_1' }));
+    expect(tracked.total()).toBe(0);
+    tracked.observe(assistant('msg_agent', usage(9_000), { agent: 'a1' }));
     expect(tracked.total()).toBe(0);
   });
 
@@ -92,7 +109,7 @@ describe('the usage meter', () => {
     expect(tracked.chargeSpawn()).toBe(false);
     expect(tracked.total()).toBe(2_000);
     expect(tracked.spawns()).toBe(2);
-    expect(tracked.usage().outputTokens).toBe(2_000);
+    expect(tracked.streamed().outputTokens).toBe(0);
   });
 
   test('reaches its ceiling once the running total is at or past it', () => {

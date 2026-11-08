@@ -431,6 +431,7 @@ test('the host interrupts a stale run at boot and exposes the runs and the agent
   const config = await readHostConfig({ MIMIR_DATA_DIR: root });
   const first = await openHost(config, '0.26.0', () => {});
   await first.runs.admit({
+    budget: { dailyTokens: 1_000, since: '2000-01-01T00:00:00.000Z' },
     id: 'dead-run',
     kind: 'groom',
     model: 'claude-opus-5-5',
@@ -480,4 +481,37 @@ test('a fresh host boot interrupts nothing', async () => {
   );
   await host.close();
   expect(lines.filter((line) => line.includes('agent run'))).toEqual([]);
+});
+
+test('a fresh run of another host survives boot and keeps the slot', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-runs-'));
+  roots.push(root);
+  const config = await readHostConfig({ MIMIR_DATA_DIR: root });
+  const first = await openHost(config, '0.26.0', () => {});
+  await first.runs.admit({
+    budget: { dailyTokens: 1_000, since: '2000-01-01T00:00:00.000Z' },
+    id: 'live-run',
+    kind: 'groom',
+    model: 'claude-opus-5-5',
+    project: 'TST',
+    reservedTokens: 100,
+    runner: 'overlapping-container',
+    staleAfterMs: 120_000,
+    task: 'TST-1',
+    trigger: 'console',
+  });
+  await first.close();
+
+  const lines: string[] = [];
+  const host = await openHost(config, '0.26.0', (line) => lines.push(line));
+  try {
+    expect(await host.runs.running()).toMatchObject({ id: 'live-run', state: 'running' });
+    expect(lines.filter((line) => line.includes('agent run'))).toEqual([]);
+    expect((await host.agent.status()).running).toMatchObject({
+      run: { id: 'live-run' },
+      stale: false,
+    });
+  } finally {
+    await host.close();
+  }
 });

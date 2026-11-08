@@ -10,7 +10,6 @@ import type {
   SDKMessage,
 } from '@anthropic-ai/claude-agent-sdk';
 import {
-  chargedTokens,
   createInitiative,
   createPhase,
   createProject,
@@ -284,6 +283,28 @@ async function started(created: AgentRunner, input: { task?: string; project?: s
   return start;
 }
 
+/** What the fixture's budget day (8 November, UTC) has charged so far. */
+const chargedToday = () => runs.tokensUsedSince('2026-11-08T00:00:00.000Z');
+
+/** Admit and close a run of another host directly, as if it ran earlier. */
+async function admitOther(id: string, owner: string, fields: { reservedTokens?: number } = {}) {
+  const admitted = await runs.admit({
+    budget: { dailyTokens: Number.MAX_SAFE_INTEGER, since: '2000-01-01T00:00:00.000Z' },
+    id,
+    kind: 'groom',
+    model: MODEL,
+    project: 'ENG',
+    reservedTokens: fields.reservedTokens ?? 0,
+    runner: owner,
+    staleAfterMs: 120_000,
+    task,
+    trigger: 'console',
+  });
+  if (!admitted.admitted) {
+    throw new Error(`the fixture run ${id} must be admitted`);
+  }
+}
+
 /** The per-run directories left under MIMIR_DATA_DIR. */
 async function runDirectories(): Promise<string[]> {
   try {
@@ -344,13 +365,13 @@ describe('admission to settlement', () => {
       usageSettled: true,
     });
     expect(outcome.outcome).not.toContain('\n');
-    // In flight, the row held the main loop's streamed usage, once per id, plus a per-turn allowance each.
+    // In flight, the row held the main loop's streamed usage, once per id, and no allowance.
     expect(seen).toEqual({
       row: expect.objectContaining({
         cache_read_tokens: 2_500,
         cache_write_tokens: 200,
         input_tokens: 15,
-        output_tokens: 4 + 2 * PER_TURN_OUTPUT_ALLOWANCE,
+        output_tokens: 4,
         reserved_tokens: 4_000_000,
         state: 'running',
       }),
@@ -368,7 +389,7 @@ describe('admission to settlement', () => {
       trigger: 'console',
       usage_settled: true,
     });
-    expect(row === undefined ? 0 : chargedTokens(row)).toBe(57_600);
+    expect(await chargedToday()).toBe(57_600);
     expect(await runDirectories()).toEqual([]);
 
     // The SDK got the brief, the clone's real path as its cwd, and the run's settings.
@@ -510,6 +531,7 @@ describe('refusals', () => {
     const spent = async (id: string, startedAt: string, tokens: number) => {
       time = new Date(startedAt);
       await runs.admit({
+        budget: { dailyTokens: Number.MAX_SAFE_INTEGER, since: '2000-01-01T00:00:00.000Z' },
         id,
         kind: 'groom',
         model: MODEL,
@@ -577,7 +599,7 @@ describe('in flight', () => {
     expect(outcome.outcome).toContain('fetch');
     const row = await runs.get(start.runId);
     expect(row).toMatchObject({ state: 'failed', usage_settled: true });
-    expect(row === undefined ? -1 : chargedTokens(row)).toBe(0);
+    expect(await chargedToday()).toBe(0);
     expect(await runDirectories()).toEqual([]);
   });
 
@@ -618,11 +640,17 @@ describe('in flight', () => {
     expect(outcome.state).toBe('cancelled');
     expect(outcome.usageSettled).toBe(false);
     expect(outcome.outcome).toContain('ceiling');
+    expect(outcome.outcome).toContain(`estimated ${90_003 + 3 * PER_TURN_OUTPUT_ALLOWANCE} tokens`);
+    // The row records the streamed usage only; the allowances drove the abort, not the record.
     const row = await runs.get(start.runId);
-    expect(row).toMatchObject({ input_tokens: 90_000, state: 'cancelled', usage_settled: false });
-    expect(row === undefined ? 0 : chargedTokens(row)).toBe(
-      90_000 + 3 + 3 * PER_TURN_OUTPUT_ALLOWANCE,
-    );
+    expect(row).toMatchObject({
+      input_tokens: 90_000,
+      output_tokens: 3,
+      state: 'cancelled',
+      usage_settled: false,
+    });
+    // Unsettled, it is charged the larger of its reservation and its streamed usage.
+    expect(await chargedToday()).toBe(ceiling);
     expect(await runDirectories()).toEqual([]);
   });
 
@@ -635,8 +663,8 @@ describe('in flight', () => {
     const outcome = await start.finished;
     expect(outcome).toMatchObject({ state: 'failed', usageSettled: false });
     expect(outcome.outcome).toContain('without a result');
-    const row = await runs.get(start.runId);
-    expect(row === undefined ? 0 : chargedTokens(row)).toBe(4_000_000);
+    expect(await runs.get(start.runId)).toMatchObject({ input_tokens: 10, output_tokens: 1 });
+    expect(await chargedToday()).toBe(4_000_000);
     expect(await runDirectories()).toEqual([]);
   });
 
@@ -662,8 +690,7 @@ describe('in flight', () => {
     const start = await started(created);
     const outcome = await start.finished;
     expect(outcome).toMatchObject({ state: 'failed', usageSettled: false });
-    const row = await runs.get(start.runId);
-    expect(row === undefined ? 0 : chargedTokens(row)).toBe(4_000_000);
+    expect(await chargedToday()).toBe(4_000_000);
   });
 
   test('a heartbeat that finds the row lost aborts the run', async () => {
@@ -727,6 +754,72 @@ describe('in flight', () => {
     });
   });
 
+  // The messages Claude Code 2.1.318 streamed when a mock Messages API answered
+  // every request with a 401 (probed against the real CLI and the run's options).
+  test("the real CLI's shape of a refused token records it disconnected", async () => {
+    const { runner: created } = runner(async function* script() {
+      for (const attempt of [1, 2]) {
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        yield {
+          attempt,
+          error: 'authentication_failed',
+          error_status: 401,
+          max_retries: 10,
+          retry_delay_ms: 500,
+          session_id: 's',
+          subtype: 'api_retry',
+          type: 'system',
+          uuid: crypto.randomUUID(),
+        } as unknown as SDKMessage;
+      }
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      yield {
+        api_error_status: 401,
+        error: 'authentication_failed',
+        is_api_error_message: true,
+        message: {
+          content: [
+            { text: 'Failed to authenticate. API Error: 401 Invalid bearer token', type: 'text' },
+          ],
+          id: crypto.randomUUID(),
+          model: '<synthetic>',
+          role: 'assistant',
+          stop_reason: 'stop_sequence',
+          type: 'message',
+          usage: {
+            cache_creation_input_tokens: 0,
+            cache_read_input_tokens: 0,
+            input_tokens: 0,
+            output_tokens: 0,
+          },
+        },
+        parent_tool_use_id: null,
+        session_id: 's',
+        type: 'assistant',
+        uuid: crypto.randomUUID(),
+      } as unknown as SDKMessage;
+      yield result({
+        api_error_status: 401,
+        is_error: true,
+        modelUsage: {},
+        num_turns: 1,
+        result: 'Failed to authenticate. API Error: 401 Invalid bearer token',
+        stop_reason: 'stop_sequence',
+        terminal_reason: 'api_error',
+        total_cost_usd: 0,
+      });
+    });
+    const start = await started(created);
+    const outcome = await start.finished;
+    expect(outcome.state).toBe('failed');
+    expect(outcome.outcome).toContain('MIMIR_AGENT_TOKEN_FILE');
+    expect(await agentState(settings(), connection)).toEqual({
+      reason: 'rejected',
+      state: 'disconnected',
+    });
+    expect(await chargedToday()).toBe(0);
+  });
+
   test('admission sweeps run directories left by runs that are no longer running', async () => {
     const orphan = join(dataDirectory, 'agent', 'runs', 'old-run');
     await mkdir(join(orphan, 'config'), { recursive: true });
@@ -743,7 +836,122 @@ describe('in flight', () => {
   });
 });
 
+describe('admission races and recovery', () => {
+  test('a start racing a run that closes unsettled is refused for budget, and the day stays within it', async () => {
+    // 4M settled today; a 4M ceiling against a 10M day leaves room for one more run, not two.
+    await admitOther('earlier', 'host-old');
+    await runs.close('earlier', 'host-old', {
+      costEstimateUsd: null,
+      outcome: 'done',
+      state: 'succeeded',
+      usage: { cacheReadTokens: 4_000_000, cacheWriteTokens: 0, inputTokens: 0, outputTokens: 0 },
+      usageSettled: true,
+    });
+    // B's admission waits until A has been admitted and has closed.
+    const { promise: bEntered, resolve: enterB } = Promise.withResolvers<void>();
+    const { promise: aClosed, resolve: closeA } = Promise.withResolvers<void>();
+    const racing: RunStore = {
+      ...runs,
+      admit: async (input) => {
+        if (input.task === task) {
+          await bEntered;
+          return runs.admit(input);
+        }
+        enterB();
+        await aClosed;
+        return runs.admit(input);
+      },
+    };
+    // A's SDK fails at once, so A closes unsettled and is charged its whole reservation.
+    const { runner: created } = runner(
+      async function* script() {
+        yield assistant('msg_1', { input: 10 });
+        throw new Error('Claude Code process exited with code 1');
+      },
+      { runs: racing },
+    );
+    const other = (await createTask(fixture.store, { parentId: phase, title: 'Another' })).id;
+    const startA = created.startRun({
+      brief: BRIEF,
+      kind: 'groom',
+      project: 'ENG',
+      task,
+      trigger: 'console',
+    });
+    const startB = created.startRun({
+      brief: BRIEF,
+      kind: 'groom',
+      project: 'ENG',
+      task: other,
+      trigger: 'console',
+    });
+    const a = await startA;
+    if (!a.started) {
+      throw new Error(`A was refused: ${a.reason}`);
+    }
+    expect((await a.finished).usageSettled).toBe(false);
+    closeA();
+    expect(await startB).toMatchObject({
+      reason: 'budget',
+      runTokens: 4_000_000,
+      started: false,
+      usedTokens: 8_000_000,
+    });
+    expect(await chargedToday()).toBe(8_000_000);
+  });
+
+  test('an admission whose slot holder ended before it could be read is refused as busy', async () => {
+    const raced = createRunStore({
+      db: fixture.db,
+      dialect: {
+        ...sqliteDialect,
+        isUniqueViolation: () => true,
+        write: () => Promise.reject(new Error('slot taken')),
+      },
+    });
+    const { calls, runner: created } = runner(never, { runs: { ...runs, admit: raced.admit } });
+    expect(await refusal(created)).toEqual({ reason: 'busy', running: null, started: false });
+    expect(calls).toEqual([]);
+  });
+
+  test('a stale row from a dead host is recovered at admission and the new run is admitted', async () => {
+    await admitOther('dead', 'host-dead');
+    time = new Date(time.getTime() + 120_001);
+    const { runner: created } = runner(async function* script() {
+      yield result();
+    });
+    const start = await started(created);
+    expect(await runs.get('dead')).toMatchObject({ runner: 'host-dead', state: 'interrupted' });
+    expect((await start.finished).state).toBe('succeeded');
+  });
+
+  test('a fresh row from another host survives boot recovery and blocks admission as busy', async () => {
+    await admitOther('live', 'host-b');
+    time = new Date(time.getTime() + 60_000);
+    // What openHost does at boot.
+    expect(await runs.recoverStale(120_000)).toEqual([]);
+    const { calls, runner: created } = runner(never);
+    expect(await refusal(created)).toMatchObject({
+      reason: 'busy',
+      running: { id: 'live', startedAt: '2026-11-08T12:00:00.000Z', task },
+    });
+    expect((await runs.get('live'))?.state).toBe('running');
+    expect(calls).toEqual([]);
+  });
+});
+
 describe('status', () => {
+  test('flags a running run whose heartbeat is older than the stale window', async () => {
+    await admitOther('live', 'host-b');
+    const { runner: created } = runner(never);
+    time = new Date(time.getTime() + 120_000);
+    expect((await created.status()).running).toMatchObject({ run: { id: 'live' }, stale: false });
+    time = new Date(time.getTime() + 1);
+    expect((await created.status()).running).toMatchObject({ run: { id: 'live' }, stale: true });
+    // Reading status recovers nothing: only boot and admission interrupt a run.
+    expect((await runs.get('live'))?.state).toBe('running');
+  });
+
   test('reads the agent state, the day so far, the next reset, and the running run', async () => {
     const { promise: held, resolve: release } = Promise.withResolvers<void>();
     const { runner: created } = runner(async function* script() {
@@ -766,7 +974,10 @@ describe('status', () => {
     const start = await started(created);
     const busy = await created.status();
     expect(busy.budget).toMatchObject({ remainingTokens: 6_000_000, usedTokens: 4_000_000 });
-    expect(busy.running).toMatchObject({ id: start.runId, state: 'running', task });
+    expect(busy.running).toMatchObject({
+      run: { id: start.runId, state: 'running', task },
+      stale: false,
+    });
     release();
     await start.finished;
   });

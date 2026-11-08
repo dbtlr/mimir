@@ -33,10 +33,22 @@ export type AdmitRun = {
   reservedTokens: number;
   /** A running row whose heartbeat is older than this many ms is interrupted before the insert. */
   staleAfterMs: number;
+  /**
+   * The daily budget the reservation must fit: the instant the budget day
+   * began, an ISO instant, and the day's token budget.
+   */
+  budget: { since: string; dailyTokens: number };
 };
 
-/** Admission either inserts the running row or reports the run that holds the slot. */
-export type AdmitResult = { admitted: true; run: Run } | { admitted: false; running: Run };
+/**
+ * Admission inserts the running row, or refuses: `busy` names the run holding
+ * the slot (null when it ended before it could be read, so a retry may be
+ * admitted); `budget` reports the tokens the day had already charged.
+ */
+export type AdmitResult =
+  | { admitted: true; run: Run }
+  | { admitted: false; reason: 'busy'; running: Run | null }
+  | { admitted: false; reason: 'budget'; used: number };
 
 /** `held` means the write landed; `lost` means no running row matched id and runner. */
 export type RunWrite = 'held' | 'lost';
@@ -71,8 +83,9 @@ export type RunStore = {
   running: () => Promise<Run | undefined>;
   /**
    * The tokens charged to runs that started at or after `since`, an ISO
-   * instant: each run counts {@link chargedTokens}. The host's daily budget
-   * reads this with the instant its budget day began.
+   * instant: each run counts {@link chargedTokens}. The host's console reads
+   * this with the instant its budget day began; admission makes the same sum
+   * itself.
    */
   tokensUsedSince: (since: string) => Promise<number>;
 };
@@ -112,6 +125,15 @@ const assertStaleWindow = (staleAfterMs: number) => {
       `staleAfterMs must be above 0 and at most ${MAX_STALE_WINDOW_MS} (one day), got ${staleAfterMs}`,
     );
   }
+};
+
+/** `since` as epoch milliseconds, or a validation error. */
+const instantMs = (since: string): number => {
+  const at = new Date(since).getTime();
+  if (Number.isNaN(at)) {
+    throw validation(`since must be an ISO instant, got ${since}`);
+  }
+  return at;
 };
 
 /** A run's tokens processed: input, cache reads, cache writes, and output. */
@@ -167,6 +189,12 @@ export function createRunStore({
     return row === undefined ? undefined : toRun(row);
   };
 
+  // Stored instants are canonical ISO strings, so text order is time order.
+  const chargedSince = async (ex: Kysely<DB>, since: string) => {
+    const rows = await ex.selectFrom('runs').selectAll().where('started_at', '>=', since).execute();
+    return rows.reduce((sum, row) => sum + chargedTokens(toRun(row)), 0);
+  };
+
   // The one ownership check: id, runner, and still running, in the UPDATE itself.
   const ownedWrite = async (
     id: string,
@@ -204,11 +232,40 @@ export function createRunStore({
     admit: async (input) => {
       assertStaleWindow(input.staleAfterMs);
       assertTokenCount('reservedTokens', input.reservedTokens);
+      assertTokenCount('dailyTokens', input.budget.dailyTokens);
+      const since = instant(instantMs(input.budget.since));
       const at = instant();
       try {
-        const run = await dialect.write(db, async (tx) => {
+        // One write transaction checks the slot and the budget and inserts, so
+        // no other admission can land between the sum and the insert: SQLite
+        // holds its one write lock from BEGIN IMMEDIATE, and Postgres takes the
+        // dialect's admission lock (see `StoreDialect.lockRunAdmission`).
+        return await dialect.write(db, async (tx): Promise<AdmitResult> => {
+          await dialect.lockRunAdmission(tx);
+          if (
+            (await tx
+              .selectFrom('runs')
+              .select('id')
+              .where('id', '=', input.id)
+              .executeTakeFirst()) !== undefined
+          ) {
+            // A primary-key clash is the caller's bug, not a busy slot.
+            throw conflict(`run ${input.id} already exists`, 'admit each run under a fresh id');
+          }
           await markStale(tx, input.staleAfterMs);
-          return tx
+          const holder = await tx
+            .selectFrom('runs')
+            .selectAll()
+            .where('state', '=', 'running')
+            .executeTakeFirst();
+          if (holder !== undefined) {
+            return { admitted: false, reason: 'busy', running: toRun(holder) };
+          }
+          const used = await chargedSince(tx, since);
+          if (used + input.reservedTokens > input.budget.dailyTokens) {
+            return { admitted: false, reason: 'budget', used };
+          }
+          const run = await tx
             .insertInto('runs')
             .values({
               heartbeat_at: at,
@@ -225,22 +282,18 @@ export function createRunStore({
             })
             .returningAll()
             .executeTakeFirstOrThrow();
+          return { admitted: true, run: toRun(run) };
         });
-        return { admitted: true, run: toRun(run) };
       } catch (error) {
         if (!dialect.isUniqueViolation(error)) {
           throw error;
         }
-        // A primary-key clash is the caller's bug, not a busy slot.
+        // Two admissions under one id raced past the check above.
         if ((await get(input.id)) !== undefined) {
           throw conflict(`run ${input.id} already exists`, 'admit each run under a fresh id');
         }
-        const holder = await running();
-        if (holder === undefined) {
-          // The running-slot index refused the insert, but its holder ended before this read.
-          throw conflict('the running slot changed during admission', 'retry the admission');
-        }
-        return { admitted: false, running: holder };
+        // The running-slot index refused the insert; its holder may have ended since.
+        return { admitted: false, reason: 'busy', running: (await running()) ?? null };
       }
     },
     close: async (id, runner, close) => {
@@ -271,18 +324,6 @@ export function createRunStore({
       return (await dialect.write(db, (tx) => markStale(tx, staleAfterMs))).map((row) => row.id);
     },
     running,
-    tokensUsedSince: async (since) => {
-      const at = new Date(since).getTime();
-      if (Number.isNaN(at)) {
-        throw validation(`since must be an ISO instant, got ${since}`);
-      }
-      // Stored instants are canonical ISO strings, so text order is time order.
-      const rows = await db
-        .selectFrom('runs')
-        .selectAll()
-        .where('started_at', '>=', instant(at))
-        .execute();
-      return rows.reduce((sum, row) => sum + chargedTokens(toRun(row)), 0);
-    },
+    tokensUsedSince: async (since) => chargedSince(db, instant(instantMs(since))),
   };
 }
