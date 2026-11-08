@@ -42,6 +42,23 @@ function textOnlyOutside(project: string, query: string): string {
   return key !== undefined && key !== project ? `${trimmed} ${trimmed}` : query;
 }
 
+/**
+ * A list or feed with items outside the project removed, counting only what
+ * it returns. A correct Engine already scopes these reads, so nothing is
+ * removed and its counts stand; a wider answer must not show the foreign count.
+ */
+function scopedSet<T, S extends { items: T[]; returned: number; total: number }>(
+  set: S,
+  items: T[],
+): S {
+  return {
+    ...set,
+    items,
+    returned: items.length,
+    total: set.total - (set.items.length - items.length),
+  };
+}
+
 /** The full names the gate allows from the main agent. */
 export const grantToolNames: readonly string[] = GRANT_TOOLS.map(
   (name) => `mcp__${GRANT_SERVER}__${name}`,
@@ -56,6 +73,8 @@ export const ATTACH_LIMITS = {
 
 /** The longest note `annotate` or `groom` writes: a fifth of an artifact's content. */
 export const NOTE_CHARACTERS = 20_000;
+/** How many notes and grooming states one run may write; task notes cannot be deleted. */
+export const NOTES_PER_RUN = 20;
 
 /**
  * What a read shows in place of a reference to a record in another project.
@@ -195,6 +214,20 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
   const withinProject = (query: string) => textOnlyOutside(project, query);
   let attached = 0;
   let attaching = 0;
+  let noted = 0;
+
+  /**
+   * Count one note or grooming write against the run's limit, before the first
+   * await, so concurrent calls cannot pass the limit together.
+   */
+  const countNote = () => {
+    if (noted >= NOTES_PER_RUN) {
+      refuse(
+        `a run writes at most ${NOTES_PER_RUN} notes and grooming states; nothing was written`,
+      );
+    }
+    noted += 1;
+  };
 
   /** Refuse unless `record` is a well-formed id in the run's project. */
   const projectId = (record: string) => {
@@ -312,7 +345,7 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
     ),
     grantTool('list', `List records in ${project}. ${REDACTION_NOTE}`, listInput, async (args) => {
       const set = await engine.list({ ...args, project });
-      return { ...set, items: set.items.filter((node) => inProject(node.id)).map(scopeNode) };
+      return scopedSet(set, set.items.filter((node) => inProject(node.id)).map(scopeNode));
     }),
     grantTool(
       'tree',
@@ -344,10 +377,7 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
       artifactsInput,
       async (args) => {
         const set = await engine.artifacts({ ...args, project });
-        return {
-          ...set,
-          items: set.items.filter((item) => item.project === project).map(scopeLinks),
-        };
+        return scopedSet(set, set.items.filter((item) => item.project === project).map(scopeLinks));
       },
     ),
     grantTool(
@@ -375,26 +405,30 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
     ),
     grantTool(
       'annotate',
-      `Add a note to ${task}, the task this run works on. The note is at most ${NOTE_CHARACTERS} characters.`,
+      `Add a note to ${task}, the task this run works on. The note is at most ${NOTE_CHARACTERS} characters; a run writes at most ${NOTES_PER_RUN} notes and grooming states.`,
       annotateInput,
       async (args) => {
         ownTask(args.id === undefined ? [] : [args.id]);
+        countNote();
         await holdRow();
         return engine.annotate({ content: args.content, id: task });
       },
     ),
     grantTool(
       'groom',
-      `Set the grooming state of ${task}, with a note of at most ${NOTE_CHARACTERS} characters. Only while ${task} is todo.`,
+      `Set the grooming state of ${task}, with a note of at most ${NOTE_CHARACTERS} characters. Only while ${task} is todo; a run writes at most ${NOTES_PER_RUN} notes and grooming states.`,
       groomInput,
       async (args) => {
         ownTask(args.ids ?? []);
-        // The read before the write is the whole guard; the core's groom accepts any lifecycle.
+        countNote();
+        await holdRow();
+        // The read just before the write is the whole guard; the core's groom accepts any
+        // lifecycle. ADR 0041 accepts the remaining window: a state set on a task that has
+        // just left todo is read by no view.
         const current = await engine.getNode({ facets: [], id: task });
         if (current.lifecycle !== 'todo') {
           refuse(`${task} is no longer todo; its grooming state was not changed`);
         }
-        await holdRow();
         return engine.groom({
           ids: [task],
           state: args.state,

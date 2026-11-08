@@ -22,6 +22,7 @@ import {
   GRANT_SERVER,
   grantToolNames,
   NOTE_CHARACTERS,
+  NOTES_PER_RUN,
   OUTSIDE_PROJECT,
 } from './agent-grant';
 import type { RunGrantOptions } from './agent-grant';
@@ -260,7 +261,19 @@ test('search answers only for the project, in its items and its counts', async (
 /** One read's answer for ENG with OTH's items appended. */
 async function both<T extends { items: unknown[] }>(read: (project: string) => Promise<T>) {
   const [own, foreign] = await Promise.all([read('ENG'), read('OTH')]);
-  return { ...own, items: [...own.items, ...foreign.items] };
+  const counts = own as unknown as { returned?: number; total?: number };
+  const more = foreign as unknown as { returned?: number; total?: number };
+  return {
+    ...own,
+    items: [...own.items, ...foreign.items],
+    // A wider answer counts the foreign records too, as a real one would.
+    ...(counts.total === undefined
+      ? {}
+      : {
+          returned: (counts.returned ?? 0) + (more.returned ?? 0),
+          total: counts.total + (more.total ?? 0),
+        }),
+  };
 }
 
 /*
@@ -333,6 +346,34 @@ test('a read holds the project boundary even when the Engine answers wider', asy
   const homed = await call('get', { id: 'ENG-9999' });
   expect(homed.refused).toBe(true);
   expect(homed.text.toLowerCase()).not.toContain('secret');
+});
+
+test('list and artifacts count only what they return when the Engine answers wider', async () => {
+  const task = await newTask();
+  const { call } = await grant(task, { engine: leakyEngine() });
+  for (const [name, read] of [
+    ['list', () => engine.list({ project: 'ENG' })],
+    ['artifacts', () => engine.artifacts({ project: 'ENG' })],
+  ] as const) {
+    const own = await read();
+    const set = json(await call(name));
+    expect(set.returned).toBe(set.items.length);
+    expect(set.total).toBe(own.total);
+  }
+});
+
+test('a run writes a bounded number of notes and grooming states', async () => {
+  const task = await newTask();
+  const { call } = await grant(task);
+  const writes = Array.from({ length: NOTES_PER_RUN }, (_, n) =>
+    n % 2 === 0
+      ? call('annotate', { content: `note ${n}` })
+      : call('groom', { note: `why ${n}`, state: 'needs_answers' }),
+  );
+  // Sent together, so the limit holds for concurrent calls too.
+  const answers = await Promise.all([...writes, call('annotate', { content: 'one too many' })]);
+  expect(answers.filter((answer) => answer.refused)).toHaveLength(1);
+  expect((await call('groom', { state: 'groomed' })).refused).toBe(true);
 });
 
 test('annotate writes a note on the run task, after checking the row', async () => {
