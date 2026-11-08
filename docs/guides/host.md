@@ -578,7 +578,7 @@ valid logs a warning that names the setting, and the host uses the default.
 | Variable | Meaning | Default |
 | --- | --- | --- |
 | `MIMIR_AGENT_DAILY_TOKENS` | The tokens agent runs may process in one day, counting input, cache reads, cache writes, and output across every model. | `10000000` |
-| `MIMIR_AGENT_RUN_TOKENS` | The most tokens one run may process. A value above the daily budget warns, and the host uses the daily budget. | `4000000` |
+| `MIMIR_AGENT_RUN_TOKENS` | The tokens the host reserves for one run when it starts, and the estimate at which it stops the run. A run's final usage total can still be higher; see [Know what the token budget counts](#know-what-the-token-budget-counts). A value above the daily budget warns, and the host uses the daily budget. | `4000000` |
 | `MIMIR_AGENT_MAX_TURNS` | The most turns one run may take. | `50` |
 | `MIMIR_AGENT_BUDGET_TIMEZONE` | The IANA time zone whose midnight starts a new budget day, such as `America/New_York`. Case does not matter: `utc` is stored as `UTC`. A UTC offset such as `+05:00` is not valid. | `UTC` |
 | `MIMIR_AGENT_MODEL` | The model a run asks for. | `claude-opus-5-5` |
@@ -602,7 +602,9 @@ other models.
   counts against the day it started in.
 - **Starting a run.** The host reserves `MIMIR_AGENT_RUN_TOKENS` for the run.
   It refuses the run unless the day's usage plus that reservation fits
-  `MIMIR_AGENT_DAILY_TOKENS`.
+  `MIMIR_AGENT_DAILY_TOKENS`. The check and the reservation are one database
+  transaction, so two starts at once, even from two hosts sharing a store,
+  cannot both fit a budget that only one fits.
 - **While a run works.** The host estimates the run's usage from the main
   agent's streamed usage, plus an allowance for each turn's output and a
   400,000-token allowance for each subagent it starts. It refuses a subagent
@@ -610,10 +612,11 @@ other models.
   when the estimate reaches the reservation. A run also stops after
   `MIMIR_AGENT_MAX_TURNS` turns.
 - **When a run ends.** A run that ends with Claude Code's usage total counts
-  that total, which can be less or more than its reservation. A run that
-  ends without a total, because the host stopped it, it crashed, or its host
-  stopped, counts its reservation or its estimate, whichever is larger. A
-  run whose clone failed to sync counts nothing.
+  that total, which can be less or more than its reservation; a total past
+  the estimate is named in the run's outcome. A run that ends without a
+  total, because the host stopped it, it crashed, or its host stopped, counts
+  its reservation or its streamed usage, whichever is larger. A run whose
+  clone failed to sync counts nothing.
 
 The host refuses to start a run, and says why, when:
 
@@ -627,10 +630,13 @@ The host refuses to start a run, and says why, when:
   time the budget day resets. To run sooner, wait for the reset or raise
   `MIMIR_AGENT_DAILY_TOKENS`.
 
+A clone that fails to sync is not a refusal. The run has already started, so
+it ends as a failed run whose outcome names the reason the sync failed.
+
 A host that stops while a run is running leaves the run's record behind.
-After two minutes without a heartbeat from its host, the next host start or
-run start marks it interrupted, and it counts as a run that ended without a
-total.
+After two minutes without a heartbeat from its host, the run shows as stale,
+and the next host start or run start marks it interrupted. It then counts as
+a run that ended without a total.
 
 ## Administer the host with mimir-host
 
