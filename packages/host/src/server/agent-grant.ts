@@ -6,6 +6,7 @@ import type {
 } from '@anthropic-ai/claude-agent-sdk';
 import { engineSchemas, GROOMING_VALUES, MimirError } from '@mimir/contract';
 import type { Engine, EngineNode, EngineTree, FacetName } from '@mimir/contract';
+import { parseIdentity } from '@mimir/core';
 import { z } from 'zod';
 
 /** The grant's MCP server name; its tools reach the gate as `mcp__mimir__<tool>`. */
@@ -31,7 +32,21 @@ export const grantToolNames: readonly string[] = GRANT_TOOLS.map(
 );
 
 /** The bounds on a run's planning artifacts (ADR 0041's 2026-11-08 refinement). */
-export const ATTACH_LIMITS = { contentCharacters: 100_000, perRun: 5 } as const;
+export const ATTACH_LIMITS = {
+  contentCharacters: 100_000,
+  perRun: 5,
+  titleCharacters: 200,
+} as const;
+
+/** The longest note `annotate` or `groom` writes: a fifth of an artifact's content. */
+export const NOTE_CHARACTERS = 20_000;
+
+/**
+ * What a read shows in place of a reference to a record in another project.
+ * The reference stays, so a task awaiting a foreign blocker still reads as
+ * awaiting on something; its id, title, and status do not.
+ */
+export const OUTSIDE_PROJECT = 'outside this project';
 
 /** What one run's grant is built from. */
 export type RunGrantOptions = {
@@ -45,6 +60,9 @@ export type RunGrantOptions = {
   /** Called when a write finds the row lost, so the runner aborts the run. */
   onLost: () => void;
 };
+
+/** The reads' note on references to other projects. */
+const REDACTION_NOTE = `A reference to a record in another project reads as "${OUTSIDE_PROJECT}" in place of its id.`;
 
 type ToolResult = Awaited<ReturnType<SdkMcpToolDefinition['handler']>>;
 
@@ -98,16 +116,18 @@ const searchInput = z.strictObject({
   limit: z.number().int().positive().optional(),
   query: z.string(),
 });
-const annotateInput = z.strictObject({ content: z.string().min(1), id: id.optional() });
+const note = z.string().max(NOTE_CHARACTERS);
+const annotateInput = z.strictObject({ content: note.min(1), id: id.optional() });
 const groomInput = z.strictObject({
   ids: z.array(id).min(1).optional(),
-  note: z.string().optional(),
+  note: note.optional(),
   state: z.enum(GROOMING_VALUES),
 });
 const attachInput = z.strictObject({
   content: z.string(),
+  // The core already refuses a summary over its own limit.
   summary: z.string().optional(),
-  title: z.string().min(1),
+  title: z.string().min(1).max(ATTACH_LIMITS.titleCharacters),
 });
 
 /**
@@ -146,9 +166,6 @@ function refusalText(error: unknown): string {
   return 'the board could not answer this call';
 }
 
-/** A record id's form: a project key, `KEY-n`, `KEY-an` (artifact), or `KEY-sn` (seed). */
-const RECORD_ID = /^([A-Z]{2,4})(?:-(a|s)?(\d+))?$/;
-
 /**
  * The run grant (ADR 0041): an in-process MCP server for one run. Reads are
  * forced to the run's project; `annotate`, `groom`, and `attach` write only
@@ -163,42 +180,66 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
 
   /** Refuse unless `record` is a well-formed id in the run's project. */
   const projectId = (record: string) => {
-    const match = RECORD_ID.exec(record);
-    if (match === null || match[1] !== project) {
+    const identity = parseIdentity(record);
+    if (identity === null || identity.key !== project) {
       return refuse(`${record || 'an empty id'} is not a record in ${project}`);
     }
-    return match;
+    return identity;
   };
 
-  /** Drop every reference that names a record outside the project. */
+  /** A reference id, or the redaction marker when it names another project. */
+  const scopeId = (record: string) => (inProject(record) ? record : OUTSIDE_PROJECT);
+  /** A reference, or a bare marker standing in for one to another project. */
+  const scopeRef = <R extends { id: string; via?: string }>(ref: R): R | { id: string } =>
+    inProject(ref.id)
+      ? ref
+      : {
+          id: OUTSIDE_PROJECT,
+          // An inherited edge's ancestor is in the project even when its prerequisite is not.
+          ...(ref.via !== undefined && inProject(ref.via) ? { via: ref.via } : {}),
+        };
+
+  /** Redact every reference that names a record outside the project. */
   const scopeNode = <N extends EngineNode | Omit<EngineTree, 'children'>>(node: N): N => ({
     ...node,
     ...(node.deps === undefined
       ? {}
       : {
           deps: {
-            awaitingOn: node.deps.awaitingOn.filter((ref) => inProject(ref.id)),
-            blocking: node.deps.blocking.filter((ref) => inProject(ref.id)),
-            dependsOn: node.deps.dependsOn.filter((ref) => inProject(ref.id)),
+            awaitingOn: node.deps.awaitingOn.map(scopeRef),
+            blocking: node.deps.blocking.map(scopeRef),
+            dependsOn: node.deps.dependsOn.map(scopeRef),
           },
         }),
     ...(node.artifacts === undefined
       ? {}
-      : { artifacts: node.artifacts.filter((artifact) => inProject(artifact.id)) }),
-    ...(typeof node.upstream === 'string' && !inProject(node.upstream) ? { upstream: null } : {}),
+      : {
+          artifacts: node.artifacts.map((artifact) =>
+            inProject(artifact.id)
+              ? artifact
+              : {
+                  createdAt: artifact.createdAt,
+                  id: OUTSIDE_PROJECT,
+                  tags: [],
+                  title: OUTSIDE_PROJECT,
+                },
+          ),
+        }),
+    ...(typeof node.upstream === 'string' ? { upstream: scopeId(node.upstream) } : {}),
   });
+  // Children of another project are left out, not redacted: the tree is the project's own.
   const scopeTree = (node: EngineTree): EngineTree => ({
     ...scopeNode(node),
     children: node.children.filter((child) => inProject(child.id)).map(scopeTree),
   });
   const scopeLinks = <A extends { links: string[] }>(artifact: A): A => ({
     ...artifact,
-    links: artifact.links.filter(inProject),
+    links: artifact.links.map(scopeId),
   });
 
   const scopeSeed = <S extends { spawned: string[] }>(found: S): S => ({
     ...found,
-    spawned: found.spawned.filter(inProject),
+    spawned: found.spawned.map(scopeId),
   });
 
   /** Check the run's row; a lost row refuses the write and tells the runner. */
@@ -225,17 +266,17 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
   const tools = [
     grantTool(
       'get',
-      `Read one record in ${project}: a task, phase, initiative, the project, an artifact, or a seed.`,
+      `Read one record in ${project}: a task, phase, initiative, the project, an artifact, or a seed. ${REDACTION_NOTE}`,
       z.strictObject({ id }),
       async (args) => {
-        const match = projectId(args.id);
-        if (match[2] === 'a') {
+        const identity = projectId(args.id);
+        if (identity.kind === 'artifact') {
           const artifact = await engine.getArtifact({ content: true, id: args.id });
           return artifact.project === project
             ? scopeLinks(artifact)
             : refuse(`${args.id} is not in ${project}`);
         }
-        if (match[2] === 's') {
+        if (identity.kind === 'seed') {
           const found = await engine.getSeed({ content: true, id: args.id });
           return found.project === project
             ? scopeSeed(found)
@@ -248,13 +289,13 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
         return scopeNode(node);
       },
     ),
-    grantTool('list', `List records in ${project}.`, listInput, async (args) => {
+    grantTool('list', `List records in ${project}. ${REDACTION_NOTE}`, listInput, async (args) => {
       const set = await engine.list({ ...args, project });
       return { ...set, items: set.items.filter((node) => inProject(node.id)).map(scopeNode) };
     }),
     grantTool(
       'tree',
-      `Read the record tree under a record in ${project}; the project when no id is given.`,
+      `Read the record tree under a record in ${project}; the project when no id is given. ${REDACTION_NOTE}`,
       z.strictObject({ id: id.optional() }),
       async (args) => {
         const root = args.id ?? project;
@@ -271,7 +312,7 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
     }),
     grantTool(
       'artifacts',
-      `List the artifacts of ${project}, newest first, without their content.`,
+      `List the artifacts of ${project}, newest first, without their content. ${REDACTION_NOTE}`,
       artifactsInput,
       async (args) => {
         const set = await engine.artifacts({ ...args, project });
@@ -283,11 +324,10 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
     ),
     grantTool(
       'artifact',
-      `Read one artifact of ${project} with its content.`,
+      `Read one artifact of ${project} with its content. ${REDACTION_NOTE}`,
       z.strictObject({ id }),
       async (args) => {
-        const match = projectId(args.id);
-        if (match[2] !== 'a') {
+        if (projectId(args.id).kind !== 'artifact') {
           refuse(`${args.id} is not an artifact id`);
         }
         const artifact = await engine.getArtifact({ content: true, id: args.id });
@@ -296,13 +336,18 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
           : refuse(`${args.id} is not in ${project}`);
       },
     ),
-    grantTool('seeds', `List the seeds filed on ${project}.`, seedsInput, async (args) => {
-      const list = await engine.seeds({ ...args, project });
-      return list.filter((found) => found.project === project).map(scopeSeed);
-    }),
+    grantTool(
+      'seeds',
+      `List the seeds filed on ${project}. ${REDACTION_NOTE}`,
+      seedsInput,
+      async (args) => {
+        const list = await engine.seeds({ ...args, project });
+        return list.filter((found) => found.project === project).map(scopeSeed);
+      },
+    ),
     grantTool(
       'annotate',
-      `Add a note to ${task}, the task this run works on.`,
+      `Add a note to ${task}, the task this run works on. The note is at most ${NOTE_CHARACTERS} characters.`,
       annotateInput,
       async (args) => {
         ownTask(args.id === undefined ? [] : [args.id]);
@@ -312,7 +357,7 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
     ),
     grantTool(
       'groom',
-      `Set the grooming state of ${task}, with a note. Only while ${task} is todo.`,
+      `Set the grooming state of ${task}, with a note of at most ${NOTE_CHARACTERS} characters. Only while ${task} is todo.`,
       groomInput,
       async (args) => {
         ownTask(args.ids ?? []);
@@ -331,7 +376,7 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
     ),
     grantTool(
       'attach',
-      `Attach a planning document to ${task}: a title, an optional summary, and Markdown content.`,
+      `Attach a planning document to ${task}: a title of at most ${ATTACH_LIMITS.titleCharacters} characters, an optional one-line summary, and Markdown content of at most ${ATTACH_LIMITS.contentCharacters}. A run attaches at most ${ATTACH_LIMITS.perRun}.`,
       attachInput,
       async (args) => {
         // An image would load from its URL in the console and could carry what the run read.
