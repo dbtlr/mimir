@@ -295,6 +295,8 @@ test('the grant tools are allowed from the main agent and denied to subagents', 
 test('the main agent may spawn the reader, charging the allowance once per spawn', async () => {
   const { hook, spawns } = gate();
   const spawn = { description: 'survey', prompt: 'read src', subagent_type: 'reader' };
+  // An omitted flag is foreground: the run environment disables background
+  // tasks, so the CLI offers no run_in_background and strips one the model sends.
   expect(await decide(hook, 'Agent', spawn)).toBe('allow');
   expect(await decide(hook, 'Task', { ...spawn, run_in_background: false })).toBe('allow');
   expect(spawns.charged).toBe(2);

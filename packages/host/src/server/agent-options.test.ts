@@ -137,6 +137,8 @@ test('the subprocess environment is exactly the run variables, and no host secre
     expect(env).toEqual({
       CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS: '1',
       CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',
+      // Claude Code 2.1.318 runs an Agent call with no run_in_background in the background; this runs every reader in the foreground.
+      CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1',
       CLAUDE_CODE_FORK_SUBAGENT: '0',
       CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS: '2',
       CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH: '1',

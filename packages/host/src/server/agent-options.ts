@@ -53,6 +53,13 @@ export function runEnvironment(token: string, runDirectory: string): Record<stri
   return {
     CLAUDE_AGENT_SDK_DISABLE_BUILTIN_AGENTS: '1',
     CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',
+    // Claude Code 2.1.318 runs an Agent call that omits run_in_background in
+    // the background, whatever the agent definition says, and a background
+    // reader can outlive the result message and its settlement. With
+    // background tasks disabled the CLI offers no run_in_background, strips
+    // one the model sends, and runs every reader in the foreground (probed
+    // against the real CLI and a mock Messages API).
+    CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1',
     CLAUDE_CODE_FORK_SUBAGENT: '0',
     CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS: '2',
     CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH: '1',
@@ -67,14 +74,17 @@ export function runEnvironment(token: string, runDirectory: string): Record<stri
 /**
  * The most turns one reader may take. Its usage is charged as a fixed
  * allowance (about 400k tokens, from the spike's survey subagents), so its
- * turns are bounded too: each turn re-reads the reader's growing context, and
- * 30 turns keeps a survey near its allowance.
+ * turns are bounded too: each turn re-reads the reader's growing context. 30
+ * is a judgment of what keeps a survey near its allowance, not a spike
+ * measurement; settlement counts whatever a reader really used.
  */
 export const READER_MAX_TURNS = 30;
 
 /** The reader: survey code with Read, Grep, and Glob, and nothing else. */
 const READER_DEFINITION: AgentDefinition = {
-  // The gate denies background spawns too: a background reader could outlive settlement.
+  // Not enough on its own: an Agent call that omits run_in_background still ran
+  // in the background on 2.1.318. CLAUDE_CODE_DISABLE_BACKGROUND_TASKS in
+  // runEnvironment is what keeps every reader in the foreground.
   background: false,
   description:
     "Reads the project's code to answer one question: finds files, searches them, and reports what it found with file paths.",
