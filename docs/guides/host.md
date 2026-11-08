@@ -199,6 +199,7 @@ that names an invalid one. It does not read the CLI's `config.toml`.
 | `MIMIR_SECRET_KEY_FILE`   | Read the 32-byte key that seals host secrets from this file, such as a mounted secret.   |
 | `MIMIR_SECRET_KEY`        | The 32-byte key that seals host secrets, as base64 or base64url text.                    |
 | `MIMIR_GIT_CREDENTIALS_FILE` | A git credential-store file for cloning private repositories. See [Clone private repositories](#clone-private-repositories). |
+| `MIMIR_AGENT_TOKEN_FILE` | Turn on agent runs: a file that holds a `claude setup-token` token. The other `MIMIR_AGENT_*` settings are in [Set up agent runs](#set-up-agent-runs). |
 
 By default the host answers any `Host` header. Setting `MIMIR_HOSTS` adds
 optional protection against DNS rebinding: the host then answers only
@@ -537,6 +538,52 @@ When `MIMIR_GIT_CREDENTIALS_FILE` is set but the file is missing or
 unreadable, the host starts and logs a warning that names the setting. It then
 clones without credentials: public repositories still sync, and a private
 repository's sync fails with a message that names the setting.
+
+## Set up agent runs
+
+Agent runs let the host run a Claude agent against one task of its own
+board, such as grooming a `todo` task. The host runs the agent itself, on
+your own Claude subscription, as personal automation for the operator who
+deploys it (ADR 0041). The console cannot start a run yet; you can set the
+feature up now, and the host checks the settings at startup.
+
+1. On a machine where you are signed in to Claude Code, run
+   `claude setup-token` and save the token it prints in a file.
+2. Mount the file into the container and set `MIMIR_AGENT_TOKEN_FILE` to its
+   path, such as `/run/secrets/agent_token`. The host runs as UID 1000, so the
+   file must be readable by that user.
+3. Set `MIMIR_HOSTS`. Agent runs stay off without Host filtering.
+4. Give `MIMIR_DATA_DIR` a writable directory. Each run keeps its Claude Code
+   configuration and temporary files there, under `agent/runs/`.
+
+The host reads the token file at each use, so to rotate the token, replace
+the file. The console shows the file's age and never accepts a token. A
+`setup-token` token lasts one year.
+
+When `MIMIR_AGENT_TOKEN_FILE` is set but the file is missing, unreadable, or
+empty, or when `MIMIR_HOSTS` is unset or `MIMIR_DATA_DIR` is not writable, the
+host starts and logs a warning that names the setting, and agent runs stay off
+until it is fixed. When the API refuses the token, agent runs read as
+disconnected until you replace the file.
+
+These settings tune agent runs. Each one is optional. A value that is not
+valid logs a warning that names the setting, and the host uses the default.
+
+| Variable | Meaning | Default |
+| --- | --- | --- |
+| `MIMIR_AGENT_DAILY_TOKENS` | The tokens agent runs may process in one day, counting input, cache reads, cache writes, and output across every model. | `10000000` |
+| `MIMIR_AGENT_RUN_TOKENS` | The most tokens one run may process. A value above the daily budget warns, and the host uses the daily budget. | `4000000` |
+| `MIMIR_AGENT_MAX_TURNS` | The most turns one run may take. | `50` |
+| `MIMIR_AGENT_BUDGET_TIMEZONE` | The IANA time zone whose midnight starts a new budget day, such as `America/New_York`. | `UTC` |
+| `MIMIR_AGENT_MODEL` | The model a run asks for. | `claude-opus-5-5` |
+| `MIMIR_AGENT_CLAUDE_PATH` | The Claude Code executable a run starts. The image sets it to `/usr/local/bin/claude`, the Claude Code release the host's Agent SDK is pinned to. A path that is not an executable file turns agent runs off with a warning. | The SDK's own executable |
+
+A run reads only the project's clone and reaches the board only through its
+run grant: reads within the task's project, and notes, a grooming state, and
+planning artifacts on the run's own task. It has no shell, write, or web
+tools. The host refuses to start a run while Claude Code managed settings are
+present, such as `/etc/claude-code/managed-settings.json`, because they would
+apply to the run. The image carries none.
 
 ## Administer the host with mimir-host
 

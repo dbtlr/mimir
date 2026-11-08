@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { buildStore, findingsProviderOf, LocalEngine, MimirError, SQLITE_FILE } from '@mimir/core';
 import { assertHostVersion, createEngineHandler } from '@mimir/wire/server';
 
+import { agentStartupWarnings } from './agent-settings';
 import type { HostConfig } from './config';
 import { gitCredentialsWarnings } from './git-credentials';
 import { createPairingHandlers } from './pairing';
@@ -52,6 +53,7 @@ export async function openHost(
     for (const warning of [
       ...t3StartupWarnings(config.t3),
       ...gitCredentialsWarnings(config.gitCredentials),
+      ...agentStartupWarnings(config.agent),
     ]) {
       log(warning);
     }

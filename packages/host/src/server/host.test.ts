@@ -397,3 +397,30 @@ test('an unreadable git credentials file warns by setting name at boot, and noth
     await host.close();
   }
 });
+
+test('a misconfigured agent runtime warns by setting name at boot and still opens', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'mimir-host-agent-'));
+  roots.push(root);
+  const lines: string[] = [];
+  const host = await openHost(
+    await readHostConfig({
+      MIMIR_AGENT_MAX_TURNS: 'many',
+      MIMIR_AGENT_TOKEN_FILE: join(root, 'missing-token'),
+      MIMIR_DATA_DIR: root,
+    }),
+    '0.26.0',
+    (line) => lines.push(line),
+  );
+  try {
+    expect(
+      lines.filter((line) => line.includes('MIMIR_AGENT') || line.includes('MIMIR_HOSTS')),
+    ).toEqual([
+      '⚠ host: agent runs are not set up: MIMIR_AGENT_TOKEN_FILE is unreadable; agent runs stay off until it is fixed',
+      '⚠ host: agent runs are not set up: MIMIR_HOSTS is unset; agent runs stay off until it is fixed',
+      '⚠ host: MIMIR_AGENT_MAX_TURNS is invalid; agent runs use 50',
+    ]);
+    expect(lines.join('\n')).not.toContain('missing-token');
+  } finally {
+    await host.close();
+  }
+});
