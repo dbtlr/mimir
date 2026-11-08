@@ -412,3 +412,14 @@ with people's own planning artifacts and does not mark one as a run's.
 Prompt injection's worst case grows by a misleading planning artifact on the
 run's own task. Artifacts cannot be deleted, so the operator sees it beside
 the run's notes and corrects it with a note on the task or a retitle.
+
+## Refinement (2026-11-08, MMR-632): server-managed settings need a personal plan's token
+
+Server-managed settings are a policy tier that neither `settingSources` nor
+the managed-settings check covers: Claude Code fetches them from Anthropic
+when a run authenticates with a Team or Enterprise organization's
+credential, a `setup-token` included. "A run's configuration is code, never
+discovery" therefore holds only for a token from a personal plan, which the
+personal-automation premise above already assumes. A run on an
+organization's token takes that organization's settings, which come from the
+credential owner's administrators, not from repository content.

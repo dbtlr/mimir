@@ -547,6 +547,10 @@ your own Claude subscription, as personal automation for the operator who
 deploys it (ADR 0041). The console cannot start a run yet; you can set the
 feature up now, and the host checks the settings at startup.
 
+Use a token from a personal Claude plan. A token from a Team or Enterprise
+organization makes Claude Code apply that organization's server-managed
+settings to every run, and the host cannot detect or turn them off.
+
 1. On a machine where you are signed in to Claude Code, run
    `claude setup-token` and save the token it prints in a file.
 2. Mount the file into the container and set `MIMIR_AGENT_TOKEN_FILE` to its
