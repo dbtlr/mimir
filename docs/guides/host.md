@@ -557,14 +557,14 @@ feature up now, and the host checks the settings at startup.
    configuration and temporary files there, under `agent/runs/`.
 
 The host reads the token file at each use, so to rotate the token, replace
-the file. The console shows the file's age and never accepts a token. A
-`setup-token` token lasts one year.
+the file. The console never accepts a token; when its agent view arrives, it
+will show the file's age. A `setup-token` token lasts one year.
 
 When `MIMIR_AGENT_TOKEN_FILE` is set but the file is missing, unreadable, or
 empty, or when `MIMIR_HOSTS` is unset or `MIMIR_DATA_DIR` is not writable, the
 host starts and logs a warning that names the setting, and agent runs stay off
-until it is fixed. When the API refuses the token, agent runs read as
-disconnected until you replace the file.
+until it is fixed. Once runs can start, an API refusal of the token will keep
+agent runs disconnected until you replace the file.
 
 These settings tune agent runs. Each one is optional. A value that is not
 valid logs a warning that names the setting, and the host uses the default.
@@ -574,16 +574,17 @@ valid logs a warning that names the setting, and the host uses the default.
 | `MIMIR_AGENT_DAILY_TOKENS` | The tokens agent runs may process in one day, counting input, cache reads, cache writes, and output across every model. | `10000000` |
 | `MIMIR_AGENT_RUN_TOKENS` | The most tokens one run may process. A value above the daily budget warns, and the host uses the daily budget. | `4000000` |
 | `MIMIR_AGENT_MAX_TURNS` | The most turns one run may take. | `50` |
-| `MIMIR_AGENT_BUDGET_TIMEZONE` | The IANA time zone whose midnight starts a new budget day, such as `America/New_York`. | `UTC` |
+| `MIMIR_AGENT_BUDGET_TIMEZONE` | The IANA time zone whose midnight starts a new budget day, such as `America/New_York`. Case does not matter: `utc` is stored as `UTC`. A UTC offset such as `+05:00` is not valid. | `UTC` |
 | `MIMIR_AGENT_MODEL` | The model a run asks for. | `claude-opus-5-5` |
 | `MIMIR_AGENT_CLAUDE_PATH` | The Claude Code executable a run starts. The image sets it to `/usr/local/bin/claude`, the Claude Code release the host's Agent SDK is pinned to. A path that is not an executable file turns agent runs off with a warning. | The SDK's own executable |
 
 A run reads only the project's clone and reaches the board only through its
 run grant: reads within the task's project, and notes, a grooming state, and
 planning artifacts on the run's own task. It has no shell, write, or web
-tools. The host refuses to start a run while Claude Code managed settings are
-present, such as `/etc/claude-code/managed-settings.json`, because they would
-apply to the run. The image carries none.
+tools. Once runs can start, the host will refuse to start one while Claude
+Code managed settings are present, such as
+`/etc/claude-code/managed-settings.json`, because they would apply to the run.
+The image carries none.
 
 ## Administer the host with mimir-host
 

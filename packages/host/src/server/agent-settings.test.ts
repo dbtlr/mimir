@@ -232,6 +232,36 @@ test('a bad budget or model value warns by setting name and falls back to its de
   expect(warnings.join('\n')).not.toContain('rm -rf');
 });
 
+test('a budget time zone is stored under the name Intl resolves it to', async () => {
+  const { dataDirectory, tokenFile } = await fixture();
+  for (const [given, stored] of [
+    ['utc', 'UTC'],
+    ['america/new_york', 'America/New_York'],
+  ]) {
+    const settings = await readAgentSettings(
+      { MIMIR_AGENT_BUDGET_TIMEZONE: given, MIMIR_AGENT_TOKEN_FILE: tokenFile },
+      hosts,
+      dataDirectory,
+    );
+    expect(settings).toMatchObject({ budget: { timezone: stored }, fallbacks: [] });
+  }
+});
+
+test('a budget time zone given as a UTC offset warns and falls back', async () => {
+  const { dataDirectory, tokenFile } = await fixture();
+  for (const offset of ['+05:00', '-0300']) {
+    const settings = await readAgentSettings(
+      { MIMIR_AGENT_BUDGET_TIMEZONE: offset, MIMIR_AGENT_TOKEN_FILE: tokenFile },
+      hosts,
+      dataDirectory,
+    );
+    expect(settings).toMatchObject({ budget: { timezone: AGENT_DEFAULTS.timezone } });
+    expect(agentStartupWarnings(settings)).toEqual([
+      '⚠ host: MIMIR_AGENT_BUDGET_TIMEZONE is invalid; agent runs use UTC',
+    ]);
+  }
+});
+
 test('valid tuning values are used as given', async () => {
   const { dataDirectory, tokenFile } = await fixture();
   expect(

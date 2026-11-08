@@ -5,6 +5,7 @@ import { dirname, resolve } from 'node:path';
 import type { ServeConfig } from '@mimir/core';
 
 import type { AgentMisconfiguration, AgentState } from './agent-states';
+import { errorCode } from './error-code';
 
 /** The agent runtime's one enabling setting: a file holding a `claude setup-token` token. */
 export const AGENT_TOKEN_SETTING = 'MIMIR_AGENT_TOKEN_FILE';
@@ -79,13 +80,18 @@ function positiveInteger(text: string | undefined): number | undefined {
   return Number.isSafeInteger(value) && value > 0 ? value : undefined;
 }
 
-/** Whether `zone` names a time zone this runtime knows. */
-function validTimeZone(zone: string): boolean {
+/**
+ * The canonical name of a time zone this runtime knows, as Intl resolves it
+ * (`utc` is `UTC`), or undefined. A UTC offset such as `+05:00` is refused:
+ * Intl keeps it as an offset, not a zone with daylight-saving rules.
+ */
+function canonicalTimeZone(zone: string): string | undefined {
   try {
-    const format = new Intl.DateTimeFormat('en-US', { timeZone: zone });
-    return format.resolvedOptions().timeZone !== '';
+    const resolved = new Intl.DateTimeFormat('en-US', { timeZone: zone }).resolvedOptions()
+      .timeZone;
+    return resolved === '' || /^[+-]/.test(resolved) ? undefined : resolved;
   } catch {
-    return false;
+    return undefined;
   }
 }
 
@@ -118,8 +124,9 @@ function readTuning(env: NodeJS.ProcessEnv) {
   let timezone: string = AGENT_DEFAULTS.timezone;
   const zone = env.MIMIR_AGENT_BUDGET_TIMEZONE;
   if (zone !== undefined) {
-    if (validTimeZone(zone)) {
-      timezone = zone;
+    const canonical = canonicalTimeZone(zone);
+    if (canonical !== undefined) {
+      timezone = canonical;
     } else {
       fallbacks.push({
         fallback: AGENT_DEFAULTS.timezone,
@@ -141,11 +148,6 @@ function readTuning(env: NodeJS.ProcessEnv) {
     }
   }
   return { budget: { dailyTokens, maxTurns, runTokens, timezone }, fallbacks, model };
-}
-
-/** The error code of a failed filesystem call. */
-function errorCode(error: unknown): unknown {
-  return error instanceof Error && 'code' in error ? error.code : undefined;
 }
 
 /**
@@ -215,13 +217,16 @@ export async function readAgentToken(tokenFile: string): Promise<TokenRead> {
   }
 }
 
-/** Check every prerequisite that can change after boot, in a stable order. */
-async function prerequisiteProblems(settings: {
+/**
+ * Check every prerequisite that can change after boot, in a stable order,
+ * with the token as this check read it.
+ */
+async function checkPrerequisites(settings: {
   tokenFile: string;
   claudePath: string | undefined;
   dataDirectory: string;
   hostFiltering: boolean;
-}): Promise<AgentMisconfiguration[]> {
+}): Promise<{ problems: AgentMisconfiguration[]; token: TokenRead }> {
   const problems: AgentMisconfiguration[] = [];
   const token = await readAgentToken(settings.tokenFile);
   if ('problem' in token) {
@@ -236,7 +241,7 @@ async function prerequisiteProblems(settings: {
   if (settings.claudePath !== undefined && !(await executableFile(settings.claudePath))) {
     problems.push({ problem: 'not executable', setting: 'MIMIR_AGENT_CLAUDE_PATH' });
   }
-  return problems;
+  return { problems, token };
 }
 
 /**
@@ -266,7 +271,7 @@ export async function readAgentSettings(
     ...base,
     ...readTuning(env),
     enabled: true,
-    problems: await prerequisiteProblems(base),
+    problems: (await checkPrerequisites(base)).problems,
   };
 }
 
@@ -328,11 +333,14 @@ export async function currentAgent(
   if (!settings.enabled) {
     return { state: 'unconfigured' };
   }
-  const [problem] = await prerequisiteProblems(settings);
+  // One read: the token a ready state carries is the one the check found usable.
+  const {
+    problems: [problem],
+    token,
+  } = await checkPrerequisites(settings);
   if (problem !== undefined) {
     return { state: 'misconfigured', ...problem };
   }
-  const token = await readAgentToken(settings.tokenFile);
   if ('problem' in token) {
     return { state: 'misconfigured', ...token.problem };
   }

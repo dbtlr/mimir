@@ -9,6 +9,8 @@ import type {
   Options,
 } from '@anthropic-ai/claude-agent-sdk';
 
+import { errorCode } from './error-code';
+
 /** The runner's own read-only agent, the only subagent a run may start. */
 export const READER_AGENT = 'reader';
 
@@ -137,8 +139,12 @@ export function buildRunOptions(input: RunOptionsInput): Options {
  * and /Library/Application Support/ClaudeCode on macOS; macOS MDM delivers
  * the `com.anthropic.claudecode` managed-preferences domain
  * (code.claude.com/docs/en/settings, "Settings files"; .../managed-mcp).
- * Server-managed settings are cached in the config directory, which is
- * fresh for every run.
+ * Server-managed settings are a separate tier these paths do not cover: the
+ * CLI fetches them from api.anthropic.com when the run authenticates with a
+ * Team or Enterprise organization's credential, a `CLAUDE_CODE_OAUTH_TOKEN`
+ * included, and `settingSources` does not control them
+ * (.../server-managed-settings; .../agent-sdk/claude-code-features). The
+ * fresh config directory only means no copy is cached from an earlier run.
  */
 const POLICY_DIRECTORIES = ['etc/claude-code', 'Library/Application Support/ClaudeCode'];
 const POLICY_FILES = ['managed-settings.json', 'managed-settings.d', 'managed-mcp.json'];
@@ -159,7 +165,7 @@ export async function presentManagedPolicy(root = '/'): Promise<string[]> {
       await lstat(join(root, path));
       present.push(path);
     } catch (error) {
-      const code = error instanceof Error && 'code' in error ? error.code : undefined;
+      const code = errorCode(error);
       // ENOTDIR: a file stands where a policy directory would be, so no policy is there.
       if (code !== 'ENOENT' && code !== 'ENOTDIR') {
         present.push(path);
