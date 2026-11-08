@@ -221,6 +221,42 @@ test('an upstream seed on another board reads as outside the project, not as non
   expect(answer.text).not.toContain(other.seed);
 });
 
+test('a seed another board filed reads its requester as outside the project', async () => {
+  const asked = (
+    await fileSeed(fixture.store, {
+      kind: 'idea',
+      project: 'ENG',
+      requester: 'OTH',
+      title: 'Asked for by another board',
+    })
+  ).id;
+  const { call } = await grant(await newTask());
+  const read = await call('get', { id: asked });
+  expect(json(read).requester).toBe(OUTSIDE_PROJECT);
+  const listed = await call('seeds');
+  const found = json(listed).find((item: { id: string }) => item.id === asked);
+  expect(found.requester).toBe(OUTSIDE_PROJECT);
+  expect(`${read.text}${listed.text}`).not.toContain('OTH');
+  // A requester filter would probe which boards filed seeds here.
+  expect((await call('seeds', { requester: 'OTH' })).refused).toBe(true);
+});
+
+test('search answers only for the project, in its items and its counts', async () => {
+  const task = await newTask('Waits on a foreign task');
+  await depend(fixture.store, task, [other.task]);
+  const { call } = await grant(task);
+  const byId = json(await call('search', { query: other.task }));
+  expect(byId.items).toEqual([]);
+  expect(byId.total).toBe(0);
+  expect(byId.returned).toBe(0);
+  // A hit through a link would say which in-project record links the foreign one.
+  const byTitle = await call('search', { query: 'Other secret task' });
+  const set = json(byTitle);
+  expect(set.items.filter((hit: { match: string }) => hit.match === 'link')).toEqual([]);
+  expect(set.total).toBe(set.items.length);
+  expect(byTitle.text).not.toContain(other.task);
+});
+
 /** One read's answer for ENG with OTH's items appended. */
 async function both<T extends { items: unknown[] }>(read: (project: string) => Promise<T>) {
   const [own, foreign] = await Promise.all([read('ENG'), read('OTH')]);

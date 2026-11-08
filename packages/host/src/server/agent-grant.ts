@@ -110,7 +110,8 @@ const artifactsInput = z.strictObject(
   engineSchemas.artifacts.input.pick({ limit: true, offset: true, q: true, tag: true }).shape,
 );
 const seedsInput = z.strictObject(
-  engineSchemas.seeds.input.pick({ requester: true, sort: true, status: true }).shape,
+  // No requester filter: it would probe which other boards filed seeds here.
+  engineSchemas.seeds.input.pick({ sort: true, status: true }).shape,
 );
 const searchInput = z.strictObject({
   limit: z.number().int().positive().optional(),
@@ -237,8 +238,11 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
     links: artifact.links.map(scopeId),
   });
 
-  const scopeSeed = <S extends { spawned: string[] }>(found: S): S => ({
+  const scopeSeed = <S extends { requester: string | null; spawned: string[] }>(found: S): S => ({
     ...found,
+    // A requester is a project key; another board's key reads as the marker.
+    requester:
+      found.requester === null || found.requester === project ? found.requester : OUTSIDE_PROJECT,
     spawned: found.spawned.map(scopeId),
   });
 
@@ -303,13 +307,20 @@ export function createRunGrant(options: RunGrantOptions): McpSdkServerConfigWith
         return scopeTree(await engine.tree({ id: root }));
       },
     ),
-    grantTool('search', `Search the records of ${project}.`, searchInput, async (args) => {
-      const set = await engine.search({ ...args, project });
-      return {
-        ...set,
-        items: set.items.filter((hit) => hit.project === project && inProject(hit.id)),
-      };
-    }),
+    grantTool(
+      'search',
+      `Search the records of ${project} by id, title, or description.`,
+      searchInput,
+      async (args) => {
+        const set = await engine.search({ ...args, project });
+        // A link hit names which record links the match, and an id query can reach
+        // another project, so only direct in-project hits are kept and counted.
+        const items = set.items.filter(
+          (hit) => hit.match !== 'link' && hit.project === project && inProject(hit.id),
+        );
+        return { ...set, items, returned: items.length, startsAt: 0, total: items.length };
+      },
+    ),
     grantTool(
       'artifacts',
       `List the artifacts of ${project}, newest first, without their content. ${REDACTION_NOTE}`,
