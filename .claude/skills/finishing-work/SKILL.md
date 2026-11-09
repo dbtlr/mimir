@@ -36,7 +36,10 @@ that holds a task in `under_review` until merge.
    when green`. The agent writes that line when the work is agreed, and only
    to record the disposition the operator gave. With `agent merges when
    green`, the agent merges once required checks pass and every finding has
-   settled. When no such line exists, the operator merges.
+   settled. When no such line exists, the operator merges. The required
+   checks are `gate` and `changelog-guard`. CodeRabbit and Kody are advisory:
+   settle their findings like any other finding, but a skipped, rate-limited,
+   or failed bot review does not hold the merge.
 6. **Done** — `mimir done <id>` once the PR has merged, whoever merged it.
 
 ## Settling review findings

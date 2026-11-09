@@ -71,6 +71,27 @@ reset, and then run `mimir store import <file> --apply`; without `--apply`,
 import only previews. It can also use a copied build, which has a `.dev` of its
 own.
 
+A view that depends on age, such as a stale task or a project going cold, needs
+old timestamps that no command writes. Export a smoke store, edit `updated_at`
+and the transition timestamps in the document, reset the store, and import the
+document.
+
+The console reads the development host's store instead, and the host admin CLI
+imports into it. That CLI opens only a store the host has already created, and
+an import refuses a project the store already holds. To start from an empty
+store, stop the host, delete `packages/host/.dev/host/store.sqlite*`, and start
+`bun run dev:ui` once so the host creates the store again. Then import from
+`packages/host`:
+
+```sh
+bun src/admin/main.ts store import /absolute/path/to/backup.json --apply
+```
+
+Run from `packages/host`, the admin CLI opens the store under `.dev/host`, which
+is the development host's store, unless `MIMIR_DATA_DIR` or a database URL is
+set. If the development host ran with one of them, set the same value. A
+relative file path resolves against `packages/host`.
+
 A run inside a bound clone takes this repository's project as its default
 scope, and a seed filed on another project records this one as its requester.
 A smoke store does not hold this project. Run from a directory outside a bound

@@ -52,10 +52,12 @@ import { loadWorkingSet } from './working-set';
  * absent from both directions (ADR 0038, ADR 0040). Import leaves the target
  * host's credentials and secrets intact.
  *
- * **The export never refuses.** The relational schema makes every corrupt
- * state unrepresentable — an orphan violates a foreign key, a collider violates
- * a primary key, a dangling edge violates both — so there is nothing for a
- * census to find and no refusal to make.
+ * **The export never refuses.** A backup holding a damaged row can be repaired
+ * and imported, while a refused export leaves the store with no backup at all.
+ * The keys make orphans, colliders, and dangling edges unrepresentable, but the
+ * columns do not encode every cross-field rule. For example, an open task with
+ * no hold and a `hold_reason` exports as stored, and the import refuses it with
+ * a message that names the task (MMR-621).
  *
  * **Import compares through the export.** A `resume` must skip a record a prior
  * run already wrote and refuse one that differs, which means deciding whether

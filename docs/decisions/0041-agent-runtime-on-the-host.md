@@ -423,3 +423,32 @@ discovery" therefore holds only for a token from a personal plan, which the
 personal-automation premise above already assumes. A run on an
 organization's token takes that organization's settings, which come from the
 credential owner's administrators, not from repository content.
+
+## Refinement (2026-11-08, MMR-632): two CLI behaviours the pin must re-test
+
+Claude Code 2.1.318 does two things after the `PreToolUse` hook decides, and
+the runner guards against both:
+
+- It trims and NFC-normalizes a Grep or Glob path, so the hook could approve
+  one file while the tool searches another. "Read, Grep, and Glob whose path
+  arguments resolve, through every symlink, to real paths inside the clone"
+  (One gate) therefore narrows to paths in one spelling: every path the gate
+  checks, and a Glob `pattern` or a Grep `glob`, must already be trimmed, in
+  NFC, and free of control characters. The rule covers Read too, whose path
+  the CLI does not respell, so the gate has one rule for every path. A file
+  the clone holds under another spelling, such as a decomposed Unicode name,
+  is unreadable to a run.
+- It runs an `Agent` call that omits `run_in_background` as a background
+  task, where a reader subagent can outlive the result message that settles
+  the run's usage. The subprocess environment in "A run's configuration is
+  code, never discovery" gains one variable,
+  `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`, so every reader runs in the
+  foreground. As a backstop, the gate denies a spawn that asks for the
+  background. This disables background tasks only. The CLI's own background
+  calls on other models are not background tasks: they still happen, and "The
+  budget is a token count Mimir keeps" counts them as before.
+
+These are two more guarantees for the list in "The SDK is pinned", re-tested
+against the real CLI before the pin moves: the gate and the tool name the same
+file, and an `Agent` call that omits the flag runs its reader in the
+foreground, so the result message arrives after every reader finishes.
